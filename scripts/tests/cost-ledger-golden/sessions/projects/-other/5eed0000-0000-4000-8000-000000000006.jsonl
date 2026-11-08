@@ -1,0 +1,2 @@
+{"isSidechain": false, "message": {"content": "Start the session.", "role": "user"}, "timestamp": "2026-11-04T09:00:00Z", "type": "user"}
+{"isSidechain": false, "message": {"id": "oc1", "model": "claude-opus-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 5000, "output_tokens": 0}}, "timestamp": "2026-11-04T10:00:00Z", "type": "assistant"}

@@ -1,0 +1,2 @@
+{"isSidechain": true, "message": {"content": "Check the change.", "role": "user"}, "timestamp": "2026-11-07T10:35:00Z", "type": "user"}
+{"isSidechain": true, "message": {"id": "gd1", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 40000, "output_tokens": 0}}, "timestamp": "2026-11-07T10:40:00Z", "type": "assistant"}

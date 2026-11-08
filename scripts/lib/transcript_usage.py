@@ -60,6 +60,19 @@ def contained(path):
         raise ValueError("a path argument is outside the checkout, the temp dir and ~/.claude") from None
 
 
+def within(path, root):
+    """`path` canonicalized inside `root`, as a str; raises ValueError otherwise (#2155: a session
+    directory found by glob under a contained projects dir can still be a symlink that leaves it)."""
+    scripts = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from _paths import PathEscapeError, resolve_within
+    try:
+        return str(resolve_within(root, path))
+    except (PathEscapeError, OSError, RuntimeError):
+        raise ValueError("a session directory resolves outside the projects directory") from None
+
+
 def parse_time(text):
     """An aware datetime, or None when the text is not ISO 8601 with a zone."""
     if not isinstance(text, str):
@@ -310,6 +323,44 @@ def subagent_files(session_dir, ids):
         if not os.path.isfile(path):
             raise ValueError("agent %s has no transcript under the session's subagents directory" % aid)
         files.append(path)
+    return agents, files
+
+
+def subagent_files_across(session_dir, other_dirs, ids):
+    """subagent_files over the session's own directory and other sessions' directories
+    (macrodream/blueprint#389: a branch's implementer can run in another session than the one that
+    posts its MR's cost record). Each named id is looked up in `session_dir` first, else in the one
+    `other_dirs` entry that holds `subagents/agent-<id>.jsonl`; its descendants come from that same
+    directory. Returns (agents, files) like subagent_files. Raises ValueError like subagent_files,
+    and when an id is in no directory or in more than one of `other_dirs` (fail closed: an agent id
+    is unique, so two hits mean the layout is not the one this reads). `session_dir` may be None (the
+    session spawned no subagent of its own, so it has no directory): every id must then be elsewhere."""
+    groups, order = {}, []
+    for i in ids:
+        if not isinstance(i, str) or not AGENT_ID_RE.match(i):
+            raise ValueError("not an agent id: %r" % (i if isinstance(i, str) else type(i).__name__))
+        name = os.path.join("subagents", "agent-%s.jsonl" % i)
+        if session_dir and os.path.isfile(os.path.join(session_dir, name)):
+            home = session_dir
+        else:
+            hits = [d for d in other_dirs if os.path.isfile(os.path.join(d, name))]
+            if len(hits) > 1:
+                raise ValueError("agent %s has a transcript in more than one session directory" % i)
+            if not hits and not session_dir:
+                raise ValueError("agent %s has no transcript in any of the sessions' subagents directories" % i)
+            home = hits[0] if hits else session_dir   # none: subagent_files reports the missing transcript
+        if home not in groups:
+            groups[home] = []
+            order.append(home)
+        groups[home].append(i)
+    agents, files, seen = [], [], set()
+    for d in order:
+        got, paths = subagent_files(d, groups[d])
+        for a, path in zip(got, paths):
+            if a[0] not in seen:
+                seen.add(a[0])
+                agents.append(a)
+                files.append(path)
     return agents, files
 
 

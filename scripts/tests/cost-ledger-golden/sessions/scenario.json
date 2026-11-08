@@ -1,0 +1,86 @@
+{
+  "comment": "Two sessions on one branch. Session `opener` opens MR 51 (feat/801-p); its implementer ran in session `worker`, editing the MR's worktree. The branch then merges main (a stale-base refresh) AFTER the worker's last write, so the branch's merge base is newer than the worker's transcripts. Session `stale` edited the same worktree path long before the branch existed (its files are dated before the bound at replay), so it is never read. Paths are written {WT} and replaced at replay.",
+  "today": "2026-11-07",
+  "project": "g/p",
+  "fork_commit_date": "2026-11-07T08:00:00Z",
+  "branch_commit_date": "2026-11-07T09:00:00Z",
+  "worker_mtime": "2026-11-07T11:00:00Z",
+  "main_commit_date": "2026-11-07T11:30:00Z",
+  "merge_date": "2026-11-07T11:45:00Z",
+  "stale_mtime": "2026-11-05T00:00:00Z",
+  "sessions": {
+    "opener": "5eed0000-0000-4000-8000-000000000004",
+    "worker": "5eed0000-0000-4000-8000-000000000005",
+    "stale": "5eed0000-0000-4000-8000-000000000006"
+  },
+  "worktrees": {
+    "801-p": "feat/801-p",
+    "802-q": "feat/802-q"
+  },
+  "mrs": {
+    "51": {
+      "iid": 51,
+      "description": "",
+      "source_branch": "feat/801-p"
+    },
+    "52": {
+      "iid": 52,
+      "description": "",
+      "source_branch": "feat/802-q"
+    }
+  },
+  "origin_only": {
+    "comment": "A branch only on origin (no local ref, so no reflog), rebased after the worker's last write: committer time is the rebase, author time the work. Its worker edits {WT}/803-r, a path in no listed worktree, so its home is the leaf.",
+    "branch": "feat/803-r",
+    "leaf": "803-r",
+    "author_date": "2026-11-07T09:30:00Z",
+    "committer_date": "2026-11-08T12:00:00Z",
+    "session": "5eed0000-0000-4000-8000-000000000007",
+    "agent": "f7000000000000001"
+  },
+  "steps": [
+    {
+      "name": "merge-main",
+      "kind": "merge-main",
+      "branch": "feat/801-p",
+      "worktree": "801-p",
+      "at": "2026-11-07T11:45:00Z"
+    },
+    {
+      "name": "p-record-1",
+      "kind": "hook",
+      "session": "opener",
+      "mr": 51,
+      "at": "2026-11-07T12:00:00Z"
+    },
+    {
+      "name": "q-record-1",
+      "kind": "hook",
+      "session": "worker",
+      "mr": 52,
+      "at": "2026-11-07T12:10:00Z"
+    },
+    {
+      "name": "p-measure",
+      "kind": "measure",
+      "session": "opener",
+      "branch": "feat/801-p",
+      "at": "2026-11-07T12:45:00Z"
+    },
+    {
+      "name": "race",
+      "kind": "concurrent",
+      "rounds": [
+        [
+          "opener",
+          51
+        ],
+        [
+          "worker",
+          51
+        ]
+      ],
+      "at": "2026-11-07T13:00:00Z"
+    }
+  ]
+}

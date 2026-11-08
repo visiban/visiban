@@ -58,6 +58,15 @@ root as its cwd and `main` as its branch, so neither can attribute it. Two thing
 is measured over its own watermark and goes with its top-level parent. Briefs, paths and commands are
 untrusted text: they are classified and matched, never echoed.
 
+Subagents of OTHER sessions (macrodream/blueprint#389). An MR opened (or a --round run) from another
+session than its implementer's would leave the implementer in no record, so every measurement also scans
+the other sessions' subagent transcripts modified since the branch's earliest commit or reflog entry, less a day (fork_time, discover). One counts
+only by its HOME (rule 1; never by brief), over the watermark in ITS OWN session's state file, which the
+post advances write-ahead (before the POST; `pending.foreign` records each `from`/`to`, and a claim
+settled as not posted rolls them back). Every session lock a post needs is taken first, in sorted
+session-id order (session_locks). The other session's orchestrator is never counted; the comment gives
+its unclaimed token count in one fixed-text line (cost-table.py --other-sessions).
+
 Any failure is fail-soft: the hook exits 0 and prints the command to re-run,
 `python3 scripts/post-mr-cost.py --retry --mr <iid> --session <sid>`, so a broken transcript layout
 can never block an MR. The hook posts only for the repo it runs in: the project in the printed MR URL
@@ -79,6 +88,7 @@ import json
 import os
 import re
 import subprocess
+import stat
 import sys
 import tempfile
 import types
@@ -367,28 +377,96 @@ def config_root():
     return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
 
 
-@contextlib.contextmanager
-def state_lock(sid):
-    """Hold an exclusive advisory lock on `mr-cost-state/<sid>.lock` for a read-modify-write of the
-    session's state (and pins). Two posts in one session (two MRs opened at once, a --round while the
-    hook runs) would otherwise both read the same watermark, claim the same window, and the later write
-    would drop the other's agent watermarks. Blocks until the other holder is done."""
-    if fcntl is None or not SESSION_RE.match(sid or ""):
-        yield
-        return
+class LockPathError(Exception):
+    """The lock file path resolves outside the config root (#2152), or its directory cannot be made."""
+
+
+def _lock_fd(sid, block=True):
+    """An fd holding an exclusive advisory lock on `mr-cost-state/<sid>.lock`; None when `block` is False
+    and another process holds it. The lock file is opened with O_NOFOLLOW where the platform has it, and
+    only after its path is confirmed inside the config root (#2152: the same root as state_path, so a
+    symlinked state dir is refused here too); LockPathError when it is not."""
     d = os.path.join(config_root(), "mr-cost-state")
-    try:  # same root as state_path, so a symlinked state dir is refused here too (#2152)
-        os.makedirs(d, exist_ok=True)
-        lock = resolve_within(config_root(), os.path.join(d, sid + ".lock"))
-    except (PathEscapeError, OSError, RuntimeError):  # RuntimeError/OSError: a symlink loop
-        yield  # no lock beats a crashed hook; read_state/_write_doc then refuse the escaping path
-        return
-    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    path = os.path.join(d, sid + ".lock")
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
+        os.makedirs(d, exist_ok=True)
+        resolve_within(config_root(), path)
+    except (PathEscapeError, OSError, RuntimeError) as e:  # RuntimeError/OSError: a symlink loop
+        raise LockPathError("the lock path escapes the config directory") from e
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | (0 if block else fcntl.LOCK_NB))
+    except OSError:
+        os.close(fd)
+        if block:
+            raise
+        return None
+    return fd
+
+
+class Locks:
+    """The sessions whose state files this process holds locked (session_locks)."""
+
+    def __init__(self):
+        self.fds = {}
+
+    def holds(self, sid):
+        return fcntl is None or sid in self.fds
+
+    def try_add(self, sid):
+        """Lock one more session WITHOUT waiting, outside the sorted order: True when it is held. Only a
+        non-blocking attempt may break the order, so it can fail but never deadlock."""
+        if self.holds(sid):
+            return True
+        if not SESSION_RE.match(sid or ""):
+            return False
+        try:
+            fd = _lock_fd(sid, block=False)
+        except (OSError, LockPathError):  # e.g. the lock file is a symlink (O_NOFOLLOW): not held, never followed
+            return False
+        if fd is None:
+            return False
+        self.fds[sid] = fd
+        return True
+
+
+@contextlib.contextmanager
+def session_locks(sids, own=None):
+    """Hold an exclusive advisory lock on `mr-cost-state/<sid>.lock` for every session in `sids`, for a
+    read-modify-write of their state (and pins). Two posts in one session (two MRs opened at once, a
+    --round while the hook runs) would otherwise both read the same watermark, claim the same window, and
+    the later write would drop the other's agent watermarks. A post that claims another session's
+    subagents (macrodream/blueprint#389) also writes that session's state, so it holds that session's lock
+    too. The locks are taken in sorted session-id order, so two posts that want each other's sessions wait
+    in line instead of deadlocking; each blocks until the other holder is done. Yields a Locks.
+
+    A lock whose path escapes the config root (#2152) is not taken: no lock beats a crashed hook, and
+    read_state/_write_doc refuse the same escaping path; a session left unlocked is never claimed from
+    (Locks.holds, select_foreign). A lock file that cannot be opened (#2155 security review: a `<sid>.lock`
+    symlinked inside the root fails O_NOFOLLOW) is skipped the same way for another session, so one bad
+    file cannot block every post that discovers it; for `own`, the posting session, it is raised, since
+    posting without its own lock could claim one window twice."""
+    locks = Locks()
+    try:
+        if fcntl is not None:
+            for sid in sorted({x for x in sids if SESSION_RE.match(x or "")}):
+                try:
+                    locks.fds[sid] = _lock_fd(sid)
+                except LockPathError:
+                    continue
+                except OSError:
+                    if sid == own:
+                        raise
+                    continue
+        yield locks
     finally:
-        os.close(fd)  # closing releases the lock
+        for fd in locks.fds.values():
+            os.close(fd)  # closing releases the lock
+
+
+def state_lock(sid):
+    """session_locks for this session alone."""
+    return session_locks([sid], own=sid)
 
 
 def pin_key(project, branch):
@@ -449,6 +527,14 @@ def read_state(root, sid):
               and isinstance(pend.get("agents"), dict)
               and all(isinstance(k, str) and tu.AGENT_ID_RE.match(k) and isinstance(v, str) and TS_RE.match(v)
                       for k, v in pend["agents"].items()))
+        fo = pend.get("foreign", {}) if ok else None
+        ok = ok and isinstance(fo, dict) and all(
+            isinstance(fs, str) and SESSION_RE.match(fs) and fs != sid and isinstance(claims, dict)
+            and all(isinstance(k, str) and tu.AGENT_ID_RE.match(k) and isinstance(c, dict) and set(c) == {"from", "to"}
+                    and isinstance(c["to"], str) and TS_RE.match(c["to"])
+                    and (c["from"] is None or (isinstance(c["from"], str) and TS_RE.match(c["from"])))
+                    for k, c in claims.items())
+            for fs, claims in fo.items())
         if not ok:
             raise StateError("malformed pending claim")
         out["pending"] = pend
@@ -488,6 +574,34 @@ def write_state(root, sid, state, until, agent_ids):
         agents[a] = later(agents.get(a), until)
     return _write_doc(root, sid, {"schema": STATE_SCHEMA, "orchestrator_until": later(state["orchestrator_until"], until),
                                   "agents": agents})
+
+
+def write_agents(root, sid, changes):
+    """Set agent watermarks in ANOTHER session's state file (`changes` {agent id: watermark, or None to
+    remove it}), keeping the rest of it as it is: its orchestrator watermark, its other agents and its
+    own pending claim. The caller holds that session's lock. True on success; raises StateError for a
+    state file that does not validate (it is never rewritten from a guess)."""
+    st = read_state(root, sid)
+    agents = dict(st["agents"])
+    for a, v in changes.items():
+        if v is None:
+            agents.pop(a, None)
+        else:
+            agents[a] = v
+    doc = {"schema": STATE_SCHEMA, "orchestrator_until": st["orchestrator_until"], "agents": agents}
+    if "pending" in st:
+        doc["pending"] = st["pending"]
+    return _write_doc(root, sid, doc)
+
+
+def pending_sessions(sid):
+    """The other sessions a pending claim of this session names (read without the lock, to know which
+    locks to take); [] when there is none or the state is unreadable (resolve_pending then reports it)."""
+    try:
+        pend = read_state(config_root(), sid).get("pending") or {}
+    except StateError:
+        return []
+    return sorted(pend.get("foreign", {}))
 
 
 def write_pending(root, sid, state, pending):
@@ -619,7 +733,8 @@ def agent_home(path, wts):
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             read = 0
-            for line in f:
+            # readline(cap): a transcript that is one huge line is never read whole into memory.
+            for line in iter(lambda: f.readline(HOME_CAP + 1), ""):
                 read += len(line)
                 if read > HOME_CAP:
                     break
@@ -662,6 +777,18 @@ def agent_home(path, wts):
     return None
 
 
+def own_leaves(branch, leaf):
+    """The `<issue>-<slug>` names that stand for this MR: its worktree's leaf and its branch's leaf."""
+    return {x for x in (leaf, (branch or "").rsplit("/", 1)[-1]) if LEAF_RE.match(x or "")}
+
+
+def home_is(home, branch, own):
+    """True when an agent's home (agent_home) is this MR: a listed worktree on its branch, or, for a
+    worktree git does not list, one of its leaves."""
+    return bool(home) and ((home[0] == "branch" and bool(home[1]) and home[1] == branch)
+                           or (home[0] == "leaf" and home[1] in own))
+
+
 def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_elsewhere=frozenset(), wts=()):
     """(agent ids to measure, notes). A top-level agent counts for this MR by the worktree it acts in
     (agent_home: where it writes, else where it `cd`s) when that is known, and by its brief (attribution)
@@ -679,9 +806,7 @@ def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_else
         if not forced:
             home = agent_home(path, wts)
             if home is not None:
-                own = {x for x in (leaf, (branch or "").rsplit("/", 1)[-1]) if LEAF_RE.match(x or "")}
-                # A home is a branch (a listed worktree) or, for a worktree git does not list, a leaf.
-                if not ((home[0] == "branch" and home[1] and home[1] == branch) or (home[0] == "leaf" and home[1] in own)):
+                if not home_is(home, branch, own_leaves(branch, leaf)):
                     continue
             elif attribution(first_user_text(path), branch, leaf) is False:
                 continue
@@ -704,17 +829,237 @@ def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_else
     return chosen, notes
 
 
-def measure(runner, cwd, sid, sdir, opts, since, until, agent_ids, state_agents):
-    """Run the three measuring scripts. Returns (stdout lines, stderr chunks, every agent id the
-    window measured: the chosen ones and their descendants).
+# --- subagents of OTHER sessions (macrodream/blueprint#389) --------------------------------
+#
+# A record used to count only the subagents of the session that posts it, so an MR opened (or a --round
+# run) from another session than the one where its implementer ran left that implementer in no record.
+# Now every measurement also looks at the other sessions' subagents. One counts only when its HOME
+# (agent_home: where its Edit/Write calls land, else its `cd`/`git -C` targets) is this MR's branch; the
+# brief fallback is never applied to another session's agent. It is measured over the watermark in ITS
+# OWN session's state file, which this post advances; the orchestrator of that session is never counted.
 
-    A window with no agent runs --no-agents, which is a measured 0 and not a forgotten --agent."""
+SHA_RE = re.compile(r"^[0-9a-f]{40,64}\Z")
+BRANCH_NAME_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._/+-]{0,254}\Z")
+FORK_MARGIN_S = 24 * 3600  # clock skew, and work begun shortly before the branch's first commit
+FORK_BASES = ("refs/remotes/origin/main", "refs/remotes/origin/master", "refs/heads/main", "refs/heads/master")
+
+
+def fork_time(runner, cwd, branch):
+    """Epoch seconds before which no work on `branch` can have happened, or None when it cannot be computed
+    (no such ref, no default branch). It bounds the scan of other sessions: an agent transcript last
+    changed before it cannot hold work on this branch. It is a PERFORMANCE filter only (the home rule is
+    what makes a claim correct), so it is conservative: the earliest of the AUTHOR and committer times of
+    every commit on the branch and not on the default branch (`git log <base>..<tip>`; the tip's own when
+    there is none) and the branch's reflog creation time when there is one, minus FORK_MARGIN_S. An ordinary
+    rebase keeps author time while rewriting committer time, and an origin-only branch (or another clone)
+    has no reflog, so each term covers a case the other misses. Both miss an origin-only branch whose author
+    dates were reset by a rewrite (`rebase --ignore-date`, `commit --amend --reset-author`, a `reset --soft`
+    squash): its bound is then the rewrite time (docs/development/cost-ledger.md, known limits). It is never the merge base: a
+    branch that merged the default branch to refresh a stale base has a merge base newer than its own
+    implementer's work. The branch name is untrusted (the forge's): it becomes a
+    `refs/...` argument, never an option."""
+    if not isinstance(branch, str) or not BRANCH_NAME_RE.match(branch) or ".." in branch:
+        return None
+    tip = None
+    for ref in ("refs/heads/" + branch, "refs/remotes/origin/" + branch):
+        rc, out, _ = runner(["git", "rev-parse", "--verify", "--quiet", ref + "^{commit}"], cwd)
+        if rc == 0 and SHA_RE.match(out.strip()):
+            tip = out.strip()
+            break
+    if tip is None:
+        return None
+    bases = []
+    rc, out, _ = runner(["git", "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], cwd)
+    if rc == 0 and re.match(r"^refs/remotes/origin/[0-9A-Za-z][0-9A-Za-z._/+-]*\Z", out.strip()):
+        bases.append(out.strip())
+    for base in bases + [b for b in FORK_BASES if b not in bases]:
+        rc, out, _ = runner(["git", "rev-parse", "--verify", "--quiet", base + "^{commit}"], cwd)
+        if rc != 0 or not SHA_RE.match(out.strip()):
+            continue
+        rc, out, _ = runner(["git", "log", "--format=%at %ct", "%s..%s" % (out.strip(), tip)], cwd)
+        if rc != 0:
+            continue
+        times = [int(x) for x in out.split() if x.isdigit()]
+        if not times:  # nothing on the branch yet: its tip
+            rc, ct, _ = runner(["git", "show", "-s", "--format=%at %ct", tip], cwd)
+            times = [int(x) for x in ct.split() if x.isdigit()] if rc == 0 else []
+        rc, gd, _ = runner(["git", "log", "-g", "--date=unix", "--format=%gd", "refs/heads/" + branch], cwd)
+        if rc == 0:  # `refs/heads/<b>@{<unix>}` per reflog entry; the last one is the branch's creation
+            times += [int(t) for t in re.findall(r"@\{(\d{1,12})\}", gd)]
+        return min(times) - FORK_MARGIN_S if times else None
+    return None
+
+
+def other_session_dirs(projects_dir, sid):
+    """{session id: its directory} for every OTHER session under `projects_dir/*/`: a real directory (not a
+    symlink) inside the projects dir, named by a valid session id, with its own `<sid>.jsonl` beside it and
+    present under exactly one project slug (two would be ambiguous, and an ambiguous session is skipped)."""
+    try:
+        slugs = sorted(os.listdir(projects_dir))
+    except OSError:
+        return {}
+    where = {}
+    for slug in slugs:
+        sp = os.path.join(projects_dir, slug)
+        if os.path.islink(sp) or not os.path.isdir(sp):
+            continue
+        try:
+            entries = os.listdir(sp)
+        except OSError:
+            continue
+        for name in entries:
+            d = os.path.join(sp, name)
+            if name != sid and SESSION_RE.match(name) and not os.path.islink(d) and os.path.isdir(d):
+                where.setdefault(name, []).append(d)
+    out = {}
+    for name, dirs in where.items():
+        d = dirs[0]
+        if len(dirs) != 1 or not os.path.isfile(d + ".jsonl") or os.path.islink(d + ".jsonl"):
+            continue
+        try:  # the visiban containment convention (#2152, scripts/_paths.py): resolved, then checked
+            resolve_within(projects_dir, d)
+        except (PathEscapeError, OSError, RuntimeError):
+            continue
+        out[name] = d
+    return out
+
+
+def foreign_candidates(projects_dir, sid, sdir, branch, leaf, wts, since_epoch):
+    """{other session id: [its top-level agent ids whose home is this MR's branch]}, read WITHOUT any
+    lock: it only names the sessions whose locks the post must take (session_locks); whether an agent
+    has usage to claim is decided under them (select_foreign).
+
+    Bounded by `since_epoch` (fork_time): only agent transcripts modified at or after when the branch
+    began are read, and with no bound nothing is scanned. An agent with no home is never a
+    candidate (the brief fallback is for the posting session's own agents only), nor is a symlinked
+    transcript, nor an id that is also in this session's own directory or in two other sessions (an id is
+    unique; two copies are a layout this does not read, and counting either could count it twice)."""
+    if since_epoch is None or not branch:
+        return {}
+    own = own_leaves(branch, leaf)
+    dirs = other_session_dirs(projects_dir, sid)
+    seen, found = {}, {}
+    for fsid in sorted(dirs):
+        sub = os.path.join(dirs[fsid], "subagents")
+        if os.path.islink(sub) or not os.path.isdir(sub):
+            continue
+        for aid in top_level_agents(dirs[fsid]):
+            seen[aid] = seen.get(aid, 0) + 1
+            path = os.path.join(sub, "agent-%s.jsonl" % aid)
+            try:
+                st = os.lstat(path)
+            except OSError:
+                continue
+            if not stat.S_ISREG(st.st_mode) or st.st_mtime < since_epoch:  # lstat: a symlink, FIFO or device is not read
+                continue
+            if sdir and os.path.lexists(os.path.join(sdir, "subagents", "agent-%s.jsonl" % aid)):
+                continue
+            if home_is(agent_home(path, wts), branch, own):
+                found.setdefault(fsid, []).append(aid)
+    return {fsid: [a for a in ids if seen[a] == 1] for fsid, ids in found.items() if any(seen[a] == 1 for a in ids)}
+
+
+def discover(runner, cwd, sid, branch, opts):
+    """(candidates, notes) for this MR's branch: foreign_candidates with the fork-point bound."""
+    import transcript_usage as tu
+    try:
+        sdir = tu.session_paths(sid, opts.projects_dir)[1]
+    except ValueError:
+        sdir = None
+    since_epoch = fork_time(runner, cwd, branch)
+    if since_epoch is None:
+        return {}, (["other sessions' subagents were not looked at: this branch's discovery bound (its earliest commit off the default branch, or its reflog) is unknown"]
+                    if branch else [])
+    return foreign_candidates(opts.projects_dir, sid, sdir, branch, worktree_leaf(runner, cwd), worktrees(runner, cwd),
+                              since_epoch), []
+
+
+def select_foreign(cands, locks, project, branch, until, opts):
+    """The subagents of other sessions this record claims, decided with their sessions' locks held:
+    {'claims': {session id: {'agents': [top-level ids], 'members': {id: its watermark or None}, 'sdir': dir}},
+     'orchestrator': tokens of those sessions' orchestrators no record has claimed yet, 'notes': [fixed text]}.
+
+    Per candidate: its session's state and pins must read (else the whole session is left out); an agent
+    that session pinned to another branch is left out; an agent (or descendant) named in that session's
+    OWN unsettled pending claim is left out, since that claim may have landed; and it needs usage after
+    its watermark in its own session's state, like any agent."""
+    import transcript_usage as tu
+    root = config_root()
+    out = {"claims": {}, "orchestrator": 0, "notes": []}
+    until_dt = tu.parse_time(until)
+    for fsid in sorted(cands or {}):
+        if not locks.holds(fsid):
+            out["notes"].append("another session's subagents were left out: its state could not be locked")
+            continue
+        try:
+            fst = read_state(root, fsid)
+            fpins = read_pins(root, fsid)
+        except StateError:
+            out["notes"].append("another session's cost state is unreadable, so its subagents were left out")
+            continue
+        # Re-resolved under the lock with discovery's own containment rules (no symlinked or ambiguous dir).
+        fsdir = other_session_dirs(opts.projects_dir, "").get(fsid)
+        if not fsdir:
+            continue
+        pend = fst.get("pending") or {}
+        busy = set(pend.get("agents", {}))
+        key = pin_key(project, branch)
+        pinned_other = {a for k, v in fpins.items() if k != key for a in v}
+        for aid in cands[fsid]:
+            if aid in pinned_other:
+                continue
+            try:
+                st_ = os.lstat(os.path.join(fsdir, "subagents", "agent-%s.jsonl" % aid))
+            except OSError:
+                continue
+            if not stat.S_ISREG(st_.st_mode):
+                continue
+            try:
+                agents, files = tu.subagent_files(fsdir, [aid])
+            except ValueError:
+                out["notes"].append("another session's agent group could not be read and was left out")
+                continue
+            members = [m for m, _ in agents]
+            if busy & set(members):
+                out["notes"].append("another session's subagent has an unsettled claim of its own and was left out")
+                continue
+            since = {m: tu.parse_time(bound(fst["agents"][m])) for m in members if m in fst["agents"]}
+            try:
+                used = tu.measure_rows_sources(tu.agent_sources(files, agents, since), until_dt, side="sidechain")[1]["messages"]
+            except OSError:
+                used = 0
+            if used:
+                c = out["claims"].setdefault(fsid, {"agents": [], "members": {}, "sdir": fsdir})
+                c["agents"].append(aid)
+                c["members"].update({m: fst["agents"].get(m) for m in members})
+        if fsid in out["claims"]:
+            # What this record leaves out: that session's orchestrator after what its own records claimed
+            # (or after its pending claim, which may have landed). Counted only, never attributed.
+            lows = [t for t in (fst["orchestrator_until"], pend.get("until")) if t]
+            low = tu.parse_time(bound(max(lows))) if lows else None
+            try:
+                with open(fsdir + ".jsonl", encoding="utf-8", errors="replace") as f:
+                    rows, _st = tu.measure_rows(f, low, until_dt, side="main")
+                out["orchestrator"] += sum(sum(r[0]) for r in rows)
+            except OSError:
+                pass
+    return out
+
+
+def measure(runner, cwd, sid, sdir, opts, since, until, agent_ids, state_agents, foreign=None):
+    """Run the three measuring scripts. Returns (stdout lines, stderr chunks, every agent id of THIS
+    session the window measured: the chosen ones and their descendants).
+
+    `foreign` is select_foreign's result: those agents are measured too, each over the watermark in its
+    own session's state (`--also-session` lets the scripts find it there). A window with no agent runs
+    --no-agents, which is a measured 0 and not a forgotten --agent."""
     import transcript_usage as tu
     members = []
     sub_args = ["--no-agents"]
-    if agent_ids:
+    claims = (foreign or {}).get("claims") or {}
+    if agent_ids or claims:
         try:
-            agents, _ = tu.subagent_files(sdir, agent_ids)
+            agents = tu.subagent_files(sdir, agent_ids)[0] if agent_ids else []
         except ValueError:
             agents = [(a, True) for a in agent_ids]
         members = [a for a, _ in agents]
@@ -724,6 +1069,14 @@ def measure(runner, cwd, sid, sdir, opts, since, until, agent_ids, state_agents)
                 sub_args += ["--agent", a + ("@" + bound(state_agents[a]) if a in state_agents else "")]
             elif a in state_agents:
                 sub_args += ["--agent-since", a + "@" + bound(state_agents[a])]
+        for fsid in sorted(claims):
+            c = claims[fsid]
+            sub_args += ["--also-session", fsid]
+            for a in c["agents"]:
+                sub_args += ["--agent", a + ("@" + bound(c["members"][a]) if c["members"].get(a) else "")]
+            for m, wm in sorted(c["members"].items()):
+                if m not in c["agents"] and wm:
+                    sub_args += ["--agent-since", m + "@" + bound(wm)]
     est_extra = (["--prices", opts.prices] if opts.prices else []) + (["--today", opts.today] if opts.today else [])
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=sid)
     pd = ["--projects-dir", opts.projects_dir]
@@ -765,46 +1118,81 @@ def worktree_leaf(runner, cwd):
     return os.path.basename(top.strip())
 
 
-def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
-    """(start, exclusive, sdir, agent ids, state, notes, error) for the next record of this session.
+NO_FOREIGN = {"claims": {}, "orchestrator": 0, "notes": []}
+
+
+def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None, cands=None, locks=None):
+    """(start, exclusive, sdir, agent ids, state, notes, error, foreign) for the next record of this session.
+
+    `cands` are other sessions' candidate agents (discover, read before the locks); select_foreign
+    decides them with `locks` held, and `foreign` is its result (NO_FOREIGN without candidates).
 
     `start` is where the orchestrator window begins: the session's stored watermark (exclusive, what the
     previous record already claimed), else the session transcript's first entry (inclusive). It is never
     clamped to another record on the same MR: records are non-overlapping in TOKENS, not in time, so a
     record another session posted must not hide this session's own spend between its watermark and that
-    record's end. The caller holds state_lock(sid) from here through write_state."""
+    record's end. The caller holds session_locks (this session and every candidate's) from here through
+    write_state."""
     import transcript_usage as tu
     try:
         state = read_state(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, _shown(config_root(), sid, ".json")),)
+        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, _shown(config_root(), sid, ".json")), None)
     try:
         sdir = find_session_dir(sid, opts.projects_dir)
     except ValueError:
-        return (None,) * 6 + ("the session's subagent directory resolves outside the projects directory, so nothing was measured",)
+        return (None,) * 6 + ("the session's subagent directory resolves outside the projects directory, so nothing was measured",
+                              None)
     try:
         main_path, _ = tu.session_paths(sid, opts.projects_dir)
     except ValueError:
-        return (None,) * 6 + ("the session transcript was not found",)
+        return (None,) * 6 + ("the session transcript was not found", None)
     start, exclusive = state["orchestrator_until"], True
     if start is None:
         start, exclusive = first_timestamp(main_path) or "1970-01-01T00:00:00Z", False
     try:
         pins = read_pins(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, _shown(config_root(), sid, ".pins.json")),)
+        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, _shown(config_root(), sid, ".pins.json")), None)
     key = pin_key(project, branch)
     here = set(pins.get(key, [])) | set(explicit)
     elsewhere = {a for k, v in pins.items() if k != key for a in v} - here
     ids, notes = select_agents(sdir, branch, worktree_leaf(runner, cwd), here, state["agents"], until, elsewhere,
                                worktrees(runner, cwd))
-    return start, exclusive, sdir, ids, state, notes, None
+    foreign = select_foreign(cands, locks, project, branch, until, opts) if cands and locks is not None else NO_FOREIGN
+    return start, exclusive, sdir, ids, state, notes + foreign["notes"], None, foreign
 
 
-def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, until, ids, state, branch, round_k, project):
-    """Measure, post through cost-table.py and advance the state. Returns (message, ok)."""
+def rollback_foreign(root, claims):
+    """Undo the advance of other sessions' watermarks a pending claim made (`claims` is its `foreign`
+    entry: {session: {agent: {'from', 'to'}}}) once that claim is known NOT to have posted. A watermark
+    goes back to `from` only while it still equals `to`; one that has moved on since (a later record
+    claimed after it) stays, since rolling it back would count that record's tokens again: the cost is
+    that the claim's own stretch is then in no record (an undercount, never a double count). An
+    unreadable state is left alone. The caller holds each session's lock."""
+    for fsid in sorted(claims):
+        try:
+            cur = read_state(root, fsid)["agents"]
+            back = {m: c["from"] for m, c in claims[fsid].items() if cur.get(m) == c["to"]}
+            if back:
+                write_agents(root, fsid, back)
+        except StateError:
+            pass
+
+
+def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, until, ids, state, branch, round_k, project,
+                foreign=None):
+    """Measure, post through cost-table.py and advance the state. Returns (message, ok).
+
+    Other sessions' subagents (`foreign`, select_foreign) are claimed write-ahead: the pending claim names
+    each one with its watermark before (`from`) and after (`to`), and their sessions' watermarks are
+    advanced BEFORE the post, so no other record (that session's own included) can claim the same usage
+    while this post is in flight or unsettled. If the post is later found not to have landed,
+    resolve_pending rolls them back (rollback_foreign)."""
+    foreign = foreign or NO_FOREIGN
+    claims = foreign["claims"]
     lines, split, members = measure(runner, cwd, sid, sdir, opts, bound(since) if exclusive else since, until,
-                                    ids, state["agents"])
+                                    ids, state["agents"], foreign)
     # `subagent-tokens: 0` is what --no-agents prints (a measured zero, not usage), so on its own it
     # must not turn an empty window into a record of zeros.
     if not any(l.startswith("orchestrator-tokens:") or (l.startswith("subagent-tokens:") and l.split(":")[1].strip() != "0")
@@ -812,9 +1200,25 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
         return "nothing measurable in this session window", False
     # Write ahead: the post may land and the commit below may not happen (a non-zero exit after the POST, a
     # kill, a timeout); the next run settles this claim against the MR's notes (resolve_pending).
-    if not write_pending(config_root(), sid, state, {"mr": iid, "project": project, "since": since, "until": until,
-                                                     "agents": {m: until for m in members}}):
+    pend = {"mr": iid, "project": project, "since": since, "until": until, "agents": {m: until for m in members}}
+    fwrite = {fsid: {m: {"from": wm, "to": wm if wm and wm > until else until} for m, wm in c["members"].items()}
+              for fsid, c in claims.items()}
+    if fwrite:
+        pend["foreign"] = fwrite
+    if not write_pending(config_root(), sid, state, pend):
         return "the pending claim could not be written, so nothing was posted", False
+    done = {}
+    for fsid in sorted(fwrite):
+        try:
+            ok = write_agents(config_root(), fsid, {m: c["to"] for m, c in fwrite[fsid].items()})
+        except StateError:
+            ok = False
+        if not ok:
+            rollback_foreign(config_root(), done)
+            _write_doc(config_root(), sid, {"schema": STATE_SCHEMA, "orchestrator_until": state["orchestrator_until"],
+                                            "agents": state["agents"]})
+            return "another session's cost state could not be written, so nothing was posted", False
+        done[fsid] = fwrite[fsid]
     tmp = tempfile.mkdtemp(prefix="mr-cost-", dir=gitdir)
     ledger, splitf = os.path.join(tmp, "lines.txt"), os.path.join(tmp, "split.txt")
     with open(splitf, "w", encoding="utf-8") as f:
@@ -831,6 +1235,9 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
             f.write("## Gates\n" + "\n".join(lines) + "\n")
         cmd += ["--file", ledger, "--since", since]
     cmd += ["--post", "--mr", str(iid), "--until", until, "--split", splitf, "--project", project]
+    if claims:
+        cmd += ["--other-sessions", "%d:%d:%d" % (len(claims), sum(len(c["agents"]) for c in claims.values()),
+                                                  foreign["orchestrator"])]
     m = ISSUE_RE.search(branch or "")
     if m:
         cmd += ["--issue", m.group(1)]
@@ -860,8 +1267,10 @@ def mr_branch(iid, cwd, runner, project):
     return d, out.strip() if rc == 0 else ""
 
 
-def resolve_pending(cwd, sid):
-    """(status, pending) after resolving the session's write-ahead claim; the caller holds state_lock(sid).
+def resolve_pending(cwd, sid, locks=None):
+    """(status, pending) after resolving the session's write-ahead claim; the caller holds session_locks
+    for this session (`locks`, and for the other sessions the claim names, which it peeked first with
+    pending_sessions).
 
     A post is preceded by `pending` in the state file and followed by its commit. A post that landed
     while its commit did not (cost-table exited non-zero after its POST, the process was killed, a
@@ -870,7 +1279,12 @@ def resolve_pending(cwd, sid):
     user whose `Window: S to U` matches exactly was posted, so the claim is committed (status 'adopted');
     none matches and the notes were read, so it was not posted and the claim is dropped ('discarded', the
     window is claimed again exactly once); the notes cannot be read, or the state is unreadable, and
-    nothing can be said ('unreadable'): the caller refuses to post. None: nothing was pending."""
+    nothing can be said ('unreadable'): the caller refuses to post. None: nothing was pending.
+
+    Other sessions' subagents the claim names (`foreign`) were advanced before the post: adopting the claim
+    leaves them advanced, and dropping it rolls them back (rollback_foreign), which needs their locks. A
+    lock not already held is tried without waiting (never out of order with a wait, so no deadlock); one
+    that is busy is 'unreadable' too, and the next run settles it."""
     root = config_root()
     try:
         state = read_state(root, sid)
@@ -892,11 +1306,18 @@ def resolve_pending(cwd, sid):
             if rec and rec.get("start") == pend["since"] and rec.get("end") == pend["until"]:
                 landed = True
                 break
+    fo = pend.get("foreign") or {}
     if landed:
         ok = write_state(root, sid, state, pend["until"], list(pend["agents"]))
     else:
+        if fo and (locks is None or not all(locks.try_add(f) for f in sorted(fo))):
+            return "unreadable", pend
+        # Drop the claim first, then roll the other sessions back: a crash between the two leaves their
+        # watermarks advanced (an undercount), never a claim that could be rolled back twice.
         ok = _write_doc(root, sid, {"schema": STATE_SCHEMA, "orchestrator_until": state["orchestrator_until"],
                                     "agents": state["agents"]})
+        if ok and fo:
+            rollback_foreign(root, fo)
     return (("adopted" if landed else "discarded") if ok else "unreadable"), pend
 
 
@@ -907,7 +1328,8 @@ def pending_refusal(status, info, sid):
         # A retry would refuse for the same reason: name the file and say what to do with it.
         return ("%s, so nothing was posted. Inspect that file; if it is damaged, remove it (the session's next record "
                 "then starts from its first entry) and re-run." % info)
-    return ("an earlier post for !%d (window %s to %s) cannot be confirmed (its notes could not be read, or the state could not be written), and posting "
+    return ("an earlier post for !%d (window %s to %s) cannot be confirmed (its notes could not be read, the state could not be written, "
+            "or another session's state it names is busy), and posting "
             "now could count the same tokens twice, so nothing was posted. Re-run: python3 scripts/post-mr-cost.py "
             "--retry --mr %d --session %s" % (info["mr"], info["since"], info["until"], info["mr"],
                                               sid if SESSION_RE.match(sid or "") else "<session-id>"))
@@ -960,7 +1382,7 @@ def _reconcile_locked(runner, cwd, sid, branch, seen, opts, project, tu):
     end = window_end(seen, me, now_utc(), expected)
     if not end:
         return None
-    _, _, sdir, ids, state, _, err = plan(runner, cwd, sid, None, branch, [], opts, end, project=project)
+    _, _, sdir, ids, state, _, err, _f = plan(runner, cwd, sid, None, branch, [], opts, end, project=project)
     if err:
         return None
     try:
@@ -1007,8 +1429,11 @@ def process(payload, opts=None, runner=run, project=None):
     gitdir = git_common_dir(runner, cwd)
     if not gitdir:
         return "MR cost comment skipped for !%d: not in a git checkout. %s" % (iid, manual)
-    with state_lock(sid):  # settle, read the watermark, post, write it back: one post per session at a time
-        status, pend = resolve_pending(cwd, sid)
+    cands, _dn = discover(runner, cwd, sid, branch, opts)  # read-only, before any lock: names the locks to take
+    # Settle, read the watermarks, post, write them back: one post per session at a time, and the other
+    # sessions whose subagents it may claim locked too, in sorted order (session_locks).
+    with session_locks([sid] + sorted(cands) + pending_sessions(sid), own=sid) as locks:
+        status, pend = resolve_pending(cwd, sid, locks)
         if status in ("unreadable", "badstate"):
             return "MR cost comment skipped for !%d: %s" % (iid, pending_refusal(status, pend, sid))
         seen = already_commented(iid, cwd, project)  # read inside the lock: another post may be landing this record
@@ -1018,10 +1443,12 @@ def process(payload, opts=None, runner=run, project=None):
             _reconcile_safe(runner, cwd, sid, branch, seen, opts, project)
             return quiet("a cost comment already exists")
         until = now_utc()
-        since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, [], opts, until, project=project)
+        since, excl, sdir, ids, state, notes, err, foreign = plan(runner, cwd, sid, gitdir, branch, [], opts, until,
+                                                                  project=project, cands=cands, locks=locks)
         if err:
             return "MR cost comment skipped for !%d: %s. %s" % (iid, err, manual)
-        why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, False, project)
+        why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, False, project,
+                              foreign)
     if not ok:
         return "MR cost comment skipped for !%d: %s. %s" % (iid, why, manual)
     return "Posted the `## Cost of this MR` comment on !%d (opt out: scripts/cost-ledger off --local).%s" % (iid, " " + why if why else "")
@@ -1054,17 +1481,20 @@ def process_round(iid, sid, cwd, opts=None, runner=run, explicit=(), project=Non
     gitdir = git_common_dir(runner, cwd)
     if not gitdir:
         return "Record skipped for !%d: not in a git checkout. %s" % (iid, manual)
-    with state_lock(sid):
-        status, pend = resolve_pending(cwd, sid)
+    cands, _dn = discover(runner, cwd, sid, branch, opts)
+    with session_locks([sid] + sorted(cands) + pending_sessions(sid), own=sid) as locks:
+        status, pend = resolve_pending(cwd, sid, locks)
         if status in ("unreadable", "badstate"):
             return "Record skipped for !%d: %s" % (iid, pending_refusal(status, pend, sid))
         until = now_utc()
-        since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project)
+        since, excl, sdir, ids, state, notes, err, foreign = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project,
+                                                                  cands=cands, locks=locks)
         if err:
             return "Record skipped for !%d: %s. %s" % (iid, err, manual)
         if since > until:
             return "Record skipped for !%d: nothing measurable between %s and now. %s" % (iid, since, manual)
-        why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, True, project)
+        why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, True, project,
+                              foreign)
     if not ok:
         return "Record skipped for !%d: %s. %s" % (iid, why, manual)
     return "Posted the cost record for this fix round on !%d (window %s to %s).%s" % (iid, since, until, " " + why if why else "")
@@ -1077,8 +1507,8 @@ def process_retry(iid, sid, cwd, opts=None, runner=run):
     if project is None:
         return "Retry skipped for !%d: this checkout has no readable `origin` remote to name its project." % iid
     if SESSION_RE.match(sid or ""):
-        with state_lock(sid):
-            status, pend = resolve_pending(cwd, sid)
+        with session_locks([sid] + pending_sessions(sid), own=sid) as locks:
+            status, pend = resolve_pending(cwd, sid, locks)
         if status in ("unreadable", "badstate"):
             return "Retry skipped for !%d: %s" % (iid, pending_refusal(status, pend, sid))
         if status == "adopted" and pend["mr"] == iid:
@@ -1144,7 +1574,10 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
     elif explicit:
         warn = ("post-mr-cost: --agent without --pin applies to this run only; record 1 (the hook) will not "
                 "attribute %s unless they are pinned (add --pin).\n" % ", ".join(sorted(set(explicit))))
-    with state_lock(sid):  # the pins file is a read-modify-write, and a pending claim is settled before measuring
+    cands, disc_notes = discover(runner, cwd, sid, branch, opts)
+    # The pins file is a read-modify-write, and a pending claim is settled before measuring; the other
+    # sessions are locked so their watermarks read consistently (nothing of theirs is written here).
+    with session_locks([sid] + sorted(cands) + pending_sessions(sid), own=sid) as locks:
         # A pin never moves a watermark, so it is written whether or not the pending claim can be settled
         # (the settle failure is reported below); only a genuine failure to write it is an error (exit 2).
         if pin:
@@ -1155,7 +1588,7 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
             if not ok:
                 return [], "the pinned agents could not be written.\n", 2
             warn += "post-mr-cost: pinned %s to %s.\n" % (", ".join(sorted(set(explicit))), branch)
-        status, pend = resolve_pending(cwd, sid)
+        status, pend = resolve_pending(cwd, sid, locks)
         if status in ("unreadable", "badstate"):
             return [], warn + "post-mr-cost: %s\n" % pending_refusal(status, pend, sid), 0
         if status:
@@ -1163,11 +1596,16 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
                      "never posts.\n" % (pend["mr"], pend["since"], pend["until"],
                                           "found posted and committed" if status == "adopted" else "found unposted and dropped"))
         until = now_utc()
-        since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=project)
+        since, excl, sdir, ids, state, notes, err, foreign = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until,
+                                                                  project=project, cands=cands, locks=locks)
         if err:
             return [], warn + err + ".\n", 0
-        lines, split, _members = measure(runner, cwd, sid, sdir, opts, bound(since) if excl else since, until, ids, state["agents"])
-    return lines, warn + "".join(split) + "".join("post-mr-cost: %s\n" % n for n in notes), 0
+        lines, split, _members = measure(runner, cwd, sid, sdir, opts, bound(since) if excl else since, until, ids, state["agents"],
+                                         foreign)
+    if foreign["claims"]:
+        notes.append("includes %d subagent(s) from %d other session(s); their orchestrators' %d unclaimed tokens are not counted"
+                     % (sum(len(c["agents"]) for c in foreign["claims"].values()), len(foreign["claims"]), foreign["orchestrator"]))
+    return lines, warn + "".join(split) + "".join("post-mr-cost: %s\n" % n for n in disc_notes + notes), 0
 
 
 def cli_main(argv):
@@ -1956,6 +2394,445 @@ def golden_worktrees(check):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def golden_sessions(check):
+    """TWO sessions on one branch (macrodream/blueprint#389): scripts/tests/cost-ledger-golden/sessions/.
+    The MR is opened from session `opener`; its implementer ran in session `worker`, editing the MR's
+    worktree. The implementer is claimed by opener's record, over worker's own watermark, exactly once;
+    worker's agents of another branch, or with no home, are not; a third session older than the branch's
+    discovery bound is never read, and the worker is still claimed after the branch merges main. Then the two sessions post on the same MR at once, both wanting the same
+    agent: no deadlock, one claim. Then the write-ahead claim with another session's agents in it."""
+    import shutil
+    import threading
+    import time
+    import importlib.util
+    import transcript_usage as tu
+    root = os.path.join(GOLDEN, "sessions")
+    with open(os.path.join(root, "scenario.json"), encoding="utf-8") as f:
+        sc = json.load(f)
+    with open(os.path.join(root, "expected.json"), encoding="utf-8") as f:
+        ex = json.load(f)
+    tmp = tempfile.mkdtemp(prefix="cost-golden4-")
+    saved_env, saved_now = dict(os.environ), globals()["now_utc"]
+    try:
+        bindir = os.path.join(tmp, "bin")
+        os.makedirs(bindir)
+        shim = os.path.join(bindir, "glab")
+        with open(shim, "w", encoding="utf-8") as f:
+            f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
+        empty = os.path.join(tmp, "gitconfig")
+        open(empty, "w").close()
+        gstate = os.path.join(tmp, "glab-state.json")
+        with open(gstate, "w", encoding="utf-8") as f:
+            json.dump({"mrs": sc["mrs"], "notes": {}, "next_id": 1}, f)
+        os.environ.update({"PATH": bindir + os.pathsep + saved_env.get("PATH", ""), "GIT_CONFIG_GLOBAL": empty,
+                           "GIT_CONFIG_NOSYSTEM": "1", "CLAUDE_CONFIG_DIR": os.path.join(tmp, "claude-config"),
+                           "FAKE_GLAB_STATE": gstate, "FAKE_GLAB_PROJECT": urllib.parse.quote(sc["project"], safe="")})
+        cfg = config_root()
+        repo, wtdir = os.path.join(tmp, "proj"), os.path.join(tmp, "proj-wt")
+        g = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test", "-C", repo]
+        subprocess.run(["git", "init", "-q", "-b", "main", repo], check=True)
+        subprocess.run(g + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "x"], check=True,
+                       env=dict(os.environ, GIT_COMMITTER_DATE=sc["fork_commit_date"], GIT_AUTHOR_DATE=sc["fork_commit_date"]))
+        subprocess.run(g + ["remote", "add", "origin", "https://example.test/%s.git" % sc["project"]], check=True)
+        for leaf, wbranch in sorted(sc["worktrees"].items()):
+            subprocess.run(g + ["worktree", "add", "-q", "-b", wbranch, os.path.join(wtdir, leaf)], check=True)
+        projects = os.path.join(tmp, "projects")
+        shutil.copytree(os.path.join(root, "projects"), projects)
+        stale_sid = sc["sessions"]["stale"]
+
+        def epoch(ts):
+            return datetime.datetime.strptime(ts, TS_FMT).replace(tzinfo=datetime.timezone.utc).timestamp()
+        # {WT} -> this replay's worktree dir. mtimes: the worker's transcripts were last written at worker_mtime
+        # (before the branch merges main), the stale session's long before the branch; the rest now.
+        for dirpath, _d, files in os.walk(projects):
+            for fn in files:
+                fp = os.path.join(dirpath, fn)
+                if fn.endswith(".jsonl"):
+                    text = open(fp, encoding="utf-8").read().replace("{WT}", wtdir)
+                    open(fp, "w", encoding="utf-8").write(text)
+                for who, key in ((stale_sid, "stale_mtime"), (sc["sessions"]["worker"], "worker_mtime")):
+                    if who in fp:
+                        os.utime(fp, (epoch(sc[key]), epoch(sc[key])))
+        opts = Opts(projects, os.path.join(GOLDEN, "prices.json"), sc["today"])
+        spec = importlib.util.spec_from_file_location("cost_table_golden4", os.path.join(HERE, "cost-table.py"))
+        ct = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ct)
+        sids = sc["sessions"]
+        A, B = sids["opener"], sids["worker"]
+        g1, g1d, g2, g3, f1 = "f5000000000000001", "f5d00000000000001", "f5000000000000002", "f5000000000000003", "f4000000000000001"
+
+        def state_of(sid_):
+            try:
+                return json.loads(open(state_path(cfg, sid_), encoding="utf-8").read())
+            except OSError:
+                return None
+
+        def note_bodies(mr):
+            return [n["body"] for n in json.load(open(gstate, encoding="utf-8"))["notes"].get(str(mr), [])]
+
+        def hook(mr, sid_, runner=run):
+            return process({"tool_name": "Bash", "tool_input": {"command": "glab mr create --yes"},
+                            "tool_response": {"stdout": "https://example.test/%s/-/merge_requests/%d\n" % (sc["project"], mr)},
+                            "session_id": sid_, "cwd": repo}, opts, runner) or ""
+
+        def at(ts):
+            globals()["now_utc"] = lambda t=ts: t
+
+        def total(body):
+            return (ct.parse_record(body) or {}).get("total", {}).get(("tok", "all"))
+
+        # The merge-main step: the branch's own commit, then main moves on and the branch merges it (the normal
+        # stale-base refresh) AFTER the worker's last write. The merge base is now newer than the worker's work.
+        mm = [st for st in sc["steps"] if st["kind"] == "merge-main"][0]
+        wt_mm = os.path.join(wtdir, mm["worktree"])
+        gw = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test", "-C", wt_mm]
+
+        def dated(ts):
+            return dict(os.environ, GIT_COMMITTER_DATE=ts, GIT_AUTHOR_DATE=ts)
+        subprocess.run(gw + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "work"], check=True, env=dated(sc["branch_commit_date"]))
+        subprocess.run(g + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "main moves"], check=True, env=dated(sc["main_commit_date"]))
+        subprocess.run(gw + ["merge", "-q", "--no-ff", "--no-edit", "main"], check=True, env=dated(sc["merge_date"]),
+                       stdout=subprocess.DEVNULL)
+        rc_, mb, _ = run(["git", "merge-base", "refs/heads/main", "refs/heads/" + mm["branch"]], repo)
+        rc_, mbt, _ = run(["git", "show", "-s", "--format=%ct", mb.strip()], repo)
+        check("golden4 merge-main: the branch's merge base is now NEWER than the worker's last write (the old bound would drop it)",
+              int(mbt.strip()) > epoch(sc["worker_mtime"]), repr((mb, mbt)))
+        # The reflog entries above carry the fake commit dates; expire them so the bound below must come from
+        # the branch's own commits (`<base>..<tip>`), not from a reflog that happens to hold the same time.
+        subprocess.run(g + ["reflog", "expire", "--expire=all", "refs/heads/" + mm["branch"]], check=True)
+        # Discovery, before any record: the bound, the home rule, the stale session.
+        fork = fork_time(run, repo, "feat/801-p")
+        check("golden4: the bound is the branch's OLDEST own commit minus the margin, never the merge base (the reflog, made "
+              "now, is later)", fork == int(epoch(sc["branch_commit_date"])) - FORK_MARGIN_S, repr(fork))
+        sha = "a" * 40
+
+        def stub_git(cmd, cwd, env=None, timeout=300):
+            if cmd[:2] == ["git", "rev-parse"]:
+                return 0, sha + "\n", ""
+            if cmd[:3] == ["git", "log", "--format=%at %ct"]:
+                return 0, "2000 2100\n1500 2050\n", ""
+            if cmd[:3] == ["git", "log", "-g"]:
+                return 0, "refs/heads/feat/1-a@{1900}\nrefs/heads/feat/1-a@{1200}\n", ""
+            return 1, "", ""
+        check("golden4: the bound is the earliest of the branch's own commits and its reflog creation, less the margin",
+              fork_time(stub_git, repo, "feat/1-a") == 1200 - FORK_MARGIN_S, repr(fork_time(stub_git, repo, "feat/1-a")))
+        # An origin-only branch (no local ref, so no reflog: after `wt remove`, or in another clone) that was
+        # REBASED: its committer time is the rebase, after the worker's last write; its author time is not.
+        ob = sc["origin_only"]
+        rc_, tree, _ = run(["git", "rev-parse", "refs/heads/main^{tree}"], repo)
+        env_r = dict(os.environ, GIT_AUTHOR_DATE=ob["author_date"], GIT_COMMITTER_DATE=ob["committer_date"],
+                     GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.test", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.test")
+        rebased = subprocess.run(["git", "-C", repo, "commit-tree", tree.strip(), "-p", "refs/heads/main", "-m", "rebased work"],
+                                 check=True, env=env_r, capture_output=True, text=True).stdout.strip()
+        subprocess.run(g + ["update-ref", "refs/remotes/origin/" + ob["branch"], rebased], check=True)
+        fork_r = fork_time(run, repo, ob["branch"])
+        check("golden4 rebased: an origin-only rebased branch is bounded by its AUTHOR time, which predates the worker's last "
+              "write; its committer time alone would not",
+              fork_r == int(epoch(ob["author_date"])) - FORK_MARGIN_S
+              and int(epoch(ob["committer_date"])) - FORK_MARGIN_S > epoch(sc["worker_mtime"]), repr(fork_r))
+        rsid = ob["session"]
+        rdir = os.path.join(projects, "-fixture", rsid)
+        os.makedirs(os.path.join(rdir, "subagents"))
+        open(rdir + ".jsonl", "w").close()
+        with open(os.path.join(rdir, "subagents", "agent-%s.jsonl" % ob["agent"]), "w", encoding="utf-8") as f_:
+            f_.write(json.dumps({"isSidechain": True, "type": "assistant", "timestamp": "2026-11-07T10:30:00Z", "message": {
+                "id": "rb1", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"input_tokens": 1000},
+                "content": [{"type": "tool_use", "id": "tu-rb1", "name": "Edit",
+                             "input": {"file_path": os.path.join(wtdir, ob["leaf"], "src", "a.py")}}]}}) + "\n")
+        with open(os.path.join(rdir, "subagents", "agent-%s.meta.json" % ob["agent"]), "w", encoding="utf-8") as f_:
+            f_.write("{}\n")
+        os.utime(os.path.join(rdir, "subagents", "agent-%s.jsonl" % ob["agent"]), (epoch(sc["worker_mtime"]),) * 2)
+        got_r = foreign_candidates(projects, A, None, ob["branch"], "", worktrees(run, repo), fork_r)
+        check("golden4 rebased: the worker of the origin-only rebased branch is claimed (its home is that branch's worktree leaf)",
+              got_r == {rsid: [ob["agent"]]}, repr(got_r))
+        shutil.rmtree(rdir)
+        os.remove(rdir + ".jsonl")
+        check("golden4: a branch with no commit of its own is bounded by its tip", fork_time(run, repo, "feat/802-q")
+              == int(epoch(sc["fork_commit_date"])) - FORK_MARGIN_S, repr(fork_time(run, repo, "feat/802-q")))
+        wts = worktrees(run, repo)
+        cands = foreign_candidates(projects, A, None, "feat/801-p", "", wts, fork)
+        check("golden4: the only candidate is worker's implementer: not its other branch's agent (home 802-q), not its agent "
+              "with no home (the brief fallback is never applied to another session), not the session older than the discovery bound",
+              cands == {B: [g1]}, repr(cands))
+        dup = os.path.join(projects, "-fixture", "5eed0000-0000-4000-8000-0000000000dd")
+        os.makedirs(os.path.join(dup, "subagents"))
+        open(dup + ".jsonl", "w").close()
+        for ext in (".jsonl", ".meta.json"):
+            shutil.copy(os.path.join(projects, "-fixture", B, "subagents", "agent-%s%s" % (g1, ext)), os.path.join(dup, "subagents"))
+        check("golden4: an agent id found in two other sessions is claimed by neither (counting either could count it twice)",
+              foreign_candidates(projects, A, None, "feat/801-p", "", wts, fork) == {}, repr(foreign_candidates(projects, A, None, "feat/801-p", "", wts, fork)))
+        shutil.rmtree(dup)
+        os.remove(dup + ".jsonl")
+        everything = foreign_candidates(projects, A, None, "feat/801-p", "", wts, 0)
+        check("golden4: without the bound the stale session's agent WOULD be a candidate (so the bound is what leaves it out)",
+              everything.get(stale_sid) == ["f6000000000000001"], repr(everything))
+        check("golden4: no discovery bound (an unknown branch, an option-like or `..` name) scans nothing",
+              fork_time(run, repo, "feat/999-none") is None and fork_time(run, repo, "-x") is None
+              and fork_time(run, repo, "feat/1..2") is None
+              and discover(run, repo, A, "feat/999-none", opts)[0] == {} and "discovery bound" in discover(run, repo, A, "feat/999-none", opts)[1][0])
+        link = os.path.join(projects, "-linked")
+        os.makedirs(link)
+        os.symlink(os.path.join(projects, "-fixture", B), os.path.join(link, "5eed0000-0000-4000-8000-0000000000ff"))
+        open(os.path.join(link, "5eed0000-0000-4000-8000-0000000000ff.jsonl"), "w").close()
+        check("golden4: a symlinked session directory is never read", "5eed0000-0000-4000-8000-0000000000ff" not in other_session_dirs(projects, A)
+              and B in other_session_dirs(projects, A))
+        shutil.rmtree(link)
+        sub_b = os.path.join(projects, "-fixture", B, "subagents")
+        real_g1 = os.path.join(sub_b, "agent-%s.jsonl" % g1)
+        os.rename(real_g1, real_g1 + ".389")
+        os.symlink(real_g1 + ".389", real_g1)
+        check("golden4: a symlinked agent transcript of another session is never read",
+              foreign_candidates(projects, A, None, "feat/801-p", "", wts, fork) == {})
+        os.remove(real_g1)
+        if hasattr(os, "mkfifo"):
+            os.mkfifo(real_g1)
+            check("golden4: a FIFO named like an agent transcript is never opened (no hang)",
+                  foreign_candidates(projects, A, None, "feat/801-p", "", wts, fork) == {})
+            os.remove(real_g1)
+        os.rename(real_g1 + ".389", real_g1)
+
+        bodies = []
+        for step in sc["steps"]:
+            if step["kind"] == "merge-main":
+                continue  # replayed above, before discovery
+            at(step["at"])
+            n, want = step["name"], ex["steps"][step["name"]]
+            if step["kind"] == "measure":
+                before = (state_of(A), state_of(B))
+                lines, _e, rc = process_measure(sids[step["session"]], repo, step["branch"], opts, run)
+                check("golden4 %s: --measure counts the other session's subagent in the window" % n, lines == want["lines"] and rc == 0, repr(lines))
+                check("golden4 %s: --measure writes no state, of either session" % n, (state_of(A), state_of(B)) == before)
+                continue
+            if step["kind"] == "concurrent":
+                def slow(cmd, cwd, env=None, timeout=300):
+                    if any(os.path.basename(c) == "cost-table.py" for c in cmd[:2]) and "--post" in cmd:
+                        time.sleep(0.5)  # hold each post open: unlocked, both would read the same watermark
+                    return run(cmd, cwd, env, timeout)
+                before = len(note_bodies(51))
+                msgs = {}
+
+                def go(who, mr):
+                    msgs[who] = process_round(mr, sids[who], repo, opts, slow)
+                threads = [threading.Thread(target=go, args=tuple(r), daemon=True) for r in step["rounds"]]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join(120)
+                check("golden4 %s: two sessions posting at once, each wanting the other's lock, finish (no deadlock)" % n,
+                      not any(t.is_alive() for t in threads), repr(msgs))
+                posted = note_bodies(51)[before:]
+                bodies += posted
+                recs = [ct.parse_record(b) or {} for b in posted]
+                check("golden4 %s: both rounds posted, as records 2 and 3" % n, all(m.startswith("Posted") for m in msgs.values())
+                      and sorted(r.get("k") for r in recs) == want["record_numbers"], repr((msgs, [r.get("k") for r in recs])))
+                orch = want["orchestrator_tokens"]
+                got = sorted(total(b) or 0 for b in posted)
+                shared = want["shared_agent_tokens"]
+                check("golden4 %s: the agent both sessions wanted is in exactly one of the two records" % n,
+                      got in (sorted([orch["opener"] + shared, orch["worker"]]), sorted([orch["opener"], orch["worker"] + shared])), repr(got))
+                for who in ("opener", "worker"):
+                    check("golden4 %s: %s's state after" % (n, who), state_of(sids[who]) == want["states"][who], repr(state_of(sids[who])))
+                continue
+            msg = hook(step["mr"], sids[step["session"]])
+            check("golden4 %s: posted" % n, msg.startswith("Posted"), msg)
+            body = note_bodies(step["mr"])[-1] if note_bodies(step["mr"]) else ""
+            bodies.append(body)
+            rec = ct.parse_record(body) or {}
+            tot = rec.get("total", {})
+            check("golden4 %s: record number and totals" % n, rec.get("k") == want["record"]
+                  and tot.get(("tok", "all")) == want["total_tokens"] and str(tot.get(("usd", "all"))) == want["total_usd"], repr(rec))
+            for line in want["rows"]:
+                check("golden4 %s: row %s" % (n, line[:30]), line in body.split("\n"), body)
+            for text in want["contains"]:
+                check("golden4 %s: contains %s" % (n, text[:40]), text in body, body)
+            for text in want["absent"]:
+                check("golden4 %s: does not contain %s" % (n, text[:40]), text not in body, body)
+            for text in ex["forbidden_anywhere"]:
+                check("golden4 %s: never %s" % (n, text), text not in body, body)
+            table = [l for l in body.split("\n") if l.startswith("|")]
+            for text in ex["forbidden_in_table"]:
+                check("golden4 %s: no %s in a table row" % (n, text), not any(text in l for l in table), "\n".join(table))
+            for who in ("opener", "worker"):
+                check("golden4 %s: %s's state after" % (n, who), state_of(sids[who]) == want["states"][who], repr(state_of(sids[who])))
+        check("golden4: the stale session gets no state file (nothing of it was read or claimed)", state_of(stale_sid) is None)
+        last = tu.parse_time(sc["steps"][-1]["at"])
+        every, seen_ids = 0, set()
+        for path in sorted(glob.glob(os.path.join(projects, "**", "*.jsonl"), recursive=True)):
+            if stale_sid in path:
+                continue
+            for line in open(path, encoding="utf-8"):
+                e = json.loads(line)
+                u = (e.get("message") or {}).get("usage") if e.get("type") == "assistant" else None
+                if not u or e["message"]["id"] in seen_ids or tu.parse_time(e["timestamp"]) > last:
+                    continue
+                seen_ids.add(e["message"]["id"])
+                every += sum(u.get(k, 0) for k in tu.FIELDS)
+        got = sum(total(b) or 0 for b in bodies)
+        check("golden4: both sessions' records add up to both sessions' usage (each agent claimed once, nothing dropped)",
+              got == every == ex["session_total_tokens"], "records %d, transcripts %d, expected %d" % (got, every, ex["session_total_tokens"]))
+
+        # --- the write-ahead claim with another session's agents in it ---------------------------------------
+        pend_ex = ex["pending_phase"]
+        phase = []
+
+        def claim(before):
+            got_ = note_bodies(51)
+            if len(got_) == before + 1:
+                phase.append(total(got_[-1]))
+                return phase[-1]
+            return None
+        n0 = len(note_bodies(51))
+        at("2026-11-07T13:30:00Z")
+        real_ws = globals()["write_state"]
+        globals()["write_state"] = lambda *a, **k: False
+        try:
+            m = process_round(51, A, repo, opts, run)
+        finally:
+            globals()["write_state"] = real_ws
+        pa = (state_of(A) or {}).get("pending", {})
+        check("golden4 pending (a): the post lands, its commit fails: the claim names the other session's agents with their "
+              "watermarks before and after, and THAT session's watermarks are already advanced",
+              m.startswith("Posted") and claim(n0) == pend_ex["records"][0]
+              and pa.get("foreign") == {B: {g1: {"from": "2026-11-07T13:00:00Z", "to": "2026-11-07T13:30:00Z"},
+                                            g1d: {"from": "2026-11-07T13:00:00Z", "to": "2026-11-07T13:30:00Z"}}}
+              and state_of(B)["agents"][g1] == "2026-11-07T13:30:00Z", repr((m, pa, state_of(B))))
+        check("golden4 pending (a): the other session's own fields are untouched by the advance",
+              state_of(B)["orchestrator_until"] == "2026-11-07T13:00:00Z" and state_of(B)["agents"][g2] == "2026-11-07T12:10:00Z")
+        n0 = len(note_bodies(51))
+        at("2026-11-07T13:50:00Z")
+        m = process_round(51, A, repo, opts, run)
+        check("golden4 pending (a): the next round adopts it (the other session stays advanced) and claims only what is after it",
+              m.startswith("Posted") and claim(n0) == pend_ex["records"][1] and "pending" not in state_of(A)
+              and state_of(B)["agents"][g1] == "2026-11-07T13:30:00Z", repr((m, state_of(A), state_of(B))))
+        n0 = len(note_bodies(51))
+        at("2026-11-07T14:00:00Z")
+
+        def failing_ct(cmd, cwd, env=None, timeout=300):
+            if any(os.path.basename(c) == "cost-table.py" for c in cmd[:2]) and "--post" in cmd:
+                return 1, "", "glab api POST timed out\n"
+            return run(cmd, cwd, env, timeout)
+        m = process_round(51, A, repo, opts, failing_ct)
+        check("golden4 pending (b): cost-table fails before the POST: no record, the claim stays, the other session is advanced ahead",
+              m.startswith("Record skipped") and len(note_bodies(51)) == n0 and (state_of(A).get("pending") or {}).get("foreign")
+              and state_of(B)["agents"][g1] == "2026-11-07T14:00:00Z", repr((m, state_of(A), state_of(B))))
+        at("2026-11-07T14:05:00Z")
+        m = process_round(51, A, repo, opts, run)
+        check("golden4 pending (b): the record is definitely absent: the other session's watermarks are rolled back first, so the "
+              "next record claims that agent's stretch exactly once",
+              m.startswith("Posted") and claim(n0) == pend_ex["records"][2] and "pending" not in state_of(A)
+              and state_of(B)["agents"][g1] == "2026-11-07T14:05:00Z", repr((m, phase, state_of(B))))
+        want_phase, seen_phase = 0, set()
+        for path in sorted(glob.glob(os.path.join(projects, "**", "*.jsonl"), recursive=True)):
+            for line in open(path, encoding="utf-8"):
+                e = json.loads(line)
+                u = (e.get("message") or {}).get("usage") if e.get("type") == "assistant" else None
+                if u and e["message"]["id"] not in seen_phase and "2026-11-07T13:00:00Z" < e["timestamp"] <= "2026-11-07T14:05:00Z":
+                    seen_phase.add(e["message"]["id"])
+                    want_phase += sum(u.get(k, 0) for k in tu.FIELDS)
+        check("golden4 pending: the phase's records add up to both sessions' usage in it (none twice, none dropped)",
+              phase == pend_ex["records"] and sum(phase) == want_phase == pend_ex["tokens"], repr((phase, want_phase)))
+
+        # --- the guards, each against the replayed state ---------------------------------------------------------
+        spath_b = state_path(cfg, B)
+        saved_b = open(spath_b, encoding="utf-8").read()
+        doc_b = json.loads(saved_b)
+        rewind = dict(doc_b, agents=dict(doc_b["agents"], **{g1: "2026-11-07T12:00:00Z"}))
+        until = "2026-11-07T14:06:00Z"
+        with session_locks([A, B]) as lk:
+            open(spath_b, "w", encoding="utf-8").write(json.dumps(dict(rewind, pending={
+                "mr": 52, "project": "g/p", "since": "2026-11-07T12:10:00Z", "until": "2026-11-07T13:00:00Z", "agents": {g1d: "2026-11-07T13:00:00Z"}})))
+            busy = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            open(spath_b, "w", encoding="utf-8").write(json.dumps(rewind))
+            free = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            open(spath_b, "w", encoding="utf-8").write(json.dumps(dict(rewind, orchestrator_until="2026-11-07T12:00:00Z")))
+            orch_wm = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            open(spath_b, "w", encoding="utf-8").write(json.dumps(dict(rewind, orchestrator_until="2026-11-07T12:00:00Z", pending={
+                "mr": 52, "project": "g/p", "since": "2026-11-07T12:00:00Z", "until": "2026-11-07T12:45:00Z", "agents": {}})))
+            orch_pend = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            open(spath_b, "w", encoding="utf-8").write("{not json")
+            broken = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            open(spath_b, "w", encoding="utf-8").write(json.dumps(rewind))
+            write_pins(cfg, B, pin_key("g/p", "feat/802-q"), {g1})
+            pinned = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+            os.remove(pins_path(cfg, B))
+        check("golden4 guard: an agent (or its descendant) in its own session's unsettled pending claim is left out, with a fixed note",
+              busy["claims"] == {} and any("unsettled claim" in x for x in busy["notes"]), repr(busy))
+        check("golden4 guard: ... and without that claim it would be claimed, measured over its own session's watermark",
+              list(free["claims"]) == [B] and free["claims"][B]["agents"] == [g1]
+              and free["claims"][B]["members"] == {g1: "2026-11-07T12:00:00Z", g1d: "2026-11-07T14:05:00Z"}, repr(free))
+        check("golden4 guard: the unclaimed-orchestrator count starts after the other session's own orchestrator watermark "
+              "(after 13:00: none; after 12:00: its 12:40 response) and after its pending claim's end when one may have landed",
+              free["orchestrator"] == 0 and orch_wm["orchestrator"] == 8000 and orch_pend["orchestrator"] == 0
+              and list(orch_pend["claims"]) == [B], repr((free["orchestrator"], orch_wm["orchestrator"], orch_pend["orchestrator"])))
+        check("golden4 guard: an unreadable state of the other session leaves its agents out (never guessed around)",
+              broken["claims"] == {} and any("unreadable" in x for x in broken["notes"]), repr(broken))
+        check("golden4 guard: an agent its own session pinned to another branch is left out", pinned["claims"] == {}, repr(pinned))
+        with session_locks([A]) as lk:
+            unlocked = select_foreign({B: [g1]}, lk, "g/p", "feat/801-p", until, opts)
+        check("golden4 guard: a session whose lock is not held is never read or claimed",
+              unlocked["claims"] == {} or fcntl is None, repr(unlocked))
+        # rollback: only a watermark still at the claim's `to` goes back.
+        open(spath_b, "w", encoding="utf-8").write(json.dumps(dict(doc_b, agents=dict(doc_b["agents"], **{g1: "2026-11-07T14:30:00Z", g2: "2026-11-07T14:00:00Z"}))))
+        rollback_foreign(cfg, {B: {g1: {"from": "2026-11-07T14:00:00Z", "to": "2026-11-07T14:20:00Z"},
+                                   g2: {"from": None, "to": "2026-11-07T14:00:00Z"}}})
+        rb = state_of(B)["agents"]
+        check("golden4 rollback: a watermark that moved on stays; one still at `to` goes back (to none, when there was none)",
+              rb[g1] == "2026-11-07T14:30:00Z" and g2 not in rb, repr(rb))
+        open(spath_b, "w", encoding="utf-8").write(saved_b)
+        # An id that is also in the posting session's own directory is the posting session's: never a foreign candidate.
+        own_dir = os.path.join(projects, "-fixture", A)
+        shutil.copy(os.path.join(projects, "-fixture", B, "subagents", "agent-%s.jsonl" % g1), os.path.join(own_dir, "subagents"))
+        check("golden4 guard: an agent id that is also in this session's own directory is not another session's",
+              foreign_candidates(projects, A, own_dir, "feat/801-p", "", wts, fork) == {}, repr(foreign_candidates(projects, A, own_dir, "feat/801-p", "", wts, fork)))
+        os.remove(os.path.join(own_dir, "subagents", "agent-%s.jsonl" % g1))
+        # The lock order: sorted, whatever order the caller names them in.
+        order = []
+        real_fd = globals()["_lock_fd"]
+        globals()["_lock_fd"] = lambda sid_, block=True: order.append(sid_) or real_fd(sid_, block)
+        try:
+            with session_locks([B, A, B, "../bad"]):
+                pass
+        finally:
+            globals()["_lock_fd"] = real_fd
+        check("golden4 locks: taken in sorted session-id order, once each, never an invalid id",
+              order == sorted([A, B]) or fcntl is None, repr(order))
+        if fcntl is not None:
+            with session_locks([B]):
+                with session_locks([A]) as lk2:
+                    got_b = lk2.try_add(B)
+            check("golden4 locks: try_add never waits: another holder's lock is reported busy", got_b is False)
+            lockdir = os.path.join(cfg, "mr-cost-state")
+            os.symlink(os.path.join(tmp, "elsewhere-389"), os.path.join(lockdir, "5eed0000-0000-4000-8000-0000000000ee.lock"))
+            check("golden4 locks: a symlinked lock file is never followed: try_add reports it not held",
+                  Locks().try_add("5eed0000-0000-4000-8000-0000000000ee") is False
+                  and not os.path.exists(os.path.join(tmp, "elsewhere-389")))
+            # #2155: a lock file symlinked to a file INSIDE the config root passes containment, and is still
+            # never followed (O_NOFOLLOW): not held.
+            inside = os.path.join(cfg, "inside-2155")
+            open(inside, "w").close()
+            os.symlink(inside, os.path.join(lockdir, "5eed0000-0000-4000-8000-0000000021ee.lock"))
+            check("golden4 locks: a lock file symlinked inside the config root is not followed either",
+                  Locks().try_add("5eed0000-0000-4000-8000-0000000021ee") is False or not hasattr(os, "O_NOFOLLOW"))
+            # #2155 security review: that file blocks only its own session. Another session's is skipped (left
+            # unlocked, so never claimed from) and the post goes on; the posting session's own is raised.
+            if hasattr(os, "O_NOFOLLOW"):
+                with session_locks([A, "5eed0000-0000-4000-8000-0000000021ee"], own=A) as lk3:
+                    skip_ok = lk3.holds(A) and not lk3.holds("5eed0000-0000-4000-8000-0000000021ee")
+                try:
+                    with session_locks([A, "5eed0000-0000-4000-8000-0000000021ee"], own="5eed0000-0000-4000-8000-0000000021ee"):
+                        own_raised = False
+                except OSError:
+                    own_raised = True
+                check("golden4 locks: an unopenable lock file of another session is skipped; the posting session's own is raised",
+                      skip_ok and own_raised, repr((skip_ok, own_raised)))
+    finally:
+        globals()["now_utc"] = saved_now
+        os.environ.clear()
+        os.environ.update(saved_env)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # Variables git itself sets (a hook runs with GIT_DIR and friends) that make EVERY git command, even
 # `git -C <scratch repo>`, act on the outer repository. The self-test builds scratch repos and runs
 # `checkout -B main`, `symbolic-ref` and commits in them, so they must not be inherited.
@@ -2146,17 +3023,22 @@ def _self_test():
     prev_cfg = os.environ.get("CLAUDE_CONFIG_DIR")
     os.environ["CLAUDE_CONFIG_DIR"] = gd_esc
     ran = []
+    esc_sids = ["5eed0000-0000-4000-8000-0000000021a1", "5eed0000-0000-4000-8000-0000000021a2"]
     try:
         if fcntl is not None:
             with state_lock("sess-1"):
                 ran.append(1)
+            # #2155: the same for a real session id, and for several sessions at once (session_locks): the
+            # body runs, no session is held (so select_foreign claims nothing), and try_add cannot take one.
+            with session_locks(esc_sids) as lk_esc:
+                ran.append(2 if not any(lk_esc.holds(x) for x in esc_sids) and not lk_esc.try_add(esc_sids[0]) else -2)
     finally:
         if prev_cfg is None:
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
         else:
             os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg
     check("an escaping state dir: state_lock runs the body without a lock file outside the root",
-          (ran == [1] or fcntl is None) and os.listdir(gd_out) == [], repr(os.listdir(gd_out)))
+          (ran == [1, 2] or fcntl is None) and os.listdir(gd_out) == [], repr((ran, os.listdir(gd_out))))
     # #2152: find_session_dir skips a session dir that symlinks outside the projects dir, and keeps the others.
     pd = tempfile.mkdtemp(prefix="post-mr-cost-proj-")
     os.makedirs(os.path.join(pd, "slug-a", "sess-ok"))
@@ -2325,6 +3207,7 @@ def _self_test():
     golden_cases(check)
     golden_two_repos(check)
     golden_worktrees(check)
+    golden_sessions(check)
     if fails:
         for f in fails:
             print("self-test FAIL: " + f, file=sys.stderr)
