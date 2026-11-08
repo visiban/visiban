@@ -1360,6 +1360,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                     className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
                                     title="Remove from invite list"
                                     aria-label="Remove from invite list"
+                                    // Removing a row mid-flight would not cancel its add, and the
+                                    // person could be re-staged under a new reason (#1299).
+                                    disabled={inviting}
                                   >
                                     ✕
                                   </button>

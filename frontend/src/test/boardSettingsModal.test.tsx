@@ -1113,10 +1113,13 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
       expect(screen.getByText('Carol Danvers')).toBeInTheDocument()
       // The row's controls point at the message.
-      const row = screen.getByText('Carol Danvers').closest('div.py-2\\.5') as HTMLElement
-      expect(row).not.toBeNull()
+      const carolRow = screen.getByText('Carol Danvers').closest('div.py-2\\.5') as HTMLElement
+      expect(within(carolRow).getByRole('combobox')).toHaveTextContent('Member')
+      expect(within(carolRow).getByTitle('Remove from invite list')).not.toHaveAttribute('aria-describedby')
+      expect(within(carolRow).queryByRole('alert')).toBeNull()
       const aliceRow = alert.closest('div.py-2\\.5') as HTMLElement
       expect(within(aliceRow).getByTitle('Remove from invite list')).toHaveAttribute('aria-describedby', alert.id)
+      expect(within(aliceRow).getByRole('combobox')).toHaveAttribute('aria-describedby', alert.id)
     })
 
     it('clears the reason when the refused row role is edited', async () => {
@@ -1134,7 +1137,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       expect(screen.queryByText(/could not be added/i)).toBeNull()
     })
 
-    it('locks every role dropdown while the adds are in flight', async () => {
+    it('locks every role dropdown and Remove button while the adds are in flight', async () => {
       let rejectAlice!: (e: unknown) => void
       mockSetBoardMember.mockImplementation((_b: number, id: number) =>
         id === 99 ? new Promise((_r, rej) => { rejectAlice = rej }) : Promise.resolve(membership(bobUser)))
@@ -1142,9 +1145,11 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       await submit()
       const aliceRow = screen.getByText('Alice Wonder').closest('div.py-2\\.5') as HTMLElement
       expect(within(aliceRow).getByRole('combobox')).toBeDisabled()
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toBeDisabled()
       await act(async () => { rejectAlice({ response: { data: { detail: 'Refused.' } } }) })
       expect(await screen.findByText('Refused.')).toBeInTheDocument()
       expect(within(aliceRow).getByRole('combobox')).toBeEnabled()
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toBeEnabled()
     })
 
     it('keeps the failure summary while typing in the search box', async () => {
