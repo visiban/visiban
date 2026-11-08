@@ -337,7 +337,8 @@ def newest_event_id(board_id):
 # to commit while the writer still takes card and column row locks, which is
 # another deadlock path. It would also serialize every write on a board. The
 # shared/probe split costs a writer nothing unless a reader is probing at the
-# same instant, and the probe never waits, so a reader never delays a writer.
+# same instant. The probe never waits, and a writer that asks for its shared
+# lock during a probe waits only for that one statement.
 
 #: Advisory lock namespace (the first int4 of the two-key form). The two-key
 #: form never shares a key with the one-bigint form ``migrate_with_lock`` uses.
@@ -392,8 +393,9 @@ def _probe(board_id):
     The statement's snapshot is taken when it starts, before the lock function
     runs, so the newest id is always read *before* the probe, whatever order
     PostgreSQL evaluates the two columns in. The probe is a non-blocking
-    exclusive try-lock, so it never waits for a writer and never makes a writer
-    wait. It succeeds only when no writer holds the key.
+    exclusive try-lock, so it never waits for a writer. A writer that asks for
+    its shared lock while the probe holds the key waits for that one
+    statement only. The probe succeeds only when no writer holds the key.
 
     The try-lock is transaction-scoped and must not outlive the probe. If it
     did, every writer on the board would wait behind it. Outside a transaction

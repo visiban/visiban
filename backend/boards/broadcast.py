@@ -349,8 +349,12 @@ def persist_board_event(
     ``board.deleted`` takes no lock. It is only ever written by the transaction
     that deletes its board. Once that commits, no reader can open the board's
     feed: the REST feed answers ``404`` and the board's webhooks are deleted
-    with it (and never take ``board.deleted`` anyway). So the bulk board
-    deletes (Django admin, ``_seed_history``) cost no lock entries.
+    with it (and never take ``board.deleted`` anyway). So a bulk board delete
+    (Django admin, ``_seed_history``) costs no lock entry for the deleted
+    boards themselves. It still costs one per *other* board that gets a
+    ``card.updated`` because a deleted card was blocking a card there
+    (``publish_blocked_peers``). The horizon does not cover ``board.deleted``,
+    so a cursor-keeping reader can step past it; see ``boards/hooks.py``.
     """
     from . import hooks
     from .models import BoardEvent

@@ -1,6 +1,6 @@
 # Replay missed board changes with one cursor request
 
-`GET /api/v1/boards/{id}/events/?after=<last event_id>` returns what happened on a board since your last event, in order.
+`GET /api/v1/boards/{id}/events/?after=<cursor>` returns what happened on a board after that event id, in order. Use the last `id` the feed handed you; a WebSocket frame's `event_id` is not a gap-free cursor, so resume from one a few seconds before a drop ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 
 ```bash
 curl -H "Authorization: Token $TOKEN" \
