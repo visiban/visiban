@@ -16,7 +16,17 @@ A board admin can give each column a short **policy**: its **entry criteria** (w
 
 ## Write a policy
 
-You need to be a board admin.
+You need to be a board admin. There are two ways in; both use the same editor and save the same policy.
+
+**From Board settings** (every column in one place):
+
+1. Open **Board settings → Rules** and find **Column policies**. Every column is listed, including columns you have hidden, with its policy: **No policy**, or the criteria counts and **Advisory** / **Confirm on entry**.
+2. Expand a column, edit its policy as in steps 2 to 5 below, then click **Save**. **Cancel** discards your edits.
+3. One column is open at a time. If you open another column with unsaved edits, you are asked whether to discard them. Unsaved edits are also discarded if you switch Board settings tabs or close Board settings.
+
+Everyone on the board can read these policies in **Board settings → Rules**; only admins can change them.
+
+**From a column:**
 
 1. In the column header, open the **⋮** menu and choose **Add policy…** (or **Edit settings…**, then the **Policy** tab). On a column that already has a policy, click **Policy** in the header, then **Edit policy**.
 2. Under **Entry criteria**, click **+ Add criterion** and type one criterion per line, for example *Acceptance criteria written* or *Has an owner*.

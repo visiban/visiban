@@ -118,6 +118,12 @@ export const createColumn = (boardId: number, data: { name: string; color?: stri
 export const updateColumn = (boardId: number, colId: number, data: Partial<Column>) =>
   client.put<Column>(`/api/v1/boards/${boardId}/columns/${colId}/`, data).then((r) => r.data);
 
+/** PATCH one or more column fields. Unlike `updateColumn` (PUT, which requires
+ *  `name`), it sends only what it is given, so it never clobbers a concurrent
+ *  edit to another field (#2156). */
+export const patchColumn = (boardId: number, colId: number, data: Partial<Column>) =>
+  client.patch<Column>(`/api/v1/boards/${boardId}/columns/${colId}/`, data).then((r) => r.data);
+
 export const deleteColumn = (boardId: number, colId: number) =>
   client.delete(`/api/v1/boards/${boardId}/columns/${colId}/`);
 

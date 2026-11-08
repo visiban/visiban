@@ -185,4 +185,14 @@ describe('EditColumnModal', () => {
     expect(pressed).toHaveLength(1)
     expect(unpressed.length).toBeGreaterThan(0)
   })
+
+  it('points the Policy tab at Board settings (#2156)', async () => {
+    const user = userEvent.setup()
+    render(
+      <EditColumnModal boardId={1} column={makeColumn()} cardCount={0} onUpdated={onUpdated} onRequestDelete={onRequestDelete} onClose={onClose} initialTab="policy" />
+    )
+    expect(screen.getByText(/can also be edited together in Board settings/)).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Settings' }))
+    expect(screen.queryByText(/can also be edited together in Board settings/)).toBeNull()
+  })
 })

@@ -159,6 +159,7 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
 let capturedSettingsProps: {
   currentUserIsSiteAdmin?: boolean; currentUserId?: number | null; onDeleteForbidden?: () => void; initialTab?: string; focusFirstStoppedWebhook?: boolean
   onShareChanged?: (patch: { share_link_active: boolean | null; share_token_expires_at: string | null }) => void
+  onColumnUpdated?: (column: unknown) => void
 } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
   default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean; onClose?: () => void; onManageLens?: () => void }) => {
@@ -645,6 +646,17 @@ describe('BoardView', () => {
     const patch = { share_link_active: true, share_token_expires_at: '2999-01-01T00:00:00Z' }
     capturedSettingsProps.onShareChanged?.(patch)
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
+  })
+
+  it('hands the settings modal the column-updated handler so a policy save reaches board state (#2156)', async () => {
+    const ctx = defaultContext({ board: makeBoard() })
+    mockBoardContextValue = ctx
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    expect(typeof capturedSettingsProps.onColumnUpdated).toBe('function')
+    const updated = { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: { v: 1, entry: ['Ready'], done: [], mode: 'advisory' } }
+    capturedSettingsProps.onColumnUpdated?.(updated)
+    expect(ctx.updateColumn).toHaveBeenCalledWith(updated)
   })
 
   it('passes show_row_chip_field_names down to every SwimlaneRow and follows a merged board.updated (#1418)', () => {

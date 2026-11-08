@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { updateColumn } from "../../api/boards";
-import type { Column, ColumnPolicyMode } from "../../types";
+import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
-import ColumnPolicyEditor, { type CriterionDraft } from "./ColumnPolicyEditor";
+import ColumnPolicyEditor from "./ColumnPolicyEditor";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
-import { policyFromDraft } from "../../utils/columnPolicy";
+import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
 
 export type EditColumnTab = "settings" | "policy";
 
@@ -35,17 +35,10 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
   const [allowCardCreation, setAllowCardCreation] = useState(column.allow_card_creation);
   const [isDone, setIsDone] = useState(column.is_done);
-  // Policy drafts (#1101). Seeded once from the prop at mount, as the other
-  // fields are; the modal is mounted fresh for each edit.
-  const keyRef = useRef(0);
-  const nextKey = () => ++keyRef.current;
-  const [entry, setEntry] = useState<CriterionDraft[]>(() => (column.policy?.entry ?? []).map((text) => ({ key: nextKey(), text })));
-  const [done, setDone] = useState<CriterionDraft[]>(() => (column.policy?.done ?? []).map((text) => ({ key: nextKey(), text })));
-  const [mode, setMode] = useState<ColumnPolicyMode>(column.policy?.mode ?? "advisory");
-  // The policy as the modal opened with it. Save sends `policy` only when the
-  // drafts differ from it, so a rename never overwrites a policy another
-  // admin changed while this modal was open.
-  const [seededPolicy] = useState(() => JSON.stringify(policyFromDraft(column.policy?.entry ?? [], column.policy?.done ?? [], column.policy?.mode ?? "advisory")));
+  // Policy drafts (#1101): seeded once at mount, as the other fields are; the
+  // modal is mounted fresh for each edit. Save sends `policy` only when dirty,
+  // so a rename never overwrites a policy another admin changed meanwhile.
+  const { entry, done, mode, setEntry, setDone, setMode, nextKey, dirty: policyChanged, toPolicy } = useColumnPolicyDraft(column);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,8 +87,6 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
     if (!name.trim()) return;
     setSaving(true);
     setError(null);
-    const policy = policyFromDraft(entry.map((c) => c.text), done.map((c) => c.text), mode);
-    const policyChanged = JSON.stringify(policy) !== seededPolicy;
     try {
       const updated = await updateColumn(boardId, column.id, {
         name: name.trim(),
@@ -104,7 +95,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         weight_limit: weightLimit ? parseInt(weightLimit) : null,
         allow_card_creation: allowCardCreation,
         is_done: isDone,
-        ...(policyChanged ? { policy } : {}),
+        ...(policyChanged ? { policy: toPolicy() } : {}),
       });
       onUpdated(updated);
       onClose();
@@ -250,15 +241,18 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               </div>
             </div>
           ) : (
-            <ColumnPolicyEditor
-              entry={entry}
-              done={done}
-              mode={mode}
-              onEntryChange={setEntry}
-              onDoneChange={setDone}
-              onModeChange={setMode}
-              nextKey={nextKey}
-            />
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules.</p>
+              <ColumnPolicyEditor
+                entry={entry}
+                done={done}
+                mode={mode}
+                onEntryChange={setEntry}
+                onDoneChange={setDone}
+                onModeChange={setMode}
+                nextKey={nextKey}
+              />
+            </div>
           )}
           </div>
         </div>
