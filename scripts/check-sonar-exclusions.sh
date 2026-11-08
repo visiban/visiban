@@ -113,6 +113,7 @@ python:S3776|Cognitive Complexity of functions should not be too high
 python:S6418|Secrets should not be hard-coded
 pythonenterprise:S8443|Django Command classes should inherit from BaseCommand
 pythonsecurity:S2083|I/O function calls should not be vulnerable to path injection attacks
+pythonsecurity:S6350|Command argument injection via file content
 pythonsecurity:S8705|Argument injection
 secrets:S2068|Credentials should not be hard-coded
 pythonsecurity:S8707|Agentic workflows should not be vulnerable to path injection attacks

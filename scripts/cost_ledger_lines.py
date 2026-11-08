@@ -32,6 +32,7 @@ Usage:
 from __future__ import annotations
 
 import collections
+import math
 import os
 import re
 import shutil
@@ -345,7 +346,7 @@ def self_test():
     full = wrap("subagent-tokens: 2594324", "orchestrator-tokens: 1997645", "est-cost-usd: 1.57 (prices 2026-11-03)")
     check("readers: subagent-tokens", subagent_tokens(full) == 2594324)
     check("readers: orchestrator-tokens", orchestrator_tokens(full) == 1997645)
-    check("readers: est-cost-usd", est_cost_usd(full) == 1.57)
+    check("readers: est-cost-usd", math.isclose(est_cost_usd(full), 1.57))
     check("readers: on is not disabled", not ledger_disabled(full) and has_cost_signal(full))
     check("readers: the off marker", ledger_disabled(wrap("cost-ledger: off")) and has_cost_signal(wrap("cost-ledger: off")))
     check("readers: no signal", not has_cost_signal(wrap()) and subagent_tokens(wrap()) is None)

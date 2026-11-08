@@ -81,6 +81,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import types
 import urllib.parse
 
 try:
@@ -90,6 +91,8 @@ except ImportError:  # not POSIX: no advisory locks, the state writes stay atomi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "lib"))
+sys.path.insert(0, HERE)
+from _paths import PathEscapeError, resolve_within  # noqa: E402  (#2152: confine state/session paths)
 MR_CREATE_RE = re.compile(r"(?:^|[\s;&|(])glab\s+mr\s+create(?:\s|$)")
 MR_URL_RE = re.compile(r"/-/merge_requests/(\d{1,9})(?![\d])")
 # `https://<host>/<namespace/project>/-/merge_requests/<n>`: the project is everything between the host and `/-/`.
@@ -256,6 +259,15 @@ def window_end(notes, me, now, start):
 
 def find_session_dir(sid, projects_dir):
     hits = sorted(h for h in glob.glob(os.path.join(glob.escape(projects_dir), "*", sid)) if os.path.isdir(h))
+    ok = []
+    for h in hits:
+        try:
+            ok.append(str(resolve_within(projects_dir, h)))
+        except (PathEscapeError, OSError, RuntimeError):
+            # Fail closed (#2152): dropping it would measure the session with its subagents silently
+            # missing and post `subagent-tokens: 0` as if measured.
+            raise ValueError("a session directory resolves outside the projects dir")
+    hits = ok
     return hits[0] if len(hits) == 1 else None
 
 
@@ -365,8 +377,13 @@ def state_lock(sid):
         yield
         return
     d = os.path.join(config_root(), "mr-cost-state")
-    os.makedirs(d, exist_ok=True)
-    fd = os.open(os.path.join(d, sid + ".lock"), os.O_CREAT | os.O_RDWR, 0o600)
+    try:  # same root as state_path, so a symlinked state dir is refused here too (#2152)
+        os.makedirs(d, exist_ok=True)
+        lock = resolve_within(config_root(), os.path.join(d, sid + ".lock"))
+    except (PathEscapeError, OSError, RuntimeError):  # RuntimeError/OSError: a symlink loop
+        yield  # no lock beats a crashed hook; read_state/_write_doc then refuse the escaping path
+        return
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -379,8 +396,25 @@ def pin_key(project, branch):
     return "%s:%s" % (project or "?", branch)
 
 
+def _confined(root, name):
+    """root/mr-cost-state/<name>, refused (StateError) when it resolves outside root (#2152: a
+    symlinked mr-cost-state dir or an odd sid must not redirect the state write)."""
+    try:
+        return str(resolve_within(root, os.path.join(root, "mr-cost-state", name)))
+    except (PathEscapeError, RuntimeError) as e:  # RuntimeError: a symlink loop on Python < 3.13
+        raise StateError("path escapes the config directory") from e
+
+
+def _shown(root, sid, suffix):
+    """The unconfined path, for MESSAGES only (never opened): safe to build while handling a StateError."""
+    try:
+        return _confined(root, sid + suffix)
+    except StateError:
+        return os.path.join(root, "mr-cost-state", sid + suffix)
+
+
 def state_path(root, sid):
-    return os.path.join(root, "mr-cost-state", sid + ".json")
+    return _confined(root, sid + ".json")
 
 
 def read_state(root, sid):
@@ -423,8 +457,8 @@ def read_state(root, sid):
 
 def _write_doc(root, sid, doc):
     """Atomically replace the session's state file with `doc`; True on success."""
-    d = os.path.dirname(state_path(root, sid))
     try:
+        d = os.path.dirname(state_path(root, sid))  # StateError when the state dir escapes the root: fail soft (#2152)
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".state-", suffix=".tmp", dir=d)
         try:
@@ -438,7 +472,7 @@ def _write_doc(root, sid, doc):
             except OSError:
                 pass
             raise
-    except OSError:
+    except (OSError, StateError):
         return False
     return True
 
@@ -467,7 +501,7 @@ def write_pending(root, sid, state, pending):
 # --- agents pinned to a branch (--measure --pin) -------------------------------------------
 
 def pins_path(root, sid):
-    return os.path.join(root, "mr-cost-state", sid + ".pins.json")
+    return _confined(root, sid + ".pins.json")
 
 
 def read_pins(root, sid):
@@ -498,8 +532,8 @@ def write_pins(root, sid, key, ids):
     for k in list(pins):
         pins[k] = [a for a in pins[k] if a not in ids]
     pins[key] = sorted(set(pins.get(key, [])) | set(ids))
-    d = os.path.dirname(pins_path(root, sid))
     try:
+        d = os.path.dirname(pins_path(root, sid))  # StateError when the state dir escapes the root: fail soft (#2152)
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".pins-", suffix=".tmp", dir=d)
         try:
@@ -513,7 +547,7 @@ def write_pins(root, sid, key, ids):
             except OSError:
                 pass
             raise
-    except OSError:
+    except (OSError, StateError):
         return False
     return True
 
@@ -743,8 +777,11 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
     try:
         state = read_state(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, state_path(config_root(), sid)),)
-    sdir = find_session_dir(sid, opts.projects_dir)
+        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, _shown(config_root(), sid, ".json")),)
+    try:
+        sdir = find_session_dir(sid, opts.projects_dir)
+    except ValueError:
+        return (None,) * 6 + ("the session's subagent directory resolves outside the projects directory, so nothing was measured",)
     try:
         main_path, _ = tu.session_paths(sid, opts.projects_dir)
     except ValueError:
@@ -755,7 +792,7 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
     try:
         pins = read_pins(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, pins_path(config_root(), sid)),)
+        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, _shown(config_root(), sid, ".pins.json")),)
     key = pin_key(project, branch)
     here = set(pins.get(key, [])) | set(explicit)
     elsewhere = {a for k, v in pins.items() if k != key for a in v} - here
@@ -838,7 +875,7 @@ def resolve_pending(cwd, sid):
     try:
         state = read_state(root, sid)
     except StateError as e:
-        return "badstate", "this session's cost state is %s (%s)" % (e, state_path(root, sid))
+        return "badstate", "this session's cost state is %s (%s)" % (e, _shown(root, sid, ".json"))
     pend = state.get("pending")
     if not pend:
         return None, None
@@ -1114,7 +1151,7 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
             try:
                 ok = write_pins(config_root(), sid, pin_key(project, branch), set(explicit))
             except StateError as e:
-                return [], "this session's pinned agents are %s (%s).\n" % (e, pins_path(config_root(), sid)), 2
+                return [], "this session's pinned agents are %s (%s).\n" % (e, _shown(config_root(), sid, ".pins.json")), 2
             if not ok:
                 return [], "the pinned agents could not be written.\n", 2
             warn += "post-mr-cost: pinned %s to %s.\n" % (", ".join(sorted(set(explicit))), branch)
@@ -1232,7 +1269,7 @@ def golden_cases(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         gstate = os.path.join(tmp, "glab-state.json")
         with open(gstate, "w", encoding="utf-8") as f:
             json.dump({"mrs": sc["mrs"], "notes": {}, "next_id": 1}, f)
@@ -1709,7 +1746,7 @@ def golden_two_repos(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         empty = os.path.join(tmp, "gitconfig")
         open(empty, "w").close()
         os.environ.update({"PATH": bindir + os.pathsep + saved_env.get("PATH", ""), "GIT_CONFIG_GLOBAL": empty,
@@ -1814,7 +1851,7 @@ def golden_worktrees(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         empty = os.path.join(tmp, "gitconfig")
         open(empty, "w").close()
         gstate = os.path.join(tmp, "glab-state.json")
@@ -2092,6 +2129,88 @@ def _self_test():
     check("no temp file left behind", [f for f in os.listdir(os.path.join(gd2, "mr-cost-state")) if f.endswith(".tmp")] == [])
     write_state(gd2, sid, read_state(gd2, sid), "2026-11-07T09:00:00Z", [aid])
     check("a watermark never moves backwards", read_state(gd2, sid)["orchestrator_until"] == "2026-11-07T10:00:00Z")
+    # #2152: a state dir symlinked outside the config root is refused (StateError / False), never followed or crashed on.
+    gd_esc = tempfile.mkdtemp(prefix="post-mr-cost-esc-")
+    gd_out = tempfile.mkdtemp(prefix="post-mr-cost-out-")
+    os.symlink(gd_out, os.path.join(gd_esc, "mr-cost-state"))
+    try:
+        read_state(gd_esc, "sess-1")
+        esc_read = False
+    except StateError:
+        esc_read = True
+    check("a symlinked state dir is refused on read", esc_read)
+    check("a symlinked state dir is refused on write (False, no raise)",
+          write_state(gd_esc, "sess-1", {"orchestrator_until": None, "agents": {}}, "2026-11-07T10:00:00Z", []) is False
+          and os.listdir(gd_out) == [])
+    # #2152: state_lock degrades to NO lock (runs the body, creates no lock file) when the state dir escapes the config root.
+    prev_cfg = os.environ.get("CLAUDE_CONFIG_DIR")
+    os.environ["CLAUDE_CONFIG_DIR"] = gd_esc
+    ran = []
+    try:
+        if fcntl is not None:
+            with state_lock("sess-1"):
+                ran.append(1)
+    finally:
+        if prev_cfg is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg
+    check("an escaping state dir: state_lock runs the body without a lock file outside the root",
+          (ran == [1] or fcntl is None) and os.listdir(gd_out) == [], repr(os.listdir(gd_out)))
+    # #2152: find_session_dir skips a session dir that symlinks outside the projects dir, and keeps the others.
+    pd = tempfile.mkdtemp(prefix="post-mr-cost-proj-")
+    os.makedirs(os.path.join(pd, "slug-a", "sess-ok"))
+    os.makedirs(os.path.join(pd, "slug-b-link-real"), exist_ok=True)
+    os.symlink(gd_out, os.path.join(pd, "slug-b-link-real", "sess-esc"))
+    try:
+        find_session_dir("sess-esc", pd)
+        esc_sd = False
+    except ValueError:
+        esc_sd = True
+    check("find_session_dir: a symlinked session dir that escapes the projects dir fails closed (ValueError)", esc_sd)
+    prev_cfg2 = os.environ.get("CLAUDE_CONFIG_DIR")
+    os.environ["CLAUDE_CONFIG_DIR"] = tempfile.mkdtemp(prefix="post-mr-cost-cfg-")
+    try:
+        plan_res = plan(lambda *a, **k: (1, "", ""), pd, "sess-esc", None, "b", set(), types.SimpleNamespace(projects_dir=pd), "2026-11-07T10:00:00Z")
+    finally:
+        if prev_cfg2 is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg2
+    check("plan: a rejected session dir posts nothing and names the reason (no measured 0, a named agent is not dropped silently)",
+          plan_res[:6] == (None,) * 6 and "outside the projects directory" in (plan_res[6] or ""), repr(plan_res))
+    # symlink loop for the state dir (RuntimeError from Path.resolve on Python < 3.13) behaves like the escape case
+    gd_loop = tempfile.mkdtemp(prefix="post-mr-cost-loop-")
+    os.symlink(os.path.join(gd_loop, "mr-cost-state"), os.path.join(gd_loop, "mr-cost-state"))
+    try:
+        read_state(gd_loop, "sess-1")
+        loop_read = False
+    except StateError:
+        loop_read = True
+    check("a looping state dir is refused as a StateError, not an uncaught error", loop_read)
+    check("a looping state dir: write_state returns False", write_state(gd_loop, "sess-1", {"orchestrator_until": None, "agents": {}}, "2026-11-07T10:00:00Z", []) is False)
+    os.environ["CLAUDE_CONFIG_DIR"] = gd_loop
+    try:
+        loop_ran = []
+        if fcntl is not None:
+            with state_lock("sess-1"):
+                loop_ran.append(1)
+    finally:
+        if prev_cfg2 is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg2
+    check("a looping state dir: state_lock runs with no lock", loop_ran == [1] or fcntl is None)
+    # the write side and the read side accept the same project paths (a namespace may start with `_` or `.`)
+    gd_us = tempfile.mkdtemp(prefix="post-mr-cost-us-")
+    us_proj = parse_remote("https://gitlab.com/_alice/proj.git")
+    check("a project path starting with `_` parses", us_proj == "_alice/proj", repr(us_proj))
+    us_st = read_state(gd_us, "sess-1")
+    check("a `_alice/proj` pending claim round-trips write_pending -> read_state",
+          write_pending(gd_us, "sess-1", us_st, {"mr": 11, "project": us_proj, "since": "2026-11-07T09:00:00Z", "until": "2026-11-07T10:00:00Z", "agents": {}})
+          and read_state(gd_us, "sess-1").get("pending", {}).get("project") == "_alice/proj")
+    check("find_session_dir: an in-tree session dir is found (as its resolved path)",
+          find_session_dir("sess-ok", pd) == os.path.realpath(os.path.join(pd, "slug-a", "sess-ok")))
     open(os.path.join(gd2, "mr-cost-last-until"), "w").write("2999-01-01T00:00:00Z\n")
     check("the legacy shared marker is never read", read_state(gd2, sid)["orchestrator_until"] == "2026-11-07T10:00:00Z"
           and read_state(gd2, "other-session")["orchestrator_until"] is None)
@@ -2183,8 +2302,8 @@ def _self_test():
     check("home: a tie between two worktrees is no home (the brief decides)",
           agent_home(transcript(("Bash", {"command": "cd %s" % wa}), ("Bash", {"command": "cd %s" % wb})), wts0) is None)
     check("home: writes that are not a majority fall through to the cd rule",
-          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": "/tmp/scratch/n.md"}),
-                                ("Write", {"file_path": "/tmp/scratch/m.md"}), ("Bash", {"command": "cd %s" % wa})), wts0) == ("leaf", "101-first"))
+          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": "/scratch-2152/n.md"}),
+                                ("Write", {"file_path": "/scratch-2152/m.md"}), ("Bash", {"command": "cd %s" % wa})), wts0) == ("leaf", "101-first"))
     wl = [(top, "main"), (top + "/.claude/worktrees/agent-p", "feat/1-p"), (top + "/.claude/worktrees/agent-q", "feat/2-q")]
     check("home: a path in a listed worktree is that worktree's BRANCH; the deepest wins, so a worker under .claude/worktrees is never the main checkout",
           agent_home(transcript(("Edit", {"file_path": top + "/.claude/worktrees/agent-p/x.py"})), wl) == ("branch", "feat/1-p")
