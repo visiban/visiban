@@ -24,6 +24,7 @@ without that bound a cursor can step past a lower id that commits a moment
 later and never return to it. See :func:`feed_horizon`.
 """
 
+import logging
 import time
 from typing import NamedTuple
 
@@ -34,6 +35,8 @@ from django.db.models.functions import Coalesce, Greatest
 
 from ..models import BoardEvent, BoardEventPruneMark, BoardEventPruneTypeMark
 from ..permissions import ADMIN_ONLY_EVENTS, PER_USER_EVENTS, admin_only_event_visible
+
+logger = logging.getLogger(__name__)
 
 
 def _hidden_from(role, reader_id):
@@ -470,6 +473,10 @@ def feed_horizon(board_id, *, probes=HORIZON_PROBES):
         newest, clear = _probe(board_id)
         if clear:
             return newest
+    # DEBUG: a write in flight is normal and usually clears by the next poll.
+    # A board that logs this on every poll has a transaction left open; the
+    # events docs give the query that finds it. Board id only.
+    logger.debug("board feed held back by an open write: board_id=%s probes=%s", board_id, probes)
     return None
 
 

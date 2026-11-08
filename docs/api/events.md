@@ -30,8 +30,13 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 1. Open the board WebSocket and process frames as they arrive.
 2. Remember the `event_id` of the last frame you processed.
 3. When the socket drops and reconnects, call
-   `GET /api/v1/boards/{id}/events/?after=<last event_id>` and replay the
-   results through the same handler. No `/full/` re-fetch, no diffing.
+   `GET /api/v1/boards/{id}/events/?after=<cursor>` and replay the results
+   through the same handler, skipping ids you have already applied. No
+   `/full/` re-fetch, no diffing. Frames from two concurrent writes can arrive
+   out of `event_id` order, so the last frame's `event_id` can be past an
+   event that was still committing when the socket dropped. Use an `event_id`
+   from a few seconds before the drop as the cursor, not the last one (see
+   [Event coverage](#event-coverage); tracked in [#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 4. If that call returns `410 Gone`, events after your cursor have aged out of
    the retention window. Keep the `next_cursor` from the `410` body, re-fetch
    `GET /api/v1/boards/{id}/full/`, then resume with
@@ -182,6 +187,33 @@ Two consequences worth knowing:
   board import, holds the feed back for as long as it runs. Rows are still
   returned in `id` order, not commit order. The webhook dispatcher applies the
   same rule.
+- **Spotting a feed that is held back (operators).** A write that commits in
+  milliseconds is the normal case. A transaction left open (a stuck worker, a
+  shell session holding a transaction) holds back every reader of that
+  board's feed, and its webhooks, until it ends. The dispatcher logs one line
+  per run on the `webhooks` logger, `webhook run held back by an open write:
+  boards=<n> board_ids=[...]`. The same board in every run's line is the sign.
+  The REST feed logs `board feed held back by an open write: board_id=<id>` at
+  `DEBUG` on the `boards.services.feed` logger. To find the transaction, run
+  this in PostgreSQL. `11142053` is the feed lock's namespace, and `objid` is
+  the board id for ids below 2<sup>31</sup>:
+
+    ```sql
+    SELECT l.objid AS board_id, a.pid, a.state, a.xact_start, a.application_name
+    FROM pg_locks l JOIN pg_stat_activity a USING (pid)
+    WHERE l.locktype = 'advisory' AND l.classid = 11142053 AND l.granted
+    ORDER BY a.xact_start;
+    ```
+
+    Ending that transaction (or `pg_terminate_backend(pid)`) releases the
+    feed; nothing is lost, and the held-back events are delivered on the next
+    read.
+- **A webhook's start point (since 1.3).** Creating a webhook, or re-enabling
+  one with `resume_from: latest`, starts it after the newest event once no
+  write on the board is in flight, waiting up to about 0.2 s for one to
+  commit. Every event that commits after that is sent. If a write is still
+  open after the wait, the webhook starts after the newest committed event,
+  and that write's event, written before the request, is not sent.
 - **A WebSocket `event_id` is not a gap-free resume point.** Frames are sent
   after their own transaction commits, so two concurrent writes can arrive in
   either `id` order, and a frame can arrive while a lower `id` is still
@@ -189,7 +221,8 @@ Two consequences worth knowing:
   `event_id` can miss that lower event if the socket dropped in between. To cover
   this, resume from a feed cursor (the last `id` the feed handed you), or
   from an `event_id` a few seconds older than the drop, and skip ids you have
-  already applied.
+  already applied. A gap-free socket resume point is tracked in
+  [#2159](https://gitlab.com/visiban/visiban/-/issues/2159).
 - **A container delete is one delete event.** Deleting a column, swimlane, or
   board deletes its cards too, and the feed records only the `column.deleted`,
   `swimlane.deleted`, or `board.deleted` row, with no `card.deleted` row per

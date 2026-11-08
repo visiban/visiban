@@ -221,9 +221,11 @@ class Client:
         Caught up means the server's ``next_cursor`` was null. The client never
         counts rows: a full page may or may not be the last one.
 
-        There is no overlap option. Event ids follow insert order, not commit
-        order (#2053), so a page read can step past a row that commits a moment
-        later. Reads are not gap-free.
+        There is no overlap option and none is needed against a 1.3 or later
+        server: event ids follow insert order, not commit order, but the server
+        never hands out a page past an event still committing (#2053), so reads
+        are gap-free. Against an earlier server a read can step past a row that
+        commits a moment later.
         """
         if not 1 <= limit <= 500:
             raise ValueError("limit must be between 1 and 500")

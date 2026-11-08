@@ -265,8 +265,10 @@ export class Client {
    * After a throw call iterEvents again for a new generator: calling next() on
    * the old one would treat the failed item as handled and commit it.
    * "Caught up" means the server's next_cursor was null; the client never
-   * counts rows. There is no overlap option: ids follow insert order, not
-   * commit order (#2053), so reads are not gap-free.
+   * counts rows. There is no overlap option and none is needed against a 1.3
+   * or later server: ids follow insert order, not commit order, but the server
+   * never hands out a page past an event still committing (#2053), so reads
+   * are gap-free. Against an earlier server they are not.
    */
   async *iterEvents(boardId: number, options: IterEventsOptions = {}): AsyncGenerator<FeedItem, void, undefined> {
     const limit = options.limit ?? 100;

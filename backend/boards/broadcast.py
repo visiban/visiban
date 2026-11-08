@@ -248,9 +248,11 @@ def broadcast_board_event(
     It is **additive**: the frozen ``{event, data}`` envelope is unchanged, and
     the key is omitted entirely — rather than sent as null — when the caller
     broadcast without persisting, so no client has to distinguish "no feed row"
-    from "feed row zero". A client that keeps the latest ``event_id`` it saw can
-    hand it to ``GET /boards/<id>/events/?after=`` after a reconnect and replay
-    exactly what it missed.
+    from "feed row zero". A client can hand an ``event_id`` it saw to
+    ``GET /boards/<id>/events/?after=`` after a reconnect and replay what it
+    missed. Frames go out after each transaction's own commit, so they can
+    arrive out of id order and the latest one is not a gap-free resume point
+    (#2159): resume from an older one and skip ids already applied.
 
     **Best-effort: a channel-layer failure is logged, not raised (#1462).** This runs
     from ``transaction.on_commit``, after the mutation and its ``BoardEvent`` row
@@ -340,6 +342,15 @@ def persist_board_event(
     (``services.feed.feed_horizon``) tell that no lower id is still
     uncommitted before it moves a cursor. Every ``BoardEvent`` insert must go
     through here for that to hold.
+
+    The lock is one lock-table entry per distinct board per transaction, so a
+    transaction that writes events on thousands of boards needs a larger
+    ``max_locks_per_transaction`` (see docs/administration/configuration.md).
+    ``board.deleted`` takes no lock. It is only ever written by the transaction
+    that deletes its board. Once that commits, no reader can open the board's
+    feed: the REST feed answers ``404`` and the board's webhooks are deleted
+    with it (and never take ``board.deleted`` anyway). So the bulk board
+    deletes (Django admin, ``_seed_history``) cost no lock entries.
     """
     from . import hooks
     from .models import BoardEvent
@@ -351,7 +362,7 @@ def persist_board_event(
         "data": _json_safe(without_admin_only_board_fields(payload)),
         "actor_id": actor_id,
     }
-    if connection.vendor == "postgresql":
+    if connection.vendor == "postgresql" and event_type != EVT_BOARD_DELETED:
         fields["id"] = event_id_after_writer_lock(board_id)
     event_id = BoardEvent.objects.create(**fields).pk
     # Enterprise nudge (#863): ids only, after commit, never on rollback. The

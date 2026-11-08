@@ -200,6 +200,14 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 
 **Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. The migrate init container, the CronJobs and the scheduler inherit the same environment, so each of them also opens up to `DATABASE_POOL_MIN_SIZE` connections while it runs; count them too. The migration lock connection deliberately bypasses the pool. See [Scaling](../architecture/scaling.md).
 
+## PostgreSQL lock table and the change feed
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+A transaction that writes [change feed](../api/events.md) events holds one PostgreSQL advisory lock per board it writes events on, until it commits (#2053). The lock lets feed readers tell that no lower event id is still committing. Writers never wait for each other on it. PostgreSQL keeps every session's locks in one shared table of `max_locks_per_transaction × (max_connections + max_prepared_transactions)` entries: 6,400 at the defaults (64 × 100).
+
+An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none. A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with `out of shared memory` and the hint `You might need to increase max_locks_per_transaction`, raise `max_locks_per_transaction` in `postgresql.conf` (or the chart's PostgreSQL configuration) and restart PostgreSQL.
+
 ## Webhooks
 
 > **Added in 1.3** (#863).

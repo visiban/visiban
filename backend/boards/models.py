@@ -1672,12 +1672,17 @@ class BoardEvent(models.Model):
         db_table = "board_events"
         # id order is the feed's contract: the `after` cursor is an id. Ids are
         # drawn at INSERT, not at COMMIT, so id order is insertion order, and a
-        # lower id can commit after a higher one (#2053). The feed stays
-        # gap-free because every reader that moves a cursor stops at
+        # lower id can commit after a higher one (#2053). Paging the feed stays
+        # gap-free because every read that moves a cursor over rows (the REST
+        # feed, its 410 next_cursor, the webhook dispatcher) stops at
         # services.feed.feed_horizon, below which nothing is uncommitted, and
         # every insert goes through broadcast.persist_board_event, which draws
-        # the id under the shared feed lock the horizon probes. Never reorder by
-        # created_at: two rows can share a timestamp.
+        # the id under the shared feed lock the horizon probes (board.deleted
+        # excepted, see there). A webhook's "latest" start point
+        # (webhooks.dispatch.latest_event_id) uses the horizon too, but falls
+        # back to the newest id when a write stays open past its probes, so an
+        # event written before the request can then be left out. Never reorder
+        # by created_at: two rows can share a timestamp.
         ordering = ["id"]
         indexes = [
             # Serves the only read query the feed has: board scope + id > cursor,

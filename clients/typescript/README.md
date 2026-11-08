@@ -50,10 +50,11 @@ for await (const item of client.iterEvents(boardId, { store, pollIntervalMs: 500
   the iterator sleeps and polls until `signal` aborts.
 - **Retries.** 429, 5xx and network errors back off exponentially (`Retry-After`
   honored, capped by `backoffMaxMs`); 400/401/403/404 throw typed errors at once.
-- **Late-committing rows.** Event ids follow insertion order, not commit order
-  ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)), so a read can step
-  past a row that commits a moment later. There is **no overlap option** in 0.x;
-  reads are not gap-free.
+- **Late-committing rows.** Event ids follow insertion order, not commit order.
+  A Visiban 1.3 or later server never hands out a page that reaches past an
+  event still committing ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)),
+  so reads against it are gap-free with no overlap option. Against an earlier
+  server a read can step past a row that commits a moment later.
 - **Auth.** A scoped personal access token (`read` is enough; the client only
   issues GETs), sent only to the host in `baseUrl`. Redirects are never followed,
   and plain `http://` to a non-loopback host is refused unless

@@ -119,7 +119,7 @@ Body: `url` (required), `name` (optional, at most 200 characters), `event_types`
 
 The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`. **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
 
-A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one.
+A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one. *(1.3+, #2053)* The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to `resume_from: latest`.
 
 ### `PATCH {id}/`
 

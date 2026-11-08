@@ -150,6 +150,122 @@ class OutOfOrderCommitTests(TransactionTestCase):
         self.assertEqual(first["results"], [])
         self.assertIsNone(first["next_cursor"])
 
+    def test_410_next_cursor_is_not_past_a_lower_uncommitted_id(self):
+        """The 410's resume point is bounded by the horizon too, not only the page.
+
+        Unbounded, it would be the newest visible id (B), above A, which is
+        still committing: a consumer that re-synced and resumed there would
+        never read A.
+        """
+        from webhooks.tests.base import prune
+
+        cursor = persist_board_event(self.board.id, "card.created", {})
+        missed = persist_board_event(self.board.id, "card.updated", {})
+        prune(BoardEvent.objects.get(pk=missed))  # the 410: an event after the cursor was pruned
+        writer_a = _InFlightWriter(self.board.id)
+        writer_a.start()
+        self.addCleanup(writer_a.release.set)
+        self.assertTrue(writer_a.inserted.wait(WAIT))
+        try:
+            _set_lock_timeout(self, 5)
+            id_b = persist_board_event(self.board.id, "card.updated", {})
+            self.assertLess(writer_a.event_id, id_b)
+            resp = self.client.get(f"{self.url}?after={cursor}")
+        finally:
+            writer_a.finish(self)
+        self.assertEqual(resp.status_code, 410, resp.content)
+        self.assertLess(resp.json()["next_cursor"], writer_a.event_id)
+        self.assertEqual(resp.json()["next_cursor"], missed)
+
+    def test_board_deleted_events_take_no_feed_lock(self):
+        """A bulk board delete writes one board.deleted per board and must not use a lock entry per board."""
+        others = [_make_board(self.owner, name=f"Doomed {n}") for n in range(3)]
+        with transaction.atomic():
+            for board in others:
+                persist_board_event(board.id, "board.deleted", {"board_uid": str(board.uid)})
+            self.assertEqual(_held_feed_locks(), 0)
+            persist_board_event(self.board.id, "card.created", {})
+            self.assertEqual(_held_feed_locks(), 1)
+
+    def test_held_back_horizon_logs_the_board_at_debug(self):
+        writer = _InFlightWriter(self.board.id)
+        writer.start()
+        self.addCleanup(writer.release.set)
+        self.assertTrue(writer.inserted.wait(WAIT))
+        try:
+            with self.assertLogs("boards.services.feed", "DEBUG") as logs:
+                self.assertIsNone(feed_horizon(self.board.id, probes=1))
+        finally:
+            writer.finish(self)
+        self.assertEqual(
+            logs.output,
+            [f"DEBUG:boards.services.feed:board feed held back by an open write: board_id={self.board.id} probes=1"],
+        )
+
+    def test_webhook_latest_waits_for_an_in_flight_write(self):
+        """``latest`` is set only once no write is open, so nothing commits below it afterward.
+
+        A is open and B committed when the start point is computed. The first
+        probe fails; A commits during the retry sleep; the next probe clears.
+        When the call returns, A is already committed. Without the bound the
+        start point would be B while A was still open, and A would commit
+        below it.
+        """
+        from webhooks import dispatch
+
+        writer_a = _InFlightWriter(self.board.id)
+        writer_a.start()
+        self.addCleanup(writer_a.release.set)
+        self.assertTrue(writer_a.inserted.wait(WAIT))
+        _set_lock_timeout(self, 5)
+        id_b = persist_board_event(self.board.id, "card.updated", {})
+
+        def commit_a_while_sleeping(seconds):
+            writer_a.finish(self)
+
+        with patch("boards.services.feed.time.sleep", side_effect=commit_a_while_sleeping) as sleep:
+            latest = dispatch.latest_event_id(self.board.id)
+        self.assertGreaterEqual(sleep.call_count, 1)
+        self.assertEqual(latest, id_b)
+        self.assertTrue(BoardEvent.objects.filter(pk=writer_a.event_id).exists(), "A was still open")
+
+    def test_webhook_latest_falls_back_while_a_write_stays_open(self):
+        from webhooks import dispatch
+
+        writer_a = _InFlightWriter(self.board.id)
+        writer_a.start()
+        self.addCleanup(writer_a.release.set)
+        self.assertTrue(writer_a.inserted.wait(WAIT))
+        try:
+            _set_lock_timeout(self, 5)
+            id_b = persist_board_event(self.board.id, "card.updated", {})
+            with patch("boards.services.feed.time.sleep") as sleep:
+                latest = dispatch.latest_event_id(self.board.id)
+            self.assertEqual(sleep.call_count, dispatch.LATEST_HORIZON_PROBES - 1)
+            # The documented fallback: the newest committed event.
+            self.assertEqual(latest, id_b)
+        finally:
+            writer_a.finish(self)
+
+    def test_dispatcher_logs_a_held_back_board_once_per_run(self):
+        from webhooks import dispatch
+        from webhooks.tests.base import ENABLED, make_subscription, resolving
+
+        with ENABLED, resolving(), patch("boards.broadcast.broadcast_board_event"):
+            for _ in range(2):
+                make_subscription(self.board, self.owner)
+            persist_board_event(self.board.id, "card.created", {})
+            with patch("webhooks.dispatch.feed_horizon", return_value=None), \
+                    patch("visiban.egress.guarded_post", return_value=200), \
+                    self.assertLogs("webhooks", "INFO") as logs:
+                result = dispatch.run_once()
+        self.assertEqual(result.held_back_boards, {self.board.id})
+        held = [line for line in logs.output if "held back" in line]
+        self.assertEqual(
+            held,
+            [f"INFO:webhooks.dispatch:webhook run held back by an open write: boards=1 board_ids=[{self.board.id}]"],
+        )
+
     def test_a_write_on_another_board_does_not_hold_this_feed_back(self):
         other = _make_board(self.owner, name="Other board")
         writer = _InFlightWriter(other.id)
@@ -314,6 +430,20 @@ class HorizonWithoutContentionTests(TestCase):
             self.assertEqual(namespace, FEED_LOCK_NAMESPACE)
             self.assertTrue(-(2**31) <= objid < 2**31, board_id)
         self.assertNotEqual(feed_lock_key(1), feed_lock_key(2))
+
+    def test_webhook_latest_is_the_horizon_or_the_prune_mark(self):
+        from webhooks import dispatch
+
+        with patch("webhooks.dispatch.feed_horizon", return_value=7) as horizon, \
+                patch("webhooks.dispatch.pruned_through", return_value=None):
+            self.assertEqual(dispatch.latest_event_id(self.board.id), 7)
+        horizon.assert_called_once_with(self.board.id, probes=dispatch.LATEST_HORIZON_PROBES)
+        with patch("webhooks.dispatch.feed_horizon", return_value=7), \
+                patch("webhooks.dispatch.pruned_through", return_value=9):
+            self.assertEqual(dispatch.latest_event_id(self.board.id), 9)
+        newest = persist_board_event(self.board.id, "card.created", {})
+        with patch("webhooks.dispatch.feed_horizon", return_value=None):
+            self.assertEqual(dispatch.latest_event_id(self.board.id), newest)
 
     def test_resume_cursor_is_bounded_by_the_ceiling(self):
         first = persist_board_event(self.board.id, "card.created", {})
