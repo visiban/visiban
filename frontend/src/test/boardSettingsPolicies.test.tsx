@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import BoardSettingsPoliciesSection from '../components/Board/BoardSettingsPoliciesSection'
+import ModalWrapper from '../components/shared/ModalWrapper'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import type { BoardFull, Column, ColumnPolicy, User } from '../types'
 
@@ -230,32 +231,52 @@ describe('BoardSettingsPoliciesSection — switching rows', () => {
     expect(rowButton('Doing')).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('asks before discarding a dirty draft; Keep editing keeps it', async () => {
-    const user = userEvent.setup()
-    renderSection()
+  const PROMPT = 'Discard changes to “Review” and open “Doing”?'
+  const dirtyThenClickDoing = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(rowButton('Review'))
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 1' }), '!')
     await user.click(rowButton('Doing'))
-    const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Discard changes to “Review” and open “Doing”?')
-    await waitFor(() => expect(within(alert).getByRole('button', { name: 'Keep editing' })).toHaveFocus())
-    await user.click(within(alert).getByRole('button', { name: 'Keep editing' }))
-    expect(screen.queryByRole('alert')).toBeNull()
+  }
+
+  it('asks before discarding a dirty draft; Cancel keeps it and returns focus to the clicked row', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    await dirtyThenClickDoing(user)
+    const prompt = screen.getByText(PROMPT).closest('[role="status"]') as HTMLElement
+    expect(prompt).toHaveAttribute('aria-live', 'polite')
+    expect(prompt).toHaveAttribute('aria-atomic', 'true')
+    await user.click(within(prompt).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText(PROMPT)).toBeNull()
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveValue('Spec written!')
-    await waitFor(() => expect(rowButton('Review')).toHaveFocus())
+    await waitFor(() => expect(rowButton('Doing')).toHaveFocus())
   })
 
-  it('Discard and open drops the draft and opens the target', async () => {
+  it('Confirm drops the draft and opens the target', async () => {
     const user = userEvent.setup()
     renderSection()
-    await user.click(rowButton('Review'))
-    await user.type(screen.getByRole('textbox', { name: 'Entry criterion 1' }), '!')
-    await user.click(rowButton('Doing'))
-    await user.click(screen.getByRole('button', { name: 'Discard and open' }))
+    await dirtyThenClickDoing(user)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(rowButton('Doing')).toHaveAttribute('aria-expanded', 'true')
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText(PROMPT)).toBeNull()
+  })
+
+  it('Escape dismisses the prompt without closing the modal or dropping the draft', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<ModalWrapper open onClose={onClose} title="Host" labelId="host-title">
+      <BoardSettingsPoliciesSection columns={COLUMNS} isAdmin onSaveColumnPolicy={vi.fn()} />
+    </ModalWrapper>)
+    await dirtyThenClickDoing(user)
+    expect(screen.getByText(PROMPT)).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText(PROMPT)).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveValue('Spec written!')
+    // A second Escape, with no prompt, reaches the modal.
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('clicking the open row while dirty collapses and discards silently', async () => {
@@ -264,7 +285,7 @@ describe('BoardSettingsPoliciesSection — switching rows', () => {
     await user.click(rowButton('Review'))
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 1' }), '!')
     await user.click(rowButton('Review'))
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText(/Discard changes to/)).toBeNull()
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'false')
   })
 

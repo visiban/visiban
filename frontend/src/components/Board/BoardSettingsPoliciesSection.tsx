@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { Column, ColumnPolicy } from "../../types";
 import { columnPolicy, policyCountSummary, POLICY_MODE_LABEL } from "../../utils/columnPolicy";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
 
 interface Props {
@@ -167,7 +169,9 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
   const dirtyRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const buttonRefs = useRef(new Map<number, HTMLButtonElement>());
-  const keepEditingRef = useRef<HTMLButtonElement>(null);
+  // Focus returns to the row that was clicked when the discard prompt closes
+  // (frontend/CLAUDE.md: dismissing an inline confirm returns focus to its trigger).
+  const triggerRef = useConfirmFocusReturn<number>(pendingSwitchId);
 
   const focusRow = (id: number) => requestAnimationFrame(() => buttonRefs.current.get(id)?.focus());
   const onDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
@@ -182,9 +186,12 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
     }
   }, [columns, openColumnId]);
 
-  useEffect(() => {
-    if (pendingSwitchId !== null) keepEditingRef.current?.focus();
-  }, [pendingSwitchId]);
+  // Escape 40.6 (frontend/CLAUDE.md): cancels the discard prompt, above
+  // ModalWrapper's 40, and returns false otherwise so Escape still closes the modal.
+  useEscapeStack(() => {
+    if (pendingSwitchId === null) return false;
+    setPendingSwitchId(null);
+  }, 40.6);
 
   const collapse = (id: number) => {
     dirtyRef.current = false;
@@ -275,6 +282,7 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
                 ref={(el) => {
                   if (el) buttonRefs.current.set(col.id, el);
                   else buttonRefs.current.delete(col.id);
+                  triggerRef(col.id)(el);
                 }}
                 aria-expanded={open}
                 aria-controls={open ? panelId : undefined}
@@ -307,29 +315,26 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
                   onSavingChange={setSaving}
                 >
                   {pendingSwitchId !== null && (
-                    <div role="alert" className="mt-3 rounded border border-line p-3 text-sm text-fg-secondary">
-                      <p>Discard changes to “{openName}” and open “{targetName}”?</p>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          ref={keepEditingRef}
-                          onClick={() => { setPendingSwitchId(null); focusRow(col.id); }}
-                          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                        >
-                          Keep editing
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            dirtyRef.current = false;
-                            setOpenColumnId(pendingSwitchId);
-                            setPendingSwitchId(null);
-                          }}
-                          className="text-sm text-danger font-medium px-3 py-1.5 rounded transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                        >
-                          Discard and open
-                        </button>
-                      </div>
+                    <div role="status" aria-live="polite" aria-atomic="true" className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="text-fg-tertiary">Discard changes to “{openName}” and open “{targetName}”?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dirtyRef.current = false;
+                          setOpenColumnId(pendingSwitchId);
+                          setPendingSwitchId(null);
+                        }}
+                        className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingSwitchId(null)}
+                        className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
                 </PolicyRowEditor>
