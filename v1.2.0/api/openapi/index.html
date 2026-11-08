@@ -4456,8 +4456,18 @@ identifier (a client-chosen name is never echoed unbounded). Two differences fro
 first offending field is named, and a surrogate in a field the endpoint would have ignored (an
 unknown key, say) is now a <code>400</code> where it was a <code>200</code>. A valid pair such as an emoji
 (<code>"\ud83d\ude00"</code>) is accepted unchanged. A JSON-encoded value inside a string, such as a
-multi-select custom field value, is checked after it is decoded. The same refusal applies to a <code>JSONField</code> value sent form-encoded or multipart. It does not cover a query string or a form body sent with an unusual <code>charset</code> (for example <code>utf-7</code>), which can still answer <code>500</code>
-(<a href="https://gitlab.com/visiban/visiban/-/issues/2120">#2120</a>).</p>
+multi-select custom field value, is checked after it is decoded. The same refusal applies to a <code>JSONField</code> value sent form-encoded or multipart.</p>
+<p>A request whose <code>Content-Type</code> declares a <code>charset</code> that Django must not decode a request with is a
+<code>400</code> with <code>{"detail": "Unsupported request charset. Use UTF-8."}</code>
+(<a href="https://gitlab.com/visiban/visiban/-/issues/2120">#2120</a>). That is <code>utf-7</code>, <code>unicode-escape</code>,
+<code>raw-unicode-escape</code>, <code>punycode</code>, <code>idna</code> and <code>undefined</code>, and any non-text codec such as <code>hex</code>,
+<code>base64</code> or <code>rot13</code>. Django decodes form fields and multipart field and file names with the declared
+charset, and a codec such as <code>utf-7</code> turns plain ASCII (<code>+2AA-</code>) into a lone surrogate that PostgreSQL
+cannot store; a multipart import with such a charset used to answer <code>500</code>. Every other charset
+(ISO-8859-2, Windows-1251, Shift_JIS, GBK, KOI8-R and so on) is accepted as before, and an unknown
+charset name is ignored, as before. The check runs in Django middleware, so it applies to every
+operation Django serves (the <code>/mcp</code> mount is outside Django and never sees it); the schema hook
+documents the <code>400</code> error envelope on every operation.</p>
 <p><em>(Changed in 1.3, #2073)</em> Two limits are raised where no parser runs: a JSON or urlencoded
 body over <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code> (DRF reads <code>request.body</code> before calling the parser),
 and a query string over <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code>. The project <code>EXCEPTION_HANDLER</code> answers both

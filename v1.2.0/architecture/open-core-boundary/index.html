@@ -5039,6 +5039,9 @@
 <p><code>DEFAULT_PAGINATION_CLASS</code> (<code>visiban.pagination.OffsetCountPagination</code>; the default page size of 50 is hardcoded there, <code>PAGE_SIZE</code> is not read), <code>DEFAULT_VERSIONING_CLASS</code>, <code>DEFAULT_VERSION</code>, <code>ALLOWED_VERSIONS</code> and <code>DEFAULT_SCHEMA_CLASS</code> are part of the public API contract.</p>
 </li>
 <li>
+<p><code>MIDDLEWARE</code> must keep <code>visiban.middleware.RequestCharsetMiddleware</code> (#2120), after <code>CorsMiddleware</code> and before anything reads <code>request.GET</code> or <code>request.POST</code>. It answers a request whose <code>Content-Type</code> declares a denied charset (<code>utf-7</code>, <code>unicode-escape</code>, <code>raw-unicode-escape</code>, <code>punycode</code>, <code>idna</code>, <code>undefined</code>, or a non-text codec such as <code>hex</code>) with a JSON <code>400</code>; every other charset passes. Dropping it (an enterprise settings include can replace <code>MIDDLEWARE</code> wholesale) lets <code>charset=utf-7</code> turn plain ASCII in a multipart field or file name (and, under WSGI, the query string) into a lone UTF-16 surrogate, which PostgreSQL rejects as an unhandled <code>500</code>. There is no system check for it (unlike <code>accounts.E005</code>), so this bullet is the only guard.</p>
+</li>
+<li>
 <p><code>EXCEPTION_HANDLER</code> must stay <code>visiban.exceptions.api_exception_handler</code> (#2073), or an override must chain to it. It answers the upload-limit errors Django raises outside a parser (a query string over <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code>, a <code>request.body</code> read over <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code>) with the documented JSON <code>400</code>; dropping it returns those to an HTML <code>400</code> on every view, enterprise ones included.</p>
 </li>
 </ul>
