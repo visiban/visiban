@@ -1012,6 +1012,9 @@ describe('CardDetail', () => {
     await user.keyboard('half typed')
     await user.keyboard('{Escape}')
     expect(screen.getByDisplayValue('Test Card')).not.toHaveFocus()
+    // #2082: focus lands on the panel, never <body>.
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('dialog'))
     // flushSync before blur: the blur handler must not save the half-typed title.
     expect(mockUpdateCard).not.toHaveBeenCalled()
     expect(props.onClose).not.toHaveBeenCalled()
@@ -1036,6 +1039,8 @@ describe('CardDetail', () => {
     await user.keyboard('x')
     await user.keyboard('{Escape}')
     expect(screen.getByDisplayValue('saved')).not.toHaveFocus()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('dialog'))
     expect(props.onClose).not.toHaveBeenCalled()
     await user.keyboard('{Escape}')
     expect(props.onClose).toHaveBeenCalledTimes(1)

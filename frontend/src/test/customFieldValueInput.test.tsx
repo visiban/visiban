@@ -509,7 +509,11 @@ describe('CustomFieldValueInput — Escape through the stack (#2036)', () => {
   const onCommit = vi.fn()
   function Host({ def, onClose, escapePriority }: { def: FieldDefinitionShape; onClose: () => void; escapePriority?: number }) {
     useEscapeStack(onClose, 30)
-    return <CustomFieldValueInput definition={def} value="saved" onCommit={onCommit} escapePriority={escapePriority} />
+    return (
+      <div role="dialog" aria-label="Panel" tabIndex={-1}>
+        <CustomFieldValueInput definition={def} value="saved" onCommit={onCommit} escapePriority={escapePriority} />
+      </div>
+    )
   }
 
   it.each([
@@ -524,11 +528,24 @@ describe('CustomFieldValueInput — Escape through the stack (#2036)', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(input).toHaveValue('saved')
     expect(input).not.toHaveFocus()
+    // #2082: focus moves to the enclosing dialog, never <body>.
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('dialog'))
     // flushSync before blur: the URL blur-commit must not save the half-typed text.
     expect(onCommit).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to blur when there is no focusable dialog ancestor (#2082)', () => {
+    render(<CustomFieldValueInput definition={textDef()} value="saved" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    input.focus()
+    fireEvent.change(input, { target: { value: 'edited' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).toHaveValue('saved')
+    expect(input).not.toHaveFocus()
   })
 
   it('Escape with the input unfocused reaches the host', () => {

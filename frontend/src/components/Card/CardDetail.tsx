@@ -19,6 +19,7 @@ import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
+import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 import ActivityTabPanel from "./ActivityTabPanel";
 import { dropUnknownLabels } from "../../utils/cardLabels";
@@ -650,15 +651,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     focusNewLabelTriggerRef.current = false;
     newLabelTriggerRef.current?.focus();
   }, [addingLabel]);
-  // The title input: Escape reverts an in-progress edit and blurs (priority 43, above the panel's
+  // The title input: Escape reverts an in-progress edit and moves focus to the panel (priority 43, above the panel's
   // 30) instead of also closing the panel. Returns false unless the input has focus, so Escape
-  // still closes the panel when no title edit is in progress (#2036).
+  // still closes the panel when no title edit is in progress (#2036, #2082).
   useEscapeStack(() => {
     const input = titleInputRef.current;
     if (!input || document.activeElement !== input) return false;
     // flushSync: the blur handler must see the reverted title, or it saves the half-typed one.
     flushSync(() => setLocalCard((c) => ({ ...c, title: titleBaselineRef.current })));
-    input.blur();
+    focusEnclosingDialog(input);
   }, 43);
   useEscapeStack(onClose, 30);
 
