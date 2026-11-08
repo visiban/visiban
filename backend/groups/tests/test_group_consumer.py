@@ -5,7 +5,7 @@ and event forwarding. Patterned after ``boards/tests/test_consumer_ping.py``.
 """
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from django.test import TestCase
 
@@ -24,6 +24,10 @@ class GroupConsumerAuthTests(TestCase):
         consumer.send = AsyncMock()
         consumer.close = AsyncMock()
         consumer.accept = AsyncMock()
+        # Records accept/close in order (#2145), see assert_refused_after_accept.
+        consumer.handshake_calls = MagicMock()
+        consumer.handshake_calls.attach_mock(consumer.accept, "accept")
+        consumer.handshake_calls.attach_mock(consumer.close, "close")
         consumer.scope = {
             "url_route": {"kwargs": {"group_id": 1}},
             "user": MagicMock(is_authenticated=authenticated, id=42, must_change_password=False, must_change_username=False),
@@ -36,11 +40,48 @@ class GroupConsumerAuthTests(TestCase):
         consumer._access_verified_at = _now()
         return consumer
 
+    def assert_refused_after_accept(self, consumer, code):
+        """Refused so the code reaches the client (#2145): accept, then close
+        with *code*, and nothing else — no room joined, no frame, no ping."""
+        self.assertEqual(
+            consumer.handshake_calls.mock_calls, [call.accept(), call.close(code=code)]
+        )
+        consumer.channel_layer.group_add.assert_not_awaited()
+        consumer.send.assert_not_called()
+        self.assertIsNone(consumer._ping_task)
+        self.assertFalse(consumer._joined)
+
     def test_unauthenticated_closed_with_4001(self):
         consumer = self._make_consumer(authenticated=False)
         asyncio.run(consumer.connect())
-        consumer.close.assert_called_once_with(code=4001)
-        consumer.accept.assert_not_called()
+        self.assert_refused_after_accept(consumer, 4001)
+
+    def test_pending_account_change_closed_with_4003(self):
+        """The shared account-state gate (#1517) refuses before any lookup."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].must_change_username = True
+
+        async def run():
+            with patch.object(consumer, "_has_access", return_value=True) as has_access:
+                await consumer.connect()
+            self.assert_refused_after_accept(consumer, 4003)
+            has_access.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_disconnect_after_a_refusal_is_safe(self):
+        """A refused socket never joined the room, so disconnect() neither
+        discards it nor touches a ping task (#2145)."""
+        consumer = self._make_consumer()
+
+        async def run():
+            with patch.object(consumer, "_has_access", return_value=False):
+                await consumer.connect()
+            await consumer.disconnect(4003)
+            consumer.channel_layer.group_discard.assert_not_awaited()
+            self.assertIsNone(consumer._ping_task)
+
+        asyncio.run(run())
 
     def test_connect_without_a_recorded_credential_closes_with_4001(self):
         """An authenticated scope with no recorded credential is never admitted (#1483)."""
@@ -50,8 +91,7 @@ class GroupConsumerAuthTests(TestCase):
         async def run():
             with patch.object(consumer, "_has_access", return_value=True) as has_access:
                 await consumer.connect()
-            consumer.close.assert_called_once_with(code=4001)
-            consumer.accept.assert_not_called()
+            self.assert_refused_after_accept(consumer, 4001)
             has_access.assert_not_called()
 
         asyncio.run(run())
@@ -122,8 +162,7 @@ class GroupConsumerAuthTests(TestCase):
         async def run():
             with patch.object(consumer, "_has_access", return_value=False):
                 await consumer.connect()
-            consumer.close.assert_called_once_with(code=4003)
-            consumer.accept.assert_not_called()
+            self.assert_refused_after_accept(consumer, 4003)
 
         asyncio.run(run())
 

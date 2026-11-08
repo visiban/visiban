@@ -20,7 +20,7 @@ from django.core.cache import cache
 from django.test import TransactionTestCase
 
 from accounts.models import User
-from accounts.tests.ws_helpers import session_ticket
+from accounts.tests.ws_helpers import handshake, session_ticket
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -47,7 +47,7 @@ def _connect(path):
 
     async def run():
         communicator = WebsocketCommunicator(asgi.application, path)
-        connected, detail = await communicator.connect()
+        connected, detail = await handshake(communicator)
         if connected:
             await communicator.disconnect()
             return True, None

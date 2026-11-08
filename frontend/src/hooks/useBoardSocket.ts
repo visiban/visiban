@@ -46,6 +46,12 @@ const PING_TIMEOUT_MS = 45_000;
  *     the session cookie is invalid or the user is no longer a board member.
  *     Reconnecting would loop indefinitely in those cases. A 4001 also dispatches
  *     `auth:sessionExpired` (like a REST 401); a 4003 probes the session first (#2037).
+ *     The server sends both at the handshake as well as mid-stream: it refuses a
+ *     handshake by accepting and closing at once, so the code arrives (#2145;
+ *     under Daphne a close before accept is an HTTP 403, seen here as 1006). So
+ *     `onopen` can fire, with its onFirstConnected/onReconnected callback, just
+ *     before such a close; the socket carries no frame in between, and the
+ *     callback's REST resync is answered under the same access rule.
  *
  * Code 1011 is deliberately NOT in that list: the server sends it when its
  * mid-stream access re-check could not complete (a database outage, say), or

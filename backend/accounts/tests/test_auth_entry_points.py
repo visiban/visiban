@@ -75,6 +75,7 @@ from rest_framework.views import APIView
 
 from accounts.authentication import PATAuthentication
 from accounts.models import User
+from accounts.tests.ws_helpers import handshake
 from visiban import authorization
 from visiban.authorization import (
     ACCOUNT_GATES,
@@ -1497,7 +1498,7 @@ def handshake_consults_shared_gates(app, route_kwargs) -> tuple[bool, str]:
     async def run():
         communicator = WebsocketCommunicator(injected, "/ws/probe/")
         try:
-            connected, _ = await communicator.connect(timeout=2)
+            connected, _ = await handshake(communicator, timeout=2)
             if connected:
                 await communicator.disconnect()
         except Exception as exc:  # noqa: BLE001 — any crash means the gate did not decide

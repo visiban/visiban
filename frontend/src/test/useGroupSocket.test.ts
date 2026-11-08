@@ -127,6 +127,24 @@ describe('useGroupSocket', () => {
       expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
     })
 
+    // The server refuses a handshake by accepting and closing at once (#2145),
+    // so a refusal reaches the hook as onopen followed by the close code.
+    it.each([
+      [4001, 1, 0],
+      [4003, 0, 1],
+    ])('a %i right after open (handshake refusal) stops as failed', (code, signOuts, probes) => {
+      const { expired, stop } = listen()
+      const { result } = renderHook(() => useGroupSocket(1, vi.fn()))
+      act(() => { latestWS().onopen?.() })
+      act(() => { latestWS().onclose?.({ code }) })
+      act(() => { vi.advanceTimersByTime(10_000) })
+      stop()
+      expect(result.current.status).toBe('failed')
+      expect(instances).toHaveLength(1)
+      expect(expired).toHaveBeenCalledTimes(signOuts)
+      expect(probeSession).toHaveBeenCalledTimes(probes)
+    })
+
     it('a close after unmount neither dispatches nor probes', () => {
       const { expired, stop } = listen()
       const { unmount } = renderHook(() => useGroupSocket(1, vi.fn()))

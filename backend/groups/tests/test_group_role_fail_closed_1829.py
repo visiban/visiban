@@ -34,7 +34,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.tests.ws_helpers import bound_scope, session_ticket
+from accounts.tests.ws_helpers import bound_scope, handshake, session_ticket
 from boards.models import Board, BoardMembership
 from boards.permissions import get_board_role
 from groups.consumers import ACCESS_RECHECK_SECONDS, GroupConsumer, _user_can_access_group_id
@@ -208,8 +208,9 @@ class GroupChannelHandshakeTests(TransactionTestCase):
         async def run():
             ticket, _ = await sync_to_async(session_ticket)(self.user)
             comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-            connected, code = await comm.connect()
-            await comm.disconnect()
+            connected, code = await handshake(comm)
+            if connected:
+                await comm.disconnect()
             return connected, code
 
         return asyncio.run(run())

@@ -5,7 +5,7 @@ import secrets
 import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
+from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user, refuse_handshake
 from visiban.authorization import authorize_account
 
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
@@ -74,6 +74,10 @@ ACCESS_RECHECK_JITTER_SECONDS = 2
 # already means "server error, retry" on this channel. Shared with GroupConsumer.
 CLOSE_ACCESS_DENIED = 4003
 CLOSE_ACCESS_CHECK_FAILED = 1011
+# Close code for a handshake with no valid credential: the client treats it as
+# "signed out" (the web app signs the user out, #2037). Shared with
+# GroupConsumer; sent through refuse_handshake so it reaches the client (#2145).
+CLOSE_NO_CREDENTIAL = 4001
 
 # SystemRandom (from secrets), not the random module, so bandit has nothing to
 # flag. This is load spreading, not a security value.
@@ -122,6 +126,9 @@ class BoardConsumer(AsyncWebsocketConsumer):
     # This socket's current window: ACCESS_RECHECK_SECONDS plus its own jitter,
     # redrawn on each successful check.
     _access_window = ACCESS_RECHECK_SECONDS
+    # True once connect() has added this socket to the board's channel-layer
+    # group; only then does disconnect() discard it (#2145).
+    _joined = False
 
     async def connect(self):
         self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
@@ -130,11 +137,16 @@ class BoardConsumer(AsyncWebsocketConsumer):
         self._role = None
         user = self.scope["user"]
 
+        # Every refusal below goes through refuse_handshake (accept, then
+        # close at once) so the 4001/4003 reaches the client: a close before
+        # accept is an HTTP 403 under Daphne (#2145). Each one returns before
+        # the group_add, the ping task and any frame, so a refused socket
+        # carries nothing but the accept and the close.
         if not user.is_authenticated or not self.scope.get(WS_CREDENTIAL_SCOPE_KEY):
             # No recorded credential (#1483) means nothing the re-check could
             # later find revoked, so the socket is never admitted. The auth
             # middleware records one on every authenticated handshake.
-            await self.close(code=4001)
+            await refuse_handshake(self, CLOSE_NO_CREDENTIAL)
             return
 
         if not authorize_account(user):
@@ -143,18 +155,19 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # access check via load_live_ws_user. Must stay before any
             # database lookup; accounts/tests/test_auth_entry_points.py
             # checks every routed consumer for this call.
-            await self.close(code=4003)
+            await refuse_handshake(self, CLOSE_ACCESS_DENIED)
             return
 
         role = await self._resolve_role(user, self.board_id)
         if role is None:
-            await self.close(code=4003)
+            await refuse_handshake(self, CLOSE_ACCESS_DENIED)
             return
         self._role = role
         self._access_verified_at = _now()
         self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
 
         await self.channel_layer.group_add(self.room, self.channel_name)
+        self._joined = True
         await self.accept()
         self._ping_task = asyncio.ensure_future(self._ping_loop())
 
@@ -162,7 +175,12 @@ class BoardConsumer(AsyncWebsocketConsumer):
         if self._ping_task is not None:
             self._ping_task.cancel()
             self._ping_task = None
-        await self.channel_layer.group_discard(self.room, self.channel_name)
+        # A refused handshake never joined the room (#2145): skip the
+        # channel-layer round trip, which could only fail (and log an ERROR
+        # traceback) during a channel-layer outage.
+        if self._joined:
+            self._joined = False
+            await self.channel_layer.group_discard(self.room, self.channel_name)
 
     async def _ping_loop(self):
         """Send a keepalive ping every PING_INTERVAL seconds.

@@ -53,7 +53,9 @@ application = ProtocolTypeRouter(
         # the handshake with 1011 instead of escaping as a Daphne HTTP 500
         # whose log line carries the exception message. It never fails open:
         # a caught outage always ends in a close. Under Daphne that pre-accept
-        # close still reaches a browser as HTTP 403 (#2145).
+        # close reaches a browser as HTTP 403, a failed upgrade it retries;
+        # the consumers' own 4001/4003 refusals accept first so their code
+        # arrives (accounts.ws_auth.refuse_handshake, #2145).
         "websocket": OptionalOriginValidator(
             HandshakeOutageMiddleware(
                 AuthMiddlewareStack(

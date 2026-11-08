@@ -101,7 +101,9 @@ export function useGroupSocket(
           // 4001 (no valid credential) dispatches directly. A 4003 is
           // ambiguous (revoked credential, or merely lost group access, where
           // signing out would be wrong), so it probes the session and lets the
-          // 401 interceptor sign out only if the session is dead.
+          // 401 interceptor sign out only if the session is dead. Either code
+          // can arrive at the handshake, right after onopen: the server
+          // accepts and closes at once so the code reaches us (#2145).
           if (checkAndFlagDemoReset() || e.code === 4001) {
             window.dispatchEvent(new Event("auth:sessionExpired"));
           } else {

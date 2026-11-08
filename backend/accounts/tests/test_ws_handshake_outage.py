@@ -32,7 +32,7 @@ from django.test import TransactionTestCase, override_settings
 
 from accounts.models import User
 from accounts.tests.ws_cache_engine import OWN_CACHE
-from accounts.tests.ws_helpers import login_session, session_ticket
+from accounts.tests.ws_helpers import handshake, login_session, session_ticket
 from accounts.ws_auth import CLOSE_AUTH_UNAVAILABLE, _ticket_cache_key
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
@@ -54,7 +54,7 @@ def _connect(path, session_key=None):
 
     async def run():
         communicator = WebsocketCommunicator(asgi.application, path, headers=headers)
-        connected, detail = await communicator.connect()
+        connected, detail = await handshake(communicator)
         if connected:
             await communicator.disconnect()
             return True, None

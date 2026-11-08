@@ -35,3 +35,35 @@ def bound_scope(user, session_key=None):
     """
     key = session_key or login_session(user)
     return {WS_CREDENTIAL_SCOPE_KEY: _bind(session_credential(key), user)}
+
+
+async def handshake(communicator, timeout=1):
+    """Connect *communicator*; return ``(admitted, close_code)`` as a client sees it.
+
+    The board and group consumers refuse a handshake by accepting and closing
+    at once (``accounts.ws_auth.refuse_handshake``, #2145), so their 4001/4003
+    reach a client under Daphne; the middlewares' 1011 and origin refusals
+    still close before accept. Both count as a refusal here, so a test reads
+    the same ``(False, code)`` either way. ``WebsocketCommunicator.connect``
+    alone reports ``(True, None)`` for an accept-then-close.
+
+    A refused-after-accept socket is disconnected here, so the consumer's
+    ``disconnect()`` runs (and any error in it fails the test). Anything but
+    the close right after the accept fails the test: a refused socket must
+    carry no frame. An admitted socket is left open for the caller. So this
+    is for handshakes whose admitted socket stays quiet for 0.1 s; a test that
+    shortens the keepalive ping reads ``connect()`` itself.
+    """
+    connected, detail = await communicator.connect(timeout=timeout)
+    if not connected:
+        return False, detail
+    # The refusal's close follows the accept with no await in between, so it
+    # is queued at once; an admitted socket sends nothing until its first
+    # broadcast or keepalive ping.
+    if await communicator.receive_nothing(timeout=0.1):
+        return True, None
+    message = await communicator.receive_output(timeout=timeout)
+    if message.get("type") != "websocket.close":
+        raise AssertionError(f"expected a close or nothing right after accept, got {message!r}")
+    await communicator.disconnect()
+    return False, message.get("code", 1000)
