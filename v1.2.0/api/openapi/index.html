@@ -4430,12 +4430,13 @@ against instead of silently skipping an undocumented one. It never overwrites a 
 operation already declares — the card-mutation 409s (<code>WipLimitExceeded</code>, <code>VersionConflict</code>,
 etc. — see <code>boards/services/errors.py</code>) and the move/comments/checklist/share/members
 <code>@extend_schema</code> blocks from #1108 still win.</p>
-<p><strong>Validation errors (<code>400</code>).</strong> The same hook documents a <code>400</code> on every operation that reads
-client input — one that takes a body (<code>POST</code>/<code>PUT</code>/<code>PATCH</code>) or query parameters — using DRF's validation-error
+<p><strong>Validation errors (<code>400</code>).</strong> The same hook documents a <code>400</code> on every operation — including
+a path-parameter-only <code>GET</code> or <code>DELETE</code> — using DRF's validation-error
 shape: an object keyed by field name (or <code>detail</code>), or an array of messages
 (<a href="https://gitlab.com/visiban/visiban/-/issues/1165">#1165</a>, closing the gap tracked in
-<a href="https://gitlab.com/visiban/visiban/-/issues/1124">#1124</a>). A path-parameter-only lookup
-cannot answer <code>400</code>, so it is not documented there. Because it is a whole-class rule, a new
+<a href="https://gitlab.com/visiban/visiban/-/issues/1124">#1124</a>). A path-parameter-only lookup has
+no input of its own to refuse, but it can still answer the server-limit <code>400</code> described
+below (<a href="https://gitlab.com/visiban/visiban/-/issues/2140">#2140</a>). Because it is a whole-class rule, a new
 write endpoint gets its <code>400</code> for free and never needs a per-operation baseline entry.</p>
 <p>A form body over one of Django's upload limits is in that class too:
 <code>DATA_UPLOAD_MAX_NUMBER_FILES</code> and <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code> for a multipart or
@@ -4461,8 +4462,9 @@ multi-select custom field value, is checked after it is decoded. The same refusa
 body over <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code> (DRF reads <code>request.body</code> before calling the parser),
 and a query string over <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code>. The project <code>EXCEPTION_HANDLER</code> answers both
 with the same JSON <code>400</code>. Because content negotiation reads the query string on every request, any
-operation can answer it, including the ones whose schema entry documents no <code>400</code>; documenting it
-on every operation is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/2140">#2140</a>.</p>
+operation can answer it, so the hook documents the <code>400</code> on every operation
+(<a href="https://gitlab.com/visiban/visiban/-/issues/2140">#2140</a>). An operation that already declares
+its own <code>400</code> keeps it.</p>
 <p><strong>Server-layer multipart rejections are filtered, not baselined.</strong> When a request's
 <code>Content-Type</code> is <code>multipart/form-data</code> but the body is malformed, the ASGI server
 (Twisted, under daphne) answers a bare <code>400</code> — no body, no <code>Content-Type</code> — before Django or
