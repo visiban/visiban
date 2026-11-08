@@ -4498,8 +4498,8 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 </tr>
 <tr>
 <td>WebSocket handshake</td>
-<td><code>accounts/ws_auth.py</code> <code>TicketAuthMiddleware</code>, <code>_resolve_ticket_user</code>; Channels <code>AuthMiddlewareStack</code></td>
-<td><code>_resolve_ticket_user</code> refuses an inactive user at redemption (<code>visiban.authorization.INACTIVE</code>); <code>AuthMiddlewareStack</code> resolves the session user through Django's auth backends</td>
+<td><code>accounts/ws_auth.py</code> <code>TicketAuthMiddleware</code>, <code>_resolve_ticket_user</code>, <code>HandshakeOutageMiddleware</code>; Channels <code>AuthMiddlewareStack</code></td>
+<td><code>_resolve_ticket_user</code> refuses an inactive user at redemption (<code>visiban.authorization.INACTIVE</code>); <code>AuthMiddlewareStack</code> resolves the session user through Django's auth backends. A database or cache outage while the handshake is authenticated or a routed consumer's <code>connect()</code> runs (enterprise consumers included) is refused with <code>1011</code> by <code>HandshakeOutageMiddleware</code>, which wraps <code>AuthMiddlewareStack</code> from outside, and the socket is never admitted (#2086, #2144; <code>accounts/tests/test_ws_handshake_outage.py</code>)</td>
 </tr>
 <tr>
 <td>WebSocket (board)</td>
@@ -4613,7 +4613,7 @@ re-checks.</p>
 <tr>
 <td>WebSocket handshake</td>
 <td><code>accounts/ws_auth.py</code> <code>_resolve_ticket_user</code>; Channels <code>AuthMiddlewareStack</code></td>
-<td>Ticket redemption refuses an inactive user; the session handshake uses Django's auth backends</td>
+<td>Ticket redemption refuses an inactive user; the session handshake uses Django's auth backends; a handshake whose checks raise a database or cache outage is refused with <code>1011</code>, never admitted (<code>HandshakeOutageMiddleware</code>, #2144)</td>
 </tr>
 <tr>
 <td>WebSocket (board)</td>
