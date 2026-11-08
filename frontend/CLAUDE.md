@@ -247,6 +247,7 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **Active tab** (e.g. "Board"): `bg-primary text-on-primary rounded px-3 py-1 text-sm font-medium`
 - **Inactive tabs** (e.g. "Summary", "Analytics"): `text-fg-tertiary hover:text-fg hover:bg-surface-active px-3 py-1 text-sm rounded` — same height and padding as the active tab so the bar never shifts (the active tab adds only `font-medium`); the tabs sit in a `bg-surface-hover rounded p-0.5` group, so the hover uses the stronger `bg-surface-active` to stay visible
 - **Vertical separators** between logical groups: `<div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />` (see § Top chrome), never a `|` character
+- **Decorative glyphs are `aria-hidden="true"`** — a `+`, `·`, `/`, `⋯` or `×` that only decorates (the hover "+" via `SeparatorPlus` in `RowSeparator`/`ColumnSeparator`/`SwimlaneRow`, breadcrumb `/` and `·` dividers, the "+" beside a button label) is hidden from assistive tech, never the only content of an interactive element. A bare `eslint-disable` also needs a `-- reason` (see `docs/development/suppressions.md`)
 - **Connection status**: use the `ConnectionStatus` component (see § Connection status indicator below) — single canonical component for the sub-nav live indicator and for the group detail header
 - **Settings and utilities** (shortcuts, export, board settings): icon-only buttons sharing one treatment, `p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover` plus the standard focus ring
 

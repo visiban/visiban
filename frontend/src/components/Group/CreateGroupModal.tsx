@@ -111,7 +111,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center">
               {breadcrumbParts.map((part, i) => (
                 <span key={part.id} className="flex items-center">
-                  {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
+                  {i > 0 && <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>}
                   <span
                     className={`text-sm max-w-[12rem] truncate ${i === breadcrumbParts.length - 1 ? "text-fg font-medium" : "text-fg-tertiary"}`}
                     title={part.name}

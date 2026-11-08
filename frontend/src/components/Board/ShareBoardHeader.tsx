@@ -22,7 +22,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
       />
 
       {/* Separator */}
-      <span className="text-fg-faint select-none">/</span>
+      <span className="text-fg-faint select-none" aria-hidden="true">/</span>
 
       {/* Board name */}
       <span className="truncate min-w-0 text-sm text-fg-secondary" title={boardName}>

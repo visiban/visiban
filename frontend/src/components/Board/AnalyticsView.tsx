@@ -518,7 +518,7 @@ export default function AnalyticsView({
       {/* Beta notice — remove when analytics is declared stable */}
       <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-line bg-surface">
         <span className="text-xs text-warning font-medium">Beta</span>
-        <span className="text-fg-faint select-none">·</span>
+        <span className="text-fg-faint select-none" aria-hidden="true">·</span>
         <span className="text-xs text-fg-tertiary">
           Analytics data may be incomplete in some configurations. Results are best used as directional guidance.
         </span>

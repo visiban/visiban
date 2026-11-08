@@ -650,7 +650,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
               demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg"
             }`}
           >
-            <span className="text-base leading-none">+</span>
+            <span className="text-base leading-none" aria-hidden="true">+</span>
             <span>New board</span>
           </button>
           <button
@@ -662,7 +662,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
               demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg"
             }`}
           >
-            <span className="text-base leading-none">+</span>
+            <span className="text-base leading-none" aria-hidden="true">+</span>
             <span>New group</span>
           </button>
         </div>

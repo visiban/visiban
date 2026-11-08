@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import SeparatorPlus from "./SeparatorPlus";
 
 const DRAG_THRESHOLD = 4; // px — movement beyond this is a resize, not a click
 
@@ -64,7 +65,7 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
 
       {isAdmin && highlighted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span aria-hidden="true" className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
+          <SeparatorPlus className="text-[10px]" />
         </div>
       )}
     </div>

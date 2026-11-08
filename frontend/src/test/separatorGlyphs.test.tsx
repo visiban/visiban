@@ -2,10 +2,16 @@ import { render, fireEvent } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import RowSeparator from '../components/Board/RowSeparator'
 import ColumnSeparator from '../components/Board/ColumnSeparator'
+import SeparatorPlus from '../components/Board/SeparatorPlus'
 
 // The hover "+" is purely decorative (the separator itself is the control), so
 // it must be hidden from assistive tech or it is announced as a stray "+".
 describe('separator hover glyphs are aria-hidden (#2012)', () => {
+  it('SeparatorPlus (also used by SwimlaneRow) is aria-hidden', () => {
+    const { getByText } = render(<SeparatorPlus className="text-xs" />)
+    expect(getByText('+')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('ColumnSeparator "+" is aria-hidden when highlighted', () => {
     const { getByText } = render(
       <ColumnSeparator
