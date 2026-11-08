@@ -1,3 +1,4 @@
+import codecs
 import functools
 import ipaddress
 import logging
@@ -23,6 +24,53 @@ logger = logging.getLogger(__name__)
 # Addresses trusted by default when no DJANGO_ADMIN_ALLOWED_IPS env var is set.
 # Loopback addresses only — matches both IPv4 and the IPv6 loopback.
 _LOOPBACK_IPS = ("127.0.0.1", "::1")
+
+
+# Request charsets Django may decode a query string, form field or file name
+# with. Every one maps each byte sequence to either a valid code point or
+# U+FFFD, never to a lone UTF-16 surrogate (the UTF-16/32 decoders reject an
+# unpaired one). The UTF-16/32 family stays allowed because a JSON body in
+# those encodings is valid and was accepted before #2120.
+_SAFE_REQUEST_CODECS = frozenset({
+    "utf-8", "ascii", "iso8859-1", "iso8859-15", "cp1252",
+    "utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be",
+})
+
+
+class RequestCharsetMiddleware:
+    """Refuse a request whose ``Content-Type`` declares an unsafe ``charset`` (#2120).
+
+    WHY: Django honors ``charset=`` on the request's ``Content-Type`` for
+    ``request.GET``, ``request.POST`` and multipart field/file names. A
+    codec such as ``utf-7`` (``?search=%2B2AA-`` decodes to ``"\\ud800"``) turns
+    plain ASCII into a lone UTF-16 surrogate, which UTF-8 cannot encode, so
+    psycopg raises on PostgreSQL and the request is an unhandled 500. #2085
+    guarded only the JSON body. Refusing at the one place the encoding is chosen
+    covers every surface, including views added later, instead of patching each
+    reader. Browsers only ever send UTF-8 or a legacy single-byte charset, which
+    stay allowed; an unknown charset name is already ignored by Django.
+
+    Runs first so nothing has touched ``request.GET``/``POST`` yet. Answers the
+    documented JSON ``{"detail": ...}`` 400.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # ``request.encoding`` is what Django set from the Content-Type charset
+        # (None when absent or unknown).
+        encoding = request.encoding
+        if encoding:
+            try:
+                name = codecs.lookup(encoding).name
+            except LookupError:
+                name = None
+            if name is not None and name not in _SAFE_REQUEST_CODECS:
+                return JsonResponse(
+                    {"detail": "Unsupported request charset. Use UTF-8."}, status=400
+                )
+        return self.get_response(request)
 
 
 class AdminIPRestrictionMiddleware:

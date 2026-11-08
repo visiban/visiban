@@ -210,8 +210,14 @@ identifier (a client-chosen name is never echoed unbounded). Two differences fro
 first offending field is named, and a surrogate in a field the endpoint would have ignored (an
 unknown key, say) is now a `400` where it was a `200`. A valid pair such as an emoji
 (`"\ud83d\ude00"`) is accepted unchanged. A JSON-encoded value inside a string, such as a
-multi-select custom field value, is checked after it is decoded. The same refusal applies to a `JSONField` value sent form-encoded or multipart. It does not cover a query string or a form body sent with an unusual `charset` (for example `utf-7`), which can still answer `500`
-([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)).
+multi-select custom field value, is checked after it is decoded. The same refusal applies to a `JSONField` value sent form-encoded or multipart.
+
+A request whose `Content-Type` declares a `charset` other than UTF-8, US-ASCII, ISO-8859-1,
+ISO-8859-15, Windows-1252 or UTF-16/32 is a `400` with `{"detail": "Unsupported request charset. Use UTF-8."}`
+on every endpoint ([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)). Django decodes the
+query string, form fields and multipart field and file names with the declared charset, and a codec
+such as `utf-7` turns plain ASCII (`?search=%2B2AA-`) into a lone surrogate that PostgreSQL cannot
+store. An unknown charset name is ignored, as before.
 
 *(Changed in 1.3, #2073)* Two limits are raised where no parser runs: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),

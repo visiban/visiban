@@ -171,15 +171,15 @@ class LoneSurrogateRestTests(TestCase):
     # -- charsets: a surrogate with no \\u escape in the bytes ---------------
 
     def test_utf7_raw_surrogate_is_a_400(self):
-        # "+2AA-" is UTF-7 for U+D800; the bytes carry no "\\ud800" escape, so
-        # only the encoding check keeps the prefilter from skipping the walk.
-        # An unknown key, NOT a CharField such as "title": DRF's own CharField
-        # check would answer 400 for that even with this parser's check removed.
+        # "+2AA-" is UTF-7 for U+D800; the bytes carry no "\\ud800" escape.
+        # Since #2120 RequestCharsetMiddleware refuses the charset itself
+        # (see test_request_charset.py); the 400 is no longer field-keyed.
         resp = self.client.patch(
             self.card_url, data=b'{"nonsense": "a+2AA-b"}',
             content_type="application/json; charset=utf-7",
         )
-        self.assertRefused(resp, "nonsense")
+        self.assertEqual(resp.status_code, 400, resp.content[:300])
+        self.assertEqual(resp.json(), {"detail": "Unsupported request charset. Use UTF-8."})
 
     def test_utf16_escape_is_a_400(self):
         # In UTF-16 the escape is not the ASCII bytes the prefilter searches for.

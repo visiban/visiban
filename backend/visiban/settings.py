@@ -329,6 +329,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First: refuses a charset (utf-7) that decodes to a lone surrogate (#2120).
+    "visiban.middleware.RequestCharsetMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
