@@ -90,6 +90,8 @@ except ImportError:  # not POSIX: no advisory locks, the state writes stay atomi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "lib"))
+sys.path.insert(0, HERE)
+from _paths import PathEscapeError, resolve_within  # noqa: E402  (#2152: confine state/session paths)
 MR_CREATE_RE = re.compile(r"(?:^|[\s;&|(])glab\s+mr\s+create(?:\s|$)")
 MR_URL_RE = re.compile(r"/-/merge_requests/(\d{1,9})(?![\d])")
 # `https://<host>/<namespace/project>/-/merge_requests/<n>`: the project is everything between the host and `/-/`.
@@ -256,6 +258,10 @@ def window_end(notes, me, now, start):
 
 def find_session_dir(sid, projects_dir):
     hits = sorted(h for h in glob.glob(os.path.join(glob.escape(projects_dir), "*", sid)) if os.path.isdir(h))
+    try:  # a match that resolves (symlink, `..`) outside the projects dir is no session dir (#2152)
+        hits = [str(resolve_within(projects_dir, h)) for h in hits]
+    except PathEscapeError:
+        return None
     return hits[0] if len(hits) == 1 else None
 
 
@@ -366,7 +372,7 @@ def state_lock(sid):
         return
     d = os.path.join(config_root(), "mr-cost-state")
     os.makedirs(d, exist_ok=True)
-    fd = os.open(os.path.join(d, sid + ".lock"), os.O_CREAT | os.O_RDWR, 0o600)
+    fd = os.open(resolve_within(d, os.path.join(d, sid + ".lock")), os.O_CREAT | os.O_RDWR, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -379,8 +385,17 @@ def pin_key(project, branch):
     return "%s:%s" % (project or "?", branch)
 
 
+def _confined(root, name):
+    """root/mr-cost-state/<name>, refused (StateError) when it resolves outside root (#2152: a
+    symlinked mr-cost-state dir or an odd sid must not redirect the state write)."""
+    try:
+        return str(resolve_within(root, os.path.join(root, "mr-cost-state", name)))
+    except PathEscapeError as e:
+        raise StateError("path escapes the config directory") from e
+
+
 def state_path(root, sid):
-    return os.path.join(root, "mr-cost-state", sid + ".json")
+    return _confined(root, sid + ".json")
 
 
 def read_state(root, sid):
@@ -467,7 +482,7 @@ def write_pending(root, sid, state, pending):
 # --- agents pinned to a branch (--measure --pin) -------------------------------------------
 
 def pins_path(root, sid):
-    return os.path.join(root, "mr-cost-state", sid + ".pins.json")
+    return _confined(root, sid + ".pins.json")
 
 
 def read_pins(root, sid):
@@ -1232,7 +1247,7 @@ def golden_cases(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         gstate = os.path.join(tmp, "glab-state.json")
         with open(gstate, "w", encoding="utf-8") as f:
             json.dump({"mrs": sc["mrs"], "notes": {}, "next_id": 1}, f)
@@ -1709,7 +1724,7 @@ def golden_two_repos(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         empty = os.path.join(tmp, "gitconfig")
         open(empty, "w").close()
         os.environ.update({"PATH": bindir + os.pathsep + saved_env.get("PATH", ""), "GIT_CONFIG_GLOBAL": empty,
@@ -1814,7 +1829,7 @@ def golden_worktrees(check):
         shim = os.path.join(bindir, "glab")
         with open(shim, "w", encoding="utf-8") as f:
             f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
-        os.chmod(shim, 0o755)
+        os.chmod(shim, 0o700)  # owner-only exec is enough for a test shim
         empty = os.path.join(tmp, "gitconfig")
         open(empty, "w").close()
         gstate = os.path.join(tmp, "glab-state.json")
@@ -2183,8 +2198,8 @@ def _self_test():
     check("home: a tie between two worktrees is no home (the brief decides)",
           agent_home(transcript(("Bash", {"command": "cd %s" % wa}), ("Bash", {"command": "cd %s" % wb})), wts0) is None)
     check("home: writes that are not a majority fall through to the cd rule",
-          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": "/tmp/scratch/n.md"}),
-                                ("Write", {"file_path": "/tmp/scratch/m.md"}), ("Bash", {"command": "cd %s" % wa})), wts0) == ("leaf", "101-first"))
+          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": "/scratch-2152/n.md"}),
+                                ("Write", {"file_path": "/scratch-2152/m.md"}), ("Bash", {"command": "cd %s" % wa})), wts0) == ("leaf", "101-first"))
     wl = [(top, "main"), (top + "/.claude/worktrees/agent-p", "feat/1-p"), (top + "/.claude/worktrees/agent-q", "feat/2-q")]
     check("home: a path in a listed worktree is that worktree's BRANCH; the deepest wins, so a worker under .claude/worktrees is never the main checkout",
           agent_home(transcript(("Edit", {"file_path": top + "/.claude/worktrees/agent-p/x.py"})), wl) == ("branch", "feat/1-p")

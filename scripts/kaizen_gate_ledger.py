@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -564,6 +565,16 @@ def to_jsonable(result):
     }
 
 
+def _gate_row_close(got: dict, want: dict) -> bool:
+    """Dict equality that compares the float fields with a tolerance (python:S1244)."""
+    if got.keys() != want.keys():
+        return False
+    return all(
+        math.isclose(got[k], want[k]) if isinstance(want[k], float) else got[k] == want[k]
+        for k in want
+    )
+
+
 def self_test() -> int:
     """Offline proof that the ledger and cost readers still fire (#1093 house rule). The wider
     regression suite is scripts/tests/kaizen_gate_ledger.test.sh, run in the same CI job."""
@@ -590,14 +601,14 @@ def self_test() -> int:
         ("regression-check: 3 runs, 2 positive, 1 skipped", (rc.runs, rc.positive, rc.skipped) == (3, 2, 1)),
         ("perf-check: n/a is not a run", (r["gates"]["perf-check"].runs, r["gates"]["perf-check"].na) == (1, 1)),
         ("cost states: 2 recorded, 1 disabled, 2 none", (c["recorded"], c["disabled"], c["none"]) == (2, 1, 2)),
-        ("a `## Notes` figure is not read", c["by_class"]["feat"]["mean_subagent_tokens"] == 2000.0),
-        ("feat mean est. cost 3.00", c["by_class"]["feat"]["mean_est_cost_usd"] == 3.0),
+        ("a `## Notes` figure is not read", math.isclose(c["by_class"]["feat"]["mean_subagent_tokens"], 2000.0)),
+        ("feat mean est. cost 3.00", math.isclose(c["by_class"]["feat"]["mean_est_cost_usd"], 3.0)),
         ("a disabled class is disabled, its mean None", c["by_class"]["fix"]["state"] == "disabled"
          and c["by_class"]["fix"]["mean_est_cost_usd"] is None),
         ("a malformed cost line is flagged, not read as 0", c["malformed"] == [4] and c["by_class"]["docs"]["state"] == "none"),
-        ("per gate: ran vs n/a and findings per USD", c["by_gate"]["perf-check"] == {
-            "ran_costed": 1, "mean_est_cost_usd_ran": 4.0, "na_costed": 1, "mean_est_cost_usd_na": 2.0, "findings_per_usd": 0.25}),
-        ("regression-check findings per USD = 2 / 6.00", c["by_gate"]["regression-check"]["findings_per_usd"] == 0.33),
+        ("per gate: ran vs n/a and findings per USD", _gate_row_close(c["by_gate"]["perf-check"], {
+            "ran_costed": 1, "mean_est_cost_usd_ran": 4.0, "na_costed": 1, "mean_est_cost_usd_na": 2.0, "findings_per_usd": 0.25})),
+        ("regression-check findings per USD = 2 / 6.00", math.isclose(c["by_gate"]["regression-check"]["findings_per_usd"], 0.33)),
         ("an all-off window reads disabled", analyze([mrs[2]])["cost"]["state"] == "disabled"
          and "nothing recorded, by choice" in "\n".join(render_cost(analyze([mrs[2]])["cost"]))),
         ("an empty window reads not recorded yet, never 0", analyze([mrs[4]])["cost"]["state"] == "none"

@@ -77,10 +77,10 @@ export interface JoinTokenPreview {
 }
 
 export const resolveJoinToken = async (token: string) =>
-  client.get<JoinTokenPreview>(`/api/v1/groups/join/${safeJoinToken(token)}/`).then((r) => r.data);
+  client.get<JoinTokenPreview>(`/api/v1/groups/join/${encodeURIComponent(safeJoinToken(token))}/`).then((r) => r.data);
 
 export const joinGroup = async (token: string) =>
-  client.post<Group>(`/api/v1/groups/join/${safeJoinToken(token)}/`).then((r) => r.data);
+  client.post<Group>(`/api/v1/groups/join/${encodeURIComponent(safeJoinToken(token))}/`).then((r) => r.data);
 
 export const transferGroupOwnership = (groupId: number, newOwnerId: number, confirmation: string) =>
   client.post(`/api/v1/groups/${groupId}/transfer-ownership/`, { new_owner_id: newOwnerId, confirmation }).then((r) => r.data);

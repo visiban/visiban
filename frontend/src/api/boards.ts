@@ -62,10 +62,10 @@ export interface BoardJoinResult {
 }
 
 export const resolveBoardJoinToken = async (token: string) =>
-  client.get<BoardJoinPreview>(`/api/v1/boards/join/${safeJoinToken(token)}/`).then((r) => r.data);
+  client.get<BoardJoinPreview>(`/api/v1/boards/join/${encodeURIComponent(safeJoinToken(token))}/`).then((r) => r.data);
 
 export const joinBoard = async (token: string) =>
-  client.post<BoardJoinResult>(`/api/v1/boards/join/${safeJoinToken(token)}/`).then((r) => r.data);
+  client.post<BoardJoinResult>(`/api/v1/boards/join/${encodeURIComponent(safeJoinToken(token))}/`).then((r) => r.data);
 
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);
