@@ -4246,7 +4246,15 @@
 <p><strong>Yes, but:</strong> a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the <a href="../mcp-server/">MCP server</a>, bulk moves, the card detail <strong>Move</strong> button, <strong>Move to…</strong> in a card's <a href="../board/#card-actions-menu">actions menu</a> and <strong>Move card to…</strong> in the <a href="../keyboard-shortcuts/#card-actions-in-the-command-palette">command palette</a>, an admin's <strong>Move anyway (admin override)</strong> after a limit block, and board import never show it. Use <a href="../board/">WIP limits</a> when you need a hard rule.</p>
 <hr />
 <h2 id="write-a-policy">Write a policy<a class="headerlink" href="#write-a-policy" title="Permanent link">&para;</a></h2>
-<p>You need to be a board admin.</p>
+<p>You need to be a board admin. There are two ways in; both use the same editor and save the same policy.</p>
+<p><strong>From Board settings</strong> (every column in one place):</p>
+<ol>
+<li>Open <strong>Board settings → Rules</strong> and find <strong>Column policies</strong>. Every column is listed, including columns you have hidden, with its policy: <strong>No policy</strong>, or the criteria counts and <strong>Advisory</strong> / <strong>Confirm on entry</strong>.</li>
+<li>Expand a column, edit its policy as in steps 2 to 5 below, then click <strong>Save</strong>. <strong>Cancel</strong> discards your edits.</li>
+<li>One column is open at a time. If you open another column with unsaved edits, you are asked whether to discard them. Unsaved edits are also discarded if you switch Board settings tabs or close Board settings.</li>
+</ol>
+<p>Everyone on the board can read these policies in <strong>Board settings → Rules</strong>; only admins can change them.</p>
+<p><strong>From a column:</strong></p>
 <ol>
 <li>In the column header, open the <strong>⋮</strong> menu and choose <strong>Add policy…</strong> (or <strong>Edit settings…</strong>, then the <strong>Policy</strong> tab). On a column that already has a policy, click <strong>Policy</strong> in the header, then <strong>Edit policy</strong>.</li>
 <li>Under <strong>Entry criteria</strong>, click <strong>+ Add criterion</strong> and type one criterion per line, for example <em>Acceptance criteria written</em> or <em>Has an owner</em>.</li>
