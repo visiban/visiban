@@ -283,7 +283,7 @@ test.describe('rich text editor', () => {
     await page.keyboard.type(' @test')
 
     const popup = page.getByTestId('mention-popup')
-    await expect(popup.getByRole('button')).toHaveCount(6, { timeout: 5_000 })
+    await expect(popup.getByRole('option')).toHaveCount(6, { timeout: 5_000 })
 
     // Scroll the panel so the suggestion's anchor (its decoration) sits 60px
     // above the bottom of the panel's visible area.

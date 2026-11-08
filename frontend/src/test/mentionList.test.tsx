@@ -70,8 +70,8 @@ describe('MentionList', () => {
       act(() => {
         ref.current?.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'ArrowDown' }) })
       })
-      // bob's button should now have the selected (bg-surface-hover) style
-      const bobBtn = screen.getByText('@bob').closest('button')
+      // bob's option should now have the selected (bg-surface-hover) style
+      const bobBtn = screen.getByText('@bob').closest('[role="option"]')
       expect(bobBtn?.className).toMatch(/bg-surface-hover/)
     })
 
@@ -89,5 +89,34 @@ describe('MentionList', () => {
       const result = ref.current?.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'Tab' }) })
       expect(result).toBe(false)
     })
+  })
+})
+
+describe('MentionList ARIA (#2137)', () => {
+  // The TipTap suggestion keeps focus in the editor, which this list cannot label as a combobox, so
+  // the list carries listbox/option semantics and the active row via aria-selected only.
+  it('is a listbox of options with the first one selected', () => {
+    render(<MentionList items={[alice, bob]} command={vi.fn()} />)
+    expect(screen.getByRole('listbox', { name: 'Mention suggestions' })).toBeInTheDocument()
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(2)
+    expect(options[0]).toHaveAttribute('aria-selected', 'true')
+    expect(options[1]).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('moves aria-selected with the arrow keys', () => {
+    const ref = createRef<MentionListRef>()
+    render(<MentionList ref={ref} items={[alice, bob]} command={vi.fn()} />)
+    act(() => { ref.current!.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'ArrowDown' }) }) })
+    const options = screen.getAllByRole('option')
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+    expect(options[0]).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('gives every option and each instance a unique id', () => {
+    render(<><MentionList items={[alice, bob]} command={vi.fn()} /><MentionList items={[alice, bob]} command={vi.fn()} /></>)
+    const ids = [...screen.getAllByRole('listbox'), ...screen.getAllByRole('option')].map((e) => e.id)
+    expect(ids.every(Boolean)).toBe(true)
+    expect(new Set(ids).size).toBe(6)
   })
 })

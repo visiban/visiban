@@ -37,7 +37,7 @@ describe('MentionTextarea', () => {
   it('calls onChange when typing', async () => {
     const onChange = vi.fn()
     render(<MentionTextarea value="" onChange={onChange} members={members} />)
-    await userEvent.setup().type(screen.getByRole('textbox'), 'Hi')
+    await userEvent.setup().type(screen.getByRole('combobox'), 'Hi')
     expect(onChange).toHaveBeenCalled()
   })
 
@@ -45,7 +45,7 @@ describe('MentionTextarea', () => {
     let currentValue = ''
     const onChange = (val: string) => { currentValue = val }
     const { rerender } = render(<MentionTextarea value={currentValue} onChange={onChange} members={members} />)
-    const textarea = screen.getByRole('textbox')
+    const textarea = screen.getByRole('combobox')
     await userEvent.setup().type(textarea, '@')
     // Re-render with new value since this is controlled
     rerender(<MentionTextarea value="@" onChange={onChange} members={members} />)
@@ -57,14 +57,14 @@ describe('MentionTextarea', () => {
   it('calls onSubmit on Enter without Shift', async () => {
     const onSubmit = vi.fn()
     render(<MentionTextarea value="Hello" onChange={vi.fn()} onSubmit={onSubmit} members={members} />)
-    const textarea = screen.getByRole('textbox')
+    const textarea = screen.getByRole('combobox')
     await userEvent.setup().type(textarea, '{Enter}')
     expect(onSubmit).toHaveBeenCalledOnce()
   })
 
   it('applies custom className', () => {
     render(<MentionTextarea value="" onChange={vi.fn()} members={members} className="custom-class" />)
-    expect(screen.getByRole('textbox')).toHaveClass('custom-class')
+    expect(screen.getByRole('combobox')).toHaveClass('custom-class')
   })
 })
 
@@ -78,7 +78,7 @@ describe('MentionTextarea Escape (#2036)', () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
     render(<Host onClose={onClose} />)
-    await user.type(screen.getByRole('textbox'), '@')
+    await user.type(screen.getByRole('combobox'), '@')
     expect(screen.getByText('@jdoe')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByText('@jdoe')).not.toBeInTheDocument()
@@ -103,7 +103,7 @@ describe('MentionTextarea suggestion list placement (#2092)', () => {
   async function openList() {
     const user = userEvent.setup()
     render(<MentionTextarea value="" onChange={vi.fn()} members={members} />)
-    const ta = screen.getByRole('textbox')
+    const ta = screen.getByRole('combobox')
     await user.type(ta, '@')
     const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
     return { user, ta, list }
@@ -155,7 +155,7 @@ describe('MentionTextarea suggestion list placement (#2092)', () => {
     const onChange = vi.fn()
     const user = userEvent.setup()
     render(<MentionTextarea value="@" onChange={onChange} members={members} />)
-    const ta = screen.getByRole('textbox')
+    const ta = screen.getByRole('combobox')
     await user.type(ta, 'a')
     await user.click(screen.getByText('@alice'))
     expect(onChange).toHaveBeenLastCalledWith('@alice ')
@@ -167,7 +167,7 @@ describe('MentionTextarea off-screen anchor (#2092)', () => {
   it('hides the list while the textarea is scrolled out of the viewport', async () => {
     const user = userEvent.setup()
     render(<MentionTextarea value="" onChange={vi.fn()} members={members} />)
-    const ta = screen.getByRole('textbox')
+    const ta = screen.getByRole('combobox')
     await user.type(ta, '@')
     const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
     Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
@@ -191,7 +191,7 @@ describe('MentionTextarea re-measure on same-length list (#2092)', () => {
       return <MentionTextarea value={v} onChange={setV} members={[...twoLine, ...oneLine]} />
     }
     render(<Host />)
-    const ta = screen.getByRole('textbox')
+    const ta = screen.getByRole('combobox')
     vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue({ top: 400, bottom: 440, left: 20, right: 320, width: 300, height: 40, x: 20, y: 400, toJSON: () => ({}) } as DOMRect)
     // Height tracks the number of two-line options, as in a real layout.
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
@@ -218,7 +218,7 @@ describe('MentionTextarea placement hardening (#2092)', () => {
     const user = userEvent.setup()
     const ui = <MentionTextarea value="" onChange={vi.fn()} members={members} />
     render(<>{wrap ? wrap(ui) : ui}</>)
-    const ta = screen.getByRole('textbox')
+    const ta = screen.getByRole('combobox')
     vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect)
     await user.type(ta, '@')
     const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
@@ -314,5 +314,118 @@ describe('MentionTextarea placement hardening (#2092)', () => {
     const notPrevented = fireEvent.mouseDown(screen.getByText('@alice'))
     expect(notPrevented).toBe(false) // false = a handler called preventDefault
     expect(ta).toHaveFocus()
+  })
+})
+
+describe('MentionTextarea combobox semantics (#2137)', () => {
+  function Controlled({ initial = '' }: { initial?: string }) {
+    const [v, setV] = useState(initial)
+    return <MentionTextarea value={v} onChange={setV} members={members} />
+  }
+
+  it('is a collapsed combobox with no active descendant while the list is closed', () => {
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    expect(ta).toHaveAttribute('aria-expanded', 'false')
+    expect(ta).toHaveAttribute('aria-autocomplete', 'list')
+    expect(ta).toHaveAttribute('aria-haspopup', 'listbox')
+    expect(ta).not.toHaveAttribute('aria-activedescendant')
+    expect(ta).not.toHaveAttribute('aria-controls')
+    expect(screen.queryByRole('listbox', { hidden: true })).not.toBeInTheDocument()
+  })
+
+  it('exposes the open list as a listbox of options wired to the textarea', async () => {
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    const list = screen.getByRole('listbox', { hidden: true })
+    const options = screen.getAllByRole('option', { hidden: true })
+    expect(options).toHaveLength(2)
+    expect(ta).toHaveAttribute('aria-expanded', 'true')
+    expect(ta).toHaveAttribute('aria-controls', list.id)
+    expect(ta).toHaveAttribute('aria-activedescendant', options[0].id)
+    expect(options[0]).toHaveAttribute('aria-selected', 'true')
+    expect(options[1]).toHaveAttribute('aria-selected', 'false')
+    expect(ta).toHaveFocus()
+  })
+
+  it('moves aria-activedescendant and aria-selected with the arrow keys, focus staying in the textarea', async () => {
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{ArrowDown}')
+    const options = screen.getAllByRole('option', { hidden: true })
+    expect(ta).toHaveAttribute('aria-activedescendant', options[1].id)
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+    expect(options[0]).toHaveAttribute('aria-selected', 'false')
+    expect(ta).toHaveFocus()
+  })
+
+  it('keeps multiline semantics and an accessible name', () => {
+    render(<MentionTextarea value="" onChange={vi.fn()} members={members} placeholder="Add a comment" ariaLabel="Comment" />)
+    const ta = screen.getByRole('combobox', { name: 'Comment' })
+    expect(ta).toHaveAttribute('aria-multiline', 'true')
+  })
+
+  it('moves aria-activedescendant back up with ArrowUp and stops at the first option', async () => {
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{ArrowDown}{ArrowUp}')
+    const options = screen.getAllByRole('option', { hidden: true })
+    expect(ta).toHaveAttribute('aria-activedescendant', options[0].id)
+    await user.keyboard('{ArrowUp}')
+    expect(ta).toHaveAttribute('aria-activedescendant', options[0].id)
+  })
+
+  it('never writes a dangling aria-activedescendant in the render where the list narrows', async () => {
+    // selectedIndex is reset in an effect, so React commits one render with a stale index first. act()
+    // flushes that effect before any assertion could run, so record every attribute write instead.
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{ArrowDown}') // index 1 of 2
+    const written: string[] = []
+    const original = ta.setAttribute.bind(ta)
+    const spy = vi.spyOn(ta, 'setAttribute').mockImplementation((name: string, value: string) => {
+      if (name === 'aria-activedescendant') written.push(value)
+      original(name, value)
+    })
+    fireEvent.change(ta, { target: { value: '@j', selectionStart: 2 } })
+    spy.mockRestore()
+    expect(written.length).toBeGreaterThan(0)
+    for (const id of written) {
+      expect(id).not.toContain('undefined')
+      expect(document.getElementById(id)).not.toBeNull()
+    }
+  })
+
+  it('collapses again on Escape', async () => {
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{Escape}')
+    expect(ta).toHaveAttribute('aria-expanded', 'false')
+    expect(ta).not.toHaveAttribute('aria-activedescendant')
+  })
+
+  it('gives two instances distinct listbox and option ids', async () => {
+    const user = userEvent.setup()
+    render(<><Controlled /><Controlled /></>)
+    const [a, b] = screen.getAllByRole('combobox')
+    await user.type(a, '@')
+    await user.type(b, '@')
+    const ids = [
+      ...screen.getAllByRole('listbox', { hidden: true }),
+      ...screen.getAllByRole('option', { hidden: true }),
+    ].map((e) => e.id)
+    expect(ids).toHaveLength(6)
+    expect(new Set(ids).size).toBe(6)
+    expect(a.getAttribute('aria-controls')).not.toBe(b.getAttribute('aria-controls'))
   })
 })
