@@ -651,9 +651,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     focusNewLabelTriggerRef.current = false;
     newLabelTriggerRef.current?.focus();
   }, [addingLabel]);
-  // The title input: Escape reverts an in-progress edit and moves focus to the panel (#2082) (priority 43, above the panel's
+  // The title input: Escape reverts an in-progress edit and moves focus to the panel (priority 43, above the panel's
   // 30) instead of also closing the panel. Returns false unless the input has focus, so Escape
-  // still closes the panel when no title edit is in progress (#2036).
+  // still closes the panel when no title edit is in progress (#2036, #2082).
   useEscapeStack(() => {
     const input = titleInputRef.current;
     if (!input || document.activeElement !== input) return false;

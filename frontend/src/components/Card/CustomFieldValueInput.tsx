@@ -98,8 +98,8 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
   }, []);
 
-  // Text and URL inputs (#2036): Escape reverts the edit and blurs through the
-  // stack instead of an input-level handler, so the host panel or modal does
+  // Text and URL inputs (#2036): Escape reverts the edit and moves focus to the
+  // enclosing dialog (#2082) through the stack instead of an input-level handler, so the host panel or modal does
   // not also close. Returns false unless one of those inputs has focus, so
   // Escape still reaches the host when nothing is being edited. The default
   // sits above the card panel's close handler (30); a host inside a
