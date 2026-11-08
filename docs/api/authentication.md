@@ -306,7 +306,7 @@ The `ticket` is returned here and never again.
 
 The ticket authenticates only: board and group membership is still enforced on every connection, so a non-member's ticket is closed with `4003`. The account-state checks that apply to REST and MCP (pending password or username change) also apply to board and group sockets, at connect and on every access re-check, with close code `4003`.
 
-The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake closes with `4001`. Once the socket is open, the server closes it with `4003` within the access re-check window after logout, password change, or credential revocation. See [WebSocket API → Credential revocation](websockets.md#credential-revocation-since-12).
+The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake closes with `4001` (your client receives a refused upgrade, HTTP `403`; see [How a refused handshake reaches the client](websockets.md#how-a-refused-handshake-reaches-the-client)). Once the socket is open, the server closes it with `4003` within the access re-check window after logout, password change, or credential revocation. See [WebSocket API → Credential revocation](websockets.md#credential-revocation-since-12).
 
 **Errors**
 

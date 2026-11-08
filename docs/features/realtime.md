@@ -13,7 +13,7 @@ WebSockets (Django Channels + Valkey) push every board change to all connected c
 ## How it works
 
 1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`.
-2. The browser SPA authenticates with the session cookie. Unauthenticated connections are closed with code `4001`, connections from a non-member are closed with `4003`, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections).
+2. The browser SPA authenticates with the session cookie. Unauthenticated connections are closed with code `4001`, connections from a non-member are closed with `4003`, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections). These codes are sent before the connection opens, so the bundled server (Daphne) delivers them to the browser as a failed connection (HTTP `403` on the upgrade, close code `1006`), not as the code itself. See [How a refused handshake reaches the client](../api/websockets.md#how-a-refused-handshake-reaches-the-client); delivering the codes is tracked in #2145.
 3. Any mutation (card, column, swimlane, label, member, or board setting change) broadcasts an event to all clients subscribed to that board's channel group.
 4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh.
 
@@ -32,7 +32,8 @@ The top-right corner of the board toolbar shows the connection state via the **C
 **Reconnect rules:**
 
 - The client reconnects automatically after 3 seconds if the connection drops.
-- If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted. The indicator switches directly to **Offline**.
+- If the server closes an **open** connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted. The indicator switches directly to **Offline**. Today the server sends only `4003` on an open connection.
+- A connection refused at the handshake (for example because you are signed out, are not a member, or the server is having a problem) reaches the browser as a failed connection, not as one of these codes. The client treats it like a dropped connection and keeps retrying every 3 seconds, with the indicator on **Reconnecting…**, and does not sign you out (#2145).
 - **Session expiry** (since 1.3): a `4001`, or a `4003` where your session itself has ended (expired, revoked, or logged out elsewhere), signs you out of the web app just like any other expired-session response, even if you make no other request, so per-user preferences such as recent boards are cleared. A `4003` caused only by lost access to the board or group keeps you signed in: the web app checks your session first. Board and group pages behave the same way.
 - If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code `1011` instead, and the client keeps reconnecting until the server recovers (since 1.2).
 
@@ -141,7 +142,7 @@ Since 1.3 the event also carries `sibling_positions`, the other cards whose posi
 Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
 
 - **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
-- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code. The web app handles both closes as described under [Reconnect rules](#connection-status).
+- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code when it closes an open connection. At the handshake both codes reach the browser as a failed connection, which is retried like a dropped one (#2145). The web app handles both cases as described under [Reconnect rules](#connection-status).
 - **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations.
 
 Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events; those remain on the per-board channel.

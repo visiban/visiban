@@ -58,9 +58,33 @@ no recorded hash or session hash matches any more, and every open socket
 closes once with 4003 at its next re-check. That is deliberate fail-closed
 behavior, the same outcome as Django logging every session out; with the old
 key in ``SECRET_KEY_FALLBACKS`` sockets stay open, as sessions do.
+
+Outages at the handshake (#2086)
+--------------------------------
+A handshake whose authentication cannot be *evaluated* — the cache or the
+database raised while redeeming a ticket, or the cache-only session backend
+raised while reading the cookie's session — is refused with
+``CLOSE_AUTH_UNAVAILABLE`` (1011), never with 4001 and never admitted. 4001
+tells a client its credential is gone (the web app signs the user out on it);
+an outage says nothing about the credential. 1011 is the code the consumers
+already use when their mid-stream re-check cannot complete (#2003, #2014), so
+the same "server error, retry" reading holds before and after accept.
+
+Transport caveat: every refusal here happens before accept. The ASGI spec has
+the server answer a close before accept with HTTP 403, and Daphne does so
+whatever the code, so no client ever receives 4001 or 1011 from a handshake
+(a browser reports a failed upgrade, 1006). The code is therefore only the
+application's verdict: what the ASGI test communicator observes and what a
+future accept-then-close handshake would deliver (#2145). The refusal must
+still not raise: an exception here is a Daphne 500 whose log line carries the
+exception message. Other handshake-time outages still do raise, outside this
+middleware (#2144): ``cached_db`` during a cache outage (its ``load()`` falls
+back to the database, then the cache write-back raises), the ``db`` engine
+during a database outage, and the consumers' connect() lookups.
 """
 
 import hashlib
+import logging
 import secrets
 from datetime import timedelta
 from importlib import import_module
@@ -112,6 +136,14 @@ _CREDENTIAL_KINDS = (CREDENTIAL_SESSION, CREDENTIAL_PAT, CREDENTIAL_TOKEN)
 # payload. Its own label, per visiban.crypto's rule that no two secrets share
 # key material.
 _TICKET_SESSION_INFO = b"visiban.ws-ticket-session-key.v1"
+
+# Close code for a handshake whose authentication could not be evaluated
+# (#2086, see the module docstring). Same value as the consumers'
+# CLOSE_ACCESS_CHECK_FAILED; restated rather than imported because
+# boards.consumers imports this module.
+CLOSE_AUTH_UNAVAILABLE = 1011
+
+logger = logging.getLogger(__name__)
 
 
 def _sha256(value: str) -> str:
@@ -369,10 +401,8 @@ def _session_is_live(session_key: str, user) -> bool:
     """
     from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY
 
-    from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
-
     store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=session_key)
-    if isinstance(store, CacheSessionStore):
+    if _is_cache_only_store(store):
         # Why not store.load() (#2014): the cache engine's load() swallows
         # every cache exception and returns {}, so a cache outage would read as
         # "session revoked" and close the socket with the final 4003. Read the
@@ -382,14 +412,63 @@ def _session_is_live(session_key: str, user) -> bool:
         # db store) and keeps using load().
         if not store.session_key:
             return False
-        # store._cache is the exact cache load() would read (a subclass may
-        # point it elsewhere than SESSION_CACHE_ALIAS).
-        data = store._cache.get(store.cache_key) or {}
+        data = _read_cache_session(store) or {}
     else:
         data = store.load()
     if str(data.get(SESSION_KEY)) != user._meta.pk.value_to_string(user):
         return False
     return _matches_session_auth_hash(data.get(HASH_SESSION_KEY), user)
+
+
+def _is_cache_only_store(store) -> bool:
+    """True for the cache-only session engine (or a subclass), not ``cached_db``.
+
+    ``cached_db`` subclasses the db store, not the cache one, so it is not
+    matched: its ``load()`` falls back to the database on a cache error and
+    never conflates an outage with an absent session. (Its write-back to the
+    cache after that fallback can still raise during an outage, which is a
+    raise, not a false denial; at the handshake that is #2144.)
+    """
+    from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
+
+    return isinstance(store, CacheSessionStore)
+
+
+def _read_cache_session(store):
+    """The raw session dict for a cache-only *store*, or ``None`` on a miss.
+
+    Raises whatever the cache backend raises: that is the point (#2014,
+    #2086), since ``store.load()`` would swallow it. ``store._cache`` is the
+    exact cache ``load()`` would read (a subclass may point it elsewhere than
+    ``SESSION_CACHE_ALIAS``).
+    """
+    return store._cache.get(store.cache_key)
+
+
+@database_sync_to_async
+def _cookie_session_unreadable(session_key: str) -> bool:
+    """True if the cache-only session backend raised reading *session_key*.
+
+    Called only for a cookie handshake that presented a session cookie and
+    still came out anonymous (#2086). Channels' ``AuthMiddleware`` read that
+    session through ``load()``, which turns a cache outage into an empty
+    session, so "anonymous" there can mean either "no such session" or "the
+    cache is down". One direct read tells them apart. It never authenticates
+    anything: either answer refuses the handshake, it only picks the code.
+
+    False for every other engine (no extra read; the default ``db`` engine's
+    handshake is unchanged), for a malformed key, and when the read succeeds
+    (the session is absent, or present but rejected for another reason, such
+    as a changed password — both a genuine 4001).
+    """
+    store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=session_key)
+    if not _is_cache_only_store(store) or not store.session_key:
+        return False
+    try:
+        _read_cache_session(store)
+    except Exception:  # noqa: BLE001 — any backend error is an outage, see docstring
+        return True
+    return False
 
 
 def _matches_session_auth_hash(value, user) -> bool:
@@ -513,6 +592,10 @@ class TicketAuthMiddleware(BaseMiddleware):
     for a cookie handshake, the ticket's minting credential for a ticket
     handshake — which the consumers' re-check uses to close the socket once
     that credential is revoked. Any caller-supplied value is overwritten.
+
+    A handshake whose authentication cannot be evaluated (an outage, #2086) is
+    refused here, before routing, with ``CLOSE_AUTH_UNAVAILABLE`` (1011): the
+    consumer would only see an anonymous scope and close with 4001.
     """
 
     async def __call__(self, scope, receive, send):
@@ -521,7 +604,28 @@ class TicketAuthMiddleware(BaseMiddleware):
         raw_ticket = _extract_ticket(scope.get("query_string", b""))
 
         if raw_ticket:
-            resolved = await _resolve_ticket_user(raw_ticket)
+            try:
+                resolved = await _resolve_ticket_user(raw_ticket)
+            except Exception as exc:  # noqa: BLE001 — refused either way, see below
+                # The ticket cache, the database, or the minting session's
+                # cache-only backend raised. Fail closed, but with the
+                # reconnectable 1011 rather than 4001: nothing says the
+                # credential is gone (#2086). Before this, the exception
+                # escaped the middleware (Daphne answers the upgrade with a
+                # 500 and logs the exception message, which can carry cache or
+                # database connection details), so the class name only.
+                #
+                # The ticket stays consumed when the failure came after the
+                # claim. Deliberate: single use is decided at the claim, under
+                # the cache's atomic delete, and must not depend on whether a
+                # later check completed (CLAUDE.md, consume-once tokens). A
+                # client already mints a fresh ticket for every attempt, so
+                # the retry is unaffected.
+                logger.warning(
+                    "websocket ticket redemption could not complete: error=%s",
+                    type(exc).__name__,
+                )
+                return await _refuse_unavailable(receive, send)
             if resolved is not None:
                 user, credential = resolved
                 scope["user"] = user
@@ -545,8 +649,30 @@ class TicketAuthMiddleware(BaseMiddleware):
             session_key = getattr(scope.get("session"), "session_key", None)
             if user is not None and user.is_authenticated and session_key:
                 scope[WS_CREDENTIAL_SCOPE_KEY] = _bind(session_credential(session_key), user)
+            else:
+                # Anonymous despite a session cookie: with the cache-only
+                # session engine that can be an outage that load() swallowed
+                # (#2086). The cookie, not scope["session"].session_key, is
+                # the key to probe: a failed load() clears the store's key.
+                cookies = scope.get("cookies") or {}
+                cookie_key = cookies.get(settings.SESSION_COOKIE_NAME)
+                if cookie_key and await _cookie_session_unreadable(cookie_key):
+                    logger.warning(
+                        "websocket session lookup could not complete: cache unavailable"
+                    )
+                    return await _refuse_unavailable(receive, send)
 
         # The raw ticket is deliberately never logged, here or anywhere else —
         # it is a credential (repo rule: never log tokens or secrets). The same
         # goes for the session key in scope[WS_CREDENTIAL_SCOPE_KEY].
         return await super().__call__(scope, receive, send)
+
+
+async def _refuse_unavailable(receive, send):
+    """Refuse the handshake with ``CLOSE_AUTH_UNAVAILABLE`` (1011), unrouted.
+
+    Same shape as ``OptionalOriginValidator``'s refusal: take the
+    ``websocket.connect`` and close before accept, so no consumer runs.
+    """
+    await receive()  # websocket.connect
+    await send({"type": "websocket.close", "code": CLOSE_AUTH_UNAVAILABLE})
