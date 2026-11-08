@@ -639,7 +639,7 @@ demo:
 tests:
   image:
     repository: curlimages/curl
-    tag: "8.11.1"
+    tag: "8.23.0"
   # Probe retries. Raise on a slow cluster where the rollout takes longer than
   # retries x 2s to admit the first backend pod.
   retries: 30
