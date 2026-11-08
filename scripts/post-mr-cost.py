@@ -258,10 +258,13 @@ def window_end(notes, me, now, start):
 
 def find_session_dir(sid, projects_dir):
     hits = sorted(h for h in glob.glob(os.path.join(glob.escape(projects_dir), "*", sid)) if os.path.isdir(h))
-    try:  # a match that resolves (symlink, `..`) outside the projects dir is no session dir (#2152)
-        hits = [str(resolve_within(projects_dir, h)) for h in hits]
-    except PathEscapeError:
-        return None
+    ok = []
+    for h in hits:  # a match that resolves (symlink, `..`) outside the projects dir is no session dir (#2152)
+        try:
+            ok.append(str(resolve_within(projects_dir, h)))
+        except (PathEscapeError, OSError, RuntimeError):
+            continue
+    hits = ok
     return hits[0] if len(hits) == 1 else None
 
 
@@ -372,7 +375,12 @@ def state_lock(sid):
         return
     d = os.path.join(config_root(), "mr-cost-state")
     os.makedirs(d, exist_ok=True)
-    fd = os.open(resolve_within(d, os.path.join(d, sid + ".lock")), os.O_CREAT | os.O_RDWR, 0o600)
+    try:  # same root as state_path, so a symlinked state dir is refused here too (#2152)
+        lock = resolve_within(config_root(), os.path.join(d, sid + ".lock"))
+    except PathEscapeError:
+        yield  # no lock beats a crashed hook; read_state/_write_doc then refuse the escaping path
+        return
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -392,6 +400,14 @@ def _confined(root, name):
         return str(resolve_within(root, os.path.join(root, "mr-cost-state", name)))
     except PathEscapeError as e:
         raise StateError("path escapes the config directory") from e
+
+
+def _shown(root, sid, suffix):
+    """The unconfined path, for MESSAGES only (never opened): safe to build while handling a StateError."""
+    try:
+        return _confined(root, sid + suffix)
+    except StateError:
+        return os.path.join(root, "mr-cost-state", sid + suffix)
 
 
 def state_path(root, sid):
@@ -438,8 +454,8 @@ def read_state(root, sid):
 
 def _write_doc(root, sid, doc):
     """Atomically replace the session's state file with `doc`; True on success."""
-    d = os.path.dirname(state_path(root, sid))
     try:
+        d = os.path.dirname(state_path(root, sid))  # StateError when the state dir escapes the root: fail soft (#2152)
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".state-", suffix=".tmp", dir=d)
         try:
@@ -453,7 +469,7 @@ def _write_doc(root, sid, doc):
             except OSError:
                 pass
             raise
-    except OSError:
+    except (OSError, StateError):
         return False
     return True
 
@@ -513,8 +529,8 @@ def write_pins(root, sid, key, ids):
     for k in list(pins):
         pins[k] = [a for a in pins[k] if a not in ids]
     pins[key] = sorted(set(pins.get(key, [])) | set(ids))
-    d = os.path.dirname(pins_path(root, sid))
     try:
+        d = os.path.dirname(pins_path(root, sid))  # StateError when the state dir escapes the root: fail soft (#2152)
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".pins-", suffix=".tmp", dir=d)
         try:
@@ -528,7 +544,7 @@ def write_pins(root, sid, key, ids):
             except OSError:
                 pass
             raise
-    except OSError:
+    except (OSError, StateError):
         return False
     return True
 
@@ -758,7 +774,7 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
     try:
         state = read_state(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, state_path(config_root(), sid)),)
+        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, _shown(config_root(), sid, ".json")),)
     sdir = find_session_dir(sid, opts.projects_dir)
     try:
         main_path, _ = tu.session_paths(sid, opts.projects_dir)
@@ -770,7 +786,7 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
     try:
         pins = read_pins(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, pins_path(config_root(), sid)),)
+        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, _shown(config_root(), sid, ".pins.json")),)
     key = pin_key(project, branch)
     here = set(pins.get(key, [])) | set(explicit)
     elsewhere = {a for k, v in pins.items() if k != key for a in v} - here
@@ -853,7 +869,7 @@ def resolve_pending(cwd, sid):
     try:
         state = read_state(root, sid)
     except StateError as e:
-        return "badstate", "this session's cost state is %s (%s)" % (e, state_path(root, sid))
+        return "badstate", "this session's cost state is %s (%s)" % (e, _shown(root, sid, ".json"))
     pend = state.get("pending")
     if not pend:
         return None, None
@@ -1129,7 +1145,7 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
             try:
                 ok = write_pins(config_root(), sid, pin_key(project, branch), set(explicit))
             except StateError as e:
-                return [], "this session's pinned agents are %s (%s).\n" % (e, pins_path(config_root(), sid)), 2
+                return [], "this session's pinned agents are %s (%s).\n" % (e, _shown(config_root(), sid, ".pins.json")), 2
             if not ok:
                 return [], "the pinned agents could not be written.\n", 2
             warn += "post-mr-cost: pinned %s to %s.\n" % (", ".join(sorted(set(explicit))), branch)
@@ -2107,6 +2123,19 @@ def _self_test():
     check("no temp file left behind", [f for f in os.listdir(os.path.join(gd2, "mr-cost-state")) if f.endswith(".tmp")] == [])
     write_state(gd2, sid, read_state(gd2, sid), "2026-11-07T09:00:00Z", [aid])
     check("a watermark never moves backwards", read_state(gd2, sid)["orchestrator_until"] == "2026-11-07T10:00:00Z")
+    # #2152: a state dir symlinked outside the config root is refused (StateError / False), never followed or crashed on.
+    gd_esc = tempfile.mkdtemp(prefix="post-mr-cost-esc-")
+    gd_out = tempfile.mkdtemp(prefix="post-mr-cost-out-")
+    os.symlink(gd_out, os.path.join(gd_esc, "mr-cost-state"))
+    try:
+        read_state(gd_esc, "sess-1")
+        esc_read = False
+    except StateError:
+        esc_read = True
+    check("a symlinked state dir is refused on read", esc_read)
+    check("a symlinked state dir is refused on write (False, no raise)",
+          write_state(gd_esc, "sess-1", {"orchestrator_until": None, "agents": {}}, "2026-11-07T10:00:00Z", []) is False
+          and os.listdir(gd_out) == [])
     open(os.path.join(gd2, "mr-cost-last-until"), "w").write("2999-01-01T00:00:00Z\n")
     check("the legacy shared marker is never read", read_state(gd2, sid)["orchestrator_until"] == "2026-11-07T10:00:00Z"
           and read_state(gd2, "other-session")["orchestrator_until"] is None)
