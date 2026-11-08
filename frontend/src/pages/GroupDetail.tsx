@@ -353,7 +353,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // over a newer list, which is idempotent.
   const refetchBoardsList = useCallback(() => {
     const seq = ++boardsSeqRef.current;
-    const replay: BoardsWrite[] = [];
+    // While the initial load is pending, a newer re-read inherits the writes
+    // recorded since the earlier one started: if it fails, the load still needs
+    // them, and the earlier read's answer was superseded so cannot restore them
+    // (#2150). Once the load has applied, each re-read starts empty (#2139).
+    const replay: BoardsWrite[] = loadedAtRef.current === null ? [...(boardsReplayRef.current ?? [])] : [];
     boardsReplayRef.current = replay;
     boardsReplayOrphanedRef.current = false;
     getGroupBoards(groupId)
