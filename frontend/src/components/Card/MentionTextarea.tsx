@@ -1,5 +1,5 @@
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { POPOVER_VIEWPORT_MARGIN } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
@@ -38,6 +38,10 @@ function isRectVisible(r: DOMRect, el: HTMLElement): boolean {
 
 export default function MentionTextarea({ value, onChange, onSubmit, members, placeholder, rows = 2, className }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Stable per-instance ids so several MentionTextareas on one page never collide (#2137).
+  const baseId = useId();
+  const listboxId = `${baseId}-listbox`;
+  const optionId = (userId: number) => `${baseId}-option-${userId}`;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<MentionState>({ active: false, query: "", startIndex: -1 });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -224,20 +228,32 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         placeholder={placeholder}
         rows={rows}
         className={className}
+        // ARIA 1.2 combobox: focus stays here while arrow keys move the active option (#2137).
+        role="combobox"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        aria-activedescendant={open ? optionId(suggestions[selectedIndex]?.id) : undefined}
       />
       {open && (
         <div
           ref={dropdownRef}
+          id={listboxId}
+          role="listbox"
+          aria-label="Mention suggestions"
           // Hidden until the layout effect measures and places it (no flash at 0,0).
           style={{ position: "fixed", visibility: "hidden", top: 0, left: 0 }}
           className="z-[60] w-56 max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] bg-surface border border-line-strong rounded-lg shadow-lg overflow-y-auto"
         >
           {suggestions.map((u, i) => (
-            <button
+            <div
               key={u.id}
-              type="button"
+              id={optionId(u.id)}
+              role="option"
+              aria-selected={i === selectedIndex}
               onMouseDown={(e) => { e.preventDefault(); insertMention(u.username); }}
-              className={`w-full text-left px-3 py-2 text-sm flex flex-col hover:bg-surface-hover transition ${
+              className={`w-full text-left px-3 py-2 text-sm flex flex-col cursor-pointer hover:bg-surface-hover transition ${
                 i === selectedIndex ? "bg-surface-hover" : ""
               }`}
             >
@@ -245,7 +261,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
               {userDisplayName(u) !== u.username && (
                 <span className="text-xs text-fg-tertiary truncate">{userDisplayName(u)}</span>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}
