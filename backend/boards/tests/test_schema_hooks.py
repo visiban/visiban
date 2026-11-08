@@ -157,12 +157,18 @@ class GeneratedSchemaDocuments400Tests(TestCase):
         from drf_spectacular.generators import SchemaGenerator
 
         schema = SchemaGenerator().get_schema(request=None, public=True)
-        missing = [
-            f"{method.upper()} {path}"
+        operations = [
+            (method, path, op)
             for path, item in schema["paths"].items()
             for method, op in item.items()
-            if method in ("get", "post", "put", "patch", "delete", "head", "options")
-            and "400" not in op["responses"]
+            if method in ("get", "post", "put", "patch", "delete")
+        ]
+        # An empty ``paths`` must not pass vacuously.
+        self.assertTrue(operations)
+        missing = [
+            f"{method.upper()} {path}"
+            for method, path, op in operations
+            if "400" not in op["responses"]
         ]
         self.assertEqual(missing, [])
 
