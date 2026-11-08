@@ -30,9 +30,10 @@ _LOOPBACK_IPS = ("127.0.0.1", "::1")
 # ASCII into a lone UTF-16 surrogate (utf-7, unicode-escape, raw-unicode-escape,
 # punycode) or raise even in replace mode (idna, undefined). Canonical
 # ``codecs.lookup(...).name`` values, so aliases (utf7, u7, ...) match too.
-# Every other text codec Python ships was swept over all 1- and 2-byte inputs
-# and never yields a surrogate (test_request_charset.py repeats the sweep, so a
-# codec added by a future Python fails CI).
+# Every other text codec CPython 3.11 ships was swept over short (1- and 2-byte)
+# inputs and never yields a surrogate or raises. A codec a future Python adds
+# fails test_every_codec_is_classified until someone decides whether it belongs
+# here (the short sweep cannot find a producer that needs 5+ bytes).
 _UNSAFE_REQUEST_CODECS = frozenset({
     "utf-7", "unicode-escape", "raw-unicode-escape", "punycode", "idna", "undefined",
 })

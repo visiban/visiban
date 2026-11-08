@@ -20,6 +20,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, Card, Column, Swimlane
+from visiban.middleware import _is_unsafe_request_codec
 
 
 class RequestCharsetTests(TestCase):
@@ -155,38 +156,84 @@ class RequestCharsetTests(TestCase):
         self.assertEqual(reached, [])
 
 
-class AdmittedCodecSweepTests(TestCase):
-    """No codec the middleware admits turns 1- or 2-byte input into a lone surrogate.
+# Canonical names of every codec CPython 3.11 ships (``codecs.lookup(n).name`` for
+# each ``encodings`` module and alias). Each was classified for #2120: the
+# surrogate-producing and raising text codecs and the non-text codecs are in
+# ``_UNSAFE_REQUEST_CODECS`` or fail ``"".encode()``; all the rest were swept below.
+_CLASSIFIED_CODECS = frozenset({
+    'ascii', 'base64', 'big5', 'big5hkscs', 'bz2', 'charmap', 'cp037', 'cp1006', 'cp1026',
+    'cp1125', 'cp1140', 'cp1250', 'cp1251', 'cp1252', 'cp1253', 'cp1254', 'cp1255', 'cp1256',
+    'cp1257', 'cp1258', 'cp273', 'cp424', 'cp437', 'cp500', 'cp720', 'cp737', 'cp775', 'cp850',
+    'cp852', 'cp855', 'cp856', 'cp857', 'cp858', 'cp860', 'cp861', 'cp862', 'cp863', 'cp864',
+    'cp865', 'cp866', 'cp869', 'cp874', 'cp875', 'cp932', 'cp949', 'cp950', 'euc_jis_2004',
+    'euc_jisx0213', 'euc_jp', 'euc_kr', 'gb18030', 'gb2312', 'gbk', 'hex', 'hp-roman8', 'hz',
+    'idna', 'iso2022_jp', 'iso2022_jp_1', 'iso2022_jp_2', 'iso2022_jp_2004', 'iso2022_jp_3',
+    'iso2022_jp_ext', 'iso2022_kr', 'iso8859-1', 'iso8859-10', 'iso8859-11', 'iso8859-13',
+    'iso8859-14', 'iso8859-15', 'iso8859-16', 'iso8859-2', 'iso8859-3', 'iso8859-4',
+    'iso8859-5', 'iso8859-6', 'iso8859-7', 'iso8859-8', 'iso8859-9', 'johab', 'koi8-r',
+    'koi8-t', 'koi8-u', 'kz1048', 'mac-arabic', 'mac-croatian', 'mac-cyrillic', 'mac-farsi',
+    'mac-greek', 'mac-iceland', 'mac-latin2', 'mac-roman', 'mac-romanian', 'mac-turkish',
+    'palmos', 'ptcp154', 'punycode', 'quopri', 'raw-unicode-escape', 'rot-13', 'shift_jis',
+    'shift_jis_2004', 'shift_jisx0213', 'tis-620', 'undefined', 'unicode-escape', 'utf-16',
+    'utf-16-be', 'utf-16-le', 'utf-32', 'utf-32-be', 'utf-32-le', 'utf-7', 'utf-8', 'utf-8-sig',
+    'uu', 'zlib'
+})
 
-    A codec added by a future Python that does is not in the deny-list, so it
-    fails here instead of reaching PostgreSQL as a 500.
+
+def _all_canonical_codec_names():
+    names = set(encodings.aliases.aliases) | {m.name for m in pkgutil.iter_modules(encodings.__path__)}
+    found = set()
+    for name in names:
+        try:
+            found.add(codecs.lookup(name).name)
+        except LookupError:
+            pass  # a module that is not a registered codec
+    return found
+
+
+class AdmittedCodecSweepTests(TestCase):
+    """What actually guards the admitted codecs against a lone surrogate (#2120).
+
+    The four known surrogate producers need 5+ bytes (``+2AA-``, ``\\ud800``), so a
+    1- or 2-byte sweep cannot find them; they are held by the deny-list and
+    proven bad by ``test_the_known_bad_codecs_are_detected``. The sweep covers the
+    rest on short inputs. The real guard against a codec a future Python adds is
+    ``test_every_codec_is_classified``: it fails until the next person decides
+    whether the new codec belongs in ``_UNSAFE_REQUEST_CODECS``.
     """
 
-    def test_no_admitted_codec_yields_a_lone_surrogate(self):
-        from visiban.middleware import _is_unsafe_request_codec
+    def test_the_known_bad_codecs_are_detected(self):
+        for raw, name in ((b"+2AA-", "utf-7"), (b"\\ud800", "unicode-escape"),
+                          (b"\\ud800", "raw-unicode-escape"), (b"a-rc4g", "punycode")):
+            text = raw.decode(name, "replace")
+            self.assertTrue(any("\ud800" <= ch <= "\udfff" for ch in text), name)
+            self.assertTrue(_is_unsafe_request_codec(name), name)
 
-        names = set(encodings.aliases.aliases) | {
-            m.name for m in pkgutil.iter_modules(encodings.__path__)
-        }
+    def test_every_codec_is_classified(self):
+        unknown = sorted(_all_canonical_codec_names() - _CLASSIFIED_CODECS)
+        self.assertEqual(
+            unknown, [],
+            "New codec(s) in this Python. Decode multi-byte inputs (including escape "
+            "forms like '\\\\ud800' and shifted forms like '+2AA-') with errors='replace'; if "
+            "any yields a surrogate or raises, add the canonical name to "
+            "_UNSAFE_REQUEST_CODECS in visiban/middleware.py. Then add it to "
+            "_CLASSIFIED_CODECS here.",
+        )
+
+    def test_no_admitted_codec_yields_a_lone_surrogate_or_raises_on_short_input(self):
         inputs = [bytes([a]) for a in range(256)]
         # Every lead byte against every third second byte plus the structural ones
-        # (escape/shift markers, lead/trail ranges): 2.5x cheaper than the full 64k.
+        # (escape/shift markers, lead/trail ranges): cheaper than the full 64k.
         seconds = sorted(set(range(0, 256, 3)) | {0x2B, 0x2D, 0x5C, 0x75, 0x7F, 0x80, 0xFE, 0xFF})
         inputs += [bytes([a, b]) for a in range(256) for b in seconds]
         admitted = 0
-        for name in sorted(names):
+        for name in sorted(_all_canonical_codec_names()):
             if _is_unsafe_request_codec(name):
-                continue
-            try:
-                info = codecs.lookup(name)
-            except LookupError:
                 continue
             admitted += 1
             for raw in inputs:
-                try:
-                    text = raw.decode(info.name, "replace")
-                except Exception:  # noqa: BLE001 - a raise is not a surrogate
-                    break  # a codec that raises on input cannot be swept further
+                # No try/except: a codec that raises here would be a 500 in Django.
+                text = raw.decode(name, "replace")
                 self.assertFalse(
                     any("\ud800" <= ch <= "\udfff" for ch in text),
                     f"{name} decodes {raw!r} to a lone surrogate",
