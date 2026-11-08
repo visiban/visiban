@@ -19,7 +19,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, Card, Column, Swimlane
+from boards.models import Board, BoardMembership, Card, Column, Swimlane
 from visiban.middleware import _is_unsafe_request_codec
 
 
@@ -239,3 +239,89 @@ class AdmittedCodecSweepTests(TestCase):
                     f"{name} decodes {raw!r} to a lone surrogate",
                 )
         self.assertGreater(admitted, 80)
+
+
+class PartFilenameCodecTests(TestCase):
+    """A part's RFC 2231 ``filename*`` codec that is not a text codec is a 400, not a 500 (#2151).
+
+    ``LookupError`` used to escape Django's multipart header parser for
+    ``hex``/``base64``. Covers every multipart endpoint: the two pinned import
+    actions, the card attachment upload and (default parser) a board PATCH.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="pf-owner", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        col = Column.objects.create(board=self.board, name="Todo", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane, title="Keep", created_by=self.user, position=0
+        )
+        self.client = APIClient(raise_request_exception=False)
+        self.client.force_authenticate(self.user)
+        self.urls = {
+            "trello": "/api/v1/boards/import/trello/?dry_run=true",
+            "import": "/api/v1/boards/import/",
+            "attachment": f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
+            "board_patch": f"/api/v1/boards/{self.board.pk}/",
+        }
+
+    @staticmethod
+    def body(codec, name="%41.json"):
+        return (
+            f"--b\r\nContent-Disposition: form-data; name=\"file\"; filename*={codec}''{name}\r\n"
+            "Content-Type: application/json\r\n\r\n{}\r\n--b--\r\n"
+        ).encode()
+
+    def send(self, client, key, codec, **extra):
+        method = client.patch if key == "board_patch" else client.post
+        return method(
+            self.urls[key], data=self.body(codec),
+            content_type="multipart/form-data; boundary=b", **extra,
+        )
+
+    def test_non_text_codec_is_a_400_on_every_multipart_endpoint(self):
+        for key in self.urls:
+            for codec in ("hex", "base64", "rot13", "zlib"):
+                with self.subTest(endpoint=key, codec=codec):
+                    resp = self.send(self.client, key, codec)
+                    self.assertEqual(resp.status_code, 400, resp.content[:300])
+                    self.assertEqual(resp["Content-Type"], "application/json")
+                    self.assertEqual(list(resp.json()), ["detail"])
+                    self.assertNotIn(codec, resp.json()["detail"])
+
+    def test_surrogate_and_raising_codecs_are_not_a_500(self):
+        for key in self.urls:
+            for codec in ("utf-7", "punycode", "undefined"):
+                with self.subTest(endpoint=key, codec=codec):
+                    resp = self.send(self.client, key, codec)
+                    # Django drops the part; the file endpoints then see no file,
+                    # while a board PATCH has nothing to reject and succeeds.
+                    self.assertEqual(resp.status_code, 200 if key == "board_patch" else 400, resp.content[:300])
+
+    def test_unknown_codec_name_is_not_a_500(self):
+        for key in self.urls:
+            with self.subTest(endpoint=key):
+                resp = self.send(self.client, key, "nonsense")
+                self.assertLess(resp.status_code, 500, resp.content[:300])
+
+    def test_valid_utf8_filename_star_still_works(self):
+        fixture = (Path(__file__).parent / "fixtures" / "trello_export.json").read_bytes()
+        body = (
+            b"--b\r\nContent-Disposition: form-data; name=\"file\"; filename*=utf-8''%41.json\r\n"
+            b"Content-Type: application/json\r\n\r\n" + fixture + b"\r\n--b--\r\n"
+        )
+        resp = self.client.post(
+            self.urls["trello"], data=body, content_type="multipart/form-data; boundary=b",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+
+    def test_django_level_read_with_session_csrf_is_not_a_500(self):
+        # Session auth without a CSRF header token makes Django's CSRF check read
+        # request.POST itself, outside any DRF parser.
+        client = APIClient(enforce_csrf_checks=True, raise_request_exception=False)
+        self.assertTrue(client.login(username="pf-owner", password="pass"))
+        resp = self.send(client, "trello", "hex")
+        self.assertLess(resp.status_code, 500, resp.content[:300])
+        self.assertEqual(resp.status_code, 403)

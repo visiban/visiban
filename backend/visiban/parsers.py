@@ -105,6 +105,12 @@ class LimitedMultiPartParser(MultiPartParser):
             return super().parse(stream, media_type, parser_context)
         except UPLOAD_LIMIT_ERRORS as exc:
             raise _parse_error(exc, "Multipart form parse error", parser_context) from exc
+        except LookupError as exc:
+            # A part header's RFC 2231 ``filename*=<codec>''...`` names a codec
+            # Python cannot decode text with (hex, base64, ...): Django's header
+            # parser lets the LookupError escape (#2151). The message names the
+            # codec the client chose, so it is not echoed.
+            raise ParseError("Multipart form parse error - unsupported charset in a part header.") from exc
 
 
 class LimitedFormParser(FormParser):
