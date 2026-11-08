@@ -9,13 +9,16 @@ are reachable in production. SQLite stores a surrogate silently, so these tests
 assert the status, and the PostgreSQL run is the real proof.
 """
 import codecs
+import contextlib
 import encodings
 import encodings.aliases
 import pkgutil
 import json
 from pathlib import Path
 
-from django.http import JsonResponse
+from unittest import mock
+
+from django.http import JsonResponse, multipartparser
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -242,6 +245,36 @@ class AdmittedCodecSweepTests(TestCase):
         self.assertGreater(admitted, 80)
 
 
+def _django_raises_on_non_text_codec():
+    """True if the installed Django's header parser raises for ``filename*=hex''...`` (< 5.2.19)."""
+    from django.utils.http import parse_header_parameters
+
+    try:
+        parse_header_parameters("form-data; name=\"f\"; filename*=hex''%41.json")
+    except LookupError:
+        return True
+    except ValueError:
+        return False
+    return False
+
+
+DJANGO_RAISES_ON_NON_TEXT_CODEC = _django_raises_on_non_text_codec()
+
+
+@contextlib.contextmanager
+def _header_parser_raises():
+    """Make Django's multipart header parser raise what Django < 5.2.19 raised for ``hex``."""
+    real = multipartparser.parse_header_parameters
+
+    def parse(line, *args, **kwargs):
+        if "filename*" in line:
+            raise LookupError("'hex' is not a text encoding")
+        return real(line, *args, **kwargs)
+
+    with mock.patch.object(multipartparser, "parse_header_parameters", parse):
+        yield
+
+
 class PartFilenameCodecTests(TestCase):
     """A part's RFC 2231 ``filename*`` codec that is not a text codec is a 400, not a 500 (#2151).
 
@@ -282,24 +315,36 @@ class PartFilenameCodecTests(TestCase):
             content_type="multipart/form-data; boundary=b", **extra,
         )
 
-    def test_non_text_codec_is_a_400_on_every_multipart_endpoint(self):
+    def test_non_text_codec_is_never_a_500_on_every_multipart_endpoint(self):
+        # Django < 5.2.19 raises LookupError from its header parser; >= 5.2.19
+        # decodes or ignores the codec itself. Either way: never a 500, and a
+        # 400 with the fixed detail where Django raises.
         for key in self.urls:
             for codec in ("hex", "base64", "rot13", "zlib"):
                 with self.subTest(endpoint=key, codec=codec):
                     resp = self.send(self.client, key, codec)
-                    self.assertEqual(resp.status_code, 400, resp.content[:300])
-                    self.assertEqual(resp["Content-Type"], "application/json")
-                    self.assertEqual(list(resp.json()), ["detail"])
-                    self.assertNotIn(codec, resp.json()["detail"])
+                    self.assertLess(resp.status_code, 500, resp.content[:300])
+                    if DJANGO_RAISES_ON_NON_TEXT_CODEC and key != "board_patch":
+                        self.assertEqual(resp.status_code, 400)
+
+    def test_lookup_error_from_the_header_parser_is_a_400_on_every_multipart_endpoint(self):
+        # Deterministic on every Django version: force the parser to raise.
+        for key in self.urls:
+            with self.subTest(endpoint=key), _header_parser_raises():
+                resp = self.send(self.client, key, "hex")
+                self.assertEqual(resp.status_code, 400, resp.content[:300])
+                self.assertEqual(resp["Content-Type"], "application/json")
+                self.assertEqual(
+                    resp.json(),
+                    {"detail": "Multipart form parse error - unsupported charset in a part header."},
+                )
 
     def test_surrogate_and_raising_codecs_are_not_a_500(self):
         for key in self.urls:
             for codec in ("utf-7", "punycode", "undefined"):
                 with self.subTest(endpoint=key, codec=codec):
                     resp = self.send(self.client, key, codec)
-                    # Django drops the part; the file endpoints then see no file,
-                    # while a board PATCH has nothing to reject and succeeds.
-                    self.assertEqual(resp.status_code, 200 if key == "board_patch" else 400, resp.content[:300])
+                    self.assertLess(resp.status_code, 500, resp.content[:300])
 
     def test_unknown_codec_name_is_not_a_500(self):
         for key in self.urls:
@@ -337,13 +382,14 @@ class PartFilenameCodecTests(TestCase):
             seen["post"], seen["files"] = dict(request.POST), dict(request.FILES)
             return JsonResponse({})
 
-        resp = RequestCharsetMiddleware(get_response)(self._factory_request("hex"))
+        with _header_parser_raises():
+            resp = RequestCharsetMiddleware(get_response)(self._factory_request("hex"))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(seen, {"post": {}, "files": {}})
 
     def test_django_level_read_without_the_guard_raises_lookup_error(self):
         # Proves the test above discriminates: the bare request does raise.
-        with self.assertRaises(LookupError):
+        with _header_parser_raises(), self.assertRaises(LookupError):
             self._factory_request("hex").POST
 
     def test_key_and_index_errors_still_propagate(self):
