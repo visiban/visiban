@@ -110,17 +110,27 @@ new number is wrong.
 
 The JSON's `cost` object (and the text report's `## Cost` section) reads the cost ledger
 lines `/wave` writes in `## Gates` (`subagent-tokens:`, `orchestrator-tokens:`,
-`est-cost-usd:`, or `cost-ledger: off`; #2128, `docs/development/cost-ledger.md`). Report it
-in this order:
+`est-cost-usd:`, or `cost-ledger: off`; #2128, `docs/development/cost-ledger.md`). **Per-MR
+cost is not the `## Gates` `est-cost-usd:`** (#2154): that is a go-ahead snapshot whose
+orchestrator share every MR of a wave repeats. The script sums the MR's own
+`## Cost of this MR` records that state `Window: S to U` (non-overlapping), read from its
+notes. `subagent-tokens:` still comes from `## Gates` (per branch). Report it in this order:
 
 - **The state counts first:** `recorded`, `disabled` (the MR said `cost-ledger: off`:
   nothing recorded, by choice) and `none` (no figure yet) of `mrs`. A disabled MR is never 0
   and never averaged; a window of disabled MRs is not evidence that cost fell. When `state`
   is `disabled` or `none`, say that and stop: there is no cost finding to make.
+- **`excluded`** (by reason code -> MR ids; the text report prints each reason with its
+  count and ids): recorded MRs left out of every cost mean because no windowed record could
+  be summed: a legacy `Window end:`-only record, no record, an unparsed record, notes
+  unreadable. They are never 0. **Always state how many MRs the means rest on
+  (`est_costed` of `recorded`) and how many were excluded and why**; if most are excluded,
+  say the means are thin and make no cost finding. Run live, the script reads each costed
+  MR's notes; offline (`--input`) an MR carries `notes` and `token_user_id`.
 - **`malformed`** lists MRs whose cost lines fail `scripts/cost_ledger_lines.py`. Their
   malformed figures are ignored, not read as 0. Report them as a truthfulness note (Step 4).
-- **`by_class`** (branch prefix, as the yield watch buckets it): mean `est-cost-usd` and
-  mean `subagent-tokens` over the class's recorded MRs, or `disabled` / `none` as its state.
+- **`by_class`** (branch prefix, as the yield watch buckets it): mean cost (summed windowed
+  records) over the class's costed MRs, mean `subagent-tokens` over its recorded MRs, or `disabled` / `none` as its state.
   `orchestrator-tokens:` is never averaged: it is a session's spend shared by every branch of
   one wave.
 - **`by_gate`**: the mean estimate of the MRs a gate ran on vs was `n/a` on, and
@@ -128,7 +138,7 @@ in this order:
   MR-level cost, not the gate's own cost: the ledger records cost per MR. Treat it as context
   for a yield finding (a 0%-yield gate on the most expensive MRs is a stronger narrowing case),
   never as a verdict by itself, and say how many costed MRs it rests on.
-- `est-cost-usd` is a list-price estimate from `.claude/model-prices.json`, not a billed
+- The cost is a list-price estimate from `.claude/model-prices.json`, not a billed
   amount. If the window has `subagent-tokens:` lines but no `est-cost-usd:` line, the price
   table has likely gone stale (over 90 days): say so; it is refreshed by hand.
 
@@ -256,7 +266,8 @@ Report format:
 <full table: gate | runs | zero | >0 | n/a | skipped | unscored | yield | verdict>
 
 ### Cost
-<state counts (recorded / disabled / none of N); by class and by gate when recorded, else the
+<state counts (recorded / disabled / none of N); how many recorded MRs were costed from windowed
+records and how many were excluded, by reason; by class and by gate when recorded, else the
 disabled or not-recorded-yet line, never a 0>
 
 ### Findings (max 5, truthfulness first)

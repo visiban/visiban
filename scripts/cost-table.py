@@ -253,6 +253,8 @@ def _valid_ts(text):
         return False
 
 
+NOT_WINDOWED = ("- This record has no window start: its orchestrator row is not windowed, so it overlaps other MRs of the "
+                "same session and must not be compared with or added to another MR's cost.")
 FIRST_RECORD = ("- This is the session's first record, so the orchestrator row starts at the session's start and "
                 "includes work done before this MR's issue.")
 
@@ -366,6 +368,11 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
         # The parser reads this line back up to the first `. ` (END1_RE): keep that prefix stable.
         out.append("- Window end: %s. Both figures stop at the go-ahead to push; later work on this MR goes in later records."
                    % (end if end else "n/a (%s)" % why))
+        # #2154: with no window start the orchestrator row runs from the session's start, so it overlaps the
+        # other MRs of the same session. The cost readers (scripts/kaizen_gate_ledger.py) exclude such a
+        # record; this line tells a person reading it the same. post-mr-cost.py always passes --since, so
+        # only a hand-run `cost-table.py --comment --file` without --since reaches this branch.
+        out.append(NOT_WINDOWED)
     else:
         out.append("- Window: %s to %s. This record counts only the work in this window; the running-total row adds the earlier records."
                    % (since, end))
@@ -384,13 +391,11 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
     if b:
         roles = ", ".join("%s %d" % (r, k) for r, k in sorted(b[1].items()))
         out.append("- Agents over their /wave budget (`budget-exceeded:`): %d%s." % (b[0], " (%s)" % roles if roles else ""))
-    out += [
-        "- Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
-        "every branch it worked, and each subagent is counted only for usage after its previous record. "
-        "Records from one session add up to its total.",
-        "",
-        FOOTER_1 if record == 1 else FOOTER_K,
-    ]
+    if record > 1 or since is not None:
+        out.append("- Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
+                   "every branch it worked, and each subagent is counted only for usage after its previous record. "
+                   "Records from one session add up to its total.")
+    out += ["", FOOTER_1 if record == 1 else FOOTER_K]
     return out, own
 
 
@@ -537,6 +542,24 @@ def _me(api):
     return uid if isinstance(uid, int) and not isinstance(uid, bool) else None
 
 
+def own_records(notes, me):
+    """(own records, foreign count) from a page of GitLab note objects: the notes with the comment
+    heading by user `me`, as {'id', 'k', 'rec'}, oldest first; the same notes by anyone else are
+    counted, never read. Shared with scripts/kaizen_gate_ledger.py (#2154)."""
+    own, foreign = [], 0
+    for note in notes:
+        if not (isinstance(note, dict) and not note.get("system") and isinstance(note.get("id"), int)
+                and isinstance(note.get("body"), str) and note["body"].lstrip().startswith(COMMENT_HEADING)):
+            continue
+        author = note.get("author")
+        aid = author.get("id") if isinstance(author, dict) else None
+        if not isinstance(aid, int) or isinstance(aid, bool) or aid != me:
+            foreign += 1
+            continue
+        own.append({"id": note["id"], "k": head_number(note["body"]), "rec": parse_record(note["body"])})
+    return own, foreign
+
+
 def read_records(iid, api, max_pages=20):
     """(records, foreign count, error message): records are this user's notes with the comment
     heading, as {'id', 'k' (heading number or None), 'rec' (parse_record or None)}, oldest first.
@@ -554,16 +577,9 @@ def read_records(iid, api, max_pages=20):
             notes = None
         if not isinstance(notes, list):
             return None, 0, "cost-table: could not list the notes of !%d" % iid
-        for note in notes:
-            if not (isinstance(note, dict) and not note.get("system") and isinstance(note.get("id"), int)
-                    and isinstance(note.get("body"), str) and note["body"].lstrip().startswith(COMMENT_HEADING)):
-                continue
-            author = note.get("author")
-            aid = author.get("id") if isinstance(author, dict) else None
-            if not isinstance(aid, int) or isinstance(aid, bool) or aid != me:
-                foreign += 1
-                continue
-            own.append({"id": note["id"], "k": head_number(note["body"]), "rec": parse_record(note["body"])})
+        got, skipped = own_records(notes, me)
+        own += got
+        foreign += skipped
         if len(notes) < 100:
             return own, foreign, None
     return None, 0, "cost-table: !%d has more than %d notes; not read" % (iid, max_pages * 100)
@@ -876,8 +892,10 @@ def self_test():
     check("full: the cost lines module reads the figures",
           [cl.subagent_tokens(full), cl.orchestrator_tokens(full), cl.est_cost_usd(full)] == [2594324, 1997645, 1.57])
     kfig = kz.cost_figures({"iid": 1, "description": full, "source_branch": "chore/x"})
-    check("full: /kaizen reads the same figures", (kfig["subagent_tokens"], kfig["orchestrator_tokens"], kfig["est_cost_usd"])
+    check("full: /kaizen reads the same figures", (kfig["subagent_tokens"], kfig["orchestrator_tokens"], kfig["gates_est_cost_usd"])
           == (2594324, 1997645, 1.57) and kfig["state"] == "recorded", repr(kfig))
+    # #2154: the `## Gates` estimate is a snapshot; /kaizen's per-MR cost comes from the windowed records only.
+    check("full: /kaizen does not read the Gates snapshot as the MR's cost", kfig["est_cost_usd"] is None, repr(kfig))
     check("off: /kaizen reads a marker as disabled, never 0",
           kz.cost_figures({"iid": 2, "description": desc("cost-ledger: off")})["state"] == "disabled")
 
@@ -912,10 +930,14 @@ def self_test():
                  "| Orchestrator | none used | none used | 1,997,645 | 0.87 USD | 1,997,645 | 0.87 USD |",
                  "| **Total** | **2,000,000** | **0.50 USD** | **2,591,969** | **1.07 USD** | **4,591,969** | **1.57 USD** |",
                  "Window end: 2026-11-04T15:30:00Z.", "prices 2026-11-03", "(`budget-exceeded:`): 1 (implementer 1)",
-                 "Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
-                 "every branch it worked, and each subagent is counted only for usage after its previous record. "
-                 "Records from one session add up to its total."):
+                 NOT_WINDOWED):
         check("comment: " + want[:40], want in com, com)
+    # #2154: a record with no window start says its orchestrator row is not windowed, and does not claim
+    # non-overlap; a record with a start still does.
+    check("comment: no window start drops the non-overlap claim", "Records do not overlap" not in com, com)
+    check("comment: a window start keeps the non-overlap claim and has no not-windowed line",
+          "Records do not overlap" in "\n".join(comment_lines(withb, 383, "2026-11-04T15:30:00Z", split, since="2026-11-04T15:00:00Z"))
+          and NOT_WINDOWED not in "\n".join(comment_lines(withb, 383, "2026-11-04T15:30:00Z", split, since="2026-11-04T15:00:00Z")))
     check("comment: the retired never-add footnote is gone", "must not be added" not in com
           and "shared by every branch of the same wave" not in com, com)
     check("comment: record 1 has no running-total row", "Running total" not in com, com)

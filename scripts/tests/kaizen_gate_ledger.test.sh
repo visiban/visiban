@@ -340,6 +340,35 @@ check "cost text (all off): says disabled by choice, not 'no MR carries ... yet'
 check "cost text (no cost lines): says not recorded yet" \
   "$(printf '%s' "$TEXT_OUT" | grep -q 'No MR carries a `subagent-tokens:`' && echo 0 || echo 1)"
 
+# --- Per-MR cost comes from windowed records, not the `## Gates` snapshot (#2154) ---
+# cost_records_fixture.json (token user id 7): !20-!22 a wave whose go-ahead snapshots overlap
+# (5, 9, 14 USD; the records are 1, 2, 3 USD); !23 a legacy `Window end:` record (cumulative
+# orchestrator row); !29 a legacy record plus a windowed one (partial: excluded); !24 two windowed records (2.00 + 1.00) beside a 99.00 snapshot; !25 no
+# records; !26 unreadable notes; !27 a record by another user (never read); !28 a record but no
+# cost line in `## Gates` (not in the cost population).
+REC_FIXTURE="$REPO_ROOT/scripts/tests/fixtures/kaizen/cost_records_fixture.json"
+python3 "$SCRIPT" --input "$REC_FIXTURE" --json > "$TMP/rec_out.json"
+R="$TMP/rec_out.json"
+check "records: a wave costs its records (feat mean 2.00 over !20-!22), not its snapshots (9.33 or 12.00)" \
+  "$([ "$(cj "$R" cost by_class feat mean_est_cost_usd)" = 2.0 ] && [ "$(cj "$R" cost by_class feat est_costed)" = 3 ] && echo 0 || echo 1)"
+check "records: a two-record MR is summed (3.00), not read from its 99.00 snapshot" \
+  "$([ "$(cj "$R" cost by_class fix mean_est_cost_usd)" = 3.0 ] && echo 0 || echo 1)"
+check "records: the legacy record is excluded (!23), never read as 0 or 20.00" \
+  "$([ "$(cj "$R" cost excluded legacy_record)" = '[23]' ] && echo 0 || echo 1)"
+check "records: a legacy plus a windowed record (!29) is excluded as partial, not summed over its windowed part" \
+  "$([ "$(cj "$R" cost excluded mixed_records)" = '[29]' ] && [ "$(cj "$R" cost by_class feat est_costed)" = 3 ] && echo 0 || echo 1)"
+check "records: no record, another user's record and unreadable notes are excluded, each with its reason" \
+  "$([ "$(cj "$R" cost excluded no_record)" = '[25, 27]' ] && [ "$(cj "$R" cost excluded notes_unreadable)" = '[26]' ] && echo 0 || echo 1)"
+check "records: docs and chore have no costed MR, so their mean is null, never 0" \
+  "$([ "$(cj "$R" cost by_class docs mean_est_cost_usd)" = null ] && [ "$(cj "$R" cost by_class chore mean_est_cost_usd)" = null ] && echo 0 || echo 1)"
+check "records: subagent-tokens still comes from ## Gates (feat mean 283.33)" \
+  "$([ "$(cj "$R" cost by_class feat mean_subagent_tokens)" = 283.33 ] && echo 0 || echo 1)"
+REC_TEXT="$(python3 "$SCRIPT" --input "$REC_FIXTURE")"
+check "records text: names each exclusion with its count and MR ids" \
+  "$(printf '%s' "$REC_TEXT" | grep -q 'legacy record with no window start (orchestrator row not windowed): 1 MR(s), !23' && printf '%s' "$REC_TEXT" | grep -q 'notes unreadable: 1 MR(s), !26' && echo 0 || echo 1)"
+check "records text: no snapshot or other-user figure leaks into a mean" \
+  "$(! printf '%s' "$REC_TEXT" | grep -E '^(feat|fix|docs|chore) ' | grep -qE '9\.33|12\.00|99\.00|50\.00|60\.00' && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

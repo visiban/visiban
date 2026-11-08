@@ -38,7 +38,12 @@ Usage:
 Cost (#2128). Beside yield, the report reads the cost ledger lines `/mr` and `/wave` write in
 `## Gates` (`subagent-tokens:`, `orchestrator-tokens:`, `est-cost-usd:`, or the one marker
 `cost-ledger: off`; docs/development/cost-ledger.md) through scripts/cost_ledger_lines.py, the
-same reader scripts/cost-table.py renders from. Each MR is in one cost state: `recorded` (a
+same reader scripts/cost-table.py renders from. Per-MR est. cost does NOT come from `est-cost-usd:` (#2154):
+that line is a go-ahead snapshot whose orchestrator share every MR of a wave repeats. It comes from the
+sum of the MR's `## Cost of this MR` comment records that state `Window: S to U` (non-overlapping), read
+from the MR's notes; an MR with only a legacy `Window end:` record, no record, or unreadable notes is
+excluded from every cost mean, and the report counts and names each exclusion. `subagent-tokens:` stays a
+`## Gates` figure (per branch). Each MR is in one cost state: `recorded` (a
 well-formed figure), `disabled` (the off marker: nothing recorded, by choice) or `none` (no
 figure yet). A disabled MR is never counted as 0 and never averaged; a window or change class
 whose MRs are all disabled says so instead of showing a mean. Change class is the branch prefix
@@ -61,6 +66,8 @@ from dataclasses import dataclass, field
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _paths import cli_roots, resolve_within  # noqa: E402
 import cost_ledger_lines as cost_lines  # noqa: E402
+import importlib.util  # noqa: E402
+import decimal  # noqa: E402
 
 DEFAULT_PROJECT = "visiban/visiban"
 DEFAULT_WINDOW = 30
@@ -132,26 +139,137 @@ def change_class(mr) -> str:
     return prefix if prefix in COST_CLASSES else "other"
 
 
+# Why an MR with a `## Gates` cost line is left out of the cost means (#2154). Fixed text: nothing
+# from a note is ever echoed.
+EXCLUSION_TEXT = {
+    "notes_unreadable": "notes unreadable",
+    "notes_not_read": "notes not read",
+    "no_record": "no cost record by the token user",
+    "legacy_record": "legacy record with no window start (orchestrator row not windowed)",
+    "mixed_records": "legacy and windowed records: partial",
+    "unparsed_record": "a cost record that does not parse",
+    "no_usd": "a record with no USD total",
+}
+
+_COST_TABLE = []
+
+
+def _cost_table():
+    """scripts/cost-table.py (a hyphenated name, so loaded by path): the one parser of the cost
+    records and the glab notes reader, so this reader writes no second regex for them."""
+    if not _COST_TABLE:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost-table.py")
+        spec = importlib.util.spec_from_file_location("cost_table_for_kaizen", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _COST_TABLE.append(mod)
+    return _COST_TABLE[0]
+
+
+def record_cost(own):
+    """(est USD, total tokens, record count, exclusion code) from an MR's own cost records
+    (cost-table.own_records items). Only records that state `Window: S to U` are summed: they do not
+    overlap. One legacy `Window end:` record (orchestrator row cumulative from the session start)
+    makes the whole MR unreadable as a cost (`mixed_records` when windowed ones sit beside it), since leaving it out would undercount and adding it
+    would double count. No figure is ever read as 0."""
+    if not own:
+        return None, None, 0, "no_record"
+    recs = [o["rec"] for o in own]
+    if any(r is None for r in recs):
+        return None, None, 0, "unparsed_record"
+    if any(r["start"] is None for r in recs):
+        # Only windowed records would undercount (the legacy one holds the rest); never sum just that part.
+        return None, None, 0, ("mixed_records" if any(r["start"] is not None for r in recs) else "legacy_record")
+    usd = [r["total"].get(("usd", "all")) for r in recs]
+    tok = [r["total"].get(("tok", "all")) for r in recs]
+    if any(v is None for v in usd):
+        return None, None, len(recs), "no_usd"
+    total_usd = float(sum(usd, decimal.Decimal(0)))
+    return total_usd, (None if any(v is None for v in tok) else sum(tok)), len(recs), None
+
+
+def mr_cost_records(mr):
+    """The MR's own cost records, or an exclusion code. `cost_records` (set by attach_cost_records
+    from live notes) wins; offline an MR carries GitLab note objects in `notes` and the token user's
+    id in `token_user_id` (notes by anyone else are never read), or `notes_unreadable: true`."""
+    if mr.get("notes_unreadable") or (mr.get("cost_records") or {}).get("error"):
+        return None, "notes_unreadable"
+    if isinstance(mr.get("cost_records"), dict):
+        return mr["cost_records"]["records"], None
+    if isinstance(mr.get("notes"), list):
+        uid = mr.get("token_user_id")
+        own, _foreign = _cost_table().own_records(mr["notes"], uid if isinstance(uid, int) else None)
+        return own, None
+    return None, "notes_not_read"
+
+
 def cost_figures(mr) -> dict:
     """One MR's cost record: state `disabled` (the `cost-ledger: off` marker), `recorded` (at least
-    one well-formed figure) or `none`; the three figures (None when absent or malformed, never 0);
-    and whether any cost line in `## Gates` failed scripts/cost_ledger_lines.py's checks."""
+    one well-formed figure in `## Gates`) or `none`; the figures (None when absent or malformed,
+    never 0); and whether any cost line in `## Gates` failed scripts/cost_ledger_lines.py's checks.
+
+    `est_cost_usd` is the sum of the MR's windowed cost records, not the `## Gates` snapshot
+    (`gates_est_cost_usd`, kept for reference only: its orchestrator share is repeated by every MR
+    of a wave). `exclusion` says why a `recorded` MR has no `est_cost_usd` (#2154)."""
     desc = mr.get("description") or ""
     fig = {
         "iid": mr.get("iid"),
         "class": change_class(mr),
         "subagent_tokens": cost_lines.subagent_tokens(desc),
         "orchestrator_tokens": cost_lines.orchestrator_tokens(desc),
-        "est_cost_usd": cost_lines.est_cost_usd(desc),
+        "gates_est_cost_usd": cost_lines.est_cost_usd(desc),
+        "est_cost_usd": None,
+        "record_tokens": None,
+        "records": 0,
+        "exclusion": None,
         "malformed": bool(cost_lines.check_body(desc)),
     }
     if cost_lines.ledger_disabled(desc):
         fig["state"] = "disabled"
-    elif any(fig[k] is not None for k in ("subagent_tokens", "orchestrator_tokens", "est_cost_usd")):
+    elif any(fig[k] is not None for k in ("subagent_tokens", "orchestrator_tokens", "gates_est_cost_usd")):
         fig["state"] = "recorded"
+        own, why = mr_cost_records(mr)
+        if why is None:
+            fig["est_cost_usd"], fig["record_tokens"], fig["records"], why = record_cost(own)
+        fig["exclusion"] = why
     else:
         fig["state"] = "none"
     return fig
+
+
+def attach_cost_records(mrs, project, fetch=None):
+    """Read the cost comments of each MR that carries a `## Gates` cost line (bounded: an MR with no
+    cost line, or `cost-ledger: off`, costs no API call) and set `cost_records` on it. A failed read
+    sets {"error": ...}, which the report counts as "notes unreadable"; it is never read as 0.
+    `fetch(iid)` -> (own records, error) is injectable for tests; the default is cost-table's
+    glab reader, scoped to `project` and reading only the token user's own notes."""
+    ct = _cost_table()
+    if fetch is None:
+        ct.PROJECT["path"] = project
+        cache = {}
+
+        def api(method, path, payload=None):
+            if path == "user" and "user" in cache:
+                return cache["user"]
+            out = ct.glab_api(method, path, payload)
+            if path == "user" and out[0] == 0:
+                cache["user"] = out
+            return out
+
+        def fetch(iid):
+            own, _foreign, err = ct.read_records(iid, api)
+            return own, err
+    try:
+        for mr in mrs:
+            iid = mr.get("iid")
+            if not isinstance(iid, int) or isinstance(iid, bool):
+                continue
+            if cost_figures(dict(mr, cost_records=None, notes=None))["state"] != "recorded":
+                continue
+            own, err = fetch(iid)
+            mr["cost_records"] = {"error": True} if err else {"records": own}
+    finally:
+        ct.PROJECT["path"] = None
 
 
 def _mean(values):
@@ -211,6 +329,9 @@ def analyze_cost(figs, gate_runs) -> dict:
         "malformed": sorted(f["iid"] for f in figs if f["malformed"] and f["iid"] is not None),
         "state": _cost_state(figs),
         "est_costed": len(usd),
+        # Recorded MRs left out of every cost mean, by reason code -> MR ids (#2154). Never read as 0.
+        "excluded": {code: sorted(f["iid"] for f in figs if f["exclusion"] == code)
+                     for code in EXCLUSION_TEXT if any(f["exclusion"] == code for f in figs)},
         "by_class": classes,
         "by_gate": gates,
     }
@@ -509,6 +630,14 @@ def render_cost(cost) -> list:
     if cost["state"] == "none":
         out.append("No MR carries a `subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:` line yet.")
         return out
+    out.append(
+        "Per-MR est. cost is the sum of the MR's `## Cost of this MR` records that state `Window: S to U` "
+        "(they do not overlap), not the `## Gates` `est-cost-usd:` snapshot, whose orchestrator share every MR of a wave repeats. "
+        f"Costed from records: {cost['est_costed']} of {cost['recorded']} recorded MRs."
+    )
+    for code, iids in cost["excluded"].items():
+        out.append(f"Excluded from every cost mean, {EXCLUSION_TEXT[code]}: {len(iids)} MR(s), "
+                   + ", ".join("!%s" % i for i in iids[:10]) + (", ..." if len(iids) > 10 else ""))
     out.append("")
     out.append("By change class (branch prefix; `orchestrator-tokens:` is session spend shared across a wave, so it is "
                "never averaged here):")
@@ -525,7 +654,7 @@ def render_cost(cost) -> list:
         out.append(f"{cls:<8} {c['mrs']:>4} {c['recorded']:>9} {c['disabled']:>9} {usd:>15} {tok:>21}")
     out.append("")
     if not cost["by_gate"]:
-        out.append("By gate: no MR carries an `est-cost-usd:` line yet.")
+        out.append("By gate: no MR has a windowed cost record to read yet.")
         return out
     out.append("By gate (the MR-level estimate of the MRs it ran on vs was n/a on; not the gate's own cost):")
     header = f"{'gate':<28} {'ran':>4} {'mean est. cost (ran)':>21} {'n/a':>4} {'mean est. cost (n/a)':>21} {'findings/USD':>13}"
@@ -575,6 +704,26 @@ def _gate_row_close(got: dict, want: dict) -> bool:
     )
 
 
+def _attach_check(em, ct, note, rec, t) -> bool:
+    """attach_cost_records with an injected fetch: one MR read, one MR with no cost line not read,
+    one failed read marked unreadable (and then excluded, never 0)."""
+    def desc(*lines):
+        return "## Gates\n" + "\n".join(lines) + "\n"
+    mrs = [{"iid": 50, "source_branch": "feat/50", "description": desc("est-cost-usd: 3.00")},
+           {"iid": 51, "source_branch": "feat/51", "description": desc(f"- gate: perf-check {em} n/a (x)")},
+           {"iid": 52, "source_branch": "feat/52", "description": desc("subagent-tokens: 5")}]
+    asked = []
+
+    def fetch(iid):
+        asked.append(iid)
+        return ([] , "boom") if iid == 52 else (ct.own_records([note(1, rec("1.50", t(8), t(9)))], 7)[0], None)
+
+    attach_cost_records(mrs, "visiban/visiban", fetch=fetch)
+    c = analyze(mrs)["cost"]
+    return (asked == [50, 52] and "cost_records" not in mrs[1] and math.isclose(c["by_class"]["feat"]["mean_est_cost_usd"], 1.5)
+            and c["excluded"] == {"notes_unreadable": [52]})
+
+
 def self_test() -> int:
     """Offline proof that the ledger and cost readers still fire (#1093 house rule). The wider
     regression suite is scripts/tests/kaizen_gate_ledger.test.sh, run in the same CI job."""
@@ -584,6 +733,32 @@ def self_test() -> int:
         return {"iid": iid, "source_branch": branch,
                 "description": "## Gates\n" + "\n".join(lines) + "\n\n## Notes\nsubagent-tokens: 777\n"}
 
+    ct = _cost_table()
+
+    def rec(usd, since, until, k=1, prior=None):
+        body = f"## Gates\nsubagent-tokens: 100\norchestrator-tokens: 900\nest-cost-usd: {usd}\n"
+        return "\n".join(ct.comment_lines(body, 1, until, None, record=k, since=since, prior=prior))
+
+    def note(nid, body, uid=7):
+        return {"id": nid, "system": False, "author": {"id": uid}, "body": body}
+
+    t = lambda h: "2026-11-05T%02d:00:00Z" % h  # noqa: E731
+    r1 = rec("2.00", t(8), t(9))
+    r2 = rec("1.00", t(9), t(10), k=2, prior={"records": [ct.parse_record(r1)], "gaps": []})
+    legacy = rec("20.00", None, t(12))
+
+    def cmr(iid, branch, gates_usd, *notes, **kw):
+        m = mr(iid, branch, f"- gate: regression-check {em} 1 finding (sonnet)", "subagent-tokens: 100",
+               f"est-cost-usd: {gates_usd}")
+        return dict(m, token_user_id=7, notes=list(notes), **kw)
+
+    wave = [cmr(30, "feat/30", "5.00", note(1, rec("1.00", t(8), t(9)))),
+            cmr(31, "feat/31", "9.00", note(2, rec("2.00", t(9), t(10)))),
+            cmr(32, "feat/32", "14.00", note(3, rec("3.00", t(10), t(11))))]
+    cc = analyze(wave + [cmr(33, "feat/33", "20.00", note(4, legacy)),
+                         cmr(34, "fix/34", "99.00", note(5, r1), note(6, r2)),
+                         cmr(35, "fix/35", "7.00"), cmr(36, "docs/36", "7.00", notes_unreadable=True),
+                         cmr(37, "chore/37", "7.00", note(7, rec("50.00", t(8), t(9)), uid=8))])["cost"]
     mrs = [
         mr(1, "feat/1", f"- gate: regression-check {em} 2 findings (sonnet)", f"- gate: perf-check {em} n/a (no viewset)",
            "subagent-tokens: 1000", "est-cost-usd: 2.00 (prices 2026-11-03)"),
@@ -593,6 +768,8 @@ def self_test() -> int:
         mr(4, "docs/4", f"- gate: regression-check {em} skipped (user said so)", "subagent-tokens: ~5k"),
         {"iid": 5, "source_branch": "chore/5", "description": "## Summary\nno ledger\n"},
     ]
+    mrs[0].update(token_user_id=7, notes=[note(8, rec("2.00", t(8), t(9)))])
+    mrs[1].update(token_user_id=7, notes=[note(9, rec("4.00", t(8), t(9)))])
     r = analyze(mrs)
     c = r["cost"]
     rc = r["gates"]["regression-check"]
@@ -613,6 +790,23 @@ def self_test() -> int:
          and "nothing recorded, by choice" in "\n".join(render_cost(analyze([mrs[2]])["cost"]))),
         ("an empty window reads not recorded yet, never 0", analyze([mrs[4]])["cost"]["state"] == "none"
          and "line yet" in "\n".join(render_cost(analyze([mrs[4]])["cost"]))),
+        # #2154: per-MR cost is the sum of windowed records, never the overlapping `## Gates` snapshot.
+        ("a wave of overlapping snapshots costs its records (mean 2.00), not the snapshots (9.33)",
+         math.isclose(analyze(wave)["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 2.0)),
+        ("a multi-record MR sums its records (3.00), not its 99.00 snapshot", math.isclose(cc["by_class"]["fix"]["mean_est_cost_usd"], 3.0)),
+        ("a legacy record is excluded, not read as 0 or 20.00", cc["excluded"].get("legacy_record") == [33]),
+        ("a legacy plus a windowed record is excluded as partial, not summed over its windowed part",
+         analyze([cmr(38, "feat/38", "5.00", note(10, legacy), note(11, r2))])["cost"]["excluded"] == {"mixed_records": [38]}),
+        ("no record, a foreign-author record and unreadable notes are each excluded",
+         cc["excluded"].get("no_record") == [35, 37] and cc["excluded"].get("notes_unreadable") == [36]),
+        ("excluded MRs are left out of the feat mean (3 of 4 recorded costed)",
+         math.isclose(cc["by_class"]["feat"]["mean_est_cost_usd"], 2.0) and cc["by_class"]["feat"]["est_costed"] == 3),
+        ("an MR whose notes were never read is excluded, not 0",
+         analyze([mr(40, "feat/40", f"- gate: perf-check {em} n/a (x)", "est-cost-usd: 3.00")])["cost"]["excluded"] == {"notes_not_read": [40]}),
+        ("the report counts and names the exclusions", "legacy record with no window start" in "\n".join(render_cost(cc))
+         and "!33" in "\n".join(render_cost(cc)) and "notes unreadable" in "\n".join(render_cost(cc))),
+        ("attach_cost_records reads only MRs with a cost line, and a failed read is `notes unreadable`",
+         _attach_check(em, ct, note, rec, t)),
         ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
     ]
     fails = [name for name, ok in checks if not ok]
@@ -635,6 +829,9 @@ def main():
     args = parser.parse_args()
 
     mrs = load_mrs(args)
+    if not args.input:
+        # Live only: read the cost comments of the MRs that carry a cost line (#2154). Offline MRs bring their own `notes`.
+        attach_cost_records(mrs, args.project)
     result = analyze(mrs)
 
     if args.json:
