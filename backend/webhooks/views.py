@@ -221,8 +221,10 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
     )
     def list(self, request, board_pk=None):
         board = self._enabled_board(board_pk)
-        qs = WebhookSubscription.objects.filter(board_id=board.pk).select_related(
-            "created_by", "configured_by"
+        # The annotation keeps last_delivered_event_id at one query for the
+        # whole list (#2135); without it each row would read it separately.
+        qs = dispatch.with_reported_cursor(
+            WebhookSubscription.objects.filter(board_id=board.pk).select_related("created_by", "configured_by")
         )
         return Response(WebhookSubscriptionSerializer(qs, many=True).data)
 
@@ -265,6 +267,8 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                 name=attrs.get("name", ""),
                 event_types=attrs.get("event_types", []),
                 # D5: start at the board's newest event; nothing earlier is sent.
+                # Stored board-wide; the response reports it on the webhook's
+                # own feed (dispatch.reported_cursor, #2135).
                 cursor=dispatch.latest_event_id(board.pk),
                 created_by=user,
                 configured_by=user,

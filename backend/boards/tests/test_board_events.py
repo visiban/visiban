@@ -27,6 +27,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.db import connection, transaction
+from django.db.models import OuterRef
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -38,7 +39,7 @@ from boards.management.commands.prune_board_events import _MARK_CHUNK, record_pr
 from boards.models import BoardEvent, BoardEventPruneMark, BoardEventPruneTypeMark, BoardMembership, Card
 from boards.permissions import PER_USER_EVENTS
 from boards.services import cards as svc
-from boards.services.feed import pruned_through
+from boards.services.feed import pruned_through, reader_position, reader_position_subquery
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
     _make_user,
@@ -1809,3 +1810,74 @@ class PruneMarkTests(BoardEventTestBase):
         self.assertFalse(BoardEvent.objects.filter(pk=missed).exists())
         self.assertEqual(resp.status_code, 410)
         self.assertEqual(resp.data["next_cursor"], newer)
+
+
+class ReaderPositionTests(BoardEventTestBase):
+    """``reader_position``: a stored position reported on one reader's feed (#2135).
+
+    Never above the stored value, built only from rows and marks the reader may
+    see, and the list annotation (``reader_position_subquery``) gives the same
+    answer as the one-row read.
+    """
+
+    def _record(self, event="card.created", *, actor=None, aged=False):
+        pk = record_board_event(
+            self.board.id, event, {"user_id": actor.pk} if actor else {}, actor_id=actor.pk if actor else None,
+        )
+        if aged:
+            BoardEvent.objects.filter(pk=pk).update(created_at=timezone.now() - datetime.timedelta(days=45))
+        return pk
+
+    def _readers(self):
+        return (
+            ("webhook", BoardMembership.Role.VIEWER, None),
+            ("member", BoardMembership.Role.MEMBER, self.member.pk),
+            ("owner", BoardMembership.Role.ADMIN, self.owner.pk),
+        )
+
+    def test_rows_only(self):
+        p1 = self._record()
+        member_star = self._record("board.star_changed", actor=self.member)
+        admin_only = self._record("share_link.updated")
+        top = admin_only + 1
+        expected = {
+            "webhook": {0: 0, p1: p1, member_star: p1, admin_only: p1, top: p1},
+            "member": {0: 0, p1: p1, member_star: member_star, admin_only: member_star, top: member_star},
+            "owner": {0: 0, p1: p1, member_star: p1, admin_only: admin_only, top: admin_only},
+        }
+        for name, role, reader_id in self._readers():
+            for cursor, want in expected[name].items():
+                with self.subTest(reader=name, cursor=cursor):
+                    self.assertEqual(reader_position(self.board.id, cursor, role=role, reader_id=reader_id), want)
+
+    def test_marks_count_only_at_or_below_the_cursor_and_only_where_visible(self):
+        p1 = self._record(aged=True)
+        member_star = self._record("board.star_changed", actor=self.member, aged=True)
+        moved = self._record("card.moved", aged=True)
+        call_command("prune_board_events")
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.board.id).exists())
+        role, reader_id = BoardMembership.Role.VIEWER, None
+        self.assertEqual(reader_position(self.board.id, member_star, role=role, reader_id=reader_id), p1)
+        self.assertEqual(reader_position(self.board.id, moved, role=role, reader_id=reader_id), moved)
+        self.assertEqual(reader_position(self.board.id, p1 - 1, role=role, reader_id=reader_id), 0)
+        self.assertEqual(
+            reader_position(self.board.id, member_star, role=BoardMembership.Role.MEMBER, reader_id=self.member.pk),
+            member_star,
+        )
+
+    def test_subquery_matches_the_one_row_read(self):
+        self._record(aged=True)
+        self._record("board.star_changed", actor=self.member, aged=True)
+        call_command("prune_board_events")
+        self._record()
+        self._record("board.star_changed", actor=self.owner)
+        self._record("share_link.updated")
+        self._record("card.moved")
+        for name, role, reader_id in self._readers():
+            annotated = BoardEvent.objects.filter(board_id=self.board.id).annotate(
+                pos=reader_position_subquery(OuterRef("board_id"), OuterRef("id"), role=role, reader_id=reader_id)
+            )
+            for row_id, pos in annotated.values_list("id", "pos"):
+                with self.subTest(reader=name, cursor=row_id):
+                    self.assertEqual(pos, reader_position(self.board.id, row_id, role=role, reader_id=reader_id))
+                    self.assertLessEqual(pos, row_id)

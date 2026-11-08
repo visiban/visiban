@@ -1070,3 +1070,66 @@ class SeedTests(TestCase):
     def test_seed_demo_data_creates_no_subscriptions(self):
         call_command("seed_demo_data", stdout=StringIO(), stderr=StringIO())
         self.assertFalse(WebhookSubscription.objects.exists())
+
+
+class ReportedCursorTests(DispatcherBase):
+    """A run moves the stored cursor as before; the API reports it on the webhook's feed (#2135)."""
+
+    def setUp(self):
+        super().setUp()
+        self.member = _make_user(email="reported-run-member@example.com")
+        _make_membership(self.board, self.member, "member")
+        self.client = APIClient()
+        self.client.force_login(self.admin)
+
+    def members_star(self):
+        return self.event("board.star_changed", data={"user_id": self.member.pk}, actor_id=self.member.pk)
+
+    def reported(self):
+        r = self.client.get(f"/api/v1/boards/{self.board.pk}/webhooks/{self.sub.pk}/")
+        self.assertEqual(r.status_code, 200)
+        return r.data["last_delivered_event_id"]
+
+    def test_tail_advance_past_a_per_user_row_is_reported_at_the_last_delivered_row(self):
+        p1 = self.event()
+        star = self.members_star()
+        rec, _ = self.run_with()
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [p1.pk])
+        # Stored: past the per-user row, as before, so the next run is idle.
+        self.assertEqual(self.sub.cursor, star.pk)
+        self.assertEqual(self.reported(), p1.pk)
+        self.assertEqual(dispatch.reported_cursor(self.sub), p1.pk)
+
+    def test_delivery_after_the_change_is_exactly_once_with_nothing_replayed(self):
+        p1 = self.event()
+        self.members_star()
+        self.event("share_link.updated", data={"board_uid": "x", "active": True})
+        rec, _ = self.run_with()
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [p1.pk])
+        reported = self.reported()
+        self.assertEqual(reported, p1.pk)
+        p2 = self.event("card.moved")
+        rec, _ = self.run_with()
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [p2.pk])
+        self.assertEqual((self.sub.cursor, self.reported()), (p2.pk, p2.pk))
+        rec, _ = self.run_with()
+        self.assertEqual(rec.calls, [])
+
+    def test_a_webhook_created_at_a_per_user_row_delivers_the_next_event_once(self):
+        before = self.event()
+        star = self.members_star()
+        # The start point create and `resume_from: latest` store (the API tests
+        # cover those endpoints).
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(cursor=dispatch.latest_event_id(self.board.pk))
+        self.sub.refresh_from_db()
+        self.assertEqual((self.sub.cursor, self.reported()), (star.pk, before.pk))
+        after = self.event()
+        rec, _ = self.run_with()
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [after.pk])
+        rec, _ = self.run_with()
+        self.assertEqual(rec.calls, [])
+
+    def test_ordinary_board_reports_the_stored_cursor(self):
+        ids = [self.event(f"card.{n}").pk for n in ("created", "moved")]
+        self.run_with()
+        self.assertEqual((self.sub.cursor, self.reported()), (ids[-1], ids[-1]))

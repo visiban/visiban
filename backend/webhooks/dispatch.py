@@ -60,12 +60,20 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import F, Max, Q
+from django.db.models import F, Max, OuterRef, Q
 from django.utils import timezone
 
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
-from boards.services.feed import feed_queryset, newest_event_id, prune_marks, resume_cursor, serialize_feed_rows
+from boards.services.feed import (
+    feed_queryset,
+    newest_event_id,
+    prune_marks,
+    reader_position,
+    reader_position_subquery,
+    resume_cursor,
+    serialize_feed_rows,
+)
 from visiban import crypto, egress
 from visiban.authorization import authorize_account
 
@@ -200,9 +208,49 @@ def latest_event_id(board_id: int) -> int:
     newest surviving id is then below the mark, and a cursor there would be
     expired again at once (#2058). Board-wide, unlike the feed's ``410``
     ``next_cursor``, which is computed from the rows and marks its reader may
-    see (``reader_resume_cursor``, #2126).
+    see (``reader_resume_cursor``, #2126). What the API returns for it is
+    :func:`reported_cursor` (#2135).
     """
     return resume_cursor(board_id)
+
+
+# The cursor as the API reports it (#2135). Why only the reported value is
+# reader-scoped and the stored ``cursor`` stays board-wide: the stored value
+# drives delivery. The idle fast path compares it with the board's newest id of
+# any type, the tail advance in ``_deliver`` moves it past rows this reader
+# never sees, and ``latest_event_id`` keeps it above every reader's marks so a
+# later widening of ``event_types`` is not expired at once (#2079). Scoping the
+# stored value would change all three. Nothing reads the reported value back:
+# ``reenable`` and every run use the stored one. So deliveries are exactly what
+# they were (no event skipped or sent twice), and the number an admin is shown
+# is the subscription's position on its own feed, the rows and marks
+# ``WEBHOOK_READER_ROLE`` with no reader id may see, which every board admin's
+# feed also shows.
+
+
+def reported_cursor(subscription: WebhookSubscription) -> int:
+    """``last_delivered_event_id``: *subscription*'s cursor on the webhook's own feed.
+
+    The highest position at or below the stored cursor that the webhook reader
+    may see (``boards.services.feed.reader_position``). After create or
+    ``resume_from: latest`` that is ``reader_resume_cursor`` for the webhook
+    reader, less the unrecorded floor; after a run it is the last row delivered
+    or skipped by type. Uses the ``reported_cursor_value`` annotation from
+    :func:`with_reported_cursor` when the row was read with it.
+    """
+    annotated = getattr(subscription, "reported_cursor_value", None)
+    if annotated is not None:
+        return annotated
+    return reader_position(subscription.board_id, subscription.cursor, role=WEBHOOK_READER_ROLE, reader_id=None)
+
+
+def with_reported_cursor(queryset):
+    """Annotate *queryset* so :func:`reported_cursor` needs no query per row."""
+    return queryset.annotate(
+        reported_cursor_value=reader_position_subquery(
+            OuterRef("board_id"), OuterRef("cursor"), role=WEBHOOK_READER_ROLE, reader_id=None
+        )
+    )
 
 
 def cursor_expired(subscription: WebhookSubscription) -> bool:
@@ -544,6 +592,8 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         # the cursor-expiry rule start from a row that exists.
         # A page cut short by an unsettled row is also short: the window
         # already stops before that row, so the tail stays below it.
+        # The stored value only: the API reports the last row on this reader's feed
+        # (``reported_cursor``, #2135).
         if len(rows) < max_events:
             tail = BoardEvent.objects.filter(board_id=board.pk).filter(window).aggregate(m=Max("id"))["m"]
             if tail and tail > pending:
