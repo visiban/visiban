@@ -21,9 +21,8 @@ _ERROR_ENVELOPE_SCHEMA = {
     "required": ["detail"],
 }
 
-# status code -> (description, schema). 400 is handled separately below: it is
-# only ever possible on an operation that reads client input, and its body shape
-# varies, so it gets its own (deliberately loose) envelope.
+# status code -> (description, schema). 400 is handled separately below: its
+# body shape varies, so it gets its own (deliberately loose) envelope.
 _STANDARD_ERROR_RESPONSES = {
     "401": (
         "Authentication credentials were not provided, or are invalid/expired.",
@@ -62,38 +61,12 @@ _VALIDATION_ERROR_SCHEMA = {
 _VALIDATION_ERROR_DESCRIPTION = (
     "The request was malformed or failed validation. The body is DRF's "
     "validation-error shape: an object keyed by field name (or ``detail``), "
-    "or a list of messages."
+    "or a list of messages. Any operation can also answer it for a request "
+    "over a server limit (a body over 2.5 MB, or a query string with more "
+    "than 1000 parameters), as ``{\"detail\": \"...\"}``."
 )
 
 _HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete"})
-
-
-_BODY_METHODS = frozenset({"post", "put", "patch"})
-
-
-def _reads_client_input(method, operation):
-    """True if the operation parses a request body or declares query parameters.
-
-    These are the operations whose own input can be refused with a 400. A bare
-    path-parameter lookup either resolves or is a 404, so it has no 400 of its
-    own. That is not the whole truth since #2073: a query string over
-    ``DATA_UPLOAD_MAX_NUMBER_FIELDS`` is a JSON 400 on any operation (content
-    negotiation reads the query string), so the schema under-documents it
-    there. Documenting that 400 everywhere is tracked in #2140. Header/cookie
-    parameters are not counted.
-
-    Keyed on the HTTP method, not on a ``requestBody`` entry: a view that
-    declares no serializer has no ``requestBody`` in the schema, but DRF still
-    parses the body and answers 400 to a malformed one (the fuzz job hit exactly
-    that on several auth and swimlane endpoints).
-    """
-    if method in _BODY_METHODS or "requestBody" in operation:
-        return True
-    return any(
-        param.get("in") == "query"
-        for param in operation.get("parameters", [])
-        if isinstance(param, dict)
-    )
 
 
 def add_standard_error_responses(result, generator, request, public):
@@ -116,7 +89,11 @@ def add_standard_error_responses(result, generator, request, public):
             if method not in _HTTP_METHODS:
                 continue
             responses = operation.setdefault("responses", {})
-            if "400" not in responses and _reads_client_input(method, operation):
+            # Every operation, not only ones that read client input: content
+            # negotiation parses the query string on every request, so a query
+            # string over DATA_UPLOAD_MAX_NUMBER_FIELDS is a JSON 400 anywhere
+            # (#2073, #2140).
+            if "400" not in responses:
                 responses["400"] = {
                     "description": _VALIDATION_ERROR_DESCRIPTION,
                     "content": {

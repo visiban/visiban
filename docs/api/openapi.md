@@ -182,12 +182,13 @@ operation already declares — the card-mutation 409s (`WipLimitExceeded`, `Vers
 etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
 `@extend_schema` blocks from #1108 still win.
 
-**Validation errors (`400`).** The same hook documents a `400` on every operation that reads
-client input — one that takes a body (`POST`/`PUT`/`PATCH`) or query parameters — using DRF's validation-error
+**Validation errors (`400`).** The same hook documents a `400` on every operation — including
+a path-parameter-only `GET` or `DELETE` — using DRF's validation-error
 shape: an object keyed by field name (or `detail`), or an array of messages
 ([#1165](https://gitlab.com/visiban/visiban/-/issues/1165), closing the gap tracked in
-[#1124](https://gitlab.com/visiban/visiban/-/issues/1124)). A path-parameter-only lookup
-cannot answer `400`, so it is not documented there. Because it is a whole-class rule, a new
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124)). A path-parameter-only lookup has
+no input of its own to refuse, but it can still answer the server-limit `400` described
+below ([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)). Because it is a whole-class rule, a new
 write endpoint gets its `400` for free and never needs a per-operation baseline entry.
 
 A form body over one of Django's upload limits is in that class too:
@@ -216,8 +217,9 @@ multi-select custom field value, is checked after it is decoded. The same refusa
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
 and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. The project `EXCEPTION_HANDLER` answers both
 with the same JSON `400`. Because content negotiation reads the query string on every request, any
-operation can answer it, including the ones whose schema entry documents no `400`; documenting it
-on every operation is tracked in [#2140](https://gitlab.com/visiban/visiban/-/issues/2140).
+operation can answer it, so the hook documents the `400` on every operation
+([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)). An operation that already declares
+its own `400` keeps it.
 
 **Server-layer multipart rejections are filtered, not baselined.** When a request's
 `Content-Type` is `multipart/form-data` but the body is malformed, the ASGI server
