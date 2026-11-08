@@ -768,8 +768,13 @@ class ReportedCursorTests(WebhookApiBase):
         self.assertEqual(sub.cursor, star.pk)
 
     def test_every_read_agrees(self):
+        # Between e1 and the stored cursor: an admin-only row and another user's
+        # per-user row. Neither is on the webhook reader's feed, so every read,
+        # the list annotation included, stays at e1.
         e1 = self._event()
+        admin_only = self._event("share_link.updated")
         star = self._members_star()
+        self.assertLess(admin_only.pk, star.pk)
         sub = make_subscription(self.board, self.admin, cursor=star.pk)
         reads = {
             "list": self.client.get(_url(self.board.pk)).data[0],
