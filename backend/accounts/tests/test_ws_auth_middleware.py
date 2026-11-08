@@ -193,6 +193,21 @@ class ASGIStackOrderingTests(TestCase):
                 # Restore the module-level `application` other tests import.
                 importlib.reload(asgi)
 
+    def test_outage_middleware_wraps_the_whole_auth_stack(self):
+        """#2144: HandshakeOutageMiddleware must sit OUTSIDE AuthMiddlewareStack
+        (its CookieMiddleware) and inside the origin check, so a session
+        lookup, a ticket redemption and every routed consumer's connect() —
+        enterprise ones included — run inside it."""
+        from channels.sessions import CookieMiddleware
+
+        from accounts.ws_auth import HandshakeOutageMiddleware
+        from accounts.ws_origin import OptionalOriginValidator
+
+        chain = self._websocket_middleware_chain()
+        self.assertEqual(chain[:3], [OptionalOriginValidator, HandshakeOutageMiddleware, CookieMiddleware])
+        self.assertLess(chain.index(HandshakeOutageMiddleware), chain.index(AuthMiddleware))
+        self.assertLess(chain.index(HandshakeOutageMiddleware), chain.index(TicketAuthMiddleware))
+
     def test_websocket_stack_survives_a_reload(self):
         """The ticket wiring must not depend on import order or reload state."""
         self.assertIn(TicketAuthMiddleware, self._websocket_middleware_chain())
