@@ -4741,10 +4741,11 @@ MR or push pipeline. It fails the next scheduled pipeline on <code>main</code> a
 <p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass. These are deferred deliberately, not silently:</p>
 <ul>
 <li><strong><code>scripts/close-milestone-issues.sh</code></strong> — an action script (closes GitLab issues via
-  <code>glab</code>), not a detection/gate script: there's no pass/fail verdict to prove still fires.
-  A meaningful self-test would need to mock the <code>glab</code> API surface, which is a larger lift
-  than this issue's scope. Not wired into <code>.gitlab-ci.yml</code> either, so the parity meta-gate
-  doesn't (and shouldn't yet) flag it.</li>
+  <code>glab</code>), not a detection/gate script. Since #1904 it has a stub-<code>glab</code> test,
+  <code>scripts/tests/close-milestone-issues.test.sh</code>, proving a glab failure exits nonzero
+  instead of looking like an empty milestone. That test is not yet wired into
+  <code>.gitlab-ci.yml</code> (wiring the remaining <code>scripts/tests/*.test.sh</code> is tracked in #2117), so
+  the parity meta-gate doesn't flag it.</li>
 <li><strong><code>manage.py check_migration_concurrency</code></strong> — the Django management command described in
   <code>docs/development/database-migrations.md</code>. Real detection logic with the same silent-green
   failure mode as everything else on this page, but it isn't a file under <code>scripts/</code>, so
