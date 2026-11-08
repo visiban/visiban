@@ -12,6 +12,8 @@ interface Props {
   placeholder?: string;
   rows?: number;
   className?: string;
+  /** Accessible name; falls back to the placeholder, which is not a reliable name on its own. */
+  ariaLabel?: string;
 }
 
 interface MentionState {
@@ -36,12 +38,12 @@ function isRectVisible(r: DOMRect, el: HTMLElement): boolean {
   return r.bottom > top && r.top < bottom;
 }
 
-export default function MentionTextarea({ value, onChange, onSubmit, members, placeholder, rows = 2, className }: Props) {
+export default function MentionTextarea({ value, onChange, onSubmit, members, placeholder, rows = 2, className, ariaLabel }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Stable per-instance ids so several MentionTextareas on one page never collide (#2137).
   const baseId = useId();
   const listboxId = `${baseId}-listbox`;
-  const optionId = (userId: number) => `${baseId}-option-${userId}`;
+  const optionId = (userId: number | undefined) => `${baseId}-option-${userId}`;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<MentionState>({ active: false, query: "", startIndex: -1 });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -61,6 +63,8 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     : [];
 
   const open = mention.active && suggestions.length > 0;
+  // selectedIndex is reset in an effect, so it can be stale for one render after the list narrows.
+  const activeUser = suggestions[Math.min(selectedIndex, suggestions.length - 1)];
 
   // The list is `position: fixed` (not `absolute bottom-full`) so the card sheet's scroll region
   // cannot clip it (#2092). It stays in this component's DOM subtree rather than a body portal
@@ -230,11 +234,13 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         className={className}
         // ARIA 1.2 combobox: focus stays here while arrow keys move the active option (#2137).
         role="combobox"
+        aria-multiline="true"
+        aria-label={ariaLabel ?? placeholder}
         aria-autocomplete="list"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        aria-activedescendant={open ? optionId(suggestions[selectedIndex]?.id) : undefined}
+        aria-activedescendant={open ? optionId(activeUser?.id) : undefined}
       />
       {open && (
         <div

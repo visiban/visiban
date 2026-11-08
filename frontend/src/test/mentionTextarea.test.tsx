@@ -363,6 +363,24 @@ describe('MentionTextarea combobox semantics (#2137)', () => {
     expect(ta).toHaveFocus()
   })
 
+  it('keeps multiline semantics and an accessible name', () => {
+    render(<MentionTextarea value="" onChange={vi.fn()} members={members} placeholder="Add a comment" ariaLabel="Comment" />)
+    const ta = screen.getByRole('combobox', { name: 'Comment' })
+    expect(ta).toHaveAttribute('aria-multiline', 'true')
+  })
+
+  it('never points aria-activedescendant at a missing option when the list narrows', async () => {
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{ArrowDown}')
+    await user.type(ta, 'j')
+    const id = ta.getAttribute('aria-activedescendant')
+    expect(id).not.toContain('undefined')
+    expect(document.getElementById(id as string)).not.toBeNull()
+  })
+
   it('collapses again on Escape', async () => {
     const user = userEvent.setup()
     render(<Controlled />)
