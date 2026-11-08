@@ -393,6 +393,18 @@ release_body_is_empty() {
   [[ -z "$(printf '%s' "$1$2" | tr -d '[:space:]')" ]]
 }
 
+# close_milestone_issues_or_warn <milestone> <script> — run the milestone-closing
+# script. The tag is already pushed by the time this runs, so a failure must not
+# abort the release, but it must not pass silently either (#1904): the script exits
+# nonzero on any glab failure, and we surface that with the manual re-run command.
+close_milestone_issues_or_warn() {
+  if ! "$2" "$1"; then
+    echo "WARNING: could not close all issues in milestone '$1'." >&2
+    echo "         Re-run: scripts/close-milestone-issues.sh \"$1\"" >&2
+  fi
+  return 0
+}
+
 # write_release_notes_file <body> <path> — the file glab release create reads.
 write_release_notes_file() {
   if [[ -z "$1" ]]; then
@@ -723,6 +735,17 @@ dependencies:
   [[ "$(cat "$tmp/nf.md")" == "See CHANGELOG.md for details." ]] \
     && echo "SELF-TEST OK: write_release_notes_file falls back when the body is empty" \
     || { echo "SELF-TEST FAILED: write_release_notes_file empty fallback" >&2; rc=1; }
+  # #1904: a failing close-milestone script warns with the re-run hint and does not abort.
+  printf '#!/bin/sh\nexit 1\n' > "$tmp/fail-close-1904.sh"; chmod +x "$tmp/fail-close-1904.sh"
+  printf '#!/bin/sh\nexit 0\n' > "$tmp/ok-close-1904.sh"; chmod +x "$tmp/ok-close-1904.sh"
+  out="$(close_milestone_issues_or_warn 1.2 "$tmp/fail-close-1904.sh" 2>&1)"; grc=$?
+  if [[ $grc -eq 0 && "$out" == *"WARNING: could not close all issues in milestone '1.2'"* \
+      && "$out" == *'Re-run: scripts/close-milestone-issues.sh "1.2"'* ]]; then
+    echo "SELF-TEST OK: close_milestone_issues_or_warn warns and continues on failure"
+  else echo "SELF-TEST FAILED: close_milestone_issues_or_warn failure path (rc=$grc out=$out)" >&2; rc=1; fi
+  out="$(close_milestone_issues_or_warn 1.2 "$tmp/ok-close-1904.sh" 2>&1)"; grc=$?
+  if [[ $grc -eq 0 && -z "$out" ]]; then echo "SELF-TEST OK: close_milestone_issues_or_warn silent on success"
+  else echo "SELF-TEST FAILED: close_milestone_issues_or_warn success path (rc=$grc out=$out)" >&2; rc=1; fi
   _self="$0"  # the script under test itself (so a mutated copy is judged, not release.sh)
   _ci="$(dirname "$0")/../.gitlab-ci.yml"
   # The main flow is everything after the self-test block; matching only there
@@ -737,6 +760,7 @@ dependencies:
   _wire "summary is resolved" 'RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || exit 1'
   _wire "body is summary + notes" 'RELEASE_BODY="$(combine_release_notes "$RELEASE_SUMMARY_TEXT" "$RELEASE_NOTES")"'
   _wire "emptiness guard sees the summary" 'if release_body_is_empty "$RELEASE_SUMMARY_TEXT" "$RELEASE_NOTES"; then'
+  _wire "milestone close goes through the warn wrapper" '  close_milestone_issues_or_warn "$MILESTONE_TITLE" "$(dirname "$0")/close-milestone-issues.sh"'
   _wire "confirm gate gets the combined body" 'confirm_release_notes "$RELEASE_BODY" || {'
   _wire "rotation inserts the summary" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md'
   _wire "GitLab release body comes from RELEASE_BODY" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
@@ -1438,7 +1462,7 @@ else
     MILESTONE_TITLE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
   fi
   echo "Closing open milestone issues for '${MILESTONE_TITLE}'..."
-  "$(dirname "$0")/close-milestone-issues.sh" "$MILESTONE_TITLE" || true
+  close_milestone_issues_or_warn "$MILESTONE_TITLE" "$(dirname "$0")/close-milestone-issues.sh"
 fi
 
 echo ""
