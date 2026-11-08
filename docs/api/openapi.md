@@ -217,7 +217,12 @@ ISO-8859-15, Windows-1252 or UTF-16/32 is a `400` with `{"detail": "Unsupported 
 on every endpoint ([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)). Django decodes the
 query string, form fields and multipart field and file names with the declared charset, and a codec
 such as `utf-7` turns plain ASCII (`?search=%2B2AA-`) into a lone surrogate that PostgreSQL cannot
-store. An unknown charset name is ignored, as before.
+store. An unknown charset name is ignored, as before. The check is default-deny, so it also refuses
+charsets that would have decoded safely (for example ISO-8859-2, Windows-1251 or Shift_JIS), and it
+replaces the server error that a non-text codec such as `hex`, `base64` or `rot13` used to cause.
+Because the middleware answers before routing, the `400` can come from any operation, including ones
+whose schema entry documents none; documenting it on every operation is tracked in
+[#2140](https://gitlab.com/visiban/visiban/-/issues/2140).
 
 *(Changed in 1.3, #2073)* Two limits are raised where no parser runs: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),

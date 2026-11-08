@@ -7,6 +7,7 @@ importer all answered 500 on PostgreSQL (SQLite stores it silently, so these
 tests assert the status, and the PostgreSQL run is the real proof).
 """
 import json
+from pathlib import Path
 
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -40,13 +41,27 @@ class RequestCharsetTests(TestCase):
         self.assertCharsetRefused(resp)
 
     def test_multipart_trello_import_with_utf7_charset_is_400(self):
-        body = b'--b\r\nContent-Disposition: form-data; name="name"\r\n\r\n+2AA-\r\n--b--\r\n'
+        # The real file plus a "name" field of "+2AA-": without the guard the
+        # board name reaches PostgreSQL as U+D800 and the confirm answers 500.
+        fixture = (Path(__file__).parent / "fixtures" / "trello_export.json").read_bytes()
+        body = (
+            b'--b\r\nContent-Disposition: form-data; name="file"; filename="t.json"\r\n'
+            b"Content-Type: application/json\r\n\r\n" + fixture + b"\r\n"
+            b'--b\r\nContent-Disposition: form-data; name="name"\r\n\r\n+2AA-\r\n--b--\r\n'
+        )
         resp = self.client.post(
-            "/api/v1/boards/import/trello/?dry_run=true", data=body,
+            "/api/v1/boards/import/trello/?confirm=true", data=body,
             content_type="multipart/form-data; boundary=b; charset=utf-7",
         )
         self.assertCharsetRefused(resp)
         self.assertEqual(Board.objects.count(), 1)
+
+    def test_urlencoded_body_with_utf7_charset_is_400(self):
+        resp = self.client.post(
+            "/api/v1/boards/import/trello/?confirm=true", data=b"name=%2B2AA-",
+            content_type="application/x-www-form-urlencoded; charset=utf-7",
+        )
+        self.assertCharsetRefused(resp)
 
     def test_json_body_with_utf7_charset_is_400(self):
         resp = self.client.post(

@@ -47,8 +47,12 @@ class RequestCharsetMiddleware:
     psycopg raises on PostgreSQL and the request is an unhandled 500. #2085
     guarded only the JSON body. Refusing at the one place the encoding is chosen
     covers every surface, including views added later, instead of patching each
-    reader. Browsers only ever send UTF-8 or a legacy single-byte charset, which
-    stay allowed; an unknown charset name is already ignored by Django.
+    reader. The check is default-deny: only the codecs in ``_SAFE_REQUEST_CODECS``
+    pass. That also refuses charsets that decode safely (ISO-8859-2, Windows-1251,
+    KOI8-R, Shift_JIS), and it fixes the separate 500 a non-text codec such as
+    ``hex``, ``base64`` or ``rot13`` caused. Browsers usually send no charset on a
+    form post, which is unaffected, as is an unknown charset name (Django ignores it).
+    Must stay in ``MIDDLEWARE`` (docs/architecture/open-core-boundary.md).
 
     Runs right after Security/CORS (so the 400 carries their headers) and before
     anything has touched ``request.GET``/``POST`` yet. Answers the
