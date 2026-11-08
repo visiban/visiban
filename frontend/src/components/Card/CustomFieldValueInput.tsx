@@ -1,4 +1,5 @@
 import { flushSync } from "react-dom";
+import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEffect, useId, useRef, useState } from "react";
 import { formatDateStr } from "../../utils/date";
@@ -111,7 +112,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     // flushSync: a URL input commits on blur from its render-time closure, which must see the
     // reverted text or it would save the half-typed value.
     flushSync(() => cancelEditRef.current?.());
-    el.blur();
+    focusEnclosingDialog(el);
   }, escapePriority ?? 44);
 
   const debouncedCommit = (next: string) => {
