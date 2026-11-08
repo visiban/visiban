@@ -106,6 +106,8 @@ class LimitedMultiPartParser(MultiPartParser):
         except UPLOAD_LIMIT_ERRORS as exc:
             raise _parse_error(exc, "Multipart form parse error", parser_context) from exc
         except LookupError as exc:
+            if isinstance(exc, (KeyError, IndexError)):
+                raise  # a real bug, not an unknown codec; keep it a loud 500
             # A part header's RFC 2231 ``filename*=<codec>''...`` names a codec
             # Python cannot decode text with (hex, base64, ...): Django's header
             # parser lets the LookupError escape (#2151). The message names the

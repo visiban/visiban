@@ -76,7 +76,10 @@ def _drop_unusable_part_charsets(request):
     def parse_file_upload(META, post_data):
         try:
             return original(META, post_data)
-        except LookupError:
+        except LookupError as exc:
+            if isinstance(exc, (KeyError, IndexError)):
+                raise  # a real bug, not an unknown codec; keep it a loud 500
+            logger.warning("Dropped multipart body: a part header names an unusable codec")
             return QueryDict(encoding=request._encoding), MultiValueDict()
 
     request.parse_file_upload = parse_file_upload
