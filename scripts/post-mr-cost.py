@@ -112,7 +112,7 @@ OTHER_LEAF_RE = re.compile(r"(?<=/)(\d+-[A-Za-z][\w-]*)(?![\w-]|\.\w)")  # not a
 BRIEF_CAP = 256 << 10
 STATE_SCHEMA = 1
 NOTE_PAGES = 20   # 2,000 notes, as cost-table reads; more reads as unreadable, never as absent
-PROJECT_PATH_RE = re.compile(r"^[0-9A-Za-z_.-]+(?:/[0-9A-Za-z_.-]+)+\Z")
+PROJECT_PATH_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z_.-]*(?:/[0-9A-Za-z_.-]+)+\Z")
 
 
 def retry_hint(iid, sid):
@@ -2136,6 +2136,29 @@ def _self_test():
     check("a symlinked state dir is refused on write (False, no raise)",
           write_state(gd_esc, "sess-1", {"orchestrator_until": None, "agents": {}}, "2026-11-07T10:00:00Z", []) is False
           and os.listdir(gd_out) == [])
+    # #2152: state_lock degrades to NO lock (runs the body, creates no lock file) when the state dir escapes the config root.
+    prev_cfg = os.environ.get("CLAUDE_CONFIG_DIR")
+    os.environ["CLAUDE_CONFIG_DIR"] = gd_esc
+    ran = []
+    try:
+        if fcntl is not None:
+            with state_lock("sess-1"):
+                ran.append(1)
+    finally:
+        if prev_cfg is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg
+    check("an escaping state dir: state_lock runs the body without a lock file outside the root",
+          (ran == [1] or fcntl is None) and os.listdir(gd_out) == [], repr(os.listdir(gd_out)))
+    # #2152: find_session_dir skips a session dir that symlinks outside the projects dir, and keeps the others.
+    pd = tempfile.mkdtemp(prefix="post-mr-cost-proj-")
+    os.makedirs(os.path.join(pd, "slug-a", "sess-ok"))
+    os.makedirs(os.path.join(pd, "slug-b-link-real"), exist_ok=True)
+    os.symlink(gd_out, os.path.join(pd, "slug-b-link-real", "sess-esc"))
+    check("find_session_dir: a symlinked session dir that escapes the projects dir is skipped", find_session_dir("sess-esc", pd) is None)
+    check("find_session_dir: an in-tree session dir is found (as its resolved path)",
+          find_session_dir("sess-ok", pd) == os.path.realpath(os.path.join(pd, "slug-a", "sess-ok")))
     open(os.path.join(gd2, "mr-cost-last-until"), "w").write("2999-01-01T00:00:00Z\n")
     check("the legacy shared marker is never read", read_state(gd2, sid)["orchestrator_until"] == "2026-11-07T10:00:00Z"
           and read_state(gd2, "other-session")["orchestrator_until"] is None)
