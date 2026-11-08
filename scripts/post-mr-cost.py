@@ -81,6 +81,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import types
 import urllib.parse
 
 try:
@@ -112,7 +113,7 @@ OTHER_LEAF_RE = re.compile(r"(?<=/)(\d+-[A-Za-z][\w-]*)(?![\w-]|\.\w)")  # not a
 BRIEF_CAP = 256 << 10
 STATE_SCHEMA = 1
 NOTE_PAGES = 20   # 2,000 notes, as cost-table reads; more reads as unreadable, never as absent
-PROJECT_PATH_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z_.-]*(?:/[0-9A-Za-z_.-]+)+\Z")
+PROJECT_PATH_RE = re.compile(r"^[0-9A-Za-z_.-]+(?:/[0-9A-Za-z_.-]+)+\Z")
 
 
 def retry_hint(iid, sid):
@@ -259,11 +260,13 @@ def window_end(notes, me, now, start):
 def find_session_dir(sid, projects_dir):
     hits = sorted(h for h in glob.glob(os.path.join(glob.escape(projects_dir), "*", sid)) if os.path.isdir(h))
     ok = []
-    for h in hits:  # a match that resolves (symlink, `..`) outside the projects dir is no session dir (#2152)
+    for h in hits:
         try:
             ok.append(str(resolve_within(projects_dir, h)))
         except (PathEscapeError, OSError, RuntimeError):
-            continue
+            # Fail closed (#2152): dropping it would measure the session with its subagents silently
+            # missing and post `subagent-tokens: 0` as if measured.
+            raise ValueError("a session directory resolves outside the projects dir")
     hits = ok
     return hits[0] if len(hits) == 1 else None
 
@@ -374,10 +377,10 @@ def state_lock(sid):
         yield
         return
     d = os.path.join(config_root(), "mr-cost-state")
-    os.makedirs(d, exist_ok=True)
     try:  # same root as state_path, so a symlinked state dir is refused here too (#2152)
+        os.makedirs(d, exist_ok=True)
         lock = resolve_within(config_root(), os.path.join(d, sid + ".lock"))
-    except PathEscapeError:
+    except (PathEscapeError, OSError, RuntimeError):  # RuntimeError/OSError: a symlink loop
         yield  # no lock beats a crashed hook; read_state/_write_doc then refuse the escaping path
         return
     fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
@@ -398,7 +401,7 @@ def _confined(root, name):
     symlinked mr-cost-state dir or an odd sid must not redirect the state write)."""
     try:
         return str(resolve_within(root, os.path.join(root, "mr-cost-state", name)))
-    except PathEscapeError as e:
+    except (PathEscapeError, RuntimeError) as e:  # RuntimeError: a symlink loop on Python < 3.13
         raise StateError("path escapes the config directory") from e
 
 
@@ -775,7 +778,10 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None):
         state = read_state(config_root(), sid)
     except StateError as e:
         return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, _shown(config_root(), sid, ".json")),)
-    sdir = find_session_dir(sid, opts.projects_dir)
+    try:
+        sdir = find_session_dir(sid, opts.projects_dir)
+    except ValueError:
+        return (None,) * 6 + ("the session's subagent directory resolves outside the projects directory, so nothing was measured",)
     try:
         main_path, _ = tu.session_paths(sid, opts.projects_dir)
     except ValueError:
@@ -2156,7 +2162,53 @@ def _self_test():
     os.makedirs(os.path.join(pd, "slug-a", "sess-ok"))
     os.makedirs(os.path.join(pd, "slug-b-link-real"), exist_ok=True)
     os.symlink(gd_out, os.path.join(pd, "slug-b-link-real", "sess-esc"))
-    check("find_session_dir: a symlinked session dir that escapes the projects dir is skipped", find_session_dir("sess-esc", pd) is None)
+    try:
+        find_session_dir("sess-esc", pd)
+        esc_sd = False
+    except ValueError:
+        esc_sd = True
+    check("find_session_dir: a symlinked session dir that escapes the projects dir fails closed (ValueError)", esc_sd)
+    prev_cfg2 = os.environ.get("CLAUDE_CONFIG_DIR")
+    os.environ["CLAUDE_CONFIG_DIR"] = tempfile.mkdtemp(prefix="post-mr-cost-cfg-")
+    try:
+        plan_res = plan(lambda *a, **k: (1, "", ""), pd, "sess-esc", None, "b", set(), types.SimpleNamespace(projects_dir=pd), "2026-11-07T10:00:00Z")
+    finally:
+        if prev_cfg2 is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg2
+    check("plan: a rejected session dir posts nothing and names the reason (no measured 0, a named agent is not dropped silently)",
+          plan_res[:6] == (None,) * 6 and "outside the projects directory" in (plan_res[6] or ""), repr(plan_res))
+    # symlink loop for the state dir (RuntimeError from Path.resolve on Python < 3.13) behaves like the escape case
+    gd_loop = tempfile.mkdtemp(prefix="post-mr-cost-loop-")
+    os.symlink(os.path.join(gd_loop, "mr-cost-state"), os.path.join(gd_loop, "mr-cost-state"))
+    try:
+        read_state(gd_loop, "sess-1")
+        loop_read = False
+    except StateError:
+        loop_read = True
+    check("a looping state dir is refused as a StateError, not an uncaught error", loop_read)
+    check("a looping state dir: write_state returns False", write_state(gd_loop, "sess-1", {"orchestrator_until": None, "agents": {}}, "2026-11-07T10:00:00Z", []) is False)
+    os.environ["CLAUDE_CONFIG_DIR"] = gd_loop
+    try:
+        loop_ran = []
+        if fcntl is not None:
+            with state_lock("sess-1"):
+                loop_ran.append(1)
+    finally:
+        if prev_cfg2 is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = prev_cfg2
+    check("a looping state dir: state_lock runs with no lock", loop_ran == [1] or fcntl is None)
+    # the write side and the read side accept the same project paths (a namespace may start with `_` or `.`)
+    gd_us = tempfile.mkdtemp(prefix="post-mr-cost-us-")
+    us_proj = parse_remote("https://gitlab.com/_alice/proj.git")
+    check("a project path starting with `_` parses", us_proj == "_alice/proj", repr(us_proj))
+    us_st = read_state(gd_us, "sess-1")
+    check("a `_alice/proj` pending claim round-trips write_pending -> read_state",
+          write_pending(gd_us, "sess-1", us_st, {"mr": 11, "project": us_proj, "since": "2026-11-07T09:00:00Z", "until": "2026-11-07T10:00:00Z", "agents": {}})
+          and read_state(gd_us, "sess-1").get("pending", {}).get("project") == "_alice/proj")
     check("find_session_dir: an in-tree session dir is found (as its resolved path)",
           find_session_dir("sess-ok", pd) == os.path.realpath(os.path.join(pd, "slug-a", "sess-ok")))
     open(os.path.join(gd2, "mr-cost-last-until"), "w").write("2999-01-01T00:00:00Z\n")

@@ -90,12 +90,12 @@ Blueprint recorded this decision as its ADR 0011; Visiban has no ADR directory, 
 
 ### Known debt
 
-Each item below is tracked in #2131.
+Each item below is tracked in #2131, except the last (Sonar suppressions), which #2153 tracks.
 
 - **The off marker isn't checked against the project file.** Nothing in CI checks that an MR's `cost-ledger: off` line matches `.claude/cost-ledger.json` at the MR's base.
 - **A stale price table warns nobody.** It only omits the estimate. The shipped table (`checked` 2026-11-03) lapses on 2027-02-01, 90 days later; see [The price table](#the-price-table).
 - **No CI lint reads MR descriptions.** The cost-line rules run by hand; see [What isn't ported](#what-isnt-ported).
-- **SonarCloud hasn't scanned the new scripts yet.** The first nightly scan after merge may raise path-traversal or argv findings on them (`pythonsecurity:S8707`, `S2083`, `S8705`); Sonar doesn't treat `scripts/_paths.py` `resolve_within` as a sanitizer. Each finding gets an ignore entry with its reason, or the flagged line is restructured.
+- **Sonar suppressions on `scripts/post-mr-cost.py` await re-verification.** The scan ran and #2152 handled its findings: state and session paths are confined in code, and the rest carry narrow per-file ignore entries (`pythonsecurity:S8707`, `S2083`, `S8705`, `S6350`) because Sonar doesn't treat `scripts/_paths.py` `resolve_within` as a sanitizer. #2153 tracks re-checking them after the first nightly scan.
 
 ## What off records
 <a id="what-off-records"></a>
@@ -139,7 +139,7 @@ They go last in `## Gates`, after the `gate:` lines, unchanged from the scripts'
 The scripts read `<projects-dir>/<slug>/<session-id>.jsonl` and `<session-id>/subagents/agent-<id>.jsonl` with its sibling `agent-<id>.meta.json` (default projects dir `~/.claude/projects`). That layout isn't documented by Claude Code (observed 2026-11-03), and transcripts are deleted after `cleanupPeriodDays` (30 days by default), so the lines are written at MR time or not at all.
 
 - **The slug doesn't matter.** A session is found by its id under any slug (`<projects-dir>/*/<session-id>.jsonl`), so a session started in the main checkout (`-Users-...-visiban`) and one started inside a `../visiban-wt/<leaf>` worktree resolve the same way.
-- **A session directory that symlinks out is skipped.** A `<projects-dir>/<slug>/<session-id>` directory that resolves outside the projects dir (a symlink) is ignored, so a record can post with that session's subagent usage missing while the main transcript is still found (#2152).
+- **A session directory that symlinks out is refused.** A `<projects-dir>/<slug>/<session-id>` directory that resolves outside the projects dir (a symlink) makes the run post nothing and say "the session's subagent directory resolves outside the projects directory, so nothing was measured", rather than record a `subagent-tokens: 0` that was never measured, or drop a named `--agent` silently (#2152).
 - **It fails closed.** An id with no transcript, or a session that doesn't resolve to exactly one directory, exits 1 and prints no line.
 - **One gap remains:** descendants are found only through `parentAgentId` in the meta files, so a nested agent whose transcript exists but whose meta file is missing isn't found, and the sum is partial.
 - **A branch resumed from another session** can't be read from this one: omit `subagent-tokens:` and say so; `orchestrator-tokens:` then covers the current session only.
