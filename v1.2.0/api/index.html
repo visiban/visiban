@@ -4211,7 +4211,7 @@
 <h3 id="connection">Connection<a class="headerlink" href="#connection" title="Permanent link">&para;</a></h3>
 <p><strong>URL pattern:</strong> <code>ws://&lt;host&gt;/ws/boards/{board_id}/</code> (or <code>wss://</code> for TLS)</p>
 <p><strong>Authentication:</strong> session cookie, or a short-lived ticket (since 1.2). The browser SPA relies on the existing session cookie and needs no <code>Authorization</code> header. Token-authenticated clients — native, CLI, or a front end on another origin — obtain a ticket from <code>POST /api/v1/auth/ws-ticket/</code> and pass it as <code>?ticket=</code>. See <a href="websockets/#ticket-authentication-since-12">WebSockets</a>.</p>
-<p><strong>Close codes:</strong></p>
+<p><strong>Close codes:</strong> a code sent at the handshake reaches the client as a refused upgrade (HTTP <code>403</code>), not as the code; see <a href="websockets/#how-a-refused-handshake-reaches-the-client">How a refused handshake reaches the client</a>.</p>
 <table>
 <thead>
 <tr>

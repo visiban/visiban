@@ -4927,7 +4927,7 @@ canonical wording.</p>
 <tr>
 <td>WebSocket ticket</td>
 <td><code>accounts/ws_auth.py</code> <code>consume_ws_ticket</code></td>
-<td>Single use decided by the return value of <code>cache.delete()</code></td>
+<td>Single use decided by the return value of <code>cache.delete()</code>. A redemption whose later checks can't complete (a cache or database outage, #2086) refuses the handshake with <code>1011</code> and leaves the claimed ticket spent, so single use never depends on whether those checks completed (<code>TicketAuthMiddleware</code>; <code>accounts/tests/test_ws_handshake_outage.py</code>)</td>
 </tr>
 <tr>
 <td>JSON, CSV and Trello import</td>
