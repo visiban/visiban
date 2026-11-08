@@ -119,4 +119,29 @@ describe('MentionList ARIA (#2137)', () => {
     expect(ids.every(Boolean)).toBe(true)
     expect(new Set(ids).size).toBe(6)
   })
+
+  it('reports the listbox id and the active option id as the selection moves (#2149)', () => {
+    const onActiveChange = vi.fn()
+    const ref = createRef<MentionListRef>()
+    const { container } = render(<MentionList ref={ref} items={[alice, bob]} command={vi.fn()} onActiveChange={onActiveChange} />)
+    const last = () => onActiveChange.mock.calls.at(-1)![0] as { listboxId: string; activeId: string }
+    const options = container.querySelectorAll('[role="option"]')
+    expect(last().activeId).toBe(options[0].id)
+    expect(container.querySelector(`[id="${last().listboxId}"]`)).toHaveAttribute('role', 'listbox')
+    act(() => { ref.current!.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'ArrowDown' }) }) })
+    expect(last().activeId).toBe(options[1].id)
+    expect(document.getElementById(last().activeId)).not.toBeNull()
+  })
+
+  it('reports null when there are no items (#2149)', () => {
+    const onActiveChange = vi.fn()
+    render(<MentionList items={[]} command={vi.fn()} onActiveChange={onActiveChange} />)
+    expect(onActiveChange).toHaveBeenLastCalledWith(null)
+  })
+
+  it('keeps editor focus when the pointer lands on the list surface (#2149)', () => {
+    render(<MentionList items={[alice]} command={vi.fn()} />)
+    const notPrevented = fireEvent.mouseDown(screen.getByRole('listbox'))
+    expect(notPrevented).toBe(false)
+  })
 })

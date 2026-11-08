@@ -682,8 +682,10 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
 
     const dispatch = vi.fn()
     const setMeta = vi.fn(() => 'exit-tr')
-    const editor = { isDestroyed: false, view: { dispatch }, state: { tr: { setMeta } } }
-    return { renderer: suggestion.render(), component, editor, dispatch, setMeta, disconnect, listKeyDown, fireObserver: () => observe?.() }
+    const dom = document.createElement('div')
+    dom.setAttribute('role', 'textbox')
+    const editor = { isDestroyed: false, view: { dispatch, dom }, state: { tr: { setMeta } } }
+    return { dom, renderer: suggestion.render(), component, editor, dispatch, setMeta, disconnect, listKeyDown, fireObserver: () => observe?.() }
   }
 
   afterEach(() => {
@@ -767,6 +769,87 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
     renderer.onKeyDown({ event: down })
     expect(listKeyDown).toHaveBeenCalledWith({ event: down })
     renderer.onExit()
+  })
+})
+
+describe('RichTextEditor mention combobox attributes (#2149)', () => {
+  // Reuses the lifecycle harness shape: fake suggestion props, no ProseMirror.
+  function start(extra: Record<string, string> = {}) {
+    const component = { element: document.createElement('div'), updateProps: vi.fn(), destroy: vi.fn(), ref: { onKeyDown: vi.fn(() => false) } }
+    vi.mocked(ReactRenderer).mockImplementation(function () { return component } as never)
+    render(<RichTextEditor value="text" onSave={vi.fn()} members={[]} />)
+    const configure = vi.mocked(MentionExtension.extend).mock.results[0].value.configure as ReturnType<typeof vi.fn>
+    const { suggestion } = configure.mock.calls.at(-1)?.[0] as { suggestion: { render: () => { onStart: (p: unknown) => void; onExit: () => void; onKeyDown: (p: { event: KeyboardEvent }) => boolean } } }
+    const dom = document.createElement('div')
+    dom.setAttribute('role', 'textbox')
+    for (const [k, v] of Object.entries(extra)) dom.setAttribute(k, v)
+    const dispatch = vi.fn()
+    const editor = { isDestroyed: false, view: { dispatch, dom }, state: { tr: { setMeta: vi.fn() } } }
+    const renderer = suggestion.render()
+    renderer.onStart({ editor, clientRect: () => null })
+    const props = vi.mocked(ReactRenderer).mock.calls.at(-1)![1] as unknown as { props: { onActiveChange: (s: { listboxId: string; activeId: string } | null) => void } }
+    return { dom, renderer, onActive: props.props.onActiveChange, dispatch }
+  }
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.querySelectorAll('[data-testid="mention-popup"]').forEach((el) => el.remove())
+  })
+
+  it('makes the editor a combobox pointing at the listbox and active option, then restores it on exit', () => {
+    const { dom, renderer, onActive } = start()
+    expect(dom).toHaveAttribute('role', 'combobox')
+    expect(dom).toHaveAttribute('aria-haspopup', 'listbox')
+    expect(dom).toHaveAttribute('aria-autocomplete', 'list')
+    expect(dom).not.toHaveAttribute('aria-multiline')
+    expect(dom).toHaveAttribute('aria-label', 'Add a description…')
+    expect(dom).toHaveAttribute('aria-expanded', 'false')
+    expect(dom).not.toHaveAttribute('aria-controls')
+
+    onActive({ listboxId: 'lb', activeId: 'lb-option-0' })
+    expect(dom).toHaveAttribute('aria-expanded', 'true')
+    expect(dom).toHaveAttribute('aria-controls', 'lb')
+    expect(dom).toHaveAttribute('aria-activedescendant', 'lb-option-0')
+
+    onActive({ listboxId: 'lb', activeId: 'lb-option-1' })
+    expect(dom).toHaveAttribute('aria-activedescendant', 'lb-option-1')
+
+    // An empty list drops the references to the now-missing listbox.
+    onActive(null)
+    expect(dom).toHaveAttribute('aria-expanded', 'false')
+    expect(dom).not.toHaveAttribute('aria-controls')
+    expect(dom).not.toHaveAttribute('aria-activedescendant')
+
+    onActive({ listboxId: 'lb', activeId: 'lb-option-0' })
+    renderer.onExit()
+    for (const a of ['aria-expanded', 'aria-haspopup', 'aria-autocomplete', 'aria-controls', 'aria-activedescendant', 'aria-label']) {
+      expect(dom).not.toHaveAttribute(a)
+    }
+    expect(dom).toHaveAttribute('role', 'textbox')
+    // A late report after exit does not resurrect the attributes.
+    onActive({ listboxId: 'lb', activeId: 'lb-option-0' })
+    expect(dom).toHaveAttribute('role', 'textbox')
+  })
+
+  it('removes the attributes on Escape', () => {
+    const { dom, renderer, onActive } = start()
+    onActive({ listboxId: 'lb', activeId: 'lb-option-0' })
+    renderer.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'Escape' }) })
+    expect(dom).toHaveAttribute('role', 'textbox')
+    expect(dom).not.toHaveAttribute('aria-activedescendant')
+    renderer.onExit()
+  })
+
+  it('restores a pre-existing aria-label rather than clobbering it', () => {
+    const { dom, renderer } = start({ 'aria-label': 'Card description' })
+    expect(dom).toHaveAttribute('aria-label', 'Card description')
+    renderer.onExit()
+    expect(dom).toHaveAttribute('aria-label', 'Card description')
+  })
+
+  it('ends the suggestion when the editor blurs', () => {
+    const { dom, dispatch } = start()
+    fireEvent.blur(dom)
+    expect(dispatch).toHaveBeenCalled()
   })
 })
 

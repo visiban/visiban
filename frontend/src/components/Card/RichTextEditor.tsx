@@ -28,6 +28,66 @@ import type { MentionListRef } from "./MentionList";
  */
 const mentionSuggestionKey = new PluginKey("mentionSuggestion");
 
+/**
+ * Combobox half of the ARIA pattern for the mention popup (#2149). TipTap owns
+ * the editor element, so the attributes are set on `editor.view.dom` directly
+ * while the suggestion is active (ProseMirror only rewrites attributes it set
+ * itself, so these survive its re-renders) and removed on exit.
+ *
+ * WAI-ARIA 1.2 combobox: the focused element itself is the combobox, so while
+ * the list is open the contenteditable's `role="textbox"` becomes
+ * `role="combobox"`, matching `MentionTextarea`. Only attributes ARIA 1.2
+ * supports on `combobox` are set (no `aria-multiline`), and it gets an accessible name
+ * (the placeholder) if it has none. Every attribute touched is snapshotted and
+ * restored, not just the role. `aria-expanded` is not supported on `textbox`, so keeping
+ * the textbox role and adding only `aria-activedescendant` would not announce
+ * that a list opened. Focus never leaves the editor.
+ */
+const COMBOBOX_ATTRS = [
+  "role",
+  "aria-label",
+  "aria-expanded",
+  "aria-haspopup",
+  "aria-autocomplete",
+  "aria-controls",
+  "aria-activedescendant",
+] as const;
+
+type ComboboxSnapshot = Record<(typeof COMBOBOX_ATTRS)[number], string | null>;
+
+function snapshotAttrs(dom: HTMLElement): ComboboxSnapshot {
+  return Object.fromEntries(COMBOBOX_ATTRS.map((a) => [a, dom.getAttribute(a)])) as ComboboxSnapshot;
+}
+
+function setMentionCombobox(
+  dom: HTMLElement,
+  state: { listboxId: string; activeId: string } | null,
+  label: string,
+) {
+  dom.setAttribute("role", "combobox");
+  if (!dom.getAttribute("aria-label") && !dom.getAttribute("aria-labelledby")) {
+    dom.setAttribute("aria-label", label);
+  }
+  dom.setAttribute("aria-autocomplete", "list");
+  dom.setAttribute("aria-haspopup", "listbox");
+  dom.setAttribute("aria-expanded", state ? "true" : "false");
+  if (state) {
+    dom.setAttribute("aria-controls", state.listboxId);
+    dom.setAttribute("aria-activedescendant", state.activeId);
+  } else {
+    dom.removeAttribute("aria-controls");
+    dom.removeAttribute("aria-activedescendant");
+  }
+}
+
+function clearMentionCombobox(dom: HTMLElement, snapshot: ComboboxSnapshot) {
+  for (const a of COMBOBOX_ATTRS) {
+    const v = snapshot[a];
+    if (v === null) dom.removeAttribute(a);
+    else dom.setAttribute(a, v);
+  }
+}
+
 interface Props {
   value: string;
   onSave: (value: string) => void;
@@ -295,11 +355,19 @@ export default function RichTextEditor({
             };
             const onResize = () => endSuggestion();
             let resizeObserver: ResizeObserver | undefined;
+            let editorDom: HTMLElement | undefined;
+            let snapshot: ComboboxSnapshot | null = null;
+            let comboboxOn = false;
+            const onEditorBlur = () => endSuggestion();
+            // Stable identity so MentionList's effect does not re-fire per render.
+            const onActiveChange = (state: { listboxId: string; activeId: string } | null) => {
+              if (editorDom && comboboxOn) setMentionCombobox(editorDom, state, placeholder);
+            };
 
             return {
               onStart(props) {
                 component = new ReactRenderer(MentionList, {
-                  props,
+                  props: { ...props, onActiveChange },
                   editor: props.editor,
                 });
                 // Always create the popup, hidden: `clientRect()` can return
@@ -312,6 +380,16 @@ export default function RichTextEditor({
                   if (editor.isDestroyed) return;
                   editor.view.dispatch(editor.state.tr.setMeta(mentionSuggestionKey, { exit: true }));
                 };
+                editorDom = editor.view.dom as HTMLElement;
+                snapshot = snapshotAttrs(editorDom);
+                // The attributes go on at start, while the popup can still be
+                // visibility:hidden (it is placed once the caret rect and list
+                // height exist). That window is a frame or so and harmless: the
+                // option ids only become reachable once the list renders, and
+                // aria-controls/activedescendant are set only then.
+                comboboxOn = true;
+                setMentionCombobox(editorDom, null, placeholder);
+                editorDom.addEventListener("blur", onEditorBlur);
                 popup = document.createElement("div");
                 popup.dataset.testid = "mention-popup";
                 popup.style.position = "fixed";
@@ -344,6 +422,8 @@ export default function RichTextEditor({
               onKeyDown({ event }) {
                 if (event.key === "Escape") {
                   popup?.remove();
+                  comboboxOn = false;
+                  if (editorDom && snapshot) clearMentionCombobox(editorDom, snapshot);
                   // Signal that this Escape was consumed by the mention popup so
                   // the useEscapeStack handler at priority 31 doesn't also cancel
                   // edit mode in the same keypress.
@@ -354,6 +434,12 @@ export default function RichTextEditor({
                 return component.ref?.onKeyDown({ event }) ?? false;
               },
               onExit() {
+                comboboxOn = false;
+                if (editorDom) {
+                  editorDom.removeEventListener("blur", onEditorBlur);
+                  if (snapshot) clearMentionCombobox(editorDom, snapshot);
+                  editorDom = undefined;
+                }
                 resizeObserver?.disconnect();
                 window.removeEventListener("scroll", onScroll, true);
                 window.removeEventListener("resize", onResize);

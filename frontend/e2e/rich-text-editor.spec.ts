@@ -324,4 +324,44 @@ test.describe('rich text editor', () => {
     await expect(page.locator('[data-decoration-id]')).toHaveCount(0)
     await expect(editor).toBeVisible()
   })
+
+  // #2149: the combobox half of the ARIA pattern on the real ProseMirror element.
+  test('the editor is a combobox while the @mention list is open and a textbox again after Escape', async ({ page }) => {
+    const members = [BOARD_USER, ...Array.from({ length: 2 }, (_, i) => ({
+      ...BOARD_USER, id: 100 + i, username: `tester${i}`, display_name: `Tester ${i}`,
+    }))].map((user, i) => ({ id: i + 1, user, role: 'member' as const, is_moderator: false, joined_at: '2026-01-01T00:00:00Z' }))
+    await routeBoard(page, { ...BOARD_FULL, members: members as unknown as typeof BOARD_FULL.members })
+    await routeCardWithPatchCapture(page, {})
+    const { editor } = await openDescriptionEditor(page)
+    const pm = page.locator('.ProseMirror')
+    await expect(pm).toHaveAttribute('role', 'textbox')
+
+    await editor.click()
+    await page.keyboard.press(END_OF_LINE)
+    await page.keyboard.type(' @')
+    const popup = page.getByTestId('mention-popup')
+    await expect(popup.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
+
+    await expect(pm).toHaveAttribute('role', 'combobox')
+    await expect(pm).toHaveAttribute('aria-expanded', 'true')
+    await expect(pm).toHaveAttribute('aria-haspopup', 'listbox')
+    const controls = await pm.getAttribute('aria-controls')
+    expect(controls).toBeTruthy()
+    await expect(page.locator(`[id="${controls}"]`)).toHaveAttribute('role', 'listbox')
+    const first = await pm.getAttribute('aria-activedescendant')
+    expect(first).toBeTruthy()
+    await expect(page.locator(`[id="${first}"]`)).toHaveAttribute('aria-selected', 'true')
+
+    await expect(popup.getByRole('option')).toHaveCount(3)
+    await page.keyboard.press('ArrowDown')
+    await expect(pm).not.toHaveAttribute('aria-activedescendant', first!)
+    const next = await pm.getAttribute('aria-activedescendant')
+    await expect(page.locator(`[id="${next}"]`)).toHaveAttribute('aria-selected', 'true')
+
+    await page.keyboard.press('Escape')
+    await expect(pm).toHaveAttribute('role', 'textbox')
+    for (const a of ['aria-expanded', 'aria-controls', 'aria-activedescendant', 'aria-haspopup']) {
+      await expect(pm).not.toHaveAttribute(a)
+    }
+  })
 })
