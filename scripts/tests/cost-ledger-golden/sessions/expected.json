@@ -1,0 +1,128 @@
+{
+  "session_total_tokens": 902000,
+  "forbidden_anywhere": [
+    "Other tokens",
+    "unknown",
+    "Both figures stop at the go-ahead",
+    "5eed0000",
+    "-wt/",
+    "Implement your assigned change",
+    "Run the regression check"
+  ],
+  "forbidden_in_table": [
+    "n/a",
+    "Other"
+  ],
+  "others_line_1": "- Other sessions: the Subagents row includes 1 subagent from 1 other session, counted because it worked in this MR's worktree. Those sessions' orchestrator spend is not in this record: 90,000 tokens of it are in no record yet.",
+  "steps": {
+    "p-record-1": {
+      "record": 1,
+      "total_tokens": 410000,
+      "total_usd": "0.89",
+      "rows": [
+        "| Subagents | 290,000 | 0.29 USD | none used | none used | 290,000 | 0.29 USD |",
+        "| Orchestrator | none used | none used | 120,000 | 0.60 USD | 120,000 | 0.60 USD |",
+        "| **Total** | **290,000** | **0.29 USD** | **120,000** | **0.60 USD** | **410,000** | **0.89 USD** |"
+      ],
+      "contains": [
+        "## Cost of this MR (\u0023801)\n",
+        "- Window: 2026-11-07T09:00:00Z to 2026-11-07T12:00:00Z. This record counts the session's work in this window, plus other sessions' subagents' work on this branch since their own previous record, which can be from before the window; later work on this MR goes in later records.",
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue.",
+        "- Other sessions: the Subagents row includes 1 subagent from 1 other session, counted because it worked in this MR's worktree. Those sessions' orchestrator spend is not in this record: 90,000 tokens of it are in no record yet."
+      ],
+      "absent": [],
+      "states": {
+        "opener": {
+          "schema": 1,
+          "orchestrator_until": "2026-11-07T12:00:00Z",
+          "agents": {
+            "f4000000000000001": "2026-11-07T12:00:00Z"
+          }
+        },
+        "worker": {
+          "schema": 1,
+          "orchestrator_until": null,
+          "agents": {
+            "f5000000000000001": "2026-11-07T12:00:00Z",
+            "f5d00000000000001": "2026-11-07T12:00:00Z"
+          }
+        }
+      }
+    },
+    "q-record-1": {
+      "record": 1,
+      "total_tokens": 460000,
+      "total_usd": "0.82",
+      "rows": [
+        "| Subagents | 370,000 | 0.37 USD | none used | none used | 370,000 | 0.37 USD |",
+        "| Orchestrator | none used | none used | 90,000 | 0.45 USD | 90,000 | 0.45 USD |",
+        "| **Total** | **370,000** | **0.37 USD** | **90,000** | **0.45 USD** | **460,000** | **0.82 USD** |"
+      ],
+      "contains": [
+        "## Cost of this MR (\u0023802)\n",
+        "- Window: 2026-11-07T09:05:00Z to 2026-11-07T12:10:00Z. This record counts only the session's work in this window;",
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
+      ],
+      "absent": [
+        "- Other sessions:"
+      ],
+      "states": {
+        "opener": {
+          "schema": 1,
+          "orchestrator_until": "2026-11-07T12:00:00Z",
+          "agents": {
+            "f4000000000000001": "2026-11-07T12:00:00Z"
+          }
+        },
+        "worker": {
+          "schema": 1,
+          "orchestrator_until": "2026-11-07T12:10:00Z",
+          "agents": {
+            "f5000000000000001": "2026-11-07T12:00:00Z",
+            "f5000000000000002": "2026-11-07T12:10:00Z",
+            "f5000000000000003": "2026-11-07T12:10:00Z",
+            "f5d00000000000001": "2026-11-07T12:00:00Z"
+          }
+        }
+      }
+    },
+    "p-measure": {
+      "lines": [
+        "subagent-tokens: 10000",
+        "orchestrator-tokens: 10000",
+        "est-cost-usd: 0.15 (prices 2026-11-07)"
+      ]
+    },
+    "race": {
+      "record_numbers": [2, 3],
+      "orchestrator_tokens": {
+        "opener": 14000,
+        "worker": 8000
+      },
+      "shared_agent_tokens": 10000,
+      "states": {
+        "opener": {
+          "schema": 1,
+          "orchestrator_until": "2026-11-07T13:00:00Z",
+          "agents": {
+            "f4000000000000001": "2026-11-07T12:00:00Z"
+          }
+        },
+        "worker": {
+          "schema": 1,
+          "orchestrator_until": "2026-11-07T13:00:00Z",
+          "agents": {
+            "f5000000000000001": "2026-11-07T13:00:00Z",
+            "f5000000000000002": "2026-11-07T12:10:00Z",
+            "f5000000000000003": "2026-11-07T12:10:00Z",
+            "f5d00000000000001": "2026-11-07T13:00:00Z"
+          }
+        }
+      }
+    }
+  },
+  "pending_phase": {
+    "records": [7000, 1000, 3500],
+    "tokens": 11500
+  }
+}

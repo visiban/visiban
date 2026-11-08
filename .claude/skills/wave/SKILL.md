@@ -364,9 +364,15 @@ Every agent finishes by, in order:
      fails closed (an agent id with no transcript, a session that does not resolve; for
      `est-cost-usd:`, a stale, missing or rowless price table, fast mode, a non-global
      `inference_geo` or non-standard `service_tier`), and stderr says why. Never type an estimate
-     into a measured line. A branch resumed from another session cannot be read from this one:
-     omit `subagent-tokens:` and say so; `orchestrator-tokens:` then covers the current session
-     only, so omit it or add "orchestrator-tokens: current session only" under `## Notes`.
+     into a measured line. A branch whose agents ran in another session is still measured:
+     `--measure`, the hook and `--round` also count another session's subagent whose home (where
+     its Edit/Write calls land, else its `cd` targets, never its brief) is this branch's worktree,
+     over that session's own watermark, and never that session's orchestrator, whose spend stays
+     with that session's own records (#2155, port of macrodream/blueprint#389,
+     `docs/development/cost-ledger.md` § *Non-overlap*). So keep a worker's edits in its branch's
+     worktree. `orchestrator-tokens:` still covers the current session only: when another
+     session's orchestrator worked on the branch, add "orchestrator-tokens: current session only"
+     under `## Notes`.
    - `orchestrator-tokens:` is the session's spend over the window not yet claimed by an earlier
      record: never add it to `subagent-tokens:`. On a multi-issue wave a snapshot line can still
      cover a stretch another MR's snapshot covers; the `## Cost of this MR` comments are the
@@ -458,8 +464,9 @@ record, `— record K`, never an edit of record 1, and the `## Gates` lines stay
 snapshot. With the ledger on, once that work is pushed, in the worktree, run
 `python3 scripts/post-mr-cost.py --round --mr <iid> [--agent <id> ...]` and relay its one-line
 answer. It posts record K for the window this session has not yet claimed (whatever other sessions posted on
-the MR), counts a resumed agent only for its new usage, and advances the session
-state; it posts nothing, and says why, when the ledger is off, the MR opts out, or record 1 is
+the MR), counts a resumed agent only for its new usage, also counts another session's subagent
+that worked in this MR's worktree (over that session's watermark, never that session's
+orchestrator), and advances the session state; it posts nothing, and says why, when the ledger is off, the MR opts out, or record 1 is
 missing. Do not run the three measuring scripts, `cost-table.py --next-since` or `--ledger`, and
 do not save a window pair: the state lives in `${CLAUDE_CONFIG_DIR:-~/.claude}/mr-cost-state/` (one file per session, shared by every repo it works in) and is written
 only by `post-mr-cost.py` (`docs/development/cost-ledger.md` § *Non-overlap*).

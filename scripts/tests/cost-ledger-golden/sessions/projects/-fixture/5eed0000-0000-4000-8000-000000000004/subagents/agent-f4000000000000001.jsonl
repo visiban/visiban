@@ -1,0 +1,2 @@
+{"isSidechain": true, "message": {"content": "Audit the branch.", "role": "user"}, "timestamp": "2026-11-07T11:20:00Z", "type": "user"}
+{"isSidechain": true, "message": {"content": [{"id": "tu-fa1-0", "input": {"command": "cd {WT}/801-p && git diff origin/main"}, "name": "Bash", "type": "tool_use"}], "id": "fa1", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 50000, "output_tokens": 0}}, "timestamp": "2026-11-07T11:30:00Z", "type": "assistant"}
