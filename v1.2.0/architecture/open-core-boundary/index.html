@@ -4922,7 +4922,7 @@
 <tr>
 <td>Enterprise WebSocket routing extension point (<code>enterprise.routing.enterprise_websocket_urlpatterns</code>)</td>
 <td>All enterprise WebSocket URL registrations</td>
-<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; silently skipped (<code>ImportError</code>) when the enterprise package is not installed (#1009)</td>
+<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; silently skipped (<code>ImportError</code>) when the enterprise package is not installed (#1009). Consumers registered here must refuse a handshake with <code>accounts.ws_auth.refuse_handshake(consumer, code)</code> (accept, then close at once with a 4000-4999 code), as the OSS consumers do since #2145: a close before accept reaches the client as HTTP 403 under Daphne, so its code is lost. <strong>Stable:</strong> <code>refuse_handshake</code>'s signature and behavior are part of this extension point. See <a href="../../development/authorization-entry-points/">Authorization entry points</a></td>
 </tr>
 <tr>
 <td><code>post_board_created/deleted/member_added/removed</code> signals</td>

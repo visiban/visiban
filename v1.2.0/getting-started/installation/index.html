@@ -4982,6 +4982,14 @@
 <p><strong>Upstream proxy stripping upgrade headers.</strong> If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the <code>Upgrade</code> and <code>Connection</code> headers and doesn't terminate WebSocket connections.</p>
 </li>
 </ol>
+<p><strong>You're signed out as soon as you open a board or group page</strong> (since 1.3). The browser's session cookie isn't reaching the WebSocket handshake on <code>/ws/</code>, so the server refuses it with <code>4001</code> and the web app signs you out, as for any expired session. Before 1.3 the same misconfiguration showed up as a Live dot stuck on <strong>Reconnecting…</strong> instead (#2145). The web app authenticates <code>/ws/</code> with the same session cookie as <code>/api/</code>, so:</p>
+<ul>
+<li>Serve <code>/ws/</code> from the same host as <code>/api/</code> (the host in <code>VITE_API_URL</code>, or the SPA's own origin behind a single proxy). The session cookie is scoped to the host that set it, so a <code>/ws/</code> on another host never receives it.</li>
+<li>With TLS, connect over <code>wss://</code>: the session cookie is <code>Secure</code> unless <code>FORCE_INSECURE_COOKIES</code> is set, so a browser doesn't send it on a plain <code>ws://</code> upgrade. The web app picks <code>wss://</code> itself when the page or <code>VITE_API_URL</code> is <code>https://</code>.</li>
+<li>Every proxy in front of the backend (the bundled nginx, a CDN, a load balancer, an ingress) must forward the <code>Cookie</code> header on the WebSocket upgrade request, not only on ordinary HTTP requests. The bundled nginx <code>location /ws/</code> block does.</li>
+<li>Don't rewrite the cookie's path: it must cover <code>/ws/</code> as well as <code>/api/</code>.</li>
+</ul>
+<p>To confirm, open the browser's developer tools on a board page and check that the <code>/ws/boards/&lt;id&gt;/</code> request carries a <code>Cookie</code> header with the session cookie (<code>sessionid</code> by default).</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <p><strong>The big picture:</strong> Only the first three are required. The rest default to safe local values, but production needs several of them set (see <a href="#step-1-clone-and-configure">Step 1</a>). OAuth variables are in <a href="../oauth/">OAuth and SSO</a>.</p>
 <table>

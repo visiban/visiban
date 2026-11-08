@@ -4504,12 +4504,12 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer.connect</code>, <code>_check_access</code></td>
-<td><code>connect</code> refuses an unauthenticated scope user or one with no recorded credential, then calls <code>visiban.authorization.authorize_account</code>; the periodic re-check runs <code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>, which calls <code>authorize_account</code> on a freshly loaded row</td>
+<td><code>connect</code> refuses an unauthenticated scope user or one with no recorded credential, then calls <code>visiban.authorization.authorize_account</code>; every refusal goes through <code>accounts/ws_auth.py</code> <code>refuse_handshake</code> (accept, then close at once with 4001/4003, so the code reaches a client under Daphne, #2145) before the channel-layer join, the keepalive ping or any frame (<code>accounts/tests/test_ws_handshake_refusal.py</code>); the periodic re-check runs <code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>, which calls <code>authorize_account</code> on a freshly loaded row</td>
 </tr>
 <tr>
 <td>WebSocket (group)</td>
 <td><code>groups/consumers.py</code> <code>GroupConsumer.connect</code>, <code>_check_access</code></td>
-<td>Same as the board consumer: same <code>connect</code> refusal and <code>authorize_account</code> call; periodic re-check runs <code>load_live_ws_user</code></td>
+<td>Same as the board consumer: same <code>connect</code> refusal through <code>refuse_handshake</code> and <code>authorize_account</code> call; periodic re-check runs <code>load_live_ws_user</code></td>
 </tr>
 <tr>
 <td>Invite link redemption</td>
