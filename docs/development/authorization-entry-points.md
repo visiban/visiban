@@ -127,7 +127,13 @@ user, then add it to that list.
 
 **A WebSocket consumer.** In `connect`, refuse an unauthenticated scope or one
 with no recorded credential (4001). Then call `authorize_account(user)` before
-any database lookup, and close with 4003 when it returns false. Don't pass
+any database lookup, and refuse with 4003 when it returns false. Refuse with
+`await accounts.ws_auth.refuse_handshake(self, code)` and return, never with a
+bare `self.close(code=...)` before `accept()`: Daphne answers a close sent
+before accept with HTTP 403 whatever the code, so the client would never see
+the 4001/4003 and would keep reconnecting (#2145). `refuse_handshake` accepts
+and closes at once; call it before joining any channel-layer group, starting a
+task or sending a frame, so the refused socket carries nothing. Don't pass
 `exempt`: the handshake has no forced-change flow. Run the
 periodic access re-check through `load_live_ws_user(self.scope)`. The test
 opens a socket to every consumer routed by `visiban.asgi.application`,

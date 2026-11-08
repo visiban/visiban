@@ -45,14 +45,22 @@ async def handshake(communicator, timeout=1):
     reach a client under Daphne; the middlewares' 1011 and origin refusals
     still close before accept. Both count as a refusal here, so a test reads
     the same ``(False, code)`` either way. ``WebsocketCommunicator.connect``
-    alone reports ``(True, None)`` for an accept-then-close.
+    alone reports ``(True, None)`` for an accept-then-close, which is why a
+    test that needs an admitted socket must use this, not ``connect()``.
 
-    A refused-after-accept socket is disconnected here, so the consumer's
-    ``disconnect()`` runs (and any error in it fails the test). Anything but
-    the close right after the accept fails the test: a refused socket must
-    carry no frame. An admitted socket is left open for the caller. So this
-    is for handshakes whose admitted socket stays quiet for 0.1 s; a test that
-    shortens the keepalive ping reads ``connect()`` itself.
+    The verdict is decided by the first message after the accept, without
+    consuming anything but a close:
+
+    - nothing within 0.1 s, or a frame first (an event, or a keepalive ping a
+      test shortened): admitted, ``(True, None)``. The frame stays queued for
+      the caller, and the socket is left open.
+    - a close first: refused, ``(False, code)``. The communicator is then
+      disconnected, so the consumer's ``disconnect()`` runs (an error in it
+      fails the test).
+
+    So a consumer that sends anything before its close reads as admitted,
+    and a refusal test asserting ``(False, code)`` fails on it: a refused
+    socket must carry no frame, and this never reports one as refused.
     """
     connected, detail = await communicator.connect(timeout=timeout)
     if not connected:
@@ -62,8 +70,11 @@ async def handshake(communicator, timeout=1):
     # broadcast or keepalive ping.
     if await communicator.receive_nothing(timeout=0.1):
         return True, None
+    # Peek, don't consume: an admitted socket's first frame belongs to the
+    # caller. asyncio.Queue has no public peek; _queue is its deque.
+    first = communicator.output_queue._queue[0]
+    if first.get("type") != "websocket.close":
+        return True, None
     message = await communicator.receive_output(timeout=timeout)
-    if message.get("type") != "websocket.close":
-        raise AssertionError(f"expected a close or nothing right after accept, got {message!r}")
     await communicator.disconnect()
     return False, message.get("code", 1000)

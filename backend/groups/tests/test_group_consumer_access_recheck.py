@@ -276,7 +276,7 @@ class LostGroupMemberRemovedFrameE2ETests(TransactionTestCase):
         async def run():
             ticket, _ = await sync_to_async(session_ticket)(self.member)
             comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-            connected, _ = await comm.connect()
+            connected, _ = await handshake(comm)
             self.assertTrue(connected)
 
             with patch.object(layer, "group_send", lossy_group_send), \
@@ -349,7 +349,7 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
@@ -398,7 +398,7 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})

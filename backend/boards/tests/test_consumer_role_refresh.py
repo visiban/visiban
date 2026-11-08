@@ -27,7 +27,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.tests.ws_helpers import bound_scope, session_ticket
+from accounts.tests.ws_helpers import bound_scope, handshake, session_ticket
 from boards.consumers import BoardConsumer, _lookup_role, _now
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
@@ -273,7 +273,7 @@ class ConsumerRoleRefreshEndToEndTests(TransactionTestCase):
             comm = WebsocketCommunicator(
                 asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}"
             )
-            connected, _ = await comm.connect()
+            connected, _ = await handshake(comm)
             assert connected
             try:
                 # While admin: frames about C carry both admin-only columns.

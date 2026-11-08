@@ -276,7 +276,7 @@ class LostMemberRemovedFrameE2ETests(TransactionTestCase):
         async def run():
             ticket, _ = await sync_to_async(session_ticket)(self.member)
             comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
-            connected, _ = await comm.connect()
+            connected, _ = await handshake(comm)
             self.assertTrue(connected)
 
             with lossy.patch(), self.assertLogs("boards.broadcast", level="WARNING") as logs:
@@ -479,7 +479,7 @@ class BoardConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
@@ -526,7 +526,7 @@ class BoardConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
