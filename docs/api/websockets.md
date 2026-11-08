@@ -63,7 +63,7 @@ What a client actually sees:
 | When | What the client receives |
 |---|---|
 | Handshake refused (`4001`, `4003`, or `1011` in the tables on this page) | HTTP `403` on the upgrade. A browser reports close code `1006`. A client can't tell the reasons apart: check the credential and access over REST before retrying, and get a fresh ticket for every attempt. |
-| Handshake fails with an unexpected server error (not a database or cache outage, which is a `1011` refusal; see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
+| Handshake fails with an unexpected server error (not a database, cache or channel-layer outage, which is a `1011` refusal; see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
 | Open connection closed with `4003` or `1000` | The close code, as sent. |
 | Open connection closed with `1011` | `1011`. Daphne refuses the server's own `1011` close and sends `1011` itself from its error handler, so the code arrives but the server logs an error for each such close (#2142). |
 
@@ -82,10 +82,11 @@ A handshake whose authentication or access check cannot complete because a serve
 | Session cookie, with `SESSION_ENGINE` set to `django.contrib.sessions.backends.cached_db` | The cache is unavailable (the session lookup falls back to the database, then writing the session back to the cache fails) | `1011` (#2144). |
 | Session cookie, with the `db` session engine (the default) | The database is unavailable | `1011` (#2144). |
 | Any | The board or group membership lookup fails because the database is unavailable, whichever way the connection was authenticated | `1011` (#2144). This also covers consumers an extension registers on the WebSocket router. |
+| Any | Joining the board or group channel fails because the channel layer (Redis or Valkey) is unavailable | `1011` (#2144). |
 
 Like every handshake refusal, these codes reach a client as a refused upgrade (HTTP `403`) through the bundled server; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client). They're still the server's answer, and the `1011` keeps an outage from being recorded as a failed authentication.
 
-Each of these refusals logs a `WARNING` that names at most the error class (for example `websocket handshake could not complete: error=OperationalError`), never the error message, which can include a database or cache host. Before 1.3 the `cached_db`, `db` and membership-lookup rows failed the upgrade with HTTP `500` and the server logged the full error. An error that isn't a database or cache connection failure (a bug, for example) still fails the upgrade with HTTP `500`, and the connection is not admitted.
+Each of these refusals logs a `WARNING` that names at most the error class (for example `websocket handshake could not complete: error=OperationalError`), never the error message, which can include a database, cache or channel-layer host. Before 1.3 the `cached_db`, `db`, membership-lookup and channel-layer rows failed the upgrade with HTTP `500` and the server logged the full error. An error that isn't a database, cache or channel-layer connection failure (a bug, for example) still fails the upgrade with HTTP `500`, and the connection is not admitted.
 
 REST requests are not covered, and **a cache-only session outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session survives on the server, but the browser loses it: the response that answers `401` also deletes the session cookie (Django's session middleware clears the cookie of a session it read as empty), so reloading the page after the cache recovers does not restore it, and the user has to sign in again. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
 

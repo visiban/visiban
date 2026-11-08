@@ -359,3 +359,37 @@ class ConsumerConnectOutageTests(_HandshakeOutageBase):
         with patch("boards.consumers._lookup_role", side_effect=ValueError("bug")):
             with self.assertRaises(ValueError):
                 _connect(self.path, key)
+
+
+class ChannelLayerConnectOutageTests(_HandshakeOutageBase):
+    """Access is granted; joining the channel-layer group then fails.
+
+    channels_redis surfaces a Redis or Valkey outage as redis-py's
+    ``ConnectionError``, which is in the bounded outage set."""
+
+    GROUP_ADD = "channels.layers.InMemoryChannelLayer.group_add"
+
+    def test_board_group_add_outage_closes_1011(self):
+        key = login_session(self.user)
+        with patch(
+            self.GROUP_ADD,
+            side_effect=_redis_connection_error("Error 111 connecting to secret-host:6379"),
+        ):
+            with self.assertLogs("accounts.ws_auth", level="WARNING") as logs:
+                accepted, code = _connect(self.path, key)
+        self.assertFalse(accepted)
+        self.assertEqual(code, CLOSE_AUTH_UNAVAILABLE)
+        joined = "\n".join(logs.output)
+        self.assertIn("error=ConnectionError", joined)
+        self.assertNotIn("secret-host", joined)
+
+    def test_group_group_add_outage_closes_1011(self):
+        group = Group.objects.create(name="Outage group", owner=self.user)
+        GroupMembership.objects.create(
+            group=group, user=self.user, role=GroupMembership.Role.ADMIN
+        )
+        key = login_session(self.user)
+        with patch(self.GROUP_ADD, side_effect=_redis_connection_error("down")):
+            accepted, code = _connect(f"/ws/groups/{group.id}/", key)
+        self.assertFalse(accepted)
+        self.assertEqual(code, 1011)
