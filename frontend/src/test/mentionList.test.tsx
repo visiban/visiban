@@ -70,8 +70,8 @@ describe('MentionList', () => {
       act(() => {
         ref.current?.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'ArrowDown' }) })
       })
-      // bob's button should now have the selected (bg-surface-hover) style
-      const bobBtn = screen.getByText('@bob').closest('button')
+      // bob's option should now have the selected (bg-surface-hover) style
+      const bobBtn = screen.getByText('@bob').closest('[role="option"]')
       expect(bobBtn?.className).toMatch(/bg-surface-hover/)
     })
 
