@@ -122,8 +122,8 @@ class ValidationErrorResponseTests(TestCase):
         })
         self.assertIn("400", paths["get"]["responses"])
 
-    def test_does_not_document_400_where_the_server_cannot_return_one(self):
-        """A path-parameter-only lookup either resolves or 404s."""
+    def test_documents_400_on_a_path_only_lookup(self):
+        """A query string over the field limit is a JSON 400 on any operation (#2140)."""
         paths = self._run({
             "get": {
                 "parameters": [{"name": "id", "in": "path"}, {"name": "X", "in": "header"}],
@@ -131,8 +131,8 @@ class ValidationErrorResponseTests(TestCase):
             },
             "delete": {"responses": {"204": {"description": "No content"}}},
         })
-        self.assertNotIn("400", paths["get"]["responses"])
-        self.assertNotIn("400", paths["delete"]["responses"])
+        self.assertIn("400", paths["get"]["responses"])
+        self.assertIn("400", paths["delete"]["responses"])
 
     def test_does_not_overwrite_a_declared_400(self):
         custom_400 = {"description": "Specific body", "content": {}}
@@ -153,7 +153,7 @@ class GeneratedSchemaDocuments400Tests(TestCase):
     red. Assert the class is closed at the source.
     """
 
-    def test_every_write_operation_documents_400(self):
+    def test_every_operation_documents_400(self):
         from drf_spectacular.generators import SchemaGenerator
 
         schema = SchemaGenerator().get_schema(request=None, public=True)
@@ -161,7 +161,7 @@ class GeneratedSchemaDocuments400Tests(TestCase):
             f"{method.upper()} {path}"
             for path, item in schema["paths"].items()
             for method, op in item.items()
-            if method in ("post", "put", "patch")
+            if method in ("get", "post", "put", "patch", "delete", "head", "options")
             and "400" not in op["responses"]
         ]
         self.assertEqual(missing, [])
