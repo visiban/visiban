@@ -207,6 +207,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // older list. A group change bumps it too, so a re-read answered for the
   // previous group never lands on the next group's page.
   const boardsSeqRef = useRef(0);
+  // True once a boards re-read has applied its answer for the current group
+  // (#2150). The initial load yields only to an answer that actually landed: a
+  // re-read that was started first but failed must not discard the load's list,
+  // which would leave the page with no boards until the next reconnect.
+  const boardsRereadAppliedRef = useRef(false);
   // The list writes applied while the latest boards re-read is in flight, in
   // order, or null when none is (#2139); see refetchBoardsList. One array per
   // re-read, created when it starts and closed when its answer arrives, so it
@@ -231,7 +236,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // The bump below drops a re-read still in flight for the previous group;
     // close its array too, so the next group's writes are not collected into it.
     boardsReplayRef.current = null;
-    const boardsSeq = ++boardsSeqRef.current;
+    boardsRereadAppliedRef.current = false;
+    ++boardsSeqRef.current;
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
     let stale = false;
@@ -246,7 +252,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       setGroup(g);
       setIsStarred(g.is_starred);
       setSubgroups(sg);
-      if (boardsSeq === boardsSeqRef.current) setBoards(b);
+      if (!boardsRereadAppliedRef.current) {
+        // A re-read still in flight (socket opened before this load answered)
+        // recorded the frames applied meanwhile; carry them over this list too,
+        // in case that re-read fails and never replays them (#2150).
+        const pending = boardsReplayRef.current;
+        setBoards(pending ? pending.reduce((list, write) => write(list), b) : b);
+      }
       setMembers(m);
     }).catch((err: unknown) => {
         if (stale) return;
@@ -323,10 +335,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // read's writes need no carrying over: the newer read was sent after they were
   // applied, so after the server committed them, and its answer includes them.
   //
-  // The initial load (the effect above) replaces the list without a replay: no
-  // write can land while it is in flight. The page offers no board actions
-  // until it loads, and a socket that opens before then re-reads on first open
-  // (handleFirstConnected), which supersedes the load.
+  // The initial load (the effect above) yields only to a re-read that has
+  // applied (boardsRereadAppliedRef), not to one that merely started: if that
+  // re-read fails, the load's list stands (#2150). When a re-read is still in
+  // flight as the load answers, the load carries the re-read's recorded frames
+  // over its own list; the re-read's answer, if it comes, replays them again
+  // over a newer list, which is idempotent.
   const refetchBoardsList = useCallback(() => {
     const seq = ++boardsSeqRef.current;
     const replay: BoardsWrite[] = [];
@@ -337,6 +351,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         // Still the latest read, so the open array is this one; close it so
         // later writes land on top of the answer instead of in it.
         boardsReplayRef.current = null;
+        boardsRereadAppliedRef.current = true;
         setBoards(replay.reduce((list, write) => write(list), b));
       })
       .catch(() => {

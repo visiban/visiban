@@ -368,4 +368,71 @@ describe('GroupDetail boards re-read (#2139)', () => {
     await reread.answer([alpha, bravo])
     expect(rows()).toEqual(['Bravo'])
   })
+
+describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    capturedOnEvent = null
+    capturedOnReconnected = null
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+  })
+
+  function renderPage() {
+    render(
+      <MemoryRouter initialEntries={['/groups/1']}>
+        <Routes>
+          <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('keeps the initial load list when a re-read started before it answers then fails', async () => {
+    const load = deferredBoards()
+    renderPage()
+    const reread = deferredBoards()
+    reconnect()
+    await reread.fail(new Error('network'))
+    await load.answer([alpha, bravo])
+    await screen.findByText('+ New board')
+    expect(rows()).toEqual(['Alpha', 'Bravo'])
+  })
+
+  it('keeps the initial load list when the load answers first and the re-read then fails', async () => {
+    const load = deferredBoards()
+    renderPage()
+    const reread = deferredBoards()
+    reconnect()
+    await load.answer([alpha, bravo])
+    await screen.findByText('+ New board')
+    await reread.fail(new Error('network'))
+    expect(rows()).toEqual(['Alpha', 'Bravo'])
+  })
+
+  it('carries a frame applied while the re-read was in flight over the initial load list', async () => {
+    const load = deferredBoards()
+    renderPage()
+    const reread = deferredBoards()
+    reconnect()
+    frame(created(board(3, 'Frame Board')))
+    await load.answer([alpha, bravo])
+    await screen.findByText('+ New board')
+    await reread.fail(new Error('network'))
+    expect(rows()).toEqual(['Alpha', 'Bravo', 'Frame Board'])
+  })
+
+  it('still lets a successful re-read supersede the older initial load', async () => {
+    const load = deferredBoards()
+    renderPage()
+    const reread = deferredBoards()
+    reconnect()
+    await reread.answer([bravo])
+    await load.answer([alpha, bravo])
+    await screen.findByText('+ New board')
+    expect(rows()).toEqual(['Bravo'])
+  })
+})
 })
