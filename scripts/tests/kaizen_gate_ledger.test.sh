@@ -357,8 +357,8 @@ check "records: the legacy record is excluded (!23), never read as 0 or 20.00" \
   "$([ "$(cj "$R" cost excluded legacy_record)" = '[23]' ] && echo 0 || echo 1)"
 check "records: a legacy plus a windowed record (!29) is excluded as partial, not summed over its windowed part" \
   "$([ "$(cj "$R" cost excluded mixed_records)" = '[29]' ] && [ "$(cj "$R" cost by_class feat est_costed)" = 3 ] && echo 0 || echo 1)"
-check "records: no record, another user's record and unreadable notes are excluded, each with its reason" \
-  "$([ "$(cj "$R" cost excluded no_record)" = '[25, 27]' ] && [ "$(cj "$R" cost excluded notes_unreadable)" = '[26]' ] && echo 0 || echo 1)"
+check "records: no record, another user's record (!27) and unreadable notes are excluded, each with its own reason" \
+  "$([ "$(cj "$R" cost excluded no_record)" = '[25]' ] && [ "$(cj "$R" cost excluded other_user)" = '[27]' ] && [ "$(cj "$R" cost excluded notes_unreadable)" = '[26]' ] && echo 0 || echo 1)"
 check "records: docs and chore have no costed MR, so their mean is null, never 0" \
   "$([ "$(cj "$R" cost by_class docs mean_est_cost_usd)" = null ] && [ "$(cj "$R" cost by_class chore mean_est_cost_usd)" = null ] && echo 0 || echo 1)"
 check "records: subagent-tokens still comes from ## Gates (feat mean 283.33)" \
@@ -366,6 +366,11 @@ check "records: subagent-tokens still comes from ## Gates (feat mean 283.33)" \
 REC_TEXT="$(python3 "$SCRIPT" --input "$REC_FIXTURE")"
 check "records text: names each exclusion with its count and MR ids" \
   "$(printf '%s' "$REC_TEXT" | grep -q 'legacy record with no window start (orchestrator row not windowed): 1 MR(s), !23' && printf '%s' "$REC_TEXT" | grep -q 'notes unreadable: 1 MR(s), !26' && echo 0 || echo 1)"
+check "records text: every MR read is accounted for, including those with no cost lines in ## Gates" \
+  "$(printf '%s' "$REC_TEXT" | grep -q 'Accounted for: 10 MRs read = 4 costed from records + 5 excluded + 0 `cost-ledger: off` + 1 with no cost lines in `## Gates`' && printf '%s' "$REC_TEXT" | grep -q 'not read because of the window cap: 0' && echo 0 || echo 1)"
+CAP_TEXT="$(python3 "$SCRIPT" --input "$REC_FIXTURE" --window 4)"
+check "records text: an --input cut by --window prints how many MRs were not read" \
+  "$(printf '%s' "$CAP_TEXT" | grep -q 'not read because of the window cap: 6' && echo 0 || echo 1)"
 check "records text: no snapshot or other-user figure leaks into a mean" \
   "$(! printf '%s' "$REC_TEXT" | grep -E '^(feat|fix|docs|chore) ' | grep -qE '9\.33|12\.00|99\.00|50\.00|60\.00' && echo 0 || echo 1)"
 

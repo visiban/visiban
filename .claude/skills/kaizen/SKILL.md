@@ -123,7 +123,7 @@ notes. `subagent-tokens:` still comes from `## Gates` (per branch). Report it in
 - **`excluded`** (by reason code -> MR ids; the text report prints each reason with its
   count and ids): recorded MRs left out of every cost mean because no windowed record could
   be summed: a legacy `Window end:`-only record, no record, an unparsed record, notes
-  unreadable. They are never 0. **Always state how many MRs the means rest on
+  unreadable, a record by another user, duplicate or overlapping records. They are never 0. **Always state how many MRs the means rest on
   (`est_costed` of `recorded`) and how many were excluded and why**; if most are excluded,
   say the means are thin and make no cost finding. Run live, the script reads each costed
   MR's notes; offline (`--input`) an MR carries `notes` and `token_user_id`.

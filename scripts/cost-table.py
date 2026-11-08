@@ -11,7 +11,8 @@ as one paragraph, so a person reading a merged MR could not read the tokens or t
 (macrodream/blueprint#383). The comment is the only human-readable cost table: there is no
 `## Cost` section in the description any more (macrodream/blueprint#384). The ledger lines stay
 where they are, and `scripts/cost_ledger_lines.py` and `/kaizen` (`scripts/kaizen_gate_ledger.py`)
-keep reading them; this is a rendering, never a second source of the numbers.
+keep reading them. The comments are also a source (#2154): `/kaizen` sums an MR's windowed records
+for its per-MR cost, because the description's lines are a go-ahead snapshot that overlaps across a wave.
 
 Records (macrodream/blueprint#384). Record 1 is the comment `/wave` posts once the MR is open,
 from the description's ledger lines; its heading is `## Cost of this MR (#N)`, so a comment posted
@@ -935,6 +936,8 @@ def self_test():
     # #2154: a record with no window start says its orchestrator row is not windowed, and does not claim
     # non-overlap; a record with a start still does.
     check("comment: no window start drops the non-overlap claim", "Records do not overlap" not in com, com)
+    check("comment: a windowless record renders the not-windowed line and not the generic add-up bullet",
+          NOT_WINDOWED in com and "add up to its total" not in com and "Records from one session" not in com, com)
     check("comment: a window start keeps the non-overlap claim and has no not-windowed line",
           "Records do not overlap" in "\n".join(comment_lines(withb, 383, "2026-11-04T15:30:00Z", split, since="2026-11-04T15:00:00Z"))
           and NOT_WINDOWED not in "\n".join(comment_lines(withb, 383, "2026-11-04T15:30:00Z", split, since="2026-11-04T15:00:00Z")))
