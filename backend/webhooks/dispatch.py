@@ -518,8 +518,9 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
     # is time-based and best-effort, it holds however long a writer's
     # transaction stays open. None means a write to the board is in flight.
     # This run then moves the cursor nowhere, and the next run picks the board
-    # up again.
-    ceiling = feed_horizon(board.pk)
+    # up again. One probe and no sleep: the next run is the retry, and sleeps
+    # would add up across the run's subscriptions.
+    ceiling = feed_horizon(board.pk, probes=1)
     if ceiling is None:
         ceiling = sub.cursor
     rows = list(

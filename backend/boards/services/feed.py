@@ -423,7 +423,7 @@ def _probe(board_id):
     return newest or 0, clear
 
 
-def feed_horizon(board_id):
+def feed_horizon(board_id, *, probes=HORIZON_PROBES):
     """The highest id of *board_id*'s feed a cursor may move to now, or ``None`` (#2053).
 
     Every row of the board with an id at or below the returned value that will
@@ -438,6 +438,19 @@ def feed_horizon(board_id):
     flight (a large import) gets ``None`` until that transaction ends. That is a
     delay, never a skip.
 
+    ``probes`` is how many times to probe, ``HORIZON_PROBES`` apart by
+    ``HORIZON_PROBE_INTERVAL_SECONDS``. The REST feed keeps the default, so a
+    write that commits within a few tens of milliseconds still reaches the
+    poll. The webhook dispatcher passes 1 and never sleeps: its next run is the
+    retry, and a sleep there would add up across every subscription in the run.
+
+    Two readers probing the same board in the same instant also fail each
+    other's probe, because the probe is an exclusive try-lock. It is held only
+    for the one statement, so this is rare and is cleared by the next probe or
+    poll. A read-only probe of ``pg_locks`` would avoid it, but reading
+    ``pg_locks`` takes every lock-manager partition lock, which on each poll
+    would contend with lock acquisition across the whole instance.
+
     **Requires READ COMMITTED** (Django's and PostgreSQL's default): the
     caller's next query must take a fresh snapshot, so it sees the rows the
     probe has just shown to be committed. Under REPEATABLE READ the snapshot
@@ -451,7 +464,7 @@ def feed_horizon(board_id):
     """
     if connection.vendor != "postgresql":
         return newest_event_id(board_id)
-    for attempt in range(HORIZON_PROBES):
+    for attempt in range(max(1, probes)):
         if attempt:
             time.sleep(HORIZON_PROBE_INTERVAL_SECONDS)
         newest, clear = _probe(board_id)

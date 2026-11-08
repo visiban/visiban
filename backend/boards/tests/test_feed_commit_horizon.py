@@ -25,6 +25,7 @@ from boards.broadcast import persist_board_event
 from boards.models import BoardEvent
 from boards.services.feed import (
     FEED_LOCK_NAMESPACE,
+    HORIZON_PROBES,
     PruneMarks,
     feed_horizon,
     feed_lock_key,
@@ -204,6 +205,33 @@ class OutOfOrderCommitTests(TransactionTestCase):
             writer.finish(self)
         self.assertEqual(feed_horizon(self.board.id), writer.event_id)
         self.assertGreater(writer.event_id, committed)
+
+    def test_probes_retry_with_a_sleep_only_when_asked_to(self):
+        """The REST feed re-probes after a short sleep. The dispatcher probes once and never sleeps."""
+        with patch("boards.services.feed._probe", return_value=(7, False)) as probe, \
+                patch("boards.services.feed.time.sleep") as sleep:
+            self.assertIsNone(feed_horizon(self.board.id))
+            self.assertEqual((probe.call_count, sleep.call_count), (HORIZON_PROBES, HORIZON_PROBES - 1))
+            probe.reset_mock()
+            sleep.reset_mock()
+            self.assertIsNone(feed_horizon(self.board.id, probes=1))
+            self.assertEqual((probe.call_count, sleep.call_count), (1, 0))
+        with patch("boards.services.feed._probe", side_effect=[(7, False), (9, True)]):
+            with patch("boards.services.feed.time.sleep"):
+                self.assertEqual(feed_horizon(self.board.id), 9)
+
+    def test_dispatcher_probes_once(self):
+        from webhooks import dispatch
+        from webhooks.tests.base import ENABLED, make_subscription, resolving
+
+        with ENABLED, resolving(), patch("boards.broadcast.broadcast_board_event"):
+            make_subscription(self.board, self.owner)
+            persist_board_event(self.board.id, "card.created", {})
+            with patch("webhooks.dispatch.feed_horizon", return_value=None) as horizon, \
+                    patch("visiban.egress.guarded_post", return_value=200) as post:
+                dispatch.run_once()
+        horizon.assert_called_once_with(self.board.id, probes=1)
+        post.assert_not_called()
 
     def test_probe_releases_its_lock_outside_a_transaction(self):
         persist_board_event(self.board.id, "card.created", {})
