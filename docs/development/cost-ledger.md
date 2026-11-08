@@ -142,7 +142,7 @@ The scripts read `<projects-dir>/<slug>/<session-id>.jsonl` and `<session-id>/su
 - **A session directory that symlinks out is refused.** A `<projects-dir>/<slug>/<session-id>` directory that resolves outside the projects dir (a symlink) makes the run post nothing and say "the session's subagent directory resolves outside the projects directory, so nothing was measured", rather than record a `subagent-tokens: 0` that was never measured, or drop a named `--agent` silently (#2152).
 - **It fails closed.** An id with no transcript, or a session that doesn't resolve to exactly one directory, exits 1 and prints no line.
 - **One gap remains:** descendants are found only through `parentAgentId` in the meta files, so a nested agent whose transcript exists but whose meta file is missing isn't found, and the sum is partial.
-- **A branch resumed from another session** can't be read from this one: omit `subagent-tokens:` and say so; `orchestrator-tokens:` then covers the current session only.
+- **A branch resumed from another session:** that session's subagents whose home is this branch ARE counted (`--also-session`, and the hook does it for you; see the cross-session bullet under *Non-overlap: per-session state and attribution*). Only that session's orchestrator spend is not: `orchestrator-tokens:` covers the current session only.
 
 ## The `est-cost-usd:` line
 <a id="est-cost-usd"></a>

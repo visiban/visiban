@@ -381,6 +381,13 @@ class LockPathError(Exception):
     """The lock file path resolves outside the config root (#2152), or its directory cannot be made."""
 
 
+class LockFileEscapeError(LockPathError, OSError):
+    """The state directory is inside the config root but this one lock file resolves outside it (a
+    `<sid>.lock` symlinked out). Distinct from a state directory that itself escapes, where the state
+    read and write refuse too and no lock is the documented degrade. An OSError as well, so for the posting
+    session it is handled exactly like its sibling failure (a `<sid>.lock` symlinked inside the root)."""
+
+
 def _lock_fd(sid, block=True):
     """An fd holding an exclusive advisory lock on `mr-cost-state/<sid>.lock`; None when `block` is False
     and another process holds it. The lock file is opened with O_NOFOLLOW where the platform has it, and
@@ -390,9 +397,13 @@ def _lock_fd(sid, block=True):
     path = os.path.join(d, sid + ".lock")
     try:
         os.makedirs(d, exist_ok=True)
-        resolve_within(config_root(), path)
+        resolve_within(config_root(), d)
     except (PathEscapeError, OSError, RuntimeError) as e:  # RuntimeError/OSError: a symlink loop
         raise LockPathError("the lock path escapes the config directory") from e
+    try:
+        resolve_within(config_root(), path)
+    except (PathEscapeError, OSError, RuntimeError) as e:
+        raise LockFileEscapeError("the lock file path escapes the config directory") from e
     fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | (0 if block else fcntl.LOCK_NB))
@@ -445,18 +456,19 @@ def session_locks(sids, own=None):
     (Locks.holds, select_foreign). A lock file that cannot be opened (#2155 security review: a `<sid>.lock`
     symlinked inside the root fails O_NOFOLLOW) is skipped the same way for another session, so one bad
     file cannot block every post that discovers it; for `own`, the posting session, it is raised, since
-    posting without its own lock could claim one window twice."""
+    posting without its own lock could claim one window twice. That covers a `<own>.lock` symlinked outside
+    the root as well as inside it (LockFileEscapeError); the hook stays fail-soft (main prints --retry)."""
     locks = Locks()
     try:
         if fcntl is not None:
             for sid in sorted({x for x in sids if SESSION_RE.match(x or "")}):
                 try:
                     locks.fds[sid] = _lock_fd(sid)
-                except LockPathError:
-                    continue
-                except OSError:
+                except OSError:  # includes LockFileEscapeError: an unopenable lock file
                     if sid == own:
                         raise
+                    continue
+                except LockPathError:
                     continue
         yield locks
     finally:
@@ -2826,6 +2838,19 @@ def golden_sessions(check):
                     own_raised = True
                 check("golden4 locks: an unopenable lock file of another session is skipped; the posting session's own is raised",
                       skip_ok and own_raised, repr((skip_ok, own_raised)))
+            # #2155 completeness: the same rule when the lock file is symlinked OUTSIDE the config root.
+            out_sid = "5eed0000-0000-4000-8000-0000000031ee"
+            os.symlink(os.path.join(tmp, "elsewhere-2155-out"), os.path.join(lockdir, out_sid + ".lock"))
+            with session_locks([A, out_sid], own=A) as lk4:
+                out_skip_ok = lk4.holds(A) and not lk4.holds(out_sid)
+            try:
+                with session_locks([A, out_sid], own=out_sid):
+                    out_own_raised = False
+            except LockPathError:
+                out_own_raised = True
+            check("golden4 locks: a lock file symlinked outside the root: another session's is skipped, the posting session's own is raised",
+                  out_skip_ok and out_own_raised and not os.path.exists(os.path.join(tmp, "elsewhere-2155-out")),
+                  repr((out_skip_ok, out_own_raised)))
     finally:
         globals()["now_utc"] = saved_now
         os.environ.clear()
