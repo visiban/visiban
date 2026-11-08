@@ -30,7 +30,15 @@ fi
 case "$2" in
   *milestones*)
     [ "$STUB_FAIL_MS" = 1 ] && { echo "401 boom" >&2; exit 1; }
-    echo '[{"title":"1.2"},{"title":"1.3"}]' ;;
+    # Honor the server-side exact-match title filter. STUB_MS_IGNORE_TITLE=1 simulates a
+    # server that ignores it and returns a full page not containing the target.
+    if [ "$STUB_MS_IGNORE_TITLE" = 1 ]; then echo "$STUB_MS_FULL"; exit 0; fi
+    case "$2" in
+      *"title=1.2"*) echo '[{"title":"1.2"}]' ;;
+      *"title=1.3"*) echo '[{"title":"1.3"}]' ;;
+      *"title=beyond100"*) echo '[{"title":"beyond100"}]' ;;
+      *) echo '[]' ;;
+    esac ;;
   *issues*)
     page="${2##*page=}"
     [ "$page" = "$STUB_FAIL_PAGE" ] && { echo "500 boom" >&2; exit 1; }
@@ -55,6 +63,9 @@ big="[$(seq 1 100 | sed 's/.*/{"iid":&}/' | paste -sd, -)]"
 
 STUB_FAIL_MS=1 run milestone-lookup-fails 1 "glab api" "No milestone titled" 1.2
 run unknown-milestone 1 "No milestone titled '9.9'" "" 9.9
+run milestone-beyond-first-100 0 "nothing to close" "No milestone titled" beyond100
+full=$(seq 1 100 | sed 's/.*/{"title":"m&"}/' | paste -sd, -)
+STUB_MS_IGNORE_TITLE=1 STUB_MS_FULL="[$full]" run full-page-no-match-fails-loudly 1 "not a JSON array" "No milestone titled" 9.9
 STUB_PAGE1='[{"iid":5},{"iid":6}]' run happy-path 0 "Closed 2 issue(s)" "" 1.2
 run empty-milestone 0 "nothing to close" "" 1.2
 STUB_FAIL_PAGE=1 run first-page-fails 1 "failed" "nothing to close" 1.2

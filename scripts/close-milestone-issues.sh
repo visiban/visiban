@@ -46,7 +46,11 @@ api_get() {
 # Verify the milestone exists before looping. The issues API silently returns an
 # empty list for an unknown milestone title, so check the milestone list first.
 # Titles are passed via argv, never interpolated into Python source.
-ms_json=$(api_get "${PROJECT}/milestones?state=all&per_page=100")
+# `title=` is an exact-match filter server-side, so the target is found no matter how
+# many milestones the project has (an unfiltered first page of 100 would report a
+# page-2 milestone as missing). state=all includes closed milestones.
+encoded_ms=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$MILESTONE")
+ms_json=$(api_get "${PROJECT}/milestones?state=all&per_page=100&title=${encoded_ms}")
 ms_check=$(printf '%s' "$ms_json" | python3 -c '
 import sys, json
 try:
@@ -55,7 +59,15 @@ except ValueError:
     print("BAD"); sys.exit(0)
 if not isinstance(ms, list):
     print("BAD"); sys.exit(0)
-print("FOUND" if any(m.get("title") == sys.argv[1] for m in ms) else "MISSING")
+if any(m.get("title") == sys.argv[1] for m in ms):
+    print("FOUND")
+elif len(ms) >= 100:
+    # Defensive: a full page with no exact match means the filter was ignored and
+    # the target may be on a later page. Fail loudly rather than say "missing".
+    print("BAD")
+    sys.exit(0)
+else:
+    print("MISSING")
 for m in ms:
     print("  - " + str(m.get("title")))
 ' "$MILESTONE") || die "could not parse milestones response from glab"
@@ -73,7 +85,6 @@ esac
 # Collect every open issue iid first, paging until a short/empty page. Collecting
 # before closing keeps pagination stable (closing shifts later pages) and lets a
 # fetch failure abort before any issue is touched.
-encoded_ms=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$MILESTONE")
 ids=()
 page=1
 while true; do
