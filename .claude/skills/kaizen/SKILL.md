@@ -139,8 +139,8 @@ notes. `subagent-tokens:` still comes from `## Gates` (per branch). Report it in
   for a yield finding (a 0%-yield gate on the most expensive MRs is a stronger narrowing case),
   never as a verdict by itself, and say how many costed MRs it rests on.
 - The cost is a list-price estimate from `.claude/model-prices.json`, not a billed
-  amount. If the window has `subagent-tokens:` lines but no `est-cost-usd:` line, the price
-  table has likely gone stale (over 90 days): say so; it is refreshed by hand.
+  amount. If many recorded MRs are excluded as "a record with no USD total" (`no_usd`), the
+  price table has likely gone stale (over 90 days): say so; it is refreshed by hand.
 
 ---
 

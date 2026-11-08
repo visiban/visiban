@@ -160,7 +160,7 @@ It prices the orchestrating session's own usage over `--since`/`--until` plus th
 
 **Watch out:** Visiban's table was **copied from Blueprint's table** (`checked` 2026-11-03, `source` the platform.claude.com pricing page), not re-copied from the source page. Prices are copied from that page by a person and checked in review, never invented.
 
-**Refresh it** (re-copy the source table and update `checked`) before it lapses on 2027-02-01, or when `/kaizen` reports `subagent-tokens:` lines but no `est-cost-usd:` line in its window: a stale table only omits the estimate, it warns nobody (#2131).
+**Refresh it** (re-copy the source table and update `checked`) before it lapses on 2027-02-01, or when `/kaizen` excludes MRs as "a record with no USD total" (`no_usd`): a stale table only omits the estimate, it warns nobody (#2131).
 
 ## The cost comments
 <a id="the-cost-records"></a>

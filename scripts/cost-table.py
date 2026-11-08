@@ -254,7 +254,7 @@ def _valid_ts(text):
         return False
 
 
-NOT_WINDOWED = ("- This record has no window start: its orchestrator row is not windowed, so it overlaps other MRs of the "
+NOT_WINDOWED = ("- This record has no complete window (no start or no end): its orchestrator row is not windowed, so it overlaps other MRs of the "
                 "same session and must not be compared with or added to another MR's cost.")
 FIRST_RECORD = ("- This is the session's first record, so the orchestrator row starts at the session's start and "
                 "includes work done before this MR's issue.")
@@ -392,7 +392,8 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
     if b:
         roles = ", ".join("%s %d" % (r, k) for r, k in sorted(b[1].items()))
         out.append("- Agents over their /wave budget (`budget-exceeded:`): %d%s." % (b[0], " (%s)" % roles if roles else ""))
-    if record > 1 or since is not None:
+    # Exactly the condition of the `Window:` line above: a record 1 with a start but no end is not windowed either.
+    if record > 1 or (since is not None and end):
         out.append("- Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
                    "every branch it worked, and each subagent is counted only for usage after its previous record. "
                    "Records from one session add up to its total.")
@@ -933,6 +934,10 @@ def self_test():
                  "Window end: 2026-11-04T15:30:00Z.", "prices 2026-11-03", "(`budget-exceeded:`): 1 (implementer 1)",
                  NOT_WINDOWED):
         check("comment: " + want[:40], want in com, com)
+    # --since without --until: no complete window, so the not-windowed line and no add-up claim.
+    ns = "\n".join(comment_lines(withb, 383, None, split, since="2026-11-04T15:00:00Z"))
+    check("comment: --since without --until is not windowed (not-windowed line, no add-up bullet)",
+          NOT_WINDOWED in ns and "Window end: n/a" in ns and "Records do not overlap" not in ns and "Window: " not in ns, ns)
     # #2154: a record with no window start says its orchestrator row is not windowed, and does not claim
     # non-overlap; a record with a start still does.
     check("comment: no window start drops the non-overlap claim", "Records do not overlap" not in com, com)

@@ -316,16 +316,16 @@ check "cost: window state is recorded" "$([ "$(cj "$C" cost state)" = '"recorded
 check "cost: malformed and contradictory cost lines are flagged (!14, !15)" \
   "$([ "$(cj "$C" cost malformed)" = '[14, 15]' ] && echo 0 || echo 1)"
 check "cost: feat mean est. cost 3.00 over its 2 recorded MRs (fenced/commented/Notes lines not read)" \
-  "$([ "$(cj "$C" cost by_class feat mean_est_cost_usd)" = 3.0 ] && [ "$(cj "$C" cost by_class feat recorded)" = 2 ] && echo 0 || echo 1)"
+  "$([ "$(cj "$C" cost by_class feat mean_est_cost_usd)" = 4.0 ] && [ "$(cj "$C" cost by_class feat recorded)" = 2 ] && echo 0 || echo 1)"
 check "cost: feat mean subagent-tokens 2000" "$([ "$(cj "$C" cost by_class feat mean_subagent_tokens)" = 2000.0 ] && echo 0 || echo 1)"
 check "cost: fix (all off) is disabled, its mean null, never 0" \
   "$([ "$(cj "$C" cost by_class fix state)" = '"disabled"' ] && [ "$(cj "$C" cost by_class fix mean_est_cost_usd)" = null ] && [ "$(cj "$C" cost by_class fix mean_subagent_tokens)" = null ] && echo 0 || echo 1)"
 check "cost: docs (no line) is none, distinct from disabled" \
   "$([ "$(cj "$C" cost by_class docs state)" = '"none"' ] && [ "$(cj "$C" cost by_class docs mean_est_cost_usd)" = null ] && echo 0 || echo 1)"
-check "cost: regression-check ran on 2 costed MRs, mean 3.00, 2 findings / 6.00 USD = 0.33 per USD" \
-  "$([ "$(cj "$C" cost by_gate regression-check ran_costed)" = 2 ] && [ "$(cj "$C" cost by_gate regression-check mean_est_cost_usd_ran)" = 3.0 ] && [ "$(cj "$C" cost by_gate regression-check findings_per_usd)" = 0.33 ] && echo 0 || echo 1)"
-check "cost: security-review ran 4.00 vs n/a 2.00" \
-  "$([ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_ran)" = 4.0 ] && [ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_na)" = 2.0 ] && echo 0 || echo 1)"
+check "cost: regression-check ran on 2 costed MRs, mean 4.00 (record values 2.50 and 5.50, not the Gates 2.00 and 4.00), 2 findings / 8.00 USD = 0.25 per USD" \
+  "$([ "$(cj "$C" cost by_gate regression-check ran_costed)" = 2 ] && [ "$(cj "$C" cost by_gate regression-check mean_est_cost_usd_ran)" = 4.0 ] && [ "$(cj "$C" cost by_gate regression-check findings_per_usd)" = 0.25 ] && echo 0 || echo 1)"
+check "cost: security-review ran 5.50 vs n/a 2.50" \
+  "$([ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_ran)" = 5.5 ] && [ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_na)" = 2.5 ] && echo 0 || echo 1)"
 COST_TEXT="$(python3 "$SCRIPT" --input "$COST_FIXTURE")"
 check "cost text: a disabled class reads 'disabled', not 0" \
   "$(printf '%s\n' "$COST_TEXT" | grep -E '^fix ' | grep -q 'disabled' && ! printf '%s\n' "$COST_TEXT" | grep -E '^fix ' | grep -q '0.00 USD' && echo 0 || echo 1)"
@@ -355,10 +355,12 @@ check "records: a two-record MR is summed (3.00), not read from its 99.00 snapsh
   "$([ "$(cj "$R" cost by_class fix mean_est_cost_usd)" = 3.0 ] && echo 0 || echo 1)"
 check "records: the legacy record is excluded (!23), never read as 0 or 20.00" \
   "$([ "$(cj "$R" cost excluded legacy_record)" = '[23]' ] && echo 0 || echo 1)"
+check "records: a duplicate record number (!30), overlapping windows (!31), an unparsed record (!32) and another user's record beside an own one (!33) are each excluded with their own reason" \
+  "$([ "$(cj "$R" cost excluded duplicate_record)" = '[30]' ] && [ "$(cj "$R" cost excluded overlapping_windows)" = '[31]' ] && [ "$(cj "$R" cost excluded unparsed_record)" = '[32]' ] && [ "$(cj "$R" cost excluded other_user)" = '[27, 33]' ] && echo 0 || echo 1)"
 check "records: a legacy plus a windowed record (!29) is excluded as partial, not summed over its windowed part" \
   "$([ "$(cj "$R" cost excluded mixed_records)" = '[29]' ] && [ "$(cj "$R" cost by_class feat est_costed)" = 3 ] && echo 0 || echo 1)"
 check "records: no record, another user's record (!27) and unreadable notes are excluded, each with its own reason" \
-  "$([ "$(cj "$R" cost excluded no_record)" = '[25]' ] && [ "$(cj "$R" cost excluded other_user)" = '[27]' ] && [ "$(cj "$R" cost excluded notes_unreadable)" = '[26]' ] && echo 0 || echo 1)"
+  "$([ "$(cj "$R" cost excluded no_record)" = '[25]' ] && [ "$(cj "$R" cost excluded other_user)" = '[27, 33]' ] && [ "$(cj "$R" cost excluded notes_unreadable)" = '[26]' ] && echo 0 || echo 1)"
 check "records: docs and chore have no costed MR, so their mean is null, never 0" \
   "$([ "$(cj "$R" cost by_class docs mean_est_cost_usd)" = null ] && [ "$(cj "$R" cost by_class chore mean_est_cost_usd)" = null ] && echo 0 || echo 1)"
 check "records: subagent-tokens still comes from ## Gates (feat mean 283.33)" \
@@ -367,10 +369,10 @@ REC_TEXT="$(python3 "$SCRIPT" --input "$REC_FIXTURE")"
 check "records text: names each exclusion with its count and MR ids" \
   "$(printf '%s' "$REC_TEXT" | grep -q 'legacy record with no window start (orchestrator row not windowed): 1 MR(s), !23' && printf '%s' "$REC_TEXT" | grep -q 'notes unreadable: 1 MR(s), !26' && echo 0 || echo 1)"
 check "records text: every MR read is accounted for, including those with no cost lines in ## Gates" \
-  "$(printf '%s' "$REC_TEXT" | grep -q 'Accounted for: 10 MRs read = 4 costed from records + 5 excluded + 0 `cost-ledger: off` + 1 with no cost lines in `## Gates`' && printf '%s' "$REC_TEXT" | grep -q 'not read because of the window cap: 0' && echo 0 || echo 1)"
+  "$(printf '%s' "$REC_TEXT" | grep -q 'Accounted for: 14 MRs read = 4 costed from records + 9 excluded + 0 `cost-ledger: off` + 1 with no cost lines in `## Gates`' && printf '%s' "$REC_TEXT" | grep -q 'not read because of the window cap: 0' && echo 0 || echo 1)"
 CAP_TEXT="$(python3 "$SCRIPT" --input "$REC_FIXTURE" --window 4)"
 check "records text: an --input cut by --window prints how many MRs were not read" \
-  "$(printf '%s' "$CAP_TEXT" | grep -q 'not read because of the window cap: 6' && echo 0 || echo 1)"
+  "$(printf '%s' "$CAP_TEXT" | grep -q 'not read because of the window cap: 10' && echo 0 || echo 1)"
 check "records text: no snapshot or other-user figure leaks into a mean" \
   "$(! printf '%s' "$REC_TEXT" | grep -E '^(feat|fix|docs|chore) ' | grep -qE '9\.33|12\.00|99\.00|50\.00|60\.00' && echo 0 || echo 1)"
 
