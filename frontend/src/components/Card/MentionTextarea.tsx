@@ -234,7 +234,6 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         className={className}
         // ARIA 1.2 combobox: focus stays here while arrow keys move the active option (#2137).
         role="combobox"
-        aria-multiline="true"
         aria-label={ariaLabel ?? placeholder}
         aria-autocomplete="list"
         aria-haspopup="listbox"

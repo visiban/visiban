@@ -382,6 +382,11 @@ export default function RichTextEditor({
                 };
                 editorDom = editor.view.dom as HTMLElement;
                 snapshot = snapshotAttrs(editorDom);
+                // The attributes go on at start, while the popup can still be
+                // visibility:hidden (it is placed once the caret rect and list
+                // height exist). That window is a frame or so and harmless: the
+                // option ids only become reachable once the list renders, and
+                // aria-controls/activedescendant are set only then.
                 comboboxOn = true;
                 setMentionCombobox(editorDom, null, placeholder);
                 editorDom.addEventListener("blur", onEditorBlur);

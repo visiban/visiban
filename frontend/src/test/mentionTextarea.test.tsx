@@ -363,10 +363,10 @@ describe('MentionTextarea combobox semantics (#2137)', () => {
     expect(ta).toHaveFocus()
   })
 
-  it('keeps multiline semantics and an accessible name', () => {
+  it('has an accessible name and no aria-multiline (unsupported on combobox in ARIA 1.2)', () => {
     render(<MentionTextarea value="" onChange={vi.fn()} members={members} placeholder="Add a comment" ariaLabel="Comment" />)
     const ta = screen.getByRole('combobox', { name: 'Comment' })
-    expect(ta).toHaveAttribute('aria-multiline', 'true')
+    expect(ta).not.toHaveAttribute('aria-multiline')
   })
 
   it('moves aria-activedescendant back up with ArrowUp and stops at the first option', async () => {
