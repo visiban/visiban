@@ -393,7 +393,12 @@ each surface that delivers them:
   feed row and in its webhook delivery, its channel-layer message has no
   `actor_id`, and `is_starred` is left out of the stored payload. A change to a
   board's group or owner that clears a link also records its own ordinary
-  `board.updated`, which keeps its actor;
+  `board.updated`, which keeps its actor. Accepted residual (#2091, expires
+  2027-01-31): the ordering and attribution of share-link state events across the
+  WebSocket, change feed and webhook deliveries, and of the membership events
+  recorded beside them, are not filtered further, and rows recorded before 1.3
+  keep the actor they were written with until pruned; tracked in #2091 with no
+  code change, to be re-decided or closed by that date;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.
