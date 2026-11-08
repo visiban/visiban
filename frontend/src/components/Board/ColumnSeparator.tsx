@@ -64,7 +64,7 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
 
       {isAdmin && highlighted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
+          <span aria-hidden="true" className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
         </div>
       )}
     </div>

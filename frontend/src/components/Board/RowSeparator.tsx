@@ -77,6 +77,7 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       {isAdmin && hovered && colCenterXs?.map((cx, i) => (
         <span
           key={i}
+          aria-hidden="true"
           className="absolute text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm pointer-events-none"
           style={{ left: cx, top: "50%", transform: "translate(-50%, -50%)" }}
         >+</span>
