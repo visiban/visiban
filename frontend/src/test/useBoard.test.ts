@@ -3,7 +3,7 @@ import { renderHook, waitFor, act, render, screen } from '@testing-library/react
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard } from '../hooks/useBoard'
-import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label } from '../types'
+import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
 const mockNavigate = vi.fn()
 
@@ -2365,6 +2365,551 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     act(() => { result.current.updateCard(card(1, 5)) })
     await fetch.resolve(makeBoard({ id: 2, cards: [card(7, 1)] }))
     expect(ids(result.current.board)).toEqual([7])
+  })
+})
+
+// #2130: the rest of the board. Every non-card write applied while a /full/
+// fetch is in flight is replayed over its snapshot, cascades included.
+describe('useBoard — non-card writes that land mid-fetch are replayed (#2130)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+    mockGetArchivedCards.mockResolvedValue({ count: 0, results: [] })
+  })
+
+  const base = makeBoard()
+  const card = (id: number, overrides: Partial<Card> = {}): Card =>
+    ({ ...base.cards[0], id, uid: `crd${id}`, title: `Card ${id}`, ...overrides })
+  const col = (id: number, overrides: Partial<Column> = {}): Column =>
+    ({ ...base.columns[0], id, uid: `col${id}`, name: `Col ${id}`, position: id, ...overrides })
+  const lane = (id: number, overrides: Partial<Swimlane> = {}): Swimlane =>
+    ({ ...base.swimlanes[0], id, uid: `lane${id}`, name: `Lane ${id}`, position: id, ...overrides })
+  const lbl = (id: number, name: string): Label => ({ id, uid: `lbl${id}`, name, color: '#EF4444' })
+  const member = (userId: number, role: 'viewer' | 'member' | 'admin', extra: Record<string, unknown> = {}) => ({
+    id: userId + 100, user: { id: userId, username: `u${userId}`, display_name: `U ${userId}`, avatar_url: '' },
+    role, joined_at: '', ...extra,
+  })
+  const cardIds = (b: BoardFull | null) => b!.cards.map((c) => c.id).sort((x, y) => x - y)
+  const colIds = (b: BoardFull | null) => b!.columns.map((c) => c.id)
+  const laneIds = (b: BoardFull | null) => b!.swimlanes.map((s) => s.id)
+
+  async function renderBoard(overrides: Partial<BoardFull>) {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard(overrides))
+    const hook = renderHook(() => useBoard())
+    await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+    return hook
+  }
+  type Hook = Awaited<ReturnType<typeof renderBoard>>
+  function startFetch(result: Hook['result'], via: 'load' | 'silentReload' = 'silentReload') {
+    let resolve!: (b: BoardFull) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((res) => { resolve = res }))
+    act(() => { (via === 'load' ? result.current.reload : result.current.silentReload)() })
+    return async (b: BoardFull) => {
+      await act(async () => { resolve(b) })
+      await waitFor(() => expect(result.current.loading).toBe(false))
+    }
+  }
+
+  // Two columns, two lanes, a card in each column.
+  const twoByTwo = (overrides: Partial<BoardFull> = {}) => makeBoard({
+    columns: [col(10), col(11)],
+    swimlanes: [lane(20), lane(21)],
+    cards: [card(1, { column: 10, swimlane: 20 }), card(2, { column: 11, swimlane: 21 })],
+    ...overrides,
+  })
+
+  for (const via of ['load', 'silentReload'] as const) {
+    it(`a column.deleted frame removes the column and its cards from the snapshot (${via})`, async () => {
+      const { result } = await renderBoard(twoByTwo())
+      const resolve = startFetch(result, via)
+      act(() => { result.current.evictColumn('col11') })
+      // Read before the delete: the column, its card, and a card in it this
+      // client never received.
+      await resolve(twoByTwo({ cards: [card(1, { column: 10 }), card(2, { column: 11 }), card(3, { column: 11 })] }))
+      expect(colIds(result.current.board)).toEqual([10])
+      expect(cardIds(result.current.board)).toEqual([1])
+    })
+  }
+
+  it('a column.deleted frame for a column not on screen still removes it from the snapshot', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    // Created and deleted elsewhere; this client missed the create.
+    act(() => { result.current.evictColumn('col12') })
+    await resolve(twoByTwo({ columns: [col(10), col(11), col(12)], cards: [card(1), card(4, { column: 12 })] }))
+    expect(colIds(result.current.board)).toEqual([10, 11])
+    expect(cardIds(result.current.board)).toEqual([1])
+  })
+
+  it('a column delete also prunes the column from swimlane limits in the snapshot', async () => {
+    const limited = lane(20, { wip_limit: 3, limit_column_ids: [10, 11] })
+    const { result } = await renderBoard(twoByTwo({ swimlanes: [limited, lane(21)] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.evictColumn('col11') })
+    await resolve(twoByTwo({ swimlanes: [limited, lane(21)] }))
+    expect(result.current.board!.swimlanes[0].limit_column_ids).toEqual([10])
+  })
+
+  for (const [label, remove] of [
+    ['a column.deleted frame', (r: Hook['result']) => { act(() => { r.current.evictColumn('col11') }) }],
+    ['a swimlane.deleted frame', (r: Hook['result']) => { act(() => { r.current.evictSwimlane('lane21') }) }],
+  ] as const) {
+    it(`re-reads the archived count after the snapshot when ${label} landed during the fetch`, async () => {
+      const { result } = await renderBoard(twoByTwo({ archived_card_count: 3 }))
+      const resolve = startFetch(result)
+      // The delete's own count request answers before the snapshot lands.
+      mockGetArchivedCards.mockResolvedValueOnce({ count: 1, results: [] })
+      remove(result)
+      await act(async () => {})
+      expect(result.current.board!.archived_card_count).toBe(1)
+      // The snapshot was read before the cascade, so it still counts 3.
+      mockGetArchivedCards.mockResolvedValueOnce({ count: 1, results: [] })
+      await resolve(twoByTwo({ archived_card_count: 3 }))
+      await waitFor(() => expect(result.current.board!.archived_card_count).toBe(1))
+      expect(mockGetArchivedCards).toHaveBeenCalledTimes(2)
+    })
+  }
+
+  it('does not re-read the archived count when the snapshot has no archived cards', async () => {
+    const { result } = await renderBoard(twoByTwo({ archived_card_count: 0 }))
+    const resolve = startFetch(result)
+    act(() => { result.current.evictColumn('col11') })
+    await resolve(twoByTwo({ archived_card_count: 0 }))
+    expect(mockGetArchivedCards).not.toHaveBeenCalled()
+  })
+
+  it("this user's own column delete is replayed over the snapshot", async () => {
+    mockDeleteColumn.mockResolvedValueOnce(undefined)
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    await act(async () => { await result.current.removeColumn(11) })
+    await resolve(twoByTwo())
+    expect(colIds(result.current.board)).toEqual([10])
+    expect(cardIds(result.current.board)).toEqual([1])
+  })
+
+  it('a card moved into a column that is then deleted does not come back from the snapshot', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.updateCard(card(1, { column: 11, version: 2 })) })
+    act(() => { result.current.evictColumn('col11') })
+    // Read before the move: card 1 is still in column 10, outside the cascade.
+    await resolve(twoByTwo())
+    expect(cardIds(result.current.board)).toEqual([])
+  })
+
+  // The reload may be recovering a move this tab missed: only the snapshot
+  // knows where an unwritten card really is, so the local cascade must not
+  // tombstone it.
+  it('a card the tab still shows in a deleted column survives when the snapshot has it elsewhere (missed move)', async () => {
+    // Card 2 sits in column 11 on screen; the server already moved it to 10.
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.evictColumn('col11') })
+    expect(cardIds(result.current.board)).toEqual([1]) // the local cascade
+    await resolve(twoByTwo({ columns: [col(10), col(11)], cards: [card(1, { column: 10 }), card(2, { column: 10, swimlane: 21 })] }))
+    expect(cardIds(result.current.board)).toEqual([1, 2])
+    expect(result.current.board!.cards.find((c) => c.id === 2)?.column).toBe(10)
+  })
+
+  it('a card the tab still shows in a deleted swimlane survives when the snapshot has it elsewhere (missed move)', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.evictSwimlane('lane21') })
+    await resolve(twoByTwo({ cards: [card(1, { swimlane: 20 }), card(2, { column: 11, swimlane: 20 })] }))
+    expect(cardIds(result.current.board)).toEqual([1, 2])
+    expect(result.current.board!.cards.find((c) => c.id === 2)?.swimlane).toBe(20)
+  })
+
+  it("this user's own column delete does not tombstone a card the snapshot has elsewhere", async () => {
+    mockDeleteColumn.mockResolvedValueOnce(undefined)
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    await act(async () => { await result.current.removeColumn(11) })
+    await resolve(twoByTwo({ cards: [card(1), card(2, { column: 10 })] }))
+    expect(cardIds(result.current.board)).toEqual([1, 2])
+  })
+
+  for (const via of ['load', 'silentReload'] as const) {
+    it(`a swimlane.deleted frame removes the swimlane and its cards from the snapshot (${via})`, async () => {
+      const { result } = await renderBoard(twoByTwo())
+      const resolve = startFetch(result, via)
+      act(() => { result.current.evictSwimlane('lane21') })
+      await resolve(twoByTwo({ cards: [card(1), card(2, { swimlane: 21 }), card(3, { swimlane: 21 })] }))
+      expect(laneIds(result.current.board)).toEqual([20])
+      expect(cardIds(result.current.board)).toEqual([1])
+    })
+  }
+
+  it("this user's own swimlane delete is replayed over the snapshot", async () => {
+    mockDeleteSwimlane.mockResolvedValueOnce(undefined)
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    await act(async () => { await result.current.removeSwimlane(21) })
+    await resolve(twoByTwo())
+    expect(laneIds(result.current.board)).toEqual([20])
+    expect(cardIds(result.current.board)).toEqual([1])
+  })
+
+  it('a failed column delete reloads, and the reload does not replay the refused delete', async () => {
+    mockDeleteColumn.mockRejectedValueOnce({ response: { status: 500 } })
+    const { result } = await renderBoard(twoByTwo())
+    const first = startFetch(result)
+    // The failure's own reload supersedes the in-flight fetch.
+    mockGetBoardFull.mockResolvedValueOnce(twoByTwo())
+    await act(async () => { await result.current.removeColumn(11) })
+    await waitFor(() => expect(colIds(result.current.board)).toEqual([10, 11]))
+    await first(makeBoard({ columns: [col(10)] }))
+    expect(colIds(result.current.board)).toEqual([10, 11])
+    expect(cardIds(result.current.board)).toEqual([1, 2])
+  })
+
+  it('keeps a column created during the fetch, so a card created in it is not orphaned', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addColumn(col(12, { name: 'New' })) })
+    act(() => { result.current.addCard(card(5, { column: 12 })) })
+    await resolve(twoByTwo())
+    expect(colIds(result.current.board)).toEqual([10, 11, 12])
+    expect(result.current.board!.cards.find((c) => c.id === 5)?.column).toBe(12)
+  })
+
+  it('a create the snapshot already holds is not added twice', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addColumn(col(12, { name: 'Frame' })) })
+    act(() => { result.current.addSwimlane(lane(22)) })
+    act(() => { result.current.addLabel(lbl(7, 'Bug')) })
+    await resolve(twoByTwo({ columns: [col(10), col(11), col(12)], swimlanes: [lane(20), lane(21), lane(22)], labels: [lbl(7, 'Bug')] }))
+    expect(colIds(result.current.board)).toEqual([10, 11, 12])
+    expect(laneIds(result.current.board)).toEqual([20, 21, 22])
+    expect(result.current.board!.labels.map((l) => l.id)).toEqual([7])
+  })
+
+  it('keeps a swimlane created during the fetch', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addSwimlane(lane(22, { name: 'New lane' })) })
+    await resolve(twoByTwo())
+    expect(laneIds(result.current.board)).toEqual([20, 21, 22])
+  })
+
+  it('keeps a column.updated edit over an older snapshot copy', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.updateColumn(col(11, { name: 'Renamed', wip_limit: 4 })) })
+    await resolve(twoByTwo({ columns: [col(10, { name: 'Snapshot' }), col(11, { name: 'Old' })] }))
+    expect(result.current.board!.columns[1]).toMatchObject({ name: 'Renamed', wip_limit: 4 })
+    // A column nothing wrote takes the snapshot.
+    expect(result.current.board!.columns[0].name).toBe('Snapshot')
+  })
+
+  it('keeps a swimlane.updated edit, re-resolved against the snapshot copy', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    // BoardView's resolver merges the broadcast with the copy it is applied
+    // to; replayed, that copy is the snapshot's.
+    act(() => {
+      result.current.updateSwimlane((b) => ({ ...b.swimlanes.find((s) => s.id === 21)!, name: 'Renamed' }))
+    })
+    await resolve(twoByTwo({ swimlanes: [lane(20), lane(21, { notes: 'From the snapshot' })] }))
+    expect(result.current.board!.swimlanes[1]).toMatchObject({ name: 'Renamed', notes: 'From the snapshot' })
+  })
+
+  it('a label.updated frame renames the label and its copies on the snapshot cards', async () => {
+    const old = lbl(7, 'Bug')
+    const { result } = await renderBoard(twoByTwo({ labels: [old], cards: [card(1, { labels: [old] }), card(2)] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.updateLabel(lbl(7, 'Defect')) })
+    // The snapshot also holds a card with the label that this client never had.
+    await resolve(twoByTwo({ labels: [old], cards: [card(1, { labels: [old] }), card(2), card(3, { labels: [old] })] }))
+    expect(result.current.board!.labels).toEqual([lbl(7, 'Defect')])
+    for (const id of [1, 3]) {
+      expect(result.current.board!.cards.find((c) => c.id === id)?.labels).toEqual([lbl(7, 'Defect')])
+    }
+  })
+
+  it('a label.deleted frame removes the label and strips it from the snapshot cards', async () => {
+    const bug = lbl(7, 'Bug')
+    const keep = lbl(8, 'Keep')
+    const { result } = await renderBoard(twoByTwo({ labels: [bug, keep], cards: [card(1, { labels: [bug, keep] }), card(2)] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.removeLabel('lbl7') })
+    await resolve(twoByTwo({ labels: [bug, keep], cards: [card(1, { labels: [bug, keep] }), card(2, { labels: [bug] })] }))
+    expect(result.current.board!.labels).toEqual([keep])
+    expect(result.current.board!.cards.find((c) => c.id === 1)?.labels).toEqual([keep])
+    expect(result.current.board!.cards.find((c) => c.id === 2)?.labels).toEqual([])
+  })
+
+  it('keeps a label created during the fetch', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addLabel(lbl(9, 'New')) })
+    await resolve(twoByTwo())
+    expect(result.current.board!.labels).toEqual([lbl(9, 'New')])
+  })
+
+  it('keeps board.updated, share and star state over an older snapshot', async () => {
+    const { result } = await renderBoard(twoByTwo({ archived_card_count: 2 }))
+    const resolve = startFetch(result)
+    act(() => { result.current.mergeBoardState({ name: 'Renamed', enforce_wip_limits: true, archived_card_count: 0 }) })
+    act(() => { result.current.mergeBoardState({ share_link_active: true }) })
+    act(() => { result.current.mergeBoardState({ is_starred: true }) })
+    await resolve(twoByTwo({ name: 'Old', description: 'From the snapshot', archived_card_count: 5 }))
+    expect(result.current.board).toMatchObject({
+      name: 'Renamed', enforce_wip_limits: true, share_link_active: true, is_starred: true,
+      description: 'From the snapshot',
+      // Still never merged from a board.updated payload (#1289).
+      archived_card_count: 5,
+    })
+  })
+
+  it("keeps this user's own board settings change over an older snapshot", async () => {
+    mockPatchBoard.mockResolvedValueOnce({})
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    await act(async () => { await result.current.updateBoardSettings({ name: 'Mine' }) })
+    await resolve(twoByTwo({ name: 'Old' }))
+    expect(result.current.board!.name).toBe('Mine')
+  })
+
+  it('keeps member changes made during the fetch', async () => {
+    const { result } = await renderBoard(twoByTwo({ members: [member(1, 'admin'), member(2, 'viewer'), member(3, 'member')] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.addMember(member(4, 'member') as never) })
+    act(() => { result.current.updateMember(member(2, 'member') as never) })
+    act(() => { result.current.removeMember(3) })
+    await resolve(twoByTwo({ members: [member(1, 'admin'), member(2, 'viewer', { is_site_admin: true }), member(3, 'member')] }))
+    const members = result.current.board!.members
+    expect(members.map((m) => m.user.id)).toEqual([1, 2, 4])
+    // The frame lacks is_site_admin; the snapshot's value is kept (#1290).
+    expect(members[1]).toMatchObject({ role: 'member', is_site_admin: true })
+  })
+
+  it('keeps custom field definition changes made during the fetch', async () => {
+    const def = (id: number, name: string) => ({ id, uid: `cf${id}`, name, position: id }) as unknown as CustomFieldDefinition
+    const sdef = (id: number, name: string) => ({ id, uid: `sf${id}`, name, position: id }) as unknown as SwimlaneCustomFieldDefinition
+    const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(1, 'A'), def(2, 'B')], swimlane_custom_field_definitions: [sdef(1, 'A')] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.applyCustomFieldDefinitions((prev) => prev.map((f) => (f.id === 1 ? def(1, 'A2') : f))) })
+    act(() => { result.current.applyCustomFieldDefinitions((prev) => prev.filter((f) => f.uid !== 'cf2')) })
+    act(() => { result.current.applySwimlaneFieldDefinitions([sdef(1, 'A'), sdef(2, 'New')]) })
+    await resolve(twoByTwo({
+      custom_field_definitions: [def(1, 'A'), def(2, 'B'), def(3, 'From the snapshot')],
+      swimlane_custom_field_definitions: [sdef(1, 'A')],
+    }))
+    expect(result.current.board!.custom_field_definitions.map((f) => f.name)).toEqual(['A2', 'From the snapshot'])
+    expect(result.current.board!.swimlane_custom_field_definitions.map((f) => f.name)).toEqual(['A', 'New'])
+  })
+
+  it('keeps column.reordered and swimlane.reordered orders over an older snapshot', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.applyColumnOrder([col(11, { position: 0 }), col(10, { position: 1 })]) })
+    act(() => { result.current.applySwimlaneOrder([lane(21, { position: 0 }), lane(20, { position: 1 })]) })
+    await resolve(twoByTwo())
+    expect(colIds(result.current.board)).toEqual([11, 10])
+    expect(laneIds(result.current.board)).toEqual([21, 20])
+  })
+
+  it("keeps this user's own column and swimlane reorders over an older snapshot", async () => {
+    mockReorderColumns.mockResolvedValueOnce([col(11, { position: 0 }), col(10, { position: 1 })])
+    mockReorderSwimlanes.mockResolvedValueOnce([lane(21, { position: 0 }), lane(20, { position: 1 })])
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    await act(async () => { await result.current.reorderColumns([11, 10]) })
+    await act(async () => { await result.current.reorderSwimlanes([21, 20]) })
+    await resolve(twoByTwo())
+    expect(colIds(result.current.board)).toEqual([11, 10])
+    expect(laneIds(result.current.board)).toEqual([21, 20])
+  })
+
+  it('an optimistic reorder still in flight keeps a snapshot column it does not name', async () => {
+    let finish!: (cols: Column[]) => void
+    mockReorderColumns.mockReturnValueOnce(new Promise<Column[]>((res) => { finish = res }))
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    let pending!: Promise<void>
+    act(() => { pending = result.current.reorderColumns([11, 10]) })
+    // The snapshot holds a column this client never received.
+    await resolve(twoByTwo({ columns: [col(10), col(11), col(12)] }))
+    expect(colIds(result.current.board)).toEqual([11, 10, 12])
+    await act(async () => { finish([col(11), col(10), col(12)]); await pending })
+  })
+
+  it('a failed column reorder is not replayed over the snapshot', async () => {
+    let fail!: (e: unknown) => void
+    mockReorderColumns.mockReturnValueOnce(new Promise<Column[]>((_res, rej) => { fail = rej }))
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    let pending!: Promise<void>
+    act(() => { pending = result.current.reorderColumns([11, 10]) })
+    await act(async () => { fail({ response: { status: 500 } }); await pending })
+    await resolve(twoByTwo({ columns: [col(10), col(11, { name: 'Snapshot' })] }))
+    expect(colIds(result.current.board)).toEqual([10, 11])
+    expect(result.current.board!.columns[1].name).toBe('Snapshot')
+  })
+
+  // Whole-list writes are replayed as what they changed, so an item the
+  // snapshot holds and this tab never had (Missed) is not erased by them.
+  describe('whole-list writes keep an item the snapshot holds and the tab missed', () => {
+    const def = (id: number, name: string, extra: Record<string, unknown> = {}) =>
+      ({ id, uid: `cf${id}`, name, position: id, help_text: '', ...extra }) as unknown as CustomFieldDefinition
+    const sdef = (id: number, name: string, extra: Record<string, unknown> = {}) =>
+      ({ id, uid: `sf${id}`, name, position: id, help_text: '', ...extra }) as unknown as SwimlaneCustomFieldDefinition
+    const names = (list: { name: string }[]) => list.map((f) => f.name)
+
+    it('the Fields tab adding a definition (custom fields)', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A')] }))
+      const resolve = startFetch(result)
+      // BoardSettingsFieldsTab commits [...fields, created].
+      act(() => { result.current.applyCustomFieldDefinitions([def(0, 'A'), def(2, 'Mine')]) })
+      await resolve(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(1, 'Missed'), def(2, 'Mine')] }))
+      expect(names(result.current.board!.custom_field_definitions)).toEqual(['A', 'Missed', 'Mine'])
+    })
+
+    it('the Fields tab adding a definition the snapshot predates (custom fields)', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A')] }))
+      const resolve = startFetch(result)
+      act(() => { result.current.applyCustomFieldDefinitions([def(0, 'A'), def(2, 'Mine')]) })
+      await resolve(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(1, 'Missed')] }))
+      expect(names(result.current.board!.custom_field_definitions)).toEqual(['A', 'Missed', 'Mine'])
+    })
+
+    it('the Fields tab editing one definition only sets the fields it changed', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(2, 'B')] }))
+      const resolve = startFetch(result)
+      act(() => { result.current.applyCustomFieldDefinitions([def(0, 'A renamed'), def(2, 'B')]) })
+      // Another admin changed A's help text and B's name; this tab missed both.
+      await resolve(twoByTwo({ custom_field_definitions: [def(0, 'A', { help_text: 'Theirs' }), def(1, 'Missed'), def(2, 'B theirs')] }))
+      expect(result.current.board!.custom_field_definitions).toEqual([
+        def(0, 'A renamed', { help_text: 'Theirs' }), def(1, 'Missed'), def(2, 'B theirs'),
+      ])
+    })
+
+    it('the Fields tab deleting one definition removes only that one', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(2, 'Mine')] }))
+      const resolve = startFetch(result)
+      act(() => { result.current.applyCustomFieldDefinitions([def(0, 'A')]) })
+      await resolve(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(1, 'Missed'), def(2, 'Mine')] }))
+      expect(names(result.current.board!.custom_field_definitions)).toEqual(['A', 'Missed'])
+    })
+
+    it('an edit to a definition the snapshot no longer has does not bring it back', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(2, 'B')] }))
+      const resolve = startFetch(result)
+      act(() => { result.current.applyCustomFieldDefinitions([def(0, 'A'), def(2, 'B renamed')]) })
+      await resolve(twoByTwo({ custom_field_definitions: [def(0, 'A')] }))
+      expect(names(result.current.board!.custom_field_definitions)).toEqual(['A'])
+    })
+
+    it('the row Fields tab adding a definition (swimlane fields)', async () => {
+      const { result } = await renderBoard(twoByTwo({ swimlane_custom_field_definitions: [sdef(0, 'A')] }))
+      const resolve = startFetch(result)
+      act(() => { result.current.applySwimlaneFieldDefinitions([sdef(0, 'A'), sdef(2, 'Mine')]) })
+      await resolve(twoByTwo({ swimlane_custom_field_definitions: [sdef(0, 'A'), sdef(1, 'Missed'), sdef(2, 'Mine')] }))
+      expect(names(result.current.board!.swimlane_custom_field_definitions)).toEqual(['A', 'Missed', 'Mine'])
+    })
+
+    it("this user's own column reorder response", async () => {
+      mockReorderColumns.mockResolvedValueOnce([col(11, { position: 0 }), col(10, { position: 1 })])
+      const { result } = await renderBoard(twoByTwo())
+      const resolve = startFetch(result)
+      await act(async () => { await result.current.reorderColumns([11, 10]) })
+      await resolve(makeBoard({ ...twoByTwo(), columns: [col(10, { position: 1 }), col(11, { position: 0 }), col(12, { name: 'Missed', position: 2 })] }))
+      expect(colIds(result.current.board)).toEqual([11, 10, 12])
+    })
+
+    it("this user's own swimlane reorder response", async () => {
+      mockReorderSwimlanes.mockResolvedValueOnce([lane(21, { position: 0 }), lane(20, { position: 1 })])
+      const { result } = await renderBoard(twoByTwo())
+      const resolve = startFetch(result)
+      await act(async () => { await result.current.reorderSwimlanes([21, 20]) })
+      await resolve(twoByTwo({ swimlanes: [lane(20, { position: 1 }), lane(21, { position: 0 }), lane(22, { name: 'Missed', position: 2 })] }))
+      expect(laneIds(result.current.board)).toEqual([21, 20, 22])
+    })
+
+    it('a column.reordered / swimlane.reordered frame', async () => {
+      const { result } = await renderBoard(twoByTwo())
+      const resolve = startFetch(result)
+      act(() => { result.current.applyColumnOrder([col(11, { position: 0 }), col(10, { position: 2 })]) })
+      act(() => { result.current.applySwimlaneOrder([lane(21, { position: 0 }), lane(20, { position: 1 })]) })
+      // Missed is placed by its position among the reordered items.
+      await resolve(twoByTwo({
+        columns: [col(10), col(11), col(12, { name: 'Missed', position: 1 })],
+        swimlanes: [lane(20), lane(21), lane(22, { name: 'Missed', position: 5 })],
+      }))
+      expect(colIds(result.current.board)).toEqual([11, 12, 10])
+      expect(laneIds(result.current.board)).toEqual([21, 20, 22])
+    })
+
+    it('outside a fetch a whole-list write still sets the list exactly', async () => {
+      const { result } = await renderBoard(twoByTwo({ custom_field_definitions: [def(0, 'A'), def(1, 'B')] }))
+      const next = [def(1, 'B', { position: 0 }), def(2, 'C')]
+      act(() => { result.current.applyCustomFieldDefinitions(next) })
+      expect(result.current.board!.custom_field_definitions).toEqual(next)
+      act(() => { result.current.applyColumnOrder([col(11), col(10)]) })
+      expect(colIds(result.current.board)).toEqual([11, 10])
+    })
+  })
+
+  // The writes are replayed in the order they arrived, so the later of two
+  // writes to the same item wins over the snapshot, as it did on screen.
+  it('replays two edits of one column in arrival order', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.updateColumn(col(11, { name: 'First' })) })
+    act(() => { result.current.updateColumn(col(11, { name: 'Second' })) })
+    await resolve(twoByTwo({ columns: [col(10), col(11, { name: 'Snapshot' })] }))
+    expect(result.current.board!.columns[1].name).toBe('Second')
+  })
+
+  it('replays a label created and then deleted in arrival order', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addLabel(lbl(9, 'Short-lived')) })
+    act(() => { result.current.removeLabel('lbl9') })
+    await resolve(twoByTwo())
+    expect(result.current.board!.labels).toEqual([])
+  })
+
+  // The updater form, fed by swimlane_custom_field.created/updated/deleted
+  // frames (BoardView), mirrors the card-field cases.
+  it('keeps swimlane field definition frames (updater form) made during the fetch', async () => {
+    const sdef = (id: number, name: string) => ({ id, uid: `sf${id}`, name, position: id }) as unknown as SwimlaneCustomFieldDefinition
+    const { result } = await renderBoard(twoByTwo({ swimlane_custom_field_definitions: [sdef(1, 'A'), sdef(2, 'B')] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => [...prev, sdef(4, 'Created')]) })
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => prev.map((f) => (f.id === 1 ? sdef(1, 'A2') : f))) })
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => prev.filter((f) => f.uid !== 'sf2')) })
+    await resolve(twoByTwo({ swimlane_custom_field_definitions: [sdef(1, 'A'), sdef(2, 'B'), sdef(3, 'From the snapshot')] }))
+    expect(result.current.board!.swimlane_custom_field_definitions.map((f) => f.name)).toEqual(['A2', 'From the snapshot', 'Created'])
+  })
+
+  it('a non-card write before the fetch is not replayed: the snapshot stays authoritative', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    act(() => { result.current.updateColumn(col(11, { name: 'Before the fetch' })) })
+    const resolve = startFetch(result)
+    await resolve(twoByTwo({ columns: [col(10), col(11, { name: 'Corrected' })] }))
+    expect(result.current.board!.columns[1].name).toBe('Corrected')
+  })
+
+  it('a newer fetch does not replay the writes of the one it superseded', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const first = startFetch(result)
+    act(() => { result.current.updateColumn(col(11, { name: 'During the first fetch' })) })
+    const second = startFetch(result)
+    await second(twoByTwo({ columns: [col(10), col(11, { name: 'Second snapshot' })] }))
+    await first(twoByTwo())
+    expect(result.current.board!.columns[1].name).toBe('Second snapshot')
+  })
+
+  it('does not replay writes over a snapshot of another board', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addColumn(col(12)) })
+    await resolve(makeBoard({ id: 2, columns: [col(30)] }))
+    expect(colIds(result.current.board)).toEqual([30])
   })
 })
 
