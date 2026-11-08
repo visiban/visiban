@@ -212,6 +212,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // re-read that was started first but failed must not discard the load's list,
   // which would leave the page with no boards until the next reconnect.
   const boardsRereadAppliedRef = useRef(false);
+  // Set when the latest re-read failed while the initial load was still pending,
+  // leaving its replay array open for the load to consume (#2150); the load
+  // closes the array after replaying it.
+  const boardsReplayOrphanedRef = useRef(false);
   // The list writes applied while the latest boards re-read is in flight, in
   // order, or null when none is (#2139); see refetchBoardsList. One array per
   // re-read, created when it starts and closed when its answer arrives, so it
@@ -237,6 +241,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // close its array too, so the next group's writes are not collected into it.
     boardsReplayRef.current = null;
     boardsRereadAppliedRef.current = false;
+    boardsReplayOrphanedRef.current = false;
     ++boardsSeqRef.current;
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
@@ -258,6 +263,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         // in case that re-read fails and never replays them (#2150).
         const pending = boardsReplayRef.current;
         setBoards(pending ? pending.reduce((list, write) => write(list), b) : b);
+        // A failed re-read left its array open only for this load; close it.
+        if (boardsReplayOrphanedRef.current) {
+          boardsReplayRef.current = null;
+          boardsReplayOrphanedRef.current = false;
+        }
       }
       setMembers(m);
     }).catch((err: unknown) => {
@@ -345,6 +355,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     const seq = ++boardsSeqRef.current;
     const replay: BoardsWrite[] = [];
     boardsReplayRef.current = replay;
+    boardsReplayOrphanedRef.current = false;
     getGroupBoards(groupId)
       .then((b) => {
         if (seq !== boardsSeqRef.current) return;
@@ -356,7 +367,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       })
       .catch(() => {
         // Stay with the current list.
-        if (seq === boardsSeqRef.current) boardsReplayRef.current = null;
+        if (seq !== boardsSeqRef.current) return;
+        if (loadedAtRef.current === null) {
+          // The initial load is still pending and will replace the list: keep
+          // the frames recorded so far so it can carry them over (#2150).
+          boardsReplayOrphanedRef.current = true;
+        } else {
+          boardsReplayRef.current = null;
+        }
       });
   }, [groupId]);
   const refreshHealthListings = useCallback(() => {
