@@ -2175,6 +2175,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       onSubmit={handleComment}
                       members={board.members}
                       placeholder="Add a comment… (Enter to submit, @ to mention)"
+                      ariaLabel="Add a comment"
                       rows={2}
                       className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                     />

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useState } from "react";
 import type { BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -13,6 +13,8 @@ export interface MentionListRef {
 
 const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Unique per instance so ids never collide (#2137).
+  const baseId = useId();
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -44,16 +46,22 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
   }
 
   return (
-    <div className="bg-surface border border-line-strong rounded-lg shadow-xl py-1 min-w-40 max-w-64">
+    <div
+      id={`${baseId}-listbox`}
+      role="listbox"
+      aria-label="Mention suggestions"
+      className="bg-surface border border-line-strong rounded-lg shadow-xl py-1 min-w-40 max-w-64">
       {props.items.map((u, i) => (
-        <button
+        <div
           key={u.username}
-          type="button"
+          id={`${baseId}-option-${i}`}
+          role="option"
+          aria-selected={i === selectedIndex}
           onMouseDown={(e) => {
             e.preventDefault();
             props.command({ id: u.username, label: userDisplayName(u) });
           }}
-          className={`w-full text-left px-3 py-1.5 text-sm transition ${
+          className={`w-full text-left px-3 py-1.5 text-sm cursor-pointer transition ${
             i === selectedIndex
               ? "bg-surface-hover text-fg"
               : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
@@ -63,7 +71,7 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
           {userDisplayName(u) !== u.username && (
             <span className="text-fg-muted ml-2 text-xs">{userDisplayName(u)}</span>
           )}
-        </button>
+        </div>
       ))}
     </div>
   );

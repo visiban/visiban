@@ -369,16 +369,39 @@ describe('MentionTextarea combobox semantics (#2137)', () => {
     expect(ta).toHaveAttribute('aria-multiline', 'true')
   })
 
-  it('never points aria-activedescendant at a missing option when the list narrows', async () => {
+  it('moves aria-activedescendant back up with ArrowUp and stops at the first option', async () => {
     const user = userEvent.setup()
     render(<Controlled />)
     const ta = screen.getByRole('combobox')
     await user.type(ta, '@')
-    await user.keyboard('{ArrowDown}')
-    await user.type(ta, 'j')
-    const id = ta.getAttribute('aria-activedescendant')
-    expect(id).not.toContain('undefined')
-    expect(document.getElementById(id as string)).not.toBeNull()
+    await user.keyboard('{ArrowDown}{ArrowUp}')
+    const options = screen.getAllByRole('option', { hidden: true })
+    expect(ta).toHaveAttribute('aria-activedescendant', options[0].id)
+    await user.keyboard('{ArrowUp}')
+    expect(ta).toHaveAttribute('aria-activedescendant', options[0].id)
+  })
+
+  it('never writes a dangling aria-activedescendant in the render where the list narrows', async () => {
+    // selectedIndex is reset in an effect, so React commits one render with a stale index first. act()
+    // flushes that effect before any assertion could run, so record every attribute write instead.
+    const user = userEvent.setup()
+    render(<Controlled />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    await user.keyboard('{ArrowDown}') // index 1 of 2
+    const written: string[] = []
+    const original = ta.setAttribute.bind(ta)
+    const spy = vi.spyOn(ta, 'setAttribute').mockImplementation((name: string, value: string) => {
+      if (name === 'aria-activedescendant') written.push(value)
+      original(name, value)
+    })
+    fireEvent.change(ta, { target: { value: '@j', selectionStart: 2 } })
+    spy.mockRestore()
+    expect(written.length).toBeGreaterThan(0)
+    for (const id of written) {
+      expect(id).not.toContain('undefined')
+      expect(document.getElementById(id)).not.toBeNull()
+    }
   })
 
   it('collapses again on Escape', async () => {
