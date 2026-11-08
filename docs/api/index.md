@@ -41,7 +41,7 @@ Visiban provides a WebSocket endpoint for real-time board updates. Clients conne
 
 **Authentication:** session cookie, or a short-lived ticket (since 1.2). The browser SPA relies on the existing session cookie and needs no `Authorization` header. Token-authenticated clients — native, CLI, or a front end on another origin — obtain a ticket from `POST /api/v1/auth/ws-ticket/` and pass it as `?ticket=`. See [WebSockets](websockets.md#ticket-authentication-since-12).
 
-**Close codes:** a code sent at the handshake reaches the client as a refused upgrade (HTTP `403`), not as the code; see [How a refused handshake reaches the client](websockets.md#how-a-refused-handshake-reaches-the-client).
+**Close codes:** since 1.3 a `4001` or `4003` sent at the handshake reaches the client as that code, right after the connection opens; a handshake `1011` reaches it as a refused upgrade (HTTP `403`). See [How a refused handshake reaches the client](websockets.md#how-a-refused-handshake-reaches-the-client).
 
 | Code | Meaning |
 |------|---------|

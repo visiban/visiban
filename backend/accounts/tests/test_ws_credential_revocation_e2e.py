@@ -31,6 +31,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from accounts.models import PersonalAccessToken, User
+from accounts.tests.ws_helpers import handshake
 from boards.broadcast import broadcast_board_event
 from boards.consumers import ACCESS_RECHECK_JITTER_SECONDS, ACCESS_RECHECK_SECONDS
 from boards.models import Board, BoardMembership
@@ -99,7 +100,7 @@ class _RevocationScenarios:
         from visiban import asgi
 
         comm = WebsocketCommunicator(asgi.application, path, headers=list(headers))
-        connected, code = await comm.connect()
+        connected, code = await handshake(comm)
         self.assertTrue(connected, f"handshake refused with {code}")
         return comm
 

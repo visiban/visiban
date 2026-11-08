@@ -509,6 +509,15 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 
 5. **Upstream proxy stripping upgrade headers.** If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the `Upgrade` and `Connection` headers and doesn't terminate WebSocket connections.
 
+**You're signed out as soon as you open a board or group page** (since 1.3). The browser's session cookie isn't reaching the WebSocket handshake on `/ws/`, so the server refuses it with `4001` and the web app signs you out, as for any expired session. Before 1.3 the same misconfiguration showed up as a Live dot stuck on **Reconnecting…** instead (#2145). The web app authenticates `/ws/` with the same session cookie as `/api/`, so:
+
+- Serve `/ws/` from the same host as `/api/` (the host in `VITE_API_URL`, or the SPA's own origin behind a single proxy). The session cookie is scoped to the host that set it, so a `/ws/` on another host never receives it.
+- With TLS, connect over `wss://`: the session cookie is `Secure` unless `FORCE_INSECURE_COOKIES` is set, so a browser doesn't send it on a plain `ws://` upgrade. The web app picks `wss://` itself when the page or `VITE_API_URL` is `https://`.
+- Every proxy in front of the backend (the bundled nginx, a CDN, a load balancer, an ingress) must forward the `Cookie` header on the WebSocket upgrade request, not only on ordinary HTTP requests. The bundled nginx `location /ws/` block does.
+- Don't rewrite the cookie's path: it must cover `/ws/` as well as `/api/`.
+
+To confirm, open the browser's developer tools on a board page and check that the `/ws/boards/<id>/` request carries a `Cookie` header with the session cookie (`sessionid` by default).
+
 ## Environment variables
 
 **The big picture:** Only the first three are required. The rest default to safe local values, but production needs several of them set (see [Step 1](#step-1-clone-and-configure)). OAuth variables are in [OAuth and SSO](oauth.md).

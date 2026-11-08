@@ -7,7 +7,7 @@ from django.conf import settings
 from django.test import TransactionTestCase, override_settings
 
 from accounts.models import User
-from accounts.tests.ws_helpers import session_ticket
+from accounts.tests.ws_helpers import handshake, session_ticket
 from boards.models import Board, BoardMembership
 
 
@@ -18,7 +18,7 @@ def _connect(path, origin=None):
 
     async def run():
         comm = WebsocketCommunicator(asgi.application, path, headers=headers)
-        connected, detail = await comm.connect()
+        connected, detail = await handshake(comm)
         if connected:
             await comm.disconnect()
         return connected, detail
@@ -78,7 +78,7 @@ def _connect_raw(path, headers):
 
     async def run():
         comm = WebsocketCommunicator(asgi.application, path, headers=headers)
-        connected, detail = await comm.connect()
+        connected, detail = await handshake(comm)
         if connected:
             await comm.disconnect()
         return connected, detail

@@ -26,7 +26,7 @@ from django.test import TransactionTestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.tests.ws_helpers import bound_scope, session_ticket
+from accounts.tests.ws_helpers import bound_scope, handshake, session_ticket
 from groups.broadcast import broadcast_group_event
 from groups import consumers as consumers_module
 from groups.consumers import ACCESS_RECHECK_JITTER_SECONDS, ACCESS_RECHECK_SECONDS, GroupConsumer
@@ -276,7 +276,7 @@ class LostGroupMemberRemovedFrameE2ETests(TransactionTestCase):
         async def run():
             ticket, _ = await sync_to_async(session_ticket)(self.member)
             comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-            connected, _ = await comm.connect()
+            connected, _ = await handshake(comm)
             self.assertTrue(connected)
 
             with patch.object(layer, "group_send", lossy_group_send), \
@@ -320,8 +320,9 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
         async def run():
             ticket, _ = await sync_to_async(session_ticket)(self.member)
             comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-            connected, code = await comm.connect()
-            await comm.disconnect()
+            connected, code = await handshake(comm)
+            if connected:
+                await comm.disconnect()
             return connected, code
 
         return asyncio.run(run())
@@ -348,7 +349,7 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
@@ -380,7 +381,7 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
                     comm = WebsocketCommunicator(
                         asgi.application, f"/ws/groups/{self.group.id}/", headers=[(b"cookie", cookie)]
                     )
-                    return await comm.connect()
+                    return await handshake(comm)
 
                 connected, code = asyncio.run(run())
                 self.assertFalse(connected)
@@ -397,7 +398,7 @@ class GroupConsumerAccountStateTests(TransactionTestCase):
                 async def run():
                     ticket, _ = await sync_to_async(session_ticket)(self.member)
                     comm = WebsocketCommunicator(asgi.application, f"/ws/groups/{self.group.id}/?ticket={ticket}")
-                    connected, _ = await comm.connect()
+                    connected, _ = await handshake(comm)
                     self.assertTrue(connected)
 
                     await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})

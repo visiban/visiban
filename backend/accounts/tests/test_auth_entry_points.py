@@ -75,6 +75,8 @@ from rest_framework.views import APIView
 
 from accounts.authentication import PATAuthentication
 from accounts.models import User
+from accounts.tests.ws_helpers import handshake
+from accounts.ws_auth import refuse_handshake
 from visiban import authorization
 from visiban.authorization import (
     ACCOUNT_GATES,
@@ -1471,7 +1473,12 @@ def handshake_consults_shared_gates(app, route_kwargs) -> tuple[bool, str]:
     """Open a socket to *app* with an authenticated, credential-bound user while
     ``visiban.authorization`` is replaced by a spy that refuses everyone.
 
-    Compliant: the spy saw the scope user and the socket was not accepted.
+    Compliant: the spy saw the scope user and the socket was not admitted. A
+    refusal may close before accept or, as the routed consumers do since
+    #2145, accept and close at once (``ws_helpers.handshake`` reads both as a
+    refusal); an accept followed by a frame, or no close at all, is an
+    admission. A handshake that raises is not compliant either: a crash is
+    not a refusal.
     The spy refuses, so a compliant consumer closes before any database
     lookup; a consumer that skips the shared check reaches the database
     instead, which this SimpleTestCase forbids, and is reported.
@@ -1497,20 +1504,21 @@ def handshake_consults_shared_gates(app, route_kwargs) -> tuple[bool, str]:
     async def run():
         communicator = WebsocketCommunicator(injected, "/ws/probe/")
         try:
-            connected, _ = await communicator.connect(timeout=2)
+            connected, _ = await handshake(communicator, timeout=2)
             if connected:
                 await communicator.disconnect()
         except Exception as exc:  # noqa: BLE001 — any crash means the gate did not decide
             return None, f"{type(exc).__name__}"
         return connected, None
 
-    # Channels runs close_old_connections() before every handler. That is
-    # connection housekeeping, not the consumer's own access check, and with
-    # database access blocked it would fail every probe for reasons unrelated
-    # to the gate, so it is stubbed out for the probe only.
+    # Channels runs close_old_connections() before every handler, and again in
+    # websocket_disconnect (imported separately there, so both names are
+    # patched). That is connection housekeeping, not the consumer's own access
+    # check, and with database access blocked it would fail every probe for
+    # reasons unrelated to the gate, so it is stubbed out for the probe only.
     with mock.patch.object(authorization, "_evaluate_account_gates", spy), mock.patch(
         "channels.consumer.aclose_old_connections", mock.AsyncMock()
-    ):
+    ), mock.patch("channels.generic.websocket.aclose_old_connections", mock.AsyncMock()):
         connected, error = asyncio.run(run())
     calls = [exempt for candidate, exempt in seen if candidate is user]
     if not calls:
@@ -1522,6 +1530,8 @@ def handshake_consults_shared_gates(app, route_kwargs) -> tuple[bool, str]:
         return False, f"handshake exempted shared gates {exempted}"
     if connected:
         return False, "handshake accepted a user the shared gates refused"
+    if error:
+        return False, f"handshake raised {error} instead of refusing"
     return True, ""
 
 
@@ -1603,6 +1613,33 @@ class _GatedConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
 
+class _GatedAcceptThenCloseConsumer(AsyncWebsocketConsumer):
+    """Refuses the way the routed consumers do since #2145: accept, then close."""
+
+    async def connect(self):
+        if not authorize_account(self.scope["user"]):
+            await refuse_handshake(self, 4003)
+            return
+        await self.accept()
+
+
+class _CrashesAfterTheGateConsumer(AsyncWebsocketConsumer):
+    """Asks the shared gates, then raises instead of refusing."""
+
+    async def connect(self):
+        authorize_account(self.scope["user"])
+        raise ValueError("bug")
+
+
+class _IgnoresTheGateConsumer(AsyncWebsocketConsumer):
+    """Asks the shared gates, ignores the answer, accepts and sends a frame."""
+
+    async def connect(self):
+        authorize_account(self.scope["user"])
+        await self.accept()
+        await self.send(text_data='{"event": "board.updated", "data": {}}')
+
+
 class ConsumerEntryPointTests(SimpleTestCase):
     def test_discovery_finds_both_consumers(self):
         names = {cls.__name__ for _, cls, _ in discover_routed_consumers()}
@@ -1640,6 +1677,24 @@ class ConsumerEntryPointTests(SimpleTestCase):
     def test_positive_a_consumer_with_the_shared_check_passes(self):
         ok, why = handshake_consults_shared_gates(_GatedConsumer.as_asgi(), {})
         self.assertTrue(ok, why)
+
+    def test_positive_an_accept_then_close_refusal_passes(self):
+        """The #2145 refusal shape (refuse_handshake) is a refusal, not an admission."""
+        ok, why = handshake_consults_shared_gates(_GatedAcceptThenCloseConsumer.as_asgi(), {})
+        self.assertTrue(ok, why)
+
+    def test_negative_a_consumer_that_ignores_the_answer_and_sends_is_reported(self):
+        """Consulting the gates is not enough: a consumer that then accepts and
+        sends a frame admitted the refused user, and must be reported."""
+        ok, why = handshake_consults_shared_gates(_IgnoresTheGateConsumer.as_asgi(), {})
+        self.assertFalse(ok)
+        self.assertIn("accepted a user the shared gates refused", why)
+
+    def test_negative_a_consumer_that_raises_after_the_gate_is_reported(self):
+        """A crash is not a refusal: it used to read as compliant."""
+        ok, why = handshake_consults_shared_gates(_CrashesAfterTheGateConsumer.as_asgi(), {})
+        self.assertFalse(ok)
+        self.assertIn("raised ValueError", why)
 
 
 class LiveUserLoaderTests(TestCase):

@@ -7,11 +7,11 @@ import time
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
+from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user, refuse_handshake
 from visiban.authorization import authorize_account
 
 from boards.broadcast import EVT_BOARD_CREATED, EVT_BOARD_UPDATED
-from boards.consumers import CLOSE_ACCESS_CHECK_FAILED, CLOSE_ACCESS_DENIED
+from boards.consumers import CLOSE_ACCESS_CHECK_FAILED, CLOSE_ACCESS_DENIED, CLOSE_NO_CREDENTIAL
 from boards.consumers import _lookup_role as _board_role
 from boards.permissions import PER_USER_EVENTS, per_user_event_visible, without_actor_scoped_fields
 
@@ -110,6 +110,9 @@ class GroupConsumer(AsyncWebsocketConsumer):
     # board verdicts; None until the first re-check, when the handshake user
     # (loaded at connect) is used.
     _live_user = None
+    # True once connect() has added this socket to the group's channel-layer
+    # group; only then does disconnect() discard it (#2145).
+    _joined = False
 
     async def connect(self):
         self.group_id = int(self.scope["url_route"]["kwargs"]["group_id"])
@@ -117,10 +120,13 @@ class GroupConsumer(AsyncWebsocketConsumer):
         self._ping_task = None
         user = self.scope["user"]
 
+        # Refusals accept, then close at once, so the 4001/4003 reaches the
+        # client instead of Daphne's HTTP 403 (#2145); each returns before
+        # the group_add, the ping task and any frame. Same as BoardConsumer.
         if not user.is_authenticated or not self.scope.get(WS_CREDENTIAL_SCOPE_KEY):
             # No recorded credential (#1483): never admit a socket the
             # re-check could not later find revoked. Same rule as BoardConsumer.
-            await self.close(code=4001)
+            await refuse_handshake(self, CLOSE_NO_CREDENTIAL)
             return
 
         if not authorize_account(user):
@@ -129,16 +135,17 @@ class GroupConsumer(AsyncWebsocketConsumer):
             # access check via load_live_ws_user. Must stay before any
             # database lookup; accounts/tests/test_auth_entry_points.py
             # checks every routed consumer for this call.
-            await self.close(code=4003)
+            await refuse_handshake(self, CLOSE_ACCESS_DENIED)
             return
 
         if not await self._has_access(user, self.group_id):
-            await self.close(code=4003)
+            await refuse_handshake(self, CLOSE_ACCESS_DENIED)
             return
         self._access_verified_at = _now()
         self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
 
         await self.channel_layer.group_add(self.room, self.channel_name)
+        self._joined = True
         await self.accept()
         self._ping_task = asyncio.ensure_future(self._ping_loop())
 
@@ -146,7 +153,11 @@ class GroupConsumer(AsyncWebsocketConsumer):
         if self._ping_task is not None:
             self._ping_task.cancel()
             self._ping_task = None
-        await self.channel_layer.group_discard(self.room, self.channel_name)
+        # A refused handshake never joined the room (#2145); see
+        # BoardConsumer.disconnect.
+        if self._joined:
+            self._joined = False
+            await self.channel_layer.group_discard(self.room, self.channel_name)
 
     async def _ping_loop(self):
         """Keepalive ping; each one first runs the throttled access check.

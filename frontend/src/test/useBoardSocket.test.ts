@@ -243,6 +243,65 @@ describe('useBoardSocket', () => {
     expect(instances).toHaveLength(1)
   })
 
+  // The server refuses a handshake by accepting and closing at once (#2145), so
+  // a refusal reaches the hook as onopen followed by the 4001/4003 close.
+  describe('handshake refusal: open, then the close code (#2145)', () => {
+    function signOutSpy() {
+      const expired = vi.fn()
+      window.addEventListener('auth:sessionExpired', expired)
+      return { expired, stop: () => window.removeEventListener('auth:sessionExpired', expired) }
+    }
+
+    it('a 4003 right after open stops as failed and probes the session once', async () => {
+      const { probeSession } = await import('../utils/sessionProbe')
+      vi.mocked(probeSession).mockClear()
+      const { expired, stop } = signOutSpy()
+      const { result } = renderHook(() => useBoardSocket(1, vi.fn()))
+
+      act(() => { latestWS().onopen?.() })
+      act(() => { latestWS().onclose?.({ code: 4003 }) })
+      act(() => { vi.advanceTimersByTime(10_000) })
+
+      expect(result.current.status).toBe('failed')
+      expect(instances).toHaveLength(1)
+      expect(probeSession).toHaveBeenCalledTimes(1)
+      expect(expired).not.toHaveBeenCalled()
+      stop()
+    })
+
+    it('a 4001 right after open signs out and does not reconnect', () => {
+      const { expired, stop } = signOutSpy()
+      const { result } = renderHook(() => useBoardSocket(1, vi.fn()))
+
+      act(() => { latestWS().onopen?.() })
+      act(() => { latestWS().onclose?.({ code: 4001 }) })
+      act(() => { vi.advanceTimersByTime(10_000) })
+
+      expect(result.current.status).toBe('failed')
+      expect(instances).toHaveLength(1)
+      expect(expired).toHaveBeenCalledTimes(1)
+      stop()
+    })
+
+    it('a reconnect refused at the handshake stops the retries', () => {
+      const onReconnected = vi.fn()
+      const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
+
+      act(() => { latestWS().onopen?.() })
+      act(() => { latestWS().onclose?.({ code: 1006 }) })
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(instances).toHaveLength(2)
+      // Access was lost while the socket was down: the reconnect is refused.
+      act(() => { latestWS().onopen?.() })
+      act(() => { latestWS().onclose?.({ code: 4003 }) })
+      act(() => { vi.advanceTimersByTime(10_000) })
+
+      expect(result.current.status).toBe('failed')
+      expect(instances).toHaveLength(2)
+      expect(onReconnected).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
     // The demo-reset routing that 4001/4003 trigger is pinned NOT to fire for
     // 1011 in demoReset.test.ts, where a past reset time is stashed.

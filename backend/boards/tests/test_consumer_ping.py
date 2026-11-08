@@ -6,7 +6,7 @@ cleans up the ping task on disconnect.
 """
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from django.test import TestCase
 
@@ -30,6 +30,11 @@ class BoardConsumerPingTests(TestCase):
         consumer.send = AsyncMock()
         consumer.close = AsyncMock()
         consumer.accept = AsyncMock()
+        # Records accept/close in order, so a refusal can be checked to
+        # accept first and then close (#2145).
+        consumer.handshake_calls = MagicMock()
+        consumer.handshake_calls.attach_mock(consumer.accept, "accept")
+        consumer.handshake_calls.attach_mock(consumer.close, "close")
         consumer.scope = {
             "url_route": {"kwargs": {"board_id": 1}},
             "user": MagicMock(is_authenticated=True, must_change_password=False, must_change_username=False),
@@ -41,6 +46,17 @@ class BoardConsumerPingTests(TestCase):
         # check, so the #1477 per-frame re-check is served from the cache.
         consumer._access_verified_at = _now()
         return consumer
+
+    def assert_refused_after_accept(self, consumer, code):
+        """Refused so the code reaches the client (#2145): accept, then close
+        with *code*, and nothing else — no room joined, no frame, no ping."""
+        self.assertEqual(
+            consumer.handshake_calls.mock_calls, [call.accept(), call.close(code=code)]
+        )
+        consumer.channel_layer.group_add.assert_not_awaited()
+        consumer.send.assert_not_called()
+        self.assertIsNone(consumer._ping_task)
+        self.assertFalse(consumer._joined)
 
     def test_ping_message_sent_after_interval(self):
         """The ping loop should send {"event": "ping"} after PING_INTERVAL."""
@@ -107,6 +123,7 @@ class BoardConsumerPingTests(TestCase):
 
             # Task should be canceled after disconnect.
             assert consumer._ping_task is None
+            consumer.channel_layer.group_discard.assert_awaited_once_with("board_1", "test-channel")
 
         asyncio.run(run())
 
@@ -130,10 +147,8 @@ class BoardConsumerPingTests(TestCase):
         async def run():
             with patch.object(consumer, "_resolve_role", return_value="admin") as resolve:
                 await consumer.connect()
-            consumer.close.assert_called_once_with(code=4001)
-            consumer.accept.assert_not_called()
+            self.assert_refused_after_accept(consumer, 4001)
             resolve.assert_not_called()
-            assert consumer._ping_task is None
 
         asyncio.run(run())
 
@@ -206,8 +221,46 @@ class BoardConsumerPingTests(TestCase):
         async def run():
             with patch.object(consumer, "_resolve_role", return_value=None):
                 await consumer.connect()
-            consumer.close.assert_called_once_with(code=4003)
-            assert consumer._ping_task is None
+            self.assert_refused_after_accept(consumer, 4003)
+
+        asyncio.run(run())
+
+    def test_unauthenticated_connect_is_refused_after_accept_with_4001(self):
+        consumer = self._make_consumer()
+        consumer.scope["user"].is_authenticated = False
+
+        async def run():
+            with patch.object(consumer, "_resolve_role", return_value="admin") as resolve:
+                await consumer.connect()
+            self.assert_refused_after_accept(consumer, 4001)
+            resolve.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_pending_account_change_is_refused_after_accept_with_4003(self):
+        """The shared account-state gate (#1517) refuses before any lookup."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].must_change_password = True
+
+        async def run():
+            with patch.object(consumer, "_resolve_role", return_value="admin") as resolve:
+                await consumer.connect()
+            self.assert_refused_after_accept(consumer, 4003)
+            resolve.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_disconnect_after_a_refusal_is_safe(self):
+        """A refused socket never joined the room, so disconnect() neither
+        discards it nor touches a ping task (#2145)."""
+        consumer = self._make_consumer()
+
+        async def run():
+            with patch.object(consumer, "_resolve_role", return_value=None):
+                await consumer.connect()
+            await consumer.disconnect(4003)
+            consumer.channel_layer.group_discard.assert_not_awaited()
+            self.assertIsNone(consumer._ping_task)
 
         asyncio.run(run())
 

@@ -11,7 +11,7 @@ Every frame arrives as `{ "event": "card.moved", "data": { ... }, "event_id": 84
 
 **Why it matters:** a handler written against these events also serves the [change feed](events.md), which carries the same payloads.
 
-**Watch out:** a ticket is consumed by the upgrade, so get a new one for every connection attempt, including every reconnect. A failed handshake closes with `4001` (not authenticated) or `4003` (not a board member), but through the bundled server (Daphne) your client receives a refused upgrade (HTTP `403`), not the code. See [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
+**Watch out:** a ticket is consumed by the upgrade, so get a new one for every connection attempt, including every reconnect. A refused handshake opens and then closes at once with `4001` (not authenticated) or `4003` (not a board member), so don't treat the `open` event as proof of access. See [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 **Go deeper:** [Ticket authentication](#ticket-authentication-since-12), [Event reference](#event-reference), [Delivery guarantees](#delivery-guarantees), [Client example](#client-example-javascript).
 
@@ -44,7 +44,7 @@ There are two ways to authenticate the handshake:
 
 When a handshake carries an `Origin` header (browsers always send one), it must match a configured origin: an entry in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, or an origin whose host equals an exact (non-pattern) `ALLOWED_HOSTS` entry. A handshake whose `Origin` matches none of these is refused before authentication. Clients that send no `Origin` header (CLI, native, and agent clients using a ticket) are not affected. The exact-host match ignores both the scheme and the port (an `http` origin matches an `https` host). `ALLOWED_HOSTS` entries that are `*` or start with a dot (such as `.example.com`) are not applied to this match: an install that uses them must list its public origin (for example `https://boards.example.com`) in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, otherwise browser WebSocket connections are refused. An `Origin` that includes credentials, a path, a query, or a fragment, or more than one `Origin` header, is refused. `manage.py check` and `check --deploy` emit system-check warning `accounts.W002` when `DEBUG` is off, `ALLOWED_HOSTS` contains `*` or a leading-dot entry, no non-loopback origin is listed in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and no exact public host is listed in `ALLOWED_HOSTS`. Listing a public origin clears it. To accept the configuration deliberately, add `"accounts.W002"` to `SILENCED_SYSTEM_CHECKS` (set the `SILENCED_SYSTEM_CHECKS=accounts.W002` environment variable; Helm: `backend.settings.silencedSystemChecks`).
 
-The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists `1011`, which the server sends when an authentication or access check cannot complete, on an open connection or (since 1.3) at the handshake. A code sent at the handshake reaches the client as a refused upgrade, not as the code; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
+The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists `1011`, which the server sends when an authentication or access check cannot complete, on an open connection or (since 1.3) at the handshake. Since 1.3 a handshake `4001` or `4003` reaches the client as that close code, while a handshake `1011` still reaches it as a refused upgrade; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 | Close code | Meaning |
 |---|---|
@@ -56,18 +56,23 @@ Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnorma
 
 #### How a refused handshake reaches the client
 
-Every handshake refusal on this page (a `4001`, a `4003`, or a `1011` before the connection opens) is sent before the upgrade completes. The ASGI specification has the server answer a close before accept with HTTP `403`, and the bundled server (Daphne) does so whatever the code. **A client never receives a close code for a refused handshake:** browsers report a failed connection with close code `1006`, and other WebSocket libraries report an HTTP `403` handshake failure. Delivering the handshake codes to clients is tracked in #2145.
+Since 1.3 (#2145) the server refuses a handshake with `4001` or `4003` by completing the upgrade and then closing the connection at once with that code, so **the close code reaches the client**. Nothing is sent between the two: no event, no keepalive ping, and the connection never joins the board or group channel. A client's `open` handler can still run just before its `close` handler (a browser fires both), so don't treat `open` as proof of access. In the Visiban web app this means a refused board or group page can show **Live** for an instant before **Offline**, and the open can trigger the page's usual resync: one extra REST request, answered under the same access rule as the handshake.
+
+A `1011` refusal at the handshake ([Handshake during an outage](#handshake-during-an-outage-since-13)) and an [`Origin`](#connecting) refusal are still sent before the upgrade completes. The ASGI specification has the server answer a close before accept with HTTP `403`, and the bundled server (Daphne) does so whatever the code, so those reach a client as a refused upgrade: browsers report a failed connection with close code `1006`, and other WebSocket libraries report an HTTP `403` handshake failure. A `1011` can't be sent after the upgrade instead: Daphne refuses it in a server close (#2142).
+
+Before 1.3 every handshake refusal, `4001` and `4003` included, reached a client as HTTP `403`.
 
 What a client actually sees:
 
 | When | What the client receives |
 |---|---|
-| Handshake refused (`4001`, `4003`, or `1011` in the tables on this page) | HTTP `403` on the upgrade. A browser reports close code `1006`. A client can't tell the reasons apart: check the credential and access over REST before retrying, and get a fresh ticket for every attempt. |
+| Handshake refused with `4001` or `4003` (since 1.3) | The connection opens, then closes at once with the code. No message arrives in between. |
+| Handshake refused with `1011`, or because its `Origin` isn't allowed | HTTP `403` on the upgrade. A browser reports close code `1006`. A `1011` is temporary, so retry with a fresh ticket for every attempt; an `Origin` refusal needs a configuration change. |
 | Handshake fails with an unexpected server error (not a database, cache or channel-layer outage, which is a `1011` refusal; see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
 | Open connection closed with `4003` or `1000` | The close code, as sent. |
 | Open connection closed with `1011` | `1011`. Daphne refuses the server's own `1011` close and sends `1011` itself from its error handler, so the code arrives but the server logs an error for each such close (#2142). |
 
-The Visiban web app treats a failed upgrade like any unexpected close: it keeps reconnecting every 3 seconds, and the indicator shows **Reconnecting…**. So a refused handshake neither stops the retries nor signs you out. The retries stop only when the server closes an open connection with `4003` (or `4001`, which the server doesn't send on an open connection today), or when it closes the connection with `1000` twice in a row with no message delivered in between (see [Connection status](../features/realtime.md#connection-status)).
+The Visiban web app handles a `4001` or `4003` the same way at the handshake and on an open connection: it stops retrying and the indicator shows **Offline**. A `4001` signs you out; a `4003` checks your session first and signs you out only if it has ended. It treats a failed upgrade (a `1011` refusal, an HTTP `500`) like any unexpected close: it keeps reconnecting every 3 seconds, the indicator shows **Reconnecting…**, and you stay signed in. The retries also stop when the server closes the connection with `1000` twice in a row with no message delivered in between (see [Connection status](../features/realtime.md#connection-status)).
 
 #### Handshake during an outage (since 1.3)
 
@@ -84,7 +89,7 @@ A handshake whose authentication or access check cannot complete because a serve
 | Any | The board or group membership lookup fails because the database is unavailable, whichever way the connection was authenticated | `1011` (#2144). This also covers consumers an extension registers on the WebSocket router. |
 | Any | Joining the board or group channel fails because the channel layer (Redis or Valkey) is unavailable | `1011` (#2144). |
 
-Like every handshake refusal, these codes reach a client as a refused upgrade (HTTP `403`) through the bundled server; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client). They're still the server's answer, and the `1011` keeps an outage from being recorded as a failed authentication.
+The `1011` refusals in this table reach a client as a refused upgrade (HTTP `403`) through the bundled server, while the `4001` rows arrive as `4001` (since 1.3); see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client). The `1011` is still the server's answer, and it keeps an outage from being recorded as a failed authentication.
 
 Each of these refusals logs a `WARNING` that names at most the error class (for example `websocket handshake could not complete: error=OperationalError`), never the error message, which can include a database, cache or channel-layer host. Before 1.3 the `cached_db`, `db`, membership-lookup and channel-layer rows failed the upgrade with HTTP `500` and the server logged the full error. An error that isn't a database, cache or channel-layer connection failure (a bug, for example) still fails the upgrade with HTTP `500`, and the connection is not admitted.
 
@@ -96,7 +101,7 @@ REST requests are not covered, and **a cache-only session outage still signs a w
 
 Session and CSRF cookies are `SameSite=Lax`, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a **ticket**: a short-lived, single-use credential obtained over REST and spent on the handshake.
 
-A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be (received as a refused upgrade, like every handshake refusal; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)).
+A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be (see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)).
 
 ### 1. Obtain a ticket
 
@@ -126,7 +131,7 @@ The upgrade consumes the ticket. **Get a new ticket for every connection attempt
 
 ### Rules
 
-Each handshake refusal below reaches your client as a refused upgrade (HTTP `403`), not as the close code it names; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
+Since 1.3 each handshake refusal below reaches your client as the close code it names, after the connection opens; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 | Rule | Detail |
 |---|---|
@@ -560,7 +565,7 @@ Pushes board create/update/delete events for boards that currently live in the g
 ws://<host>/ws/groups/<group_id>/
 ```
 
-Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same `4001` / `4003` codes on failure (a client receives them as a refused upgrade; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)). *(1.2+)* Only a membership with one of the four roles (`admin`, `member`, `collaborator`, `viewer`) counts, as for the [group REST routes](groups.md#get-apiv1groups); owning the group is not enough on its own (#1829).
+Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same `4001` / `4003` codes on failure (since 1.3 the client receives the code; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)). *(1.2+)* Only a membership with one of the four roles (`admin`, `member`, `collaborator`, `viewer`) counts, as for the [group REST routes](groups.md#get-apiv1groups); owning the group is not enough on its own (#1829).
 
 *(1.2+)* `board.created` and `board.updated` are delivered only to subscribers who can open that board, judged as for [`GET /api/v1/boards/{id}/`](boards.md#get-apiv1boardsid) and the board channel. A group member whose own membership on one board grants no access (its stored role is not one of the four roles) does not receive that board's frames; the socket stays open and every other frame is delivered (#1829). A `board.created` or `board.updated` frame whose `data` has no integer `id` is not delivered to anyone. Whether a subscriber can open a board is re-evaluated with the [access re-check](#access-re-check-and-eviction), so a change to their role on that board takes effect within the same window (about 7 seconds). `board.deleted` is not filtered: it carries only the board's identifiers.
 
@@ -704,16 +709,15 @@ ws.onmessage = (event) => {
 // See the Change Feed page for the cursor and 410 re-sync rules.
 
 ws.onclose = (event) => {
-  // A refused handshake never arrives here as 4001 or 4003 through the
-  // bundled server (Daphne): the browser reports 1006 for it, like any failed
-  // connection (#2145). These branches only see codes sent on an open
-  // connection, which today means 4003 (and 1000).
+  // Since 1.3 a refused handshake arrives here as 4001 or 4003 too, right
+  // after onopen (#2145). A handshake 1011 (a server outage) still arrives as
+  // a failed connection, 1006, and is retried like any other drop.
   if (event.code === 4001) {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {
-    // no access to this board — mid-stream, after access was lost or the
-    // credential was revoked (see "Access re-check and eviction"). Do not
-    // auto-retry.
+    // no access to this board — at the handshake, or mid-stream after access
+    // was lost or the credential was revoked (see "Access re-check and
+    // eviction"). Do not auto-retry.
   }
   // otherwise (including 1011, a failed server-side access re-check):
   // reconnect logic and re-fetch full board state

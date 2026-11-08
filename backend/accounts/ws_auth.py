@@ -70,14 +70,14 @@ an outage says nothing about the credential. 1011 is the code the consumers
 already use when their mid-stream re-check cannot complete (#2003, #2014), so
 the same "server error, retry" reading holds before and after accept.
 
-Transport caveat: every refusal here happens before accept. The ASGI spec has
+Transport caveat: the 1011 refusal happens before accept. The ASGI spec has
 the server answer a close before accept with HTTP 403, and Daphne does so
-whatever the code, so no client ever receives 4001 or 1011 from a handshake
-(a browser reports a failed upgrade, 1006). The code is therefore only the
-application's verdict: what the ASGI test communicator observes and what a
-future accept-then-close handshake would deliver (#2145). The refusal must
-still not raise: an exception here is a Daphne 500 whose log line carries the
-exception message.
+whatever the code, so no client receives 1011 from a handshake (a browser
+reports a failed upgrade, 1006, and the web app retries, which is what 1011
+asks for). The consumers' own refusals, 4001 and 4003, are different: they
+accept first and close at once (``refuse_handshake``, #2145), so their code
+does reach the client. The refusal must still not raise: an exception here is
+a Daphne 500 whose log line carries the exception message.
 
 The handshake-time outages that raise outside this middleware —
 ``cached_db`` during a cache outage (its ``load()`` falls back to the
@@ -571,6 +571,41 @@ def load_live_ws_user(scope):
     return user
 
 
+# Close codes a consumer's handshake refusal may carry: 4001 (no valid
+# credential) and 4003 (no access, or an account-state gate). The application
+# range, which autobahn (Daphne's WebSocket layer) accepts in a server close.
+_HANDSHAKE_REFUSAL_CODES = range(4000, 5000)
+
+
+async def refuse_handshake(consumer, code):
+    """Refuse a consumer's handshake so *code* reaches the client (#2145).
+
+    Accepts, then closes with *code* at once. Why accept a socket that is
+    being refused: the ASGI spec has the server answer a close sent before
+    accept with HTTP 403, and Daphne does so whatever the code, so a refusal
+    before accept reached a browser as a failed upgrade (1006), never as
+    4001 or 4003. The web app reconnects on 1006 every 3 s, so a non-member
+    or an account with a pending change got an endless reconnect loop instead
+    of Offline, and the 4001 sign-out (#2037) never fired.
+
+    Never fails open. Every caller runs this before it joins a channel-layer
+    group, starts its keepalive ping or sends a frame, so the socket is open
+    for exactly two messages, the accept and the close, and carries no board
+    or group data. Its re-check state is untouched (never verified), so a
+    frame handler reached anyway would re-check access and close again.
+
+    Only application codes (4000-4999). The handshake outage refusals stay
+    before accept with 1011 (``_refuse_unavailable``,
+    ``HandshakeOutageMiddleware``): a failed upgrade already makes the client
+    retry, which is what 1011 asks for, and autobahn refuses 1011 in a server
+    close after accept (#2142).
+    """
+    if code not in _HANDSHAKE_REFUSAL_CODES:
+        raise ValueError(f"handshake refusal code must be 4000-4999, got {code!r}")
+    await consumer.accept()
+    await consumer.close(code=code)
+
+
 class TicketAuthMiddleware(BaseMiddleware):
     """Authenticate a WebSocket upgrade from a ``?ticket=`` query parameter.
 
@@ -751,11 +786,13 @@ class HandshakeOutageMiddleware(BaseMiddleware):
     exception is re-raised unchanged (after accept that is the consumers'
     existing 1011 path, #2003, #2142).
 
-    Transport caveat, as for every pre-accept refusal (#2145): Daphne answers
+    Transport caveat: this refusal is sent before accept, and Daphne answers
     a close before accept with HTTP 403 whatever the code, so a browser sees a
-    failed upgrade (1006), not 1011. That is the #2086 behavior this matches;
-    the code is the application's verdict, and the 500 and its log line are
-    what this middleware removes.
+    failed upgrade (1006), not 1011. That is the #2086 behavior this matches,
+    and the client retries on it as it would on 1011; the 500 and its log line
+    are what this middleware removes. (The consumers' 4001/4003 refusals
+    accept first so their code arrives, ``refuse_handshake``, #2145; 1011
+    cannot, since autobahn refuses it in a server close, #2142.)
     """
 
     def __init__(self, inner):
