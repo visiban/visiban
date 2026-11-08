@@ -23,7 +23,7 @@ running-total row across records 1..K. An earlier record is never edited: a re-r
 window updates that window's own record (the latest one), and a different window posts a new one.
 
 Untrusted input. Earlier records are read back from the MR's notes, which anyone who can comment
-can write. Only notes authored by the token's own user (`glab api user`) are read at all; each must
+can write. On the posting paths (--post, --next-since) only notes authored by the token's own user (`glab api user`) are read at all; readers (scripts/kaizen_gate_ledger.py) may also trust the MR author (`also_trusted`, #2154). Each must
 carry the generated heading and footer and parse strictly (fixed regexes, ASCII digits, a size
 cap), or the running total reads `n/a (<reason>)`, never 0 and never a guess. No note text is ever
 echoed: every reason is fixed text plus integers, so a hostile note cannot put text into the
