@@ -4324,7 +4324,7 @@
 
 
 <h1 id="replay-missed-board-changes-with-one-cursor-request">Replay missed board changes with one cursor request<a class="headerlink" href="#replay-missed-board-changes-with-one-cursor-request" title="Permanent link">&para;</a></h1>
-<p><code>GET /api/v1/boards/{id}/events/?after=&lt;last event_id&gt;</code> returns what happened on a board since your last event, in order.</p>
+<p><code>GET /api/v1/boards/{id}/events/?after=&lt;cursor&gt;</code> returns what happened on a board after that event id, in order. Use the last <code>id</code> the feed handed you; a WebSocket frame's <code>event_id</code> is not a gap-free cursor, so resume from one a few seconds before a drop (<a href="https://gitlab.com/visiban/visiban/-/issues/2159">#2159</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/3/events/?after=84200"</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># 200 {"results": [{"id": 84213, "event": "card.moved", ...}], "next_cursor": 84213, "next": 84213}</span>
@@ -4346,8 +4346,13 @@ cursor instead of holding a WebSocket open and hoping it never drops.</p>
 <li>Open the board WebSocket and process frames as they arrive.</li>
 <li>Remember the <code>event_id</code> of the last frame you processed.</li>
 <li>When the socket drops and reconnects, call
-   <code>GET /api/v1/boards/{id}/events/?after=&lt;last event_id&gt;</code> and replay the
-   results through the same handler. No <code>/full/</code> re-fetch, no diffing.</li>
+   <code>GET /api/v1/boards/{id}/events/?after=&lt;cursor&gt;</code> and replay the results
+   through the same handler, skipping ids you have already applied. No
+   <code>/full/</code> re-fetch, no diffing. Frames from two concurrent writes can arrive
+   out of <code>event_id</code> order, so the last frame's <code>event_id</code> can be past an
+   event that was still committing when the socket dropped. Use an <code>event_id</code>
+   from a few seconds before the drop as the cursor, not the last one (see
+   <a href="#event-coverage">Event coverage</a>; tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/2159">#2159</a>).</li>
 <li>If that call returns <code>410 Gone</code>, events after your cursor have aged out of
    the retention window. Keep the <code>next_cursor</code> from the <code>410</code> body, re-fetch
    <code>GET /api/v1/boards/{id}/full/</code>, then resume with
@@ -4467,7 +4472,7 @@ which match what the WebSocket sends that reader.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_..."</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/42/events/?after=0&amp;limit=200"</span>
 </code></pre></div>
-<p>Call again with <code>after</code> set to the previous <code>next_cursor</code> until <code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>, which follows insertion order and is usually, but not always, commit order (see <a href="#event-coverage">Event coverage</a> and <a href="https://gitlab.com/visiban/visiban/-/issues/2053">#2053</a>). Never re-sort by <code>created_at</code>: two events can share a timestamp.</p>
+<p>Call again with <code>after</code> set to the previous <code>next_cursor</code> until <code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>. Ids follow insertion order, not commit order, but a page never reaches past an event that is still committing, so paging this way never skips one (see <a href="#event-coverage">Event coverage</a>). Never re-sort by <code>created_at</code>: two events can share a timestamp.</p>
 <h3 id="pagination-shapes">Pagination shapes<a class="headerlink" href="#pagination-shapes" title="Permanent link">&para;</a></h3>
 <p>Besides the standard offset envelope (<code>{count, offset, page_size, results}</code>) and bare arrays for small bounded lists, the API has three cursor/link shapes (see <a href="../#pagination">Pagination</a> for the full list). They differ on purpose, and each is frozen by the release that introduced it (decision recorded for #1869):</p>
 <table>
@@ -4567,24 +4572,60 @@ for both surfaces.</p>
   so a consumer holding a cursor learns the board is gone rather than simply
   losing access mid-stream. Its own board is of course no longer readable, so
   fetch it from the cursor you already hold, not from a fresh call.</li>
-<li><strong>Ids follow insertion, not commit.</strong> A row's <code>id</code> is assigned when the
-  transaction that writes it inserts the row, and that transaction may commit
-  after a later transaction with a higher <code>id</code>. A reader that pages with
-  <code>after=</code> at exactly that moment can move its cursor past the lower <code>id</code>
-  before it becomes visible, and never see it. The window is the length of the
-  slower transaction, normally milliseconds. Until
-  <a href="https://gitlab.com/visiban/visiban/-/issues/2053">#2053</a> adds a
-  commit-ordered cursor, a consumer that needs every row should re-read a short
-  overlap (for example, the last few seconds of rows) and deduplicate on <code>id</code>.
-  The webhook dispatcher does the equivalent by reading only rows older than
-  <code>WEBHOOK_SETTLE_SECONDS</code>.</li>
-<li><strong>A container delete is one delete event.</strong> Deleting a column, swimlane, or
+<li><strong>Paging with <code>after=</code> never skips an event (since 1.3).</strong> A row's <code>id</code> is
+  assigned when its transaction inserts the row, not when it commits, so a
+  lower <code>id</code> can commit after a higher one. The feed therefore stops each page
+  below any event that is still committing on that board. Before 1.3 a page
+  could include the higher <code>id</code>, and a reader that moved its cursor there never
+  saw the lower one (#2053). While a write to the board is committing, a page
+  can come back empty with <code>next_cursor: null</code> even though a newer event is
+  already committed. Poll again: it is delivered once the write ahead of it
+  commits, normally within milliseconds. A long-running write, such as a large
+  board import, holds the feed back for as long as it runs. Rows are still
+  returned in <code>id</code> order, not commit order. The webhook dispatcher applies the
+  same rule.</li>
+<li>
+<p><strong>Spotting a feed that is held back (operators).</strong> A write that commits in
+  milliseconds is the normal case. A transaction left open (a stuck worker, a
+  shell session holding a transaction) holds back every reader of that
+  board's feed, and its webhooks, until it ends. The dispatcher logs one line
+  per run on the <code>webhooks</code> logger, <code>webhook run held back by an open write:
+  boards=&lt;n&gt; board_ids=[...]</code>. The same board in every run's line is the sign.
+  The REST feed logs <code>board feed held back by an open write: board_id=&lt;id&gt;</code> at
+  <code>DEBUG</code> on the <code>boards.services.feed</code> logger. To find the transaction, run
+  this in PostgreSQL. <code>11142053</code> is the feed lock's namespace, and <code>objid</code> is
+  the board id for ids below 2<sup>31</sup>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">objid</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">board_id</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="k">state</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">xact_start</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">application_name</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">FROM</span><span class="w"> </span><span class="n">pg_locks</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">pg_stat_activity</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">locktype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'advisory'</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">classid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11142053</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="k">granted</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">xact_start</span><span class="p">;</span>
+</code></pre></div>
+<p>Ending that transaction (or <code>pg_terminate_backend(pid)</code>) releases the
+feed; nothing is lost, and the held-back events are delivered on the next
+read.
+- <strong>A webhook's start point (since 1.3).</strong> Creating a webhook, or re-enabling
+  one with <code>resume_from: latest</code>, starts it after the newest event once no
+  write on the board is in flight, waiting up to about 0.2 s for one to
+  commit. Every event that commits after that is sent. If a write is still
+  open after the wait, the webhook starts after the newest committed event,
+  and that write's event, written before the request, is not sent.
+- <strong>A WebSocket <code>event_id</code> is not a gap-free resume point.</strong> Frames are sent
+  after their own transaction commits, so two concurrent writes can arrive in
+  either <code>id</code> order, and a frame can arrive while a lower <code>id</code> is still
+  committing. A client that resumes with <code>after=</code> set to the last frame's
+  <code>event_id</code> can miss that lower event if the socket dropped in between. To cover
+  this, resume from a feed cursor (the last <code>id</code> the feed handed you), or
+  from an <code>event_id</code> a few seconds older than the drop, and skip ids you have
+  already applied. A gap-free socket resume point is tracked in
+  <a href="https://gitlab.com/visiban/visiban/-/issues/2159">#2159</a>.
+- <strong>A container delete is one delete event.</strong> Deleting a column, swimlane, or
   board deletes its cards too, and the feed records only the <code>column.deleted</code>,
   <code>swimlane.deleted</code>, or <code>board.deleted</code> row, with no <code>card.deleted</code> row per
   card. Treat it as the delete of every card in that container. A surviving
   card that one of the deleted cards was blocking gets a <code>card.updated</code> row
   with its lowered <code>blocker_count</code> (since 1.2), on its own board's feed. See
-  <a href="../websockets/#deleting-a-container-deletes-its-cards">Deleting a container deletes its cards</a>.</li>
+  <a href="../websockets/#deleting-a-container-deletes-its-cards">Deleting a container deletes its cards</a>.</p>
+</li>
 </ul>
 <h3 id="fields-that-depend-on-who-is-reading">Fields that depend on who is reading<a class="headerlink" href="#fields-that-depend-on-who-is-reading" title="Permanent link">&para;</a></h3>
 <ul>
@@ -4648,17 +4689,17 @@ for both surfaces.</p>
 <hr />
 <h2 id="retention">Retention<a class="headerlink" href="#retention" title="Permanent link">&para;</a></h2>
 <p>Events are kept for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default <code>30</code>) and removed by a management command. Nothing expires on its own: <strong>an install that never runs the pruner grows the <code>board_events</code> table forever</strong>. Retention bounds how much history the feed returns: any reader with access to the board receives every retained row for it, whenever they joined, each filtered by the rules in <a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a>. Run the pruner on a schedule:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># See what would go, without deleting anything</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--dry-run
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Prune using the configured window</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Override the window for one run</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># See what would go, without deleting anything</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--dry-run
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Prune using the configured window</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Override the window for one run</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
 </code></pre></div>
 <p>Schedule it nightly. Both deployment paths ship an opt-in scheduler with this job <strong>off</strong> by default. Turn it on with <code>SCHEDULE_PRUNE_BOARD_EVENTS=03:00</code> in <code>.env</code> for the Compose <code>scheduler</code> profile, or <code>scheduledJobs.pruneBoardEvents.enabled=true</code> in Helm. Host cron also works:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
 </code></pre></div>
 <p>See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
 <p>Deletion runs in batches (<code>--batch-size</code>, default <code>5000</code>), so a large cleanup does not hold locks against concurrent writers for the whole run. Each batch also records, per board and event type, the highest event id it deleted, in the same transaction; that record is what decides <a href="#errors">when a cursor expires</a>. <code>--dry-run</code> records nothing.</p>
@@ -4679,25 +4720,25 @@ for both surfaces.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>Standard library only, Python 3.10+. Install from a checkout: <code>pip install ./clients/python</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Resync</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>  <span class="c1"># a PAT with the `read` scope</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">iter_events</span><span class="p">(</span><span class="n">board_id</span><span class="p">):</span>               <span class="c1"># returns once caught up</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Resync</span><span class="p">):</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">replace_local_state</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">snapshot</span><span class="p">)</span>               <span class="c1"># the /full/ board state</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">handle</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>                                     <span class="c1"># one feed row, as a dict</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Resync</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>  <span class="c1"># a PAT with the `read` scope</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">iter_events</span><span class="p">(</span><span class="n">board_id</span><span class="p">):</span>               <span class="c1"># returns once caught up</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Resync</span><span class="p">):</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">replace_local_state</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">snapshot</span><span class="p">)</span>               <span class="c1"># the /full/ board state</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="n">handle</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>                                     <span class="c1"># one feed row, as a dict</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>No runtime dependencies, Node 20.3+ (global <code>fetch</code>, <code>AbortSignal.any</code>). npm cannot install from a Git subdirectory, so build a tarball from a checkout: <code>cd clients/typescript &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; npm pack</code>, then <code>npm install ./visiban-client-0.1.0.tgz</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Client</span><span class="p">,</span><span class="w"> </span><span class="nx">Resync</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"@visiban/client"</span><span class="p">;</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Client</span><span class="p">({</span><span class="w"> </span><span class="nx">baseUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="p">});</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">item</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">iterEvents</span><span class="p">(</span><span class="nx">boardId</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">item</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="nx">Resync</span><span class="p">)</span><span class="w"> </span><span class="nx">replaceLocalState</span><span class="p">(</span><span class="nx">item</span><span class="p">.</span><span class="nx">snapshot</span><span class="p">);</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="nx">handle</span><span class="p">(</span><span class="nx">item</span><span class="p">);</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Client</span><span class="p">,</span><span class="w"> </span><span class="nx">Resync</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"@visiban/client"</span><span class="p">;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Client</span><span class="p">({</span><span class="w"> </span><span class="nx">baseUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="p">});</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">for</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">item</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">iterEvents</span><span class="p">(</span><span class="nx">boardId</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">item</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="nx">Resync</span><span class="p">)</span><span class="w"> </span><span class="nx">replaceLocalState</span><span class="p">(</span><span class="nx">item</span><span class="p">.</span><span class="nx">snapshot</span><span class="p">);</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="nx">handle</span><span class="p">(</span><span class="nx">item</span><span class="p">);</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -4711,7 +4752,7 @@ for both surfaces.</p>
 <li>Backs off on <code>429</code>, <code>5xx</code> and network errors (honoring <code>Retry-After</code>, capped), and polls on a configurable interval. Without a poll interval it returns once caught up.</li>
 <li>Authenticates with a <a href="../authentication/">scoped personal access token</a> only (<code>read</code> is enough: the clients issue only <code>GET</code>s). It sends requests only to the host in the base URL you configured: a <code>resync_url</code> is reduced to its path and redirects are never followed. It refuses plain <code>http://</code> to a non-loopback host unless you opt in. <strong>Proxies:</strong> Python's <code>urllib</code> honors the <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code> environment variables, so the token travels through that proxy (and is readable by it over plain <code>http</code>); Node's built-in <code>fetch</code> does not read them by default. Use <code>https</code> and review proxy variables in the consumer's environment.</li>
 </ul>
-<p><strong>Late-committing rows.</strong> Ids follow insertion, not commit (see <a href="#event-coverage">Event coverage</a>), so a paging reader can step past a row that commits a moment later and never see it. The clients have <strong>no overlap option</strong> in 0.x and their reads are <strong>not gap-free</strong>. A consumer that needs every row can re-read a short overlap itself and deduplicate on <code>id</code>, as described under Event coverage, until <a href="https://gitlab.com/visiban/visiban/-/issues/2053">#2053</a> adds a commit-ordered cursor.</p>
+<p><strong>Late-committing rows.</strong> Ids follow insertion, not commit (see <a href="#event-coverage">Event coverage</a>). Against a 1.3 or later server the feed never hands out a page that reaches past an event still committing, so the clients' cursor never skips one, and they need no overlap option. Against an earlier server a paging reader can step past a row that commits a moment later and never see it; a consumer that needs every row there can re-read a short overlap itself and deduplicate on <code>id</code>.</p>
 <p><strong>Verifying webhooks.</strong> The same packages include <code>verify_signature</code> / <code>verifySignature</code> for <a href="../webhooks/#verifying-signatures">webhook deliveries</a>. It is <strong>experimental</strong> until the webhooks API is declared stable (<a href="https://gitlab.com/visiban/visiban/-/issues/2070">#2070</a>). In TypeScript it lives in the separate <code>@visiban/client/webhooks</code> entry point, so the main entry stays free of <code>node:crypto</code> and browser-safe.</p>
 <p><strong>Tested against a real server.</strong> The <code>clients-contract</code> CI job boots a backend and runs both packages' live tests, with the <code>VISIBAN_CONTRACT_REQUIRED</code> flag set so missing configuration fails the job instead of skipping. It runs on merge request and <code>main</code> pipelines (never on schedules) when <code>clients/**</code>, the boards feed code (views, serializers, models, URLs, permissions, broadcast, <code>services/feed.py</code>, the pruner), <code>backend/accounts/**</code>, <code>backend/visiban/</code> settings, URLs, permissions or exceptions, <code>backend/webhooks/**</code>, <code>backend/requirements.txt</code>, <code>.gitlab-ci.yml</code>, or the events and webhooks docs change. A shared fixture file drives both languages' unit suites, which keeps them behaving alike on the scenarios it covers; it does not prove they match elsewhere.</p>
 <hr />

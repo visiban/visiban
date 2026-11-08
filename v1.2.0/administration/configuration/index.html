@@ -3541,6 +3541,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#postgresql-lock-table-and-the-change-feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PostgreSQL lock table and the change feed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#webhooks" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4909,6 +4920,10 @@
 <p><strong>When the pool is full:</strong> a request needs a connection for as long as its view runs, on its own thread. When more than <code>DATABASE_POOL_MAX_SIZE</code> requests are in flight in one process, the extra ones queue for a free connection and raise <code>PoolTimeout</code> (a <code>500</code>) after the 30-second default timeout of psycopg_pool's <code>ConnectionPool</code>. Raise <code>DATABASE_POOL_MAX_SIZE</code> before <code>max_connections</code> is the limit you hit, or add replicas.</p>
 <p><strong>Health checks:</strong> with the pool on, Visiban also enables Django's <code>CONN_HEALTH_CHECKS</code>, so a connection that died (PostgreSQL restart or failover) is replaced instead of being handed to a request.</p>
 <p><strong>Sizing:</strong> the pool is per process, so the worst case is <code>DATABASE_POOL_MAX_SIZE</code> x processes per replica x replicas. Keep that below PostgreSQL's <code>max_connections</code> (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. The migrate init container, the CronJobs and the scheduler inherit the same environment, so each of them also opens up to <code>DATABASE_POOL_MIN_SIZE</code> connections while it runs; count them too. The migration lock connection deliberately bypasses the pool. See <a href="../../architecture/scaling/">Scaling</a>.</p>
+<h2 id="postgresql-lock-table-and-the-change-feed">PostgreSQL lock table and the change feed<a class="headerlink" href="#postgresql-lock-table-and-the-change-feed" title="Permanent link">&para;</a></h2>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>A transaction that writes <a href="../../api/events/">change feed</a> events holds one PostgreSQL advisory lock per board it writes events on, until it commits (#2053). The lock lets feed readers tell that no lower event id is still committing. Writers never wait for each other on it. PostgreSQL keeps every session's locks in one shared table of <code>max_locks_per_transaction × (max_connections + max_prepared_transactions)</code> entries: 6,400 at the defaults (64 × 100).</p>
+<p>An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none for the deleted boards themselves, plus one per other board where a deleted card was blocking a card (that card gets a <code>card.updated</code>). A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with <code>out of shared memory</code> and the hint <code>You might need to increase max_locks_per_transaction</code>, raise <code>max_locks_per_transaction</code> in <code>postgresql.conf</code> (or the chart's PostgreSQL configuration) and restart PostgreSQL.</p>
 <h2 id="webhooks">Webhooks<a class="headerlink" href="#webhooks" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.3</strong> (#863).</p>
@@ -4996,7 +5011,7 @@
 <tr>
 <td><code>WEBHOOK_SETTLE_SECONDS</code></td>
 <td><code>10</code></td>
-<td>Events younger than this wait for the next run, so an event from a transaction that committed late is not skipped.</td>
+<td>Events younger than this wait for the next run. Since 1.3 the dispatcher never skips an event whose transaction commits late, whatever this value is (#2053); the window only delays delivery.</td>
 </tr>
 <tr>
 <td><code>WEBHOOK_DISPATCHER_STALE_SECONDS</code></td>
