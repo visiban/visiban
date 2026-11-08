@@ -38,7 +38,12 @@ Usage:
 Cost (#2128). Beside yield, the report reads the cost ledger lines `/mr` and `/wave` write in
 `## Gates` (`subagent-tokens:`, `orchestrator-tokens:`, `est-cost-usd:`, or the one marker
 `cost-ledger: off`; docs/development/cost-ledger.md) through scripts/cost_ledger_lines.py, the
-same reader scripts/cost-table.py renders from. Each MR is in one cost state: `recorded` (a
+same reader scripts/cost-table.py renders from. Per-MR est. cost does NOT come from `est-cost-usd:` (#2154):
+that line is a go-ahead snapshot whose orchestrator share every MR of a wave repeats. It comes from the
+sum of the MR's `## Cost of this MR` comment records that state `Window: S to U` (non-overlapping), read
+from the MR's notes; an MR with only a legacy `Window end:` record, no record, or unreadable notes is
+excluded from every cost mean, and the report counts and names each exclusion. `subagent-tokens:` stays a
+`## Gates` figure (per branch). Each MR is in one cost state: `recorded` (a
 well-formed figure), `disabled` (the off marker: nothing recorded, by choice) or `none` (no
 figure yet). A disabled MR is never counted as 0 and never averaged; a window or change class
 whose MRs are all disabled says so instead of showing a mean. Change class is the branch prefix
@@ -61,6 +66,8 @@ from dataclasses import dataclass, field
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _paths import cli_roots, resolve_within  # noqa: E402
 import cost_ledger_lines as cost_lines  # noqa: E402
+import importlib.util  # noqa: E402
+import decimal  # noqa: E402
 
 DEFAULT_PROJECT = "visiban/visiban"
 DEFAULT_WINDOW = 30
@@ -132,26 +139,173 @@ def change_class(mr) -> str:
     return prefix if prefix in COST_CLASSES else "other"
 
 
+# Why an MR with a `## Gates` cost line is left out of the cost means (#2154). Fixed text: nothing
+# from a note is ever echoed.
+EXCLUSION_TEXT = {
+    "notes_unreadable": "notes unreadable",
+    "notes_not_read": "notes not read",
+    "other_user": "records by another user",
+    "no_record": "no cost record by the token user or the MR author",
+    "duplicate_record": "duplicate or non-consecutive record numbers",
+    "duplicate_window": "duplicate window",
+    "legacy_record": "legacy record with no window start (orchestrator row not windowed)",
+    "mixed_records": "legacy and windowed records: partial",
+    "unparsed_record": "a record did not parse",
+    "no_usd": "a record with no USD total",
+}
+
+_COST_TABLE = []
+
+
+def _cost_table():
+    """scripts/cost-table.py (a hyphenated name, so loaded by path): the one parser of the cost
+    records and the glab notes reader, so this reader writes no second regex for them."""
+    if not _COST_TABLE:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost-table.py")
+        spec = importlib.util.spec_from_file_location("cost_table_for_kaizen", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _COST_TABLE.append(mod)
+    return _COST_TABLE[0]
+
+
+def record_cost(own, foreign=0):
+    """(est USD, total tokens, record count, exclusion code) from an MR's trusted cost records
+    (cost-table.own_records items). Only records that state `Window: S to U` are summed. Records
+    posted by different sessions on one MR may overlap in TIME but not in tokens (each session claims
+    only what it had not yet claimed; see cost-table.plan_followup), so partially overlapping or
+    chained windows are summed; only an exact-duplicate window (same S and U) or a duplicate or
+    non-consecutive record number excludes the MR. One legacy `Window end:` record (orchestrator row cumulative from the session start)
+    makes the whole MR unreadable as a cost (`mixed_records` when windowed ones sit beside it), since leaving it out would undercount and adding it
+    would double count. A cost comment by another user (`foreign`) excludes the MR too: summing only
+    the token user's part would undercount. No figure is ever read as 0."""
+    if foreign:
+        return None, None, 0, "other_user"
+    if not own:
+        return None, None, 0, "no_record"
+    recs = [o["rec"] for o in own]
+    if any(r is None for r in recs):
+        return None, None, 0, "unparsed_record"
+    if any(r["start"] is None for r in recs):
+        # Only windowed records would undercount (the legacy one holds the rest); never sum just that part.
+        return None, None, 0, ("mixed_records" if any(r["start"] is not None for r in recs) else "legacy_record")
+    ks = sorted(r["k"] for r in recs)
+    if ks != list(range(1, len(recs) + 1)):
+        return None, None, 0, "duplicate_record"
+    if len({(r["start"], r["end"]) for r in recs}) != len(recs):
+        return None, None, 0, "duplicate_window"
+    usd = [r["total"].get(("usd", "all")) for r in recs]
+    tok = [r["total"].get(("tok", "all")) for r in recs]
+    if any(v is None for v in usd):
+        return None, None, len(recs), "no_usd"
+    total_usd = float(sum(usd, decimal.Decimal(0)))
+    return total_usd, (None if any(v is None for v in tok) else sum(tok)), len(recs), None
+
+
+def _user_id(v):
+    """A GitLab user id: an int that is not a bool (as cost-table._me accepts), else None."""
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def mr_cost_records(mr):
+    """((trusted records, foreign count), None) or (None, exclusion code). A record counts if the
+    token user or the MR's author (`author.id`) posted it; a cost comment by anyone else excludes the
+    MR. `cost_records` (set by attach_cost_records from live notes) wins; offline an MR carries
+    GitLab note objects in `notes`, `author` as in a live MR row, and the token user's id in
+    `token_user_id`: a missing or bool id is "notes unreadable", as the live `_me` failure is."""
+    if mr.get("notes_unreadable") or (mr.get("cost_records") or {}).get("error"):
+        return None, "notes_unreadable"
+    if isinstance(mr.get("cost_records"), dict):
+        return (mr["cost_records"]["records"], mr["cost_records"].get("foreign", 0)), None
+    if isinstance(mr.get("notes"), list):
+        me = _user_id(mr.get("token_user_id"))
+        if me is None:
+            return None, "notes_unreadable"
+        return _cost_table().own_records(mr["notes"], me, _trusted_author(mr)), None
+    return None, "notes_not_read"
+
+
+def _trusted_author(mr):
+    author = mr.get("author")
+    uid = _user_id(author.get("id")) if isinstance(author, dict) else None
+    return (uid,) if uid is not None else ()
+
+
 def cost_figures(mr) -> dict:
     """One MR's cost record: state `disabled` (the `cost-ledger: off` marker), `recorded` (at least
-    one well-formed figure) or `none`; the three figures (None when absent or malformed, never 0);
-    and whether any cost line in `## Gates` failed scripts/cost_ledger_lines.py's checks."""
+    one well-formed figure in `## Gates`) or `none`; the figures (None when absent or malformed,
+    never 0); and whether any cost line in `## Gates` failed scripts/cost_ledger_lines.py's checks.
+    `state` describes the `## Gates` lines only. Every MR that is not `disabled` has its notes read,
+    whatever its `## Gates` lines say: the hook posts a cost record regardless of them (#2154).
+
+    `est_cost_usd` is the sum of the MR's windowed cost records, not the `## Gates` snapshot
+    (`gates_est_cost_usd`, kept for reference only: its orchestrator share is repeated by every MR
+    of a wave). `exclusion` says why a `recorded` MR has no `est_cost_usd` (#2154)."""
     desc = mr.get("description") or ""
     fig = {
         "iid": mr.get("iid"),
         "class": change_class(mr),
         "subagent_tokens": cost_lines.subagent_tokens(desc),
         "orchestrator_tokens": cost_lines.orchestrator_tokens(desc),
-        "est_cost_usd": cost_lines.est_cost_usd(desc),
+        "gates_est_cost_usd": cost_lines.est_cost_usd(desc),
+        "est_cost_usd": None,
+        "record_tokens": None,
+        "records": 0,
+        "exclusion": None,
         "malformed": bool(cost_lines.check_body(desc)),
     }
     if cost_lines.ledger_disabled(desc):
         fig["state"] = "disabled"
-    elif any(fig[k] is not None for k in ("subagent_tokens", "orchestrator_tokens", "est_cost_usd")):
+    elif any(fig[k] is not None for k in ("subagent_tokens", "orchestrator_tokens", "gates_est_cost_usd")):
         fig["state"] = "recorded"
     else:
         fig["state"] = "none"
+    if fig["state"] != "disabled":
+        got, why = mr_cost_records(mr)
+        if why is None:
+            fig["est_cost_usd"], fig["record_tokens"], fig["records"], why = record_cost(*got)
+        fig["exclusion"] = why
     return fig
+
+
+def attach_cost_records(mrs, project, fetch=None):
+    """Read the cost comments of EVERY MR that is not `cost-ledger: off` (the hook posts a record
+    whatever `## Gates` says) and set `cost_records` on it. A failed read sets {"error": ...}, which
+    the report counts as "notes unreadable"; it is never read as 0. A record counts if the token user
+    or the MR's author (`author.id` of the MR row) posted it.
+    `fetch(iid, also_trusted)` -> (own records, foreign count, error) is injectable for tests; the
+    default is cost-table's glab reader, scoped to `project`."""
+    ct = _cost_table()
+    if fetch is None:
+        ct.PROJECT["path"] = project
+        cache = {}
+
+        def api(method, path, payload=None):
+            if path == "user" and "user" in cache:
+                return cache["user"]
+            out = ct.glab_api(method, path, payload)
+            if path == "user" and out[0] == 0:
+                cache["user"] = out
+            return out
+
+        def fetch(iid, also_trusted):
+            return ct.read_records(iid, api, also_trusted=also_trusted)
+    try:
+        for mr in mrs:
+            iid = mr.get("iid")
+            if not isinstance(iid, int) or isinstance(iid, bool):
+                continue
+            if cost_lines.ledger_disabled(mr.get("description") or ""):
+                continue
+            own, foreign, err = fetch(iid, _trusted_author(mr))
+            mr["cost_records"] = {"error": True} if err else {"records": own, "foreign": foreign}
+    finally:
+        ct.PROJECT["path"] = None
+
+
+def _iid_key(iid):
+    """Sort MR ids that are ints, or `#idx` strings for an MR with no iid, without a TypeError."""
+    return (1, 0, str(iid)) if isinstance(iid, str) else (0, iid, "")
 
 
 def _mean(values):
@@ -161,7 +315,7 @@ def _mean(values):
 def _cost_state(figs) -> str:
     """`recorded` if any MR recorded a figure, else `disabled` if any said `cost-ledger: off`, else
     `none`. A disabled set is reported as its own state, never as 0 or as "not recorded yet"."""
-    if any(f["state"] == "recorded" for f in figs):
+    if any(f["state"] == "recorded" or f["est_cost_usd"] is not None for f in figs):
         return "recorded"
     if any(f["state"] == "disabled" for f in figs):
         return "disabled"
@@ -175,18 +329,19 @@ def analyze_cost(figs, gate_runs) -> dict:
     The per-gate figures are the MR-level estimate of the MRs a gate ran on (or was n/a on), not
     the gate's own cost: the ledger records cost per MR, not per gate. `findings_per_usd` is the
     gate's findings on those MRs over their summed estimate."""
-    usd = {f["iid"]: f["est_cost_usd"] for f in figs if f["state"] == "recorded" and f["est_cost_usd"] is not None}
+    usd = {f["iid"]: f["est_cost_usd"] for f in figs if f["est_cost_usd"] is not None}
     classes = {}
     for cls in sorted({f["class"] for f in figs}):
         rs = [f for f in figs if f["class"] == cls]
         rec = [f for f in rs if f["state"] == "recorded"]
+        costed = [f for f in rs if f["est_cost_usd"] is not None]
         classes[cls] = {
             "mrs": len(rs),
             "recorded": len(rec),
             "disabled": sum(1 for f in rs if f["state"] == "disabled"),
             "state": _cost_state(rs),
-            "est_costed": sum(1 for f in rec if f["est_cost_usd"] is not None),
-            "mean_est_cost_usd": _mean([f["est_cost_usd"] for f in rec if f["est_cost_usd"] is not None]),
+            "est_costed": len(costed),
+            "mean_est_cost_usd": _mean([f["est_cost_usd"] for f in costed]),
             "mean_subagent_tokens": _mean([f["subagent_tokens"] for f in rec if f["subagent_tokens"] is not None]),
         }
     gates = {}
@@ -208,9 +363,12 @@ def analyze_cost(figs, gate_runs) -> dict:
         "recorded": sum(1 for f in figs if f["state"] == "recorded"),
         "disabled": sum(1 for f in figs if f["state"] == "disabled"),
         "none": sum(1 for f in figs if f["state"] == "none"),
-        "malformed": sorted(f["iid"] for f in figs if f["malformed"] and f["iid"] is not None),
+        "malformed": sorted((f["iid"] for f in figs if f["malformed"] and f["iid"] is not None), key=_iid_key),
         "state": _cost_state(figs),
         "est_costed": len(usd),
+        # Recorded MRs left out of every cost mean, by reason code -> MR ids (#2154). Never read as 0.
+        "excluded": {code: sorted((f["iid"] for f in figs if f["exclusion"] == code), key=_iid_key)
+                     for code in EXCLUSION_TEXT if any(f["exclusion"] == code for f in figs)},
         "by_class": classes,
         "by_gate": gates,
     }
@@ -441,6 +599,8 @@ def load_mrs(args) -> list:
     if not isinstance(data, list):
         print("error: expected a JSON list of MR objects", file=sys.stderr)
         sys.exit(1)
+    # --input is cut to --window; say how many were left unread (#2154) instead of dropping them silently.
+    args.input_unread = max(len(data) - args.window, 0) if args.input else 0
     return data[: args.window] if args.input else data
 
 
@@ -492,11 +652,16 @@ def _fmt(v, kind):
     return "%.2f" % v
 
 
+def cost_buckets_total(cost) -> int:
+    """MRs read = the sum of the printed buckets: costed + excluded (by reason) + disabled."""
+    return cost["est_costed"] + sum(len(v) for v in cost["excluded"].values()) + cost["disabled"]
+
+
 def render_cost(cost) -> list:
     """The cost section of the text report. A disabled ledger is its own state, never 0."""
-    out = ["## Cost — `est-cost-usd:` is a list-price estimate, not a billed amount (docs/development/cost-ledger.md)", ""]
+    out = ["## Cost — per-MR cost is the sum of the MR's windowed cost records; a list-price estimate, not a billed amount (docs/development/cost-ledger.md)", ""]
     out.append(
-        f"Cost ledger: {cost['recorded']} recorded, {cost['disabled']} disabled (`cost-ledger: off`), "
+        f"`## Gates` cost lines: {cost['recorded']} recorded, {cost['disabled']} disabled (`cost-ledger: off`), "
         f"{cost['none']} with no cost line, of {cost['mrs']} MRs. Disabled MRs are left out of every mean, "
         "never counted as 0."
     )
@@ -507,8 +672,24 @@ def render_cost(cost) -> list:
         out.append(f"(cost ledger disabled on {cost['disabled']} MR(s): nothing recorded, by choice)")
         return out
     if cost["state"] == "none":
-        out.append("No MR carries a `subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:` line yet.")
+        out.append("No MR carries a `subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:` line, or a windowed cost record, yet.")
         return out
+    # Every MR read lands in exactly one bucket; the total is the SUM of the buckets (a test asserts it equals `mrs`).
+    n_excl = sum(len(v) for v in cost["excluded"].values())
+    out.append(
+        f"Accounted for: {cost_buckets_total(cost)} MRs read = {cost['est_costed']} costed from records + {n_excl} excluded "
+        f"(reasons below) + {cost['disabled']} `cost-ledger: off`. The notes of every MR without `cost-ledger: off` are read, "
+        f"whatever its `## Gates` lines say. MRs not read because of the window cap: {cost.get('window_unread', 0)}."
+    )
+    out.append(
+        "Per-MR est. cost is the sum of the MR's `## Cost of this MR` records that state `Window: S to U`, posted by the token "
+        "user or the MR author (windows from different sessions may overlap in time but not in tokens), not the `## Gates` "
+        "`est-cost-usd:` snapshot, whose orchestrator share every MR of a wave repeats. "
+        f"Costed from records: {cost['est_costed']} of {cost['mrs'] - cost['disabled']} MRs with the ledger on."
+    )
+    for code, iids in cost["excluded"].items():
+        out.append(f"Excluded from every cost mean, {EXCLUSION_TEXT[code]}: {len(iids)} MR(s), "
+                   + ", ".join("!%s" % i for i in iids[:10]) + (", ..." if len(iids) > 10 else ""))
     out.append("")
     out.append("By change class (branch prefix; `orchestrator-tokens:` is session spend shared across a wave, so it is "
                "never averaged here):")
@@ -525,7 +706,7 @@ def render_cost(cost) -> list:
         out.append(f"{cls:<8} {c['mrs']:>4} {c['recorded']:>9} {c['disabled']:>9} {usd:>15} {tok:>21}")
     out.append("")
     if not cost["by_gate"]:
-        out.append("By gate: no MR carries an `est-cost-usd:` line yet.")
+        out.append("By gate: no MR has a windowed cost record to read yet.")
         return out
     out.append("By gate (the MR-level estimate of the MRs it ran on vs was n/a on; not the gate's own cost):")
     header = f"{'gate':<28} {'ran':>4} {'mean est. cost (ran)':>21} {'n/a':>4} {'mean est. cost (n/a)':>21} {'findings/USD':>13}"
@@ -575,6 +756,49 @@ def _gate_row_close(got: dict, want: dict) -> bool:
     )
 
 
+def _attach_check(em, ct, note, rec, t) -> bool:
+    """attach_cost_records through cost-table's real glab_api with a fake `glab` (subprocess.run and
+    shutil.which patched): every MR that is not `cost-ledger: off` is read (including one with no cost
+    line), every call names the project (so dropping `ct.PROJECT["path"] = project` fails), the MR
+    author's record is trusted beside the token user's, a failed notes read is `notes unreadable`."""
+    import types
+
+    def desc(*lines):
+        return "## Gates\n" + "\n".join(lines) + "\n"
+    mrs = [{"iid": 50, "source_branch": "feat/50", "author": {"id": 9}, "description": desc("est-cost-usd: 3.00")},
+           {"iid": 51, "source_branch": "feat/51", "description": desc(f"- gate: perf-check {em} n/a (x)")},
+           {"iid": 52, "source_branch": "feat/52", "description": desc("subagent-tokens: 5")},
+           {"iid": 53, "source_branch": "feat/53", "description": desc("cost-ledger: off")}]
+    calls = []
+    first = rec("1.50", t(8), t(9))
+
+    def fake_run(cmd, input=None, capture_output=None, timeout=None):
+        calls.append(cmd[4])
+        if cmd[4] == "user":
+            return types.SimpleNamespace(returncode=0, stdout=b'{"id": 7}')
+        if "merge_requests/52/" in cmd[4]:
+            return types.SimpleNamespace(returncode=1, stdout=b"")
+        if "merge_requests/50/" in cmd[4]:
+            # the MR author's record (user 9) beside the token user's (user 7)
+            return types.SimpleNamespace(returncode=0, stdout=json.dumps(
+                [note(1, first, uid=9), note(2, rec("1.00", t(9), t(10), k=2, prior={"records": [ct.parse_record(first)], "gaps": []}), uid=7)]).encode())
+        return types.SimpleNamespace(returncode=0, stdout=b"[]")
+
+    real_run, real_which = ct.subprocess.run, ct.shutil.which
+    ct.subprocess.run, ct.shutil.which = fake_run, lambda _n: "glab"
+    try:
+        attach_cost_records(mrs, "visiban/visiban")
+    finally:
+        ct.subprocess.run, ct.shutil.which = real_run, real_which
+    c = analyze(mrs)["cost"]
+    notes_calls = [x for x in calls if "/notes" in x]
+    return (all(x.startswith("projects/visiban%2Fvisiban/") for x in notes_calls) and ct.PROJECT["path"] is None
+            and len(notes_calls) == 3 and "cost_records" not in mrs[3]
+            and math.isclose(c["by_class"]["feat"]["mean_est_cost_usd"], 2.5)
+            and c["excluded"] == {"no_record": [51], "notes_unreadable": [52]}
+            and cost_buckets_total(c) == c["mrs"])
+
+
 def self_test() -> int:
     """Offline proof that the ledger and cost readers still fire (#1093 house rule). The wider
     regression suite is scripts/tests/kaizen_gate_ledger.test.sh, run in the same CI job."""
@@ -584,6 +808,35 @@ def self_test() -> int:
         return {"iid": iid, "source_branch": branch,
                 "description": "## Gates\n" + "\n".join(lines) + "\n\n## Notes\nsubagent-tokens: 777\n"}
 
+    ct = _cost_table()
+
+    def rec(usd, since, until, k=1, prior=None):
+        body = f"## Gates\nsubagent-tokens: 100\norchestrator-tokens: 900\nest-cost-usd: {usd}\n"
+        return "\n".join(ct.comment_lines(body, 1, until, None, record=k, since=since, prior=prior))
+
+    def note(nid, body, uid=7):
+        return {"id": nid, "system": False, "author": {"id": uid}, "body": body}
+
+    t = lambda h: "2026-11-05T%02d:00:00Z" % h  # noqa: E731
+    r1 = rec("2.00", t(8), t(9))
+    r2 = rec("1.00", t(9), t(10), k=2, prior={"records": [ct.parse_record(r1)], "gaps": []})
+    legacy = rec("20.00", None, t(12))
+    prior1 = {"records": [ct.parse_record(r1)], "gaps": []}
+    prior2 = {"records": [ct.parse_record(r1), ct.parse_record(r2)], "gaps": []}
+    no_usd = "\n".join(ct.comment_lines("## Gates\nsubagent-tokens: 100\norchestrator-tokens: 900\n", 1, t(9), None, record=1, since=t(8)))
+
+    def cmr(iid, branch, gates_usd, *notes, **kw):
+        m = mr(iid, branch, f"- gate: regression-check {em} 1 finding (sonnet)", "subagent-tokens: 100",
+               f"est-cost-usd: {gates_usd}")
+        return {**m, "token_user_id": 7, "notes": list(notes), **kw}
+
+    wave = [cmr(30, "feat/30", "5.00", note(1, rec("1.00", t(8), t(9)))),
+            cmr(31, "feat/31", "9.00", note(2, rec("2.00", t(9), t(10)))),
+            cmr(32, "feat/32", "14.00", note(3, rec("3.00", t(10), t(11))))]
+    cc = analyze(wave + [cmr(33, "feat/33", "20.00", note(4, legacy)),
+                         cmr(34, "fix/34", "99.00", note(5, r1), note(6, r2)),
+                         cmr(35, "fix/35", "7.00"), cmr(36, "docs/36", "7.00", notes_unreadable=True),
+                         cmr(37, "chore/37", "7.00", note(7, rec("50.00", t(8), t(9)), uid=8))])["cost"]
     mrs = [
         mr(1, "feat/1", f"- gate: regression-check {em} 2 findings (sonnet)", f"- gate: perf-check {em} n/a (no viewset)",
            "subagent-tokens: 1000", "est-cost-usd: 2.00 (prices 2026-11-03)"),
@@ -593,6 +846,8 @@ def self_test() -> int:
         mr(4, "docs/4", f"- gate: regression-check {em} skipped (user said so)", "subagent-tokens: ~5k"),
         {"iid": 5, "source_branch": "chore/5", "description": "## Summary\nno ledger\n"},
     ]
+    mrs[0].update(token_user_id=7, notes=[note(8, rec("2.00", t(8), t(9)))])
+    mrs[1].update(token_user_id=7, notes=[note(9, rec("4.00", t(8), t(9)))])
     r = analyze(mrs)
     c = r["cost"]
     rc = r["gates"]["regression-check"]
@@ -612,7 +867,60 @@ def self_test() -> int:
         ("an all-off window reads disabled", analyze([mrs[2]])["cost"]["state"] == "disabled"
          and "nothing recorded, by choice" in "\n".join(render_cost(analyze([mrs[2]])["cost"]))),
         ("an empty window reads not recorded yet, never 0", analyze([mrs[4]])["cost"]["state"] == "none"
-         and "line yet" in "\n".join(render_cost(analyze([mrs[4]])["cost"]))),
+         and "line, or a windowed cost record, yet" in "\n".join(render_cost(analyze([mrs[4]])["cost"]))),
+        # #2154: per-MR cost is the sum of windowed records, never the overlapping `## Gates` snapshot.
+        ("a wave of overlapping snapshots costs its records (mean 2.00), not the snapshots (9.33)",
+         math.isclose(analyze(wave)["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 2.0)),
+        ("a multi-record MR sums its records (3.00), not its 99.00 snapshot", math.isclose(cc["by_class"]["fix"]["mean_est_cost_usd"], 3.0)),
+        ("a legacy record is excluded, not read as 0 or 20.00", cc["excluded"].get("legacy_record") == [33]),
+        ("a legacy plus a windowed record is excluded as partial, not summed over its windowed part",
+         analyze([cmr(38, "feat/38", "5.00", note(10, legacy), note(11, r2))])["cost"]["excluded"] == {"mixed_records": [38]}),
+        ("a cost comment by another user excludes the MR even beside an own record, never summing the own part",
+         analyze([cmr(41, "feat/41", "5.00", note(12, rec("1.00", t(8), t(9))), note(13, rec("50.00", t(9), t(10)), uid=8))])
+         ["cost"]["excluded"] == {"other_user": [41]}),
+        ("a duplicate record number excludes the MR",
+         analyze([cmr(42, "feat/42", "5.00", note(14, r1), note(15, rec("1.00", t(9), t(10))))])["cost"]["excluded"] == {"duplicate_record": [42]}),
+        ("records not numbered 1..n exclude the MR",
+         analyze([cmr(43, "feat/43", "5.00", note(16, r2))])["cost"]["excluded"] == {"duplicate_record": [43]}),
+        # R1: sessions overlap in time, not in tokens: partial overlap and chained windows sum; only an identical window excludes.
+        ("a partially overlapping window is summed (2.00 + 1.00)",
+         math.isclose(analyze([cmr(44, "feat/44", "5.00", note(17, r1), note(18, rec("1.00", t(8), t(10), k=2, prior=prior1)))])
+                      ["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 3.0)),
+        ("chained windows are summed (2.00 + 1.00 + 4.00)",
+         math.isclose(analyze([cmr(46, "feat/46", "5.00", note(20, r1), note(21, r2), note(22, rec("4.00", t(10), t(11), k=3, prior=prior2)))])
+                      ["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 7.0)),
+        ("an identical window is excluded as a duplicate window",
+         analyze([cmr(47, "feat/47", "5.00", note(23, r1), note(24, rec("1.00", t(8), t(9), k=2, prior=prior1)))])["cost"]["excluded"]
+         == {"duplicate_window": [47]}),
+        ("an n/a USD total is excluded as no_usd, never read as 0",
+         analyze([cmr(48, "feat/48", "5.00", note(25, no_usd))])["cost"]["excluded"] == {"no_usd": [48]}),
+        ("a record by the MR author counts beside the token user's; a third party excludes",
+         math.isclose(analyze([cmr(49, "feat/49", "5.00", note(26, r1, uid=9), note(27, r2), author={"id": 9})])["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 3.0)
+         and analyze([cmr(50, "feat/50", "5.00", note(28, r1, uid=9), author={"id": 8})])["cost"]["excluded"] == {"other_user": [50]}),
+        ("a missing or bool token_user_id is notes unreadable, as a failed live `glab api user`",
+         analyze([cmr(51, "feat/51", "5.00", note(29, r1), token_user_id=None)])["cost"]["excluded"] == {"notes_unreadable": [51]}
+         and analyze([cmr(52, "feat/52", "5.00", note(30, r1), token_user_id=True)])["cost"]["excluded"] == {"notes_unreadable": [52]}),
+        ("an MR with no iid (keyed `#idx`) sorts beside int ids without a TypeError",
+         analyze([cmr(53, "feat/53", "5.00"), dict(cmr(0, "feat/0", "5.00"), iid=None)])["cost"]["excluded"] == {"no_record": [53, "#1"]}
+         ),
+        ("an MR whose only cost line is malformed is read for records, not dropped as having no cost lines",
+         math.isclose(analyze([dict(mr(54, "feat/54", "subagent-tokens: ~5k"), token_user_id=7, notes=[note(31, r1)])])["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 2.0)),
+        ("every MR read lands in exactly one printed bucket; the total is their sum",
+         cost_buckets_total(cc) == cc["mrs"] and cost_buckets_total(c) == c["mrs"] and cost_buckets_total(analyze(mrs[:3])["cost"]) == 3),
+        ("a record that does not parse excludes the MR",
+         analyze([cmr(45, "feat/45", "5.00", note(19, r1.replace("**2.00 USD**", "**lots**")))])["cost"]["excluded"] == {"unparsed_record": [45]}),
+        ("the printout accounts for every MR read and the window cap",
+         "Accounted for: 8 MRs read = 4 costed from records + 4 excluded" in "\n".join(render_cost(cc)) and "not read because of the window cap: 0" in "\n".join(render_cost(cc))),
+        ("no record, another user's record and unreadable notes are each excluded",
+         cc["excluded"].get("no_record") == [35] and cc["excluded"].get("other_user") == [37] and cc["excluded"].get("notes_unreadable") == [36]),
+        ("excluded MRs are left out of the feat mean (3 of 4 feat MRs costed)",
+         math.isclose(cc["by_class"]["feat"]["mean_est_cost_usd"], 2.0) and cc["by_class"]["feat"]["est_costed"] == 3),
+        ("an MR whose notes were never read is excluded, not 0",
+         analyze([mr(40, "feat/40", f"- gate: perf-check {em} n/a (x)", "est-cost-usd: 3.00")])["cost"]["excluded"] == {"notes_not_read": [40]}),
+        ("the report counts and names the exclusions", "legacy record with no window start" in "\n".join(render_cost(cc))
+         and "!33" in "\n".join(render_cost(cc)) and "notes unreadable" in "\n".join(render_cost(cc))),
+        ("attach_cost_records (real glab_api, fake glab) reads every MR not `cost-ledger: off`, scoped to the project",
+         _attach_check(em, ct, note, rec, t)),
         ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
     ]
     fails = [name for name, ok in checks if not ok]
@@ -635,7 +943,11 @@ def main():
     args = parser.parse_args()
 
     mrs = load_mrs(args)
+    if not args.input:
+        # Live only: read the cost comments of the MRs that carry a cost line (#2154). Offline MRs bring their own `notes`.
+        attach_cost_records(mrs, args.project)
     result = analyze(mrs)
+    result["cost"]["window_unread"] = getattr(args, "input_unread", 0)
 
     if args.json:
         print(json.dumps(to_jsonable(result), indent=2))
