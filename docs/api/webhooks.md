@@ -108,7 +108,7 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
 | `url_display` | `host/…/last4`: the host and the URL's last four characters (just the host when there is no path). The rest is never returned after creation: for many services the path or query is the credential. |
 | `event_types` | Empty list = every subscribable type, including types added in later versions. |
 | `disabled_reason` | `null` while enabled; otherwise `manual`, `failures`, `cursor_expired`, `creator_lost_access` or `secret_unavailable`. |
-| `last_delivered_event_id` | The change-feed id the webhook has delivered (or skipped by type) up to. |
+| `last_delivered_event_id` | The change-feed id the webhook has delivered (or skipped by type) up to, as a position on the webhook's own feed: the events `GET /boards/{id}/events/` shows a viewer, excluding per-user events. Events no webhook receives (per-user and admin-only events) never move it, although delivery passes over them. Where every event up to this point was later removed by retention pruning, it can be lower than the last delivered id, never higher. |
 | `last_error_code` | `""`, or `connection_failed`, `tls_error`, `timeout` or `http_error`. Never the receiver's response or an exception message. |
 | `last_status_code` | The HTTP status of the last attempt, or `null` when no response was received. |
 | `configured_by` | The owner: the account whose board-admin standing keeps the webhook delivering. Set on create, URL change, rotate and re-enable. `null` once that account is deleted, and the webhook then turns off. |
@@ -119,7 +119,7 @@ Body: `url` (required), `name` (optional, at most 200 characters), `event_types`
 
 The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`. **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
 
-A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at that event's id: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id instead, and on a board that never had events at `0`.
+A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one.
 
 ### `PATCH {id}/`
 
@@ -132,7 +132,7 @@ Resets the failure state and makes the caller the owner. On a webhook that is al
 | `resume_from` | Result |
 |---|---|
 | `cursor` (default) | Delivers what was missed since the webhook stopped. `409 {"code": "cursor_expired"}` if an event after `last_delivered_event_id` that this webhook would have been sent was pruned from the feed, including when every missed event was pruned and nothing newer exists. A pruned event of a type outside its current `event_types`, or one no webhook receives (per-user and admin-only events), does not count. |
-| `latest` | Skips to new events: `last_delivered_event_id` becomes the board's newest event id or its highest pruned id, whichever is greater. |
+| `latest` | Skips to new events: delivery resumes after the board's newest event id or its highest pruned id, whichever is greater, and `last_delivered_event_id` becomes the newest such position a webhook can receive (as on create). |
 
 `409 {"code": "secret_unavailable"}` when the stored URL or secret can no longer be decrypted (the instance encryption key changed). Delete the webhook and create a new one.
 

@@ -4,7 +4,9 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.cache import cache
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -697,3 +699,136 @@ class NeutralRefusalTests(WebhookApiBase):
             r = self.client.post(_url(self.board.pk), {"url": "https://u:p@hooks.example.com/"}, format="json")
         self.assertEqual(r.data["reason"], "creds")
         sleep.assert_not_called()
+
+
+@ENABLED
+class ReportedCursorTests(WebhookApiBase):
+    """``last_delivered_event_id`` is a position on the webhook's own feed (#2135).
+
+    The stored ``cursor`` stays board-wide (it drives delivery); the API reports
+    the highest position at or below it that the webhook reader, and so every
+    board admin, may see.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.member = _make_user(email="reported-cursor-member@example.com")
+        _make_membership(self.board, self.member, "member")
+
+    def _event(self, name="card.created", **kw):
+        return BoardEvent.objects.create(board_id=self.board.pk, event=name, data={}, **kw)
+
+    def _members_star(self):
+        # Per-user: shown on the member's own feed only.
+        return self._event("board.star_changed", actor_id=self.member.pk)
+
+    def _admin_feed_ids(self):
+        r = self.client.get(f"/api/v1/boards/{self.board.pk}/events/")
+        self.assertEqual(r.status_code, 200)
+        return {row["id"] for row in r.data["results"]}
+
+    def test_create_reports_the_newest_row_on_the_webhooks_feed(self):
+        public = self._event()
+        star = self._members_star()
+        r = self.create(name="n")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.data["last_delivered_event_id"], public.pk)
+        self.assertIn(r.data["last_delivered_event_id"], self._admin_feed_ids())
+        # Stored value unchanged: board-wide, so delivery starts where it did.
+        self.assertEqual(WebhookSubscription.objects.get().cursor, star.pk)
+
+    def test_create_reports_past_no_admin_only_row_either(self):
+        public = self._event()
+        self._event("share_link.updated")
+        self.assertEqual(self.create(name="n").data["last_delivered_event_id"], public.pk)
+
+    def test_create_with_only_rows_the_webhook_never_reads_reports_zero(self):
+        self._members_star()
+        self.assertEqual(self.create(name="n").data["last_delivered_event_id"], 0)
+
+    def test_reenable_latest_reports_the_newest_row_on_the_webhooks_feed(self):
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk)
+        dispatch.disable(sub.pk, "manual", notify=False)
+        e2 = self._event()
+        star = self._members_star()
+        r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": "latest"}, format="json")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e2.pk))
+        sub.refresh_from_db()
+        self.assertEqual(sub.cursor, star.pk)
+
+    def test_reenable_from_cursor_reports_below_a_stored_per_user_position(self):
+        e1 = self._event()
+        star = self._members_star()
+        sub = make_subscription(self.board, self.admin, cursor=star.pk)
+        dispatch.disable(sub.pk, "manual", notify=False)
+        r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {}, format="json")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e1.pk))
+        sub.refresh_from_db()
+        self.assertEqual(sub.cursor, star.pk)
+
+    def test_every_read_agrees(self):
+        # Between e1 and the stored cursor: an admin-only row and another user's
+        # per-user row. Neither is on the webhook reader's feed, so every read,
+        # the list annotation included, stays at e1.
+        e1 = self._event()
+        admin_only = self._event("share_link.updated")
+        star = self._members_star()
+        self.assertLess(admin_only.pk, star.pk)
+        sub = make_subscription(self.board, self.admin, cursor=star.pk)
+        reads = {
+            "list": self.client.get(_url(self.board.pk)).data[0],
+            "retrieve": self.client.get(_url(self.board.pk, f"{sub.pk}/")).data,
+            "update": self.client.patch(_url(self.board.pk, f"{sub.pk}/"), {"name": "z"}, format="json").data,
+            "rotate": self.client.post(_url(self.board.pk, f"{sub.pk}/rotate/")).data,
+            "disable": self.client.post(_url(self.board.pk, f"{sub.pk}/disable/")).data,
+        }
+        for name, body in reads.items():
+            with self.subTest(read=name):
+                self.assertEqual(body["last_delivered_event_id"], e1.pk)
+
+    def test_fully_pruned_board_reports_the_webhooks_own_prune_mark(self):
+        e1 = self._event()
+        star = self._members_star()
+        prune(e1, star)
+        r = self.create(name="n")
+        self.assertEqual(r.data["last_delivered_event_id"], e1.pk)
+        sub = WebhookSubscription.objects.get()
+        self.assertEqual(sub.cursor, star.pk)
+        self.assertFalse(dispatch.cursor_expired(sub))
+
+    def test_never_reports_above_the_stored_cursor(self):
+        # A mark of a type this webhook skips sits above its stored cursor; the
+        # report stays at or below the stored value.
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk, event_types=["card.created"])
+        moved = self._event("card.moved")
+        prune(moved)
+        self.assertGreater(moved.pk, sub.cursor)
+        body = self.client.get(_url(self.board.pk, f"{sub.pk}/")).data
+        self.assertEqual(body["last_delivered_event_id"], e1.pk)
+
+    def test_ordinary_board_reports_the_stored_cursor(self):
+        # No per-user or admin-only rows: the report and the stored value match.
+        self._event()
+        e2 = self._event("card.moved")
+        r = self.create(name="n")
+        sub = WebhookSubscription.objects.get()
+        self.assertEqual((r.data["last_delivered_event_id"], sub.cursor), (e2.pk, e2.pk))
+        self.assertEqual(self.client.get(_url(self.board.pk)).data[0]["last_delivered_event_id"], e2.pk)
+
+    def test_list_reads_the_reported_cursor_in_its_one_query(self):
+        self._event()
+        star = self._members_star()
+        make_subscription(self.board, self.admin, cursor=star.pk)
+
+        def list_queries():
+            with CaptureQueriesContext(connection) as ctx:
+                r = self.client.get(_url(self.board.pk))
+            self.assertEqual(r.status_code, 200)
+            return len(ctx.captured_queries)
+
+        one = list_queries()
+        for _ in range(3):
+            make_subscription(self.board, self.admin, cursor=star.pk)
+        self.assertEqual(list_queries(), one)

@@ -12,6 +12,7 @@ as ``CodedValidationError`` so the body is ``{"detail", "code"}`` with a string
 import time
 
 from django.conf import settings
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
@@ -20,6 +21,7 @@ from accounts.serializers import BoardUserSerializer
 from visiban import egress
 from visiban.exceptions import CodedValidationError
 
+from . import dispatch
 from .models import MAX_SECRET_OVERLAP_SECONDS, SUBSCRIBABLE_EVENT_TYPES, WebhookSubscription
 
 INVALID_EVENT_TYPES = "invalid_event_types"
@@ -200,9 +202,7 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
     created_by = BoardUserSerializer(read_only=True, allow_null=True)
     configured_by = BoardUserSerializer(read_only=True, allow_null=True)
     board = serializers.IntegerField(source="board_id", read_only=True)
-    last_delivered_event_id = serializers.IntegerField(
-        source="cursor",
-        read_only=True,
+    last_delivered_event_id = serializers.SerializerMethodField(
         help_text="Id of the last change-feed row delivered or skipped by type.",
     )
     previous_secret_expires_at = serializers.DateTimeField(
@@ -241,6 +241,15 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
             "previous_secret_expires_at",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_last_delivered_event_id(self, obj):
+        """The cursor on the webhook's own feed, not the stored board-wide value (#2135).
+
+        ``dispatch.reported_cursor`` says why the two differ and why delivery
+        reads only the stored one. Same name, type and non-null integer as before.
+        """
+        return dispatch.reported_cursor(obj)
 
     @extend_schema_field({"type": "string", "enum": _DISABLED_REASONS, "nullable": True})
     def get_disabled_reason(self, obj):

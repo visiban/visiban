@@ -21,7 +21,8 @@ directly skips layer 2 and returns fields the socket never sends
 
 from typing import NamedTuple
 
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Subquery
+from django.db.models.functions import Coalesce, Greatest
 
 from ..models import BoardEvent, BoardEventPruneMark, BoardEventPruneTypeMark
 from ..permissions import ADMIN_ONLY_EVENTS, PER_USER_EVENTS, admin_only_event_visible
@@ -198,6 +199,66 @@ def reader_resume_cursor(board_id, marks, *, role, reader_id):
     return max(newest or 0, marks.visible or 0)
 
 
+def _reader_position_querysets(board_id, at_or_below, *, role, reader_id):
+    """The three single-column querysets behind :func:`reader_position`, newest first.
+
+    *board_id* and *at_or_below* may be plain values or ``OuterRef`` s, so the
+    same three filters serve the one-row read and the list annotation.
+    """
+    rows = (
+        feed_queryset(board_id, role=role, reader_id=reader_id)
+        .filter(pk__lte=at_or_below)
+        .order_by("-id")
+        .values_list("id", flat=True)
+    )
+    typed = (
+        BoardEventPruneTypeMark.objects.filter(board_id=board_id, max_pruned_id__lte=at_or_below)
+        .exclude(_hidden_from(role, reader_id))
+        .order_by("-max_pruned_id")
+        .values_list("max_pruned_id", flat=True)
+    )
+    blind = BoardEventPruneMark.objects.filter(board_id=board_id, max_pruned_id__lte=at_or_below).values_list(
+        "max_pruned_id", flat=True
+    )
+    return rows, typed, blind
+
+
+def reader_position(board_id, at_or_below, *, role, reader_id):
+    """The highest position at or below *at_or_below* on this reader's feed, or 0 (#2135).
+
+    ``max(newest row this reader may see, its visible per-type prune mark,
+    the type-blind max_pruned_id)``, each taken only where it is at or below
+    *at_or_below*. The same rows and marks as :func:`reader_resume_cursor`,
+    bounded above, and without the unrecorded floor, which names no row. A
+    caller that keeps a board-wide position (a webhook's stored cursor) uses
+    it to report that position on the reader's own feed: the answer is never
+    above the stored value and is built only from rows and marks the reader
+    could see. Where every row up to the stored value was pruned and a mark of
+    the same type sits above it, the answer can be lower than the last row the
+    reader saw, never higher. Three indexed reads; for many rows at once see
+    :func:`reader_position_subquery`.
+    """
+    return max(
+        (next(iter(qs[:1]), None) or 0)
+        for qs in _reader_position_querysets(board_id, at_or_below, role=role, reader_id=reader_id)
+    )
+
+
+def reader_position_subquery(board_ref, at_or_below_ref, *, role, reader_id):
+    """:func:`reader_position` as one expression, for an ``annotate`` over many rows.
+
+    *board_ref* and *at_or_below_ref* are ``OuterRef`` s to the outer row's
+    board id and stored position. Each part is coalesced to 0 first, because
+    ``Greatest`` is NULL on SQLite when any argument is.
+    """
+    return Greatest(
+        *(
+            Coalesce(Subquery(qs[:1]), 0)
+            for qs in _reader_position_querysets(board_ref, at_or_below_ref, role=role, reader_id=reader_id)
+        )
+    )
+
+
 def pruned_through(board_id):
     """The highest event id retention pruning removed from *board_id*'s feed, or ``None``.
 
@@ -242,6 +303,7 @@ def resume_cursor(board_id):
     neither is one at the newest row (its row exists).
 
     Board-wide on purpose (#2079): it is never below any reader's visible mark,
-    whatever the webhook's types become later.
+    whatever the webhook's types become later. It is a stored position only:
+    the API reports a webhook's cursor through :func:`reader_position` (#2135).
     """
     return max(newest_event_id(board_id), pruned_through(board_id) or 0)
