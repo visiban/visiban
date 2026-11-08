@@ -105,7 +105,7 @@ curl -s -H "Authorization: Token vbn_..." \
   "http://localhost:8000/api/v1/boards/42/events/?after=0&limit=200"
 ```
 
-Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, which follows insertion order and is usually, but not always, commit order (see [Event coverage](#event-coverage) and [#2053](https://gitlab.com/visiban/visiban/-/issues/2053)). Never re-sort by `created_at`: two events can share a timestamp.
+Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`. Ids follow insertion order, not commit order, but a page never reaches past an event that is still committing, so paging this way never skips one (see [Event coverage](#event-coverage)). Never re-sort by `created_at`: two events can share a timestamp.
 
 ### Pagination shapes
 
@@ -170,17 +170,26 @@ Two consequences worth knowing:
   so a consumer holding a cursor learns the board is gone rather than simply
   losing access mid-stream. Its own board is of course no longer readable, so
   fetch it from the cursor you already hold, not from a fresh call.
-- **Ids follow insertion, not commit.** A row's `id` is assigned when the
-  transaction that writes it inserts the row, and that transaction may commit
-  after a later transaction with a higher `id`. A reader that pages with
-  `after=` at exactly that moment can move its cursor past the lower `id`
-  before it becomes visible, and never see it. The window is the length of the
-  slower transaction, normally milliseconds. Until
-  [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) adds a
-  commit-ordered cursor, a consumer that needs every row should re-read a short
-  overlap (for example, the last few seconds of rows) and deduplicate on `id`.
-  The webhook dispatcher does the equivalent by reading only rows older than
-  `WEBHOOK_SETTLE_SECONDS`.
+- **Paging with `after=` never skips an event (since 1.3).** A row's `id` is
+  assigned when its transaction inserts the row, not when it commits, so a
+  lower `id` can commit after a higher one. The feed therefore stops each page
+  below any event that is still committing on that board. Before 1.3 a page
+  could include the higher `id`, and a reader that moved its cursor there never
+  saw the lower one (#2053). While a write to the board is committing, a page
+  can come back empty with `next_cursor: null` even though a newer event is
+  already committed. Poll again: it is delivered once the write ahead of it
+  commits, normally within milliseconds. A long-running write, such as a large
+  board import, holds the feed back for as long as it runs. Rows are still
+  returned in `id` order, not commit order. The webhook dispatcher applies the
+  same rule.
+- **A WebSocket `event_id` is not a gap-free resume point.** Frames are sent
+  after their own transaction commits, so two concurrent writes can arrive in
+  either `id` order, and a frame can arrive while a lower `id` is still
+  committing. A client that resumes with `after=` set to the last frame's
+  `event_id` can miss that lower event if the socket dropped in between. To cover
+  this, resume from a feed cursor (the last `id` the feed handed you), or
+  from an `event_id` a few seconds older than the drop, and skip ids you have
+  already applied.
 - **A container delete is one delete event.** Deleting a column, swimlane, or
   board deletes its cards too, and the feed records only the `column.deleted`,
   `swimlane.deleted`, or `board.deleted` row, with no `card.deleted` row per
@@ -335,7 +344,7 @@ Every consumer outside the Django process ends up writing the same loop: hold a 
 - Backs off on `429`, `5xx` and network errors (honoring `Retry-After`, capped), and polls on a configurable interval. Without a poll interval it returns once caught up.
 - Authenticates with a [scoped personal access token](authentication.md) only (`read` is enough: the clients issue only `GET`s). It sends requests only to the host in the base URL you configured: a `resync_url` is reduced to its path and redirects are never followed. It refuses plain `http://` to a non-loopback host unless you opt in. **Proxies:** Python's `urllib` honors the `HTTP_PROXY` / `HTTPS_PROXY` environment variables, so the token travels through that proxy (and is readable by it over plain `http`); Node's built-in `fetch` does not read them by default. Use `https` and review proxy variables in the consumer's environment.
 
-**Late-committing rows.** Ids follow insertion, not commit (see [Event coverage](#event-coverage)), so a paging reader can step past a row that commits a moment later and never see it. The clients have **no overlap option** in 0.x and their reads are **not gap-free**. A consumer that needs every row can re-read a short overlap itself and deduplicate on `id`, as described under Event coverage, until [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) adds a commit-ordered cursor.
+**Late-committing rows.** Ids follow insertion, not commit (see [Event coverage](#event-coverage)). Against a 1.3 or later server the feed never hands out a page that reaches past an event still committing, so the clients' cursor never skips one, and they need no overlap option. Against an earlier server a paging reader can step past a row that commits a moment later and never see it; a consumer that needs every row there can re-read a short overlap itself and deduplicate on `id`.
 
 **Verifying webhooks.** The same packages include `verify_signature` / `verifySignature` for [webhook deliveries](webhooks.md#verifying-signatures). It is **experimental** until the webhooks API is declared stable ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)). In TypeScript it lives in the separate `@visiban/client/webhooks` entry point, so the main entry stays free of `node:crypto` and browser-safe.
 

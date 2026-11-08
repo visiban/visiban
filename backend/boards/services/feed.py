@@ -17,11 +17,19 @@ Every reader of the feed goes through both: the REST feed
 registered on ``boards.hooks.BOARD_EVENT_HOOKS``. Reading ``BoardEvent.data``
 directly skips layer 2 and returns fields the socket never sends
 (security-invariants Rules 8 and 10).
+
+A reader that moves a cursor also bounds its read by :func:`feed_horizon`
+(#2053). PostgreSQL draws an id when a row is inserted, not when it commits, so
+without that bound a cursor can step past a lower id that commits a moment
+later and never return to it. See :func:`feed_horizon`.
 """
 
+import time
 from typing import NamedTuple
 
+from django.db import connection, transaction
 from django.db.models import Max, Q, Subquery
+from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce, Greatest
 
 from ..models import BoardEvent, BoardEventPruneMark, BoardEventPruneTypeMark
@@ -167,11 +175,14 @@ def cursor_row_visible(board_id, after, *, role, reader_id):
     return feed_queryset(board_id, role=role, reader_id=reader_id).filter(pk=after).exists()
 
 
-def reader_resume_cursor(board_id, marks, *, role, reader_id):
+def reader_resume_cursor(board_id, marks, *, role, reader_id, ceiling=None):
     """The ``next_cursor`` the feed's ``410`` hands this reader (#2058, #2126).
 
     ``max(newest row this reader may see, marks.visible)``, where *marks* is
     the :func:`prune_marks` result the caller just read for the same reader.
+    ``ceiling``, when given, bounds the newest row: the feed passes its
+    :func:`feed_horizon` (#2053), so the point is never past a lower id that is
+    still uncommitted, which the reader's re-sync might not yet include.
 
     Why reader-scoped rather than :func:`resume_cursor`'s board-wide point:
     every position the feed hands a reader is then one this reader could
@@ -195,6 +206,8 @@ def reader_resume_cursor(board_id, marks, *, role, reader_id):
     lost, at-least-once, never a gap.
     """
     rows = feed_queryset(board_id, role=role, reader_id=reader_id)
+    if ceiling is not None:
+        rows = rows.filter(pk__lte=ceiling)
     newest = rows.aggregate(newest=Max("id"))["newest"]
     return max(newest or 0, marks.visible or 0)
 
@@ -285,8 +298,166 @@ def _type_blind_marks(board_id):
 
 
 def newest_event_id(board_id):
-    """The newest surviving event id on *board_id*'s feed, or 0. One indexed ``MAX``."""
+    """The newest surviving event id on *board_id*'s feed, or 0. One indexed ``MAX``.
+
+    Not a safe point to move a cursor to: a lower id may still be uncommitted.
+    A reader that advances a cursor uses :func:`feed_horizon`.
+    """
     return BoardEvent.objects.filter(board_id=board_id).aggregate(newest=Max("id"))["newest"] or 0
+
+
+# -- commit-safe horizon (#2053) ----------------------------------------------
+#
+# The problem: ``board_events.id`` comes from a sequence, which PostgreSQL
+# advances at INSERT. Transaction A can draw id 10, transaction B draw 11 and
+# commit first, and a reader polling in between sees 11 without 10. If it moves
+# its cursor to 11, it never reads 10.
+#
+# The fix has two parts that share one advisory lock key per board:
+#
+# * Every writer takes the key in SHARED mode, in the same statement that draws
+#   the row's id and before the id is drawn (:func:`event_id_after_writer_lock`),
+#   and keeps it until its transaction ends. Shared holders never wait for each
+#   other, so writers are not serialized and cannot deadlock on it, including a
+#   transaction that writes events on two boards in either order.
+# * A reader reads the newest visible id first, and then checks, without
+#   waiting, that no writer holds the key (:func:`feed_horizon`). If none does,
+#   every writer that drew an id at or below that newest id has ended, so every
+#   row up to it that will ever exist is committed and visible. The reader
+#   hands out nothing above that point.
+#
+# Why not make writers take an exclusive per-board lock, so ids follow commit
+# order? A transaction that writes events on two boards (a container delete
+# that lowers ``blocker_count`` on a card of another board, see
+# ``services.cards._blocked_peer_ids``) would take two such locks, and two of
+# them in opposite orders deadlock. The lock would also be held from the event insert
+# to commit while the writer still takes card and column row locks, which is
+# another deadlock path. It would also serialize every write on a board. The
+# shared/probe split costs a writer nothing unless a reader is probing at the
+# same instant, and the probe never waits, so a reader never delays a writer.
+
+#: Advisory lock namespace (the first int4 of the two-key form). The two-key
+#: form never shares a key with the one-bigint form ``migrate_with_lock`` uses.
+FEED_LOCK_NAMESPACE = 11142053
+
+#: How many times :func:`feed_horizon` probes before it reports a writer in
+#: flight, and how long it sleeps between probes. Writes normally commit in
+#: milliseconds, so a short retry clears most probes. This only delays a reader
+#: on a board that is being written to at that moment.
+HORIZON_PROBES = 3
+HORIZON_PROBE_INTERVAL_SECONDS = 0.02
+
+
+def feed_lock_key(board_id):
+    """``(namespace, objid)`` for *board_id*'s feed lock, both int4.
+
+    ``board_id`` is a bigint and the key is two int4s, so the id is folded into
+    32 bits. Two boards 2**32 ids apart share a key. That is harmless: the
+    probe is then stricter than it needs to be, never looser.
+    """
+    return FEED_LOCK_NAMESPACE, ((int(board_id) + 2**31) % 2**32) - 2**31
+
+
+def event_id_after_writer_lock(board_id):
+    """An id expression for a new ``BoardEvent`` row that is drawn under the writer lock.
+
+    PostgreSQL only. ``persist_board_event`` passes this as the row's ``id``, so
+    the INSERT takes *board_id*'s feed lock in SHARED mode and only then draws
+    ``nextval``, in one statement, with no extra round trip. The lock is
+    transaction-scoped, so it is held until the writer's transaction commits or
+    rolls back, and released at the end of the statement when there is no
+    transaction. ``OFFSET 0`` keeps the planner from flattening the subquery,
+    so the lock is taken when the row it yields is produced, before the
+    ``nextval`` computed from that row. ``test_event_id_is_drawn_after_the_writer_lock``
+    pins the order.
+    """
+    namespace, objid = feed_lock_key(board_id)
+    return RawSQL(
+        "(SELECT nextval(pg_get_serial_sequence(%s, %s)) "
+        "FROM (SELECT pg_advisory_xact_lock_shared(%s, %s) OFFSET 0) AS feed_writer_lock)",
+        (BoardEvent._meta.db_table, BoardEvent._meta.pk.column, namespace, objid),
+    )
+
+
+class _EndProbe(Exception):
+    """Raised to roll back the savepoint that holds a probe's lock."""
+
+
+def _probe(board_id):
+    """``(newest visible id, no writer in flight)`` for *board_id*, in one statement.
+
+    The statement's snapshot is taken when it starts, before the lock function
+    runs, so the newest id is always read *before* the probe, whatever order
+    PostgreSQL evaluates the two columns in. The probe is a non-blocking
+    exclusive try-lock, so it never waits for a writer and never makes a writer
+    wait. It succeeds only when no writer holds the key.
+
+    The try-lock is transaction-scoped and must not outlive the probe. If it
+    did, every writer on the board would wait behind it. Outside a transaction
+    the statement is its own transaction, so the lock ends with it. Inside one
+    (a caller's ``atomic`` block, or a test case), the statement runs in a
+    savepoint that is rolled back, which releases the lock and leaves the
+    caller's transaction as it was.
+    """
+    namespace, objid = feed_lock_key(board_id)
+    sql = (
+        f"SELECT (SELECT MAX({connection.ops.quote_name(BoardEvent._meta.pk.column)}) "
+        f"FROM {connection.ops.quote_name(BoardEvent._meta.db_table)} WHERE board_id = %s), "
+        "pg_try_advisory_xact_lock(%s, %s)"
+    )
+    params = (board_id, namespace, objid)
+    if not connection.in_atomic_block:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            newest, clear = cursor.fetchone()
+        return newest or 0, clear
+    result = None
+    try:
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            result = cursor.fetchone()
+            raise _EndProbe
+    except _EndProbe:
+        pass
+    newest, clear = result
+    return newest or 0, clear
+
+
+def feed_horizon(board_id):
+    """The highest id of *board_id*'s feed a cursor may move to now, or ``None`` (#2053).
+
+    Every row of the board with an id at or below the returned value that will
+    ever exist is already committed. A reader that hands out only rows up to it,
+    and moves a cursor no further, cannot skip a row that commits later. That
+    includes a row whose id is lower than one already visible. Rows above it
+    are returned by a later read.
+
+    ``None`` means a write to this board was still in flight at every probe, so
+    no point past what the caller already holds is safe. The caller hands out
+    nothing new this time. A reader on a board with a long transaction in
+    flight (a large import) gets ``None`` until that transaction ends. That is a
+    delay, never a skip.
+
+    **Requires READ COMMITTED** (Django's and PostgreSQL's default): the
+    caller's next query must take a fresh snapshot, so it sees the rows the
+    probe has just shown to be committed. Under REPEATABLE READ the snapshot
+    predates the probe, and the bound proves nothing.
+
+    SQLite (development and the default test settings) holds a single
+    database-wide write lock from a transaction's first write to its commit,
+    so ids there are already drawn in commit order and the newest id is the
+    horizon. One query either way, plus a short sleep and a re-probe only while
+    a write is in flight on PostgreSQL.
+    """
+    if connection.vendor != "postgresql":
+        return newest_event_id(board_id)
+    for attempt in range(HORIZON_PROBES):
+        if attempt:
+            time.sleep(HORIZON_PROBE_INTERVAL_SECONDS)
+        newest, clear = _probe(board_id)
+        if clear:
+            return newest
+    return None
 
 
 def resume_cursor(board_id):

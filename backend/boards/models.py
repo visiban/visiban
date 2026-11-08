@@ -1670,9 +1670,14 @@ class BoardEvent(models.Model):
 
     class Meta:
         db_table = "board_events"
-        # id order is the feed's contract: the `after` cursor is an id, and ids
-        # are monotonic per insert, so ordering by id is ordering by commit
-        # sequence. Never reorder by created_at — two rows can share a timestamp.
+        # id order is the feed's contract: the `after` cursor is an id. Ids are
+        # drawn at INSERT, not at COMMIT, so id order is insertion order, and a
+        # lower id can commit after a higher one (#2053). The feed stays
+        # gap-free because every reader that moves a cursor stops at
+        # services.feed.feed_horizon, below which nothing is uncommitted, and
+        # every insert goes through broadcast.persist_board_event, which draws
+        # the id under the shared feed lock the horizon probes. Never reorder by
+        # created_at: two rows can share a timestamp.
         ordering = ["id"]
         indexes = [
             # Serves the only read query the feed has: board scope + id > cursor,

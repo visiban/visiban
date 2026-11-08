@@ -198,7 +198,10 @@ SWIMLANE_CUSTOM_FIELD_VALIDATORS: list = []
 #     row. Queue work and return.
 #   * No ordering guarantee across rows: two transactions can commit in the
 #     opposite order to their row ids (#2053), so a handler must not assume it
-#     sees ids in increasing order.
+#     sees ids in increasing order. A handler that keeps a cursor must also
+#     bound every read that moves it by ``boards.services.feed.feed_horizon``,
+#     as the REST feed and the OSS dispatcher do. Without it, the cursor can
+#     step past a lower id that commits a moment later.
 #   * A handler that raises is logged (hook name, ids, exception class, no
 #     payload) and swallowed; it never fails the request and never prevents the
 #     next handler from running.

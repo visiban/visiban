@@ -3,7 +3,7 @@ import logging
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db import transaction
+from django.db import connection, transaction
 from rest_framework.renderers import JSONRenderer
 
 logger = logging.getLogger(__name__)
@@ -333,16 +333,27 @@ def persist_board_event(
     everything; a module-level import here would make this module — which
     ``consumers.py`` and the admin both reach for early — drag the model graph in
     with it.
+
+    On PostgreSQL the row's id is drawn under the board's feed lock, taken in
+    shared mode by the same INSERT and held until this transaction ends (#2053).
+    Writers never wait for each other on it. It is what lets a feed reader
+    (``services.feed.feed_horizon``) tell that no lower id is still
+    uncommitted before it moves a cursor. Every ``BoardEvent`` insert must go
+    through here for that to hold.
     """
     from . import hooks
     from .models import BoardEvent
+    from .services.feed import event_id_after_writer_lock
 
-    event_id = BoardEvent.objects.create(
-        board_id=board_id,
-        event=event_type,
-        data=_json_safe(without_admin_only_board_fields(payload)),
-        actor_id=actor_id,
-    ).pk
+    fields = {
+        "board_id": board_id,
+        "event": event_type,
+        "data": _json_safe(without_admin_only_board_fields(payload)),
+        "actor_id": actor_id,
+    }
+    if connection.vendor == "postgresql":
+        fields["id"] = event_id_after_writer_lock(board_id)
+    event_id = BoardEvent.objects.create(**fields).pk
     # Enterprise nudge (#863): ids only, after commit, never on rollback. The
     # guard keeps OSS (which registers nothing) from queueing a callback per row.
     if hooks.BOARD_EVENT_HOOKS:

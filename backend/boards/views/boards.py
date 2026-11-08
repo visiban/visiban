@@ -40,6 +40,7 @@ from ..serializers import (
 )
 from ..services.feed import (
     cursor_row_visible,
+    feed_horizon,
     feed_queryset,
     prune_marks,
     reader_resume_cursor,
@@ -924,7 +925,17 @@ class BoardViewSet(
         # Both redaction layers live in boards.services.feed (#863) so the
         # webhook dispatcher and enterprise readers apply exactly the same
         # rules: whole-row exclusions here, per-field stripping on serialize.
-        qs = feed_queryset(board.id, role=role, reader_id=request.user.id)
+        # Bound the page by the commit-safe horizon (#2053). Ids are drawn at
+        # INSERT, so a row with a higher id can be visible while a lower one is
+        # still uncommitted. A page ending past that lower id would move the
+        # caller's cursor beyond it for good. The horizon is a point no
+        # uncommitted row lies below. When a write is still in flight it is
+        # None, and the page holds nothing past `after` this time: a short delay,
+        # never a skip.
+        ceiling = feed_horizon(board.id)
+        if ceiling is None:
+            ceiling = after
+        qs = feed_queryset(board.id, role=role, reader_id=request.user.id).filter(pk__lte=ceiling)
         if after:
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
@@ -963,7 +974,7 @@ class BoardViewSet(
                     # from this reader's rows and marks (#2126); see
                     # reader_resume_cursor for why it is not board-wide.
                     "next_cursor": reader_resume_cursor(
-                        board.id, marks, role=role, reader_id=request.user.id
+                        board.id, marks, role=role, reader_id=request.user.id, ceiling=ceiling
                     ),
                 },
                 status=status.HTTP_410_GONE,

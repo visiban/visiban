@@ -230,7 +230,7 @@ Anything else is a failure, including `3xx`: redirects are not followed. After a
 
 ### Ordering
 
-Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. The dispatcher only reads events older than `WEBHOOK_SETTLE_SECONDS` (10) and stops before the oldest newer one, so an event whose transaction committed late is not skipped. That is a best-effort window: until [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) gives the feed a commit-ordered cursor, a transaction held open longer than the window can still land behind the cursor. Treat the change feed as the source of truth when exactness matters.
+Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order, and none is skipped. Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits `WEBHOOK_SETTLE_SECONDS` (10) before it sends an event, which only delays delivery.
 
 ## Verifying signatures
 

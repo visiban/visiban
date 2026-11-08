@@ -66,6 +66,7 @@ from django.utils import timezone
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
 from boards.services.feed import (
+    feed_horizon,
     feed_queryset,
     newest_event_id,
     prune_marks,
@@ -512,9 +513,18 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
 
     settle_cutoff = now - timedelta(seconds=int(_setting("WEBHOOK_SETTLE_SECONDS", 10)))
     max_events = int(_setting("WEBHOOK_MAX_EVENTS_PER_RUN", 100))
+    # The commit-safe horizon (#2053) bounds every read below that can move the
+    # cursor: the page and the caught-up tail. Unlike the settle window, which
+    # is time-based and best-effort, it holds however long a writer's
+    # transaction stays open. None means a write to the board is in flight.
+    # This run then moves the cursor nowhere, and the next run picks the board
+    # up again.
+    ceiling = feed_horizon(board.pk)
+    if ceiling is None:
+        ceiling = sub.cursor
     rows = list(
         feed_queryset(board.pk, role=WEBHOOK_READER_ROLE, reader_id=None)
-        .filter(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
+        .filter(pk__gt=sub.cursor, pk__lte=ceiling, created_at__lte=settle_cutoff)
         .order_by("id")[:max_events]
     )
     # Checked after the page is read, never before (D5). A prune deletes rows
@@ -532,14 +542,14 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
     # not scan its whole backlog on every run; first() walks the (board_id, id)
     # index forward and stops at the first match.
     unsettled = BoardEvent.objects.filter(
-        board_id=board.pk, pk__gt=sub.cursor, created_at__gt=settle_cutoff
+        board_id=board.pk, pk__gt=sub.cursor, pk__lte=ceiling, created_at__gt=settle_cutoff
     )
     if len(rows) == max_events:
         unsettled = unsettled.filter(pk__lte=rows[-1].pk)
     first_unsettled = unsettled.order_by("id").values_list("id", flat=True).first()
     if first_unsettled is not None:
         rows = [r for r in rows if r.pk < first_unsettled]
-    window = Q(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
+    window = Q(pk__gt=sub.cursor, pk__lte=ceiling, created_at__lte=settle_cutoff)
     if first_unsettled is not None:
         window &= Q(pk__lt=first_unsettled)
     WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)

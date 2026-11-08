@@ -154,7 +154,7 @@ All server-to-client messages use the same envelope:
 
 `event` is a dotted string identifying the event type. `data` is event-specific — see the table below.
 
-`event_id` (since 1.2) is the id of this event's row in the board [change feed](events.md). It is **additive** — `event` and `data` are unchanged — and is **omitted entirely**, never sent as `null`, on the few frames that are broadcast without a feed row (the group channel's frames, and `ping`). Keep the last `event_id` you processed and hand it to `GET /api/v1/boards/<id>/events/?after=<event_id>` after a reconnect to replay exactly what you missed, instead of re-fetching `/full/`.
+`event_id` (since 1.2) is the id of this event's row in the board [change feed](events.md). It is **additive** — `event` and `data` are unchanged — and is **omitted entirely**, never sent as `null`, on the few frames that are broadcast without a feed row (the group channel's frames, and `ping`). Keep the last `event_id` you processed and hand it to `GET /api/v1/boards/<id>/events/?after=<event_id>` after a reconnect to replay what you missed, instead of re-fetching `/full/`. Frames from two concurrent writes can arrive in either `event_id` order, so an event with a lower id than your last frame can still be committing when the socket drops. To cover that case, resume from an `event_id` a few seconds older than the drop and skip ids you have already applied. See [Event coverage](events.md#event-coverage).
 
 Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.
 
