@@ -63,13 +63,14 @@ def _drop_unusable_part_charsets(request):
     WHY: a multipart part header such as ``filename*=hex''%41.json`` makes
     Django's header parser call ``unquote(..., encoding="hex")``, and the
     ``LookupError`` (a non-text codec) escapes as a 500 wherever Django itself
-    reads the body (CSRF validation on a session-authenticated POST, admin
-    forms). Django already drops a part whose param is undecodable (utf-7), so
-    this answers the same way: an empty ``POST``/``FILES``. DRF parses the body
-    with its own parser and is covered by ``LimitedMultiPartParser``, which
-    answers a 400. The request-level codec test above cannot see these: the
-    codec comes from the part header, which is only available once the body is
-    parsed.
+    reads the body: Django admin and allauth views reading ``request.POST``.
+    Django already drops a part whose param is undecodable (utf-7), so this
+    answers the same way: an empty ``POST``/``FILES``. DRF endpoints parse the
+    body with ``LimitedMultiPartParser`` (a 400) and never reach this hook,
+    including for session-auth CSRF checks. The request-level codec test above
+    cannot see these: the codec comes from the part header, which is only
+    available once the body is parsed. ``KeyError``/``IndexError`` are
+    ``LookupError`` subclasses but are bugs, so they propagate.
     """
     original = request.parse_file_upload
 

@@ -15,6 +15,7 @@ import pkgutil
 import json
 from pathlib import Path
 
+from django.http import JsonResponse
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -317,11 +318,44 @@ class PartFilenameCodecTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.content[:300])
 
-    def test_django_level_read_with_session_csrf_is_not_a_500(self):
-        # Session auth without a CSRF header token makes Django's CSRF check read
-        # request.POST itself, outside any DRF parser.
-        client = APIClient(enforce_csrf_checks=True, raise_request_exception=False)
-        self.assertTrue(client.login(username="pf-owner", password="pass"))
-        resp = self.send(client, "trello", "hex")
-        self.assertLess(resp.status_code, 500, resp.content[:300])
-        self.assertEqual(resp.status_code, 403)
+    def _factory_request(self, codec):
+        from django.test import RequestFactory
+
+        return RequestFactory().post(
+            "/x/", data=self.body(codec), content_type="multipart/form-data; boundary=b",
+        )
+
+    def test_django_level_body_read_drops_the_part_instead_of_raising(self):
+        # Drives the middleware directly: a Django-level read of request.POST/FILES
+        # (admin or allauth views; DRF routes its own reads through its parser)
+        # must see an empty body, not the LookupError.
+        from visiban.middleware import RequestCharsetMiddleware
+
+        seen = {}
+
+        def get_response(request):
+            seen["post"], seen["files"] = dict(request.POST), dict(request.FILES)
+            return JsonResponse({})
+
+        resp = RequestCharsetMiddleware(get_response)(self._factory_request("hex"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(seen, {"post": {}, "files": {}})
+
+    def test_django_level_read_without_the_guard_raises_lookup_error(self):
+        # Proves the test above discriminates: the bare request does raise.
+        with self.assertRaises(LookupError):
+            self._factory_request("hex").POST
+
+    def test_key_and_index_errors_still_propagate(self):
+        from visiban.middleware import _drop_unusable_part_charsets
+
+        for exc in (KeyError("k"), IndexError("i")):
+            with self.subTest(exc=type(exc).__name__):
+                def boom(META, post_data, exc=exc):
+                    raise exc
+
+                request = self._factory_request("utf-8")
+                request.parse_file_upload = boom  # the original the wrapper wraps
+                _drop_unusable_part_charsets(request)
+                with self.assertRaises(type(exc)):
+                    request.POST

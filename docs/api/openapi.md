@@ -222,7 +222,10 @@ cannot store; a multipart import with such a charset used to answer `500`. Every
 (ISO-8859-2, Windows-1251, Shift_JIS, GBK, KOI8-R and so on) is accepted as before, and an unknown
 charset name is ignored, as before. The check runs in Django middleware, so it applies to every
 operation Django serves (the `/mcp` mount is outside Django and never sees it); the schema hook
-documents the `400` error envelope on every operation.
+documents the `400` error envelope on every operation. The same codec test does not apply to a
+multipart part's own header: a part whose RFC 2231 `filename*` names a non-text codec (`hex`,
+`base64`) answers `400` with `{"detail": "Multipart form parse error - unsupported charset in a part header."}`
+([#2151](https://gitlab.com/visiban/visiban/-/issues/2151)), where it used to be a `500`.
 
 *(Changed in 1.3, #2073)* Two limits are raised where no parser runs: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
