@@ -291,6 +291,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // #1299 — per-user reason a staged add was refused, keyed by user id. Adds
   // are sent independently, so one refusal must not discard the others.
   const [stagedErrors, setStagedErrors] = useState<Record<number, string>>({});
+  // Latest staged list, read after the adds settle: people staged or edited
+  // while the requests were in flight must survive the reconcile.
+  const stagedRef = useRef<StagedInvite[]>([]);
+  stagedRef.current = staged;
   const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -829,15 +833,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setInviteError(null);
     setInviteSuccess(null);
     setStagedErrors({});
+    const sent = staged;
     try {
       const outcomes = await Promise.allSettled(
-        staged.map((s) => setBoardMember(board.id, s.user.id, s.role)),
+        sent.map((s) => setBoardMember(board.id, s.user.id, s.role)),
       );
       const results: BoardMembership[] = [];
       const errors: Record<number, string> = {};
       outcomes.forEach((o, i) => {
         if (o.status === "fulfilled") results.push(o.value);
-        else errors[staged[i].user.id] = addMemberErrorMessage(o.reason);
+        else errors[sent[i].user.id] = addMemberErrorMessage(o.reason);
       });
       if (results.length > 0) {
         setMembers((prev) => {
@@ -851,10 +856,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         });
         onMembersAdded?.(results.map((r) => r.user.id));
       }
-      // Added rows leave the staged list; refused rows stay for retry/removal.
+      // Only the rows that were added leave the staged list. Refused rows
+      // stay for retry/removal, and anyone staged while the requests were in
+      // flight is untouched.
       const failedIds = new Set(Object.keys(errors).map(Number));
-      setStaged((prev) => prev.filter((s) => failedIds.has(s.user.id)));
-      setStagedErrors(errors);
+      const addedIds = new Set(results.map((r) => r.user.id));
+      setStaged((prev) => prev.filter((s) => !addedIds.has(s.user.id)));
+      // A reason describes the role that was sent; drop it when the row's
+      // role was edited while the request was in flight.
+      const sentRoles = new Map(sent.map((x) => [x.user.id, x.role]));
+      const liveErrors: Record<number, string> = {};
+      for (const [id, msg] of Object.entries(errors)) {
+        const current = stagedRef.current.find((x) => x.user.id === Number(id));
+        if (current && current.role === sentRoles.get(Number(id))) liveErrors[Number(id)] = msg;
+      }
+      setStagedErrors(liveErrors);
       const failed = failedIds.size;
       if (failed === 0) {
         setInviteSuccess(`Added ${results.length} member${results.length !== 1 ? "s" : ""} to the board.`);
@@ -1331,8 +1347,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                     }}
                                     options={ROLE_OPTIONS}
                                     size="xs"
+                                    ariaDescribedBy={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
                                   />
                                   <button
+                                    aria-describedby={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
                                     onClick={() => {
                                       setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id));
                                       clearStagedError(s.user.id);
@@ -1346,7 +1364,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                 </div>
                               </div>
                               {stagedErrors[s.user.id] && (
-                                <p role="alert" className="text-xs text-danger mt-1 pl-8 break-words">{stagedErrors[s.user.id]}</p>
+                                <p id={`staged-error-${s.user.id}`} role="alert" className="text-xs text-danger mt-1 pl-8 break-words">
+                                  <span className="sr-only">{userDisplayName(s.user)}: </span>{stagedErrors[s.user.id]}
+                                </p>
                               )}
                             </div>
                           ))}

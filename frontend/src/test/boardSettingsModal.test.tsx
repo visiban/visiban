@@ -1035,22 +1035,27 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const bobUser: User = { ...aliceUser, id: 98, username: 'bobby', email: 'bobby@example.com', first_name: 'Bobby', last_name: 'Tables', display_name: 'Bobby Tables' }
     const membership = (u: User) => ({ id: u.id, user: u, role: 'member', is_moderator: false, joined_at: '' })
 
-    async function stageBoth(onMembersAdded?: (ids: number[]) => void) {
-      mockSearchUsers.mockResolvedValue([aliceUser, bobUser])
-      render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />)
+    const carolUser: User = { ...aliceUser, id: 97, username: 'carol', email: 'carol@example.com', first_name: 'Carol', last_name: 'Danvers', display_name: 'Carol Danvers' }
+
+    async function stageNamed(name: string) {
       const input = screen.getByPlaceholderText(/search by name or email/i)
-      for (const name of ['Alice Wonder', 'Bobby Tables']) {
-        await act(async () => {
-          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-          setter?.call(input, 'a' + name.length)
-          input.dispatchEvent(new Event('input', { bubbles: true }))
-        })
-        await act(async () => { vi.advanceTimersByTime(350) })
-        await waitFor(() => screen.getByText(name))
-        await act(async () => {
-          screen.getByText(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-        })
-      }
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+        setter?.call(input, 'q' + name.length)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      await act(async () => { vi.advanceTimersByTime(350) })
+      await waitFor(() => screen.getByText(name))
+      await act(async () => {
+        screen.getByText(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      })
+    }
+
+    async function stageBoth(onMembersAdded?: (ids: number[]) => void) {
+      mockSearchUsers.mockResolvedValue([aliceUser, bobUser, carolUser])
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />)
+      await stageNamed('Alice Wonder')
+      await stageNamed('Bobby Tables')
       await waitFor(() => screen.getByRole('button', { name: /add 2 members to board/i }))
     }
     const submit = async () => {
@@ -1089,6 +1094,67 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       expect(screen.queryByText('You cannot add this user.')).toBeNull()
       // The failure summary goes with the last refused row.
       expect(screen.queryByText(/could not be added/i)).toBeNull()
+    })
+
+    it('keeps people staged while the adds were in flight, and names the person in the alert', async () => {
+      let resolveBob!: (v: unknown) => void
+      let rejectAlice!: (e: unknown) => void
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        new Promise((res, rej) => { if (id === 98) resolveBob = res; else rejectAlice = rej }))
+      await stageBoth()
+      await submit()
+      await stageNamed('Carol Danvers')
+      await act(async () => {
+        resolveBob(membership(bobUser))
+        rejectAlice({ response: { data: { detail: 'You cannot add this user.' } } })
+      })
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent('Alice Wonder: You cannot add this user.')
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+      expect(screen.getByText('Carol Danvers')).toBeInTheDocument()
+      // The row's controls point at the message.
+      const row = screen.getByText('Carol Danvers').closest('div.py-2\\.5') as HTMLElement
+      expect(row).not.toBeNull()
+      const aliceRow = alert.closest('div.py-2\\.5') as HTMLElement
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toHaveAttribute('aria-describedby', alert.id)
+    })
+
+    it('clears the reason when the refused row role is edited', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'You cannot add this user.' } } })
+          : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      const alert = await screen.findByRole('alert')
+      const aliceRow = alert.closest('div.py-2\\.5') as HTMLElement
+      await act(async () => { within(aliceRow).getByRole('combobox').click() })
+      await act(async () => { screen.getByRole('option', { name: 'Viewer' }).click() })
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(screen.queryByText(/could not be added/i)).toBeNull()
+    })
+
+    it('drops a stale reason when the role was edited while the request was in flight', async () => {
+      let rejectAlice!: (e: unknown) => void
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99 ? new Promise((_r, rej) => { rejectAlice = rej }) : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      const aliceRow = screen.getByText('Alice Wonder').closest('div.py-2\\.5') as HTMLElement
+      await act(async () => { within(aliceRow).getByRole('combobox').click() })
+      await act(async () => { screen.getByRole('option', { name: 'Viewer' }).click() })
+      await act(async () => { rejectAlice({ response: { data: { detail: 'Old reason' } } }) })
+      await waitFor(() => expect(screen.getByRole('button', { name: /add 1 member to board/i })).toBeEnabled())
+      expect(screen.queryByText('Old reason')).toBeNull()
+    })
+
+    it('reports the outcome in a polite live region', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) => Promise.resolve(membership(id === 99 ? aliceUser : bobUser)))
+      await stageBoth()
+      await submit()
+      const summary = (await screen.findByText(/added 2 members to the board/i)).closest('[role="status"]')
+      expect(summary).toHaveAttribute('aria-live', 'polite')
+      expect(summary).toHaveAttribute('aria-atomic', 'true')
     })
 
     it('keeps every row and each reason when all are refused', async () => {
