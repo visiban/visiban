@@ -260,6 +260,7 @@ describe('BoardSettingsPoliciesSection — switching rows', () => {
     expect(rowButton('Doing')).toHaveAttribute('aria-expanded', 'true')
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText(PROMPT)).toBeNull()
+    await waitFor(() => expect(rowButton('Doing')).toHaveFocus())
   })
 
   it('Escape dismisses the prompt without closing the modal or dropping the draft', async () => {
