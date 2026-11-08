@@ -81,3 +81,17 @@ class RequestCharsetTests(TestCase):
     def test_no_charset_is_unaffected(self):
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/?search=%2B2AA-")
         self.assertEqual(resp.status_code, 200)
+
+    def test_multipart_part_header_rfc2231_utf7_filename_is_not_a_500(self):
+        # Django drops a part whose Content-Disposition param decodes to a
+        # surrogate (its header parser cannot re-encode it); pin that so a
+        # Django upgrade that stops doing so shows up here.
+        body = (
+            b'--b\r\nContent-Disposition: form-data; name="file"; filename*=utf-7\'\'%2B2AA-.json\r\n'
+            b'Content-Type: application/json\r\n\r\n{}\r\n--b--\r\n'
+        )
+        resp = self.client.post(
+            "/api/v1/boards/import/trello/?dry_run=true", data=body,
+            content_type="multipart/form-data; boundary=b",
+        )
+        self.assertLess(resp.status_code, 500, resp.content[:300])

@@ -32,7 +32,7 @@ _LOOPBACK_IPS = ("127.0.0.1", "::1")
 # unpaired one). The UTF-16/32 family stays allowed because a JSON body in
 # those encodings is valid and was accepted before #2120.
 _SAFE_REQUEST_CODECS = frozenset({
-    "utf-8", "ascii", "iso8859-1", "iso8859-15", "cp1252",
+    "utf-8", "utf-8-sig", "ascii", "iso8859-1", "iso8859-15", "cp1252",
     "utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be",
 })
 
@@ -50,7 +50,8 @@ class RequestCharsetMiddleware:
     reader. Browsers only ever send UTF-8 or a legacy single-byte charset, which
     stay allowed; an unknown charset name is already ignored by Django.
 
-    Runs first so nothing has touched ``request.GET``/``POST`` yet. Answers the
+    Runs right after Security/CORS (so the 400 carries their headers) and before
+    anything has touched ``request.GET``/``POST`` yet. Answers the
     documented JSON ``{"detail": ...}`` 400.
     """
 
