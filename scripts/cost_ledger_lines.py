@@ -12,7 +12,8 @@ write under the `gate:` lines of `## Gates`:
   cost-ledger: off                            the marker when the setting is off; no cost line then
 
 This module is the one reader of that format in this repo: scripts/cost-table.py renders the
-cost comment from it and scripts/kaizen_gate_ledger.py reports cost from it. It is ported from
+cost comment from it and scripts/kaizen_gate_ledger.py reads the `## Gates` lines through it (the
+per-MR cost /kaizen reports comes from the MR's windowed cost comments instead, #2154). It is ported from
 the cost parts of Blueprint's gate-yield.py and check-gate-ledger.py (macrodream/blueprint#235,
 macrodream/blueprint#340, macrodream/blueprint#348, macrodream/blueprint#364,
 macrodream/blueprint#365); the gate-line rules of those scripts are not ported, because

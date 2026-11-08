@@ -369,10 +369,12 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
         # The parser reads this line back up to the first `. ` (END1_RE): keep that prefix stable.
         out.append("- Window end: %s. Both figures stop at the go-ahead to push; later work on this MR goes in later records."
                    % (end if end else "n/a (%s)" % why))
-        # #2154: with no window start the orchestrator row runs from the session's start, so it overlaps the
-        # other MRs of the same session. The cost readers (scripts/kaizen_gate_ledger.py) exclude such a
-        # record; this line tells a person reading it the same. post-mr-cost.py always passes --since, so
-        # only a hand-run `cost-table.py --comment --file` without --since reaches this branch.
+        # #2154: with no complete window (no --since, or --since without a valid --until) the orchestrator
+        # row is not windowed: with no start it runs from the session's start, so it overlaps the other MRs
+        # of the same session. The cost readers (scripts/kaizen_gate_ledger.py) exclude such a record; this
+        # line tells a person reading it the same. post-mr-cost.py always passes --since and --until, so
+        # only a hand-run `cost-table.py --comment --file` without --since, or with --since but no valid
+        # --until, reaches this branch.
         out.append(NOT_WINDOWED)
     else:
         out.append("- Window: %s to %s. This record counts only the work in this window; the running-total row adds the earlier records."
@@ -544,10 +546,13 @@ def _me(api):
     return uid if isinstance(uid, int) and not isinstance(uid, bool) else None
 
 
-def own_records(notes, me):
+def own_records(notes, me, also_trusted=()):
     """(own records, foreign count) from a page of GitLab note objects: the notes with the comment
-    heading by user `me`, as {'id', 'k', 'rec'}, oldest first; the same notes by anyone else are
-    counted, never read. Shared with scripts/kaizen_gate_ledger.py (#2154)."""
+    heading by user `me` (or by a user id in `also_trusted`), as {'id', 'k', 'rec'}, oldest first; the
+    same notes by anyone else are counted, never read. `also_trusted` is for the readers
+    (scripts/kaizen_gate_ledger.py passes the MR's author, #2154); the posting paths pass nothing, so
+    what they read and refuse to edit is unchanged."""
+    trusted = {me, *also_trusted}
     own, foreign = [], 0
     for note in notes:
         if not (isinstance(note, dict) and not note.get("system") and isinstance(note.get("id"), int)
@@ -555,14 +560,14 @@ def own_records(notes, me):
             continue
         author = note.get("author")
         aid = author.get("id") if isinstance(author, dict) else None
-        if not isinstance(aid, int) or isinstance(aid, bool) or aid != me:
+        if not isinstance(aid, int) or isinstance(aid, bool) or aid not in trusted:
             foreign += 1
             continue
         own.append({"id": note["id"], "k": head_number(note["body"]), "rec": parse_record(note["body"])})
     return own, foreign
 
 
-def read_records(iid, api, max_pages=20):
+def read_records(iid, api, max_pages=20, also_trusted=()):
     """(records, foreign count, error message): records are this user's notes with the comment
     heading, as {'id', 'k' (heading number or None), 'rec' (parse_record or None)}, oldest first.
     Notes by anyone else are counted, never read."""
@@ -579,7 +584,7 @@ def read_records(iid, api, max_pages=20):
             notes = None
         if not isinstance(notes, list):
             return None, 0, "cost-table: could not list the notes of !%d" % iid
-        got, skipped = own_records(notes, me)
+        got, skipped = own_records(notes, me, also_trusted)
         own += got
         foreign += skipped
         if len(notes) < 100:
@@ -934,6 +939,11 @@ def self_test():
                  "Window end: 2026-11-04T15:30:00Z.", "prices 2026-11-03", "(`budget-exceeded:`): 1 (implementer 1)",
                  NOT_WINDOWED):
         check("comment: " + want[:40], want in com, com)
+    # record K > 1 states a window and the non-overlap sentence (#2154 round 2: dropping `record > 1 or` must fail)
+    k2 = "\n".join(comment_lines(withb, 383, None, split, record=2, since="2026-11-04T15:00:00Z",
+                                  prior={"records": [], "gaps": []}))
+    check("comment: record K>1 renders the non-overlap sentence and no not-windowed line",
+          "Records do not overlap" in k2 and NOT_WINDOWED not in k2, k2)
     # --since without --until: no complete window, so the not-windowed line and no add-up claim.
     ns = "\n".join(comment_lines(withb, 383, None, split, since="2026-11-04T15:00:00Z"))
     check("comment: --since without --until is not windowed (not-windowed line, no add-up bullet)",

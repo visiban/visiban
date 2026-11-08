@@ -112,9 +112,11 @@ The JSON's `cost` object (and the text report's `## Cost` section) reads the cos
 lines `/wave` writes in `## Gates` (`subagent-tokens:`, `orchestrator-tokens:`,
 `est-cost-usd:`, or `cost-ledger: off`; #2128, `docs/development/cost-ledger.md`). **Per-MR
 cost is not the `## Gates` `est-cost-usd:`** (#2154): that is a go-ahead snapshot whose
-orchestrator share every MR of a wave repeats. The script sums the MR's own
-`## Cost of this MR` records that state `Window: S to U` (non-overlapping), read from its
-notes. `subagent-tokens:` still comes from `## Gates` (per branch). Report it in this order:
+orchestrator share every MR of a wave repeats. The script sums the MR's
+`## Cost of this MR` records that state `Window: S to U`, posted by the token user or the MR
+author, read from the notes of every MR without `cost-ledger: off` (windows from different
+sessions may overlap in time but not in tokens, so they are summed; only an identical window
+excludes). `subagent-tokens:` still comes from `## Gates` (per branch). Report it in this order:
 
 - **The state counts first:** `recorded`, `disabled` (the MR said `cost-ledger: off`:
   nothing recorded, by choice) and `none` (no figure yet) of `mrs`. A disabled MR is never 0
@@ -123,7 +125,7 @@ notes. `subagent-tokens:` still comes from `## Gates` (per branch). Report it in
 - **`excluded`** (by reason code -> MR ids; the text report prints each reason with its
   count and ids): recorded MRs left out of every cost mean because no windowed record could
   be summed: a legacy `Window end:`-only record, no record, an unparsed record, notes
-  unreadable, a record by another user, duplicate or overlapping records. They are never 0. **Always state how many MRs the means rest on
+  unreadable, a record by another user, a duplicate record number or window. They are never 0. **Always state how many MRs the means rest on
   (`est_costed` of `recorded`) and how many were excluded and why**; if most are excluded,
   say the means are thin and make no cost finding. Run live, the script reads each costed
   MR's notes; offline (`--input`) an MR carries `notes` and `token_user_id`.
