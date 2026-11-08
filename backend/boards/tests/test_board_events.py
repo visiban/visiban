@@ -1691,8 +1691,9 @@ class PruneMarkTests(BoardEventTestBase):
         """(prune-mark lookups, board_events queries) one feed request runs.
 
         Counted by table rather than as a total so the assertion pins only the
-        retention check: the page fetch is the one board_events query every
-        request makes, and anything beyond it is the old EXISTS fallback.
+        retention check. Every request makes two board_events queries: the
+        commit-safe horizon probe (#2053) and the page fetch. Anything beyond
+        them is the old EXISTS fallback.
         """
         with CaptureQueriesContext(connection) as ctx:
             resp = self.client_for(self.owner).get(url)
@@ -1707,7 +1708,7 @@ class PruneMarkTests(BoardEventTestBase):
         self._record(aged_days=45)
         call_command("prune_board_events")
         self._record()
-        self.assertEqual(self._retention_queries(f"{self.url}?after=0"), (200, 0, 1))
+        self.assertEqual(self._retention_queries(f"{self.url}?after=0"), (200, 0, 2))
 
     def test_cursor_at_or_below_the_mark_costs_two_indexed_reads(self):
         cursor = self._record(aged_days=45)
@@ -1715,15 +1716,15 @@ class PruneMarkTests(BoardEventTestBase):
         call_command("prune_board_events")
         self._record()
         # The floor by primary key, then the type marks by board.
-        self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 2, 1))
+        self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 2, 2))
         # The 410 adds its resume point: one Max(id) over the reader's rows,
         # reusing the marks the check already read (#2126).
-        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 2, 2))
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 2, 3))
 
     def test_board_with_no_mark_adds_the_old_exists_check(self):
         cursor = self._record()
         self._record()
-        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (200, 1, 2))
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (200, 1, 3))
 
     def test_mark_write_failure_rolls_back_the_batch_delete(self):
         """The delete and the mark share one transaction (#2058).
@@ -1798,7 +1799,13 @@ class PruneMarkTests(BoardEventTestBase):
         fired = []
 
         def prune_before_page_fetch(execute, sql, params, many, context):
-            if not fired and "board_events" in sql and "board_event_prune_marks" not in sql:
+            # Skip the horizon probe (#2053), which runs before the page fetch.
+            is_page_fetch = (
+                "board_events" in sql
+                and "board_event_prune_marks" not in sql
+                and "pg_try_advisory_xact_lock" not in sql
+            )
+            if not fired and is_page_fetch:
                 fired.append(sql)
                 call_command("prune_board_events")
             return execute(sql, params, many, context)

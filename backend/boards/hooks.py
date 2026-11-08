@@ -198,7 +198,16 @@ SWIMLANE_CUSTOM_FIELD_VALIDATORS: list = []
 #     row. Queue work and return.
 #   * No ordering guarantee across rows: two transactions can commit in the
 #     opposite order to their row ids (#2053), so a handler must not assume it
-#     sees ids in increasing order.
+#     sees ids in increasing order. A handler that keeps a cursor must also
+#     bound every read that moves it by ``boards.services.feed.feed_horizon``,
+#     as the REST feed and the OSS dispatcher do. Without it, the cursor can
+#     step past a lower id that commits a moment later. One exemption:
+#     ``board.deleted`` draws its id without the writer lock (see
+#     ``persist_board_event``), so the horizon does not cover it, and a cursor
+#     can step past it when another event on that board commits first. No OSS
+#     reader can see it (the REST feed answers 404 after the delete, webhooks
+#     cascade and never take it); a handler that must see it should not treat
+#     its feed position as proof it was not written.
 #   * A handler that raises is logged (hook name, ids, exception class, no
 #     payload) and swallowed; it never fails the request and never prevents the
 #     next handler from running.

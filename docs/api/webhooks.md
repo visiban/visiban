@@ -119,7 +119,7 @@ Body: `url` (required), `name` (optional, at most 200 characters), `event_types`
 
 The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`. **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
 
-A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one.
+A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one. *(1.3+, #2053)* The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to `resume_from: latest`.
 
 ### `PATCH {id}/`
 
@@ -230,7 +230,7 @@ Anything else is a failure, including `3xx`: redirects are not followed. After a
 
 ### Ordering
 
-Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. The dispatcher only reads events older than `WEBHOOK_SETTLE_SECONDS` (10) and stops before the oldest newer one, so an event whose transaction committed late is not skipped. That is a best-effort window: until [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) gives the feed a commit-ordered cursor, a transaction held open longer than the window can still land behind the cursor. Treat the change feed as the source of truth when exactness matters.
+Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order, and none is skipped. Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits `WEBHOOK_SETTLE_SECONDS` (10) before it sends an event, which only delays delivery.
 
 ## Verifying signatures
 

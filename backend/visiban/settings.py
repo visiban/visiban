@@ -568,9 +568,10 @@ WEBHOOK_BACKOFF_BASE_SECONDS = env.int("WEBHOOK_BACKOFF_BASE_SECONDS", default=3
 WEBHOOK_BACKOFF_MAX_SECONDS = env.int("WEBHOOK_BACKOFF_MAX_SECONDS", default=3600)
 WEBHOOK_DISABLE_AFTER_FAILURES = env.int("WEBHOOK_DISABLE_AFTER_FAILURES", default=20)
 WEBHOOK_DISABLE_AFTER_HOURS = env.float("WEBHOOK_DISABLE_AFTER_HOURS", default=24.0)
-# Rows newer than this are left for the next run, so a row whose transaction
-# committed after a later-numbered row is still picked up (best-effort until
-# #2053 gives the feed a commit-ordered cursor).
+# Rows newer than this are left for the next run. Only a delay since #2053: the
+# dispatcher's reads stop at the feed's commit-safe horizon, so a row whose
+# transaction commits after a later-numbered row is never skipped, whatever
+# this value is.
 WEBHOOK_SETTLE_SECONDS = env.int("WEBHOOK_SETTLE_SECONDS", default=10)
 # Every url_not_allowed refusal takes at least this long, so its timing does not
 # reveal which address rule matched. Unset = WEBHOOK_CONNECT_TIMEOUT_SECONDS

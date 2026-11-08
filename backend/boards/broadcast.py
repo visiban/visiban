@@ -3,7 +3,7 @@ import logging
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db import transaction
+from django.db import connection, transaction
 from rest_framework.renderers import JSONRenderer
 
 logger = logging.getLogger(__name__)
@@ -248,9 +248,11 @@ def broadcast_board_event(
     It is **additive**: the frozen ``{event, data}`` envelope is unchanged, and
     the key is omitted entirely — rather than sent as null — when the caller
     broadcast without persisting, so no client has to distinguish "no feed row"
-    from "feed row zero". A client that keeps the latest ``event_id`` it saw can
-    hand it to ``GET /boards/<id>/events/?after=`` after a reconnect and replay
-    exactly what it missed.
+    from "feed row zero". A client can hand an ``event_id`` it saw to
+    ``GET /boards/<id>/events/?after=`` after a reconnect and replay what it
+    missed. Frames go out after each transaction's own commit, so they can
+    arrive out of id order and the latest one is not a gap-free resume point
+    (#2159): resume from an older one and skip ids already applied.
 
     **Best-effort: a channel-layer failure is logged, not raised (#1462).** This runs
     from ``transaction.on_commit``, after the mutation and its ``BoardEvent`` row
@@ -333,16 +335,40 @@ def persist_board_event(
     everything; a module-level import here would make this module — which
     ``consumers.py`` and the admin both reach for early — drag the model graph in
     with it.
+
+    On PostgreSQL the row's id is drawn under the board's feed lock, taken in
+    shared mode by the same INSERT and held until this transaction ends (#2053).
+    Writers never wait for each other on it. It is what lets a feed reader
+    (``services.feed.feed_horizon``) tell that no lower id is still
+    uncommitted before it moves a cursor. Every ``BoardEvent`` insert must go
+    through here for that to hold.
+
+    The lock is one lock-table entry per distinct board per transaction, so a
+    transaction that writes events on thousands of boards needs a larger
+    ``max_locks_per_transaction`` (see docs/administration/configuration.md).
+    ``board.deleted`` takes no lock. It is only ever written by the transaction
+    that deletes its board. Once that commits, no reader can open the board's
+    feed: the REST feed answers ``404`` and the board's webhooks are deleted
+    with it (and never take ``board.deleted`` anyway). So a bulk board delete
+    (Django admin, ``_seed_history``) costs no lock entry for the deleted
+    boards themselves. It still costs one per *other* board that gets a
+    ``card.updated`` because a deleted card was blocking a card there
+    (``publish_blocked_peers``). The horizon does not cover ``board.deleted``,
+    so a cursor-keeping reader can step past it; see ``boards/hooks.py``.
     """
     from . import hooks
     from .models import BoardEvent
+    from .services.feed import event_id_after_writer_lock
 
-    event_id = BoardEvent.objects.create(
-        board_id=board_id,
-        event=event_type,
-        data=_json_safe(without_admin_only_board_fields(payload)),
-        actor_id=actor_id,
-    ).pk
+    fields = {
+        "board_id": board_id,
+        "event": event_type,
+        "data": _json_safe(without_admin_only_board_fields(payload)),
+        "actor_id": actor_id,
+    }
+    if connection.vendor == "postgresql" and event_type != EVT_BOARD_DELETED:
+        fields["id"] = event_id_after_writer_lock(board_id)
+    event_id = BoardEvent.objects.create(**fields).pk
     # Enterprise nudge (#863): ids only, after commit, never on rollback. The
     # guard keeps OSS (which registers nothing) from queueing a callback per row.
     if hooks.BOARD_EVENT_HOOKS:

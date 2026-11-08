@@ -205,10 +205,10 @@ The board is also re-fetched each time the WebSocket reconnects after a dropped 
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer outside the browser (a second front end, a sync job, the MCP server's REST client) can instead replay exactly what it missed:
+The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer outside the browser (a second front end, a sync job, the MCP server's REST client) can instead replay what it missed from the change feed:
 
 - Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching `event_id`.
-- `GET /api/v1/boards/{id}/events/?after=<event_id>` returns the missed events in order, so a consumer can catch up without re-fetching the whole board.
+- `GET /api/v1/boards/{id}/events/?after=<event_id>` returns the missed events in order, so a consumer can catch up without re-fetching the whole board. Paging the feed never skips an event (1.3+, #2053). Frames can arrive out of `event_id` order, though, so resume from an `event_id` a few seconds before the drop rather than the last one, and skip ids already applied (#2159).
 - Events are retained for `BOARD_EVENT_RETENTION_DAYS` days (default 30); a cursor with a pruned event after it that the consumer could have read gets `410 Gone` with a re-sync hint and a cursor to resume from afterward, instead of silently skipping events. A consumer idle on a quiet board whose own cursor event was pruned, with nothing it could have read pruned after it, keeps reading (1.3+, #2058, #2079).
 
 See [Board Change Feed API](../api/events.md) for the full reference.

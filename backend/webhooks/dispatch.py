@@ -36,10 +36,12 @@ Guarantees, and how each one is kept
   ``cursor_expired`` instead of delivering past the gap. The marks are read
   after the page of rows, so a prune that lands mid-run is either seen or
   removed nothing that run read.
-* **Commit-order settle window.** Only rows older than
-  ``WEBHOOK_SETTLE_SECONDS`` are read, and a run stops before the oldest
-  unsettled row, so a transaction that committed late is still picked up.
-  Best-effort until #2053 gives the feed a commit-ordered cursor.
+* **Never past an uncommitted event (#2053).** Ids are drawn at INSERT, so a
+  lower id can commit after a higher one. Every read that moves the cursor
+  stops at ``boards.services.feed.feed_horizon``, below which nothing is
+  still committing, however long a writer's transaction stays open. The
+  older settle window (only rows older than ``WEBHOOK_SETTLE_SECONDS``, and
+  stop before the oldest unsettled row) still applies but now only delays.
 * **A replaced secret signs only inside its overlap (#2054).** Each delivery
   re-reads the wall clock, so a window that ends mid-run drops the old value at
   the next row. :func:`run_once` also clears expired columns before its gate,
@@ -66,9 +68,11 @@ from django.utils import timezone
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
 from boards.services.feed import (
+    feed_horizon,
     feed_queryset,
     newest_event_id,
     prune_marks,
+    pruned_through,
     reader_position,
     reader_position_subquery,
     resume_cursor,
@@ -210,8 +214,29 @@ def latest_event_id(board_id: int) -> int:
     ``next_cursor``, which is computed from the rows and marks its reader may
     see (``reader_resume_cursor``, #2126). What the API returns for it is
     :func:`reported_cursor` (#2135).
+
+    Bounded by the feed's commit-safe horizon (#2053): when the probe clears,
+    no write on the board is still open, so every event that commits after
+    this point has a higher id and is sent. Without the bound, an event
+    still committing with a lower id than the newest visible one would commit
+    below the new cursor and never be sent. The probe never waits, so it is
+    retried ``LATEST_HORIZON_PROBES`` times; a write that commits meanwhile
+    counts as before the webhook. If a write to the board is still open after
+    that, this falls back to the newest visible id, and that write's event is
+    not sent. It was written before the request, which D5 leaves out anyway.
+    ``reenable`` and create call this inside their transaction; the probe runs
+    in a savepoint and holds nothing afterward.
     """
-    return resume_cursor(board_id)
+    horizon = feed_horizon(board_id, probes=LATEST_HORIZON_PROBES)
+    if horizon is None:
+        return resume_cursor(board_id)
+    return max(horizon, pruned_through(board_id) or 0)
+
+
+#: Probes :func:`latest_event_id` makes, 20 ms apart: about 0.2 s at most, and
+#: only while a write to the board is in flight. Create and re-enable are rare
+#: admin actions, so they can wait longer than a feed poll for a safe point.
+LATEST_HORIZON_PROBES = 10
 
 
 # The cursor as the API reports it (#2135). Why only the reported value is
@@ -379,6 +404,9 @@ class RunResult:
     errored: int = 0
     lost_lease: int = 0
     notes: list = field(default_factory=list)
+    #: Boards whose feed horizon was held back by an open write this run
+    #: (#2053): their subscriptions moved no cursor. Logged once per run.
+    held_back_boards: set = field(default_factory=set)
 
 
 def _heartbeat(**fields):
@@ -444,8 +472,23 @@ def run_once(*, budget_seconds=None, clock=time.monotonic) -> RunResult:
         except Exception as exc:  # noqa: BLE001
             result.errored += 1
             logger.error("webhook run error: subscription_id=%s error=%s", sub_id, type(exc).__name__)
+    if result.held_back_boards:
+        # Once per run, not per subscription. A write in flight is normal and
+        # clears by the next run; the same board in every run's line means a
+        # transaction left open on it (see docs/api/events.md, Event coverage).
+        held = sorted(result.held_back_boards)
+        logger.info(
+            "webhook run held back by an open write: boards=%s board_ids=%s",
+            len(held),
+            held[:_HELD_BACK_LOG_IDS],
+        )
     _heartbeat(last_run_finished_at=timezone.now())
     return result
+
+
+#: Board ids listed in the held-back line, so a run touching many boards logs a
+#: bounded line. The count is always exact.
+_HELD_BACK_LOG_IDS = 20
 
 
 def _lease_seconds(budget_remaining: float) -> float:
@@ -512,9 +555,20 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
 
     settle_cutoff = now - timedelta(seconds=int(_setting("WEBHOOK_SETTLE_SECONDS", 10)))
     max_events = int(_setting("WEBHOOK_MAX_EVENTS_PER_RUN", 100))
+    # The commit-safe horizon (#2053) bounds every read below that can move the
+    # cursor: the page and the caught-up tail. Unlike the settle window, which
+    # is time-based and best-effort, it holds however long a writer's
+    # transaction stays open. None means a write to the board is in flight.
+    # This run then moves the cursor nowhere, and the next run picks the board
+    # up again. One probe and no sleep: the next run is the retry, and sleeps
+    # would add up across the run's subscriptions.
+    ceiling = feed_horizon(board.pk, probes=1)
+    if ceiling is None:
+        ceiling = sub.cursor
+        result.held_back_boards.add(board.pk)
     rows = list(
         feed_queryset(board.pk, role=WEBHOOK_READER_ROLE, reader_id=None)
-        .filter(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
+        .filter(pk__gt=sub.cursor, pk__lte=ceiling, created_at__lte=settle_cutoff)
         .order_by("id")[:max_events]
     )
     # Checked after the page is read, never before (D5). A prune deletes rows
@@ -532,14 +586,14 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
     # not scan its whole backlog on every run; first() walks the (board_id, id)
     # index forward and stops at the first match.
     unsettled = BoardEvent.objects.filter(
-        board_id=board.pk, pk__gt=sub.cursor, created_at__gt=settle_cutoff
+        board_id=board.pk, pk__gt=sub.cursor, pk__lte=ceiling, created_at__gt=settle_cutoff
     )
     if len(rows) == max_events:
         unsettled = unsettled.filter(pk__lte=rows[-1].pk)
     first_unsettled = unsettled.order_by("id").values_list("id", flat=True).first()
     if first_unsettled is not None:
         rows = [r for r in rows if r.pk < first_unsettled]
-    window = Q(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
+    window = Q(pk__gt=sub.cursor, pk__lte=ceiling, created_at__lte=settle_cutoff)
     if first_unsettled is not None:
         window &= Q(pk__lt=first_unsettled)
     WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
