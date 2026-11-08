@@ -152,7 +152,7 @@ interface StagedInvite {
   role: BoardRole;
 }
 
-const ADD_FALLBACK_ERROR = "Couldn't add this member. Try again.";
+const ADD_FALLBACK_ERROR = "Couldn't add this member.";
 
 /** One line of copy for a refused add: the server's `detail` when it sent one. */
 function addMemberErrorMessage(err: unknown): string {
@@ -862,13 +862,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       const failedIds = new Set(Object.keys(errors).map(Number));
       const addedIds = new Set(results.map((r) => r.user.id));
       setStaged((prev) => prev.filter((s) => !addedIds.has(s.user.id)));
-      // A reason describes the role that was sent; drop it when the row's
-      // role was edited while the request was in flight.
-      const sentRoles = new Map(sent.map((x) => [x.user.id, x.role]));
+      // Roles are locked while the requests are in flight, so a reason always
+      // describes the role on the row. A row removed mid-flight has no place
+      // to show one, so its reason is dropped.
       const liveErrors: Record<number, string> = {};
       for (const [id, msg] of Object.entries(errors)) {
-        const current = stagedRef.current.find((x) => x.user.id === Number(id));
-        if (current && current.role === sentRoles.get(Number(id))) liveErrors[Number(id)] = msg;
+        if (stagedRef.current.some((x) => x.user.id === Number(id))) liveErrors[Number(id)] = msg;
       }
       setStagedErrors(liveErrors);
       const failed = failedIds.size;
@@ -1258,7 +1257,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <input
                         ref={searchInputRef}
                         value={inviteQuery}
-                        onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); setInviteError(null); }}
+                        onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
                         placeholder="Search by name or email…"
                         className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
@@ -1347,6 +1346,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                     }}
                                     options={ROLE_OPTIONS}
                                     size="xs"
+                                    // Locked while the adds are in flight so the role that was sent
+                                    // is the role that was added (#1299).
+                                    disabled={inviting}
                                     ariaDescribedBy={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
                                   />
                                   <button

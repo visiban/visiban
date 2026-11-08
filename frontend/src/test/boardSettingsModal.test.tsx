@@ -1134,18 +1134,54 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       expect(screen.queryByText(/could not be added/i)).toBeNull()
     })
 
-    it('drops a stale reason when the role was edited while the request was in flight', async () => {
+    it('locks every role dropdown while the adds are in flight', async () => {
       let rejectAlice!: (e: unknown) => void
       mockSetBoardMember.mockImplementation((_b: number, id: number) =>
         id === 99 ? new Promise((_r, rej) => { rejectAlice = rej }) : Promise.resolve(membership(bobUser)))
       await stageBoth()
       await submit()
       const aliceRow = screen.getByText('Alice Wonder').closest('div.py-2\\.5') as HTMLElement
-      await act(async () => { within(aliceRow).getByRole('combobox').click() })
-      await act(async () => { screen.getByRole('option', { name: 'Viewer' }).click() })
-      await act(async () => { rejectAlice({ response: { data: { detail: 'Old reason' } } }) })
-      await waitFor(() => expect(screen.getByRole('button', { name: /add 1 member to board/i })).toBeEnabled())
-      expect(screen.queryByText('Old reason')).toBeNull()
+      expect(within(aliceRow).getByRole('combobox')).toBeDisabled()
+      await act(async () => { rejectAlice({ response: { data: { detail: 'Refused.' } } }) })
+      expect(await screen.findByText('Refused.')).toBeInTheDocument()
+      expect(within(aliceRow).getByRole('combobox')).toBeEnabled()
+    })
+
+    it('keeps the failure summary while typing in the search box', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'Refused.' } } })
+          : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      const input = screen.getByPlaceholderText(/search by name or email/i)
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+        setter?.call(input, 'zz')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      expect(screen.getByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      expect(screen.getByText('Refused.')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['an empty string', ''],
+      ['a number', 123],
+      ['an object', { code: 'x' }],
+    ])('falls back to the generic copy when detail is %s', async (_label, detail) => {
+      mockSetBoardMember.mockRejectedValue({ response: { data: { detail } } })
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText("Couldn't add this member.")).length).toBe(2)
+    })
+
+    it('shows a non-empty string detail as sent', async () => {
+      mockSetBoardMember.mockRejectedValue({ response: { data: { detail: 'Server says no.' } } })
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText('Server says no.')).length).toBe(2)
+      expect(screen.queryByText("Couldn't add this member.")).toBeNull()
     })
 
     it('reports the outcome in a polite live region', async () => {
@@ -1174,7 +1210,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       mockSetBoardMember.mockRejectedValue(new Error('Network Error'))
       await stageBoth()
       await submit()
-      expect((await screen.findAllByText("Couldn't add this member. Try again.")).length).toBe(2)
+      expect((await screen.findAllByText("Couldn't add this member.")).length).toBe(2)
       expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
     })
   })
@@ -1225,7 +1261,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await act(async () => { submitBtn.click() })
 
     await waitFor(() => { expect(screen.getByText(/that member could not be added/i)).toBeInTheDocument() })
-    expect(screen.getByText("Couldn't add this member. Try again.")).toBeInTheDocument()
+    expect(screen.getByText("Couldn't add this member.")).toBeInTheDocument()
   })
 })
 
