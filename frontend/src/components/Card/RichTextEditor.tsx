@@ -28,6 +28,52 @@ import type { MentionListRef } from "./MentionList";
  */
 const mentionSuggestionKey = new PluginKey("mentionSuggestion");
 
+/**
+ * Combobox half of the ARIA pattern for the mention popup (#2149). TipTap owns
+ * the editor element, so the attributes are set on `editor.view.dom` directly
+ * while the suggestion is active (ProseMirror only rewrites attributes it set
+ * itself, so these survive its re-renders) and removed on exit.
+ *
+ * WAI-ARIA 1.2 combobox: the focused element itself is the combobox, so while
+ * the list is open the contenteditable's `role="textbox"` becomes
+ * `role="combobox"` (with `aria-multiline`, which the role drops), matching
+ * `MentionTextarea`. `aria-expanded` is not supported on `textbox`, so keeping
+ * the textbox role and adding only `aria-activedescendant` would not announce
+ * that a list opened. Focus never leaves the editor.
+ */
+const COMBOBOX_ATTRS = [
+  "aria-expanded",
+  "aria-haspopup",
+  "aria-autocomplete",
+  "aria-controls",
+  "aria-activedescendant",
+  "aria-multiline",
+] as const;
+
+function setMentionCombobox(
+  dom: HTMLElement,
+  state: { listboxId: string; activeId: string } | null,
+) {
+  dom.setAttribute("role", "combobox");
+  dom.setAttribute("aria-multiline", "true");
+  dom.setAttribute("aria-autocomplete", "list");
+  dom.setAttribute("aria-haspopup", "listbox");
+  dom.setAttribute("aria-expanded", state ? "true" : "false");
+  if (state) {
+    dom.setAttribute("aria-controls", state.listboxId);
+    dom.setAttribute("aria-activedescendant", state.activeId);
+  } else {
+    dom.removeAttribute("aria-controls");
+    dom.removeAttribute("aria-activedescendant");
+  }
+}
+
+function clearMentionCombobox(dom: HTMLElement, previousRole: string | null) {
+  for (const a of COMBOBOX_ATTRS) dom.removeAttribute(a);
+  if (previousRole === null) dom.removeAttribute("role");
+  else dom.setAttribute("role", previousRole);
+}
+
 interface Props {
   value: string;
   onSave: (value: string) => void;
@@ -295,11 +341,19 @@ export default function RichTextEditor({
             };
             const onResize = () => endSuggestion();
             let resizeObserver: ResizeObserver | undefined;
+            let editorDom: HTMLElement | undefined;
+            let previousRole: string | null = null;
+            let comboboxOn = false;
+            const onEditorBlur = () => endSuggestion();
+            // Stable identity so MentionList's effect does not re-fire per render.
+            const onActiveChange = (state: { listboxId: string; activeId: string } | null) => {
+              if (editorDom && comboboxOn) setMentionCombobox(editorDom, state);
+            };
 
             return {
               onStart(props) {
                 component = new ReactRenderer(MentionList, {
-                  props,
+                  props: { ...props, onActiveChange },
                   editor: props.editor,
                 });
                 // Always create the popup, hidden: `clientRect()` can return
@@ -312,6 +366,11 @@ export default function RichTextEditor({
                   if (editor.isDestroyed) return;
                   editor.view.dispatch(editor.state.tr.setMeta(mentionSuggestionKey, { exit: true }));
                 };
+                editorDom = editor.view.dom as HTMLElement;
+                previousRole = editorDom.getAttribute("role");
+                comboboxOn = true;
+                setMentionCombobox(editorDom, null);
+                editorDom.addEventListener("blur", onEditorBlur);
                 popup = document.createElement("div");
                 popup.dataset.testid = "mention-popup";
                 popup.style.position = "fixed";
@@ -344,6 +403,8 @@ export default function RichTextEditor({
               onKeyDown({ event }) {
                 if (event.key === "Escape") {
                   popup?.remove();
+                  comboboxOn = false;
+                  if (editorDom) clearMentionCombobox(editorDom, previousRole);
                   // Signal that this Escape was consumed by the mention popup so
                   // the useEscapeStack handler at priority 31 doesn't also cancel
                   // edit mode in the same keypress.
@@ -354,6 +415,12 @@ export default function RichTextEditor({
                 return component.ref?.onKeyDown({ event }) ?? false;
               },
               onExit() {
+                comboboxOn = false;
+                if (editorDom) {
+                  editorDom.removeEventListener("blur", onEditorBlur);
+                  clearMentionCombobox(editorDom, previousRole);
+                  editorDom = undefined;
+                }
                 resizeObserver?.disconnect();
                 window.removeEventListener("scroll", onScroll, true);
                 window.removeEventListener("resize", onResize);

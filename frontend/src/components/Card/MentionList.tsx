@@ -5,6 +5,12 @@ import { userDisplayName } from "../../types";
 interface Props {
   items: BoardUser[];
   command: (attrs: { id: string; label: string }) => void;
+  /**
+   * Reports the rendered listbox id and the active option id (null when no
+   * list is rendered) so the host can wire the combobox half of the ARIA
+   * pattern onto the editor element it owns (#2149).
+   */
+  onActiveChange?: (state: { listboxId: string; activeId: string } | null) => void;
 }
 
 export interface MentionListRef {
@@ -19,6 +25,17 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
   useEffect(() => {
     setSelectedIndex(0);
   }, [props.items]);
+
+  const { onActiveChange } = props;
+  const hasItems = props.items.length > 0;
+  const activeIndex = hasItems ? Math.min(selectedIndex, props.items.length - 1) : -1;
+  useEffect(() => {
+    onActiveChange?.(
+      activeIndex >= 0
+        ? { listboxId: `${baseId}-listbox`, activeId: `${baseId}-option-${activeIndex}` }
+        : null,
+    );
+  }, [onActiveChange, activeIndex, baseId]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown({ event }) {
