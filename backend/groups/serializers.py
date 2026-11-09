@@ -851,10 +851,18 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
     # understate the real response — declared here for the same
     # schema-accuracy reason as is_inherited/inherited_from above.
     id = serializers.IntegerField(read_only=True, allow_null=True)
+    # Not a model field; set by the members action for group admin readers only.
+    has_all_content_access = serializers.BooleanField(
+        read_only=True,
+        required=False,
+        help_text="Whether the member has all-content access, which always "
+                  "resolves to full access and overrides this row's role. "
+                  "Present only for a group admin reader, on every row.",
+    )
 
     class Meta:
         model = GroupMembership
-        fields = ["id", "user", "role", "joined_at", "is_inherited", "inherited_from"]
+        fields = ["id", "user", "role", "joined_at", "is_inherited", "inherited_from", "has_all_content_access"]
 
 
 class GroupMemberRoleUpdateSerializer(GroupMembershipSerializer):

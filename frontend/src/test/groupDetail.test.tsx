@@ -475,6 +475,32 @@ describe('GroupDetail', () => {
     expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
   })
 
+  it('shows effective access instead of a role picker for an all-content member, keeping Remove (#2075)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    const plainUser: User = { ...fakeUser, id: 4, username: 'bob', display_name: 'Bob Jones' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'viewer', joined_at: '', has_all_content_access: true },
+      { id: 4, user: plainUser, role: 'member', joined_at: '', has_all_content_access: false },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(aliceRow).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
+    expect(within(aliceRow).getByText(/not in effect while this account has all-content access/)).toBeInTheDocument()
+    expect(within(aliceRow).getByText('viewer')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
+    // A member without the flag keeps the picker.
+    const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
+    expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()
+    expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
+  })
+
   it('removes the member and shows no error when removal succeeds (#1386)', async () => {
     const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
     mockGetGroup.mockResolvedValue(fakeGroup)

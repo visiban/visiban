@@ -84,6 +84,8 @@ function removeBoardRows(matches: (b: Board) => boolean): BoardsWrite {
   };
 }
 
+const GROUP_FULL_ACCESS_DESCRIPTION = "Full access to all groups and boards. This account's group role doesn't apply.";
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -1342,7 +1344,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
-                      <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
+                      <div className="min-w-0">
+                        <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
+                        {!m.is_inherited && m.has_all_content_access === true && (
+                          <p className="text-xs text-fg-tertiary">
+                            Group role: <span className="capitalize">{m.role}</span> — not in effect while this account has all-content access.
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
@@ -1353,6 +1362,26 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     ) : isAdmin && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
                       <div className="flex items-center gap-2 shrink-0">
+                        {m.has_all_content_access === true ? (
+                          // All-content access resolves to full access before any
+                          // membership is consulted, so a picker here would change
+                          // nothing. Show the effective access and the stored role
+                          // (kept: it applies if the access is later revoked) and
+                          // leave Remove available for the explicit membership (#2075).
+                          <>
+                            <span
+                              tabIndex={0}
+                              aria-describedby={`group-member-fullaccess-${m.user.id}`}
+                              title={GROUP_FULL_ACCESS_DESCRIPTION}
+                              className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              Full access
+                            </span>
+                            <span id={`group-member-fullaccess-${m.user.id}`} className="sr-only">
+                              {GROUP_FULL_ACCESS_DESCRIPTION} Group role: {m.role}, not in effect.
+                            </span>
+                          </>
+                        ) : (
                         <SelectDropdown
                           value={m.role}
                           onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
@@ -1364,7 +1393,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ]}
                           size="xs"
                         />
-                        {m.role === "admin" && (
+                        )}
+                        {m.role === "admin" && m.has_all_content_access !== true && (
                           <RoleInfoTooltip label="Group Admin info">
                             <p className="text-xs font-semibold text-fg mb-1">Group Admin</p>
                             <p className="text-xs text-fg-tertiary">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
