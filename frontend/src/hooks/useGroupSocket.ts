@@ -121,8 +121,9 @@ export function useGroupSocket(
           onServerCloseRef.current?.();
           if (serverCloses > 1) { setStatus("failed"); return; }
         }
-        // Anything else reconnects, including 1011 (the server could not
-        // complete its access re-check; not a loss of access, #2003).
+        // Anything else reconnects, including 4503 (the server could not
+        // complete its access re-check; not a loss of access, #2003, #2142)
+        // and 1011 (an unexpected server error, which Daphne still sends).
         setStatus("reconnecting");
         setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);

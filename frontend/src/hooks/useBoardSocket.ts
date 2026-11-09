@@ -53,11 +53,13 @@ const PING_TIMEOUT_MS = 45_000;
  *     before such a close; the socket carries no frame in between, and the
  *     callback's REST resync is answered under the same access rule.
  *
- * Code 1011 is deliberately NOT in that list: the server sends it when its
- * mid-stream access re-check could not complete (a database outage, say), or
- * when it fails unexpectedly after the handshake. The user has not lost
- * access, so it takes the normal reconnect path; the reconnect re-runs the
- * server's full access check (#2003).
+ * Codes 4503 and 1011 are deliberately NOT in that list. The server closes
+ * with 4503 when its mid-stream access re-check could not complete (a
+ * database outage, say; #2003, #2142: before 1.3 it tried 1011, which Daphne
+ * cannot send in a server close). 1011 still arrives when the server fails
+ * unexpectedly after the handshake, or from a proxy. Neither means the user
+ * lost access, so both take the normal reconnect path; the reconnect re-runs
+ * the server's full access check.
  *
  * Keepalive: the server sends `{"event":"ping"}` every 30 seconds.  If no
  * message arrives within `PING_TIMEOUT_MS` (45 s), the client treats the
@@ -212,8 +214,9 @@ export function useBoardSocket(
           onServerCloseRef.current?.();
           if (serverCloses > 1) { setStatus("failed"); return; }
         }
-        // Unexpected close (including ping timeout 4002 and the server's
-        // transient re-check failure 1011, #2003) — schedule reconnect
+        // Unexpected close (including ping timeout 4002, the server's
+        // transient re-check failure 4503, and 1011, #2003/#2142) — schedule
+        // reconnect
         setStatus("reconnecting");
         setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);

@@ -272,7 +272,7 @@ class CacheSessionOutageTests(TestCase):
     Django's cache SessionStore.load() swallows cache errors and returns {},
     which would close the socket with the final 4003. The liveness check reads
     the cache directly so the error reaches the consumer (which maps it to
-    1011); an absent session must still fail closed.
+    the reconnectable 4503, #2142); an absent session must still fail closed.
     """
 
     def setUp(self):
@@ -303,7 +303,7 @@ class CacheSessionOutageTests(TestCase):
 
     @override_settings(SESSION_ENGINE=CACHE_ENGINE)
     def test_load_live_ws_user_propagates_a_cache_outage(self):
-        """The consumers' entry point raises (they map any raise to 1011), it
+        """The consumers' entry point raises (they map any raise to 4503), it
         does not return None (which they map to the final 4003)."""
         scope = {"user": self.user, **bound_scope(self.user)}
         self.assertEqual(load_live_ws_user(scope), self.user)

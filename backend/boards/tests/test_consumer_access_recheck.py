@@ -156,9 +156,9 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         for _ in range(200):
             self.assertTrue(0 <= consumers_module._jitter() <= ACCESS_RECHECK_JITTER_SECONDS)
 
-    def test_recheck_exception_fails_closed_with_1011_and_logs(self):
+    def test_recheck_exception_fails_closed_with_4503_and_logs(self):
         """A DB outage during the re-check drops the frame and closes with the
-        reconnectable 1011, not the final 4003 (#2003)."""
+        reconnectable 4503, not the final 4003 (#2003)."""
         consumer = self._consumer()
         verified_at = consumer._access_verified_at
         consumer._refresh_role = AsyncMock(side_effect=OperationalError("db host secret-detail"))
@@ -167,7 +167,7 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         with self.assertLogs("boards.consumers", level="WARNING") as logs:
             self.assertIsNone(self._deliver(consumer, _card_frame()))
         consumer.send.assert_not_called()
-        consumer.close.assert_called_once_with(code=1011)
+        consumer.close.assert_called_once_with(code=4503)
         self.assertIsNone(consumer._role)
         output = "\n".join(logs.output)
         self.assertIn("board access re-check failed", output)
@@ -175,9 +175,9 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         self.assertNotIn("secret-detail", output)  # class name only, never the message
         self.assertEqual(consumer._access_verified_at, verified_at)  # not cached
 
-    def test_access_lookup_error_closes_with_1011_and_denial_with_4003(self):
+    def test_access_lookup_error_closes_with_4503_and_denial_with_4003(self):
         """The split is decided by the access lookup itself (#2003): the same
-        frame closes with 1011 when the role lookup raises, and with 4003 once
+        frame closes with 4503 when the role lookup raises, and with 4003 once
         the lookup completes and finds no access."""
         consumer = self._consumer()
         self.clock.advance(ACCESS_RECHECK_SECONDS)
@@ -185,7 +185,7 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
             "boards.consumers._lookup_role", side_effect=OperationalError("db host secret-detail")
         ), self.assertLogs("boards.consumers", level="WARNING"):
             self.assertIsNone(self._deliver(consumer, _card_frame()))
-        consumer.close.assert_called_once_with(code=1011)
+        consumer.close.assert_called_once_with(code=4503)
 
         consumer = self._consumer()
         self.membership.delete()
@@ -193,15 +193,15 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         self.assertIsNone(self._deliver(consumer, _card_frame()))
         consumer.close.assert_called_once_with(code=4003)
 
-    def test_self_subject_forced_recheck_error_closes_with_1011(self):
-        """The #1332 forced re-check splits the same way: an error is 1011."""
+    def test_self_subject_forced_recheck_error_closes_with_4503(self):
+        """The #1332 forced re-check splits the same way: an error is 4503."""
         consumer = self._consumer()
         consumer._refresh_role = AsyncMock(side_effect=OperationalError("db down"))
         frame = {"event": "member.updated", "data": {"user": {"id": self.subscriber.pk}, "role": "member"}}
 
         with self.assertLogs("boards.consumers", level="WARNING"):
             self.assertIsNone(self._deliver(consumer, frame))
-        consumer.close.assert_called_once_with(code=1011)
+        consumer.close.assert_called_once_with(code=4503)
 
     def test_never_verified_consumer_fails_closed(self):
         """No connect()-time stamp means the first frame is re-checked, not trusted."""

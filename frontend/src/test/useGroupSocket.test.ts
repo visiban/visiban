@@ -157,12 +157,14 @@ describe('useGroupSocket', () => {
     })
   })
 
-  it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
+  // 4503 since #2142; 1011 stays retryable (Daphne, or a proxy, sends it).
+  it.each([4503, 1011])('reconnects on a transient server failure (code %i), not failed (#2003, #2142)', (code) => {
     const onReconnected = vi.fn()
     const { result } = renderHook(() => useGroupSocket(1, vi.fn(), { onReconnected }))
     act(() => { latestWS().onopen?.() })
-    act(() => { latestWS().onclose?.({ code: 1011 }) })
+    act(() => { latestWS().onclose?.({ code }) })
     expect(result.current.status).toBe('reconnecting')
+    expect(probeSession).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(3000) })
     expect(instances).toHaveLength(2)
     act(() => { latestWS().onopen?.() })

@@ -47,7 +47,8 @@ Visiban provides a WebSocket endpoint for real-time board updates. Clients conne
 |------|---------|
 | `4001` | Not authenticated — no valid session, and no valid ticket |
 | `4003` | Not a board member — the authenticated user does not have access to this board. Since 1.2, it can also arrive mid-stream on an open connection, when access is lost, when the account has a pending password or username change, or when the connection's credential is revoked. A later reconnect can succeed once a pending change is completed. See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
-| `1011` | Internal error (since 1.2 for this case) — the server could not complete its mid-stream access re-check, for example during a database outage. Not a loss of access: reconnect (the web app retries after a fixed 3-second delay; exponential backoff is tracked in #606). See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
+| `4503` | Server error, retry (since 1.3, #2142) — the server could not complete its mid-stream access re-check, for example during a database outage. Not a loss of access: reconnect (the web app retries after a fixed 3-second delay; exponential backoff is tracked in #606). See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
+| `1011` | Internal error — retryable, handle it like `4503`. Sent when the server fails unexpectedly after the handshake. In 1.2 a failed mid-stream access re-check also arrived as `1011`; since 1.3 it closes with `4503` |
 
 ### Message envelope
 

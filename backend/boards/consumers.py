@@ -65,15 +65,23 @@ ACCESS_RECHECK_JITTER_SECONDS = 2
 
 # Close codes for a frame-path access re-check (docs/api/websockets.md). 4003
 # means the check completed and found no access: the client treats it as final.
-# 1011 (the standard "internal error" code) means the check itself raised, a
-# database outage for example: the client reconnects (the web app after its
-# fixed 3 s reconnect delay; exponential backoff is tracked in #606).
+# 4503 means the check itself raised, a database outage for example: the
+# client reconnects (the web app after its fixed 3 s reconnect delay;
+# exponential backoff is tracked in #606).
 # Why two codes (#2003): a single 4003 for both told a user who still has
 # access that they had lost it, and kept their tab offline until a reload.
-# Daphne also sends 1011 when a consumer raises after accept, so the code
-# already means "server error, retry" on this channel. Shared with GroupConsumer.
+# Why 4503 and not the standard 1011 (#2142): Daphne passes a server close
+# through autobahn, which accepts only 1000 and 3000-4999 there, so
+# close(code=1011) raised inside the consumer; Daphne's crash handler then
+# sent 1011 itself and logged an ERROR traceback, and disconnect() never ran
+# (the channel-layer group kept the dead channel and the ping task was never
+# canceled). 4503 follows the 4000 + HTTP status pattern of 4001 and 4003:
+# 503, retry later, the status REST answers a backend outage with (#2143).
+# Clients must keep treating 1011 as retryable too: Daphne still sends it
+# when a consumer raises after accept, and a proxy may send it. Shared with
+# GroupConsumer.
 CLOSE_ACCESS_DENIED = 4003
-CLOSE_ACCESS_CHECK_FAILED = 1011
+CLOSE_ACCESS_CHECK_FAILED = 4503
 # Close code for a handshake with no valid credential: the client treats it as
 # "signed out" (the web app signs the user out, #2037). Shared with
 # GroupConsumer; sent through refuse_handshake so it reaches the client (#2145).
@@ -219,7 +227,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
                     allowed = True
                 if not allowed:
                     self._role = None
-                    await self.close(code=4003)
+                    await self.close(code=CLOSE_ACCESS_DENIED)
                     return
                 await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
@@ -290,7 +298,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # member.removed frame was lost, or one that committed after this
             # frame was queued — the code connect() uses for the same
             # condition, so the client stops rather than reconnecting into a
-            # 4003 anyway), or the check itself failed (1011, see
+            # 4003 anyway), or the check itself failed (4503, see
             # _access_close_code). Either way this frame is not forwarded.
             self._role = None
             await self.close(code=close_code)
@@ -350,18 +358,19 @@ class BoardConsumer(AsyncWebsocketConsumer):
         window. A failed one is never cached: the caller closes the socket.
 
         A definitive denial returns CLOSE_ACCESS_DENIED (4003). A check that
-        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (1011).
+        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (4503).
         Why fail closed on an error at all: forwarding would send board data
         on an unverified grant. Why not 4003 (#2003): the client treats 4003
         as final, so a brief outage would tell users who still have access
         that they lost it and keep their tabs offline until a reload. With
-        1011 the client reconnects (the web app after its fixed 3 s delay;
-        backoff is #606); while the outage
-        lasts the handshake fails too and the client keeps retrying, and once
-        the DB is back the reconnect re-runs connect()'s full access check.
-        Why not let the exception escape: Daphne would also send 1011, but
-        the log line would carry the exception message, which can include
-        DB connection details.
+        4503 the client reconnects (the web app after its fixed 3 s delay;
+        backoff is #606); while the outage lasts the handshake fails too and
+        the client keeps retrying, and once the DB is back the reconnect
+        re-runs connect()'s full access check. Why not 1011: Daphne cannot
+        send it in a server close (#2142, see CLOSE_ACCESS_CHECK_FAILED).
+        Why not let the exception escape: Daphne would send 1011, but the
+        log line would carry the exception message, which can include DB
+        connection details, and disconnect() would never run.
         """
         try:
             allowed = await self._check_access(force=force)

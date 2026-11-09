@@ -66,9 +66,10 @@ database raised while redeeming a ticket, or the cache-only session backend
 raised while reading the cookie's session — is refused with
 ``CLOSE_AUTH_UNAVAILABLE`` (1011), never with 4001 and never admitted. 4001
 tells a client its credential is gone (the web app signs the user out on it);
-an outage says nothing about the credential. 1011 is the code the consumers
-already use when their mid-stream re-check cannot complete (#2003, #2014), so
-the same "server error, retry" reading holds before and after accept.
+an outage says nothing about the credential. 1011 is the standard "server
+error, retry" code. The consumers' mid-stream re-check failure means the same
+but closes with 4503 (#2003, #2142): it is sent after accept, where Daphne
+cannot send 1011.
 
 Transport caveat: the 1011 refusal happens before accept. The ASGI spec has
 the server answer a close before accept with HTTP 403, and Daphne does so
@@ -142,9 +143,11 @@ _CREDENTIAL_KINDS = (CREDENTIAL_SESSION, CREDENTIAL_PAT, CREDENTIAL_TOKEN)
 _TICKET_SESSION_INFO = b"visiban.ws-ticket-session-key.v1"
 
 # Close code for a handshake whose authentication could not be evaluated
-# (#2086, see the module docstring). Same value as the consumers'
-# CLOSE_ACCESS_CHECK_FAILED; restated rather than imported because
-# boards.consumers imports this module.
+# (#2086, see the module docstring). Sent before accept, so it reaches a client
+# as a refused upgrade whatever its value. Not the consumers'
+# CLOSE_ACCESS_CHECK_FAILED (4503, #2142), which is sent after accept, where
+# Daphne refuses 1011; this one stays 1011 because before accept the code is
+# never on the wire, and changing it would change nothing a client sees.
 CLOSE_AUTH_UNAVAILABLE = 1011
 
 logger = logging.getLogger(__name__)
@@ -411,7 +414,7 @@ def _session_is_live(session_key: str, user) -> bool:
         # every cache exception and returns {}, so a cache outage would read as
         # "session revoked" and close the socket with the final 4003. Read the
         # cache directly so an outage raises and the consumer closes with the
-        # reconnectable 1011 (#2003). A genuine miss still returns None, which
+        # reconnectable 4503 (#2003, #2142). A genuine miss still returns None, which
         # fails closed below. cached_db is not matched here (it subclasses the
         # db store) and keeps using load().
         if not store.session_key:
@@ -783,8 +786,9 @@ class HandshakeOutageMiddleware(BaseMiddleware):
     reaches a consumer after an outage. Only the bounded set from
     ``_handshake_outage_errors`` is caught, and only while the handshake is
     still undecided: once anything inside has sent an accept or a close, the
-    exception is re-raised unchanged (after accept that is the consumers'
-    existing 1011 path, #2003, #2142).
+    exception is re-raised unchanged (after accept, a re-check failure is the
+    consumers' own 4503 close, and anything else that escapes is Daphne's
+    1011, #2003, #2142).
 
     Transport caveat: this refusal is sent before accept, and Daphne answers
     a close before accept with HTTP 403 whatever the code, so a browser sees a
