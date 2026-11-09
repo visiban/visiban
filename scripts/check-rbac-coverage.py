@@ -800,7 +800,18 @@ def _caller_names(fn: ast.AST, trusted: frozenset, methods, mod: Module) -> set[
                 if not new <= caller:
                     caller |= new
                     changed = True
-    return caller
+    # Statement order is not tracked, so a name later rebound to anything that
+    # is not the caller (``role = member_role``) cannot be trusted at every
+    # comparison. Fail closed: drop it unless it is a trusted parameter.
+    rebound = set()
+    for targets, value in assigns:
+        if _is_caller_expr(value, caller, methods, mod):
+            continue
+        for t in targets:
+            for n in ast.walk(t):
+                if isinstance(n, ast.Name):
+                    rebound.add(n.id)
+    return caller - (rebound - set(trusted))
 
 
 def _trusted_params(call: ast.Call, target: ast.FunctionDef, caller: set[str], methods, mod: Module) -> frozenset:
@@ -954,10 +965,14 @@ def _scan_gates(
                 _is_caller_expr(a, caller, methods, mod)
                 for a in (*call.args, *(kw.value for kw in call.keywords))
             )
-            if handed_caller and (
-                tail not in GATE_PREDICATE_NAMES or _consumed(call, fn, parents)
-            ):
-                ev.role_gate = True
+            if handed_caller:
+                if tail in GATE_PREDICATE_NAMES:
+                    # A predicate refuses only where its answer is acted on, and
+                    # inside a helper that is the helper's caller's call: let the
+                    # raise-or-returned_gate logic below decide (#2116).
+                    cmp_gate = True
+                else:
+                    ev.role_gate = True
         if dotted.split(".", 1)[0] in ROLE_DELEGATION_ROOTS and any(
             kw.arg == ROLE_DELEGATION_KWARG
             and _is_caller_expr(kw.value, caller, methods, mod)
@@ -1332,7 +1347,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import BoardMembership, Card, CardComment
+from ..models import BoardMembership, Card, CardAttachment, CardComment
 from ..permissions import SITE_ADMIN, get_board_for_user
 
 
@@ -1528,6 +1543,28 @@ class TargetRowViewSet(viewsets.ModelViewSet):
             if not _can_modify_others_content(board, role, request.user):
                 raise PermissionDenied
         card.save()
+
+    @action(detail=True, methods=["post"])
+    def attachments(self, request, board_pk=None, pk=None):
+        board, role = self._board_and_role()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        denied = _annotation_denied(role)
+        if denied is not None:
+            return denied
+        CardAttachment.objects.create(card=card, uploaded_by=request.user)
+
+    @action(detail=True, methods=["delete"], url_path=r"attachments/(?P<attachment_pk>[0-9]+)")
+    def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
+        board, role = self._board_and_role()
+        denied = _annotation_denied(role)
+        if denied is not None:
+            return denied
+        card = get_object_or_404(Card, pk=pk, board=board)
+        attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
+        if attachment.uploaded_by != request.user:
+            if not _can_modify_others_content(board, role, request.user):
+                raise PermissionDenied
+        attachment.delete()
 '''
 
 _FIXTURE = {
@@ -1974,6 +2011,100 @@ def self_test() -> int:
                 "        card = ",
             ),
             "TargetRowViewSet::@action delete_comment [delete]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "the ownership exception alone is not a minimum role (delete_attachment)",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        card = get_object_or_404(Card, pk=pk, board=board)\n"
+                "        attachment = ",
+                "        card = get_object_or_404(Card, pk=pk, board=board)\n"
+                "        attachment = ",
+            ),
+            "TargetRowViewSet::@action delete_attachment [delete]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "a returned denial nobody acts on is not a role gate (attachments)",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardAttachment.objects.create(",
+                "        denied = _annotation_denied(role)\n"
+                "        CardAttachment.objects.create(",
+            ),
+            "TargetRowViewSet::@action attachments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # A same-module wrapper around a predicate that never raises passes
+            # its answer up; the handler dropping it must not count as a gate.
+            "a predicate gate behind a non-raising helper whose result is dropped",
+            {"backend/groups/views.py": _FIXTURE_GROUPS.replace(
+                "def _require_group_member(user, group):",
+                "def _is_group_admin(user, group):\n"
+                "    return user_is_group_admin(user, group)\n\n\n"
+                "def _require_group_member(user, group):",
+                1,
+            ).replace(
+                "        group = self.get_object()\n"
+                "        _require_group_admin(request.user, group)\n"
+                "        locked = ",
+                "        group = self.get_object()\n"
+                "        _is_group_admin(request.user, group)\n"
+                "        locked = ",
+                1,
+            )},
+            "GroupViewSet::@action update_member [delete,patch]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "the same predicate wrapper still gates when its result is acted on",
+            {"backend/groups/views.py": _FIXTURE_GROUPS.replace(
+                "def _require_group_member(user, group):",
+                "def _is_group_admin(user, group):\n"
+                "    return user_is_group_admin(user, group)\n\n\n"
+                "def _require_group_member(user, group):",
+                1,
+            ).replace(
+                "        group = self.get_object()\n"
+                "        _require_group_admin(request.user, group)\n"
+                "        locked = ",
+                "        group = self.get_object()\n"
+                "        if not _is_group_admin(request.user, group):\n"
+                "            raise PermissionDenied\n"
+                "        locked = ",
+                1,
+            )},
+            None,
+            None,
+            {},
+        ),
+        (
+            # Statement order is not tracked, so a name rebound to a body value
+            # is no longer the caller's role anywhere.
+            "a caller role name rebound to a request-body role is not a role gate",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        member_role = request.data.get(\"role\", BoardMembership.Role.MEMBER)\n"
+                "        if member_role not in BoardMembership.Role.values:\n",
+                "        member_role = request.data.get(\"role\", BoardMembership.Role.MEMBER)\n"
+                "        role = member_role\n"
+                "        if role not in BoardMembership.Role.values:\n",
+            ),
+            "TargetRowViewSet::@action members [post]: no minimum-role check",
             None,
             {},
         ),
