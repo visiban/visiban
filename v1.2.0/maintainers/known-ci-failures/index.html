@@ -4103,6 +4103,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool download 504 Gateway Time-out (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4660,6 +4671,21 @@ the code), add it to <code>EXEMPT_JOBS</code> with its reason on a branch, so th
 <p><code>scripts/release.sh</code> still checks the merge commit's pipeline before it tags. That check runs
 on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
 covers tags pushed by hand.</p>
+<h2 id="tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign">Tool download <code>504 Gateway Time-out</code> (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)<a class="headerlink" href="#tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> a job that installs a third-party binary (<code>helm-template</code>, <code>helm-install</code>,
+<code>helm-netpol</code>, <code>dep-scan-osv</code>, <code>gitleaks-*</code>, the manifest/attest/publish jobs) fails with a
+confusing downstream error such as <code>/usr/local/bin/yq: line 1: syntax error near unexpected
+token '&lt;'</code> or <code>kind: not found</code>. Upstream hosts (GitHub releases, <code>kind.sigs.k8s.io</code>,
+<code>dl.k8s.io</code>, <code>get.helm.sh</code>) occasionally return a transient 504, and a plain retry goes green.</p>
+<p><strong>Root cause:</strong> the downloads used <code>curl -sSL</code> without <code>-f</code> (so the HTML error page was saved as
+the binary), or sat in a <code>cmd &amp;&amp; chmod</code> list or a <code>curl | tar</code> pipe that hid curl's exit status.
+Separately, the <code>wget</code> jobs and the jobs that already used <code>-f</code> had no retry, so one transient 5xx
+failed a required job (#2160).</p>
+<p><strong>Fix (in place):</strong> every tool download now runs <code>curl -fsSL --retry 3 --retry-all-errors
+--retry-delay 5</code>, one step per script line, so a persistent failure stops the job at the
+download line with curl's own error (<code>curl: (22) ... error: 504</code>). If you see that error after the
+retries, the upstream is genuinely down or the pinned version URL is wrong; re-run later or fix
+the version pin. New tool downloads in <code>.gitlab-ci.yml</code> must follow the same pattern.</p>
 
 
 
