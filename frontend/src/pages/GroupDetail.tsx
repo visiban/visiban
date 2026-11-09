@@ -128,6 +128,12 @@ function GroupFullAccessChip({ userId, role, describeRole = false }: { userId: n
   );
 }
 
+// A 403/404 on a read means the group was deleted or access to it was lost.
+function isAccessLoss(err: unknown): boolean {
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  return status === 404 || status === 403;
+}
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -390,8 +396,32 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     if (raw) pendingRefocusRef.current = Number(raw);
   }, []);
 
-  // Refetch every list on this page whose rows carry an inherited health
-  // status (#1133): subgroups, direct boards, and subgroup boards when shown.
+  // Set while this session is deleting the group, so its own socket echo of
+  // group.deleted does not flash the unavailable page before it navigates away.
+  const selfDeletingRef = useRef(false);
+  // Latest route group, so late responses for a previous group can be dropped.
+  const groupIdRef = useRef(groupId);
+  groupIdRef.current = groupId;
+
+  // Re-read the group to find out whether it is still reachable (#2041): used
+  // when the socket reports lost access or the group was deleted elsewhere. A
+  // 404/403 swaps in the unavailable page; any other outcome changes nothing.
+  const refetchForAccess = useCallback(() => {
+    getGroup(groupId).catch((err: unknown) => {
+      // A late answer for a group we have since left must not mark this one.
+      if (groupIdRef.current !== groupId) return;
+      if (isAccessLoss(err)) setUnavailable(true);
+    });
+  }, [groupId]);
+  // A reconnect or late-first-open re-read that answers 403/404 goes through the
+  // same handling as a frame-driven one (#2162). The group's own re-read is the
+  // answer; any other list may 403/404 for its own reasons, so it re-confirms
+  // through the group before the page is swapped.
+  const handleGroupReadError = useCallback((err: unknown) => {
+    if (groupIdRef.current !== groupId || selfDeletingRef.current) return;
+    if (isAccessLoss(err)) refetchForAccess();
+  }, [groupId, refetchForAccess]);
+
   // A ref, so the socket handler does not re-subscribe when the toggle flips.
   const showSubgroupBoardsRef = useRef(false);
   const directBoardIdsRef = useRef<Set<number>>(new Set());
@@ -441,9 +471,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         boardsRereadAppliedRef.current = true;
         setBoards(replay.reduce((list, write) => write(list), b));
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         // Stay with the current list.
         if (seq !== boardsSeqRef.current) return;
+        handleGroupReadError(err);
         if (loadedAtRef.current === null) {
           // The initial load is still pending and will replace the list: keep
           // the frames recorded so far so it can carry them over (#2150).
@@ -452,53 +483,37 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           boardsReplayRef.current = null;
         }
       });
-  }, [groupId]);
+  }, [groupId, handleGroupReadError]);
   const readGroup = groupState.read;
   const readSubgroups = subgroupsState.read;
   const readMembers = membersState.read;
   const readSubgroupBoards = subgroupBoardsState.read;
   // The group's is_starred lives in separate state, so a re-read applies it too,
-  // unless a star write landed since the read started. A failed re-read
-  // (including a 403/404 for a group deleted or lost meanwhile) is swallowed
-  // here; surfacing it as the unavailable page is tracked in #2162.
+  // unless a star write landed since the read started. A failed re-read is
+  // swallowed, except a 403/404 (a group deleted or lost meanwhile), which
+  // swaps in the unavailable page (#2162).
   const refetchGroup = useCallback(() => {
     const starSeq = starSeqRef.current;
     readGroup(() => getGroup(groupId), {
+      onError: handleGroupReadError,
       onApplied: (g) => { if (g && starSeq === starSeqRef.current) setIsStarredState(g.is_starred); },
     });
-  }, [readGroup, groupId]);
-  const refetchSubgroups = useCallback(() => readSubgroups(() => getSubgroups(groupId)), [readSubgroups, groupId]);
-  const refetchMembers = useCallback(() => readMembers(() => getGroupMembers(groupId)), [readMembers, groupId]);
+  }, [readGroup, groupId, handleGroupReadError]);
+  const refetchSubgroups = useCallback(() => readSubgroups(() => getSubgroups(groupId), { onError: handleGroupReadError }), [readSubgroups, groupId, handleGroupReadError]);
+  const refetchMembers = useCallback(() => readMembers(() => getGroupMembers(groupId), { onError: handleGroupReadError }), [readMembers, groupId, handleGroupReadError]);
   // The descendant endpoint also returns the direct boards; drop those, as the
   // toggle's own load does.
   const refetchSubgroupBoards = useCallback(() => readSubgroupBoards(
     () => getGroupDescendantBoards(groupId).then((bs) => bs.filter((b) => !directBoardIdsRef.current.has(b.id))),
-    { onSettled: () => setLoadingSubgroupBoards(false) },
-  ), [readSubgroupBoards, groupId]);
+    { onError: handleGroupReadError, onSettled: () => setLoadingSubgroupBoards(false) },
+  ), [readSubgroupBoards, groupId, handleGroupReadError]);
+  // Refetch every list on this page whose rows carry an inherited health
+  // status (#1133): subgroups, direct boards, and subgroup boards when shown.
   const refreshHealthListings = useCallback(() => {
     refetchSubgroups();
     refetchBoardsList();
     if (showSubgroupBoardsRef.current) refetchSubgroupBoards();
   }, [refetchSubgroups, refetchBoardsList, refetchSubgroupBoards]);
-
-  // Set while this session is deleting the group, so its own socket echo of
-  // group.deleted does not flash the unavailable page before it navigates away.
-  const selfDeletingRef = useRef(false);
-  // Latest route group, so late responses for a previous group can be dropped.
-  const groupIdRef = useRef(groupId);
-  groupIdRef.current = groupId;
-
-  // Re-read the group to find out whether it is still reachable (#2041): used
-  // when the socket reports lost access or the group was deleted elsewhere. A
-  // 404/403 swaps in the unavailable page; any other outcome changes nothing.
-  const refetchForAccess = useCallback(() => {
-    getGroup(groupId).catch((err: unknown) => {
-      // A late answer for a group we have since left must not mark this one.
-      if (groupIdRef.current !== groupId) return;
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 404 || status === 403) setUnavailable(true);
-    });
-  }, [groupId]);
 
   const handleGroupEvent = useCallback((evt: BoardEvent) => {
     const data = evt.data as { id?: number; board_id?: number; board_uid?: string } & Record<string, unknown>;
