@@ -381,8 +381,9 @@ token '<'` or `kind: not found`. Upstream hosts (GitHub releases, `kind.sigs.k8s
 `dl.k8s.io`, `get.helm.sh`) occasionally return a transient 504, and a plain retry goes green.
 
 **Root cause:** the downloads used `curl -sSL` without `-f` (so the HTML error page was saved as
-the binary), or sat in a `cmd && chmod` list or a `curl | tar` pipe that hid curl's exit status
-(#2160).
+the binary), or sat in a `cmd && chmod` list or a `curl | tar` pipe that hid curl's exit status.
+Separately, the `wget` jobs and the jobs that already used `-f` had no retry, so one transient 5xx
+failed a required job (#2160).
 
 **Fix (in place):** every tool download now runs `curl -fsSL --retry 3 --retry-all-errors
 --retry-delay 5`, one step per script line, so a persistent failure stops the job at the
