@@ -513,6 +513,39 @@ describe('Dashboard — rejection paths (#1374)', () => {
     expect(screen.getByText('Board Alpha')).toBeInTheDocument()
     expect(screen.queryByText('Board Beta')).not.toBeInTheDocument()
   })
+
+  // #1385 — if the failed board is already back in the list when the rollback
+  // runs (a duplicate/partial reconcile), the re-insert must be a no-op.
+  it('does not duplicate the failed board when it is already back in the list at rollback (#1385)', async () => {
+    const mk = (id: number, name: string) => ({ id, name, description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' })
+    mockListBoards.mockResolvedValueOnce([mk(1, 'Board Alpha')])
+    mockListGroups.mockResolvedValue([])
+    let rejectA: (e: Error) => void = () => undefined
+    mockDeleteBoard.mockImplementation(() => new Promise((_, reject) => { rejectA = reject }))
+    // The reconciling refetch fails, so only the id-based re-insert runs.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+    // A create resolves with the same id while the delete is in flight,
+    // putting the board back in the list before the rollback runs.
+    mockCreateBoard.mockResolvedValue(mk(1, 'Board Alpha'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Board Alpha')
+    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText('Board Alpha')).not.toBeInTheDocument())
+
+    await user.click(screen.getByText('+ New board'))
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'Board Alpha')
+    await user.click(screen.getByRole('button', { name: 'Create Board' }))
+    await screen.findByText('Board Alpha')
+
+    rejectA(new Error('server error'))
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+    expect(screen.getAllByText('Board Alpha')).toHaveLength(1)
+  })
 })
 
 // #1374 — navigate(...) after create/import/Trello-import was wrapped in void

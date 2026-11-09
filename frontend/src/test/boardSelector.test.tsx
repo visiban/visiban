@@ -11,9 +11,10 @@ vi.mock('../api/boards', () => ({
   listBoardTemplates: vi.fn().mockResolvedValue([]),
 }))
 
-import { listBoards, deleteBoard } from '../api/boards'
+import { listBoards, deleteBoard, createBoard } from '../api/boards'
 
 const mockListBoards = listBoards as ReturnType<typeof vi.fn>
+const mockCreateBoard = createBoard as ReturnType<typeof vi.fn>
 const mockDeleteBoard = deleteBoard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
@@ -224,6 +225,36 @@ describe('BoardSelector', () => {
 
     await user.click(screen.getByTitle('Delete board'))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps a board created while a delete is in flight when that delete fails (#1385)', async () => {
+    const mk = (id: number, name: string) => ({ id, uid: `b-${id}`, name, description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' })
+    mockListBoards.mockReset()
+    mockListBoards.mockResolvedValueOnce([mk(1, 'Board A')])
+    // The reconciling refetch also fails, so only the id-based re-insert runs.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+    let rejectDelete: (e: Error) => void = () => {}
+    mockDeleteBoard.mockReset()
+    mockDeleteBoard.mockImplementation(() => new Promise<void>((_, reject) => { rejectDelete = reject }))
+    mockCreateBoard.mockResolvedValue(mk(9, 'Fresh Board'))
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('Board A')
+
+    await user.click(screen.getByRole('button', { name: 'Delete Board A' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText('Board A')).not.toBeInTheDocument())
+
+    // A create succeeds while the delete is still pending.
+    await user.click(screen.getByText('+ New board'))
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'Fresh Board')
+    await user.click(screen.getByRole('button', { name: 'Create Board' }))
+    await screen.findByText('Fresh Board')
+
+    rejectDelete(new Error('server error'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to delete board.')
+    expect(screen.getByText('Board A')).toBeInTheDocument()
+    expect(screen.getByText('Fresh Board')).toBeInTheDocument()
   })
 
   it('disables every delete trigger while a delete is in flight, re-enabling once it settles', async () => {
