@@ -460,7 +460,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     )
   })
 
-  it('falls back to the pre-delete snapshot when both the delete and the reconciling refetch fail', async () => {
+  it('re-inserts the failed board when both the delete and the reconciling refetch fail', async () => {
     const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
     mockListBoards.mockResolvedValueOnce([board])
     mockListGroups.mockResolvedValue([])
@@ -474,7 +474,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     await user.click(screen.getByTitle('Delete board'))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
-    // The board is restored from the pre-delete snapshot rather than left missing.
+    // The board is re-inserted by id rather than left missing.
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
