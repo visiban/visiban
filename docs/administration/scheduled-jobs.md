@@ -1,6 +1,6 @@
 # Schedule the four maintenance commands Visiban needs
 
-Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. The two prune jobs stay off until you enable each one.
+Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. On Compose the board-event prune also runs by default; the notification prune stays off until you enable it. On Helm both prune jobs stay off until you enable each one.
 
 **Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.
 
@@ -20,7 +20,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 |---|---|---|---|
 | `notify_due_soon` | [Due-date notifications](../features/notifications.md#due-date-notifications) for opted-in assignees | 07:00 | Yes |
 | `notify_stale_cards` | [Staleness notifications](../features/notifications.md#staleness-notifications) for opted-in users | 08:00 | Yes |
-| `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | No |
+| `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | Yes on Compose, No on Helm |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
 
 **Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. On the Compose scheduler, `prune_board_events` also runs by default (since 1.3), because the change feed keeps card payloads until pruned. `prune_notifications` deletes user data and stays off until you enable it. The Helm chart is unchanged: both prune CronJobs stay `enabled: false` until you enable them, so on Helm turn on `scheduledJobs.pruneBoardEvents.enabled` yourself.

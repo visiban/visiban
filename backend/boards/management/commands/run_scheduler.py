@@ -59,8 +59,9 @@ class JobSpec:
     default: str
 
 
-# Defaults match helm/visiban/values.yaml `scheduledJobs`, so a Compose install
-# and a Kubernetes install run the same jobs at the same times.
+# Default times match helm/visiban/values.yaml `scheduledJobs` (03:00 here is the
+# Helm CronJob `0 3 * * *`). The on/off default for prune_board_events differs on
+# purpose: it is on here (#2074), while the Helm prune CronJobs stay disabled.
 JOB_SPECS = (
     JobSpec("prune_board_events", "SCHEDULE_PRUNE_BOARD_EVENTS", "03:00"),
     JobSpec("prune_notifications", "SCHEDULE_PRUNE_NOTIFICATIONS", "off"),
