@@ -3,6 +3,37 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 /** Gap kept between a fixed popover and the viewport edge (#1455). */
 export const POPOVER_VIEWPORT_MARGIN = 8;
 
+/**
+ * The part of the layout viewport the user can actually see (#2138), in the
+ * viewport coordinates a `position: fixed` element and `getBoundingClientRect`
+ * use. On a phone the on-screen keyboard (and pinch zoom) shrinks
+ * `window.visualViewport` but not `window.innerHeight`, so a popover measured
+ * against `innerHeight` can land under the keyboard. Falls back to the window
+ * when `visualViewport` is unavailable (older browsers, jsdom).
+ */
+export function getVisibleViewport(): { top: number; height: number } {
+  const vv = typeof window === "undefined" ? undefined : window.visualViewport;
+  if (vv && vv.height > 0) return { top: vv.offsetTop, height: vv.height };
+  return { top: 0, height: window.innerHeight };
+}
+
+/**
+ * Calls `callback` when the visual viewport resizes or scrolls (keyboard
+ * opening or closing, pinch zoom, the browser panning the page to keep a
+ * focused field in view). A no-op where `visualViewport` is unavailable.
+ * Returns the cleanup that removes both listeners.
+ */
+export function subscribeVisualViewport(callback: () => void): () => void {
+  const vv = typeof window === "undefined" ? undefined : window.visualViewport;
+  if (!vv) return () => {};
+  vv.addEventListener("resize", callback);
+  vv.addEventListener("scroll", callback);
+  return () => {
+    vv.removeEventListener("resize", callback);
+    vv.removeEventListener("scroll", callback);
+  };
+}
+
 /** Which side of the anchor a `below`-mode popover was placed on. */
 export type AnchoredSide = "below" | "above" | "pinned";
 
@@ -11,6 +42,8 @@ interface PlacementInput {
   anchorBottom: number;
   height: number;
   viewportHeight: number;
+  /** Top of the visible region in viewport coordinates (`visualViewport.offsetTop`); default 0 (#2138). */
+  viewportTop?: number;
   mode?: "below" | "side";
   margin?: number;
   gap?: number;
@@ -37,7 +70,17 @@ interface PlacementInput {
  * Never estimate `height` from an item count — a popover sized to its content
  * is the whole point.
  */
-export function computeAnchoredPlacement({
+export function computeAnchoredPlacement(input: PlacementInput): { top: number; side: AnchoredSide } {
+  const vt = input.viewportTop ?? 0;
+  if (vt === 0) return computeInVisibleBox(input);
+  // Solve in the visible box's own coordinates, then shift back.
+  const placement = computeInVisibleBox({
+    ...input, anchorTop: input.anchorTop - vt, anchorBottom: input.anchorBottom - vt,
+  });
+  return { top: placement.top + vt, side: placement.side };
+}
+
+function computeInVisibleBox({
   anchorTop, anchorBottom, height, viewportHeight, mode = "below",
   margin = POPOVER_VIEWPORT_MARGIN, gap = 4, lockedSide,
 }: PlacementInput): { top: number; side: AnchoredSide } {
@@ -85,9 +128,10 @@ export function placeFixedElement(
   const height = el.offsetHeight;
   if (height === 0) return undefined;
   el.style.left = `${anchor.left}px`;
+  const vv = getVisibleViewport();
   const placement = computeAnchoredPlacement({
     anchorTop: anchor.top, anchorBottom: anchor.bottom, height,
-    viewportHeight: window.innerHeight, lockedSide,
+    viewportHeight: vv.height, viewportTop: vv.top, lockedSide,
   });
   el.style.top = `${placement.top}px`;
   el.style.visibility = "";
@@ -129,6 +173,8 @@ export function useAnchoredPlacement(
   { anchor, mode = "below", deps = [], onResize, onOutsideScroll }: Options,
 ): number | null {
   const [top, setTop] = useState<number | null>(null);
+  // Bumped on a visualViewport resize/scroll (#2138) so the layout effect below re-places the panel.
+  const [viewportTick, setViewportTick] = useState(0);
   const anchorTop = anchor?.top;
   const anchorBottom = anchor?.bottom;
   // The side picked for the current anchor; cleared when the anchor changes.
@@ -144,15 +190,24 @@ export function useAnchoredPlacement(
     const lockedSide = lock && lock.anchorTop === anchorTop && lock.anchorBottom === anchorBottom
       ? lock.side
       : undefined;
+    const vv = getVisibleViewport();
     const placement = computeAnchoredPlacement({
       anchorTop, anchorBottom, mode, lockedSide,
       height: panelRef.current?.offsetHeight ?? 0,
-      viewportHeight: window.innerHeight,
+      viewportHeight: vv.height, viewportTop: vv.top,
     });
     lockRef.current = { anchorTop, anchorBottom, side: placement.side };
     setTop(placement.top);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `deps` is the caller's list of height-affecting inputs
-  }, [anchorTop, anchorBottom, mode, panelRef, ...deps]);
+  }, [anchorTop, anchorBottom, mode, panelRef, viewportTick, ...deps]);
+
+  // The keyboard opening or closing changes the visible area without moving the
+  // anchor or firing a window event the panel hears; re-place, never dismiss (#2138).
+  const open = anchorTop !== undefined;
+  useEffect(() => {
+    if (!open) return;
+    return subscribeVisualViewport(() => setViewportTick((n) => n + 1));
+  }, [open]);
 
   useEffect(() => {
     if (!onResize || anchorTop === undefined) return;

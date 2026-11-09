@@ -732,6 +732,33 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
     expect(() => fireEvent.scroll(window)).not.toThrow()
   })
 
+  it('re-anchors (never ends the suggestion) on visualViewport changes, and unsubscribes on exit (#2138)', () => {
+    const vv = Object.assign(new EventTarget(), { height: 768, offsetTop: 0 })
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    try {
+      const { renderer, editor, dispatch } = setup()
+      let caret: DOMRect | null = rect(500)
+      renderer.onStart({ editor, clientRect: () => caret })
+      const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
+      expect(popup.style.top).toBe('524px')
+      // Keyboard opens: 40px popup no longer fits below 520, so it goes above the caret.
+      vv.height = 400
+      vv.dispatchEvent(new Event('resize'))
+      expect(popup.style.top).toBe('456px')
+      expect(dispatch).not.toHaveBeenCalled()
+      // No caret rect: nothing to place against, leaves the popup as it was.
+      caret = null
+      vv.dispatchEvent(new Event('scroll'))
+      expect(popup.style.top).toBe('456px')
+      renderer.onExit()
+      caret = rect(100)
+      vv.dispatchEvent(new Event('scroll'))
+      expect(popup.style.top).toBe('456px')
+    } finally {
+      Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined })
+    }
+  })
+
   it('starts hidden when the caret rect is not available yet', () => {
     const { renderer, editor } = setup()
     renderer.onStart({ editor, clientRect: () => null })

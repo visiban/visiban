@@ -1,6 +1,6 @@
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { POPOVER_VIEWPORT_MARGIN } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, getVisibleViewport, subscribeVisualViewport } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -24,8 +24,9 @@ interface MentionState {
 
 /** Whether any part of `r` lies inside the viewport and the nearest scrollable ancestor's visible box. */
 function isRectVisible(r: DOMRect, el: HTMLElement): boolean {
-  let top = 0;
-  let bottom = window.innerHeight;
+  const vv = getVisibleViewport();
+  let top = vv.top;
+  let bottom = vv.top + vv.height;
   for (let a = el.parentElement; a; a = a.parentElement) {
     const oy = getComputedStyle(a).overflowY;
     if (oy === "auto" || oy === "scroll" || oy === "overlay") {
@@ -82,8 +83,10 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     if (natural === 0) return; // not rendered yet / transient empty render: stay hidden or as-is
     const margin = POPOVER_VIEWPORT_MARGIN;
     const gap = 4;
-    const spaceBelow = window.innerHeight - margin - (r.bottom + gap);
-    const spaceAbove = r.top - gap - margin;
+    // Measure against the visible viewport so the on-screen keyboard is excluded (#2138).
+    const vv = getVisibleViewport();
+    const spaceBelow = vv.top + vv.height - margin - (r.bottom + gap);
+    const spaceAbove = r.top - gap - (vv.top + margin);
     // Keep the side chosen earlier while the list still fits there (no flip as it narrows); else
     // below, else above, else the larger side with the list capped to it. The list NEVER overlaps
     // the textarea (the user is typing in it) and is never pinned: the side and cap are recomputed
@@ -141,9 +144,11 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     if (!open) return;
     window.addEventListener("scroll", place, true);
     window.addEventListener("resize", place);
+    const unsubscribeViewport = subscribeVisualViewport(place);
     return () => {
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
+      unsubscribeViewport();
     };
   }, [open]);
 
