@@ -90,8 +90,20 @@ const GROUP_ROLES = ["admin", "member", "collaborator", "viewer"];
 
 // A stored role outside the known set is not named in the "not in effect" text:
 // the chip alone says what the member can do (same guard as the board panel).
-function GroupFullAccessChip({ userId, role }: { userId: number; role: string }) {
-  const known = GROUP_ROLES.includes(role);
+// An admin-role row still counts as a group admin (it counts toward the group's admin
+// minimum and ownership transfer), so its stored role is not "not in effect";
+// every other stored role is overridden by the all-content access.
+function groupRoleNote(role: string): string {
+  const label = role.charAt(0).toUpperCase() + role.slice(1);
+  return role === "admin"
+    ? `Group role: ${label} — doesn't limit this account's access, and still counts as a group admin.`
+    : `Group role: ${label} — not in effect while this account has all-content access.`;
+}
+
+// `describeRole` adds the stored-role note to the description; rows that print
+// the note as a visible line leave it off so it is not read twice.
+function GroupFullAccessChip({ userId, role, describeRole = false }: { userId: number; role: string; describeRole?: boolean }) {
+  const known = describeRole && GROUP_ROLES.includes(role);
   const descId = `group-member-fullaccess-${userId}`;
   return (
     <>
@@ -110,7 +122,7 @@ function GroupFullAccessChip({ userId, role }: { userId: number; role: string })
       </span>
       <span id={descId} className="sr-only">
         {GROUP_FULL_ACCESS_DESCRIPTION}
-        {known ? ` Group role: ${role.charAt(0).toUpperCase() + role.slice(1)}, not in effect.` : ""}
+        {known ? ` ${groupRoleNote(role)}` : ""}
       </span>
     </>
   );
@@ -1378,7 +1390,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
                         {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
                           <p className="text-xs text-fg-tertiary">
-                            Group role: <span className="capitalize">{m.role}</span> — not in effect while this account has all-content access.
+                            {groupRoleNote(m.role)}
                           </p>
                         )}
                       </div>
@@ -1386,7 +1398,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
                         {m.has_all_content_access === true ? (
-                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} describeRole />
                         ) : (
                           <span className="text-xs text-fg-muted capitalize">{m.role}</span>
                         )}
@@ -1396,14 +1408,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     ) : isAdmin && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
                       <div className="flex items-center gap-2 shrink-0">
-                        {m.has_all_content_access === true ? (
+                        {m.has_all_content_access === true && (
                           // All-content access resolves to full access before any
-                          // membership is consulted, so a picker here would change
-                          // nothing. Show the effective access and the stored role
-                          // (kept: it applies if the access is later revoked) and
-                          // leave Remove available for the explicit membership (#2075).
+                          // membership is consulted, so the chip states the
+                          // effective access. The stored role is kept (#2075).
                           <GroupFullAccessChip userId={m.user.id} role={m.role} />
-                        ) : (
+                        )}
+                        {/* An admin-role row keeps its picker: it still counts toward the
+                            group's admin minimum and ownership transfer, so it stays
+                            editable. Any other all-content row has no picker because
+                            its role changes nothing. */}
+                        {(m.has_all_content_access !== true || m.role === "admin") && (
                         <SelectDropdown
                           value={m.role}
                           onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
@@ -1416,7 +1431,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           size="xs"
                         />
                         )}
-                        {m.role === "admin" && m.has_all_content_access !== true && (
+                        {m.role === "admin" && (
                           <RoleInfoTooltip label="Group Admin info">
                             <p className="text-xs font-semibold text-fg mb-1">Group Admin</p>
                             <p className="text-xs text-fg-tertiary">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>

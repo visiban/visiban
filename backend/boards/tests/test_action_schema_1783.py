@@ -96,6 +96,14 @@ class ActionSchemaDeclarationTests(TestCase):
         self._assert_matches("delete", path, 200, resp.json())
         self.assertFalse(BoardFavorite.objects.filter(board=self.board, user=self.owner).exists())
 
+    def test_group_membership_does_not_require_the_admin_only_flag(self):
+        # The members list omits has_all_content_access for readers who are not
+        # group admins, so the response component must not list it as required
+        # (#2075); a read_only declaration would.
+        component = self.schema["components"]["schemas"]["GroupMembership"]
+        self.assertIn("has_all_content_access", component["properties"])
+        self.assertNotIn("has_all_content_access", component["required"])
+
     def test_move_group_documents_only_group_id(self):
         path = "/api/v1/boards/{id}/move-group/"
         component = self._component(self._request_schema("post", path)["$ref"])

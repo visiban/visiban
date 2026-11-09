@@ -493,7 +493,7 @@ describe('GroupDetail', () => {
     expect(within(aliceRow).queryByRole('combobox')).not.toBeInTheDocument()
     expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
     expect(within(aliceRow).getByText(/not in effect while this account has all-content access/)).toBeInTheDocument()
-    expect(within(aliceRow).getByText('viewer')).toBeInTheDocument()
+    expect(within(aliceRow).getByText('Group role: Viewer — not in effect while this account has all-content access.')).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
     expect(screen.getByText('Remove this group role? Full access is not affected.')).toBeInTheDocument()
     // A member without the flag keeps the picker.
@@ -530,6 +530,76 @@ describe('GroupDetail', () => {
     const odd = rowOf('Odd Role')
     expect(within(odd).queryByText(/not in effect while/)).not.toBeInTheDocument()
     expect(odd.textContent).not.toMatch(/bogus/i)
+    // The inherited row has no visible note, so its description names the role.
+    expect(rowOf('Ina Inherited').textContent).toMatch(/Group role: Viewer — not in effect/)
+  })
+
+  it('keeps the role picker on an admin-role all-content row and rewords the note (#2075)', async () => {
+    const adminAc: User = { ...fakeUser, id: 7, username: 'ada', display_name: 'Ada Admin' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 7, user: adminAc, role: 'admin', joined_at: '', has_all_content_access: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Ada Admin')
+    const row = screen.getByText('Ada Admin').closest('div.rounded-lg') as HTMLElement
+    expect(within(row).getByRole('combobox')).toBeInTheDocument()
+    expect(within(row).getByText('Full access')).toBeInTheDocument()
+    expect(within(row).getByText("Group role: Admin — doesn't limit this account's access, and still counts as a group admin.")).toBeInTheDocument()
+    expect(within(row).queryByText(/not in effect/)).not.toBeInTheDocument()
+  })
+
+  it('shows the note and chip on owner and self rows (#2075)', async () => {
+    const ownerUser: User = { ...fakeUser, id: 3, username: 'boss', display_name: 'Big Boss' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: ownerUser })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '', has_all_content_access: true },
+      { id: 3, user: ownerUser, role: 'viewer', joined_at: '', has_all_content_access: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Big Boss')
+    const owner = screen.getByText('Big Boss').closest('div.rounded-lg') as HTMLElement
+    expect(within(owner).getByText('Full access')).toBeInTheDocument()
+    expect(within(owner).getByText(/Group role: Viewer — not in effect/)).toBeInTheDocument()
+    const self = screen.getByText('Jane Doe').closest('div.rounded-lg') as HTMLElement
+    expect(within(self).getByText('Full access')).toBeInTheDocument()
+    expect(within(self).getByText(/Group role: Admin — doesn't limit/)).toBeInTheDocument()
+  })
+
+  it('renders the normal picker and no chip when the payload has no flag (#2075)', async () => {
+    await setupTwoMembers()
+    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(row).getByRole('combobox')).toBeInTheDocument()
+    expect(screen.queryByText('Full access')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Group role:/)).not.toBeInTheDocument()
+  })
+
+  it('shows the existing error and keeps an all-content row when its removal is refused (#2075)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'viewer', joined_at: '', has_all_content_access: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockRemoveGroupMember.mockRejectedValue({ response: { status: 403, data: { detail: "Cannot modify a site admin's group membership." } } })
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(row).getByText('Full access')).toBeInTheDocument()
   })
 
   it('removes the member and shows no error when removal succeeds (#1386)', async () => {
