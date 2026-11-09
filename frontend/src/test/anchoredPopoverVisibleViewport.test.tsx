@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'
 import ColumnPolicyPopover from '../components/Board/ColumnPolicyPopover'
@@ -107,5 +107,33 @@ describe.each(MODES)('anchored popovers $name (#2161)', (mode) => {
       />,
     )
     expect(screen.getByRole('menu').style.maxHeight).toBe(mode.cap())
+  })
+})
+
+describe('anchored popovers follow the visual viewport live (#2161)', () => {
+  it('SelectDropdown list cap follows a visualViewport resize (the keyboard opening)', async () => {
+    const { vv } = stubVisualViewport({ height: 600, width: 500 })
+    render(<SelectDropdown value="a" onChange={vi.fn()} options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />)
+    await userEvent.click(screen.getByRole('combobox'))
+    const panel = () => screen.getByRole('listbox').parentElement as HTMLElement
+    expect(panel().style.maxHeight).toBe('584px')
+    act(() => {
+      vv.height = 250
+      vv.dispatchEvent(new Event('resize'))
+    })
+    expect(panel().style.maxHeight).toBe('234px')
+  })
+
+  it('CardContextMenu clamps an anchor near the right edge into the visible box', () => {
+    stubVisualViewport({ height: 600, width: 500 })
+    render(
+      <CardContextMenu
+        anchor={{ top: 100, bottom: 100, left: 600 }} label="Card actions: X"
+        entries={[{ id: 'open', label: 'Open card', group: 'primary' } as never]}
+        columns={[]} members={[]} onAction={vi.fn()} onClose={vi.fn()}
+      />,
+    )
+    // jsdom lays out nothing, so the measured width is 0: left = vv right edge - margin.
+    expect(screen.getByRole('menu').style.left).toBe('492px')
   })
 })
