@@ -170,4 +170,56 @@ describe('API client', () => {
       await expect(rejected?.(error)).rejects.toBe(error)
     })
   })
+
+  describe('response interceptor — session store unavailable (#2143)', () => {
+    async function runRejection(response: unknown) {
+      const client = await getClient()
+      const handlers = (client.interceptors.response as unknown as {
+        handlers: Array<{ rejected?: (e: unknown) => unknown }>
+      }).handlers
+      for (const h of handlers) {
+        if (h.rejected) {
+          try {
+            await h.rejected({ response })
+          } catch {
+            // re-rejects by design
+          }
+        }
+      }
+    }
+
+    function countEvents(name: string) {
+      const counter = { n: 0 }
+      const listener = () => { counter.n += 1 }
+      window.addEventListener(name, listener)
+      return { counter, stop: () => window.removeEventListener(name, listener) }
+    }
+
+    it('a session_unavailable 503 does not sign the user out', async () => {
+      const expired = countEvents('auth:sessionExpired')
+      const maintenance = countEvents('auth:maintenanceBlocked')
+      await runRejection({ status: 503, data: { code: 'session_unavailable', detail: 'x' } })
+      expired.stop()
+      maintenance.stop()
+      expect(expired.counter.n).toBe(0)
+      expect(maintenance.counter.n).toBe(0)
+    })
+
+    it('a 401 still signs the user out', async () => {
+      const expired = countEvents('auth:sessionExpired')
+      await runRejection({ status: 401, data: { detail: 'Authentication credentials were not provided.' } })
+      expired.stop()
+      expect(expired.counter.n).toBe(1)
+    })
+
+    it('isSessionUnavailableError matches the code, not 503 alone', async () => {
+      const { isSessionUnavailableError } = await import('../api/client')
+      expect(isSessionUnavailableError({ response: { status: 503, data: { code: 'session_unavailable' } } })).toBe(true)
+      expect(isSessionUnavailableError({ response: { status: 503, data: { code: 'maintenance_mode' } } })).toBe(false)
+      expect(isSessionUnavailableError({ response: { status: 503, data: '<html></html>' } })).toBe(false)
+      expect(isSessionUnavailableError({ response: { status: 401, data: { code: 'session_unavailable' } } })).toBe(false)
+      expect(isSessionUnavailableError(new Error('network'))).toBe(false)
+      expect(isSessionUnavailableError(null)).toBe(false)
+    })
+  })
 })

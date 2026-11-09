@@ -173,6 +173,15 @@ describe('App', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
+  it('shows a reconnecting notice, not the login page, while the session cannot be checked (#2143)', () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: true, sessionUnavailable: true, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting to your session…')
+    expect(screen.getByText(/You're still signed in/)).toBeInTheDocument()
+    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+  })
+
   it('shows login page when unauthenticated', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter><App /></MemoryRouter>)

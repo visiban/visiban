@@ -347,6 +347,12 @@ MIDDLEWARE = [
     # DEMO_MODE is on. See visiban/demo.py.
     "visiban.middleware.DemoModeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # Immediately after SessionMiddleware: with the cache-only session engine,
+    # a cache outage answers a retryable 503 and keeps the session cookie,
+    # instead of reading as "no session" (a 401 that signs the web app user
+    # out and deletes the cookie). A no-op for every other engine. See
+    # visiban/sessions.py (#2143).
+    "visiban.middleware.SessionOutageMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

@@ -18,6 +18,13 @@ from visiban.demo import (
     DEMO_READ_ONLY_DETAIL,
     DEMO_SAFE_METHODS,
 )
+from visiban.sessions import (
+    SESSION_UNAVAILABLE_CODE,
+    SESSION_UNAVAILABLE_DETAIL,
+    SESSION_UNAVAILABLE_RETRY_AFTER_SECONDS,
+    SessionUnavailable,
+    outage_aware_store_class,
+)
 from visiban.utils import get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -123,6 +130,75 @@ class RequestCharsetMiddleware:
             return JsonResponse({"detail": "Unsupported request charset. Use UTF-8."}, status=400)
         _drop_unusable_part_charsets(request)
         return self.get_response(request)
+
+
+def session_unavailable_response() -> JsonResponse:
+    """The ``503`` for a session the cache-only session store could not read (#2143).
+
+    Same body and ``Retry-After`` as ``visiban.sessions.SessionUnavailable``
+    renders through DRF, for the paths DRF does not handle.
+    """
+    response = JsonResponse(
+        {"code": SESSION_UNAVAILABLE_CODE, "detail": SESSION_UNAVAILABLE_DETAIL},
+        status=503,
+    )
+    response["Retry-After"] = str(SESSION_UNAVAILABLE_RETRY_AFTER_SECONDS)
+    return response
+
+
+class SessionOutageMiddleware:
+    """Answer a cache-only session outage with a retryable 503 (#2143).
+
+    Must sit immediately after ``django.contrib.sessions.middleware.SessionMiddleware``
+    in ``MIDDLEWARE``. It replaces the request's session store with the
+    outage-aware variant of the same engine (``visiban.sessions``), keyed by
+    the same cookie, before anything reads it. The store is lazy, so the
+    replaced one has done no I/O. Every other engine is left as it is, at the
+    cost of one ``issubclass`` test per request.
+
+    Kept as a separate entry rather than a ``SessionMiddleware`` subclass so
+    the Django entry keeps its dotted path: an extension settings include that
+    locates it by name in ``MIDDLEWARE`` keeps working.
+
+    Where the outage surfaces, and what answers it:
+
+    - a REST view: DRF renders ``SessionUnavailable`` (an ``APIException``)
+      as the 503 itself; nothing here runs.
+    - any other view (allauth's ``/accounts/`` pages, ``/admin/``):
+      ``process_exception`` returns ``session_unavailable_response()``.
+    - a middleware between this one and the view (the maintenance-mode
+      admin exemption, the pending-action gate, the OAuth invite stash, or
+      allauth's ``/accounts/`` redirect): Django turns the exception into a
+      ``500`` at that layer before it reaches here, so a ``500`` whose store
+      recorded the outage is replaced by the same 503. Django has already
+      logged that 500, without the cache error's message
+      (``raise ... from None``).
+
+    In every case Django's ``SessionMiddleware.process_response`` leaves the
+    cookie alone: the store kept its key, so ``is_empty()`` is false, and it
+    saves nothing on a 5xx.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        session = getattr(request, "session", None)
+        if session is not None:
+            store_class = outage_aware_store_class(type(session))
+            if store_class is not type(session):
+                request.session = store_class(session.session_key)
+        response = self.get_response(request)
+        if response.status_code == 500 and getattr(
+            getattr(request, "session", None), "session_unavailable", False
+        ):
+            return session_unavailable_response()
+        return response
+
+    def process_exception(self, request, exception):
+        if isinstance(exception, SessionUnavailable):
+            return session_unavailable_response()
+        return None
 
 
 class AdminIPRestrictionMiddleware:
@@ -481,9 +557,21 @@ class MaintenanceModeMiddleware:
         return get_maintenance_message(message)
 
     def _is_site_admin(self, request) -> bool:
-        user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated:
-            return bool(user.is_site_admin)
+        try:
+            user = getattr(request, "user", None)
+            if user is not None and user.is_authenticated:
+                return bool(user.is_site_admin)
+        except SessionUnavailable:
+            # The cookie session can't be read (cache-only session outage,
+            # #2143). A PAT decides on its own, as when the outage read as "no
+            # session": PATAuthentication runs before the session at the view,
+            # so the PAT's user is who the request is. Without a PAT, re-raise:
+            # the session may be an admin's, so the answer is
+            # session_unavailable (retry), not maintenance_mode.
+            # SessionOutageMiddleware turns it into the 503.
+            if request.META.get("HTTP_AUTHORIZATION", "").startswith("Token "):
+                return self._token_user_is_site_admin(request)
+            raise
         return self._token_user_is_site_admin(request)
 
     def _token_user_is_site_admin(self, request) -> bool:
