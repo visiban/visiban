@@ -215,18 +215,18 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 
 ### `DELETE /api/v1/git-lens/connections/{board_id}/`
 
-Remove the LensConnection for a board. The board's issue data cache is also purged.
+Remove the LensConnection for a board.
 
 **Permissions:** Board admin, board owner, or site admin. Board members without admin role receive `403 Forbidden`.
 
-**Response — 204 No Content** — empty body.
+**Response — 204 No Content** — empty body. The call is idempotent: it also returns `204` when no connection was configured, but in that case no `lens_connection.removed` event is broadcast. The event is sent only when a connection was actually deleted.
 
 **Errors**
 
 | Status | Condition |
 |---|---|
 | `403 Forbidden` | Caller does not have board admin, owner, or site admin role |
-| `404 Not Found` | Board does not exist, no connection is configured, or `GIT_LENS_ENABLED` is not set |
+| `404 Not Found` | Board does not exist (including a board deleted while the request was in flight), or `GIT_LENS_ENABLED` is not set |
 
 ---
 

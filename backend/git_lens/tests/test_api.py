@@ -207,6 +207,49 @@ class LensConnectionRBACTests(TestCase):
         self.assertEqual(resp.data["column_dim"], "pipeline")
         self.assertEqual(resp.data["swimlane_dim"], "milestone")
 
+    def test_delete_without_connection_is_204_and_does_not_broadcast(self):
+        # #1971: a no-op delete must not tell other members the lens was removed.
+        with patch("boards.broadcast.broadcast_board_event") as mock_bcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self._client(self.owner).delete(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        mock_bcast.assert_not_called()
+
+    def _board_vanishes_after_permission_check(self):
+        # Non-threaded stand-in for a board delete winning the race (#1971):
+        # the board is gone by the time the view reaches the row lock. The real
+        # lock wait needs PostgreSQL; this proves the 404 path, not the wait.
+        from boards.models import Board
+        board_id = self.board.id
+
+        def _vanish(_role):
+            Board.objects.filter(pk=board_id).delete()
+
+        return patch.object(views, "_require_board_admin", side_effect=_vanish)
+
+    def test_put_on_board_deleted_mid_request_is_404(self):
+        with self._board_vanishes_after_permission_check():
+            resp = self._client(self.owner).put(
+                self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
+            )
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(LensConnection.objects.filter(board_id=self.board.id).exists())
+
+    def test_delete_on_board_deleted_mid_request_is_404(self):
+        with self._board_vanishes_after_permission_check():
+            resp = self._client(self.owner).delete(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_put_and_delete_take_the_board_row_lock(self):
+        with patch.object(
+            views, "lock_board_row_or_404", wraps=views.lock_board_row_or_404
+        ) as lock:
+            self._client(self.owner).put(
+                self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
+            )
+            self._client(self.owner).delete(self.url)
+        self.assertEqual(lock.call_count, 2)
+
     def test_delete_broadcasts_removed_event(self):
         LensConnection.objects.create(
             board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
