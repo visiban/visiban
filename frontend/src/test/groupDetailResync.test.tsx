@@ -40,14 +40,16 @@ vi.mock('../components/Board/MoveBoardModal', () => ({
 
 let capturedOnEvent: ((evt: BoardEvent) => void) | null = null
 let capturedOnReconnected: (() => void) | null = null
+let capturedOnFirstConnected: (() => void) | null = null
 vi.mock('../hooks/useGroupSocket', () => ({
   useGroupSocket: (
     _groupId: number | null,
     onEvent: (evt: BoardEvent) => void,
-    options?: { onReconnected?: () => void },
+    options?: { onReconnected?: () => void; onFirstConnected?: () => void },
   ) => {
     capturedOnEvent = onEvent
     capturedOnReconnected = options?.onReconnected ?? null
+    capturedOnFirstConnected = options?.onFirstConnected ?? null
     return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }
   },
 }))
@@ -174,6 +176,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     vi.clearAllMocks()
     capturedOnEvent = null
     capturedOnReconnected = null
+    capturedOnFirstConnected = null
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([member(1, 'jdoe')])
     mockGetSubgroups.mockResolvedValue([sub(10, 'Platform'), sub(11, 'Mobile')])
@@ -613,9 +616,32 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     ])('re-confirms through the group when the %s re-read answers 404, and swaps in the unavailable page', async (_name, which) => {
       await loadGroup()
       which().mockRejectedValueOnce({ response: { status: 404 } })
-      mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+      // The reconnect's own group re-read succeeds, so only the list's onError
+      // re-confirm (the next group read, which 404s) can show the unavailable page.
+      mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue({ response: { status: 404 } })
       reconnect()
       expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it('re-confirms through the group when the subgroup boards re-read answers 404', async () => {
+      await loadGroup()
+      fireEvent.click(screen.getByRole('switch'))
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+      mockGetGroupDescendantBoards.mockRejectedValueOnce({ response: { status: 404 } })
+      mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue({ response: { status: 404 } })
+      reconnect()
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it('shows the unavailable page when a late first open re-reads a group the user lost access to', async () => {
+      await loadGroup()
+      // Past the first-open threshold, so handleFirstConnected resyncs.
+      const realNow = Date.now()
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(realNow + 5000)
+      mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+      act(() => { capturedOnFirstConnected?.() })
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      nowSpy.mockRestore()
     })
 
     it('keeps the page when a list re-read answers 403 but the group is still reachable', async () => {
