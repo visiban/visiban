@@ -4698,7 +4698,7 @@ read.
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Override the window for one run</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
 </code></pre></div>
-<p>Schedule it nightly. Both deployment paths ship an opt-in scheduler with this job <strong>off</strong> by default. Turn it on with <code>SCHEDULE_PRUNE_BOARD_EVENTS=03:00</code> in <code>.env</code> for the Compose <code>scheduler</code> profile, or <code>scheduledJobs.pruneBoardEvents.enabled=true</code> in Helm. Host cron also works:</p>
+<p>Schedule it nightly. Both deployment paths ship an opt-in scheduler. On the Compose <code>scheduler</code> profile this job runs by default at <code>03:00</code> UTC (since 1.3); set <code>SCHEDULE_PRUNE_BOARD_EVENTS=off</code> to disable it. In Helm it is <strong>off</strong> until you set <code>scheduledJobs.pruneBoardEvents.enabled=true</code>. Host cron also works:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
 </code></pre></div>
 <p>See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>

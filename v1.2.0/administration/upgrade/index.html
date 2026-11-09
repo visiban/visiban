@@ -4845,6 +4845,10 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.</p>
 <h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
+<p class="admonition-title">The Compose scheduler now prunes the board change feed by default</p>
+<p>If you run the opt-in Compose <code>scheduler</code> service, <code>prune_board_events</code> now runs daily at <code>03:00</code> UTC by default (<code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, was <code>off</code>) (#2074). It deletes <a href="../../api/events/">change-feed</a> events older than <code>BOARD_EVENT_RETENTION_DAYS</code> (default 30), so a webhook or feed consumer that falls more than that far behind misses events. The first run after you upgrade deletes everything already past the window. To keep events forever as before, set <code>SCHEDULE_PRUNE_BOARD_EVENTS=off</code> in <code>.env</code> and run <code>docker compose -f docker-compose.prod.yml up -d scheduler</code>. Helm and host-cron installs are unchanged. See <a href="../scheduled-jobs/">Scheduled Jobs</a>.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Changing email settings requires a superuser</p>
 <p><code>PATCH /api/v1/admin/email-settings/</code> now returns <code>403</code> for a site admin who is not a superuser. They can still read the settings and send a test email. If none of your admins is a superuser, run <code>python manage.py createsuperuser</code> (see <a href="../site-admins/">Site admins</a>).</p>
 </div>
