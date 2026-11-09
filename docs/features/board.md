@@ -337,6 +337,8 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 | **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived** panel in the toolbar |
 | **Delete** | Delete all selected cards (with confirmation) |
 
+On the shared demo, the toolbar's **Archive** and **Delete** are dimmed with the demo notice and do nothing.
+
 Press **Escape** or click the **×** button to clear the selection. Selection is also cleared when starting a drag or opening a card detail panel. Bulk operations are available only to users with the **member** role or above.
 
 **Yes, but:** each bulk action calls the existing individual card API endpoints, so each card succeeds or fails on its own.

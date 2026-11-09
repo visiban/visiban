@@ -13,6 +13,7 @@ vi.mock('../api/cards', () => ({
 
 import { moveCard, updateCard, deleteCard, archiveCard } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
+import { DEMO_CARD_FOOTER_NOTE } from '../constants/demoCopy'
 const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
@@ -703,12 +704,13 @@ describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
 
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('can archive cards others created', async () => {
-    mockArchiveCard.mockImplementation((_b: number, id: number) => Promise.resolve({ id }))
+  it('withholds Archive and Delete in demo mode: aria-disabled with the shared reason, and a click does nothing (#2105)', async () => {
+    const board = memberBoard()
+    board.cards = board.cards.map((c) => ({ ...c, created_by: { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' } }))
     const onCardsArchived = vi.fn()
     render(
       <BulkActionToolbar
-        board={memberBoard()}
+        board={board}
         selectedCardIds={new Set([100, 101])}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
@@ -718,28 +720,19 @@ describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
       />,
       { wrapper: flagsWrapper({ demo_mode: true }) }
     )
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Archive' }))
-    await waitFor(() => expect(mockArchiveCard).toHaveBeenCalledTimes(2))
-  })
-
-  it('hides bulk Delete in demo mode (card delete is not on the demo allowlist, own cards included)', () => {
-    const board = memberBoard()
-    board.cards = board.cards.map((c) => ({ ...c, created_by: { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' } }))
-    render(
-      <BulkActionToolbar
-        board={board}
-        selectedCardIds={new Set([100, 101])}
-        onCardsUpdated={vi.fn()}
-        onCardsDeleted={vi.fn()}
-        onCardsArchived={vi.fn()}
-        onClearSelection={vi.fn()}
-        currentUser={visitor}
-      />,
-      { wrapper: flagsWrapper({ demo_mode: true }) }
-    )
-    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/You can only delete cards you created/)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument()
+    const user = userEvent.setup()
+    const archive = screen.getByRole('button', { name: `Archive. ${DEMO_CARD_FOOTER_NOTE}` })
+    const del = screen.getByRole('button', { name: `Delete. ${DEMO_CARD_FOOTER_NOTE}` })
+    for (const b of [archive, del]) {
+      expect(b).toHaveAttribute('aria-disabled', 'true')
+      expect(b).not.toBeDisabled() // stays focusable so the reason is reachable
+      expect(b).toHaveAttribute('title', DEMO_CARD_FOOTER_NOTE)
+    }
+    await user.click(archive)
+    await user.click(del)
+    expect(mockArchiveCard).not.toHaveBeenCalled()
+    expect(screen.queryByText(/permanently delete/)).not.toBeInTheDocument()
+    expect(onCardsArchived).not.toHaveBeenCalled()
   })
 
   it('still shows bulk Delete outside demo mode', () => {
@@ -755,6 +748,12 @@ describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    for (const name of ['Archive', 'Delete']) {
+      const b = screen.getByRole('button', { name })
+      expect(b).not.toHaveAttribute('aria-disabled')
+      expect(b).not.toHaveAttribute('aria-label')
+      expect(b).not.toHaveAttribute('title', DEMO_CARD_FOOTER_NOTE)
+    }
   })
 })
 
