@@ -4815,9 +4815,9 @@
 </table>
 <hr />
 <h3 id="delete-apiv1git-lensconnectionsboard_id"><code>DELETE /api/v1/git-lens/connections/{board_id}/</code><a class="headerlink" href="#delete-apiv1git-lensconnectionsboard_id" title="Permanent link">&para;</a></h3>
-<p>Remove the LensConnection for a board. The board's issue data cache is also purged.</p>
+<p>Remove the LensConnection for a board.</p>
 <p><strong>Permissions:</strong> Board admin, board owner, or site admin. Board members without admin role receive <code>403 Forbidden</code>.</p>
-<p><strong>Response — 204 No Content</strong> — empty body.</p>
+<p><strong>Response — 204 No Content</strong> — empty body. The call is idempotent: it also returns <code>204</code> when no connection was configured, but in that case no <code>lens_connection.removed</code> event is broadcast. The event is sent only when a connection was actually deleted.</p>
 <p><strong>Errors</strong></p>
 <table>
 <thead>
@@ -4833,7 +4833,7 @@
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
-<td>Board does not exist, no connection is configured, or <code>GIT_LENS_ENABLED</code> is not set</td>
+<td>Board does not exist (including a board deleted while the request was in flight), or <code>GIT_LENS_ENABLED</code> is not set</td>
 </tr>
 </tbody>
 </table>
