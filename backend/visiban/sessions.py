@@ -120,6 +120,11 @@ class _OutageAwareCacheStoreMixin:
        rejected): a miss, with the key as the engine left it. Treating every
        empty re-read as an outage instead would answer 503 for as long as an
        engine rejects a stored value.
+
+    Known limitation, accepted: a cache that flaps down-up-down-up across
+    these four reads (both engine reads fail, both probes answer) cannot be
+    told from an engine rejecting the stored value without a third engine
+    read, so it reads as a miss (401, cookie deleted), as before #2143.
     """
 
     _visiban_outage_aware = True
