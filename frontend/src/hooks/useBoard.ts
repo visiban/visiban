@@ -6,6 +6,7 @@ import { failureReason } from "../utils/moveFailure";
 import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "../utils/placementLimits";
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
+import { swimlaneForRole } from "../utils/swimlaneMerge";
 import type { BoardFull, BoardMembership, Card, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
@@ -278,6 +279,10 @@ interface FetchTouches {
  * - A swimlane.updated write in resolver form (mergeSwimlaneFromBroadcast) is
  *   re-resolved against the snapshot's copy of the swimlane, not the copy
  *   that was on screen.
+ * - Every swimlane copy a write carries (a create, either form of an update)
+ *   is shaped to the snapshot's `current_user_role` (swimlaneForRole, #2147),
+ *   so an HTTP response made under another role is stored as the snapshot's
+ *   own swimlanes are.
  *
  * Replay runs after the cards are merged. A card write and a non-card write
  * never undo each other in practice: a card written into a column deleted
@@ -1016,7 +1021,9 @@ export function useBoard() {
   }, [boardId, load, refreshArchivedCount, writeBoard]);
 
   const addSwimlane = useCallback((swimlane: Swimlane) => {
-    writeBoard((b) => ({ ...b, swimlanes: upsertById(b.swimlanes, swimlane) }));
+    // Shaped to the role of the board it is applied to, live or replayed over
+    // a `/full/` snapshot (swimlaneForRole, #2147).
+    writeBoard((b) => ({ ...b, swimlanes: upsertById(b.swimlanes, swimlaneForRole(swimlane, b)) }));
   }, [writeBoard]);
 
   const updateCard = useCallback((card: Card, siblingPositions?: readonly CardSiblingPosition[], eventId?: number) => {
@@ -1151,13 +1158,21 @@ export function useBoard() {
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
   const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
+    // A changed definition also reshapes the swimlanes already held
+    // (swimlaneForRole, #2147), so they match the schema without a reload.
     if (typeof definitions === 'function') {
-      writeBoard((b) => ({ ...b, swimlane_custom_field_definitions: definitions(b.swimlane_custom_field_definitions) }));
+      writeBoard((b) => {
+        const next = { ...b, swimlane_custom_field_definitions: definitions(b.swimlane_custom_field_definitions) };
+        return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+      });
       return;
     }
     writeBoardFrom((live) => {
       const change = listChange(live.swimlane_custom_field_definitions, definitions);
-      return (b) => ({ ...b, swimlane_custom_field_definitions: change(b.swimlane_custom_field_definitions) });
+      return (b) => {
+        const next = { ...b, swimlane_custom_field_definitions: change(b.swimlane_custom_field_definitions) };
+        return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+      };
     });
   }, [writeBoard, writeBoardFrom]);
 
@@ -1260,8 +1275,12 @@ export function useBoard() {
     // Resolver form (#1970): the socket handler derives the merged swimlane
     // from the latest board state, not a render-captured copy. Replayed over a
     // `/full/` snapshot (#2130), it resolves against the snapshot's copy.
+    // Both forms are then shaped to the role of the board they are applied to
+    // (swimlaneForRole, #2147): the object form is an HTTP response shaped by
+    // the role the request was made under, which a replayed snapshot's role
+    // need not match.
     writeBoard((b) => {
-      const next = typeof swimlane === 'function' ? swimlane(b) : swimlane;
+      const next = swimlaneForRole(typeof swimlane === 'function' ? swimlane(b) : swimlane, b);
       return { ...b, swimlanes: b.swimlanes.map((s) => s.id === next.id ? next : s) };
     });
   }, [writeBoard]);
@@ -1329,8 +1348,16 @@ export function useBoard() {
     // Fed by board.updated, share_link.updated, board.star_changed, the
     // viewer's own role change and HTTP responses (health status, the Sharing
     // tab), all replayed over an in-flight `/full/` snapshot (#2130).
+    //
+    // A role change also reshapes the swimlanes already held (swimlaneForRole,
+    // #2147), so they match the new role without waiting for the reload
+    // BoardView starts on a self role change, including when that reload fails.
     const { archived_card_count: _ignored, ...rest } = patch;
-    writeBoard((b) => ({ ...b, ...rest }));
+    writeBoard((b) => {
+      const next = { ...b, ...rest };
+      if (!('current_user_role' in rest)) return next;
+      return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+    });
   }, [writeBoard]);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {

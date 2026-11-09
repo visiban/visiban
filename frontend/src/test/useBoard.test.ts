@@ -3,6 +3,7 @@ import { renderHook, waitFor, act, render, screen } from '@testing-library/react
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard } from '../hooks/useBoard'
+import { swimlaneForRole } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
 const mockNavigate = vi.fn()
@@ -2910,6 +2911,189 @@ describe('useBoard — non-card writes that land mid-fetch are replayed (#2130)'
     act(() => { result.current.addColumn(col(12)) })
     await resolve(makeBoard({ id: 2, columns: [col(30)] }))
     expect(colIds(result.current.board)).toEqual([30])
+  })
+
+  // #2147: a swimlane copy is written in the shape /full/ returns for the
+  // role of the board it is applied to, live and when replayed over a snapshot.
+  describe('swimlane responses are shaped to the role of the board they are applied to (#2147)', () => {
+    const fieldDef = (id: number, isAdminOnly: boolean): SwimlaneCustomFieldDefinition => ({
+      id, uid: `sfd${id}`, name: `Field ${id}`, field_type: 'text', choices: [], choice_colors: {}, position: id,
+      show_on_row: false, is_admin_only: isAdminOnly, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+    }) as SwimlaneCustomFieldDefinition
+    const defs = [fieldDef(5, true), fieldDef(6, false)]
+    // The admin serializer's copy, and the public one /full/ sends other roles.
+    const adminLane = (id: number, overrides: Partial<Swimlane> = {}): Swimlane => lane(id, {
+      contact_email: 'owner@example.com', notes: 'Account notes',
+      custom_field_values: [{ field_definition: 5, value: '120000' }, { field_definition: 6, value: 'Gold' }],
+      ...overrides,
+    })
+    const publicLane = (id: number, overrides: Partial<Swimlane> = {}): Swimlane => {
+      const { contact_email: _contactEmail, notes: _notes, ...rest } = lane(id, {
+        custom_field_values: [{ field_definition: 6, value: 'Gold' }], ...overrides,
+      })
+      return rest as Swimlane
+    }
+    const adminBoard = () => twoByTwo({
+      current_user_role: 'admin', swimlane_custom_field_definitions: defs, swimlanes: [adminLane(20), adminLane(21)],
+    })
+    const memberSnapshot = () => twoByTwo({
+      current_user_role: 'member', swimlane_custom_field_definitions: defs, swimlanes: [publicLane(20), publicLane(21)],
+    })
+    const expectPublicShape = (s: Swimlane | undefined) => {
+      expect(s).toBeDefined()
+      expect(s).not.toHaveProperty('contact_email')
+      expect(s).not.toHaveProperty('notes')
+      expect(s!.custom_field_values!.map((v) => v.field_definition)).toEqual([6])
+    }
+
+    // Each writer, fed the admin-shaped HTTP response it receives: the
+    // SwimlaneRow rename and the EditSwimlaneModal save (updateSwimlane, object
+    // form) and the add-swimlane create (BoardView, addSwimlane).
+    const writers = [
+      {
+        name: 'a rename response (updateSwimlane)', id: 21, expectedName: 'Renamed',
+        write: (r: Hook['result']) => { r.current.updateSwimlane(adminLane(21, { name: 'Renamed' })) },
+      },
+      {
+        name: 'an edit modal response (updateSwimlane)', id: 21, expectedName: 'Edited',
+        write: (r: Hook['result']) => {
+          r.current.updateSwimlane(adminLane(21, {
+            name: 'Edited', contact_email: 'new@example.com', notes: 'New notes',
+            custom_field_values: [{ field_definition: 5, value: '99' }, { field_definition: 6, value: 'Silver' }],
+          }))
+        },
+      },
+      {
+        name: 'a create response (addSwimlane)', id: 22, expectedName: 'Lane 22',
+        write: (r: Hook['result']) => { r.current.addSwimlane(adminLane(22)) },
+      },
+    ] as const
+
+    for (const w of writers) {
+      it(`${w.name} landing after a self role change to member, mid-fetch`, async () => {
+        const { result } = await renderBoard(adminBoard())
+        // BoardView's self member.updated handler: sync the role, then reload.
+        act(() => { result.current.mergeBoardState({ current_user_role: 'member' }) })
+        const resolve = startFetch(result)
+        act(() => { w.write(result) })
+        // Applied live under the synced role.
+        expectPublicShape(result.current.board!.swimlanes.find((s) => s.id === w.id))
+        await resolve(memberSnapshot())
+        const after = result.current.board!.swimlanes.find((s) => s.id === w.id)
+        expectPublicShape(after)
+        expect(after!.name).toBe(w.expectedName)
+      })
+
+      it(`${w.name} replayed over a snapshot read under a member role`, async () => {
+        // No self frame (a role change that publishes none): the live board is
+        // still admin when the response lands, the snapshot is not.
+        const { result } = await renderBoard(adminBoard())
+        const resolve = startFetch(result)
+        act(() => { w.write(result) })
+        expect(result.current.board!.swimlanes.find((s) => s.id === w.id)).toHaveProperty('contact_email')
+        await resolve(memberSnapshot())
+        const after = result.current.board!.swimlanes.find((s) => s.id === w.id)
+        expectPublicShape(after)
+        expect(after!.name).toBe(w.expectedName)
+      })
+
+      it(`${w.name} still applies in full on an admin board, mid-fetch`, async () => {
+        const { result } = await renderBoard(adminBoard())
+        const resolve = startFetch(result)
+        act(() => { w.write(result) })
+        await resolve(adminBoard())
+        const after = result.current.board!.swimlanes.find((s) => s.id === w.id)
+        expect(after).toMatchObject({ name: w.expectedName, contact_email: expect.any(String), notes: expect.any(String) })
+        expect(after!.custom_field_values!.map((v) => v.field_definition)).toEqual([5, 6])
+      })
+    }
+
+    it('the edit modal response replaces the admin values on an admin board', async () => {
+      const { result } = await renderBoard(adminBoard())
+      const resolve = startFetch(result)
+      act(() => { writers[1].write(result) })
+      await resolve(adminBoard())
+      expect(result.current.board!.swimlanes[1]).toMatchObject({
+        contact_email: 'new@example.com', notes: 'New notes',
+        custom_field_values: [{ field_definition: 5, value: '99' }, { field_definition: 6, value: 'Silver' }],
+      })
+    })
+
+    it('a role change to member reshapes the swimlanes already held, without the reload', async () => {
+      const { result } = await renderBoard(adminBoard())
+      act(() => { result.current.mergeBoardState({ current_user_role: 'member' }) })
+      for (const s of result.current.board!.swimlanes) expectPublicShape(s)
+    })
+
+    it('a merge that does not change the role leaves the swimlanes as they are', async () => {
+      const { result } = await renderBoard(adminBoard())
+      const before = result.current.board!.swimlanes
+      act(() => { result.current.mergeBoardState({ name: 'Renamed' }) })
+      expect(result.current.board!.swimlanes).toBe(before)
+    })
+
+    it('a swimlane.updated resolver is shaped too once the role is member', async () => {
+      // The resolver form keeps admin-only values the broadcast lacks from the
+      // copy on screen (#1140); under a member role they are not kept.
+      const { result } = await renderBoard(adminBoard())
+      act(() => { result.current.mergeBoardState({ current_user_role: 'member' }) })
+      act(() => {
+        result.current.updateSwimlane(() => adminLane(21, { name: 'From a frame' }))
+      })
+      expectPublicShape(result.current.board!.swimlanes[1])
+      expect(result.current.board!.swimlanes[1].name).toBe('From a frame')
+    })
+
+    describe('a definitions change reshapes the swimlanes already held', () => {
+      const ids = (s: Swimlane | undefined) => s!.custom_field_values!.map((v) => v.field_definition)
+      const closed = () => defs.map((d) => (d.id === 6 ? { ...d, is_admin_only: true } : d))
+      const writers: Array<[string, (r: Hook['result']) => void]> = [
+        ['definitions updated', (r) => { r.current.applySwimlaneFieldDefinitions((prev) => prev.map((d) => (d.id === 6 ? { ...d, is_admin_only: true } : d))) }],
+        ['definitions reordered', (r) => { r.current.applySwimlaneFieldDefinitions(closed()) }],
+      ]
+      it.each(writers)('%s: a member loses the value of a definition that became admin-only', async (_n, write) => {
+        const { result } = await renderBoard(twoByTwo({
+          current_user_role: 'member', swimlane_custom_field_definitions: defs, swimlanes: [publicLane(20), publicLane(21)],
+        }))
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([6])
+        act(() => { write(result) })
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([])
+      })
+      it.each(writers)('%s: an admin keeps every value', async (_n, write) => {
+        const { result } = await renderBoard(adminBoard())
+        act(() => { write(result) })
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([5, 6])
+      })
+    })
+
+    describe('swimlaneForRole', () => {
+      const board = (role: BoardFull['current_user_role']) =>
+        makeBoard({ current_user_role: role, swimlane_custom_field_definitions: defs })
+
+      it('returns the copy unchanged for admin and site_admin', () => {
+        const copy = adminLane(21)
+        expect(swimlaneForRole(copy, board('admin'))).toBe(copy)
+        expect(swimlaneForRole(copy, board('site_admin'))).toBe(copy)
+      })
+
+      for (const role of ['member', 'viewer', null] as const) {
+        it(`drops the fields the public serializer omits for ${String(role)}`, () => {
+          expectPublicShape(swimlaneForRole(adminLane(21), board(role)))
+        })
+      }
+
+      it('drops a value whose definition the board does not hold', () => {
+        const copy = adminLane(21, { custom_field_values: [{ field_definition: 6, value: 'Gold' }, { field_definition: 9, value: 'x' }] })
+        expect(swimlaneForRole(copy, board('member')).custom_field_values).toEqual([{ field_definition: 6, value: 'Gold' }])
+      })
+
+      it('leaves an absent value list absent', () => {
+        const copy = adminLane(21)
+        delete copy.custom_field_values
+        expect(swimlaneForRole(copy, board('member'))).not.toHaveProperty('custom_field_values')
+      })
+    })
   })
 })
 
