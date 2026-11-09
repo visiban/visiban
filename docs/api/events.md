@@ -309,7 +309,7 @@ python manage.py prune_board_events
 python manage.py prune_board_events --days 7
 ```
 
-Schedule it nightly. Both deployment paths ship an opt-in scheduler with this job **off** by default. Turn it on with `SCHEDULE_PRUNE_BOARD_EVENTS=03:00` in `.env` for the Compose `scheduler` profile, or `scheduledJobs.pruneBoardEvents.enabled=true` in Helm. Host cron also works:
+Schedule it nightly. Both deployment paths ship an opt-in scheduler. On the Compose `scheduler` profile this job runs by default at `03:00` UTC (since 1.3); set `SCHEDULE_PRUNE_BOARD_EVENTS=off` to disable it. In Helm it is **off** until you set `scheduledJobs.pruneBoardEvents.enabled=true`. Host cron also works:
 
 ```
 0 3 * * * docker compose run --rm backend python manage.py prune_board_events

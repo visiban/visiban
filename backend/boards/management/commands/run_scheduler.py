@@ -12,12 +12,15 @@ Each job runs once a day at a fixed UTC time taken from an env var:
 
     SCHEDULE_NOTIFY_DUE_SOON       default 07:00
     SCHEDULE_NOTIFY_STALE_CARDS    default 08:00
-    SCHEDULE_PRUNE_BOARD_EVENTS    default off
+    SCHEDULE_PRUNE_BOARD_EVENTS    default 03:00
     SCHEDULE_PRUNE_NOTIFICATIONS   default off
 
-A value is ``HH:MM`` (24-hour, UTC) or ``off``/empty. The prune jobs default to
-off because turning on scheduled deletion is an operator decision, not
-something an upgrade should do on its own.
+A value is ``HH:MM`` (24-hour, UTC) or ``off``/empty. ``prune_notifications``
+defaults to off because turning on scheduled deletion of user data is an
+operator decision. ``prune_board_events`` defaults on (#2074): the change feed
+stores every card payload verbatim and nothing else expires it, so leaving it
+off kept deleted cards' titles and descriptions forever. Set
+``SCHEDULE_PRUNE_BOARD_EVENTS=off`` to keep the old behavior.
 
 Semantics, chosen deliberately:
 
@@ -59,7 +62,7 @@ class JobSpec:
 # Defaults match helm/visiban/values.yaml `scheduledJobs`, so a Compose install
 # and a Kubernetes install run the same jobs at the same times.
 JOB_SPECS = (
-    JobSpec("prune_board_events", "SCHEDULE_PRUNE_BOARD_EVENTS", "off"),
+    JobSpec("prune_board_events", "SCHEDULE_PRUNE_BOARD_EVENTS", "03:00"),
     JobSpec("prune_notifications", "SCHEDULE_PRUNE_NOTIFICATIONS", "off"),
     JobSpec("notify_due_soon", "SCHEDULE_NOTIFY_DUE_SOON", "07:00"),
     JobSpec("notify_stale_cards", "SCHEDULE_NOTIFY_STALE_CARDS", "08:00"),

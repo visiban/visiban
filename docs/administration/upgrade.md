@@ -368,6 +368,9 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "The Compose scheduler now prunes the board change feed by default"
+    If you run the opt-in Compose `scheduler` service, `prune_board_events` now runs daily at `03:00` UTC by default (`SCHEDULE_PRUNE_BOARD_EVENTS`, was `off`) (#2074). It deletes [change-feed](../api/events.md) events older than `BOARD_EVENT_RETENTION_DAYS` (default 30), so a webhook or feed consumer that falls more than that far behind misses events. The first run after you upgrade deletes everything already past the window. To keep events forever as before, set `SCHEDULE_PRUNE_BOARD_EVENTS=off` in `.env` and run `docker compose -f docker-compose.prod.yml up -d scheduler`. Helm and host-cron installs are unchanged. See [Scheduled Jobs](scheduled-jobs.md).
+
 !!! note "Changing email settings requires a superuser"
     `PATCH /api/v1/admin/email-settings/` now returns `403` for a site admin who is not a superuser. They can still read the settings and send a test email. If none of your admins is a superuser, run `python manage.py createsuperuser` (see [Site admins](site-admins.md)).
 

@@ -23,7 +23,9 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 | `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | No |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
 
-**Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.
+**Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. On the Compose scheduler, `prune_board_events` also runs by default (since 1.3), because the change feed keeps card payloads until pruned. `prune_notifications` deletes user data and stays off until you enable it. The Helm chart is unchanged: both prune CronJobs stay `enabled: false` until you enable them, so on Helm turn on `scheduledJobs.pruneBoardEvents.enabled` yourself.
+
+**Deleted cards and boards:** change-feed events hold the full card payload (title, description, custom fields). Deleting a card or a board does not remove or redact them. They are retained until `prune_board_events` removes them, after `BOARD_EVENT_RETENTION_DAYS` (default 30). To erase a card's payloads sooner, use [`purge_card_history`](card-history-retention.md). `purge_card_history --board` refuses a board that has been deleted; use `--card`, or a date range without `--board`, instead.
 
 **Email at exit:** notification email is sent on a background thread. `notify_due_soon` and `notify_stale_cards` wait up to 30 seconds for it before they exit, so a cron run does not drop mail it just queued. If the mail relay is still busy after that, the command prints a warning to stderr and the unsent mail may be lost. The scheduler does the same when it is stopped.
 
@@ -73,14 +75,13 @@ Each job's time comes from an `.env` variable. A value is `HH:MM` (24-hour, **UT
 |---|---|
 | `SCHEDULE_NOTIFY_DUE_SOON` | `07:00` |
 | `SCHEDULE_NOTIFY_STALE_CARDS` | `08:00` |
-| `SCHEDULE_PRUNE_BOARD_EVENTS` | `off` |
+| `SCHEDULE_PRUNE_BOARD_EVENTS` | `03:00` |
 | `SCHEDULE_PRUNE_NOTIFICATIONS` | `off` |
 
-This keeps the notification scans at their defaults and turns on both prune jobs:
+This keeps the notification scans and the board-event prune at their defaults and turns on the notification prune. Set `SCHEDULE_PRUNE_BOARD_EVENTS=off` to keep change-feed events forever:
 
 ```bash
 # .env
-SCHEDULE_PRUNE_BOARD_EVENTS=03:00
 SCHEDULE_PRUNE_NOTIFICATIONS=03:30
 ```
 

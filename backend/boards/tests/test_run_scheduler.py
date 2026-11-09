@@ -28,20 +28,27 @@ def _at(day, hh, mm=0):
 
 
 class LoadJobsTest(SimpleTestCase):
-    def test_defaults_enable_only_the_notify_jobs(self):
+    def test_defaults_enable_notify_jobs_and_board_event_prune(self):
         jobs = load_jobs({})
         self.assertEqual(
             [(j.command, j.at) for j in jobs],
             [
+                ("prune_board_events", datetime.time(3, 0)),
                 ("notify_due_soon", datetime.time(7, 0)),
                 ("notify_stale_cards", datetime.time(8, 0)),
             ],
         )
 
-    def test_prune_jobs_are_opt_in(self):
+    def test_notification_prune_is_opt_in(self):
+        self.assertNotIn("prune_notifications", [j.command for j in load_jobs({})])
         jobs = load_jobs({"SCHEDULE_PRUNE_NOTIFICATIONS": "03:30"})
         self.assertIn(("prune_notifications", datetime.time(3, 30)), [(j.command, j.at) for j in jobs])
-        self.assertNotIn("prune_board_events", [j.command for j in jobs])
+
+    def test_board_event_prune_can_be_turned_off(self):
+        for value in ("off", "OFF", ""):
+            with self.subTest(value=value):
+                jobs = load_jobs({"SCHEDULE_PRUNE_BOARD_EVENTS": value})
+                self.assertNotIn("prune_board_events", [j.command for j in jobs])
 
     def test_off_disables_a_default_job(self):
         for value in ("off", "OFF", "", " false "):
@@ -142,6 +149,7 @@ class HandleTest(SimpleTestCase):
         env = {
             "SCHEDULE_NOTIFY_DUE_SOON": "off",
             "SCHEDULE_NOTIFY_STALE_CARDS": "off",
+            "SCHEDULE_PRUNE_BOARD_EVENTS": "off",
         }
         with mock.patch.dict("os.environ", env):
             with self.assertRaisesMessage(CommandError, "switched off"):
