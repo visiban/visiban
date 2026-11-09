@@ -3020,6 +3020,19 @@ describe('useBoard — non-card writes that land mid-fetch are replayed (#2130)'
       })
     })
 
+    it('a role change to member reshapes the swimlanes already held, without the reload', async () => {
+      const { result } = await renderBoard(adminBoard())
+      act(() => { result.current.mergeBoardState({ current_user_role: 'member' }) })
+      for (const s of result.current.board!.swimlanes) expectPublicShape(s)
+    })
+
+    it('a merge that does not change the role leaves the swimlanes as they are', async () => {
+      const { result } = await renderBoard(adminBoard())
+      const before = result.current.board!.swimlanes
+      act(() => { result.current.mergeBoardState({ name: 'Renamed' }) })
+      expect(result.current.board!.swimlanes).toBe(before)
+    })
+
     it('a swimlane.updated resolver is shaped too once the role is member', async () => {
       // The resolver form keeps admin-only values the broadcast lacks from the
       // copy on screen (#1140); under a member role they are not kept.

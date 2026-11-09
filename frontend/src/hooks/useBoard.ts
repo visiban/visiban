@@ -1340,8 +1340,16 @@ export function useBoard() {
     // Fed by board.updated, share_link.updated, board.star_changed, the
     // viewer's own role change and HTTP responses (health status, the Sharing
     // tab), all replayed over an in-flight `/full/` snapshot (#2130).
+    //
+    // A role change also reshapes the swimlanes already held (swimlaneForRole,
+    // #2147), so they match the new role without waiting for the reload
+    // BoardView starts on a self role change, including when that reload fails.
     const { archived_card_count: _ignored, ...rest } = patch;
-    writeBoard((b) => ({ ...b, ...rest }));
+    writeBoard((b) => {
+      const next = { ...b, ...rest };
+      if (!('current_user_role' in rest)) return next;
+      return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+    });
   }, [writeBoard]);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
