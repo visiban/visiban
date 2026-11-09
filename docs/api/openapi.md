@@ -115,8 +115,9 @@ nightly list it as unobserved.
 **Lone surrogates (#2121).** schemathesis generates strings with `codec="utf-8"`, which cannot
 hold a lone surrogate (U+D800..U+DFFF), so the 500 fixed in #2085 was invisible to the fuzz. Clearing
 the codec does not help (hypothesis still excludes surrogates), so `backend/schemathesis_surrogates.py`
-registers a `before_call` hook, loaded through `schemathesis_hooks.py`. It runs per request, when the
-media type is known, and acts only on cases sent as JSON: drf-spectacular declares JSON,
+wraps the `requests` transport's JSON serializer, loaded through `schemathesis_hooks.py`. It runs on the
+way out, so the recorded `Case` keeps its valid body (schemathesis re-validates it after the scenario and
+a surrogate there crashes `st run`), and it acts only on cases sent as JSON: drf-spectacular declares JSON,
 form-urlencoded and multipart on nearly every serializer-bodied operation (only 2 of 80 are
 JSON-only), and a surrogate in a form body would crash the client rather than the server. For
 about one JSON case in ten it replaces the last character of one string value with a lone surrogate,

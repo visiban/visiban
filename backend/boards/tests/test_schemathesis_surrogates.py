@@ -95,44 +95,52 @@ class InjectLoneSurrogateTests(unittest.TestCase):
         self.assertTrue(_has_surrogate(json.loads(wire)))
 
 
-class BeforeCallHookTests(unittest.TestCase):
-    """The hook acts on the media type the case will actually be sent as."""
+def _json_serializer():
+    from schemathesis.transport.requests import REQUESTS_TRANSPORT
 
-    @staticmethod
-    def _case(media_type, body):
-        return SimpleNamespace(media_type=media_type, body=body)
+    return REQUESTS_TRANSPORT._serializers["application/json"]
 
-    def _run(self, media_type):
+
+class JsonSerializerWrapperTests(unittest.TestCase):
+    """The wrapped serializer is what puts the surrogate on the wire, and only for JSON."""
+
+    def test_serialized_body_carries_the_ascii_escape_for_selected_bodies(self):
         body = _find_injecting_body(lambda i: {"name": f"n{i}"})
-        case = self._case(media_type, body)
-        sur.before_call(SimpleNamespace(operation=None), case, {})
-        return body, case
+        result = _json_serializer()(SimpleNamespace(case=None), body)
+        wire = result["data"] if "data" in result else json.dumps(result["json"]).encode()
+        self.assertRegex(wire.decode("ascii"), r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
 
-    def test_mutates_json_cases(self):
-        for media in ("application/json", "application/json; charset=utf-8", "application/vnd.api+json"):
-            with self.subTest(media=media):
-                body, case = self._run(media)
-                self.assertNotEqual(case.body, body)
-                self.assertTrue(_has_surrogate(case.body))
+    def test_input_body_is_not_mutated(self):
+        body = _find_injecting_body(lambda i: {"name": f"n{i}"})
+        snapshot = json.loads(json.dumps(body))
+        _json_serializer()(SimpleNamespace(case=None), body)
+        self.assertEqual(body, snapshot)
 
-    def test_does_not_mutate_form_or_multipart_cases(self):
-        for media in ("application/x-www-form-urlencoded", "multipart/form-data", None, "text/plain"):
-            with self.subTest(media=media):
-                body, case = self._run(media)
-                self.assertIs(case.body, body)
-                self.assertFalse(_has_surrogate(case.body))
+    def test_unselected_bodies_serialize_unchanged(self):
+        body = {"a": 1}
+        result = _json_serializer()(SimpleNamespace(case=None), body)
+        self.assertNotIn(b"\\u", result.get("data", b""))
+
+    def test_form_and_multipart_serializers_are_not_wrapped(self):
+        from schemathesis.transport.requests import REQUESTS_TRANSPORT
+
+        for media in ("application/x-www-form-urlencoded", "multipart/form-data"):
+            fn = REQUESTS_TRANSPORT._serializers.get(media)
+            self.assertFalse(getattr(fn, "_injects_surrogates", False), media)
+
+    def test_install_is_idempotent(self):
+        before = _json_serializer()
+        sur._install_json_serializer()
+        self.assertIs(_json_serializer(), before)
 
 
 class HookWiringTests(TestCase):
-    """`st run` loads only schemathesis_hooks.py; it must pull the surrogate hook in."""
+    """`st run` loads only schemathesis_hooks.py; it must pull the surrogate serializer in."""
 
-    def test_schemathesis_hooks_imports_and_registers_the_surrogate_hook(self):
-        hooks = _hooks()
+    def test_schemathesis_hooks_imports_the_surrogate_module(self):
         # AttributeError here means the `import schemathesis_surrogates` line was removed.
-        self.assertIs(hooks.schemathesis_surrogates, sur)
-        from schemathesis.hooks import GLOBAL_HOOK_DISPATCHER
-
-        self.assertIn(sur.before_call, GLOBAL_HOOK_DISPATCHER.get_all_by_name("before_call"))
+        self.assertIs(_hooks().schemathesis_surrogates, sur)
+        self.assertTrue(getattr(_json_serializer(), "_injects_surrogates", False))
 
     def test_hooks_file_names_the_import_statically(self):
         source = (BACKEND_DIR / "schemathesis_hooks.py").read_text()
@@ -166,7 +174,7 @@ _SPEC = {
 }
 
 
-def _make_handler(crash_on_surrogate):
+def _make_handler(crash_on_surrogate, reject_all_json=False):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -186,6 +194,8 @@ def _make_handler(crash_on_surrogate):
             raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
             if "json" not in self.headers.get("Content-Type", ""):
                 return self._send(200, {"form": True})  # form/multipart: the hook must never touch these
+            if reject_all_json:
+                return self._send(400, {"detail": "always rejected"})
             try:
                 body = json.loads(raw)
                 name = body["name"]
@@ -207,10 +217,10 @@ def _make_handler(crash_on_surrogate):
 class SurrogateNegativeControlTests(unittest.TestCase):
     """Run the real CLI at a stub: a surrogate-triggered 500 fails the run, a fixed handler passes."""
 
-    def _run_st(self, crash_on_surrogate):
+    def _run_st(self, crash_on_surrogate, reject_all_json=False):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
-        server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(crash_on_surrogate))
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(crash_on_surrogate, reject_all_json))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
@@ -248,3 +258,16 @@ class SurrogateNegativeControlTests(unittest.TestCase):
     def test_handler_that_rejects_a_surrogate_passes(self):
         result = self._run_st(crash_on_surrogate=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_post_scenario_warnings_path_does_not_crash_the_cli(self):
+        """No positive case is accepted, so the CLI inspects every recorded case after the scenario.
+
+        That path re-validates each case's body (`warnings.py` -> `_revalidate_metadata`) and
+        crashed `st run` with `UnicodeEncodeError` when the surrogate lived on `case.body` (#2121,
+        seen in CI). The recorded cases must stay pristine.
+        """
+        result = self._run_st(crash_on_surrogate=False, reject_all_json=True)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertNotIn("Traceback", output)
+        self.assertNotIn("UnicodeEncodeError", output)

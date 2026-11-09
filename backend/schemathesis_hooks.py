@@ -92,7 +92,7 @@ django.setup()
 
 import schemathesis  # noqa: E402
 
-# Registers the `map_body` hook that puts lone surrogates into JSON bodies (#2121).
+# Wraps the JSON serializer so lone surrogates reach the wire in JSON bodies (#2121).
 import schemathesis_surrogates  # noqa: E402,F401
 
 

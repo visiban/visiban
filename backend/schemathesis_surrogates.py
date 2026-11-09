@@ -13,19 +13,20 @@ surrogate category by default. Only a post-generation mutation can put one on th
 
 ## Behavior
 
-A `before_call` hook runs per request and acts only when `case.media_type` is JSON. It
-cannot be a `map_body` hook: that hook is not told which media type the case will be
-serialized as, and drf-spectacular declares JSON, form-urlencoded and multipart on nearly
-every serializer-bodied operation (only 2 of 80 body operations are JSON-only), so a
-"JSON-only operation" filter would skip almost everything. A lone surrogate in a form or
-multipart body would crash the client's own encoder, so those cases are never touched.
+The requests transport's JSON serializer is wrapped (`_install_json_serializer`), so the
+mutation happens as the request body is built, only for cases whose media type is JSON.
+It cannot be a `map_body` hook (not told the media type; drf-spectacular declares JSON, form
+and multipart on nearly every serializer-bodied operation, only 2 of 80 are JSON-only) and it
+must not set `case.body`: the CLI re-validates the recorded case after the scenario and the
+validator UTF-8-encodes strings, so a surrogate stored on the case crashes `st run` with
+`UnicodeEncodeError` (seen in CI on the first attempt). Serialization-time injection leaves
+the case pristine. A lone surrogate in a form or multipart body would crash the client's own
+encoder, which is why those serializers are left alone.
 
 For about one JSON case in `_ONE_IN` whose body carries a string, the last character of
 one string value is replaced with a lone surrogate. Replacing (not appending) keeps the
 string length. The choice is a pure function of the body, so `--seed` replay stays
 deterministic, the input body is copied and not mutated, and no extra requests are sent.
-Assigning `case.body` makes schemathesis revalidate the case's generation metadata before
-sending; that is the only added work.
 
 Reach, measured on `manage.py spectacular` output: 198 operations, 80 with a request body,
 77 of those declare JSON, and 62 of those have a string in the JSON body schema. Per
@@ -44,8 +45,6 @@ status) turns the job red.
 """
 
 import zlib
-
-import schemathesis
 
 # Inject into roughly 1 JSON case in N: often enough to land a few dozen times per MR run
 # across the string-bearing operations, rare enough that the other ~90% of bodies keep
@@ -100,19 +99,32 @@ def inject_lone_surrogate(body):
     return _replace_at(body, path, surrogate)
 
 
-@schemathesis.hook
-def before_call(context, case, kwargs):
-    """Put a lone surrogate into some JSON string bodies just before they are sent (#2121).
+def _install_json_serializer():
+    """Wrap the requests transport's JSON serializer so the wire body carries the surrogate.
 
-    Runs per request, when the media type the case will be serialized as is known
-    (`case.media_type`), which `map_body` is not told. drf-spectacular declares JSON, form
-    and multipart on nearly every serializer-bodied operation, and schemathesis picks one per
-    case, so only the JSON-selected cases are touched. Assigning `case.body` makes
-    schemathesis revalidate the case's generation metadata before sending.
+    The mutation happens at serialization time, on the way out, so the `Case` keeps its
+    pristine generated body. That matters: schemathesis re-validates a recorded case's body
+    against the schema after the scenario (`cli/commands/run/warnings.py` ->
+    `Case._revalidate_metadata`), and that validator UTF-8-encodes every string, which raises
+    `UnicodeEncodeError` on a lone surrogate and crashes `st run`. A first attempt that set
+    `case.body` in `before_call` hit exactly that in CI (and restoring it in `after_call`
+    is not reliable: it is skipped when the call raises without a request attached).
+
+    The serializer is chosen from `case.media_type`, so form and multipart cases never reach
+    it, which is the JSON-only guard.
     """
-    if not _is_json(case.media_type):
+    from schemathesis.transport.requests import REQUESTS_TRANSPORT
+
+    original = REQUESTS_TRANSPORT._serializers["application/json"]
+
+    def json_serializer_with_surrogates(ctx, value):
+        return original(ctx, inject_lone_surrogate(value))
+
+    # Idempotent if this module is loaded twice (tests import it by name and by path).
+    if getattr(original, "_injects_surrogates", False):
         return
-    body = case.body
-    mutated = inject_lone_surrogate(body)
-    if mutated is not body and mutated != body:
-        case.body = mutated
+    json_serializer_with_surrogates._injects_surrogates = True
+    REQUESTS_TRANSPORT.serializer("application/json", "text/json")(json_serializer_with_surrogates)
+
+
+_install_json_serializer()
