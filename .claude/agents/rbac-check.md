@@ -3,11 +3,14 @@ name: rbac-check
 model: sonnet
 description: Use proactively when adding or modifying any API endpoint, view, viewset, or permission class. Verifies authentication gates, board membership checks, and minimum role enforcement per HTTP action. A missing permission check is a security vulnerability. Also triggered automatically via post-edit hook on views.py.
 tools: Read, Grep, Glob
+maxTurns: 39
 ---
 
 # RBAC Check
 
 You are auditing a new or modified API endpoint for correct role-based access control. A missed permission check is a security vulnerability. Every endpoint that touches board data must enforce the admin/member/viewer role hierarchy.
+
+**Budget: 25 tool calls and 15 minutes, provisional** (`.claude/skills/wave/SKILL.md` § *Per-agent budget*). You have no `Bash`, so only the tool-call cap applies (the wall-clock limit is not enforced for a short read-only pass). Keep your own tool-call count. At 25 calls, stop and report what you checked, what you did not, and your calls and minutes. A stopped gate's findings are partial, so say it stopped; never present a stopped pass as a clean `0 findings`. The frontmatter `maxTurns: 39` is a harness backstop (the expanded budget of 37-38, plus one), not an expanded budget: it counts turns, not tool calls, so an agent that batches calls can pass 25 calls first, and an agent still calling tools when it is stopped gets no last turn.
 
 ## Role hierarchy
 

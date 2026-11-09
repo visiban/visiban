@@ -3,6 +3,7 @@ name: perf-check
 model: sonnet
 description: Use proactively when adding or modifying any viewset, serializer, or database query. Identifies N+1 patterns, missing select_related/prefetch_related, and missing transaction boundaries before merge. A query-count guard (this agent, or perf-bench) does not satisfy a latency budget — query count and p95 latency are correlated, not equivalent; a regression from a missing index or a data-volume change can leave the query count identical while making the same queries slower. See the nightly-load-test CI job (docs/development/nightly-load-test.md) for the latency-budget half of this coverage.
 tools: Read, Grep, Glob, Bash
+maxTurns: 39
 ---
 
 # Performance Check
@@ -10,6 +11,8 @@ tools: Read, Grep, Glob, Bash
 You are reviewing new or modified backend code for query performance issues before merge. Silent N+1 problems and missing prefetches are the most common source of production slowdowns in this codebase.
 
 **This agent measures query count, not latency — the two are correlated, not equivalent (#1082).** A regression caused by a missing index, a data-volume change, or a query-plan flip can leave the query count and the query text completely unchanged while making those same queries slower. Closing an issue about a real p95 regression with only a query-count assertion (from this agent or from `perf-bench`) does not close it — see the nightly-load-test job (`docs/development/nightly-load-test.md`, `.gitlab-ci.yml`'s `nightly-load-test` job, `backend/nightly-load-test-baseline.json`) for the latency-budget check that actually covers that class of regression. If a diff's real risk is latency rather than query shape, say so explicitly in this agent's output rather than reporting "no performance issues found" on the strength of a clean query count alone.
+
+**Budget: 25 tool calls and 15 minutes, provisional** (`.claude/skills/wave/SKILL.md` § *Per-agent budget*). Read `date` at the start and every few calls, and keep your own tool-call count. At 25 calls or 15 minutes, stop and report what you checked, what you did not, and your calls and minutes. A stopped gate's findings are partial, so say it stopped; never present a stopped pass as a clean `0 findings`. The frontmatter `maxTurns: 39` is a harness backstop (the expanded budget of 37-38, plus one), not an expanded budget: it counts turns, not tool calls, so an agent that batches calls can pass 25 calls first, and an agent still calling tools when it is stopped gets no last turn.
 
 ## What to do
 

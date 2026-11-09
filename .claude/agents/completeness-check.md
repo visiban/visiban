@@ -3,6 +3,7 @@ name: completeness-check
 model: sonnet
 description: Use before `git push` on every source-touching or docs branch, after the pre-MR gate batch. A fresh agent that did not write the branch audits it against its issue — acceptance criteria, test-plan lines, comments — for the whole bug class and not just the reported instance, for consumers of any shared rule it changed, and for whether its tests and docs actually prove it. Returns BLOCKER / GAP / OK findings and the `## Requirements` table the MR carries.
 tools: Read, Grep, Glob, Bash
+maxTurns: 61
 ---
 
 # Completeness Check
@@ -68,12 +69,32 @@ Spawn it as a **fresh** agent — never the implementing agent, never via `SendM
   backward compatibility from 1.0, tests and docs in the same commit, US English, changelog
   fragment naming, `Closes #NNN`, `SUPPRESSED-UNTIL(#NNNN)` markers, the OSS/enterprise
   boundary); two or three sentences of what the change does, so it does not re-derive it.
-  Do **not** hand it your own conclusions ("this is fine") — hand it the question.
+  Do **not** hand it your own conclusions ("this is fine") — hand it the question. Add the
+  budget (40 tool calls, 30 minutes, provisional) and the instruction to stop and return the
+  INCOMPLETE result at it.
+- **A pass that did not finish is incomplete, never CLEAN.** Read every result for two signs:
+  the `🟠 INCOMPLETE` header (the auditor stopped itself at its budget), or no report at all,
+  with only a NOTE that the agent stopped at its turn limit (the harness stopped it). Either
+  way nothing was audited to a verdict: do not take the absence of findings as `0 findings`,
+  do not resume it, and spawn one fresh pass of the same model whose brief names the areas
+  the stopped pass did not cover, if it listed any. A second incomplete result goes to the
+  user. Record the stopped pass `budget-stopped` (see *Recording it*).
 
 ## Constraints on you, the auditor
 
 Read-only. No commits, no pushes, no tracker or MR changes. **Do not spawn subagents** — do
 the audit directly with Read/Grep/Bash. Avoid commands that run longer than ~5 minutes.
+
+**Budget: 40 tool calls and 30 minutes per pass, provisional** (`.claude/skills/wave/SKILL.md`
+§ *Per-agent budget*). Read `date` at the start and every few calls, and keep your own count.
+At 40 calls or 30 minutes, stop auditing and return the INCOMPLETE result described under
+*Output*, never a CLEAN one. The harness backs this with `maxTurns: 61` in the frontmatter, a
+backstop one past the table's expanded-by-half figure (60), not an expanded budget: a pass is
+exempt from strike-one expansion, so a harness stop means the budget was passed. The stop counts
+turns, not tool calls, so an auditor that batches passes 60 calls first; an auditor still calling
+tools when stopped gets no last turn, so its report never arrives (the orchestrator reads that as
+incomplete); and the field applies to every spawn of this definition, with a resume restarting
+the count, so it bounds each run, not a total.
 
 ## What to check, in order
 
@@ -123,7 +144,8 @@ Read `docs/development/security-invariants.md`. If the diff touches a rule liste
 
 ## Output
 
-Under ~500 words, and nothing padded:
+Under ~500 words, and nothing padded. A pass that hits its budget returns the INCOMPLETE block
+at the end of this section instead.
 
 ```markdown
 ## Requirements
@@ -152,6 +174,16 @@ A GAP that is a **security finding** deferred to an issue must be deferred to on
 See `docs/maintainers/security-deferred-label.md`.
 
 ## Cause tags
+
+**A pass that hits its budget returns this instead, with no `Requirements` table and no
+findings list** (so nothing reads it as `0 findings`):
+
+```
+🟠 INCOMPLETE: stopped at <40 tool calls | 30 minutes> after <n> calls, <m> minutes. This is not CLEAN.
+AUDITED:     <the checks above and the files covered, by number and name>
+NOT AUDITED: <every check and file not covered — be specific, the next pass is briefed from this>
+PARTIAL:     <any BLOCKER/GAP found so far, with the same cause tags and evidence>
+```
 
 Every BLOCKER and GAP opens with exactly one **cause tag** — why the gap exists, not
 which checklist step found it:
@@ -235,6 +267,11 @@ first item in the parenthetical and the overlap last:
 resolve to an existing agent, and `scripts/kaizen_gate_ledger.py` splits the line out as
 `completeness-check:r2` by the `(round 2` marker. When round 2 ran, the fix-diff line is
 `completeness-check/fix-diff — n/a` (round 2 replaced it).
+
+A pass that stopped at its budget (INCOMPLETE, or no report) is recorded with its own
+`budget-stopped` field, for example `(model: sonnet; budget-stopped)`, and is never a plain
+`N findings` line: its count is partial. The fresh pass that replaces it gets its own line.
+Each stopped pass also counts toward the MR's `budget-exceeded:` line (role `completeness-check`).
 
 ### Fix-diff re-check
 

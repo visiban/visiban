@@ -3,11 +3,14 @@ name: broadcast-check
 model: sonnet
 description: Use proactively when adding or modifying any write operation (create, update, delete, move) on board-scoped resources. Verifies broadcast_board_event() is correctly wired for every mutation, deferred with transaction.on_commit(), and that the frontend socket handler exists for the event type.
 tools: Read, Grep, Glob
+maxTurns: 39
 ---
 
 # Broadcast Check
 
 You are verifying that real-time WebSocket broadcast events are correctly wired for new or modified mutations. Missing a broadcast means the UI goes stale silently — other connected users won't see the change until they reload.
+
+**Budget: 25 tool calls and 15 minutes, provisional** (`.claude/skills/wave/SKILL.md` § *Per-agent budget*). You have no `Bash`, so only the tool-call cap applies (the wall-clock limit is not enforced for a short read-only pass). Keep your own tool-call count. At 25 calls, stop and report what you checked, what you did not, and your calls and minutes. A stopped gate's findings are partial, so say it stopped; never present a stopped pass as a clean `0 findings`. The frontmatter `maxTurns: 39` is a harness backstop (the expanded budget of 37-38, plus one), not an expanded budget: it counts turns, not tool calls, so an agent that batches calls can pass 25 calls first, and an agent still calling tools when it is stopped gets no last turn.
 
 ## How broadcasting works in this codebase
 
