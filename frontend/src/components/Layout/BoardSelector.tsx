@@ -21,11 +21,11 @@ export default function BoardSelector({ user, onSelect }: Props) {
   // Board ids with a deleteBoard() call currently in flight. The confirm
   // dialog closes synchronously on submit (see handleDelete below), which
   // otherwise lets a second board's delete be confirmed and started while
-  // the first is still pending — each call captures its own `prevBoards`
-  // snapshot, so an overlapping failure can roll one delete's state back
-  // over the other's already-successful removal. Rather than reconciling
-  // overlapping snapshots, disable every delete trigger while any delete is
-  // in flight — that removes the only UI entry point for the race (#1375).
+  // the first is still pending, so overlapping deletes could interleave their
+  // optimistic removals and failure rollbacks. Disable every delete trigger
+  // while any delete is in flight — that removes the only UI entry point
+  // for the race (#1375). The failure rollback itself also re-inserts by
+  // board id rather than restoring a list snapshot (#1385).
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const dialogTitleId = useId();
 
@@ -63,8 +63,8 @@ export default function BoardSelector({ user, onSelect }: Props) {
         });
       }
       setDeleteError("Failed to delete board.");
-      // Best-effort refresh to reconcile with the server; the snapshot
-      // restore above already keeps the UI consistent if this also fails.
+      // Best-effort refresh to reconcile with the server; the id-based
+      // re-insert above already keeps the UI consistent if this also fails.
       listBoards().then(setBoards).catch(() => {});
     } finally {
       setDeletingIds((prev) => {
