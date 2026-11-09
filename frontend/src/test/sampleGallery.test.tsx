@@ -343,6 +343,13 @@ describe('SampleGallery — loading and cancel', () => {
     expect(screen.getByText('Loading canceled.')).toBeInTheDocument()
   })
 
+  it('Escape in the board name field with nothing loading calls onCancel exactly once (#1973)', async () => {
+    const { user, onCancel } = await renderModal()
+    await user.click(screen.getByPlaceholderText(/Leave blank for/))
+    await user.keyboard('{Escape}')
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape with nothing loading still closes the modal', async () => {
     const { user, onCancel } = await renderModal()
     await user.keyboard('{Escape}')
