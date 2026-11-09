@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
@@ -160,10 +160,7 @@ export default function SingleSelectDropdown<T extends string | number>({
           // must not get a narrower menu) and is clamped so it never runs off
           // the viewport's right edge (#1478).
           const minWidth = Math.max(rect.width, MIN_MENU_WIDTH);
-          const left = Math.max(
-            POPOVER_VIEWPORT_MARGIN,
-            Math.min(rect.left, window.innerWidth - minWidth - POPOVER_VIEWPORT_MARGIN),
-          );
+          const left = clampLeftToVisible(rect.left, minWidth);
           setAnchor({ top: rect.top, bottom: rect.bottom, left, minWidth });
         }
       }
@@ -264,7 +261,7 @@ export default function SingleSelectDropdown<T extends string | number>({
               minWidth: anchor.minWidth,
               // Hidden only for the pre-paint measuring pass.
               visibility: top === null ? "hidden" : undefined,
-              maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+              maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
               maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
               display: "flex",
               flexDirection: "column",

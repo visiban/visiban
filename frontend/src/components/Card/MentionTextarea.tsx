@@ -1,6 +1,6 @@
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { POPOVER_VIEWPORT_MARGIN, getVisibleViewport, subscribeVisualViewport } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, clampLeftToVisible, getVisibleViewport, subscribeVisualViewport } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -102,10 +102,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     if (natural > space) el.style.maxHeight = `${space}px`;
     sideRef.current = side;
     el.style.top = `${side === "below" ? r.bottom + gap : r.top - gap - height}px`;
-    el.style.left = `${Math.max(
-      margin,
-      Math.min(r.left, window.innerWidth - el.offsetWidth - margin),
-    )}px`;
+    el.style.left = `${clampLeftToVisible(r.left, el.offsetWidth, margin)}px`;
     // Re-anchoring (not dismissing) means the textarea can scroll out of view while the list is
     // open: out of the viewport, or under the card sheet's header/footer, which clip it inside the
     // nearest scrollable ancestor. Hide the list then rather than leave it attached to an invisible field.

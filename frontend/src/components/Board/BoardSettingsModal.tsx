@@ -4,7 +4,7 @@ import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useToast } from "../../contexts/useToast";
 import { canDeleteBoard } from "../../utils/canDeleteBoard";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
@@ -1306,7 +1306,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             top: suggestionsTop ?? 0,
                             left: dropdownAnchor.left,
                             width: dropdownAnchor.width,
-                            maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+                            maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
                             // Hidden only for the pre-paint measuring pass.
                             visibility: suggestionsTop === null ? "hidden" : undefined,
                           }}

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import CollapsedFlyout, { type FlyoutSection } from '../components/Common/CollapsedFlyout'
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
 const defaultSections: FlyoutSection[] = [
   {
@@ -133,7 +134,15 @@ describe('CollapsedFlyout', () => {
 
     it('caps the panel at the viewport rather than a fixed height', () => {
       mount(100)
-      expect(panel().style.maxHeight).toBe('calc(100vh - 16px)')
+      expect(panel().style.maxHeight).toBe(`${window.innerHeight - 16}px`)
+    })
+    it('caps the panel at the viewport rather than a fixed height with a visualViewport (#2161)', () => {
+      stubVisualViewport({ height: 300 });
+      try {
+      mount(100)
+      expect(panel().style.maxHeight).toBe('284px')
+    
+      } finally { clearVisualViewport(); }
     })
 
     it('closes on window resize', () => {

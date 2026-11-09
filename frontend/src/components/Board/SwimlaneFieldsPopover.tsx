@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
-import { useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 
@@ -117,7 +117,7 @@ export default function SwimlaneFieldsPopover({
   // board behind a scrollbar macOS doesn't draw.
   const PANEL_WIDTH = 256;
   const MARGIN = 8;
-  const left = Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - MARGIN);
+  const left = clampLeftToVisible(anchorRect.left, PANEL_WIDTH, MARGIN);
   // Bottom fade while more of the list is below the fold: the overflow is
   // otherwise invisible wherever the OS hides scrollbars.
   const { moreBelow, onScroll: updateMoreBelow } = useOverflowFade(listRef, [entries.length]);
@@ -164,7 +164,7 @@ export default function SwimlaneFieldsPopover({
           aria-label="Field values"
           className="overflow-y-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
           // Viewport minus the margins and the header/footer chrome.
-          style={{ maxHeight: `calc(100vh - ${2 * MARGIN}px - 5.5rem)` }}
+          style={{ maxHeight: visibleMaxHeight(2 * MARGIN, "5.5rem") }}
         >
           {offRow.map((entry, i) => renderEntry(entry, i))}
           {offRow.length > 0 && onRow.length > 0 && (

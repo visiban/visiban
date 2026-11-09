@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import CustomFieldQuickEditPopover from "../components/Card/CustomFieldQuickEditPopover";
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
 // jsdom returns a zeroed DOMRect from getBoundingClientRect by default, but
 // this component takes anchorRect as a prop rather than measuring the DOM
@@ -268,7 +269,15 @@ describe("CustomFieldQuickEditPopover", () => {
 
     it("caps the panel at the viewport rather than a fixed height", () => {
       mount(makeRect());
-      expect(panel().style.maxHeight).toBe("calc(100vh - 16px)");
+      expect(panel().style.maxHeight).toBe(`${window.innerHeight - 16}px`);
+    });
+    it("caps the panel at the viewport rather than a fixed height with a visualViewport (#2161)", () => {
+      stubVisualViewport({ height: 300 });
+      try {
+      mount(makeRect());
+      expect(panel().style.maxHeight).toBe("284px");
+    
+      } finally { clearVisualViewport(); }
     });
 
     it("dismisses on window resize", () => {

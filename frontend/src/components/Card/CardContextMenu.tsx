@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible, getVisibleViewport } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
@@ -82,14 +82,15 @@ export default function CardContextMenu({ anchor, label, header, entries, column
   // Clamp horizontally to the viewport once the width is known.
   useLayoutEffect(() => {
     const width = panelRef.current?.offsetWidth ?? 0;
-    setLeft(Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(anchor.left, window.innerWidth - POPOVER_VIEWPORT_MARGIN - width)));
+    setLeft(clampLeftToVisible(anchor.left, width));
   }, [anchor.left]);
   // A submenu opens to the right of its item, or to the left when there is no room.
   useLayoutEffect(() => {
     if (!submenu) { setSubLeft(null); return; }
     const width = subRef.current?.offsetWidth ?? 0;
     const right = submenu.anchor.right + 2;
-    setSubLeft(right + width <= window.innerWidth - POPOVER_VIEWPORT_MARGIN ? right : Math.max(POPOVER_VIEWPORT_MARGIN, submenu.anchor.left - 2 - width));
+    const vv = getVisibleViewport();
+    setSubLeft(right + width <= vv.left + vv.width - POPOVER_VIEWPORT_MARGIN ? right : Math.max(vv.left + POPOVER_VIEWPORT_MARGIN, submenu.anchor.left - 2 - width));
   }, [submenu]);
 
   // Focus only after placement: browsers ignore focus() on a hidden element.
@@ -223,7 +224,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
         className="fixed z-[45] min-w-[13rem] max-w-[18rem] bg-surface border border-line-strong rounded-lg shadow-lg py-1 overflow-y-auto"
         style={{
           top: top ?? 0, left,
-          maxHeight: `calc(100vh - ${POPOVER_VIEWPORT_MARGIN * 2}px)`,
+          maxHeight: visibleMaxHeight(POPOVER_VIEWPORT_MARGIN * 2),
           visibility: top === null ? "hidden" : undefined,
         }}
         onContextMenu={(e) => e.preventDefault()}
@@ -293,7 +294,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
           className="fixed z-[46] min-w-[10rem] max-w-[16rem] bg-surface border border-line-strong rounded-lg shadow-lg py-1 overflow-y-auto"
           style={{
             top: subTop ?? 0, left: subLeft ?? 0,
-            maxHeight: `calc(100vh - ${POPOVER_VIEWPORT_MARGIN * 2}px)`,
+            maxHeight: visibleMaxHeight(POPOVER_VIEWPORT_MARGIN * 2),
             visibility: subTop === null || subLeft === null ? "hidden" : undefined,
           }}
         >
