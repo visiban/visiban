@@ -371,3 +371,21 @@ the code), add it to `EXEMPT_JOBS` with its reason on a branch, so the change is
 `scripts/release.sh` still checks the merge commit's pipeline before it tags. That check runs
 on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
 covers tags pushed by hand.
+
+## Tool download `504 Gateway Time-out` (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)
+
+**Signature:** a job that installs a third-party binary (`helm-template`, `helm-install`,
+`helm-netpol`, `dep-scan-osv`, `gitleaks-*`, the manifest/attest/publish jobs) fails with a
+confusing downstream error such as `/usr/local/bin/yq: line 1: syntax error near unexpected
+token '<'` or `kind: not found`. Upstream hosts (GitHub releases, `kind.sigs.k8s.io`,
+`dl.k8s.io`, `get.helm.sh`) occasionally return a transient 504, and a plain retry goes green.
+
+**Root cause:** the downloads used `curl -sSL` without `-f` (so the HTML error page was saved as
+the binary), or sat in a `cmd && chmod` list or a `curl | tar` pipe that hid curl's exit status
+(#2160).
+
+**Fix (in place):** every tool download now runs `curl -fsSL --retry 3 --retry-all-errors
+--retry-delay 5`, one step per script line, so a persistent failure stops the job at the
+download line with curl's own error (`curl: (22) ... error: 504`). If you see that error after the
+retries, the upstream is genuinely down or the pinned version URL is wrong; re-run later or fix
+the version pin. New tool downloads in `.gitlab-ci.yml` must follow the same pattern.

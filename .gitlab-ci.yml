@@ -2346,8 +2346,12 @@ helm-template:
     YQ_VERSION: "4.53.3"
   before_script:
     - apk add --no-cache bash curl tar findutils grep sed
-    - curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xz -C /usr/local/bin kubeconform
-    - curl -sSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"
+    # Tool downloads fail on HTTP errors (-f) and retry transient ones, and each
+    # step is its own script line so errexit stops the job AT the download — a
+    # 504 must not save an HTML error page as the binary (#2160).
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+    - tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"
     - chmod +x /usr/local/bin/yq
   script:
     # Render the way a real deploy is shaped — a pinned tag, NetworkPolicies on
@@ -2482,9 +2486,15 @@ helm-template:
         eval "val=\${$v}"
         [ -n "$val" ] || { echo "ERROR: $v is empty — a variables: merge clobber?"; exit 1; }
       done
-    - curl -fsSLo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && chmod +x /usr/local/bin/kind
-    - curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
-    - curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
+    # Fail on HTTP errors, retry transient ones, and keep each step on its own
+    # line (no `&&` list, no pipe) so errexit stops the job at the download (#2160).
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64"
+    - chmod +x /usr/local/bin/kind
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+    - chmod +x /usr/local/bin/kubectl
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+    - tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm
+    - mv /tmp/linux-amd64/helm /usr/local/bin/helm
     - kind version && kubectl version --client=true 2>/dev/null | head -1 && helm version --short
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
     - |
@@ -3701,8 +3711,8 @@ dep-scan-osv:
     exit_codes:
       - 2
   before_script:
-    - apk add --no-cache wget jq
-    - wget -q -O /usr/local/bin/osv-scanner "https://github.com/google/osv-scanner/releases/download/v2.3.5/osv-scanner_linux_amd64"
+    - apk add --no-cache curl jq
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /usr/local/bin/osv-scanner "https://github.com/google/osv-scanner/releases/download/v2.3.5/osv-scanner_linux_amd64"
     - chmod +x /usr/local/bin/osv-scanner
   script:
     # Write JSON report first (osv-scanner exits non-zero on any finding; the
@@ -3747,8 +3757,8 @@ gitleaks-scan:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
-    - apk add --no-cache wget
-    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - apk add --no-cache curl
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
     - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
     - chmod +x /usr/local/bin/gitleaks
   script:
@@ -3776,8 +3786,8 @@ gitleaks-history:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
   before_script:
-    - apk add --no-cache wget git
-    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - apk add --no-cache curl git
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
     - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
     - chmod +x /usr/local/bin/gitleaks
   script:
@@ -3811,8 +3821,8 @@ gitleaks-commits:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   before_script:
-    - apk add --no-cache wget git
-    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - apk add --no-cache curl git
+    - curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
     - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
     - chmod +x /usr/local/bin/gitleaks
   script:
@@ -4483,7 +4493,7 @@ frontend-docker-push-arm64:
       set -eu
       MANIFEST_TOOL_VERSION=2.2.2
       MANIFEST_TOOL_SHA256=bdca525326694849594ab3ba63638fdb664690c9384df947bd3cff943d14736b
-      curl -sSfL "https://github.com/estesp/manifest-tool/releases/download/v${MANIFEST_TOOL_VERSION}/binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz" -o /tmp/manifest-tool.tar.gz
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/estesp/manifest-tool/releases/download/v${MANIFEST_TOOL_VERSION}/binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz" -o /tmp/manifest-tool.tar.gz
       echo "${MANIFEST_TOOL_SHA256}  /tmp/manifest-tool.tar.gz" | sha256sum -c -
       mkdir -p /tmp/manifest-tool-extracted
       tar xzf /tmp/manifest-tool.tar.gz -C /tmp/manifest-tool-extracted
@@ -4648,10 +4658,10 @@ frontend-manifest:
       set -eu
       SYFT_VERSION=1.51.1
       SYFT_SHA256=8fcb33017a0dc1058298c923c436d19dfa68ae93968e0b423248542e3afb9fc3
-      curl -sSfL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" -o /tmp/syft.tar.gz
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" -o /tmp/syft.tar.gz
       echo "${SYFT_SHA256}  /tmp/syft.tar.gz" | sha256sum -c -
       tar xzf /tmp/syft.tar.gz -C /usr/local/bin syft
-      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
       echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
       chmod +x /usr/local/bin/cosign
     # One Docker config file serves crane, syft and cosign alike (all three
@@ -4900,7 +4910,7 @@ helm-publish:
     - |
       (
         set -eu
-        curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+        curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
         echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
         chmod +x /usr/local/bin/cosign
       )
@@ -5066,7 +5076,7 @@ check-release-attestations:
     - apk add --no-cache bash git curl jq crane
     - |
       set -eu
-      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
       echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
       chmod +x /usr/local/bin/cosign
       if [ -z "${GHCR_USER:-}" ] || [ -z "${GHCR_TOKEN:-}" ]; then
