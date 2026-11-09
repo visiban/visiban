@@ -222,6 +222,85 @@ using the values you actually passed. For gates the implementer spawned, use the
 reported (Step 5.4). If an agent was spawned without one, write `inherited` and treat the
 omission as a defect in this run, unless an override variable above removed the parameter.
 
+### Per-agent budget — provisional, two-strike expansion
+
+Spend sits in a few long agents, and until #2157 the only stop was the agent finishing
+(ported from Blueprint's `/wave`, macrodream/blueprint#247). Every agent gets a budget in
+its brief, counted in tool calls and wall-clock minutes. An agent with `Bash` (the
+implementer, `completeness-check`, `regression-check`, `security-review`, `perf-check`,
+`migration-check`) reads `date` at the start and every few calls. An agent without `Bash`
+(`rbac-check`, `broadcast-check`, `ux-review`) has **only the tool-call cap**: its wall-clock
+limit is not enforced (short read-only passes; having the orchestrator watch a clock for them
+costs more than it saves). Tool calls are not the ledger's `turns:` unit; keep the two apart.
+
+| Role | Tool calls | Wall-clock |
+|---|---|---|
+| Implementer | 80 | 45 min |
+| Read-only gate (`regression-check`, `perf-check`, `security-review`, `rbac-check`, ...) | 25 | 15 min |
+| `completeness-check`, each pass | 40 | 30 min |
+
+**These numbers are PROVISIONAL.** They are judgment, not derived from this repo's ledger. The
+evidence is one 2026-11-08 wave on the cross-session cost-ledger work (#2157): an Opus
+implementer ran 117 turns at an average of 269k context ($18.16), while a fresh fix agent capped
+at 40 tool calls did a later fix round in 11 calls (about $0.30) and passed its re-check with 0
+findings; a `completeness-check` pass ran 61 tool calls. Recalibrate from the per-role tool
+calls and minutes in the Step 7 report once enough waves have reported them. The
+`budget-exceeded:` line shows where a budget binds, not whether it is too loose.
+
+**At the budget an agent stops** and reports what it finished, what remains, and the tool calls
+and minutes spent. It does not push, open an MR, or keep going "to finish". **The orchestrator
+decides whether to expand it** and says which in the report. The same rule applies one level
+down: the **implementer** is the orchestrator for the pre-MR gate agents it spawns, since you
+cannot see them. A gate that stops with real progress may be expanded once by half; a second
+stop, or a stop with none, is final. **`completeness-check` is exempt from strike-one
+expansion:** a stopped pass is never resumed or expanded, a fresh pass replaces it (Step 5.4),
+and its `maxTurns: 61` is a backstop, not an expanded budget.
+
+- **Strike one**: the agent stopped with real progress (a commit, a passing test, a narrowed
+  root cause). Expand it once, by half of its original budget, and say so in the resume message.
+  If the worktree holds no change, do not resume: spawn a fresh agent as in Step 4 with the
+  stopped agent's report in the brief.
+- **Strike two**: it reaches the expanded budget. Stop. Do not expand again: diagnose why it
+  wandered, then continue in a fresh agent (*Handoff at a stop*, below), re-scope the issue,
+  escalate the model per *Model choice*, or take the issue out of the wave.
+
+An agent stopped with no progress at all is strike two at once. Count every agent that reached
+a budget, expanded or not, and record it as the `budget-exceeded: <N> (<role> <k>, ...)` ledger
+line (`.claude/skills/mr/SKILL.md` § The Gates section), with roles `implementer`, `gate` and
+`completeness-check`. The implementer's report to you (Step 5.4) states how many of its own
+gates hit a budget; add that to the `gate` count.
+
+**A gate that stopped at its budget has a partial finding count, so it is never recorded as a
+plain `N findings` line.** Record it as `gate: <name> — <N> findings (<model>; budget-stopped)`
+(`budget-stopped` is its own `;` field), or re-run the gate under the expanded budget and record
+that run. Never present a stopped gate's `0 findings` as a clean result.
+
+**What the harness enforces, and what it does not.** The read-only gate agent files and
+`completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
+one). The ceiling is per run, not per agent (a resume restarts the count), and it counts turns,
+not tool calls, so an agent that batches can pass its call budget first. An agent still calling
+tools at the ceiling gets no last turn: a harness stop arrives as a `completed` result carrying
+only a turn-limit NOTE and no report. Read that as an unfinished pass, never as `0 findings`,
+and never resume it. **The implementer has no harness backstop in this repo.** It is a
+`general-purpose` agent, whose definition you cannot give a `maxTurns`, so its 80-call and
+45-minute budget is enforced only by the brief and by you reading its report. Tell it to commit
+each coherent step once its tests pass, so a run that is cut off at the session's own limits
+leaves work on the branch.
+
+**Slow commands expire a subagent's cache.** A subagent's cache lives five minutes, so one
+command or wait over that rewrites its whole context on the next turn. Tell a late-stage
+implementer to run only the scoped tests and never `sleep`; any single command expected to pass
+5 minutes goes to you.
+
+### Handoff at a stop
+
+When an implementer stops at a budget (strike two, or strike one with the resume not worth its
+context), continue in a **fresh** `general-purpose` agent in the **same worktree**, not a
+resume: a resume re-reads the whole grown context on every turn. Brief it as in *The brief*,
+plus the stopped agent's report (what is done, what remains, the commits on the branch), and
+count the stopped implementer in `budget-exceeded:`. It commits in new commits and stops before
+push, like any implementer.
+
 ### The brief
 
 Each agent's prompt must be **self-contained**. An agent that has to go
@@ -244,6 +323,12 @@ named. Include:
   (`cd backend && pytest <path> -q`, or `cd frontend && npx vitest run <file>`,
   or `cd frontend && npx playwright test e2e/<spec>.spec.ts`).
 - The completion contract from Step 5.
+- **Its budget** from the table in *Per-agent budget*: tool calls and wall-clock minutes for its
+  role, labeled provisional, and the instruction to stop and report at the limit. The
+  implementer's brief also carries the read-only-gate row (25 tool calls, 15 min, provisional)
+  for each pre-MR batch agent it spawns, with the same stop-and-report instruction, to pass in
+  each gate's prompt. It also says that a run cut off at a limit gets no last turn, so it
+  commits each coherent step once its tests pass.
 - **Frontend issues:** also run `cd frontend && npx tsc -p tsconfig.e2e.json --noEmit`
   (it catches e2e fixture drift that `tsconfig.app.json` does not) and require Vitest
   diff-coverage of at least 80% on the changed lines. Playwright does not count toward it.
@@ -269,6 +354,8 @@ Tell each agent explicitly:
 - **Batch independent tool calls** into one message.
 - **Stop and report** if blocked after two attempts at the same failure, rather
   than looping.
+- **Stop and report at its budget** (tool calls or wall-clock, whichever comes first), with what
+  is done and what remains. You decide whether to expand it.
 - **Kill stray full-suite runs** (`pytest`, `vitest` without a file argument) before
   handing back.
 
@@ -292,13 +379,42 @@ Every agent finishes by, in order:
    than piping it through `tail` — the pipe swallows the diagnostic, and an OOM kill then
    reads as a bare exit code.
 4. **Commit and stop — do not push yet.** Report the commit SHA, the pre-MR
-   gate ledger, and the model and effort it passed to each gate agent, to the orchestrator. The orchestrator then spawns
+   gate ledger, the model and effort it passed to each gate agent, and how many of its gates
+   hit a budget, to the orchestrator. The orchestrator then spawns
    `Agent(subagent_type: "completeness-check")` (`.claude/agents/completeness-check.md`)
    on the unpushed branch — a fresh agent that did not write it, model per its own
    escalation criteria — and every BLOCKER and GAP is fixed on the branch or
-   deferred to an **open** issue. The orchestrator re-briefs the implementer (via
-   `SendMessage`) to fix them, in a **new commit** (never an amend), so the fix diff
-   stays separable from the audited branch.
+   deferred to an **open** issue. **Read each audit result before anything else:** a
+   `🟠 INCOMPLETE` result, or no report with only the turn-limit NOTE, is an unfinished pass,
+   not `CLEAN` and not `0 findings` (`.claude/agents/completeness-check.md`). Never resume it.
+   Spawn one fresh pass of the same model, briefed with what the stopped pass listed as not
+   audited; a second incomplete result goes to the user. Count each in `budget-exceeded:` as
+   `completeness-check` and record it `budget-stopped` (*Per-agent budget*). Its brief carries
+   the 40-call, 30-minute budget (provisional).
+
+   Then fix the findings in a **new commit** (never an amend), so the fix diff stays separable
+   from the audited branch. A fix-round brief relays each finding with the auditor's minimal fix
+   and a test, nothing more: widening the design is a question for the user or a new issue,
+   never part of a gap fix.
+
+   **Resume or fresh: the threshold is PROVISIONAL** (rule ported from
+   macrodream/blueprint#394). Spawn a **fresh fix agent** instead of resuming the implementer
+   when **either** holds: the implementer's context exceeds **150k** (read the
+   `subagent_tokens` of its latest completion notification: a context-size read, **not** the
+   ledger's `subagent-tokens:`, which is never recorded for this), or the fix round has
+   **fewer than 5** findings. Every resume re-reads the implementer's whole context, and late
+   fix rounds are small. The fresh agent is `Agent(subagent_type: "general-purpose", model:
+   "sonnet", effort: "medium")` unless the fix itself meets *Model choice*'s escalation
+   criteria, in the **same worktree** (it never runs `git checkout`), briefed with: the issue
+   number, the worktree path and branch, the exact findings with `file:line` and their minimal
+   fixes, the scoped test command, `cd` there and `source .envrc` first, a budget counted under
+   role `implementer` (*Per-agent budget*), and "commit in a new commit, never amend, and stop
+   before push". Record its `agentId:` for the cost ledger like any agent you spawn. Resume the
+   original implementer (via `SendMessage`) only for **design-level rework**: a finding that
+   changes the approach, which needs the context it holds. The 150k and the 5 are provisional,
+   from one wave (#2157's evidence above and macrodream/blueprint#337, an implementer resumed
+   five times to about 250k with late rounds of 5-10 tool calls each), not from this ledger.
+   Note for the Step 7 report whether each fix round was fresh or resumed.
    A deferred *security* finding goes to an open issue labeled `security::deferred` and a milestone set for planning
    (`docs/maintainers/security-deferred-label.md`); the pre-tag and `/pre-release` check scans all open `security::deferred` issues regardless of milestone.
 
@@ -333,9 +449,11 @@ Every agent finishes by, in order:
      (off): send the single line `cost-ledger: off` instead of the three lines below, do not run
      `scripts/post-mr-cost.py`, and read no transcript. Exit 2 (unreadable): the same, plus the
      `## Notes` line "cost ledger setting unreadable; nothing recorded". The marker never names
-     the layer that turned it off.
+     the layer that turned it off. **`budget-exceeded: <N> (<role> <k>, ...)` is sent either way
+     (`0` when no agent hit a budget):** it counts agents, not cost, so it does not depend on
+     the setting.
    - **Record agent ids as you go.** Note the `agentId:` the Agent tool result prints for every
-     agent you spawn or resume for this branch (the implementer, each `completeness-check` pass).
+     agent you spawn or resume for this branch (the implementer, each `completeness-check` pass, each fresh fix agent).
    - **Measure with one command**, in the worktree and in your own session (it reads
      `$CLAUDE_CODE_SESSION_ID`): `python3 scripts/post-mr-cost.py --measure [--agent <id> ...]`.
      Send its stdout lines unchanged: `subagent-tokens: <N>`, `orchestrator-tokens: <N>`,
@@ -412,7 +530,9 @@ Every agent finishes by, in order:
    with `completeness-check/fix-diff — n/a`). `0 findings` is a real
    outcome; never omit a zero, and never conflate `n/a` with `skipped`. A fix round
    that did not trigger the re-check records `completeness-check/fix-diff — n/a`;
-   one that triggered it and the user declined records `skipped`. The cost lines the
+   one that triggered it and the user declined records `skipped`. A gate or pass that
+   stopped at its budget is recorded `(<model>; budget-stopped)`, never as a plain count. The
+   `budget-exceeded:` line and the cost lines the
    go-ahead message carried (or its one `cost-ledger: off` line) go last in `## Gates`,
    pasted unchanged; check the draft with `python3 scripts/cost_ledger_lines.py --file
    <body.md>` (the body file under the checkout, the temp dir or the git dir). If Step 5.5
@@ -484,6 +604,11 @@ state plainly:
 - Whether you raised the WIP cap, and whether any worktrees need cleanup
   (`scripts/wt remove <issue>` or `scripts/wt prune`).
 - The wave's shape: how many agents, how many on Opus, and at what effort.
+- Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
+  `completeness-check`), which agents reached a budget and whether you expanded it, and each
+  branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
+- For each fix round, whether it went to a **fresh** agent or **resumed** the implementer, and
+  why (context past 150k, fewer than 5 findings, or design-level rework).
 - Each branch's measured `subagent-tokens:` and its `est-cost-usd:` (from `scripts/post-mr-cost.py --measure`), beside the table; `n/a`
   with the reason where a script failed closed, and `cost ledger off` where
   `scripts/cost-ledger enabled` said so. Never sum `orchestrator-tokens:` across the wave.
@@ -513,6 +638,12 @@ Do not merge anything. Do not start another wave without being asked.
 - **No re-delegation** from inside an agent, beyond the implementer's pre-MR gate batch.
 - **Two-strike rule**: an agent stuck on the same failure twice stops and
   reports.
+- **Give every agent a budget** (implementer 80 calls / 45 min, gate 25 / 15,
+  `completeness-check` 40 / 30; provisional) and stop it there. A stopped
+  `completeness-check` is replaced by a fresh pass, never resumed.
+- **Fresh agent for small or late fix rounds**: past 150k of implementer context, or fewer
+  than 5 findings, brief a fresh Sonnet agent with the findings only; resume the implementer
+  only for design-level rework.
 - **Long-running work goes to the background**, not to a polling loop.
 - **Wait on background work silently** — no filler tool calls while a task is pending.
 

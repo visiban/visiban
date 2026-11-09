@@ -233,6 +233,15 @@ is the contract; this is what the description carries.
   `est-cost-usd:` is the **one estimate**, a list-price equivalent from
   `.claude/model-prices.json`, not what a subscription charged. `turns: <N>` and
   `cost: usd <N>` are allowed only for a literally reported, measured figure.
+- **`budget-exceeded: <N> (<role> <k>, ...)`** counts the agents on the branch that reached their
+  `/wave` per-agent budget (`.claude/skills/wave/SKILL.md` § Per-agent budget), by role:
+  `implementer`, `gate`, `completeness-check`. The per-role counts must sum to `<N>`, and the
+  parenthetical is omitted at `0` (`budget-exceeded: 0`). `/wave` writes it, last in `## Gates`,
+  whenever it ran, **even with `cost-ledger: off`**: it counts agents, not cost. A plain `/mr`
+  with no `/wave` behind it writes none. A gate or pass that stopped at its budget has a partial
+  count, so its `gate:` line carries a `budget-stopped` field instead of a plain count, for
+  example `- gate: regression-check — 1 findings (sonnet; medium; budget-stopped)`; never record
+  a stopped gate's `0 findings` as clean.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
   would read as a whole one.
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file

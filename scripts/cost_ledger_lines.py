@@ -8,7 +8,7 @@ write under the `gate:` lines of `## Gates`:
   orchestrator-tokens: <N>                    measured (scripts/orchestrator-tokens.py)
   est-cost-usd: <N.NN> (prices YYYY-MM-DD)    the one estimate (scripts/est-cost.py)
   turns: <N>, cost: usd <N>                   measured only; never computed from a price table
-  budget-exceeded: <N> [(<role> <k>, ...)]    a count of agents, not cost (upstream's /wave only)
+  budget-exceeded: <N> [(<role> <k>, ...)]    a count of agents, not cost (/wave per-agent budget, #2157)
   cost-ledger: off                            the marker when the setting is off; no cost line then
 
 This module is the one reader of that format in this repo: scripts/cost-table.py renders the
@@ -280,6 +280,14 @@ def self_test():
         ("a measured cost line", wrap("cost: usd 1.5")),
         ("budget-exceeded, zero", wrap("budget-exceeded: 0")),
         ("budget-exceeded with a role split", wrap("budget-exceeded: 2 (implementer 1, completeness-check 1)")),
+        ("/wave's full Gates tail: three cost lines then a budget-exceeded split (#2157)",
+         wrap("subagent-tokens: 5", "orchestrator-tokens: 6", "est-cost-usd: 0.42 (prices 2026-11-03)",
+              "budget-exceeded: 1 (implementer 1)")),
+        ("/wave's full Gates tail with zero agents over budget (#2157)",
+         wrap("subagent-tokens: 5", "orchestrator-tokens: 6", "est-cost-usd: 0.42 (prices 2026-11-03)", "budget-exceeded: 0")),
+        ("a budget-stopped gate line beside budget-exceeded (#2157)",
+         wrap("- gate: security-review — 1 findings (sonnet; medium; budget-stopped)",
+              "budget-exceeded: 1 (gate 1)")),
         ("cost ledger off, marker alone", wrap("cost-ledger: off")),
         ("cost ledger off, bulleted marker", wrap("- cost-ledger: off")),
         ("cost ledger off beside budget-exceeded (a count of agents, not cost)",

@@ -420,9 +420,9 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
         out.append(others_line(others))
     if prior.get("foreign"):
         out.append("- %d note(s) with this heading by another user were not read." % prior["foreign"])
-    # Visiban's /wave has no per-agent budget, so it writes no `budget-exceeded:` line; the bullet
-    # appears only on a record 1 whose `## Gates` carries a well-formed one (upstream's /wave writes
-    # it). A record K never states it: no lines file carries one.
+    # /wave's per-agent budget (#2157) writes a `budget-exceeded:` line; the bullet appears only on a
+    # record 1 whose `## Gates` carries a well-formed one (a plain /mr writes none). A record K
+    # never states it: no lines file carries one.
     b = cl.budget_exceeded(body or "") if record == 1 else None
     if b:
         roles = ", ".join("%s %d" % (r, k) for r, k in sorted(b[1].items()))
