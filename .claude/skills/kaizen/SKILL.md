@@ -293,6 +293,9 @@ Never present this report's contents as user research or as a substitute for
   average or sum them together. `n/a` never counts toward a gate's run
   denominator; `skipped` is a compliance signal (the gate should have run
   and didn't), reported separately, also excluded from yield.
+  A line whose fields include `budget-stopped` (e.g. `0 findings (sonnet;
+  budget-stopped)`) is an unfinished pass: it is read as unscored, never as a
+  `0 findings` run, and never feeds yield or the zero streak.
 - **Always report adoption alongside yield**, every run, not just when it's
   low.
 - **A gate with fewer than 10 findings-bearing runs is inconclusive** —

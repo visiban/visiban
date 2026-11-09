@@ -423,11 +423,11 @@ Every agent finishes by, in order:
    `class-missed` or `collateral` **BLOCKER**, or **4 or more** BLOCKERS + GAPS in
    total, run **round 2** instead of the fix-diff re-check: a fresh **Opus**
    `Agent(subagent_type: "completeness-check")` auditing the **whole branch** at HEAD
-   (fix commits included), briefed exactly as round 1 was and **not shown round 1's
+   (fix commits included), briefed exactly as round 1 was (same 40-call, 30-minute budget) and **not shown round 1's
    findings**. Compare the two lists and record `overlap k/M`. Hard stop after round
    2: if it still reports a BLOCKER, do not start round 3 — put the choice to the
    user. Otherwise (round 2 not triggered), decide whether the fix diff needs its own
-   re-check — once, narrowly. Spawn a fresh `Agent(subagent_type: "completeness-check")` scoped to the fix
+   re-check — once, narrowly. Spawn a fresh `Agent(subagent_type: "completeness-check")` (same 40-call, 30-minute budget) scoped to the fix
    commit(s) only (`git diff <audited-sha>..HEAD`), not the whole branch, when
    **either** holds:
    - the first check returned any **BLOCKER**; or

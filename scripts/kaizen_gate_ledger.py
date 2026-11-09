@@ -114,6 +114,9 @@ GATES_HEADING_RE = re.compile(r"^##\s+Gates\b", re.IGNORECASE | re.MULTILINE)
 FINDINGS_RE = re.compile(r"^(?P<n>\d+)\s+findings?\b", re.IGNORECASE)
 NA_RE = re.compile(r"^n/?a\b", re.IGNORECASE)
 SKIPPED_RE = re.compile(r"^skipped\b", re.IGNORECASE)
+# A gate stopped at its per-agent budget (#2157) reports a PARTIAL count, e.g.
+# `0 findings (sonnet; budget-stopped)`. It is an unfinished pass, not a clean run.
+BUDGET_STOPPED_RE = re.compile(r"[(;,]\s*budget-stopped\s*[;,)]", re.IGNORECASE)
 
 # Gates whose mandated output is a deliverable (a fragment file, a doc build)
 # rather than a finding count — CLAUDE.md and the mr skill both say `0
@@ -427,6 +430,11 @@ def parse_outcome(outcome: str):
     Returns a tuple (kind, value) where kind is one of
     "findings", "na", "skipped", "other".
     """
+    # Checked first: the leading `N findings` of a budget-stopped line is a partial
+    # count and must not score as a run (or a zero) in yield or the zero streak.
+    # Kind "other" lands in the unscored bucket, excluded from yield and streaks.
+    if BUDGET_STOPPED_RE.search(outcome):
+        return ("other", outcome.strip())
     m = FINDINGS_RE.match(outcome)
     if m:
         return ("findings", int(m.group("n")))
@@ -921,6 +929,10 @@ def self_test() -> int:
          and "!33" in "\n".join(render_cost(cc)) and "notes unreadable" in "\n".join(render_cost(cc))),
         ("attach_cost_records (real glab_api, fake glab) reads every MR not `cost-ledger: off`, scoped to the project",
          _attach_check(em, ct, note, rec, t)),
+        ("a budget-stopped line is unscored, not a findings run or a zero (#2157)",
+         parse_outcome("0 findings (sonnet; budget-stopped)")[0] == "other"
+         and parse_outcome("2 findings (opus; budget-stopped)")[0] == "other"
+         and parse_outcome("0 findings (sonnet)") == ("findings", 0)),
         ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
     ]
     fails = [name for name, ok in checks if not ok]

@@ -32,6 +32,7 @@ gen 10 1 "perf-check — 0 findings" > "$TMP/ten_zero.json"
 gen 9 1 "perf-check — 0 findings" > "$TMP/nine_zero.json"
 gen 12 1 "perf-check — n/a (no viewset)" > "$TMP/na.json"
 gen 12 1 "perf-check — skipped (user)" > "$TMP/skipped.json"
+gen 12 1 "perf-check — 0 findings (sonnet; budget-stopped)" > "$TMP/stopped.json"
 
 run() { python3 "$WATCH" --state "$TMP/none.json" --declined "$TMP/none.json" --input "$1" "${@:2}" 2>&1; }
 
@@ -46,6 +47,9 @@ out="$(run "$TMP/na.json")"
 check "n/a never counts as a run" "$(echo "$out" | grep -q 'No new narrowing candidates' && echo 0 || echo 1)"
 out="$(run "$TMP/skipped.json")"
 check "skipped never counts as a run" "$(echo "$out" | grep -q 'No new narrowing candidates' && echo 0 || echo 1)"
+
+out="$(run "$TMP/stopped.json")"
+check "budget-stopped never counts as a zero run (#2157)" "$(echo "$out" | grep -q 'No new narrowing candidates' && echo 0 || echo 1)"
 
 # --file-issues without a token must warn, exit 0, and file nothing (fail open).
 set +e; out="$(run "$TMP/ten_zero.json" --file-issues)"; rc=$?; set -e
