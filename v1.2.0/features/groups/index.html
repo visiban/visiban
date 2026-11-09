@@ -4616,7 +4616,7 @@
 </tr>
 </tbody>
 </table>
-<p>A <strong>Live / Reconnecting… / Failed</strong> status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same <code>ConnectionStatus</code> component. The "Refresh board" button in the popover re-fetches the board list from the API.</p>
+<p>A <strong>Live / Reconnecting… / Failed</strong> status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same <code>ConnectionStatus</code> component. The group page does not wire a <strong>Refresh board</strong> action into the popover; its lists are re-read when the connection reconnects (see <a href="../realtime/">Real-time updates</a>).</p>
 <h2 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permanent link">&para;</a></h2>
 <p>The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.</p>
 <p>The <strong>+ New board</strong> and <strong>+ New group</strong> buttons in the sidebar footer open their creation dialogs immediately, with no navigation.</p>
