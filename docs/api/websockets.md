@@ -93,7 +93,7 @@ The `1011` refusals in this table reach a client as a refused upgrade (HTTP `403
 
 Each of these refusals logs a `WARNING` that names at most the error class (for example `websocket handshake could not complete: error=OperationalError`), never the error message, which can include a database, cache or channel-layer host. Before 1.3 the `cached_db`, `db`, membership-lookup and channel-layer rows failed the upgrade with HTTP `500` and the server logged the full error. An error that isn't a database, cache or channel-layer connection failure (a bug, for example) still fails the upgrade with HTTP `500`, and the connection is not admitted.
 
-REST requests made with the session cookie during the same cache-only session outage answer a retryable `503` with `code: "session_unavailable"` and keep the session cookie, so the web app keeps the user signed in and retries (*1.3+*, #2143); see [Session unavailable (503)](index.md#session-unavailable-503). Before 1.3 they answered `401`, which signed the web app user out and deleted the session cookie.
+REST requests made with the session cookie during the same cache-only session outage, to any endpoint that authenticates with or reads the session, answer a retryable `503` with `code: "session_unavailable"` and keep the session cookie, so the web app keeps the user signed in and retries (*1.3+*, #2143); see [Session unavailable (503)](index.md#session-unavailable-503). Before 1.3 they answered `401`, which signed the web app user out and deleted the session cookie.
 
 ---
 

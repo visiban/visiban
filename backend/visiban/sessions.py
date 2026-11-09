@@ -103,7 +103,10 @@ class _OutageAwareCacheStoreMixin:
 
     Calls the engine's own ``load()`` first, so a custom subclass that
     overrides it (or points ``_cache`` elsewhere) is still the one that reads
-    the session; the probe only decides what an empty result means.
+    the session; the probe only decides what an empty result means. Its raw
+    value is never handed out: when the probe finds the session (the cache
+    recovered between the two reads) the engine's ``load()`` runs again, so a
+    subclass that decodes or validates the stored value still does.
     """
 
     _visiban_outage_aware = True
@@ -131,8 +134,11 @@ class _OutageAwareCacheStoreMixin:
             self.session_unavailable = True
             raise SessionUnavailable() from None
         if probed is not None:
-            # The cache recovered between the two reads.
-            return probed
+            # The cache recovered between the two reads: read again through
+            # the engine, with the key restored. Whatever it answers now
+            # stands (an empty answer clears the key as a miss does), since
+            # the probe has just shown the cache is answering.
+            return super().load()
         self._session_key = cleared
         return data
 
@@ -152,7 +158,7 @@ class _OutageAwareCacheStoreMixin:
             self.session_unavailable = True
             raise SessionUnavailable() from None
         if probed is not None:
-            return probed
+            return await super().aload()
         self._session_key = cleared
         return data
 

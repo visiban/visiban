@@ -149,6 +149,15 @@ class RestSessionOutageTests(_CacheSessionBase):
         self.assertEqual(response.status_code, 401)
         self.assertTrue(_deletes_session_cookie(response))
 
+    def test_views_that_skip_authentication_answer_as_usual(self):
+        """The docs' limit on the claim: a view with authentication_classes = []
+        never reads the session, so an outage does not touch it."""
+        self._with_cookie()
+        with _session_only_outage():
+            response = self.client.get("/api/health/liveness/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(settings.SESSION_COOKIE_NAME, response.cookies)
+
     def test_no_cookie_is_401_and_reads_nothing(self):
         with patch(LOCMEM_GET, side_effect=_outage):
             response = self.client.get(USER_URL)
@@ -316,6 +325,32 @@ class SubclassedCacheEngineTests(_CacheSessionBase):
         self.assertNotIn(settings.SESSION_COOKIE_NAME, response.cookies)
 
 
+class _DecodingCacheSessionStore(CacheSessionStore):
+    """A cache engine whose load() transforms what the cache holds, as an
+    engine that decodes or validates its stored value would."""
+
+    def load(self):
+        data = super().load()
+        return {**data, "decoded": True} if data else data
+
+    async def aload(self):
+        data = await super().aload()
+        return {**data, "decoded": True} if data else data
+
+
+def _first_call_fails(real):
+    """A cache ``get`` whose first call raises and later calls are real."""
+    calls = {"n": 0}
+
+    def get(self_cache, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            _outage()
+        return real(self_cache, *args, **kwargs)
+
+    return get
+
+
 class OutageAwareStoreTests(SimpleTestCase):
     """The store wrapper itself, without a request."""
 
@@ -369,6 +404,55 @@ class OutageAwareStoreTests(SimpleTestCase):
             data = outage_aware_store_class(CacheSessionStore)(key).load()
         self.assertEqual(data, {"k": "v"})
         self.assertEqual(spy.call_count, 1)
+
+    def test_recovered_read_goes_through_the_engines_own_load(self):
+        """The probe's raw value is never returned: a subclass's load()
+        still decodes it (#2143 completeness check)."""
+        key = self._stored_key()
+        store = outage_aware_store_class(_DecodingCacheSessionStore)(key)
+        with patch(LOCMEM_GET, _first_call_fails(LocMemCache.get)):
+            data = store.load()
+        self.assertEqual(data, {"k": "v", "decoded": True})
+        self.assertEqual(store.session_key, key)
+        self.assertFalse(store.session_unavailable)
+
+    def test_recovered_read_that_misses_again_is_a_miss(self):
+        """The probe found the session but the engine's re-read is empty
+        (it rejected the value, or the entry expired): a miss, key cleared."""
+        key = self._stored_key()
+        store = outage_aware_store_class(CacheSessionStore)(key)
+        real_get = LocMemCache.get
+        calls = {"n": 0}
+
+        def get(self_cache, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                _outage()
+            if calls["n"] == 3:
+                return None
+            return real_get(self_cache, *args, **kwargs)
+
+        with patch(LOCMEM_GET, get):
+            self.assertEqual(store.load(), {})
+        self.assertIsNone(store.session_key)
+        self.assertFalse(store.session_unavailable)
+
+    def test_aload_recovered_read_goes_through_the_engines_own_aload(self):
+        key = self._stored_key()
+        real_aget = LocMemCache.aget
+        calls = {"n": 0}
+
+        async def flaky(self_cache, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                _outage()
+            return await real_aget(self_cache, *args, **kwargs)
+
+        store = outage_aware_store_class(_DecodingCacheSessionStore)(key)
+        with patch(LOCMEM_AGET, flaky):
+            data = asyncio.run(store.aload())
+        self.assertEqual(data, {"k": "v", "decoded": True})
+        self.assertEqual(store.session_key, key)
 
     def test_aload_outage_raises_and_keeps_the_key(self):
         key = self._stored_key()

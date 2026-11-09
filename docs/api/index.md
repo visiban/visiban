@@ -219,8 +219,11 @@ MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`, `blo
 
 When the server is configured to keep sessions only in the cache
 (`SESSION_ENGINE` set to `django.contrib.sessions.backends.cache`) and that cache is
-unavailable, a request authenticated with the session cookie can't be checked. It is
-rejected with `503 Service Unavailable`, on any endpoint, instead of `401`:
+unavailable, a request that sends the session cookie can't be checked. Any endpoint that
+authenticates with the session, or reads it, rejects such a request with
+`503 Service Unavailable` instead of `401`. That is every endpoint in this reference,
+public (`AllowAny`) ones included, except those that skip authentication altogether, such
+as the [health probes](health.md) and the public share-link board, which answer as usual:
 
 ```json
 { "code": "session_unavailable", "detail": "Your session can't be checked right now. Try again in a moment." }
