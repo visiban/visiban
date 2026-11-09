@@ -12,15 +12,34 @@ def deduplicate_column_names(apps, schema_editor):
     """
     Column = apps.get_model("boards", "Column")
 
-    seen: dict = {}
-    for col in Column.objects.order_by("board_id", "position"):
-        key = (col.board_id, col.name)
-        if key in seen:
-            seen[key] += 1
-            col.name = f"{col.name} ({seen[key]})"
-            col.save(update_fields=["name"])
-        else:
-            seen[key] = 1
+    # Why: keying only on the original name let "Done", "Done", "Done (2)" rename
+    # the second column to "Done (2)", colliding with the existing one and failing
+    # the unique constraint.  Track every name per board and take the first unused
+    # suffix instead.  Suffixed names are truncated to the 255-char column limit.
+    max_len = 255
+    cols = list(Column.objects.order_by("board_id", "position", "id"))
+    used: dict = {}
+    for col in cols:
+        used.setdefault(col.board_id, set()).add(col.name)
+
+    claimed: dict = {}
+    for col in cols:
+        taken = claimed.setdefault(col.board_id, set())
+        if col.name not in taken:
+            taken.add(col.name)
+            continue
+        base = col.name
+        n = 2
+        while True:
+            suffix = f" ({n})"
+            candidate = f"{base[: max_len - len(suffix)]}{suffix}"
+            if candidate not in used[col.board_id] and candidate not in taken:
+                break
+            n += 1
+        used[col.board_id].add(candidate)
+        taken.add(candidate)
+        col.name = candidate
+        col.save(update_fields=["name"])
 
 
 class Migration(migrations.Migration):
