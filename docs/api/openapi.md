@@ -112,6 +112,18 @@ check of each unobserved baseline entry. It is log-only and never changes the jo
 entry from `backend/schemathesis-baseline.json` only when both an MR-style run and the deep
 nightly list it as unobserved.
 
+**Lone surrogates (#2121).** schemathesis generates strings with `codec="utf-8"`, which cannot
+hold a lone surrogate (U+D800..U+DFFF), so the 500 fixed in #2085 was invisible to the fuzz. Clearing
+the codec does not help (hypothesis still excludes surrogates), so `backend/schemathesis_surrogates.py`
+registers a `map_body` hook, loaded through `schemathesis_hooks.py`. For about one generated body in
+ten that is declared JSON-only, it replaces the last character of one string value with a lone
+surrogate; `requests` sends it as the ASCII escape `\ud800`. The choice is a pure function of the body,
+so `--seed` replay and shrinking stay deterministic, and it adds no requests, so the job's runtime and
+budget are unchanged. A handler that 500s on the value fails `status_code_conformance` like any other
+undocumented 500. `boards/tests/test_schemathesis_surrogates.py` is the negative control: it runs the real
+`st run` CLI against a stub server and asserts that a handler which 500s on a surrogate fails the run and
+a handler that rejects it passes.
+
 **Issue Board Lens routes (`backend-schema-fuzz-git-lens`, #1338).** The `git_lens` app and
 its routes exist only with `GIT_LENS_ENABLED=true`, and `backend-schema-fuzz` runs with the flag
 off, so the lens endpoints were never fuzzed. A third job, `backend-schema-fuzz-git-lens`,

@@ -1231,6 +1231,7 @@ backend-schema-fuzz:
         - backend/visiban/settings.py
         - backend/visiban/schema_hooks.py
         - backend/schemathesis_hooks.py
+        - backend/schemathesis_surrogates.py
         # Pruning or adding a baseline entry must run the job that consumes it (#1791).
         - backend/schemathesis-baseline.json
         # The hook resolves ids from the seeded rows (#1570), which the
@@ -1737,6 +1738,7 @@ backend-schema-fuzz-git-lens:
         - backend/visiban/settings.py
         - backend/visiban/schema_hooks.py
         - backend/schemathesis_hooks.py
+        - backend/schemathesis_surrogates.py
         - backend/schemathesis-baseline-git-lens.json
         - backend/boards/management/commands/seed_demo_data.py
         - backend/boards/management/commands/_seed_history.py

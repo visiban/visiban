@@ -92,6 +92,9 @@ django.setup()
 
 import schemathesis  # noqa: E402
 
+# Registers the `map_body` hook that puts lone surrogates into JSON bodies (#2121).
+import schemathesis_surrogates  # noqa: E402,F401
+
 
 def _load_real_ids():
     """Pull real ids from the seeded demo board, once, at hook-load time.
