@@ -190,7 +190,7 @@ describe("visualViewport placement (#2138)", () => {
     const el2 = document.createElement("div");
     expect(placeFixedElement(el2, { top: 210, bottom: 250, left: 0 })).toBe("below");
     expect(el2.style.top).toBe("254px");
-    // Too tall for either side: pinned inside the box (200+400-8-390 = 202), not at innerHeight - ...
+    // Too tall for either side: pinned inside the box (the bottom-pinned 202 is clamped up to the box top plus margin: 200 + max(8, 2) = 208), not at innerHeight - ...
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(390);
     const el3 = document.createElement("div");
     expect(placeFixedElement(el3, { top: 300, bottom: 340, left: 0 })).toBe("pinned");

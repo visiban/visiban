@@ -492,6 +492,18 @@ describe('MentionTextarea visualViewport (#2138)', () => {
     expect(list.style.visibility).toBe('hidden')
   })
 
+  it('hides the list while the textarea is above the top of a panned visual viewport', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(100, 140))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('')
+    // The page is panned: the visible box is y 200..600, so the textarea (100..140) is scrolled out above it.
+    act(() => { vv.offsetTop = 200; vv.height = 400; vv.dispatchEvent(new Event('scroll')) })
+    expect(list.style.visibility).toBe('hidden')
+  })
+
   it('works without visualViewport, falling back to innerHeight', async () => {
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
     const { ta, list } = await openList()
