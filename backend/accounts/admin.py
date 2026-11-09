@@ -843,7 +843,9 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         rolls back announces nothing. Group frames have no feed row and are
         published from one ``on_commit`` callback, as the REST group member
         removal does. Each card is rendered once per board in one prefetch
-        pass (``render_card_payloads``), not once per card.
+        pass (``render_card_payloads``), not once per card. The admin request
+        is passed so attachment URLs are absolute, as in the other Django
+        admin ``card.updated`` frames (``CardAdmin``).
         """
         from boards import broadcast as _board_broadcast
         from boards.views._helpers import render_card_payloads
@@ -855,7 +857,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             board = boards_by_id.get(board_id)
             if board is None:
                 continue
-            for card_data in render_card_payloads(board, card_ids):
+            for card_data in render_card_payloads(board, card_ids, request):
                 _board_broadcast.record_board_event(
                     board_id, _board_broadcast.EVT_CARD_UPDATED, card_data, actor_id=actor_id
                 )
