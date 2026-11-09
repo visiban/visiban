@@ -121,6 +121,25 @@ class JsonSerializerWrapperTests(unittest.TestCase):
         result = _json_serializer()(SimpleNamespace(case=None), body)
         self.assertNotIn(b"\\u", result.get("data", b""))
 
+    def test_real_case_reaches_the_wire_with_a_surrogate_and_stays_pristine(self):
+        """End to end through a real Case: wire has the escape, `case.body` never holds a surrogate.
+
+        The CLI re-validates a recorded case's body after the scenario and the validator
+        UTF-8-encodes strings, so a surrogate left on `case.body` crashed `st run` in CI (#2121).
+        """
+        import schemathesis
+        from schemathesis.transport.requests import REQUESTS_TRANSPORT
+
+        operation = schemathesis.openapi.from_dict(_SPEC)["/echo"]["POST"]
+        body = _find_injecting_body(lambda i: {"name": f"n{i}"})
+        case = operation.Case(body=body, media_type="application/json")
+        kwargs = REQUESTS_TRANSPORT.serialize_case(case, base_url="http://127.0.0.1:1")
+        wire = kwargs["data"] if "data" in kwargs else json.dumps(kwargs["json"])
+        wire = wire.decode("ascii") if isinstance(wire, bytes) else wire
+        self.assertRegex(wire, r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
+        self.assertFalse(_has_surrogate(case.body))
+        self.assertEqual(case.body, body)
+
     def test_form_and_multipart_serializers_are_not_wrapped(self):
         from schemathesis.transport.requests import REQUESTS_TRANSPORT
 
