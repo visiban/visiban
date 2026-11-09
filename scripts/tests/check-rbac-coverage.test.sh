@@ -206,6 +206,54 @@ check "an emptied role helper fails a mixin's write (exit 1)" \
 check "that finding names the mixin" \
   "$(echo "$OUT" | grep -q "BoardInviteLinksMixin::@action invite_links" && echo 0 || echo 1)"
 
+# --- #2116: a comparison on someone else's role is not the caller's gate ---
+# Each case deletes only the caller's gate from a real handler. What is left
+# compares a request-body role (members), a target membership row (members,
+# update_member), the ownership exception (delete_comment, delete_attachment,
+# checklist_item), or a returned denial the handler no longer acts on
+# (comments, attachments). Every one used to exit 0. Not-0 is the contract: a
+# handler whose remaining calls leave the module defers (exit 3), one whose
+# calls are all readable is a finding (exit 1); either fails the job.
+caller_gate_case() { # caller_gate_case <tag> <file> <anchor> <handler-pattern> <line>...
+  local tag="$1" rel="$2" anchor="$3" handler="$4"
+  shift 4
+  copy_tree "$TMP/$tag"
+  local line
+  for line in "$@"; do
+    strip_gate "$TMP/$tag/$rel" "$anchor" "$line"
+  done
+  run_gate --root "$TMP/$tag"
+  check "$tag: deleting only the caller's gate does not exit 0" \
+    "$([ "$RC" -ne 0 ] && echo 0 || echo 1)"
+  check "$tag: the result names the handler" \
+    "$(echo "$OUT" | grep -q -- "$handler" && echo 0 || echo 1)"
+}
+BOARDS=backend/boards/views/boards.py
+CARDS=backend/boards/views/cards.py
+caller_gate_case members2116 "$BOARDS" "    def members(self, request, pk=None):" \
+  "BoardViewSet::@action members \[post\]" \
+  "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):" \
+  "            raise PermissionDenied"
+caller_gate_case update_member2116 backend/groups/views.py "    def update_member(self, request" \
+  "GroupViewSet::@action update_member \[delete,patch\]" "$ADMIN_GATE"
+for h in delete_comment delete_attachment; do
+  caller_gate_case "${h}2116" "$CARDS" "    def ${h}(self, request" \
+    "CardViewSet::@action ${h} \[delete\]" \
+    "        denied = _annotation_denied(role)" \
+    "        if denied is not None:" \
+    "            return denied"
+done
+caller_gate_case checklist_item2116 "$CARDS" "    def checklist_item(self, request" \
+  "CardViewSet::@action checklist_item \[delete,patch\]" \
+  "        if role not in card_services.ANNOTATION_ROLES:" \
+  "            raise PermissionDenied(_PERM_DENIED)"
+for h in comments attachments; do
+  caller_gate_case "${h}2116" "$CARDS" "    def ${h}(self, request" \
+    "CardViewSet::@action ${h} \[post\]" \
+    "        if denied is not None:" \
+    "            return denied"
+done
+
 # --- defers exit 3, distinct from both 0 and 1 ---------------------------
 # A permission_classes value the checker cannot read must hand the view to the
 # rbac-check agent, not wave it through.
