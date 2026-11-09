@@ -1158,13 +1158,21 @@ export function useBoard() {
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
   const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
+    // A changed definition also reshapes the swimlanes already held
+    // (swimlaneForRole, #2147), so they match the schema without a reload.
     if (typeof definitions === 'function') {
-      writeBoard((b) => ({ ...b, swimlane_custom_field_definitions: definitions(b.swimlane_custom_field_definitions) }));
+      writeBoard((b) => {
+        const next = { ...b, swimlane_custom_field_definitions: definitions(b.swimlane_custom_field_definitions) };
+        return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+      });
       return;
     }
     writeBoardFrom((live) => {
       const change = listChange(live.swimlane_custom_field_definitions, definitions);
-      return (b) => ({ ...b, swimlane_custom_field_definitions: change(b.swimlane_custom_field_definitions) });
+      return (b) => {
+        const next = { ...b, swimlane_custom_field_definitions: change(b.swimlane_custom_field_definitions) };
+        return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
+      };
     });
   }, [writeBoard, writeBoardFrom]);
 

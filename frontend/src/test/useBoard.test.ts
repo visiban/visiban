@@ -3039,10 +3039,32 @@ describe('useBoard — non-card writes that land mid-fetch are replayed (#2130)'
       const { result } = await renderBoard(adminBoard())
       act(() => { result.current.mergeBoardState({ current_user_role: 'member' }) })
       act(() => {
-        result.current.updateSwimlane((b) => ({ ...b.swimlanes.find((s) => s.id === 21)!, name: 'From a frame' }))
+        result.current.updateSwimlane(() => adminLane(21, { name: 'From a frame' }))
       })
       expectPublicShape(result.current.board!.swimlanes[1])
       expect(result.current.board!.swimlanes[1].name).toBe('From a frame')
+    })
+
+    describe('a definitions change reshapes the swimlanes already held', () => {
+      const ids = (s: Swimlane | undefined) => s!.custom_field_values!.map((v) => v.field_definition)
+      const closed = () => defs.map((d) => (d.id === 6 ? { ...d, is_admin_only: true } : d))
+      const writers: Array<[string, (r: Hook['result']) => void]> = [
+        ['definitions updated', (r) => { r.current.applySwimlaneFieldDefinitions((prev) => prev.map((d) => (d.id === 6 ? { ...d, is_admin_only: true } : d))) }],
+        ['definitions reordered', (r) => { r.current.applySwimlaneFieldDefinitions(closed()) }],
+      ]
+      it.each(writers)('%s: a member loses the value of a definition that became admin-only', async (_n, write) => {
+        const { result } = await renderBoard(twoByTwo({
+          current_user_role: 'member', swimlane_custom_field_definitions: defs, swimlanes: [publicLane(20), publicLane(21)],
+        }))
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([6])
+        act(() => { write(result) })
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([])
+      })
+      it.each(writers)('%s: an admin keeps every value', async (_n, write) => {
+        const { result } = await renderBoard(adminBoard())
+        act(() => { write(result) })
+        expect(ids(result.current.board!.swimlanes[1])).toEqual([5, 6])
+      })
     })
 
     describe('swimlaneForRole', () => {
