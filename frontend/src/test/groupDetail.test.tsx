@@ -502,6 +502,36 @@ describe('GroupDetail', () => {
     expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
   })
 
+  it('shows the Full access chip on inherited, owner and self rows, and omits the role note for an unknown role (#2075)', async () => {
+    const ownerUser: User = { ...fakeUser, id: 3, username: 'boss', display_name: 'Big Boss' }
+    const inhUser: User = { ...fakeUser, id: 5, username: 'ina', display_name: 'Ina Inherited' }
+    const oddUser: User = { ...fakeUser, id: 6, username: 'odd', display_name: 'Odd Role' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: ownerUser })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '', has_all_content_access: true },
+      { id: 3, user: ownerUser, role: 'admin', joined_at: '', has_all_content_access: true },
+      { id: null, user: inhUser, role: 'viewer', joined_at: '', is_inherited: true, inherited_from: 'Parent', has_all_content_access: true },
+      { id: 6, user: oddUser, role: 'bogus', joined_at: '', has_all_content_access: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Big Boss')
+    const rowOf = (name: string) => screen.getByText(name).closest('div.rounded-lg') as HTMLElement
+    for (const name of ['Big Boss', 'Ina Inherited', 'Odd Role']) {
+      expect(within(rowOf(name)).getByText('Full access')).toBeInTheDocument()
+    }
+    expect(within(rowOf('Ina Inherited')).getByText(/↑ Parent/)).toBeInTheDocument()
+    expect(within(rowOf('Big Boss')).getByText('Owner')).toBeInTheDocument()
+    // The viewer's own row (id 1 is fakeUser) also shows the chip.
+    expect(screen.getAllByText('Full access').length).toBe(4)
+    // Unknown stored role: no "not in effect" note and no role named in the description.
+    const odd = rowOf('Odd Role')
+    expect(within(odd).queryByText(/not in effect while/)).not.toBeInTheDocument()
+    expect(odd.textContent).not.toMatch(/bogus/i)
+  })
+
   it('removes the member and shows no error when removal succeeds (#1386)', async () => {
     const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
     mockGetGroup.mockResolvedValue(fakeGroup)

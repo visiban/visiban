@@ -25,6 +25,11 @@ class MembersAllContentFlagTests(TestCase):
         GroupMembership.objects.create(group=self.child, user=self.plain, role=MEMBER)
         GroupMembership.objects.create(group=self.child, user=self.ac, role=VIEWER)
         GroupMembership.objects.create(group=self.parent, user=User.objects.create_user(username="g2075inh", password="pw"), role=VIEWER)
+        # An all-content member listed only through the parent group.
+        self.inh_ac = User.objects.create_user(username="g2075inhac", password="pw")
+        self.inh_ac.can_access_all_content = True
+        self.inh_ac.save(update_fields=["can_access_all_content"])
+        GroupMembership.objects.create(group=self.parent, user=self.inh_ac, role=VIEWER)
 
     def _rows(self, reader):
         c = APIClient()
@@ -40,6 +45,8 @@ class MembersAllContentFlagTests(TestCase):
         self.assertIs(rows["g2075member"]["has_all_content_access"], False)
         self.assertTrue(rows["g2075inh"]["is_inherited"])
         self.assertIs(rows["g2075inh"]["has_all_content_access"], False)
+        self.assertTrue(rows["g2075inhac"]["is_inherited"])
+        self.assertIs(rows["g2075inhac"]["has_all_content_access"], True)
 
     def test_non_admin_reader_gets_no_flag(self):
         for row in self._rows(self.plain).values():

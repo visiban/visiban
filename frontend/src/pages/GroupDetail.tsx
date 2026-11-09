@@ -86,6 +86,36 @@ function removeBoardRows(matches: (b: Board) => boolean): BoardsWrite {
 
 const GROUP_FULL_ACCESS_DESCRIPTION = "Full access to all groups and boards. This account's group role doesn't apply.";
 
+const GROUP_ROLES = ["admin", "member", "collaborator", "viewer"];
+
+// A stored role outside the known set is not named in the "not in effect" text:
+// the chip alone says what the member can do (same guard as the board panel).
+function GroupFullAccessChip({ userId, role }: { userId: number; role: string }) {
+  const known = GROUP_ROLES.includes(role);
+  const descId = `group-member-fullaccess-${userId}`;
+  return (
+    <>
+      <span
+        tabIndex={0}
+        aria-disabled="true"
+        aria-describedby={descId}
+        title={GROUP_FULL_ACCESS_DESCRIPTION}
+        className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="5" cy="8" r="2.5" />
+          <path d="M7.5 8H14M12 8v2.5M10 8v1.5" />
+        </svg>
+        Full access
+      </span>
+      <span id={descId} className="sr-only">
+        {GROUP_FULL_ACCESS_DESCRIPTION}
+        {known ? ` Group role: ${role.charAt(0).toUpperCase() + role.slice(1)}, not in effect.` : ""}
+      </span>
+    </>
+  );
+}
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -1346,7 +1376,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <Avatar user={m.user} size="sm" />
                       <div className="min-w-0">
                         <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
-                        {!m.is_inherited && m.has_all_content_access === true && (
+                        {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
                           <p className="text-xs text-fg-tertiary">
                             Group role: <span className="capitalize">{m.role}</span> — not in effect while this account has all-content access.
                           </p>
@@ -1355,7 +1385,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </div>
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-fg-muted capitalize">{m.role}</span>
+                        {m.has_all_content_access === true ? (
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                        ) : (
+                          <span className="text-xs text-fg-muted capitalize">{m.role}</span>
+                        )}
                         <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
                           ↑ {m.inherited_from}
                         </span>
@@ -1368,24 +1402,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           // nothing. Show the effective access and the stored role
                           // (kept: it applies if the access is later revoked) and
                           // leave Remove available for the explicit membership (#2075).
-                          <>
-                            <span
-                              tabIndex={0}
-                              aria-disabled="true"
-                              aria-describedby={`group-member-fullaccess-${m.user.id}`}
-                              title={GROUP_FULL_ACCESS_DESCRIPTION}
-                              className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                            >
-                              <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="5" cy="8" r="2.5" />
-                                <path d="M7.5 8H14M12 8v2.5M10 8v1.5" />
-                              </svg>
-                              Full access
-                            </span>
-                            <span id={`group-member-fullaccess-${m.user.id}`} className="sr-only">
-                              {GROUP_FULL_ACCESS_DESCRIPTION} Group role: {m.role.charAt(0).toUpperCase() + m.role.slice(1)}, not in effect.
-                            </span>
-                          </>
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
                         ) : (
                         <SelectDropdown
                           value={m.role}
@@ -1430,7 +1447,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
-                        <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                        {m.has_all_content_access === true ? (
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                        ) : (
+                          <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                        )}
                         {m.user.id === group?.owner.id && (
                           <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
                         )}
