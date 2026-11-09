@@ -143,13 +143,13 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
   })
 
-  it('a 1011 close after the reset time is not an auth close: no sign-out, reconnects (#2003)', () => {
+  it.each([4503, 1011])('a %i close after the reset time is not an auth close: no sign-out, reconnects (#2003, #2142)', (code) => {
     vi.setSystemTime(Date.parse(RESET) + 1_000)
     stashDemoNextReset(RESET)
     const expired = vi.fn()
     window.addEventListener('auth:sessionExpired', expired)
     renderHook(() => useBoardSocket(1, vi.fn()))
-    act(() => { instances[instances.length - 1].onclose?.({ code: 1011 }) })
+    act(() => { instances[instances.length - 1].onclose?.({ code }) })
     window.removeEventListener('auth:sessionExpired', expired)
     expect(expired).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()

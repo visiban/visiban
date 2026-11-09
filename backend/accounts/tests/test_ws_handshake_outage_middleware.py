@@ -142,7 +142,7 @@ class MiddlewareContractTests(SimpleTestCase):
 
     def test_an_outage_after_accept_is_re_raised(self):
         """Once the handshake is answered it is no longer this middleware's to
-        refuse; the consumers' own post-accept 1011 path applies (#2003)."""
+        refuse; the consumers' own post-accept 4503 path applies (#2003, #2142)."""
 
         async def inner(scope, receive, send):
             await receive()

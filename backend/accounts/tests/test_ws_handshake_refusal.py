@@ -81,7 +81,12 @@ def _child_setup():
     connections._connections = Local(connections.thread_critical)
 
 
-def _start_daphne():
+def _start_daphne(setup=_child_setup):
+    """Serve visiban.asgi.application from a forked Daphne child.
+
+    *setup* runs in the child before it serves; one that adds to it must call
+    ``_child_setup`` first (test_ws_frame_path_close.py, #2142).
+    """
     from daphne.testing import DaphneProcess
 
     from visiban import asgi
@@ -93,7 +98,7 @@ def _start_daphne():
         def _Popen(process_obj):
             return fork.Process._Popen(process_obj)
 
-    process = ForkedDaphneProcess("127.0.0.1", lambda: asgi.application, setup=_child_setup)
+    process = ForkedDaphneProcess("127.0.0.1", lambda: asgi.application, setup=setup)
     with warnings.catch_warnings():
         # Python warns that forking a multi-threaded process can deadlock the
         # child. The parent's threads here are idle executor workers, which
@@ -131,13 +136,13 @@ def _read_frame(sock):
     return opcode, _recv_exact(sock, length)
 
 
-def _handshake(port, path, session_key=None):
+def _handshake(port, path, session_key=None, quiet=_ADMITTED_QUIET_SECONDS):
     """Open *path* like a browser would; return what the client observed.
 
     ``("http", status)`` when the upgrade was refused, ``("closed", code,
     frames)`` when the socket opened and the server then closed it, with every
     data frame received before the close, and ``("open", None, frames)`` when
-    it opened and stayed open.
+    it opened and stayed open for *quiet* seconds with no frame.
     """
     sock = socket.create_connection(("127.0.0.1", port), timeout=_TIMEOUT)
     try:
@@ -165,7 +170,7 @@ def _handshake(port, path, session_key=None):
             return ("http", status)
 
         frames = []
-        sock.settimeout(_ADMITTED_QUIET_SECONDS)
+        sock.settimeout(quiet)
         while True:
             try:
                 opcode, payload = _read_frame(sock)

@@ -224,7 +224,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
             # Lost access with no member.removed frame to say so (4003, the
             # code connect() uses for the same condition, so the client stops
             # rather than reconnecting into a 4003 anyway), or the check
-            # itself failed (1011, see _access_close_code). Either way this
+            # itself failed (4503, see _access_close_code). Either way this
             # frame is not forwarded.
             await self.close(code=close_code)
             return
@@ -293,7 +293,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
         check is never cached: the caller closes the socket.
 
         A definitive denial returns CLOSE_ACCESS_DENIED (4003); a check that
-        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (1011),
+        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (4503),
         which the client reconnects on (#2003) — same reasoning as
         ``BoardConsumer._access_close_code``.
         """

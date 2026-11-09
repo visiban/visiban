@@ -302,14 +302,21 @@ describe('useBoardSocket', () => {
     })
   })
 
-  it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
+  // 4503: the server's re-check failure since #2142. 1011: what it sent
+  // before (Daphne still sends it on an unexpected server error, as may a
+  // proxy), so it must stay retryable too.
+  it.each([4503, 1011])('reconnects on a transient server failure (code %i), not failed (#2003, #2142)', (code) => {
     // The demo-reset routing that 4001/4003 trigger is pinned NOT to fire for
-    // 1011 in demoReset.test.ts, where a past reset time is stashed.
+    // these codes in demoReset.test.ts, where a past reset time is stashed.
     const onReconnected = vi.fn()
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
     const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
 
     act(() => { latestWS().onopen?.() })
-    act(() => { latestWS().onclose?.({ code: 1011 }) })
+    act(() => { latestWS().onclose?.({ code }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    expect(expired).not.toHaveBeenCalled()
 
     expect(result.current.status).toBe('reconnecting')
     expect(result.current.reconnectAttempt).toBe(1)
