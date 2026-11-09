@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import CommandPalette from "../components/Common/CommandPalette";
 import type { Card, Column } from "../types";
+import { DEMO_CARD_FOOTER_NOTE } from "../constants/demoCopy";
 
 // listBoards is called on every open. Both mock boards are starred so they
 // appear in the palette's empty-query default view (starred-first ranking).
@@ -354,6 +355,17 @@ describe("CommandPalette — card actions (#2059)", () => {
     const hint = screen.getByTestId("palette-no-card-target");
     expect(hint).toHaveTextContent("Select, focus or open a card to act on it.");
     expect(hint).toHaveTextContent("Or search for a card and press →.");
+  });
+
+  it("lists Archive disabled with the demo reason when the hosted demo withholds it, and Enter does nothing (#2105)", () => {
+    const onCardAction = vi.fn();
+    renderPalette({ cardTarget: target({ archive: { enabled: false, reason: DEMO_CARD_FOOTER_NOTE } }), onCardAction });
+    fireEvent.change(input(), { target: { value: "archive" } });
+    const row = screen.getByRole("option", { name: /Archive card/ });
+    expect(row).toHaveAttribute("aria-disabled", "true");
+    expect(row).toHaveAccessibleDescription(DEMO_CARD_FOOTER_NOTE);
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(onCardAction).not.toHaveBeenCalled();
   });
 
   it("hides a disabled command on an empty query, lists it with its reason when typed, and Enter only re-announces", () => {

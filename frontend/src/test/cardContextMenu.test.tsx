@@ -4,6 +4,7 @@ import CardContextMenu, { CARD_MENU_ESCAPE_PRIORITY } from '../components/Card/C
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import { cardActionEntries, type CardActionContext } from '../utils/cardActions'
+import { DEMO_CARD_FOOTER_NOTE } from '../constants/demoCopy'
 import type { BoardFull, Card, Column } from '../types'
 
 // Card context menu (#2059, 1.3 UI spec Part 9 § 2).
@@ -79,6 +80,16 @@ describe('CardContextMenu', () => {
     expect(block).toHaveAttribute('aria-disabled', 'true')
     expect(block).toHaveAccessibleDescription("Viewers can't block cards")
     expect(screen.getByText("Viewers can't delete cards")).toBeInTheDocument()
+  })
+
+  it('in the hosted demo, Archive and Delete are disabled with the demo footer reason (#2105)', () => {
+    const { onAction } = renderMenu([makeCard()], { ...member, demoMode: true })
+    for (const name of [/Archive card/, /Delete card…/]) {
+      expect(item(name)).toHaveAttribute('aria-disabled', 'true')
+      expect(item(name)).toHaveAccessibleDescription(DEMO_CARD_FOOTER_NOTE)
+      fireEvent.click(item(name))
+    }
+    expect(onAction).not.toHaveBeenCalled()
   })
 
   it('Enter on a disabled item does nothing and re-announces the reason', () => {

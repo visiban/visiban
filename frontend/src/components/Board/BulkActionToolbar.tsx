@@ -9,6 +9,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { usePublishedHeight } from "../../hooks/usePublishedHeight";
+import { DEMO_CARD_FOOTER_NOTE } from "../../constants/demoCopy";
 
 interface Props {
   board: BoardFull;
@@ -64,10 +65,9 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
   );
   // Feeds ONLY the delete confirmation's "cards created by others will be
-  // skipped" note. Deliberately NOT widened for the hosted demo (#1179): the
-  // demo visitor may archive others' cards (the Archive button is always
-  // shown), but card delete is not on DEMO_ALLOWED_WRITES — and in demo mode
-  // the Delete button (and so this note) is not rendered at all.
+  // skipped" note. Deliberately NOT widened for the hosted demo (#1179): card
+  // delete is not on DEMO_ALLOWED_WRITES, and in demo mode the Delete button
+  // is inert, so the confirmation (and this note) can never open.
   const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
   const demoMode = useInstanceFlags().demo_mode;
   const othersCards = currentUser
@@ -162,6 +162,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   };
 
   const handleArchive = async () => {
+    if (demoMode) return; // #2105: withheld on the demo, like the card sheet
     setPartialError(null);
     setBusy(true);
     const results = await Promise.allSettled(
@@ -387,27 +388,37 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
-        {/* Archive — amber: meaningful but reversible (cards move to Archived panel) */}
+        {/* Archive — amber: meaningful but reversible (cards move to Archived panel).
+            Archive and Delete are withheld on the hosted demo (#2105), matching
+            the card sheet, context menu and ⌘K (#2059/#1179): aria-disabled,
+            never native disabled, with the shared reason (frontend/CLAUDE.md
+            § Hosted demo surfaces). A UI restriction only: the fence would
+            allow the archive itself. */}
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 hover:text-warning-on-tint transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          aria-disabled={demoMode ? true : undefined}
+          title={demoMode ? DEMO_CARD_FOOTER_NOTE : undefined}
+          aria-label={demoMode ? `Archive. ${DEMO_CARD_FOOTER_NOTE}` : undefined}
+          className={`text-xs px-2.5 py-1.5 rounded text-warning transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-warning/20 hover:text-warning-on-tint"
+          }`}
         >
           Archive
         </button>
 
-        {/* Delete — hidden on the hosted demo (#1179): card DELETE is not on
-            DEMO_ALLOWED_WRITES, so the fence refuses it for every card, the
-            visitor's own included. Same rule as CardDetail's Delete. */}
-        {!demoMode && (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 hover:text-danger-on-tint transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Delete
-          </button>
-        )}
+        <button
+          onClick={() => { if (!demoMode) setConfirmDelete(true); }}
+          disabled={busy}
+          aria-disabled={demoMode ? true : undefined}
+          title={demoMode ? DEMO_CARD_FOOTER_NOTE : undefined}
+          aria-label={demoMode ? `Delete. ${DEMO_CARD_FOOTER_NOTE}` : undefined}
+          className={`text-xs px-2.5 py-1.5 rounded text-danger transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-danger/20 hover:text-danger-on-tint"
+          }`}
+        >
+          Delete
+        </button>
 
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
