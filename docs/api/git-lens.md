@@ -215,7 +215,7 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 
 ### `DELETE /api/v1/git-lens/connections/{board_id}/`
 
-Remove the LensConnection for a board. The board's issue data cache is also purged.
+Remove the LensConnection for a board.
 
 **Permissions:** Board admin, board owner, or site admin. Board members without admin role receive `403 Forbidden`.
 
