@@ -162,7 +162,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   };
 
   const handleArchive = async () => {
-    if (demoMode) return; // #2105: withheld on the demo, like the card sheet
+    if (demoMode) return; // #2105: disabled on the demo with the shared reason
     setPartialError(null);
     setBusy(true);
     const results = await Promise.allSettled(
