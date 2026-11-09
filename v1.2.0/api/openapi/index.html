@@ -4365,6 +4365,24 @@ Every fuzz job also writes the JSON run report (<code>schemathesis-report.json</
 check of each unobserved baseline entry. It is log-only and never changes the job result. Prune an
 entry from <code>backend/schemathesis-baseline.json</code> only when both an MR-style run and the deep
 nightly list it as unobserved.</p>
+<p><strong>Lone surrogates (#2121).</strong> schemathesis generates strings with <code>codec="utf-8"</code>, which cannot
+hold a lone surrogate (U+D800..U+DFFF), so the 500 fixed in #2085 was invisible to the fuzz. Clearing
+the codec does not help (hypothesis still excludes surrogates), so <code>backend/schemathesis_surrogates.py</code>
+wraps the <code>requests</code> transport's JSON serializer, loaded through <code>schemathesis_hooks.py</code>. It runs on the
+way out, so the recorded <code>Case</code> keeps its valid body (schemathesis re-validates it after the scenario and
+a surrogate there crashes <code>st run</code>), and it acts only on cases sent as JSON: drf-spectacular declares JSON,
+form-urlencoded and multipart on nearly every serializer-bodied operation (only 2 of 80 are
+JSON-only), and a surrogate in a form body would crash the client rather than the server. For
+about one JSON case in ten it replaces the last character of one string value with a lone surrogate,
+which <code>requests</code> sends as the ASCII escape <code>\ud800</code>. Reach on the current schema: 198 operations, 80
+with a request body, 77 declaring JSON, 62 with a string in the JSON body, so roughly 20 injections
+in a 10-example MR run and about ten times that in the deep nightly. The choice is a pure function of
+the body, so <code>--seed</code> replay stays deterministic, and no requests are added, so the budget is
+unchanged. A 5xx fails <code>status_code_conformance</code> like any undocumented status; a documented 400
+rejection passes. <code>boards/tests/test_schemathesis_surrogates.py</code> is the negative control: it runs the
+real <code>st run</code> CLI against a stub declaring all three media types and asserts that a handler which 500s
+on a surrogate fails the run and one that rejects it passes, that form and multipart cases are never
+mutated, and that <code>schemathesis_hooks.py</code> really imports and registers the hook.</p>
 <p><strong>Issue Board Lens routes (<code>backend-schema-fuzz-git-lens</code>, #1338).</strong> The <code>git_lens</code> app and
 its routes exist only with <code>GIT_LENS_ENABLED=true</code>, and <code>backend-schema-fuzz</code> runs with the flag
 off, so the lens endpoints were never fuzzed. A third job, <code>backend-schema-fuzz-git-lens</code>,
