@@ -277,7 +277,7 @@ that run. Never present a stopped gate's `0 findings` as a clean result.
 
 **What the harness enforces, and what it does not.** The read-only gate agent files and
 `completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
-one). The ceiling is per run, not per agent (a resume restarts the count), and it counts turns,
+one). `ux-review` and `ux-design` set none: their budget is the brief's alone. The ceiling is per run, not per agent (a resume restarts the count), and it counts turns,
 not tool calls, so an agent that batches can pass its call budget first. An agent still calling
 tools at the ceiling gets no last turn: a harness stop arrives as a `completed` result carrying
 only a turn-limit NOTE and no report. Read that as an unfinished pass, never as `0 findings`,
