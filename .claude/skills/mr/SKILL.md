@@ -240,7 +240,7 @@ is the contract; this is what the description carries.
   whenever it ran, **even with `cost-ledger: off`**: it counts agents, not cost. A plain `/mr`
   with no `/wave` behind it writes none. A gate or pass that stopped at its budget has a partial
   count, so its `gate:` line carries a `budget-stopped` field instead of a plain count, for
-  example `- gate: regression-check — 1 findings (sonnet; medium; budget-stopped)`; never record
+  example `- gate: regression-check — 1 findings (sonnet; budget-stopped)`; never record
   a stopped gate's `0 findings` as clean.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
   would read as a whole one.
