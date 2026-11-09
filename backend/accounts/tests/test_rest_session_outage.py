@@ -437,6 +437,95 @@ class OutageAwareStoreTests(SimpleTestCase):
         self.assertIsNone(store.session_key)
         self.assertFalse(store.session_unavailable)
 
+    def _failing_on(self, failing_calls):
+        """A sync cache ``get`` that raises on the given 1-based call numbers."""
+        real_get = LocMemCache.get
+        calls = {"n": 0}
+
+        def get(self_cache, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] in failing_calls:
+                _outage()
+            return real_get(self_cache, *args, **kwargs)
+
+        return get, calls
+
+    def _afailing_on(self, failing_calls):
+        real_aget = LocMemCache.aget
+        calls = {"n": 0}
+
+        async def aget(self_cache, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] in failing_calls:
+                _outage()
+            return await real_aget(self_cache, *args, **kwargs)
+
+        return aget, calls
+
+    def test_cache_failing_again_after_a_recovered_probe_is_an_outage(self):
+        """Fix-diff re-check race: engine read fails, probe answers, the
+        engine's re-read fails again (swallowed into {}). The second probe
+        sees the failure: 503, key kept, not a miss that deletes the cookie."""
+        key = self._stored_key()
+        store = outage_aware_store_class(CacheSessionStore)(key)
+        get, calls = self._failing_on({1, 3, 4})
+        with patch(LOCMEM_GET, get), self.assertLogs("visiban.sessions", "WARNING"):
+            with self.assertRaises(SessionUnavailable):
+                store.load()
+        self.assertEqual(calls["n"], 4)
+        self.assertEqual(store.session_key, key)
+        self.assertFalse(store.is_empty())
+        self.assertTrue(store.session_unavailable)
+
+    def test_aload_cache_failing_again_after_a_recovered_probe_is_an_outage(self):
+        key = self._stored_key()
+        store = outage_aware_store_class(CacheSessionStore)(key)
+        aget, calls = self._afailing_on({1, 3, 4})
+        with patch(LOCMEM_AGET, aget), self.assertLogs("visiban.sessions", "WARNING"):
+            with self.assertRaises(SessionUnavailable):
+                asyncio.run(store.aload())
+        self.assertEqual(calls["n"], 4)
+        self.assertEqual(store.session_key, key)
+        self.assertTrue(store.session_unavailable)
+
+    def test_flap_down_up_down_up_is_bounded_and_reads_as_a_miss(self):
+        """Calls 1 and 3 fail, 2 and 4 answer: the second probe finds the
+        value the engine's re-read did not return, which it cannot tell from a
+        value the engine rejected. Bounded (four reads, no third engine read):
+        a miss, as for a rejected value."""
+        for loader, patch_target, failing in (
+            (lambda st: st.load(), LOCMEM_GET, self._failing_on({1, 3})),
+            (lambda st: asyncio.run(st.aload()), LOCMEM_AGET, self._afailing_on({1, 3})),
+        ):
+            with self.subTest(target=patch_target):
+                key = self._stored_key()
+                store = outage_aware_store_class(CacheSessionStore)(key)
+                fake, calls = failing
+                with patch(patch_target, fake):
+                    self.assertEqual(loader(store), {})
+                self.assertEqual(calls["n"], 4)
+                self.assertIsNone(store.session_key)
+                self.assertFalse(store.session_unavailable)
+
+    def test_aload_recovered_read_that_misses_again_is_a_miss(self):
+        key = self._stored_key()
+        store = outage_aware_store_class(CacheSessionStore)(key)
+        real_aget = LocMemCache.aget
+        calls = {"n": 0}
+
+        async def aget(self_cache, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                _outage()
+            if calls["n"] == 3:
+                return None
+            return await real_aget(self_cache, *args, **kwargs)
+
+        with patch(LOCMEM_AGET, aget):
+            self.assertEqual(asyncio.run(store.aload()), {})
+        self.assertIsNone(store.session_key)
+        self.assertFalse(store.session_unavailable)
+
     def test_aload_recovered_read_goes_through_the_engines_own_aload(self):
         key = self._stored_key()
         real_aget = LocMemCache.aget

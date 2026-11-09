@@ -104,14 +104,59 @@ class _OutageAwareCacheStoreMixin:
     Calls the engine's own ``load()`` first, so a custom subclass that
     overrides it (or points ``_cache`` elsewhere) is still the one that reads
     the session; the probe only decides what an empty result means. Its raw
-    value is never handed out: when the probe finds the session (the cache
-    recovered between the two reads) the engine's ``load()`` runs again, so a
-    subclass that decodes or validates the stored value still does.
+    value is never handed out.
+
+    The sequence, at most two probes and two engine reads, never a loop:
+
+    1. engine ``load()``. A non-empty result, or no cookie key, is final.
+    2. probe. Raises: outage. ``None``: a miss (the key stays cleared, as
+       Django leaves it). A value: the cache recovered between the reads, so
+       go on.
+    3. engine ``load()`` again, so a subclass that decodes or validates the
+       stored value still does. A non-empty result is final.
+    4. the re-read was empty, which the engine's ``load()`` cannot explain
+       (it swallows a cache error too), so probe once more. Raises: the cache
+       failed again, an outage. Otherwise (``None``, or a value the engine
+       rejected): a miss, with the key as the engine left it. Treating every
+       empty re-read as an outage instead would answer 503 for as long as an
+       engine rejects a stored value.
     """
 
     _visiban_outage_aware = True
     # Set when a read hit an outage (see SessionOutageMiddleware).
     session_unavailable = False
+
+    def _outage(self, exc):
+        _log_outage(exc)
+        # The caller restored the key before probing, so it is kept:
+        # is_empty() is false and the cookie is not deleted. The flag lets
+        # SessionOutageMiddleware recognize a 500 that a middleware layer made
+        # of this exception.
+        self.session_unavailable = True
+        return SessionUnavailable()
+
+    def _probe(self, key):
+        """One direct read of *key*'s entry: its value, or ``None`` on a miss.
+
+        Restores *key* first (``cache_key`` would mint a new key without one)
+        and leaves it set. Raises ``SessionUnavailable`` on an outage.
+        """
+        self._session_key = key
+        try:
+            return self._cache.get(self.cache_key)
+        except InvalidCacheKey:
+            return None
+        except Exception as exc:  # noqa: BLE001 — any backend error is an outage, see module docstring
+            raise self._outage(exc) from None
+
+    async def _aprobe(self, key):
+        self._session_key = key
+        try:
+            return await self._cache.aget(await self.acache_key())
+        except InvalidCacheKey:
+            return None
+        except Exception as exc:  # noqa: BLE001 — see _probe()
+            raise self._outage(exc) from None
 
     def load(self):
         key = self._session_key
@@ -119,26 +164,14 @@ class _OutageAwareCacheStoreMixin:
         if data or key is None:
             return data
         cleared = self._session_key
-        # Restore the key so cache_key names the cookie's session (with no
-        # key it would mint a new one).
-        self._session_key = key
-        try:
-            probed = self._cache.get(self.cache_key)
-        except InvalidCacheKey:
-            probed = None
-        except Exception as exc:  # noqa: BLE001 — any backend error is an outage, see module docstring
-            _log_outage(exc)
-            # Key kept: is_empty() is false, so the cookie is not deleted.
-            # The flag lets SessionOutageMiddleware recognize a 500 that a
-            # middleware layer made of this exception.
-            self.session_unavailable = True
-            raise SessionUnavailable() from None
-        if probed is not None:
-            # The cache recovered between the two reads: read again through
-            # the engine, with the key restored. Whatever it answers now
-            # stands (an empty answer clears the key as a miss does), since
-            # the probe has just shown the cache is answering.
-            return super().load()
+        if self._probe(key) is None:
+            self._session_key = cleared
+            return data
+        data = super().load()
+        if data:
+            return data
+        cleared = self._session_key
+        self._probe(key)
         self._session_key = cleared
         return data
 
@@ -148,17 +181,14 @@ class _OutageAwareCacheStoreMixin:
         if data or key is None:
             return data
         cleared = self._session_key
-        self._session_key = key
-        try:
-            probed = await self._cache.aget(await self.acache_key())
-        except InvalidCacheKey:
-            probed = None
-        except Exception as exc:  # noqa: BLE001 — see load()
-            _log_outage(exc)
-            self.session_unavailable = True
-            raise SessionUnavailable() from None
-        if probed is not None:
-            return await super().aload()
+        if await self._aprobe(key) is None:
+            self._session_key = cleared
+            return data
+        data = await super().aload()
+        if data:
+            return data
+        cleared = self._session_key
+        await self._aprobe(key)
         self._session_key = cleared
         return data
 
