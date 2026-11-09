@@ -92,6 +92,9 @@ django.setup()
 
 import schemathesis  # noqa: E402
 
+# Wraps the JSON serializer so lone surrogates reach the wire in JSON bodies (#2121).
+import schemathesis_surrogates  # noqa: E402,F401
+
 
 def _load_real_ids():
     """Pull real ids from the seeded demo board, once, at hook-load time.
