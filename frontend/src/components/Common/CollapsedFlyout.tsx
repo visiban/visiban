@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -102,7 +102,7 @@ export default function CollapsedFlyout({
       style={{
         top: top ?? 0,
         left: anchor.left + 4,
-        maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+        maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         // Hidden only for the pre-paint measuring pass.
         visibility: top === null ? "hidden" : undefined,
       }}

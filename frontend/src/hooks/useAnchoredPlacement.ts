@@ -11,10 +11,45 @@ export const POPOVER_VIEWPORT_MARGIN = 8;
  * against `innerHeight` can land under the keyboard. Falls back to the window
  * when `visualViewport` is unavailable (older browsers, jsdom).
  */
-export function getVisibleViewport(): { top: number; height: number } {
+export function getVisibleViewport(): { top: number; height: number; left: number; width: number } {
   const vv = typeof window === "undefined" ? undefined : window.visualViewport;
-  if (vv && vv.height > 0) return { top: vv.offsetTop, height: vv.height };
-  return { top: 0, height: window.innerHeight };
+  if (vv && vv.height > 0) {
+    // Width is read independently so a visual viewport that reports no width
+    // still clamps against the window's.
+    const hasWidth = vv.width > 0;
+    return {
+      top: vv.offsetTop, height: vv.height,
+      left: hasWidth ? vv.offsetLeft : 0, width: hasWidth ? vv.width : window.innerWidth,
+    };
+  }
+  return { top: 0, height: window.innerHeight, left: 0, width: window.innerWidth };
+}
+
+/**
+ * A `max-height` for an anchored popover's scroll region, from the visible
+ * viewport (#2161). The CSS `100vh` / `100dvh` units follow the layout
+ * viewport, which the on-screen keyboard does not shrink, so a long list capped
+ * with them still extends under the keyboard and falls to `pinned`. `reserve`
+ * is the px kept clear (default: a margin above and below); `extra` is any CSS
+ * length for chrome inside the cap, such as a header (`"6rem"`). Read at render:
+ * `useAnchoredPlacement` re-renders its caller on every visualViewport
+ * resize/scroll, so the cap follows the keyboard.
+ */
+export function visibleMaxHeight(reserve: number = 2 * POPOVER_VIEWPORT_MARGIN, extra?: string): string {
+  const px = `${getVisibleViewport().height - reserve}px`;
+  return extra ? `calc(${px} - ${extra})` : px;
+}
+
+/**
+ * Clamps a popover's `left` so `width` stays inside the visible viewport
+ * horizontally (#2161); `innerWidth` ignores pinch zoom. Keeps `margin` clear
+ * on both sides and prefers the left edge when the popover is wider than the
+ * space.
+ */
+export function clampLeftToVisible(left: number, width: number, margin: number = POPOVER_VIEWPORT_MARGIN): number {
+  const vv = getVisibleViewport();
+  const max = vv.left + vv.width - margin - width;
+  return Math.max(vv.left + margin, Math.min(left, max));
 }
 
 /**

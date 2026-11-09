@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 
 export interface MultiSelectDropdownProps {
@@ -135,10 +135,7 @@ export default function MultiSelectDropdown({
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
       const minWidth = Math.max(rect.width, 200);
-      const left = Math.max(
-        VIEWPORT_MARGIN,
-        Math.min(rect.left, window.innerWidth - minWidth - VIEWPORT_MARGIN),
-      );
+      const left = clampLeftToVisible(rect.left, minWidth, VIEWPORT_MARGIN);
       setAnchor({ left, minWidth, top: rect.top, bottom: rect.bottom });
     }
     setDraft(current);
@@ -280,7 +277,7 @@ export default function MultiSelectDropdown({
         top: top ?? 0,
         // Hidden only for the pre-paint measuring pass.
         visibility: top === null ? "hidden" : undefined,
-        maxHeight: `calc(100vh - ${2 * VIEWPORT_MARGIN}px)`,
+        maxHeight: visibleMaxHeight(2 * VIEWPORT_MARGIN),
       } : undefined}
       className="z-50 bg-surface shadow-xl border border-line rounded flex flex-col"
     >

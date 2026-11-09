@@ -6,6 +6,7 @@ import ActivityFilterDropdown from "../components/Card/ActivityFilterDropdown";
 import SavedFiltersDropdown from "../components/Board/SavedFiltersDropdown";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
 // #1482 — the in-flow `absolute top-full` menus became anchored `fixed` panels.
 // jsdom does not clip or lay out, so these assert the structural contract that
@@ -110,7 +111,16 @@ describe("CheckboxDropdown menu (#1482)", () => {
   it("caps the panel at the viewport so a long list scrolls", async () => {
     render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />);
     await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
-    expect(screen.getByRole("group").style.maxHeight).toBe("calc(100vh - 16px)");
+    expect(screen.getByRole("group").style.maxHeight).toBe(`${window.innerHeight - 16}px`);
+  });
+  it("caps the panel at the viewport so a long list scrolls with a visualViewport (#2161)", async () => {
+    stubVisualViewport({ height: 300 });
+    try {
+    render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
+    expect(screen.getByRole("group").style.maxHeight).toBe("284px");
+  
+    } finally { clearVisualViewport(); }
   });
 });
 

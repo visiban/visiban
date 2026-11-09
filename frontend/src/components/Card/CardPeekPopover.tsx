@@ -4,7 +4,7 @@ import { PRIORITY_COLORS } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
 import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
 import { PROVIDER_LABELS } from "../../utils/externalRef";
-import { useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { getVisibleViewport, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 
 interface CardPeekPopoverProps {
   card: Card;           // from ../../types
@@ -42,7 +42,11 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Determine horizontal placement: right of card or flip to left when near right edge
-  const wouldOverflowRight = anchorRect.right + POPOVER_GAP + POPOVER_WIDTH > window.innerWidth;
+  // The visible (pinch-zoom aware) right edge decides the flip (#2161); the `right`
+  // offset below stays in layout coordinates because that is what `fixed` uses.
+  const vv = getVisibleViewport();
+  const visibleRight = vv.left + vv.width;
+  const wouldOverflowRight = anchorRect.right + POPOVER_GAP + POPOVER_WIDTH > visibleRight;
 
   const style: React.CSSProperties = {
     position: "fixed",

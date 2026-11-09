@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 
@@ -86,7 +86,7 @@ export default function CustomFieldQuickEditPopover({ anchorRect, choices, selec
     <div
       ref={ref}
       data-testid="custom-field-quick-edit-popover"
-      style={{ ...style, maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)` }}
+      style={{ ...style, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}
       className="flex flex-col bg-surface border border-line-strong rounded-lg shadow-xl py-1.5"
       onMouseDown={(e) => e.stopPropagation()}
     >

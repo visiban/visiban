@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { colorName } from "../../constants/colors";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { clampLeftToVisible, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { normalizeHex } from "../../utils/colorContrast";
@@ -238,8 +238,7 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
 
   useLayoutEffect(() => {
     const width = panelRef.current?.offsetWidth ?? 0;
-    const maxLeft = window.innerWidth - width - POPOVER_VIEWPORT_MARGIN;
-    setLeft(Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(anchor.left, maxLeft)));
+    setLeft(clampLeftToVisible(anchor.left, width));
   }, [anchor.left]);
 
   useEscapeStack(() => { onClose(true); }, CUSTOM_COLOR_ESCAPE_PRIORITY);
@@ -270,8 +269,8 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
         const next = e.relatedTarget as Node | null;
         if (next && !e.currentTarget.contains(next)) onClose(false);
       }}
-      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 max-h-[calc(100dvh-1rem)] overflow-y-auto scroll-pb-8"
-      style={{ top: top ?? 0, left, visibility: top === null ? "hidden" : undefined }}
+      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 overflow-y-auto scroll-pb-8"
+      style={{ top: top ?? 0, left, maxHeight: visibleMaxHeight(), visibility: top === null ? "hidden" : undefined }}
     >
       <CustomColorPanel
         value={value}

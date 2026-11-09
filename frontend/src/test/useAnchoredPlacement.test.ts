@@ -1,23 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub";
 import {
   computeAnchoredPlacement, computeAnchoredTop, placeFixedElement,
   getVisibleViewport, subscribeVisualViewport, useAnchoredPlacement,
+  visibleMaxHeight, clampLeftToVisible,
 } from "../hooks/useAnchoredPlacement";
-
-/** jsdom has no `visualViewport`; stub one that can fire resize/scroll (#2138). */
-function stubVisualViewport(init: { height: number; offsetTop?: number }) {
-  const target = new EventTarget();
-  const vv = Object.assign(target, { height: init.height, offsetTop: init.offsetTop ?? 0 });
-  const add = vi.spyOn(target, "addEventListener");
-  const remove = vi.spyOn(target, "removeEventListener");
-  Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
-  return { vv, add, remove };
-}
-
-function clearVisualViewport() {
-  Object.defineProperty(window, "visualViewport", { configurable: true, value: undefined });
-}
 
 /**
  * #1457 — the side lock shared by every `useAnchoredPlacement` adopter, and
@@ -118,17 +106,37 @@ describe("visualViewport placement (#2138)", () => {
 
   it("getVisibleViewport falls back to the window without visualViewport", () => {
     clearVisualViewport();
-    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight });
+    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight, left: 0, width: window.innerWidth });
   });
 
   it("getVisibleViewport reads height and offsetTop from visualViewport", () => {
     stubVisualViewport({ height: 400, offsetTop: 30 });
-    expect(getVisibleViewport()).toEqual({ top: 30, height: 400 });
+    expect(getVisibleViewport()).toEqual({ top: 30, height: 400, left: 0, width: window.innerWidth });
   });
 
   it("getVisibleViewport ignores a zero-height visualViewport", () => {
     stubVisualViewport({ height: 0 });
-    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight });
+    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight, left: 0, width: window.innerWidth });
+  });
+
+  it("visibleMaxHeight caps at the visible height, or the window without visualViewport (#2161)", () => {
+    clearVisualViewport();
+    expect(visibleMaxHeight()).toBe(`${window.innerHeight - 16}px`);
+    expect(visibleMaxHeight(16, "6rem")).toBe(`calc(${window.innerHeight - 16}px - 6rem)`);
+    stubVisualViewport({ height: 300 });
+    expect(visibleMaxHeight()).toBe("284px");
+    expect(visibleMaxHeight(16, "5.5rem")).toBe("calc(284px - 5.5rem)");
+  });
+
+  it("clampLeftToVisible keeps the popover inside the visible box (#2161)", () => {
+    clearVisualViewport();
+    expect(clampLeftToVisible(5, 100)).toBe(8);
+    expect(clampLeftToVisible(window.innerWidth, 100)).toBe(window.innerWidth - 8 - 100);
+    stubVisualViewport({ height: 400, width: 500, offsetLeft: 200 });
+    expect(clampLeftToVisible(210, 100)).toBe(210);
+    expect(clampLeftToVisible(650, 100)).toBe(200 + 500 - 8 - 100);
+    expect(clampLeftToVisible(0, 100)).toBe(208);
+    expect(clampLeftToVisible(0, 600)).toBe(208);
   });
 
   it("subscribeVisualViewport is a no-op without visualViewport", () => {

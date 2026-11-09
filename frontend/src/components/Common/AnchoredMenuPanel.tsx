@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import type { MenuAnchor } from "../../utils/menuAnchor";
 
@@ -75,10 +75,7 @@ export default function AnchoredMenuPanel({
   const horizontal = align === "right"
     ? { right: Math.max(POPOVER_VIEWPORT_MARGIN, window.innerWidth - anchor.right) }
     : {
-        left: Math.max(
-          POPOVER_VIEWPORT_MARGIN,
-          Math.min(anchor.left, window.innerWidth - minWidth - POPOVER_VIEWPORT_MARGIN),
-        ),
+        left: clampLeftToVisible(anchor.left, minWidth),
       };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -109,7 +106,7 @@ export default function AnchoredMenuPanel({
         minWidth,
         // Hidden only for the pre-paint measuring pass.
         visibility: top === null ? "hidden" : undefined,
-        maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+        maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
         display: "flex",
         flexDirection: "column",

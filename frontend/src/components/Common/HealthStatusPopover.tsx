@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN } from "../../hooks/useAnchoredPlacement";
+import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import {
   HEALTH_STATUS_DESCRIPTIONS, HEALTH_STATUS_LABELS, HEALTH_STATUS_TEXT, HEALTH_STATUS_VALUES,
@@ -166,10 +166,7 @@ export default function HealthStatusPopover({
   const resetDescription = parentName !== null
     ? `Follow ${parentName}, or the nearest group above it that has a status.`
     : "Clear the status. Nothing is shown as set.";
-  const left = Math.max(
-    POPOVER_VIEWPORT_MARGIN,
-    Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - POPOVER_VIEWPORT_MARGIN),
-  );
+  const left = clampLeftToVisible(anchorRect.left, PANEL_WIDTH);
 
   return createPortal(
     <div

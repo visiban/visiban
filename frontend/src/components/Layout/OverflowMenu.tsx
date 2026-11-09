@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
 
 export interface OverflowItem {
@@ -210,7 +210,7 @@ export default function OverflowMenu({
         position: "fixed",
         top: top ?? 0,
         right: anchor.right,
-        maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+        maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         // Hidden only for the pre-paint measuring pass.
         visibility: placed ? undefined : "hidden",
       }}

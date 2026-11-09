@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { ColumnPolicy } from "../../types";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
-import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN } from "../../hooks/useAnchoredPlacement";
+import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { POLICY_MODE_LABEL } from "../../utils/columnPolicy";
 
@@ -93,10 +93,7 @@ export default function ColumnPolicyPopover({ columnName, policy, anchorRect, on
   }, [placed]);
 
   const { moreBelow, onScroll } = useOverflowFade(bodyRef, [policy.entry.length, policy.done.length]);
-  const left = Math.max(
-    POPOVER_VIEWPORT_MARGIN,
-    Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - POPOVER_VIEWPORT_MARGIN),
-  );
+  const left = clampLeftToVisible(anchorRect.left, PANEL_WIDTH);
 
   return (
     <div
@@ -126,7 +123,7 @@ export default function ColumnPolicyPopover({ columnName, policy, anchorRect, on
           role="region"
           aria-label="Policy criteria"
           className="overflow-y-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
-          style={{ maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px - 6rem)` }}
+          style={{ maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, "6rem") }}
         >
           <CriteriaSection heading="Entry criteria" items={policy.entry} />
           <div className="border-t border-line/60" />

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, cleanup } from "@testing-library/react";
 import MultiSelectDropdown from "../components/Common/MultiSelectDropdown";
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
 /**
  * #1391 — the Common commit-on-close checklist primitive: ARIA wiring,
@@ -163,7 +164,15 @@ describe("MultiSelectDropdown (#1391)", () => {
 
     it("caps the menu at the viewport rather than a fixed height", async () => {
       await withTrigger(100, 130);
-      expect(menu().style.maxHeight).toBe("calc(100vh - 16px)");
+      expect(menu().style.maxHeight).toBe(`${window.innerHeight - 16}px`);
+    });
+    it("caps the menu at the viewport rather than a fixed height with a visualViewport (#2161)", async () => {
+      stubVisualViewport({ height: 300 });
+      try {
+      await withTrigger(100, 130);
+      expect(menu().style.maxHeight).toBe("284px");
+    
+      } finally { clearVisualViewport(); }
     });
 
     it("focuses the search only after placement", async () => {

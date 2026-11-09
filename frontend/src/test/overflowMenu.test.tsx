@@ -4,6 +4,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ModalWrapper from '../components/shared/ModalWrapper'
 import OverflowMenu, { type OverflowItem } from '../components/Layout/OverflowMenu'
+import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
 afterEach(() => {
   cleanup()
@@ -389,7 +390,16 @@ describe('OverflowMenu — keyboard navigation', () => {
       const menu = screen.getByRole('menu')
       expect(menu.style.top).toBe('128px')
       expect(menu.style.visibility).toBe('')
-      expect(menu.style.maxHeight).toBe('calc(100vh - 16px)')
+      expect(menu.style.maxHeight).toBe(`${window.innerHeight - 16}px`)
+    })
+    it('opens below the trigger when the measured height fits with a visualViewport (#2161)', () => {
+      stubVisualViewport({ height: 300 });
+      try {
+      openAt(100, 124)
+      const menu = screen.getByRole('menu')
+      expect(menu.style.maxHeight).toBe('284px')
+    
+      } finally { clearVisualViewport(); }
     })
 
     it('opens upward for a bottom-row trigger instead of running off-screen', () => {

@@ -908,7 +908,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const panel = await showSuggestionsAt(100, 130, 200)
     expect(panel.style.top).toBe('134px')
     expect(panel.style.visibility).toBe('')
-    expect(panel.style.maxHeight).toBe('calc(100vh - 16px)')
+    expect(panel.style.maxHeight).toBe(`${window.innerHeight - 16}px`)
     vi.restoreAllMocks()
   })
 
