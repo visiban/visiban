@@ -480,6 +480,39 @@ describe('Dashboard — rejection paths (#1374)', () => {
       'Failed to delete the board. Please try again.'
     )
   })
+
+  // #1385 — the double-failure rollback must reconcile by board id, not restore
+  // a whole-list snapshot that would clobber a concurrent successful mutation.
+  it('keeps a concurrent successful delete of another board when the double-failure rollback runs (#1385)', async () => {
+    const mk = (id: number, name: string) => ({ id, name, description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' })
+    mockListBoards.mockResolvedValueOnce([mk(1, 'Board Alpha'), mk(2, 'Board Beta')])
+    mockListGroups.mockResolvedValue([])
+    let rejectA: (e: Error) => void = () => undefined
+    mockDeleteBoard.mockImplementation((id: number) =>
+      id === 1 ? new Promise((_, reject) => { rejectA = reject }) : Promise.resolve()
+    )
+    // The reconciling refetch for the failed delete also fails.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Board Alpha')
+
+    // Start deleting A (stays in flight), then delete B successfully.
+    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Board Beta' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText('Board Beta')).not.toBeInTheDocument())
+
+    rejectA(new Error('server error'))
+
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+    expect(screen.getByText('Board Alpha')).toBeInTheDocument()
+    expect(screen.queryByText('Board Beta')).not.toBeInTheDocument()
+  })
 })
 
 // #1374 — navigate(...) after create/import/Trello-import was wrapped in void
