@@ -156,7 +156,7 @@ It creates, alongside the normal demo board:
 - **saved filters** for the published visitor (#1889): Urgent and high, and Overdue, on Software Team; Coverage gaps and Exec escalations on Sales Territory (Overlay); Due this week on Logistics Exceptions. Saved filters are private to their owner, and the demo fence refuses creating one, so these are the visitor's whole list until the next reset
 - Software Team uses the **Dense** card layout (#1889), so one board shows every badge, including the aging meter on idle cards; the others keep the Comfortable default
 - a seeded **notification inbox** for the published visitor: seventeen unread notifications across the seven boards (@mentions, assignments, card moves, new comments, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
-- the **published visitor** account (username from `DEMO_LOGIN_USERNAME`, default `visitor`; password from `DEMO_LOGIN_PASSWORD`) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While `DEMO_MODE` is on, this account may also edit and archive cards other people created (every seeded card belongs to the admin). That exception is read from the setting at request time, so it vanishes when `DEMO_MODE` is turned off rather than living on as a stored permission
+- the **published visitor** account (username from `DEMO_LOGIN_USERNAME`, default `visitor`; password from `DEMO_LOGIN_PASSWORD`) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While `DEMO_MODE` is on, this account may also edit cards other people created (every seeded card belongs to the admin), and the server permits archiving them too, though the demo UI does not offer Archive (see below). That exception is read from the setting at request time, so it vanishes when `DEMO_MODE` is turned off rather than living on as a stored permission
 - a site **admin** account (`admin`, password from `DEMO_ADMIN_PASSWORD`, **never published**) that owns the seeded boards
 - two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
 
@@ -203,7 +203,7 @@ A refusal is `403` with a stable body:
 {"code": "demo_read_only", "detail": "This is a shared demo — this change can't be saved here. ..."}
 ```
 
-**What a visitor can do:** sign in and out, watch live updates, and create, edit (including custom-field values), move, archive and restore cards, and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions.
+**What a visitor can do:** sign in and out, watch live updates, and create, edit (including custom-field values), move and restore cards (restoring from the **Archived** panel works), and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions. Archive and Delete are not offered in the demo UI: the bulk toolbar, context menu and command palette dim them with the demo notice, and the card panel omits them. The restriction is client-side only; the server still permits archive.
 
 **What a visitor cannot do:**
 

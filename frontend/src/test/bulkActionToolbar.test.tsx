@@ -748,6 +748,12 @@ describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    for (const name of ['Archive', 'Delete']) {
+      const b = screen.getByRole('button', { name })
+      expect(b).not.toHaveAttribute('aria-disabled')
+      expect(b).not.toHaveAttribute('aria-label')
+      expect(b).not.toHaveAttribute('title', DEMO_CARD_FOOTER_NOTE)
+    }
   })
 })
 
