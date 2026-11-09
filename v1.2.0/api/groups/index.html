@@ -5014,6 +5014,11 @@
 <td>string / null</td>
 <td>Display name of the ancestor group that grants access, when <code>is_inherited</code> is <code>true</code>; <code>null</code> otherwise</td>
 </tr>
+<tr>
+<td><code>has_all_content_access</code></td>
+<td>boolean</td>
+<td>Whether the member has all-content access, which resolves to full access and overrides <code>role</code>. Present on every row only when the requesting user is a group admin; omitted otherwise. <em>(1.3+)</em></td>
+</tr>
 </tbody>
 </table>
 <h3 id="patch-apiv1groupsidmembersuser_id"><code>PATCH /api/v1/groups/{id}/members/{user_id}/</code><a class="headerlink" href="#patch-apiv1groupsidmembersuser_id" title="Permanent link">&para;</a></h3>

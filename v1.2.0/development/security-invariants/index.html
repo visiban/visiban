@@ -5090,6 +5090,11 @@ the status filter and the uniform response, not scope.</p>
 <td><code>boards/serializers.py</code> <code>BoardFullSerializer.get_members</code></td>
 <td><code>site_admin_roster_visible</code> (all-content rows, and <code>is_site_admin</code> on rows with no membership, for site-admin readers only), then <code>site_admin_field_visible</code> (which also gates <code>is_site_admin</code>); <code>has_all_content_access</code> (#1301) goes on every row when <code>site_admin_field_visible</code> or <code>site_admin_roster_visible</code> holds. The other member-row surfaces (members POST response, <code>member.*</code> events, change feed) only ever carry a real membership row</td>
 </tr>
+<tr>
+<td>Group member list</td>
+<td><code>groups/views.py</code> <code>GroupViewSet.members</code></td>
+<td><code>user_is_group_admin</code>; <code>has_all_content_access</code> (#2075) goes on every row (direct and inherited) for group admin readers only, and the key is absent for other readers</td>
+</tr>
 </tbody>
 </table>
 <h2 id="rule-6-placing-a-board-in-a-group-needs-group-admin">Rule 6: Placing a board in a group needs group admin<a class="headerlink" href="#rule-6-placing-a-board-in-a-group-needs-group-admin" title="Permanent link">&para;</a></h2>
