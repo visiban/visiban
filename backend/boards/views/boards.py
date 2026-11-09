@@ -465,8 +465,9 @@ class BoardViewSet(
             peers = blocked_peers_of(Card.objects.filter(board_id=board.pk))
             board.delete()
             # board_uid is the stable identifier for terminal events (#979).
-            # All deletion events (card/column/swimlane/label/saved_filter)
-            # carry only the *_uid; board.deleted matches that contract.
+            # Deletion events for cards, columns, swimlanes and labels carry only
+            # the *_uid; board.deleted matches that contract. (saved_filter events
+            # are the exception: they carry integer filter_id/user_id.)
             payload = {"board_uid": board_uid}
             # The feed row survives the board it describes: BoardEvent.board_id is
             # a plain integer, not a cascading FK, precisely so a consumer holding

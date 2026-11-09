@@ -23,6 +23,7 @@ from boards.broadcast import (
 from boards.models import BoardMembership
 from boards.permissions import SITE_ADMIN
 from boards.views import get_board_for_user
+from boards.views._helpers import lock_board_row_or_404
 from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
@@ -473,6 +474,11 @@ class LensConnectionView(APIView):
             if optional in data:
                 defaults[optional] = data[optional]
         with transaction.atomic():
+            # Serialize on the board row like every other board-scoped write
+            # (#1602, #1971): a board delete holds this row from the start of its
+            # cascade, so a PUT queued behind it gets a 404 here instead of
+            # inserting a row whose deferred board FK then fails at COMMIT (500).
+            lock_board_row_or_404(board, no_key=True)
             conn, _created = LensConnection.objects.update_or_create(
                 board=board,
                 defaults=defaults,
@@ -492,12 +498,17 @@ class LensConnectionView(APIView):
         board, role = get_board_for_user(board_id, request.user, slim=True)
         _require_board_admin(role)
         with transaction.atomic():
-            LensConnection.objects.filter(board=board).delete()
-            board_id_int = board.id
-            record_board_event(
-                board_id_int, EVT_LENS_CONNECTION_REMOVED, {"board_id": board_id_int},
-                actor_id=request.user.id,
-            )
+            lock_board_row_or_404(board, no_key=True)  # see put(): 404 on a deleted board
+            deleted, _ = LensConnection.objects.filter(board=board).delete()
+            # Only announce a removal that happened: DELETE stays idempotent
+            # (204 either way, unchanged for clients), but a no-op must not tell
+            # other members' Lens tabs to disappear or add a feed row (#1971).
+            if deleted:
+                board_id_int = board.id
+                record_board_event(
+                    board_id_int, EVT_LENS_CONNECTION_REMOVED, {"board_id": board_id_int},
+                    actor_id=request.user.id,
+                )
         return Response(status=204)
 
 
