@@ -115,14 +115,20 @@ nightly list it as unobserved.
 **Lone surrogates (#2121).** schemathesis generates strings with `codec="utf-8"`, which cannot
 hold a lone surrogate (U+D800..U+DFFF), so the 500 fixed in #2085 was invisible to the fuzz. Clearing
 the codec does not help (hypothesis still excludes surrogates), so `backend/schemathesis_surrogates.py`
-registers a `map_body` hook, loaded through `schemathesis_hooks.py`. For about one generated body in
-ten that is declared JSON-only, it replaces the last character of one string value with a lone
-surrogate; `requests` sends it as the ASCII escape `\ud800`. The choice is a pure function of the body,
-so `--seed` replay and shrinking stay deterministic, and it adds no requests, so the job's runtime and
-budget are unchanged. A handler that 500s on the value fails `status_code_conformance` like any other
-undocumented 500. `boards/tests/test_schemathesis_surrogates.py` is the negative control: it runs the real
-`st run` CLI against a stub server and asserts that a handler which 500s on a surrogate fails the run and
-a handler that rejects it passes.
+registers a `before_call` hook, loaded through `schemathesis_hooks.py`. It runs per request, when the
+media type is known, and acts only on cases sent as JSON: drf-spectacular declares JSON,
+form-urlencoded and multipart on nearly every serializer-bodied operation (only 2 of 80 are
+JSON-only), and a surrogate in a form body would crash the client rather than the server. For
+about one JSON case in ten it replaces the last character of one string value with a lone surrogate,
+which `requests` sends as the ASCII escape `\ud800`. Reach on the current schema: 198 operations, 80
+with a request body, 77 declaring JSON, 62 with a string in the JSON body, so roughly 20 injections
+in a 10-example MR run and about ten times that in the deep nightly. The choice is a pure function of
+the body, so `--seed` replay stays deterministic, and no requests are added, so the budget is
+unchanged. A 5xx fails `status_code_conformance` like any undocumented status; a documented 400
+rejection passes. `boards/tests/test_schemathesis_surrogates.py` is the negative control: it runs the
+real `st run` CLI against a stub declaring all three media types and asserts that a handler which 500s
+on a surrogate fails the run and one that rejects it passes, that form and multipart cases are never
+mutated, and that `schemathesis_hooks.py` really imports and registers the hook.
 
 **Issue Board Lens routes (`backend-schema-fuzz-git-lens`, #1338).** The `git_lens` app and
 its routes exist only with `GIT_LENS_ENABLED=true`, and `backend-schema-fuzz` runs with the flag

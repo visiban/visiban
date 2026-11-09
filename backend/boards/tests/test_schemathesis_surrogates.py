@@ -19,6 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import schemathesis_surrogates as sur
+from django.test import TestCase
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -31,6 +32,13 @@ def _has_surrogate(value):
     if isinstance(value, list):
         return any(_has_surrogate(v) for v in value)
     return False
+
+
+def _hooks():
+    # Lazy: schemathesis_hooks queries the DB at import time, which needs a TestCase.
+    import importlib
+
+    return importlib.import_module("schemathesis_hooks")
 
 
 def _find_injecting_body(make):
@@ -87,28 +95,56 @@ class InjectLoneSurrogateTests(unittest.TestCase):
         self.assertTrue(_has_surrogate(json.loads(wire)))
 
 
-class MapBodyHookTests(unittest.TestCase):
+class BeforeCallHookTests(unittest.TestCase):
+    """The hook acts on the media type the case will actually be sent as."""
+
     @staticmethod
-    def _operation(*media_types):
-        return SimpleNamespace(body=[SimpleNamespace(media_type=m) for m in media_types])
+    def _case(media_type, body):
+        return SimpleNamespace(media_type=media_type, body=body)
 
-    def _hit(self, operation):
+    def _run(self, media_type):
         body = _find_injecting_body(lambda i: {"name": f"n{i}"})
-        return sur.map_body(SimpleNamespace(operation=operation), body) != body
+        case = self._case(media_type, body)
+        sur.before_call(SimpleNamespace(operation=None), case, {})
+        return body, case
 
-    def test_applies_to_json_only_operations(self):
-        self.assertTrue(self._hit(self._operation("application/json")))
-        self.assertTrue(self._hit(self._operation("application/json; charset=utf-8", "application/vnd.api+json")))
-
-    def test_skips_operations_that_can_serialize_a_body_as_a_form(self):
-        for media in (("multipart/form-data",), ("application/x-www-form-urlencoded",), ("application/json", "multipart/form-data")):
+    def test_mutates_json_cases(self):
+        for media in ("application/json", "application/json; charset=utf-8", "application/vnd.api+json"):
             with self.subTest(media=media):
-                self.assertFalse(self._hit(self._operation(*media)))
+                body, case = self._run(media)
+                self.assertNotEqual(case.body, body)
+                self.assertTrue(_has_surrogate(case.body))
 
-    def test_skips_operations_without_a_body_or_context(self):
-        self.assertFalse(self._hit(self._operation()))
-        self.assertEqual(sur.map_body(SimpleNamespace(operation=None), {"a": "b"}), {"a": "b"})
+    def test_does_not_mutate_form_or_multipart_cases(self):
+        for media in ("application/x-www-form-urlencoded", "multipart/form-data", None, "text/plain"):
+            with self.subTest(media=media):
+                body, case = self._run(media)
+                self.assertIs(case.body, body)
+                self.assertFalse(_has_surrogate(case.body))
 
+
+class HookWiringTests(TestCase):
+    """`st run` loads only schemathesis_hooks.py; it must pull the surrogate hook in."""
+
+    def test_schemathesis_hooks_imports_and_registers_the_surrogate_hook(self):
+        hooks = _hooks()
+        # AttributeError here means the `import schemathesis_surrogates` line was removed.
+        self.assertIs(hooks.schemathesis_surrogates, sur)
+        from schemathesis.hooks import GLOBAL_HOOK_DISPATCHER
+
+        self.assertIn(sur.before_call, GLOBAL_HOOK_DISPATCHER.get_all_by_name("before_call"))
+
+    def test_hooks_file_names_the_import_statically(self):
+        source = (BACKEND_DIR / "schemathesis_hooks.py").read_text()
+        self.assertRegex(source, r"(?m)^import schemathesis_surrogates\b")
+
+
+_BODY_SCHEMA = {
+    "type": "object",
+    "required": ["name"],
+    "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 30}},
+    "additionalProperties": False,
+}
 
 _SPEC = {
     "openapi": "3.0.3",
@@ -118,16 +154,10 @@ _SPEC = {
             "post": {
                 "requestBody": {
                     "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["name"],
-                                "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 30}},
-                                "additionalProperties": False,
-                            }
-                        }
-                    },
+                    # The shape drf-spectacular emits for every serializer-bodied operation.
+                    "content": {mt: {"schema": _BODY_SCHEMA} for mt in (
+                        "application/json", "application/x-www-form-urlencoded", "multipart/form-data"
+                    )},
                 },
                 "responses": {"200": {"description": "ok"}, "400": {"description": "bad"}},
             }
@@ -154,6 +184,8 @@ def _make_handler(crash_on_surrogate):
 
         def do_POST(self):
             raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            if "json" not in self.headers.get("Content-Type", ""):
+                return self._send(200, {"form": True})  # form/multipart: the hook must never touch these
             try:
                 body = json.loads(raw)
                 name = body["name"]
