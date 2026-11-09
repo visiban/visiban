@@ -66,7 +66,8 @@ class ParseNumProxiesTests(SimpleTestCase):
 
 
 class GetClientIpTests(SimpleTestCase):
-    """visiban.utils.get_client_ip mirrors DRF's get_ident for every NUM_PROXIES."""
+    """visiban.utils.get_client_ip mirrors DRF's get_ident except for the divergences
+    documented in its docstring (missing address, empty X-Forwarded-For, NUM_PROXIES=None)."""
 
     def setUp(self):
         self.factory = RequestFactory()

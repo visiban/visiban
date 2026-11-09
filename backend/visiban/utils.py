@@ -59,9 +59,11 @@ def get_client_ip(request) -> str:
     same address as the DRF throttles, or two controls disagree about who the
     client is. Falls back to REMOTE_ADDR for direct connections.
 
-    Two deliberate, safe divergences from DRF's own ``get_ident`` (the first
+    Three deliberate, safe divergences from DRF's own ``get_ident`` (the first
     re-checked by completeness-check, #1180; the second corrected in #1852,
-    after an earlier version of this note claimed the opposite):
+    after an earlier version of this note claimed the opposite; the third is
+    the unconfigured ``NUM_PROXIES`` case, also documented in
+    docs/architecture/open-core-boundary.md):
 
     * When neither ``X-Forwarded-For`` nor ``REMOTE_ADDR`` is present, this
       returns the literal string ``"unknown"`` rather than DRF's ``None`` -- a
@@ -74,6 +76,12 @@ def get_client_ip(request) -> str:
       safer key. The bundled nginx always appends the peer address
       (``proxy_add_x_forwarded_for``), so the header is never empty behind it;
       this only matters for a non-default proxy that forwards an empty header.
+    * With ``NUM_PROXIES = None`` (the DRF default, i.e. the setting dropped),
+      DRF keys on the whole client-controlled ``X-Forwarded-For`` string
+      (whitespace stripped), so a client can pick a fresh bucket per request.
+      This function skips the header entirely (``num_proxies`` is falsy) and
+      returns ``REMOTE_ADDR``. That is the safer key, though behind a proxy
+      every client then shares the proxy's address.
     """
     from rest_framework.settings import api_settings
 
