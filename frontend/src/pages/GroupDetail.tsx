@@ -149,7 +149,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
 
-  const [isStarred, setIsStarred] = useState(false);
+  const [isStarred, setIsStarredState] = useState(false);
+  // Bumped on every star write (frame, toggle, rollback) so a group re-read that
+  // started before one does not revert it with an older is_starred (#2136).
+  const starSeqRef = useRef(0);
+  const setIsStarred = useCallback((v: boolean) => { ++starSeqRef.current; setIsStarredState(v); }, []);
   const [starLoading, setStarLoading] = useState(false);
 
   // Inline rename state
@@ -272,7 +276,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       if (stale) return;
       loadedAtRef.current = Date.now();
       groupState.applyLoad(g);
-      setIsStarred(g.is_starred);
+      setIsStarredState(g.is_starred);
       subgroupsState.applyLoad(sg);
       if (!boardsRereadAppliedRef.current) {
         // A re-read still in flight (socket opened before this load answered)
@@ -404,7 +408,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const readSubgroups = subgroupsState.read;
   const readMembers = membersState.read;
   const readSubgroupBoards = subgroupBoardsState.read;
-  const refetchGroup = useCallback(() => readGroup(() => getGroup(groupId)), [readGroup, groupId]);
+  // The group's is_starred lives in separate state, so a re-read applies it too,
+  // unless a star write landed since the read started. A failed re-read
+  // (including a 403/404 for a group deleted or lost meanwhile) is swallowed
+  // here; surfacing it as the unavailable page is tracked in #2162.
+  const refetchGroup = useCallback(() => {
+    const starSeq = starSeqRef.current;
+    readGroup(() => getGroup(groupId), {
+      onApplied: (g) => { if (g && starSeq === starSeqRef.current) setIsStarredState(g.is_starred); },
+    });
+  }, [readGroup, groupId]);
   const refetchSubgroups = useCallback(() => readSubgroups(() => getSubgroups(groupId)), [readSubgroups, groupId]);
   const refetchMembers = useCallback(() => readMembers(() => getGroupMembers(groupId)), [readMembers, groupId]);
   // The descendant endpoint also returns the direct boards; drop those, as the
@@ -532,7 +545,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, setIsStarred]);
 
   // Events fired while the socket was disconnected are not replayed. Re-read
   // everything the page shows that a frame can change after a reconnect so the
@@ -806,7 +819,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setTransferring(true);
     try {
       const updated = await transferGroupOwnership(groupId, transferNewOwnerId, transferConfirmation);
-      writeGroup(() => updated);
+      // Only the owner changes, so a replay over a newer answer cannot revert other fields.
+      writeGroup((prev) => (prev ? { ...prev, owner: updated.owner } : prev));
       setShowTransferModal(false);
       setTransferNewOwnerId("");
       setTransferConfirmation("");
@@ -824,7 +838,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setAddingLabel(true);
     try {
       const label = await createGroupLabel(groupId, { name: newLabelName.trim(), color: newLabelColor });
-      writeGroup((prev) => prev ? { ...prev, shared_labels: [...prev.shared_labels, label] } : prev);
+      writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.some((l) => l.id === label.id) ? prev.shared_labels : [...prev.shared_labels, label] } : prev);
       setNewLabelName("");
       setNewLabelColor(DEFAULT_LABEL_COLOR);
     } catch {
@@ -1610,7 +1624,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       {showCreateSubgroup && (
         <CreateGroupModal
           parentGroup={group}
-          onCreated={(sg) => { writeSubgroups((prev) => [...prev, sg]); }}
+          onCreated={(sg) => { writeSubgroups((prev) => (prev.some((g) => g.id === sg.id) ? prev : [...prev, sg])); }}
           onClose={() => setShowCreateSubgroup(false)}
         />
       )}

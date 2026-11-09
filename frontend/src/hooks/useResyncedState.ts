@@ -13,7 +13,8 @@ import type { Dispatch, SetStateAction } from "react";
  * removes it again. So every write made through `write` during a re-read is
  * recorded and replayed, in order, over the answer. Writes must be idempotent
  * updater functions, so replaying one the answer already reflects changes
- * nothing.
+ * nothing. An appending write must add its row only when the id is missing, or
+ * a row the answer already lists would appear twice.
  *
  * Only the most recently STARTED read applies: a superseded read's writes need
  * no carrying over, since the newer read was sent after they committed.
@@ -62,7 +63,7 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
 
   const read = useCallback((
     fetch: () => Promise<T>,
-    options?: { onError?: () => void; onSettled?: () => void },
+    options?: { onError?: () => void; onSettled?: () => void; onApplied?: (answer: T) => void },
   ) => {
     const seq = ++seqRef.current;
     // While the initial load is pending, a newer read inherits the writes
@@ -77,6 +78,7 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
         replayRef.current = null; // later writes land on top of the answer
         appliedRef.current = true;
         setValue(replay.reduce((v, w) => w(v), value));
+        options?.onApplied?.(value);
         options?.onSettled?.();
       })
       .catch(() => {

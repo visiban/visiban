@@ -285,6 +285,20 @@ describe('GroupDetail first-open resync (#2088)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('re-reads the group, subgroups and members as well when the socket opens late (#2136)', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const counts = [mockGetGroup, mockGetSubgroups, mockGetGroupMembers].map((m) => m.mock.calls.length)
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect([mockGetGroup, mockGetSubgroups, mockGetGroupMembers].map((m) => m.mock.calls.length))
+      .toEqual(counts.map((c) => c + 1))
+    now.mockRestore()
+  })
+
   it('re-reads the boards once when the socket first opens more than 1 s after the load', async () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)

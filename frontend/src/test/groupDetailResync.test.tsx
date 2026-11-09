@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, createMemoryRouter, RouterProvider } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group, Board } from '../types'
 import type { BoardEvent } from '../hooks/useBoardSocket'
@@ -17,6 +17,12 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate }
 })
+
+vi.mock('../components/Group/CreateGroupModal', () => ({
+  default: ({ onCreated }: { onCreated: (g: Group) => void }) => (
+    <button onClick={() => onCreated({ ...fakeGroup, id: 12, name: 'Fresh', parent: 1 })}>Confirm create subgroup</button>
+  ),
+}))
 
 vi.mock('../components/Board/CreateBoardModal', () => ({
   default: ({ onConfirm }: { onConfirm: (n: string, t: string, s: string, d: boolean) => void }) => (
@@ -91,8 +97,10 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupLabel, updateGroup } from '../api/groups'
 
+const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
+const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
@@ -325,5 +333,111 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await reread.answer([board(30, 'Deep A', { group: 10 }), board(31, 'Deep B', { group: 10 })])
     expect(screen.queryByText('Deep A')).toBeNull()
     expect(screen.getByText('Deep B')).toBeTruthy()
+  })
+
+  it('shows a label created here once when a re-read in flight already lists it', async () => {
+    const label = { id: 20, name: 'Enhancement', color: '#EAB308' }
+    mockCreateGroupLabel.mockResolvedValue(label)
+    await loadGroup()
+    openSettings()
+    await screen.findByText('Shared label library')
+    const reread = deferred<Group>(mockGetGroup)
+    frame({ event: 'group.label.created', data: {} } as BoardEvent)
+    fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Enhancement' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(mockCreateGroupLabel).toHaveBeenCalled())
+    await reread.answer({ ...fakeGroup, shared_labels: [label] })
+    expect(screen.getAllByText('Enhancement')).toHaveLength(1)
+  })
+
+  it('shows a subgroup created here once when a re-read in flight already lists it', async () => {
+    await loadGroup()
+    fireEvent.click(screen.getByRole('button', { name: '+ Create subgroup' }))
+    const reread = deferred<Group[]>(mockGetSubgroups)
+    frame({ event: 'group.created', data: { id: 12 } } as BoardEvent)
+    fireEvent.click(screen.getByText('Confirm create subgroup'))
+    await reread.answer([sub(10, 'Platform'), sub(11, 'Mobile'), sub(12, 'Fresh')])
+    expect(screen.getAllByText('Fresh')).toHaveLength(1)
+  })
+
+  it('applies is_starred from a group re-read', async () => {
+    await loadGroup()
+    expect(screen.getByRole('button', { name: 'Star group' })).toBeTruthy()
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, is_starred: true })
+    reconnect()
+    expect(await screen.findByRole('button', { name: 'Unstar group' })).toBeTruthy()
+  })
+
+  it('keeps a star frame applied during the re-read over an older is_starred', async () => {
+    await loadGroup()
+    const reread = deferred<Group>(mockGetGroup)
+    reconnect()
+    frame({ event: 'group.star_changed', data: { id: 1, user_id: fakeUser.id, is_starred: true } } as BoardEvent)
+    await reread.answer({ ...fakeGroup, is_starred: false })
+    expect(screen.getByRole('button', { name: 'Unstar group' })).toBeTruthy()
+  })
+
+  it('keeps an optimistic rename applied during a group re-read over the older answer', async () => {
+    let finishSave: () => void = () => {}
+    mockUpdateGroup.mockImplementation(() => new Promise<void>((res) => { finishSave = res }))
+    await loadGroup()
+    const reread = deferred<Group>(mockGetGroup)
+    reconnect()
+    fireEvent.click(screen.getByRole('button', { name: 'Engineering' }))
+    const input = screen.getByDisplayValue('Engineering')
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Renamed')
+    await reread.answer(fakeGroup)
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Renamed')
+    await act(async () => { finishSave() })
+  })
+
+  it('rolls a failed rename back over a group re-read answer too', async () => {
+    let failSave: (e: unknown) => void = () => {}
+    mockUpdateGroup.mockImplementation(() => new Promise<void>((_res, rej) => { failSave = rej }))
+    await loadGroup()
+    const reread = deferred<Group>(mockGetGroup)
+    reconnect()
+    fireEvent.click(screen.getByRole('button', { name: 'Engineering' }))
+    const input = screen.getByDisplayValue('Engineering')
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await act(async () => { failSave(new Error('no')) })
+    await reread.answer(fakeGroup)
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Engineering')
+  })
+
+  it('lets a descendant-boards re-read supersede the toggle load it races', async () => {
+    await loadGroup()
+    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    fireEvent.click(screen.getByRole('switch'))
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    reconnect()
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
+    await reread.answer([board(31, 'Newer', { group: 10 })])
+    await toggleLoad.answer([board(30, 'Older', { group: 10 })])
+    expect(screen.getByText('Newer')).toBeTruthy()
+    expect(screen.queryByText('Older')).toBeNull()
+  })
+
+  it('drops a subgroups re-read answered after the route moved to another group', async () => {
+    const router = createMemoryRouter(
+      [{ path: '/groups/:id', element: <GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} /> }],
+      { initialEntries: ['/groups/1'] },
+    )
+    render(<RouterProvider router={router} />)
+    await screen.findByText('Platform')
+    // Reconnect on group 1 starts a re-read, held in flight.
+    const held = deferred<Group[]>(mockGetSubgroups)
+    reconnect()
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, id: 2, name: 'Other' })
+    mockGetSubgroups.mockResolvedValue([sub(20, 'Other Child')])
+    await act(async () => { await router.navigate('/groups/2') })
+    await screen.findByText('Other Child')
+    await held.answer([sub(10, 'Stale Child')])
+    expect(screen.queryByText('Stale Child')).toBeNull()
+    expect(screen.getByText('Other Child')).toBeTruthy()
   })
 })

@@ -204,7 +204,7 @@ The page subscribes to a per-group WebSocket channel (`ws/groups/<group_id>/`) t
 | `board.updated` | A board was renamed or its settings changed |
 | `board.deleted` | A board was deleted or moved out of this group |
 
-A **Live / Reconnecting… / Failed** status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same `ConnectionStatus` component. The "Refresh board" button in the popover re-fetches the board list from the API.
+A **Live / Reconnecting… / Failed** status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same `ConnectionStatus` component. The group page does not wire a **Refresh board** action into the popover; its lists are re-read when the connection reconnects (see [Real-time updates](realtime.md)).
 
 ## Dashboard
 
