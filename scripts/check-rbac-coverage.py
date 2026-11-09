@@ -174,6 +174,8 @@ GATE_CALL_NAMES = frozenset({
 # (see :func:`_consumed`). ``require_mutation_role`` raises, so it is not here.
 GATE_PREDICATE_NAMES = frozenset({"user_is_group_admin"})
 
+CALLER_ROLE_CACHE_ATTR = "_cached_board_role"
+
 # ─── Whose role a comparison is about (#2116) ────────────────────────────────
 #
 # A role comparison is a gate only when one side of it is the *requesting
@@ -186,8 +188,9 @@ GATE_PREDICATE_NAMES = frozenset({"user_is_group_admin"})
 # The approach is a narrow allow-list of operand shapes plus one-step dataflow
 # within a function, not general dataflow. An operand is the caller's when it is
 #   * rooted at ``request.user`` / ``self.request.user``;
-#   * a ``self.`` attribute whose name mentions "role" (the per-request cache of
-#     the caller's own resolved role, ``self._cached_board_role``);
+#   * exactly ``self._cached_board_role`` (:data:`CALLER_ROLE_CACHE_ATTR`, the
+#     per-request cache of the caller's own resolved role); any other
+#     ``self.<name>role<name>`` could just as well hold a request-body value;
 #   * a local bound from a shared role resolver, a gate call, or a same-class /
 #     same-module helper whose name mentions "role" (``self._board_and_role()``)
 #     — for a tuple unpack, only the element whose name mentions "role", because
@@ -757,7 +760,7 @@ def _is_caller_expr(node: ast.AST, caller: set[str], methods, mod: Module) -> bo
             return True
         parts = dotted.split(".")
         if parts[0] == "self":
-            return len(parts) > 1 and _role_named(parts[1])
+            return len(parts) > 1 and parts[1] == CALLER_ROLE_CACHE_ATTR
         return parts[0] in caller
     if isinstance(node, ast.Subscript):
         return _is_caller_expr(node.value, caller, methods, mod)
@@ -811,6 +814,16 @@ def _caller_names(fn: ast.AST, trusted: frozenset, methods, mod: Module) -> set[
             for n in ast.walk(t):
                 if isinstance(n, ast.Name):
                     rebound.add(n.id)
+    for node in _body_nodes(fn):
+        tgts = []
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+            tgts = [node.target]
+        elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+            tgts = [node.optional_vars]
+        elif isinstance(node, ast.AugAssign):
+            tgts = [node.target]
+        for tg in tgts:
+            rebound |= {n.id for n in ast.walk(tg) if isinstance(n, ast.Name)}
     return caller - (rebound - set(trusted))
 
 
@@ -921,7 +934,7 @@ def _scan_gates(
             not sentinel_only
             and any(m in left_blob.lower() for m in SUBJECT_ROLE_MARKERS)
         )
-        if role_shaped and any(
+        if role_shaped and _consumed(cmp_node, fn, parents) and any(
             _is_caller_expr(op, caller, methods, mod)
             for op in (cmp_node.left, *cmp_node.comparators)
         ):
@@ -967,10 +980,8 @@ def _scan_gates(
             )
             if handed_caller:
                 if tail in GATE_PREDICATE_NAMES:
-                    # A predicate refuses only where its answer is acted on, and
-                    # inside a helper that is the helper's caller's call: let the
-                    # raise-or-returned_gate logic below decide (#2116).
-                    cmp_gate = True
+                    if _consumed(call, fn, parents):
+                        cmp_gate = True
                 else:
                     ev.role_gate = True
         if dotted.split(".", 1)[0] in ROLE_DELEGATION_ROOTS and any(
@@ -1938,6 +1949,67 @@ def self_test() -> int:
                 "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
                 "            raise PermissionDenied\n"
                 "        member_role = ",
+                "        member_role = ",
+            ),
+            "TargetRowViewSet::@action members [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "a predicate gate called and its answer thrown away is not a role gate (update_member)",
+            _mutate(
+                "backend/groups/views.py",
+                "        group = self.get_object()\n"
+                "        _require_group_admin(request.user, group)\n"
+                "        locked = ",
+                "        group = self.get_object()\n"
+                "        user_is_group_admin(request.user, group)\n"
+                "        locked = ",
+            ),
+            "GroupViewSet::@action update_member [delete,patch]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "a for-loop target rebinding the caller's role name to body values is not a role gate (members)",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        member_role = ",
+                "        for role in request.data.get('roles', []):\n"
+                "            if role not in BoardMembership.Role.values:\n"
+                "                raise PermissionDenied\n"
+                "        member_role = ",
+            ),
+            "TargetRowViewSet::@action members [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "a self.<role> attribute set from the request body is not the caller's role (members)",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        member_role = ",
+                "        self.requested_role = request.data.get('role')\n"
+                "        if self.requested_role not in BoardMembership.Role.values:\n"
+                "            raise PermissionDenied\n"
+                "        member_role = ",
+            ),
+            "TargetRowViewSet::@action members [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "a caller role comparison nothing acts on is not a role gate (members)",
+            _mutate(
+                "backend/boards/views/targets.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        member_role = ",
+                "        allowed = role in (BoardMembership.Role.ADMIN, SITE_ADMIN)\n"
                 "        member_role = ",
             ),
             "TargetRowViewSet::@action members [post]: no minimum-role check",
