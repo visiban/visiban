@@ -39,7 +39,7 @@ import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
 export default function App() {
-  const { user, loading: authLoading, logout, updateUser } = useAuth();
+  const { user, loading: authLoading, sessionUnavailable, logout, updateUser } = useAuth();
   const { flags, loaded: flagsLoaded } = useInstanceFlagsState(user !== null);
   // Hold the shell until site-config settles (#1913) so the first paint already
   // knows about maintenance and demo mode: ThemeServerSync would otherwise fire
@@ -125,6 +125,19 @@ export default function App() {
   };
 
   if (loading) {
+    // The server can't check the session right now (#2143): it still exists,
+    // so say so and keep retrying (useAuth) instead of showing the sign-in page.
+    if (sessionUnavailable) {
+      return (
+        <div className="min-h-screen bg-sunken flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <div role="status" aria-live="polite" aria-atomic="true" className="flex items-center justify-center gap-2">
+            <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+            <span className="text-sm text-fg-secondary">Reconnecting to your session…</span>
+          </div>
+          <p className="text-xs text-fg-muted">The server can't check your session right now. You're still signed in; this page retries on its own.</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-sunken flex items-center justify-center">
         <span className="text-fg-tertiary">Loading…</span>

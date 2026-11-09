@@ -17,10 +17,32 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+/** The `code` of the 503 the server answers when it can't read the session
+ *  store (a cache-only session backend during a cache outage, #2143). */
+export const SESSION_UNAVAILABLE_CODE = "session_unavailable";
+
+/**
+ * True for the server's "your session can't be checked right now" 503 (#2143).
+ *
+ * Not a sign-out: the session still exists and the cookie is kept, so the
+ * caller should retry, never clear the user. Matched on the code, not on 503
+ * alone, like the maintenance check below (a proxy also answers 503).
+ */
+export function isSessionUnavailableError(error: unknown): boolean {
+  const response = (error as { response?: { status?: number; data?: unknown } } | null)?.response;
+  return (
+    response?.status === 503 &&
+    (response.data as { code?: string } | undefined)?.code === SESSION_UNAVAILABLE_CODE
+  );
+}
+
 // When the backend signals that credentials are no longer valid, emit an event
 // so that useAuth can clear the user and redirect to the login page.
 // DRF returns 401 (NotAuthenticated) when no authenticator succeeds; a stale
 // session after a password change is the most common real-world trigger.
+// Only a 401: the session_unavailable 503 above means the session could not be
+// *checked*, and signing the user out on it would turn a cache blip into a
+// lost session (#2143).
 /** Detail carried by the `auth:maintenanceBlocked` event (#783). */
 export interface MaintenanceBlockedDetail {
   /** The operator's notice. Always non-empty — the server substitutes its own

@@ -138,10 +138,20 @@ def get_pending_connect_data(request, user) -> dict | None:
     lapse — nothing to clean up), it was stashed for a different account, or
     ``user`` has since connected that provider some other way.
     """
+    from visiban.sessions import SessionUnavailable
+
     session = getattr(request, "session", None)
     if session is None or user is None or not user.is_authenticated:
         return None
-    data = session.get(PENDING_CONNECT_SESSION_KEY)
+    try:
+        data = session.get(PENDING_CONNECT_SESSION_KEY)
+    except SessionUnavailable:
+        # Cache-only session outage (#2143). A request authenticated by that
+        # session has already answered 503 in authentication, so this is a
+        # token or PAT request that also sent the cookie: it is not refused
+        # for an unreadable session it did not authenticate with, it just
+        # gets no prompt (a prompt is offered to the session that stashed it).
+        return None
     if not isinstance(data, dict):
         return None
     provider = data.get("provider")

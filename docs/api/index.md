@@ -213,6 +213,34 @@ MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`, `blo
 `{"error": {"code": "maintenance_mode", "detail": "..."}}` result instead of a 503 — see
 [MCP Server](mcp.md#tool-errors).
 
+### Session unavailable (503)
+
+> **Added in 1.3**
+
+When the server is configured to keep sessions only in the cache
+(`SESSION_ENGINE` set to `django.contrib.sessions.backends.cache`) and that cache is
+unavailable, a request authenticated with the session cookie can't be checked. It is
+rejected with `503 Service Unavailable`, on any endpoint, instead of `401`:
+
+```json
+{ "code": "session_unavailable", "detail": "Your session can't be checked right now. Try again in a moment." }
+```
+
+The response carries `Retry-After: 10`. The session is not ended: the response does not
+delete the session cookie, and the same cookie works again once the cache recovers. The
+web app keeps the user signed in and retries. Match on the `session_unavailable` code,
+not on the `503` status alone, since a proxy or an overloaded backend also answers `503`.
+
+A session that is absent or expired (the cache is healthy but doesn't have it) still
+answers `401` and deletes the cookie, as before. Requests authenticated with a personal
+access token are not affected, nor are requests with an API token (`Authorization: Token`
+from `POST /auth/login/`) that send no session cookie, nor the `cached_db` and `db` session
+engines. An API token request that also sends the session cookie gets the `503`, because
+the session is checked before the API token. A page of the web app loaded during the outage
+keeps retrying until the cache answers; it does not fall back to the sign-in page. Before 1.3 such a request answered `401` and deleted the session cookie,
+which signed the web app user out until they signed in again (#2143). The browser pages under
+`/accounts/` and `/admin/` answer the same JSON `503`.
+
 ### Actor fields ("who did it")
 
 > **Settled in 1.2** (#1663)

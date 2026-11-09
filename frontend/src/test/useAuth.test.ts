@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth, sessionRetryDelayMs, SESSION_RETRY_DEFAULT_MS } from '../hooks/useAuth'
 
 // Mock the auth API
 vi.mock('../api/auth', () => ({
@@ -180,5 +180,101 @@ describe('useAuth — recent-boards cleared on sign-out (#1955)', () => {
     expect(localStorage.getItem('user:prefs:recent-boards')).toBeNull()
     expect(localStorage.getItem('user:prefs:theme')).toBe('dark')
     expect(result.current.user).toBeNull()
+  })
+})
+
+describe('useAuth — session store unavailable is not a sign-out (#2143)', () => {
+  const unavailable = (retryAfter?: string) => ({
+    response: {
+      status: 503,
+      data: { code: 'session_unavailable', detail: "Your session can't be checked right now." },
+      headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
+    },
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([{ id: 5, name: 'Kept' }]))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('keeps loading, keeps recent boards, and retries after Retry-After', async () => {
+    vi.useFakeTimers()
+    mockGetCurrentUser
+      .mockRejectedValueOnce(unavailable('3'))
+      .mockResolvedValueOnce(fakeUser)
+    const { result } = renderHook(() => useAuth())
+
+    await act(async () => { await Promise.resolve() })
+    expect(result.current.sessionUnavailable).toBe(true)
+    expect(result.current.loading).toBe(true)
+    expect(result.current.user).toBeNull()
+    expect(localStorage.getItem('user:prefs:recent-boards:1')).not.toBeNull()
+    expect(mockGetCurrentUser).toHaveBeenCalledTimes(1)
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_999) })
+    expect(mockGetCurrentUser).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(mockGetCurrentUser).toHaveBeenCalledTimes(2)
+
+    expect(result.current.user).toEqual(fakeUser)
+    expect(result.current.loading).toBe(false)
+    expect(result.current.sessionUnavailable).toBe(false)
+  })
+
+  it('a 401 after the outage still signs out', async () => {
+    vi.useFakeTimers()
+    mockGetCurrentUser
+      .mockRejectedValueOnce(unavailable('1'))
+      .mockRejectedValueOnce({ response: { status: 401, data: {} } })
+    const { result } = renderHook(() => useAuth())
+    await act(async () => { await Promise.resolve() })
+    expect(result.current.sessionUnavailable).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user).toBeNull()
+    expect(result.current.sessionUnavailable).toBe(false)
+  })
+
+  it('stops retrying once unmounted', async () => {
+    vi.useFakeTimers()
+    mockGetCurrentUser.mockRejectedValue(unavailable('1'))
+    const { result, unmount } = renderHook(() => useAuth())
+    await act(async () => { await Promise.resolve() })
+    expect(result.current.sessionUnavailable).toBe(true)
+    unmount()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(mockGetCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a response that lands after unmount', async () => {
+    let resolve: (u: unknown) => void = () => {}
+    mockGetCurrentUser.mockReturnValue(new Promise((r) => { resolve = r }))
+    const { result, unmount } = renderHook(() => useAuth())
+    unmount()
+    await act(async () => { resolve(fakeUser) })
+    expect(result.current.user).toBeNull()
+  })
+
+  it('a 503 without the session_unavailable code is an ordinary failure', async () => {
+    mockGetCurrentUser.mockRejectedValue({ response: { status: 503, data: '<html>busy</html>' } })
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(result.current.sessionUnavailable).toBe(false)
+  })
+
+  it('sessionRetryDelayMs reads Retry-After within bounds', () => {
+    expect(sessionRetryDelayMs(unavailable('10'))).toBe(10_000)
+    expect(sessionRetryDelayMs(unavailable('0.2'))).toBe(1_000)
+    expect(sessionRetryDelayMs(unavailable('3600'))).toBe(60_000)
+    expect(sessionRetryDelayMs(unavailable('soon'))).toBe(SESSION_RETRY_DEFAULT_MS)
+    expect(sessionRetryDelayMs(unavailable('0'))).toBe(SESSION_RETRY_DEFAULT_MS)
+    expect(sessionRetryDelayMs(unavailable())).toBe(SESSION_RETRY_DEFAULT_MS)
+    expect(sessionRetryDelayMs({})).toBe(SESSION_RETRY_DEFAULT_MS)
   })
 })
