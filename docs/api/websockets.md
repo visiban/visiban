@@ -416,8 +416,11 @@ Deleting a user account in the Django admin does not delete cards: an account
 that still owns boards cannot be deleted until its boards are transferred, and
 a card's `created_by` and `assignee` are cleared, not cascaded.
 Since 1.3 (#1635) that delete, single or bulk, sends one `card.updated` frame
-for each card whose `created_by` or `assignee` it cleared, on the card's board
-and carrying the card after the clear, and a `member.removed` frame on every
+for each card carrying a reference to the deleted user, on the card's board
+and carrying the card after the clear (the card's `created_by` or `assignee`,
+and also the author of a comment, the creator of a checklist item, the
+uploader of an attachment, or the creator of a relation or block record on it,
+so an open card detail refetches and stops showing the deleted user), and a `member.removed` frame on every
 board the user was a member of, directly or through a group or one of its
 ancestors, and on the [group channel](#group-channel-since-11) of each group
 the user belonged to. Before 1.3 it sent none of these, so connected clients

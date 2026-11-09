@@ -18,7 +18,19 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import User
-from boards.models import Board, BoardEvent, BoardMembership, Card, Column, Swimlane
+from django.core.files.base import ContentFile
+
+from boards.models import (
+    Board,
+    BoardEvent,
+    BoardMembership,
+    Card,
+    CardAttachment,
+    CardChecklist,
+    CardComment,
+    Column,
+    Swimlane,
+)
 from groups.models import Group, GroupMembership
 
 PW = "pw123456!x"
@@ -167,3 +179,59 @@ class UserDeleteBroadcastTests(TestCase):
         self.assertEqual(board_frames, [])
         self.assertEqual(group_frames, [])
         self.assertEqual(Card.objects.get(pk=self.assigned.pk).assignee_id, self.victim.pk)
+
+
+    def _reference_only_cards(self):
+        """Cards the victim neither created nor is assigned to, but is named on."""
+        column = Column.objects.get(board=self.board)
+        swimlane = Swimlane.objects.get(board=self.board)
+
+        def card(title):
+            return Card.objects.create(
+                board=self.board, column=column, swimlane=swimlane, title=title,
+                position=100 + Card.objects.filter(board=self.board).count(),
+                created_by=self.owner,
+            )
+
+        commented = card("Commented")
+        CardComment.objects.create(card=commented, author=self.victim, body="hi")
+        uploaded = card("Uploaded")
+        CardAttachment.objects.create(
+            card=uploaded, file=ContentFile(b"x", name="f.txt"), filename="f.txt",
+            size=1, uploaded_by=self.victim,
+        )
+        checklist = card("Checklist")
+        CardChecklist.objects.create(card=checklist, text="item", created_by=self.victim)
+        return commented, uploaded, checklist
+
+    def _assert_reference_frames(self, board_frames, cards):
+        for c in cards:
+            frames = [p for b, e, p in board_frames if e == "card.updated" and p["id"] == c.pk]
+            self.assertEqual(len(frames), 1, c.title)
+        commented = next(p for b, e, p in board_frames if e == "card.updated" and p["id"] == cards[0].pk)
+        # Rendered after the clear: the comment no longer names the victim.
+        self.assertEqual(CardComment.objects.get(card=cards[0]).author_id, None)
+        self.assertEqual(commented["id"], cards[0].pk)
+
+    def test_single_delete_announces_cards_only_referenced_by_a_comment_upload_or_checklist(self):
+        cards = self._reference_only_cards()
+        # A card in both sets (created and commented on) still gets one frame.
+        CardComment.objects.create(card=self.created, author=self.victim, body="also")
+        board_frames, _ = self._delete_one(self.victim)
+        self._assert_reference_frames(board_frames, cards)
+        both = [p for b, e, p in board_frames if e == "card.updated" and p["id"] == self.created.pk]
+        self.assertEqual(len(both), 1)
+        self.assertIsNone(both[0]["created_by"])
+        self.assertEqual(
+            sorted(p["id"] for b, e, p in board_frames if e == "card.updated"),
+            sorted([self.assigned.pk, self.created.pk] + [c.pk for c in cards]),
+        )
+
+    def test_bulk_delete_announces_cards_only_referenced_by_a_comment_upload_or_checklist(self):
+        cards = self._reference_only_cards()
+        CardComment.objects.create(card=self.created, author=self.victim, body="also")
+        board_frames, _ = self._delete_bulk([self.victim, self.other])
+        self._assert_reference_frames(board_frames, cards)
+        ids = [p["id"] for b, e, p in board_frames if e == "card.updated"]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertIn(self.created.pk, ids)

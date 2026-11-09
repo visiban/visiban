@@ -781,8 +781,13 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         ``super().delete_*`` returns, so the affected cards, boards and groups
         are read here, after the locks and the refusal re-check:
 
-        - ``cards``: board id -> pks of the cards whose creator or assignee is
-          a target, rendered again after the delete for ``card.updated``.
+        - ``cards``: board id -> pks of every card carrying a reference to a
+          target (creator, assignee, comment author, checklist creator,
+          attachment uploader, relation creator, block actor, ...; the set
+          ``_cards_to_lock`` computes, so a card is in it once), rendered
+          again after the delete for ``card.updated``. An open card detail
+          refetches comments, checklists and attachments on that frame, so
+          it stops showing the deleted user as author or uploader.
         - ``boards``: (board id, user id) for every board a target could see as
           a member, directly or through a group or one of its ancestors (the
           boards in the subtree of each group the target belongs to), as
@@ -802,7 +807,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
 
         cards = {}
         for board_id, card_id in (
-            Card.objects.filter(Q(created_by__in=pks) | Q(assignee__in=pks))
+            VisibanUserAdmin._cards_to_lock(pks)
             .exclude(board__owner__in=pks)
             .values_list("board_id", "pk")
         ):
