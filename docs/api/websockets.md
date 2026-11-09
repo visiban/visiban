@@ -415,6 +415,13 @@ frames: a column of thousands of cards is one delete frame, not thousands.
 Deleting a user account in the Django admin does not delete cards: an account
 that still owns boards cannot be deleted until its boards are transferred, and
 a card's `created_by` and `assignee` are cleared, not cascaded.
+Since 1.3 (#1635) that delete, single or bulk, sends one `card.updated` frame
+for each card whose `created_by` or `assignee` it cleared, on the card's board
+and carrying the card after the clear, and a `member.removed` frame on every
+board the user was a member of, directly or through a group or one of its
+ancestors, and on the [group channel](#group-channel-since-11) of each group
+the user belonged to. Before 1.3 it sent none of these, so connected clients
+kept showing the deleted user until they reloaded.
 
 **Cards that survive the delete (since 1.2).** A card outside the deleted
 container can be blocked by a card inside it. Its row survives but its

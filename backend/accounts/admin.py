@@ -754,7 +754,9 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         with transaction.atomic():
             self._lock_and_check_admins(request, [obj.pk])
             self._lock_cards_then_targets(request, [obj.pk])
+            snapshot = self._delete_event_snapshot([obj.pk])
             super().delete_model(request, obj)
+            self._record_delete_events(request, snapshot)
 
     def delete_queryset(self, request, queryset):
         # A bulk action is not wrapped in a transaction by Django: one outer
@@ -763,7 +765,115 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             pks = list(queryset.values_list("pk", flat=True))
             self._lock_and_check_admins(request, pks)
             self._lock_cards_then_targets(request, pks)
+            snapshot = self._delete_event_snapshot(pks)
             super().delete_queryset(request, queryset)
+            self._record_delete_events(request, snapshot)
+
+    @staticmethod
+    def _delete_event_snapshot(pks):
+        """What the delete changes for connected clients, read before it runs (#1635).
+
+        The delete clears ``Card.created_by`` and ``Card.assignee`` (SET_NULL)
+        and cascades the targets' board and group memberships, all outside the
+        REST views that would announce them, so without frames every client
+        keeps showing the deleted user as a card's creator or assignee and as
+        a member until it reloads. The rows are nulled or gone once
+        ``super().delete_*`` returns, so the affected cards, boards and groups
+        are read here, after the locks and the refusal re-check:
+
+        - ``cards``: board id -> pks of the cards whose creator or assignee is
+          a target, rendered again after the delete for ``card.updated``.
+        - ``boards``: (board id, user id) for every board a target could see as
+          a member, directly or through a group or one of its ancestors (the
+          boards in the subtree of each group the target belongs to), as
+          ``GroupViewSet.update_member`` announces a group member's removal.
+        - ``groups``: (group id, user id) for each group membership.
+
+        No ``board.deleted`` or ``group.deleted`` is needed although
+        ``Board.owner`` and ``Group.owner`` are CASCADE: ``user_deletion_refusals``
+        refuses a target that owns any board or group, and that refusal is
+        judged again under the target row locks, so a delete that reaches
+        here cascades neither. Owned boards are still excluded below so a
+        change to that rule cannot announce cards or members of a deleted board.
+        """
+        from boards.models import BoardMembership
+        from groups.models import GroupMembership
+        from groups.services import _subtree_ids
+
+        cards = {}
+        for board_id, card_id in (
+            Card.objects.filter(Q(created_by__in=pks) | Q(assignee__in=pks))
+            .exclude(board__owner__in=pks)
+            .values_list("board_id", "pk")
+        ):
+            cards.setdefault(board_id, set()).add(card_id)
+
+        boards = set(
+            BoardMembership.objects.filter(user__in=pks)
+            .exclude(board__owner__in=pks)
+            .values_list("board_id", "user_id")
+        )
+        groups = set(GroupMembership.objects.filter(user__in=pks).values_list("group_id", "user_id"))
+        subtrees = {}
+        for group_id, user_id in groups:
+            if group_id not in subtrees:
+                subtrees[group_id] = _subtree_ids(group_id)
+        board_groups = {}
+        if subtrees:
+            all_groups = set().union(*subtrees.values())
+            for board_id, group_id in (
+                Board.objects.filter(group_id__in=all_groups)
+                .exclude(owner__in=pks)
+                .values_list("pk", "group_id")
+            ):
+                board_groups.setdefault(group_id, []).append(board_id)
+        for group_id, user_id in groups:
+            for sub_id in subtrees[group_id]:
+                boards.update((board_id, user_id) for board_id in board_groups.get(sub_id, ()))
+        return {"cards": cards, "boards": boards, "groups": groups}
+
+    @staticmethod
+    def _record_delete_events(request, snapshot):
+        """Record the frames ``_delete_event_snapshot`` found, after the delete (#1635).
+
+        Called inside the deleting transaction, after ``super().delete_*``: the
+        cards render with the creator and assignee already cleared, and every
+        board frame is recorded with ``record_board_event`` (a change-feed row
+        in this transaction, the publish deferred to commit), so a delete that
+        rolls back announces nothing. Group frames have no feed row and are
+        published from one ``on_commit`` callback, as the REST group member
+        removal does. Each card is rendered once per board in one prefetch
+        pass (``render_card_payloads``), not once per card.
+        """
+        from boards import broadcast as _board_broadcast
+        from boards.views._helpers import render_card_payloads
+        from groups import broadcast as _group_broadcast
+
+        actor_id = request.user.pk
+        boards_by_id = Board.objects.in_bulk(list(snapshot["cards"]))
+        for board_id, card_ids in sorted(snapshot["cards"].items()):
+            board = boards_by_id.get(board_id)
+            if board is None:
+                continue
+            for card_data in render_card_payloads(board, card_ids):
+                _board_broadcast.record_board_event(
+                    board_id, _board_broadcast.EVT_CARD_UPDATED, card_data, actor_id=actor_id
+                )
+        for board_id, user_id in sorted(snapshot["boards"]):
+            _board_broadcast.record_board_event(
+                board_id, _board_broadcast.EVT_MEMBER_REMOVED, {"user_id": user_id},
+                actor_id=actor_id,
+            )
+        groups = sorted(snapshot["groups"])
+        if groups:
+            def _announce(pairs=groups, aid=actor_id):
+                for group_id, user_id in pairs:
+                    _group_broadcast.broadcast_group_event(
+                        group_id, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": user_id},
+                        actor_id=aid,
+                    )
+
+            transaction.on_commit(_announce)
 
 
 def _stored_password_hash(pk, *, lock=False):
