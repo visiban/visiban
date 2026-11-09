@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { useState } from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import MentionTextarea from '../components/Card/MentionTextarea'
@@ -427,5 +427,96 @@ describe('MentionTextarea combobox semantics (#2137)', () => {
     expect(ids).toHaveLength(6)
     expect(new Set(ids).size).toBe(6)
     expect(a.getAttribute('aria-controls')).not.toBe(b.getAttribute('aria-controls'))
+  })
+})
+
+describe('MentionTextarea visualViewport (#2138)', () => {
+  function rect(top: number, bottom: number): DOMRect {
+    return { top, bottom, left: 20, right: 320, width: 300, height: bottom - top, x: 20, y: top, toJSON: () => ({}) } as DOMRect
+  }
+  function stubVv(height: number, offsetTop = 0) {
+    const vv = Object.assign(new EventTarget(), { height, offsetTop })
+    const remove = vi.spyOn(vv, 'removeEventListener')
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    return { vv, remove }
+  }
+  afterEach(() => {
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined })
+    vi.restoreAllMocks()
+  })
+
+  async function openList() {
+    const user = userEvent.setup()
+    render(<MentionTextarea value="" onChange={vi.fn()} members={members} />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, '@')
+    const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    return { ta, list }
+  }
+
+  it('flips above when the on-screen keyboard leaves no room below, and re-places on visualViewport resize', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(300, 340))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.top).toBe('344px')
+    // Keyboard opens: innerHeight is unchanged, the visual viewport is 400px tall.
+    act(() => { vv.height = 400; vv.dispatchEvent(new Event('resize')) })
+    expect(list.style.top).toBe('196px')
+  })
+
+  it('re-places on visualViewport scroll using its offsetTop', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(300, 340))
+    window.dispatchEvent(new Event('resize'))
+    // The page is panned so the visible box is y 200..360: neither side fits 100px, so the larger
+    // side (above: 300-4-208 = 88px) is capped to its space and stays below the box's top edge.
+    act(() => { vv.offsetTop = 200; vv.height = 160; vv.dispatchEvent(new Event('scroll')) })
+    expect(list.style.maxHeight).toBe('88px')
+    expect(list.style.top).toBe('208px')
+  })
+
+  it('hides the list while the textarea is under the keyboard (inside innerHeight, outside the visual viewport)', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(500, 540))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('')
+    // Keyboard covers y 400..800: the textarea is still inside innerHeight but not visible.
+    act(() => { vv.height = 400; vv.dispatchEvent(new Event('resize')) })
+    expect(list.style.visibility).toBe('hidden')
+  })
+
+  it('hides the list while the textarea is above the top of a panned visual viewport', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(100, 140))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('')
+    // The page is panned: the visible box is y 200..600, so the textarea (100..140) is scrolled out above it.
+    act(() => { vv.offsetTop = 200; vv.height = 400; vv.dispatchEvent(new Event('scroll')) })
+    expect(list.style.visibility).toBe('hidden')
+  })
+
+  it('works without visualViewport, falling back to innerHeight', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(50, 90))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.top).toBe('94px')
+  })
+
+  it('removes its visualViewport listeners when the list closes', async () => {
+    const { remove } = stubVv(800)
+    const { ta } = await openList()
+    fireEvent.keyDown(ta, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByText('@jdoe')).toBeNull())
+    expect(remove.mock.calls.map((c) => c[0]).sort()).toEqual(['resize', 'scroll'])
   })
 })

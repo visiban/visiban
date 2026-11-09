@@ -1,5 +1,23 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { computeAnchoredPlacement, computeAnchoredTop, placeFixedElement } from "../hooks/useAnchoredPlacement";
+import { renderHook, act } from "@testing-library/react";
+import {
+  computeAnchoredPlacement, computeAnchoredTop, placeFixedElement,
+  getVisibleViewport, subscribeVisualViewport, useAnchoredPlacement,
+} from "../hooks/useAnchoredPlacement";
+
+/** jsdom has no `visualViewport`; stub one that can fire resize/scroll (#2138). */
+function stubVisualViewport(init: { height: number; offsetTop?: number }) {
+  const target = new EventTarget();
+  const vv = Object.assign(target, { height: init.height, offsetTop: init.offsetTop ?? 0 });
+  const add = vi.spyOn(target, "addEventListener");
+  const remove = vi.spyOn(target, "removeEventListener");
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+  return { vv, add, remove };
+}
+
+function clearVisualViewport() {
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: undefined });
+}
 
 /**
  * #1457 — the side lock shared by every `useAnchoredPlacement` adopter, and
@@ -92,5 +110,116 @@ describe("placeFixedElement (#1457)", () => {
     height.mockReturnValue(30);
     expect(placeFixedElement(el, { top: window.innerHeight - 40, bottom: window.innerHeight - 20, left: 0 }, side)).toBe("above");
     expect(el.style.top).toBe(`${window.innerHeight - 40 - 4 - 30}px`);
+  });
+});
+
+describe("visualViewport placement (#2138)", () => {
+  afterEach(() => { clearVisualViewport(); vi.restoreAllMocks(); });
+
+  it("getVisibleViewport falls back to the window without visualViewport", () => {
+    clearVisualViewport();
+    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight });
+  });
+
+  it("getVisibleViewport reads height and offsetTop from visualViewport", () => {
+    stubVisualViewport({ height: 400, offsetTop: 30 });
+    expect(getVisibleViewport()).toEqual({ top: 30, height: 400 });
+  });
+
+  it("getVisibleViewport ignores a zero-height visualViewport", () => {
+    stubVisualViewport({ height: 0 });
+    expect(getVisibleViewport()).toEqual({ top: 0, height: window.innerHeight });
+  });
+
+  it("subscribeVisualViewport is a no-op without visualViewport", () => {
+    clearVisualViewport();
+    expect(() => subscribeVisualViewport(vi.fn())()).not.toThrow();
+  });
+
+  it("subscribeVisualViewport listens to resize and scroll and removes both", () => {
+    const { vv, add, remove } = stubVisualViewport({ height: 400 });
+    const cb = vi.fn();
+    const off = subscribeVisualViewport(cb);
+    vv.dispatchEvent(new Event("resize"));
+    vv.dispatchEvent(new Event("scroll"));
+    expect(cb).toHaveBeenCalledTimes(2);
+    off();
+    expect(add.mock.calls.map((c) => c[0]).sort()).toEqual(["resize", "scroll"]);
+    expect(remove.mock.calls.map((c) => c[0]).sort()).toEqual(["resize", "scroll"]);
+    vv.dispatchEvent(new Event("resize"));
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
+
+  it("computeAnchoredPlacement measures inside a visible box that starts below the viewport top", () => {
+    // Visible box: y 100..500. Anchor 380-420 leaves 500-8-424 = 68 below; a 100px list goes above.
+    expect(computeAnchoredPlacement({
+      anchorTop: 380, anchorBottom: 420, height: 100, viewportHeight: 400, viewportTop: 100,
+    })).toEqual({ top: 276, side: "above" });
+    // With room below it stays below.
+    expect(computeAnchoredPlacement({
+      anchorTop: 120, anchorBottom: 160, height: 100, viewportHeight: 400, viewportTop: 100,
+    })).toEqual({ top: 164, side: "below" });
+    // Pinning respects both edges of the visible box.
+    expect(computeAnchoredPlacement({
+      anchorTop: 200, anchorBottom: 240, height: 390, viewportHeight: 400, viewportTop: 100,
+    })).toEqual({ top: 108, side: "pinned" });
+  });
+
+  it("placeFixedElement goes above when the keyboard leaves no room below, and below without visualViewport", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+    const anchor = { top: 300, bottom: 340, left: 10 };
+    const el = document.createElement("div");
+    // innerHeight (768) alone would place it below at 344; the keyboard leaves 400px.
+    stubVisualViewport({ height: 400 });
+    expect(placeFixedElement(el, anchor)).toBe("above");
+    expect(el.style.top).toBe("196px");
+    clearVisualViewport();
+    const el2 = document.createElement("div");
+    expect(placeFixedElement(el2, anchor)).toBe("below");
+    expect(el2.style.top).toBe("344px");
+  });
+
+  it("placeFixedElement honors visualViewport.offsetTop for a panned viewport", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+    // Visible box y 200..600. Anchor 520-560: 564+100 > 592 so it cannot fit below; above is 416.
+    stubVisualViewport({ height: 400, offsetTop: 200 });
+    const el = document.createElement("div");
+    expect(placeFixedElement(el, { top: 520, bottom: 560, left: 0 })).toBe("above");
+    expect(el.style.top).toBe("416px");
+    // An anchor near the box top must not pin above the box: 210-250 fits below at 254.
+    const el2 = document.createElement("div");
+    expect(placeFixedElement(el2, { top: 210, bottom: 250, left: 0 })).toBe("below");
+    expect(el2.style.top).toBe("254px");
+    // Too tall for either side: pinned inside the box (the bottom-pinned 202 is clamped up to the box top plus margin: 200 + max(8, 2) = 208), not at innerHeight - ...
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(390);
+    const el3 = document.createElement("div");
+    expect(placeFixedElement(el3, { top: 300, bottom: 340, left: 0 })).toBe("pinned");
+    expect(el3.style.top).toBe("208px");
+  });
+
+  it("useAnchoredPlacement re-places on visualViewport resize and scroll, and removes the listeners", () => {
+    const { vv, remove } = stubVisualViewport({ height: 768 });
+    const panel = document.createElement("div");
+    vi.spyOn(panel, "offsetHeight", "get").mockReturnValue(100);
+    const ref = { current: panel };
+    const { result, unmount } = renderHook(() =>
+      useAnchoredPlacement(ref, { anchor: { top: 300, bottom: 340 } }));
+    expect(result.current).toBe(344);
+    // Keyboard opens: the side is re-chosen from the smaller visible height.
+    act(() => { vv.height = 400; vv.dispatchEvent(new Event("resize")); });
+    expect(result.current).toBe(196);
+    // The browser pans the visual viewport; the box now spans 200..600.
+    act(() => { vv.height = 400; vv.offsetTop = 200; vv.dispatchEvent(new Event("scroll")); });
+    expect(result.current).toBe(344);
+    unmount();
+    expect(remove.mock.calls.map((c) => c[0]).sort()).toEqual(["resize", "scroll"]);
+  });
+
+  it("useAnchoredPlacement does not subscribe while closed", () => {
+    const { add } = stubVisualViewport({ height: 768 });
+    const ref = { current: document.createElement("div") };
+    const { result } = renderHook(() => useAnchoredPlacement(ref, { anchor: null }));
+    expect(result.current).toBeNull();
+    expect(add).not.toHaveBeenCalled();
   });
 });

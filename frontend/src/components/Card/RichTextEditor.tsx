@@ -16,7 +16,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { BoardUser, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
-import { placeFixedElement, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
+import { placeFixedElement, subscribeVisualViewport, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
 
 /**
@@ -354,6 +354,13 @@ export default function RichTextEditor({
               if (rect) place(rect);
             };
             const onResize = () => endSuggestion();
+            // The on-screen keyboard changes the visible viewport without a caret move (#2138):
+            // re-anchor, never end the suggestion.
+            const onViewportChange = () => {
+              const rect = popup ? clientRect?.() : null;
+              if (rect) place(rect);
+            };
+            let unsubscribeViewport: (() => void) | undefined;
             let resizeObserver: ResizeObserver | undefined;
             let editorDom: HTMLElement | undefined;
             let snapshot: ComboboxSnapshot | null = null;
@@ -398,6 +405,7 @@ export default function RichTextEditor({
                 popup.appendChild(component.element);
                 window.addEventListener("scroll", onScroll, true);
                 window.addEventListener("resize", onResize);
+                unsubscribeViewport = subscribeVisualViewport(onViewportChange);
                 popup.style.visibility = "hidden";
                 const rect = clientRect?.();
                 if (rect) place(rect);
@@ -443,6 +451,8 @@ export default function RichTextEditor({
                 resizeObserver?.disconnect();
                 window.removeEventListener("scroll", onScroll, true);
                 window.removeEventListener("resize", onResize);
+                unsubscribeViewport?.();
+                unsubscribeViewport = undefined;
                 popup?.remove();
                 component?.destroy();
               },
