@@ -285,6 +285,20 @@ describe('GroupDetail first-open resync (#2088)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('re-reads the group, subgroups and members as well when the socket opens late (#2136)', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const counts = [mockGetGroup, mockGetSubgroups, mockGetGroupMembers].map((m) => m.mock.calls.length)
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect([mockGetGroup, mockGetSubgroups, mockGetGroupMembers].map((m) => m.mock.calls.length))
+      .toEqual(counts.map((c) => c + 1))
+    now.mockRestore()
+  })
+
   it('re-reads the boards once when the socket first opens more than 1 s after the load', async () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)
@@ -305,8 +319,9 @@ describe('GroupDetail first-open resync (#2088)', () => {
     now.mockReturnValue(500)
     const oldBoard = { ...fakeBoard, id: 11, uid: 'old', name: 'Old Board' }
     const gapBoard = { ...fakeBoard, id: 12, uid: 'gap', name: 'Gap Board' }
-    let finish: (v: unknown) => void = () => {}
-    mockGetGroup.mockImplementation(() => new Promise((res) => { finish = res }))
+    // The first-open re-read also asks for the group (#2136), so each call needs its own resolver.
+    const finishers: Array<(v: unknown) => void> = []
+    mockGetGroup.mockImplementation(() => new Promise((res) => { finishers.push(res) }))
     mockGetGroupBoards.mockResolvedValueOnce([oldBoard]).mockResolvedValue([oldBoard, gapBoard])
     renderGroupDetail()
     await act(async () => {})
@@ -315,7 +330,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     await act(async () => {})
     expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
     // The initial load (older snapshot) completes only now, after the re-read.
-    finish({ ...fakeGroup, can_place_boards: true })
+    await act(async () => { finishers.forEach((f) => f({ ...fakeGroup, can_place_boards: true })) })
     await screen.findByText('+ New board')
     expect(await screen.findByText('Gap Board')).toBeInTheDocument()
     now.mockRestore()

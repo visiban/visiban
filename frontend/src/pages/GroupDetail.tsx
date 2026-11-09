@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useResyncedState } from "../hooks/useResyncedState";
 import { canDeleteGroup } from "../utils/canDeleteGroup";
 import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/boardEventPayload";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -148,7 +149,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
 
-  const [isStarred, setIsStarred] = useState(false);
+  const [isStarred, setIsStarredState] = useState(false);
+  // Bumped on every star write (frame, toggle, rollback) so a group re-read that
+  // started before one does not revert it with an older is_starred (#2136).
+  const starSeqRef = useRef(0);
+  const setIsStarred = useCallback((v: boolean) => { ++starSeqRef.current; setIsStarredState(v); }, []);
   const [starLoading, setStarLoading] = useState(false);
 
   // Inline rename state
@@ -232,6 +237,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setBoards(write);
   }, []);
 
+  // The other lists and the group re-read on a reconnect or late first open
+  // (#2136) follow the same record-and-replay rule as the boards list; see
+  // useResyncedState. Every write after the initial load goes through `write`.
+  const groupState = useResyncedState<Group | null>(setGroup);
+  const subgroupsState = useResyncedState<Group[]>(setSubgroups);
+  const membersState = useResyncedState<GroupMembership[]>(setMembers);
+  const subgroupBoardsState = useResyncedState<Board[]>(setSubgroupBoards);
+  const writeGroup = groupState.write;
+  const writeSubgroups = subgroupsState.write;
+  const writeMembers = membersState.write;
+  const writeSubgroupBoards = subgroupBoardsState.write;
+  const resetSubgroupBoards = subgroupBoardsState.reset;
+  const applyLoadSubgroupBoards = subgroupBoardsState.applyLoad;
+
   useEffect(() => {
     setLoading(true);
     setUnavailable(false);
@@ -243,9 +262,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     boardsRereadAppliedRef.current = false;
     boardsReplayOrphanedRef.current = false;
     ++boardsSeqRef.current;
+    groupState.reset();
+    subgroupsState.reset();
+    membersState.reset();
+    subgroupBoardsState.reset(false);
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
     let stale = false;
+    // A star write (frame or toggle) before the load answers is newer than it.
+    const loadStarSeq = starSeqRef.current;
     Promise.all([
       getGroup(groupId),
       getSubgroups(groupId),
@@ -254,9 +279,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     ]).then(([g, sg, b, m]) => {
       if (stale) return;
       loadedAtRef.current = Date.now();
-      setGroup(g);
-      setIsStarred(g.is_starred);
-      setSubgroups(sg);
+      // is_starred follows the group value: skipped when a re-read already applied
+      // a newer group, or a star write landed since the load started.
+      if (groupState.applyLoad(g) && loadStarSeq === starSeqRef.current) setIsStarredState(g.is_starred);
+      subgroupsState.applyLoad(sg);
       if (!boardsRereadAppliedRef.current) {
         // A re-read still in flight (socket opened before this load answered)
         // recorded the frames applied meanwhile; carry them over this list too,
@@ -269,7 +295,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           boardsReplayOrphanedRef.current = false;
         }
       }
-      setMembers(m);
+      membersState.applyLoad(m);
     }).catch((err: unknown) => {
         if (stale) return;
         const status = (err as { response?: { status?: number } })?.response?.status;
@@ -282,6 +308,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
+    // The state hooks' members are stable callbacks; groupId is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
   }, [groupId]);
 
   const flagAnimate = useCallback((id: number) => {
@@ -381,15 +409,33 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         }
       });
   }, [groupId]);
+  const readGroup = groupState.read;
+  const readSubgroups = subgroupsState.read;
+  const readMembers = membersState.read;
+  const readSubgroupBoards = subgroupBoardsState.read;
+  // The group's is_starred lives in separate state, so a re-read applies it too,
+  // unless a star write landed since the read started. A failed re-read
+  // (including a 403/404 for a group deleted or lost meanwhile) is swallowed
+  // here; surfacing it as the unavailable page is tracked in #2162.
+  const refetchGroup = useCallback(() => {
+    const starSeq = starSeqRef.current;
+    readGroup(() => getGroup(groupId), {
+      onApplied: (g) => { if (g && starSeq === starSeqRef.current) setIsStarredState(g.is_starred); },
+    });
+  }, [readGroup, groupId]);
+  const refetchSubgroups = useCallback(() => readSubgroups(() => getSubgroups(groupId)), [readSubgroups, groupId]);
+  const refetchMembers = useCallback(() => readMembers(() => getGroupMembers(groupId)), [readMembers, groupId]);
+  // The descendant endpoint also returns the direct boards; drop those, as the
+  // toggle's own load does.
+  const refetchSubgroupBoards = useCallback(() => readSubgroupBoards(
+    () => getGroupDescendantBoards(groupId).then((bs) => bs.filter((b) => !directBoardIdsRef.current.has(b.id))),
+    { onSettled: () => setLoadingSubgroupBoards(false) },
+  ), [readSubgroupBoards, groupId]);
   const refreshHealthListings = useCallback(() => {
-    getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
+    refetchSubgroups();
     refetchBoardsList();
-    if (showSubgroupBoardsRef.current) {
-      getGroupDescendantBoards(groupId)
-        .then((bs) => setSubgroupBoards(bs.filter((b) => !directBoardIdsRef.current.has(b.id))))
-        .catch(() => { /* stay with current list */ });
-    }
-  }, [groupId, refetchBoardsList]);
+    if (showSubgroupBoardsRef.current) refetchSubgroupBoards();
+  }, [refetchSubgroups, refetchBoardsList, refetchSubgroupBoards]);
 
   // Set while this session is deleting the group, so its own socket echo of
   // group.deleted does not flash the unavailable page before it navigates away.
@@ -437,17 +483,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       const matches = (b: Board) =>
         (uid !== undefined && b.uid === uid) || (id !== undefined && b.id === id);
       writeBoards(removeBoardRows(matches));
-      setSubgroupBoards((prev) => prev.filter((b) => !matches(b)));
+      writeSubgroupBoards((prev) => prev.filter((b) => !matches(b)));
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
-      getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
+      refetchGroup();
       // A health status change (#1133) also changes what the subgroups and
       // boards listed here inherit; their effective values come from the server.
       refreshHealthListings();
     } else if (evt.event === "group.created") {
       // A subgroup was created under this group (the parent channel also
       // receives this event). Refetch the subgroup list so it appears live.
-      getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
+      refetchSubgroups();
     } else if (evt.event === "group.deleted") {
       // This group itself was deleted by someone else: re-read it so the 404
       // swaps in the "isn't available" page (#2041). The deleter's own session
@@ -457,7 +503,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       } else if (typeof data.id === "number") {
         // A direct subgroup was deleted — drop it from the subgroup list.
         const deletedId = data.id;
-        setSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
+        writeSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
       }
     } else if (
       evt.event === "member.added" ||
@@ -469,7 +515,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       // is the only way to keep direct/inherited precedence correct (#998).
       // member.removed is emitted on the group channel when an admin removes a
       // member, so the panel converges in real time for other admins (#1051).
-      getGroupMembers(groupId).then(setMembers).catch(() => { /* stay with current list */ });
+      refetchMembers();
     } else if (evt.event === "invite_link.revoked" || evt.event === "invite_link.created") {
       // invite_link.created ({id}) is emitted when another admin emails an
       // invite (#731); like revoked, it only needs the panel to refetch.
@@ -484,7 +530,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     ) {
       // Group shared labels live on the group object — refetch it to converge,
       // matching the group.updated pattern above.
-      getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
+      refetchGroup();
     } else if (evt.event === "board.star_changed") {
       // Star is per-user state (#952); ignore events for other users so a
       // colleague starring a board on the same group page does not flip our
@@ -495,7 +541,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         const targetUid = payload.uid;
         const nextStarred = !!payload.is_starred;
         writeBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
-        setSubgroupBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
+        writeSubgroupBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
       }
     } else if (evt.event === "group.star_changed") {
       // Mirror board.star_changed pattern — only apply the event for the current user.
@@ -504,13 +550,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, setIsStarred]);
 
-  // Events fired while the socket was disconnected are not replayed. Refetch
-  // the boards list after a reconnect so the UI converges with server state.
+  // Events fired while the socket was disconnected are not replayed. Re-read
+  // everything the page shows that a frame can change after a reconnect so the
+  // UI converges with server state (#2136): the group (owner, labels, defaults),
+  // subgroups, members, boards, and the subgroup boards when shown. Frames
+  // applied while a re-read is in flight are replayed over its answer.
   const handleReconnected = useCallback(() => {
+    refetchGroup();
+    refetchSubgroups();
+    refetchMembers();
     refetchBoardsList();
-  }, [refetchBoardsList]);
+    if (showSubgroupBoardsRef.current) refetchSubgroupBoards();
+  }, [refetchGroup, refetchSubgroups, refetchMembers, refetchBoardsList, refetchSubgroupBoards]);
 
   // First open (#2088): the socket joins the group's broadcast group only during
   // its handshake, after the lists loaded, so a frame committed in between is in
@@ -519,9 +572,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // prompt open does not re-read, so every group open does not pay twice. An
   // unknown load time (load still in flight) counts as a long gap.
   //
-  // Only the boards list is re-read, as on a reconnect; the group, subgroups and
-  // members are not (follow-up #2136). Frames applied while the re-read is in
-  // flight are replayed over its answer (#2139; see refetchBoardsList).
+  // It re-reads what a reconnect does (#2136); frames applied while a re-read is
+  // in flight are replayed over its answer (#2139; see refetchBoardsList).
   const handleFirstConnected = useCallback(() => {
     const loadedAt = loadedAtRef.current;
     if (loadedAt === null || Date.now() - loadedAt > FIRST_OPEN_RESYNC_MS) handleReconnected();
@@ -579,19 +631,26 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // boards in groups nested 3+ levels deep.
     if (!showSubgroupBoards) return;
     setLoadingSubgroupBoards(true);
+    // This is a load, like the initial one (#2150): it yields only to a re-read
+    // that applied, and carries the frames recorded meanwhile over its own answer,
+    // so a re-read that supersedes it and then fails does not discard it (#2136).
+    resetSubgroupBoards(true);
+    let stale = false;
+    // Exclude boards already shown in the direct boards list; the descendant
+    // endpoint returns boards from the root group too.
     getGroupDescendantBoards(groupId)
       .then((bs) => {
-        // Exclude boards already shown in the direct boards list; the descendant
-        // endpoint returns boards from the root group too.
+        if (stale) return;
         const directIds = new Set(boards.map((b) => b.id));
-        setSubgroupBoards(bs.filter((b) => !directIds.has(b.id)));
+        applyLoadSubgroupBoards(bs.filter((b) => !directIds.has(b.id)));
       })
-      .catch(() => setSubgroupBoards([]))
-      .finally(() => setLoadingSubgroupBoards(false));
+      .catch(() => { if (!stale) applyLoadSubgroupBoards([]); })
+      .finally(() => { if (!stale) setLoadingSubgroupBoards(false); });
+    return () => { stale = true; };
   // boards is intentionally not listed here — we only want to re-fetch when the
   // toggle turns on or the group changes, not on every boards state update.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- boards intentionally excluded, see comment above
-  }, [showSubgroupBoards, groupId]);
+  }, [showSubgroupBoards, groupId, resetSubgroupBoards, applyLoadSubgroupBoards]);
 
   const handleStarToggle = async () => {
     if (starLoading) return;
@@ -636,13 +695,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       return;
     }
     const prev = group.name;
-    setGroup({ ...group, name: trimmed });
+    writeGroup((g) => (g ? { ...g, name: trimmed } : g));
     setRenaming(false);
     setRenameError(null);
     try {
       await updateGroup(groupId, { name: trimmed });
     } catch {
-      setGroup({ ...group, name: prev });
+      writeGroup((g) => (g ? { ...g, name: prev } : g));
       setRenameError("Failed to rename group. Please try again.");
     }
   };
@@ -674,13 +733,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       return;
     }
     const prev = group.description;
-    setGroup({ ...group, description: trimmed });
+    writeGroup((g) => (g ? { ...g, description: trimmed } : g));
     setEditingDescription(false);
     setDescriptionError(null);
     try {
       await updateGroup(groupId, { description: trimmed });
     } catch {
-      setGroup({ ...group, description: prev });
+      writeGroup((g) => (g ? { ...g, description: prev } : g));
       setDescriptionError("Failed to save description. Please try again.");
     }
   };
@@ -730,7 +789,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       await removeGroupMember(groupId, userId);
       // Local state only changes after the server confirms, so a failure leaves
       // the member listed and there is nothing to roll back.
-      setMembers((prev) => prev.filter((m) => m.user.id !== userId));
+      writeMembers((prev) => prev.filter((m) => m.user.id !== userId));
     } catch (err: unknown) {
       setMemberError(memberErrorMessage(err, "Failed to remove member. Please try again."));
     }
@@ -740,7 +799,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setMemberError(null);
     try {
       const updated = await updateGroupMemberRole(groupId, userId, role);
-      setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
+      writeMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
     } catch (err: unknown) {
       // The role selector is driven by the stored role, so it snaps back to the
       // previous value on its own; only the error needs surfacing.
@@ -771,7 +830,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setTransferring(true);
     try {
       const updated = await transferGroupOwnership(groupId, transferNewOwnerId, transferConfirmation);
-      setGroup(updated);
+      // Only the owner changes, so a replay over a newer answer cannot revert other fields.
+      writeGroup((prev) => (prev ? { ...prev, owner: updated.owner } : prev));
       setShowTransferModal(false);
       setTransferNewOwnerId("");
       setTransferConfirmation("");
@@ -789,7 +849,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setAddingLabel(true);
     try {
       const label = await createGroupLabel(groupId, { name: newLabelName.trim(), color: newLabelColor });
-      setGroup((prev) => prev ? { ...prev, shared_labels: [...prev.shared_labels, label] } : prev);
+      writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.some((l) => l.id === label.id) ? prev.shared_labels : [...prev.shared_labels, label] } : prev);
       setNewLabelName("");
       setNewLabelColor(DEFAULT_LABEL_COLOR);
     } catch {
@@ -804,7 +864,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setLabelError(null);
     try {
       await deleteGroupLabel(groupId, labelId);
-      setGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== labelId) } : prev);
+      writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== labelId) } : prev);
     } catch {
       setLabelError("Failed to remove label. Please try again.");
     }
@@ -823,7 +883,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setDefaultsError(null);
     try {
       const updated = await updateGroupBoardDefaults(groupId, { allowed_priorities: next });
-      setGroup((prev) => prev ? { ...prev, allowed_priorities: updated.allowed_priorities } : prev);
+      writeGroup((prev) => prev ? { ...prev, allowed_priorities: updated.allowed_priorities } : prev);
     } catch {
       setDefaultsError("Failed to save allowed priorities.");
     }
@@ -835,7 +895,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setSavingDefaults(true);
     try {
       const updated = await updateGroupBoardDefaults(groupId, { default_board_member_role: role });
-      setGroup((prev) => prev ? { ...prev, default_board_member_role: updated.default_board_member_role } : prev);
+      writeGroup((prev) => prev ? { ...prev, default_board_member_role: updated.default_board_member_role } : prev);
       setDefaultsSaved(true);
       if (defaultsSavedTimerRef.current !== null) {
         clearTimeout(defaultsSavedTimerRef.current);
@@ -856,7 +916,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // the new value, so their lists are refetched too.
   const handleHealthSave = useCallback(async (next: HealthStatus | null) => {
     const updated = await updateGroup(groupId, { health_status: next });
-    setGroup((prev) => prev ? {
+    writeGroup((prev) => prev ? {
       ...prev,
       health_status: updated.health_status,
       effective_health_status: updated.effective_health_status,
@@ -866,7 +926,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // well so the actor's page converges even when the socket is down.
     refreshHealthListings();
     return updated;
-  }, [groupId, refreshHealthListings]);
+  }, [groupId, refreshHealthListings, writeGroup]);
 
   const adminMembers = members.filter(
     (m) => m.role === "admin" && m.user.id !== user.id
@@ -1575,7 +1635,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       {showCreateSubgroup && (
         <CreateGroupModal
           parentGroup={group}
-          onCreated={(sg) => { setSubgroups((prev) => [...prev, sg]); }}
+          onCreated={(sg) => { writeSubgroups((prev) => (prev.some((g) => g.id === sg.id) ? prev : [...prev, sg])); }}
           onClose={() => setShowCreateSubgroup(false)}
         />
       )}
