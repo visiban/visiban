@@ -4441,6 +4441,32 @@ password-reset/forced-change flows, the admin API itself, and the health probes.
 MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) return an equivalent
 <code>{"error": {"code": "maintenance_mode", "detail": "..."}}</code> result instead of a 503 — see
 <a href="mcp/#tool-errors">MCP Server</a>.</p>
+<h3 id="session-unavailable-503">Session unavailable (503)<a class="headerlink" href="#session-unavailable-503" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>When the server is configured to keep sessions only in the cache
+(<code>SESSION_ENGINE</code> set to <code>django.contrib.sessions.backends.cache</code>) and that cache is
+unavailable, a request that sends the session cookie can't be checked. Any endpoint that
+authenticates with the session, or reads it, rejects such a request with
+<code>503 Service Unavailable</code> instead of <code>401</code>. That is every endpoint in this reference,
+public (<code>AllowAny</code>) ones included, except those that skip authentication altogether, such
+as the <a href="health/">health probes</a> and the public share-link board, which answer as usual:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"session_unavailable"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Your session can't be checked right now. Try again in a moment."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The response carries <code>Retry-After: 10</code>. The session is not ended: the response does not
+delete the session cookie, and the same cookie works again once the cache recovers. The
+web app keeps the user signed in and retries. Match on the <code>session_unavailable</code> code,
+not on the <code>503</code> status alone, since a proxy or an overloaded backend also answers <code>503</code>.</p>
+<p>A session that is absent or expired (the cache is healthy but doesn't have it) still
+answers <code>401</code> and deletes the cookie, as before. Requests authenticated with a personal
+access token are not affected, nor are requests with an API token (<code>Authorization: Token</code>
+from <code>POST /auth/login/</code>) that send no session cookie, nor the <code>cached_db</code> and <code>db</code> session
+engines. An API token request that also sends the session cookie gets the <code>503</code>, because
+the session is checked before the API token. A page of the web app loaded during the outage
+keeps retrying until the cache answers; it does not fall back to the sign-in page. Before 1.3 such a request answered <code>401</code> and deleted the session cookie,
+which signed the web app user out until they signed in again (#2143). The browser pages under
+<code>/accounts/</code> and <code>/admin/</code> answer the same JSON <code>503</code>.</p>
 <h3 id="actor-fields-who-did-it">Actor fields ("who did it")<a class="headerlink" href="#actor-fields-who-did-it" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Settled in 1.2</strong> (#1663)</p>
