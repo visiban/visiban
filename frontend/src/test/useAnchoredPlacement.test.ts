@@ -179,6 +179,24 @@ describe("visualViewport placement (#2138)", () => {
     expect(el2.style.top).toBe("344px");
   });
 
+  it("placeFixedElement honors visualViewport.offsetTop for a panned viewport", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+    // Visible box y 200..600. Anchor 520-560: 564+100 > 592 so it cannot fit below; above is 416.
+    stubVisualViewport({ height: 400, offsetTop: 200 });
+    const el = document.createElement("div");
+    expect(placeFixedElement(el, { top: 520, bottom: 560, left: 0 })).toBe("above");
+    expect(el.style.top).toBe("416px");
+    // An anchor near the box top must not pin above the box: 210-250 fits below at 254.
+    const el2 = document.createElement("div");
+    expect(placeFixedElement(el2, { top: 210, bottom: 250, left: 0 })).toBe("below");
+    expect(el2.style.top).toBe("254px");
+    // Too tall for either side: pinned inside the box (200+400-8-390 = 202), not at innerHeight - ...
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(390);
+    const el3 = document.createElement("div");
+    expect(placeFixedElement(el3, { top: 300, bottom: 340, left: 0 })).toBe("pinned");
+    expect(el3.style.top).toBe("208px");
+  });
+
   it("useAnchoredPlacement re-places on visualViewport resize and scroll, and removes the listeners", () => {
     const { vv, remove } = stubVisualViewport({ height: 768 });
     const panel = document.createElement("div");

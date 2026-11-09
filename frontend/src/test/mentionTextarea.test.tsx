@@ -480,6 +480,18 @@ describe('MentionTextarea visualViewport (#2138)', () => {
     expect(list.style.top).toBe('208px')
   })
 
+  it('hides the list while the textarea is under the keyboard (inside innerHeight, outside the visual viewport)', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const { vv } = stubVv(800)
+    const { ta, list } = await openList()
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(500, 540))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('')
+    // Keyboard covers y 400..800: the textarea is still inside innerHeight but not visible.
+    act(() => { vv.height = 400; vv.dispatchEvent(new Event('resize')) })
+    expect(list.style.visibility).toBe('hidden')
+  })
+
   it('works without visualViewport, falling back to innerHeight', async () => {
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
     const { ta, list } = await openList()
