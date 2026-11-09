@@ -48,10 +48,10 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
     loadPendingRef.current = load;
   }, []);
 
-  /** The initial load answered. */
-  const applyLoad = useCallback((value: T) => {
+  /** The initial load answered. Returns false when it yielded to an applied re-read. */
+  const applyLoad = useCallback((value: T): boolean => {
     loadPendingRef.current = false;
-    if (appliedRef.current) return; // a re-read already applied a newer answer
+    if (appliedRef.current) return false; // a re-read already applied a newer answer
     const pending = replayRef.current;
     setValue(pending ? pending.reduce((v, w) => w(v), value) : value);
     // A re-read that failed left its array open only for this load.
@@ -59,6 +59,7 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
       replayRef.current = null;
       failedRef.current = false;
     }
+    return true;
   }, [setValue]);
 
   const read = useCallback((

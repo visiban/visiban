@@ -248,6 +248,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const writeSubgroups = subgroupsState.write;
   const writeMembers = membersState.write;
   const writeSubgroupBoards = subgroupBoardsState.write;
+  const resetSubgroupBoards = subgroupBoardsState.reset;
+  const applyLoadSubgroupBoards = subgroupBoardsState.applyLoad;
 
   useEffect(() => {
     setLoading(true);
@@ -267,6 +269,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
     let stale = false;
+    // A star write (frame or toggle) before the load answers is newer than it.
+    const loadStarSeq = starSeqRef.current;
     Promise.all([
       getGroup(groupId),
       getSubgroups(groupId),
@@ -275,8 +279,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     ]).then(([g, sg, b, m]) => {
       if (stale) return;
       loadedAtRef.current = Date.now();
-      groupState.applyLoad(g);
-      setIsStarredState(g.is_starred);
+      // is_starred follows the group value: skipped when a re-read already applied
+      // a newer group, or a star write landed since the load started.
+      if (groupState.applyLoad(g) && loadStarSeq === starSeqRef.current) setIsStarredState(g.is_starred);
       subgroupsState.applyLoad(sg);
       if (!boardsRereadAppliedRef.current) {
         // A re-read still in flight (socket opened before this load answered)
@@ -626,20 +631,26 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // boards in groups nested 3+ levels deep.
     if (!showSubgroupBoards) return;
     setLoadingSubgroupBoards(true);
+    // This is a load, like the initial one (#2150): it yields only to a re-read
+    // that applied, and carries the frames recorded meanwhile over its own answer,
+    // so a re-read that supersedes it and then fails does not discard it (#2136).
+    resetSubgroupBoards(true);
+    let stale = false;
     // Exclude boards already shown in the direct boards list; the descendant
-    // endpoint returns boards from the root group too. A re-read from a
-    // reconnect supersedes this load, or the reverse, by sequence (#2136).
-    readSubgroupBoards(
-      () => getGroupDescendantBoards(groupId).then((bs) => {
+    // endpoint returns boards from the root group too.
+    getGroupDescendantBoards(groupId)
+      .then((bs) => {
+        if (stale) return;
         const directIds = new Set(boards.map((b) => b.id));
-        return bs.filter((b) => !directIds.has(b.id));
-      }),
-      { onError: () => setSubgroupBoards([]), onSettled: () => setLoadingSubgroupBoards(false) },
-    );
+        applyLoadSubgroupBoards(bs.filter((b) => !directIds.has(b.id)));
+      })
+      .catch(() => { if (!stale) applyLoadSubgroupBoards([]); })
+      .finally(() => { if (!stale) setLoadingSubgroupBoards(false); });
+    return () => { stale = true; };
   // boards is intentionally not listed here — we only want to re-fetch when the
   // toggle turns on or the group changes, not on every boards state update.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- boards intentionally excluded, see comment above
-  }, [showSubgroupBoards, groupId, readSubgroupBoards]);
+  }, [showSubgroupBoards, groupId, resetSubgroupBoards, applyLoadSubgroupBoards]);
 
   const handleStarToggle = async () => {
     if (starLoading) return;

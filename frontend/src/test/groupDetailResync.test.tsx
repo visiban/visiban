@@ -6,7 +6,8 @@
  * sequence guard).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, createMemoryRouter, RouterProvider } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group, Board } from '../types'
@@ -97,9 +98,12 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupLabel, updateGroup } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupLabel, updateGroup, removeGroupMember, updateGroupMemberRole, transferGroupOwnership } from '../api/groups'
 
 const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
+const mockRemoveGroupMember = removeGroupMember as ReturnType<typeof vi.fn>
+const mockUpdateGroupMemberRole = updateGroupMemberRole as ReturnType<typeof vi.fn>
+const mockTransfer = transferGroupOwnership as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -439,5 +443,156 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await held.answer([sub(10, 'Stale Child')])
     expect(screen.queryByText('Stale Child')).toBeNull()
     expect(screen.getByText('Other Child')).toBeTruthy()
+  })
+
+  const alice = { id: 2, user: { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }, role: 'admin', joined_at: '' }
+  const jdoeAdmin = { id: 1, user: fakeUser, role: 'admin', joined_at: '' }
+
+  async function loadWithAlice(role = 'admin') {
+    mockGetGroupMembers.mockResolvedValue([jdoeAdmin, { ...alice, role }])
+    await loadGroup()
+    openSettings()
+    await screen.findByText('Alice Smith')
+  }
+
+  it('keeps a member removed during the members re-read gone when the answer still lists them', async () => {
+    mockRemoveGroupMember.mockResolvedValue(undefined)
+    await loadWithAlice()
+    const reread = deferred<unknown[]>(mockGetGroupMembers)
+    reconnect()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.queryByText('Alice Smith')).toBeNull())
+    await reread.answer([jdoeAdmin, alice])
+    expect(screen.queryByText('Alice Smith')).toBeNull()
+  })
+
+  it('keeps a role changed during the members re-read over the older answer', async () => {
+    mockUpdateGroupMemberRole.mockResolvedValue({ role: 'viewer' })
+    await loadWithAlice('member')
+    const reread = deferred<unknown[]>(mockGetGroupMembers)
+    reconnect()
+    const user = userEvent.setup()
+    const row = () => screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    await user.click(within(row()).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'Viewer' }))
+    await waitFor(() => expect(mockUpdateGroupMemberRole).toHaveBeenCalled())
+    await reread.answer([jdoeAdmin, { ...alice, role: 'member' }])
+    expect(within(row()).getByRole('combobox')).toHaveTextContent('Viewer')
+  })
+
+  it('keeps a label deleted during the group re-read gone when the answer still lists it', async () => {
+    const label = { id: 20, name: 'Doomed', color: '#EAB308' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [label] })
+    await loadGroup()
+    openSettings()
+    await screen.findByText('Doomed')
+    const reread = deferred<Group>(mockGetGroup)
+    reconnect()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Doomed from group' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.queryByText('Doomed')).toBeNull())
+    await reread.answer({ ...fakeGroup, shared_labels: [label] })
+    expect(screen.queryByText('Doomed')).toBeNull()
+  })
+
+  it('keeps an ownership transfer made during the group re-read over the older answer', async () => {
+    mockTransfer.mockResolvedValue({ ...fakeGroup, owner: alice.user })
+    await loadWithAlice()
+    const reread = deferred<Group>(mockGetGroup)
+    reconnect()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Transfer ownership' }))
+    await user.click(screen.getAllByRole('combobox').slice(-1)[0])
+    await user.click(await screen.findByRole('option', { name: 'Alice Smith' }))
+    await user.type(screen.getByPlaceholderText('Engineering'), 'Engineering')
+    const buttons = screen.getAllByRole('button', { name: 'Transfer ownership' })
+    await user.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(mockTransfer).toHaveBeenCalled())
+    await reread.answer(fakeGroup)
+    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(row).getByText('Owner')).toBeTruthy()
+  })
+
+  it('carries a recorded frame over the initial load when two failed re-reads overlapped it', async () => {
+    let answerLoad: (g: Group[]) => void = () => {}
+    mockGetSubgroups.mockImplementationOnce(() => new Promise<Group[]>((res) => { answerLoad = res }))
+    render(
+      <MemoryRouter initialEntries={['/groups/1']}>
+        <Routes>
+          <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(capturedOnReconnected).not.toBeNull())
+    mockGetSubgroups.mockRejectedValueOnce(new Error('down'))
+    reconnect()
+    await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
+    frame({ event: 'group.deleted', data: { id: 11 } } as BoardEvent)
+    // A newer re-read starts after the delete was recorded, and fails too.
+    mockGetSubgroups.mockRejectedValueOnce(new Error('down'))
+    reconnect()
+    await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(3))
+    await act(async () => { answerLoad([sub(10, 'Platform'), sub(11, 'Mobile')]) })
+    await screen.findByText('+ New board')
+    expect(screen.getByText('Platform')).toBeTruthy()
+    expect(screen.queryByText('Mobile')).toBeNull()
+  })
+
+  async function renderWithPendingGroupLoad() {
+    let answerLoad: (g: Group) => void = () => {}
+    mockGetGroup.mockImplementationOnce(() => new Promise<Group>((res) => { answerLoad = res }))
+    render(
+      <MemoryRouter initialEntries={['/groups/1']}>
+        <Routes>
+          <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(capturedOnReconnected).not.toBeNull())
+    return (g: Group) => act(async () => { answerLoad(g) })
+  }
+
+  it('does not let an older initial load revert is_starred a re-read already applied', async () => {
+    const answerLoad = await renderWithPendingGroupLoad()
+    mockGetGroup.mockResolvedValueOnce({ ...fakeGroup, is_starred: true })
+    reconnect()
+    await waitFor(() => expect(mockGetGroup).toHaveBeenCalledTimes(2))
+    await answerLoad({ ...fakeGroup, is_starred: false })
+    expect(await screen.findByRole('button', { name: 'Unstar group' })).toBeTruthy()
+  })
+
+  it('keeps a star frame that landed before the initial load answered', async () => {
+    const answerLoad = await renderWithPendingGroupLoad()
+    frame({ event: 'group.star_changed', data: { id: 1, user_id: fakeUser.id, is_starred: true } } as BoardEvent)
+    await answerLoad({ ...fakeGroup, is_starred: false })
+    expect(await screen.findByRole('button', { name: 'Unstar group' })).toBeTruthy()
+  })
+
+  it('keeps the toggle load answer when a re-read that superseded it then fails', async () => {
+    await loadGroup()
+    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    fireEvent.click(screen.getByRole('switch'))
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    reconnect()
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
+    await toggleLoad.answer([board(30, 'Deep Board', { group: 10 })])
+    await reread.fail(new Error('down'))
+    expect(screen.getByText('Deep Board')).toBeTruthy()
+  })
+
+  it('keeps the toggle load answer when the superseding re-read failed before it answered', async () => {
+    await loadGroup()
+    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    fireEvent.click(screen.getByRole('switch'))
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    reconnect()
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
+    await reread.fail(new Error('down'))
+    await toggleLoad.answer([board(30, 'Deep Board', { group: 10 })])
+    expect(screen.getByText('Deep Board')).toBeTruthy()
   })
 })
