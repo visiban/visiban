@@ -50,6 +50,25 @@ class ColumnDedupeMigrationTests(TransactionTestCase):
         self.assertEqual(n1, ["Done", "Done (3)", "Done (2)"])
         self.assertEqual(self._names(apps, b2), ["Done", "Done (2)", "Done (3)"])
 
+    def test_dedupe_mixed_collisions_and_case_differing_name(self):
+        apps = self._migrate(BEFORE)
+        User = apps.get_model("accounts", "User")
+        Board = apps.get_model("boards", "Board")
+        Column = apps.get_model("boards", "Column")
+        owner = User.objects.create(username="own_1986z", password="x")
+        board = Board.objects.create(name="b4_1986", owner=owner)
+        # "done" differs by case, so it is not a duplicate (the unique
+        # constraint is case-sensitive) and must be left untouched.
+        for pos, name in enumerate(["Done", "Done", "Done (2)", "Done (3)", "done"]):
+            Column.objects.create(board=board, name=name, position=pos)
+
+        apps = self._migrate(AFTER)
+
+        self.assertEqual(
+            self._names(apps, board),
+            ["Done", "Done (4)", "Done (2)", "Done (3)", "done"],
+        )
+
     def test_function_truncates_to_max_length(self):
         mod = importlib.import_module("boards.migrations.0043_column_unique_name_per_board")
         apps = self._migrate(BEFORE)
