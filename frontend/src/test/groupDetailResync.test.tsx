@@ -595,4 +595,46 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await toggleLoad.answer([board(30, 'Deep Board', { group: 10 })])
     expect(screen.getByText('Deep Board')).toBeTruthy()
   })
+
+  describe('access lost while the socket was down (#2162)', () => {
+    const unavailableHeading = () => screen.queryByRole('heading', { level: 1, name: "This group isn't available" })
+
+    it.each([404, 403])('shows the unavailable page when the reconnect re-read of the group answers %i', async (status) => {
+      await loadGroup()
+      mockGetGroup.mockRejectedValue({ response: { status } })
+      reconnect()
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it.each([
+      ['boards', () => mockGetGroupBoards],
+      ['subgroups', () => mockGetSubgroups],
+      ['members', () => mockGetGroupMembers],
+    ])('re-confirms through the group when the %s re-read answers 404, and swaps in the unavailable page', async (_name, which) => {
+      await loadGroup()
+      which().mockRejectedValueOnce({ response: { status: 404 } })
+      mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+      reconnect()
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it('keeps the page when a list re-read answers 403 but the group is still reachable', async () => {
+      await loadGroup()
+      mockGetGroupBoards.mockRejectedValueOnce({ response: { status: 403 } })
+      reconnect()
+      await act(async () => {})
+      expect(mockGetGroup).toHaveBeenCalledTimes(3)
+      expect(unavailableHeading()).toBeNull()
+      expect(screen.getByText('Alpha')).toBeTruthy()
+    })
+
+    it('keeps the page when the re-read fails with a server error', async () => {
+      await loadGroup()
+      mockGetGroup.mockRejectedValue({ response: { status: 500 } })
+      reconnect()
+      await act(async () => {})
+      expect(unavailableHeading()).toBeNull()
+      expect(screen.getByText('+ New board')).toBeTruthy()
+    })
+  })
 })

@@ -64,7 +64,7 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
 
   const read = useCallback((
     fetch: () => Promise<T>,
-    options?: { onError?: () => void; onSettled?: () => void; onApplied?: (answer: T) => void },
+    options?: { onError?: (err: unknown) => void; onSettled?: () => void; onApplied?: (answer: T) => void },
   ) => {
     const seq = ++seqRef.current;
     // While the initial load is pending, a newer read inherits the writes
@@ -82,12 +82,12 @@ export function useResyncedState<T>(setValue: Dispatch<SetStateAction<T>>) {
         options?.onApplied?.(value);
         options?.onSettled?.();
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         // Stay with the current value.
         if (seq !== seqRef.current) return;
         if (loadPendingRef.current) failedRef.current = true; // keep the array for the load
         else replayRef.current = null;
-        options?.onError?.();
+        options?.onError?.(err);
         options?.onSettled?.();
       });
   }, [setValue]);
