@@ -84,6 +84,50 @@ function removeBoardRows(matches: (b: Board) => boolean): BoardsWrite {
   };
 }
 
+const GROUP_FULL_ACCESS_DESCRIPTION = "Full access to all groups and boards. This account's group role doesn't apply.";
+
+const GROUP_ROLES = ["admin", "member", "collaborator", "viewer"];
+
+// A stored role outside the known set is not named in the "not in effect" text:
+// the chip alone says what the member can do (same guard as the board panel).
+// An admin-role row still counts as a group admin (it counts toward the group's admin
+// minimum and ownership transfer), so its stored role is not "not in effect";
+// every other stored role is overridden by the all-content access.
+function groupRoleNote(role: string): string {
+  const label = role.charAt(0).toUpperCase() + role.slice(1);
+  return role === "admin"
+    ? `Group role: ${label} — doesn't limit this account's access, and still counts as a group admin.`
+    : `Group role: ${label} — not in effect while this account has all-content access.`;
+}
+
+// `describeRole` adds the stored-role note to the description; rows that print
+// the note as a visible line leave it off so it is not read twice.
+function GroupFullAccessChip({ userId, role, describeRole = false }: { userId: number; role: string; describeRole?: boolean }) {
+  const known = describeRole && GROUP_ROLES.includes(role);
+  const descId = `group-member-fullaccess-${userId}`;
+  return (
+    <>
+      <span
+        tabIndex={0}
+        aria-disabled="true"
+        aria-describedby={descId}
+        title={GROUP_FULL_ACCESS_DESCRIPTION}
+        className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="5" cy="8" r="2.5" />
+          <path d="M7.5 8H14M12 8v2.5M10 8v1.5" />
+        </svg>
+        Full access
+      </span>
+      <span id={descId} className="sr-only">
+        {GROUP_FULL_ACCESS_DESCRIPTION}
+        {known ? ` ${groupRoleNote(role)}` : ""}
+      </span>
+    </>
+  );
+}
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -1339,20 +1383,42 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               {memberError && <p role="alert" className="text-danger text-xs mb-2">{memberError}</p>}
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
-                  <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
+                  <div key={m.user.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
-                      <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
+                      <div className="min-w-0">
+                        <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
+                        {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
+                          <p className="text-xs text-fg-tertiary">
+                            {groupRoleNote(m.role)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-fg-muted capitalize">{m.role}</span>
+                        {m.has_all_content_access === true ? (
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} describeRole />
+                        ) : (
+                          <span className="text-xs text-fg-muted capitalize">{m.role}</span>
+                        )}
                         <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
                           ↑ {m.inherited_from}
                         </span>
                       </div>
                     ) : isAdmin && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
                       <div className="flex items-center gap-2 shrink-0">
+                        {m.has_all_content_access === true && (
+                          // All-content access resolves to full access before any
+                          // membership is consulted, so the chip states the
+                          // effective access. The stored role is kept (#2075).
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                        )}
+                        {/* An admin-role row keeps its picker: it still counts toward the
+                            group's admin minimum and ownership transfer, so it stays
+                            editable. Any other all-content row has no picker because
+                            its role changes nothing. */}
+                        {(m.has_all_content_access !== true || m.role === "admin") && (
                         <SelectDropdown
                           value={m.role}
                           onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
@@ -1364,6 +1430,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ]}
                           size="xs"
                         />
+                        )}
                         {m.role === "admin" && (
                           <RoleInfoTooltip label="Group Admin info">
                             <p className="text-xs font-semibold text-fg mb-1">Group Admin</p>
@@ -1373,7 +1440,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {confirmRemoveMemberId === m.user.id ? (
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="text-fg-tertiary">
-                              Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?
+                              {m.has_all_content_access === true ? (
+                                "Remove this group role? Full access is not affected."
+                              ) : (
+                                <>Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?</>
+                              )}
                             </span>
                             <button onClick={() => { void handleRemoveMember(m.user.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
                             <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
@@ -1382,7 +1453,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           <button
                             ref={removeMemberTriggerRef(m.user.id)}
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
-                            aria-label={`Remove ${m.user.display_name || m.user.username} from group`}
+                            aria-label={m.has_all_content_access === true ? `Remove group role for ${m.user.display_name || m.user.username}` : `Remove ${m.user.display_name || m.user.username} from group`}
                             className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           >
                             Remove
@@ -1391,7 +1462,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
-                        <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                        {m.has_all_content_access === true ? (
+                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                        ) : (
+                          <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                        )}
                         {m.user.id === group?.owner.id && (
                           <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
                         )}

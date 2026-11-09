@@ -1168,6 +1168,10 @@ export interface GroupMembership {
   joined_at: string;
   is_inherited: boolean;
   inherited_from: string | null;
+  // Present only for a group admin reader (the members list is otherwise
+  // unchanged). All-content access resolves to full access ahead of `role`,
+  // so a row with this set is shown as "Full access" with no role picker (#2075).
+  has_all_content_access?: boolean;
 }
 
 export type RegistrationMode = "open" | "invite_only" | "closed";

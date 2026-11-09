@@ -185,6 +185,7 @@ List group members. Requires group membership.
 | `joined_at` | string / null | ISO 8601 timestamp of when the membership was created; `null` for inherited members |
 | `is_inherited` | boolean | `true` when the member's access comes from a parent (ancestor) group rather than a direct membership on this group |
 | `inherited_from` | string / null | Display name of the ancestor group that grants access, when `is_inherited` is `true`; `null` otherwise |
+| `has_all_content_access` | boolean | Whether the member has all-content access, which resolves to full access and overrides `role`. Present on every row only when the requesting user is a group admin; omitted otherwise. *(1.3+)* |
 
 ### `PATCH /api/v1/groups/{id}/members/{user_id}/`
 Change a member's role. Requires group admin. Cannot modify the membership of a site admin who is a member of the group. The target must already have a membership in the group (the role of an inactive member can be changed); otherwise the response is the same `404 Not Found` whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member.

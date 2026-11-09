@@ -663,6 +663,16 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_member(request.user, group)
 
         from accounts.serializers import BoardUserSerializer
+        from .models import user_is_group_admin
+
+        # Effective-access signal for the Members panel (#2075). All-content
+        # access resolves to full access ahead of any membership, so a stored
+        # role on such a row is not in effect and must not be offered as an
+        # editable picker. Sent only to the readers who see the role controls
+        # (group admins), so an ordinary member cannot learn who holds
+        # instance-wide access; one boolean per row, no extra queries (the
+        # user is already loaded).
+        include_all_content = user_is_group_admin(request.user, group)
 
         # Direct memberships
         direct = list(group.memberships.select_related("user"))
@@ -679,6 +689,9 @@ class GroupViewSet(viewsets.ModelViewSet):
             }
             for m in direct
         ]
+        if include_all_content:
+            for row, m in zip(result, direct):
+                row["has_all_content_access"] = bool(m.user.can_access_all_content)
 
         # Inherited memberships from ancestor groups (nearest ancestor wins,
         # ancestors() returns nearest-first).
@@ -712,6 +725,10 @@ class GroupViewSet(viewsets.ModelViewSet):
                         "joined_at": m.joined_at,
                         "is_inherited": True,
                         "inherited_from": ancestor.name,
+                        **(
+                            {"has_all_content_access": bool(m.user.can_access_all_content)}
+                            if include_all_content else {}
+                        ),
                     })
                     seen_user_ids.add(m.user_id)
 
