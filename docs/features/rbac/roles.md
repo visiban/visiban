@@ -152,7 +152,7 @@ A site admin (or a user with `can_access_all_content`) viewing the board also se
 
 The panel keeps the row listed until the board is next re-read; a re-read then lists the member only if you see the all-content roster, or they are also in the board's group or its owner. Their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
 
-The group **Members** settings work the same way for group admins: a member with all-content access shows **Full access** instead of a role picker, with a line under their name such as "Group role: Viewer — not in effect while this account has all-content access." The stored role is kept and applies again if the access is later revoked. **Remove** stays available for the explicit membership; removing it does not change the member's full access.
+The group **Members** settings work the same way for group admins: a member with all-content access shows **Full access** instead of a role picker, with a line under their name such as "Group role: Viewer — not in effect while this account has all-content access." The stored role is kept and applies again if the access is later revoked. **Remove group role** stays available for the explicit membership (group admins only see this; other members do not); removing it does not change the member's full access.
 
 **Watch out:** manage `is_site_admin` and `can_access_all_content` together (the `set_site_admin` command does this for you). Separate them only when you have a specific reason — see the tip below.
 

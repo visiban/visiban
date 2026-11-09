@@ -285,6 +285,7 @@ the status filter and the uniform response, not scope.
 | Card assignee (MCP) | `mcp_server/tools.py` `create_card`, `update_card` | One lookup shared by both tools: username matched case-insensitively within `_get_assignable_member_ids`; anything outside it gets the uniform assignee error. Pinned through `update_card` by `mcp_server/tests/test_mcp_crud.py` |
 | MCP | `mcp_server/tools.py` | No import tool; user references resolve through the caller's accessible boards |
 | Board member list | `boards/serializers.py` `BoardFullSerializer.get_members` | `site_admin_roster_visible` (all-content rows, and `is_site_admin` on rows with no membership, for site-admin readers only), then `site_admin_field_visible` (which also gates `is_site_admin`); `has_all_content_access` (#1301) goes on every row when `site_admin_field_visible` or `site_admin_roster_visible` holds. The other member-row surfaces (members POST response, `member.*` events, change feed) only ever carry a real membership row |
+| Group member list | `groups/views.py` `GroupViewSet.members` | `user_is_group_admin`; `has_all_content_access` (#2075) goes on every row (direct and inherited) for group admin readers only, and the key is absent for other readers |
 
 ## Rule 6: Placing a board in a group needs group admin
 

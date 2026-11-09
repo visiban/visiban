@@ -44,3 +44,16 @@ class MembersAllContentFlagTests(TestCase):
     def test_non_admin_reader_gets_no_flag(self):
         for row in self._rows(self.plain).values():
             self.assertNotIn("has_all_content_access", row)
+
+    def test_inherited_only_admin_and_viewer_readers(self):
+        # Admin on the parent only (no direct row on the child) sees the flag;
+        # a viewer does not.
+        inh_admin = User.objects.create_user(username="g2075inhadmin", password="pw")
+        GroupMembership.objects.create(group=self.parent, user=inh_admin, role=ADMIN)
+        for row in self._rows(inh_admin).values():
+            self.assertIn("has_all_content_access", row)
+        self.assertIn("has_all_content_access", self._rows(self.ac)["g2075ac"])
+        viewer = User.objects.create_user(username="g2075viewer", password="pw")
+        GroupMembership.objects.create(group=self.child, user=viewer, role=VIEWER)
+        for row in self._rows(viewer).values():
+            self.assertNotIn("has_all_content_access", row)

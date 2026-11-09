@@ -494,7 +494,8 @@ describe('GroupDetail', () => {
     expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
     expect(within(aliceRow).getByText(/not in effect while this account has all-content access/)).toBeInTheDocument()
     expect(within(aliceRow).getByText('viewer')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
+    expect(screen.getByText('Remove this group role? Full access is not affected.')).toBeInTheDocument()
     // A member without the flag keeps the picker.
     const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
     expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()

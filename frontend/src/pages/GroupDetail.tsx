@@ -1341,7 +1341,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               {memberError && <p role="alert" className="text-danger text-xs mb-2">{memberError}</p>}
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
-                  <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
+                  <div key={m.user.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
                       <div className="min-w-0">
@@ -1371,14 +1371,19 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           <>
                             <span
                               tabIndex={0}
+                              aria-disabled="true"
                               aria-describedby={`group-member-fullaccess-${m.user.id}`}
                               title={GROUP_FULL_ACCESS_DESCRIPTION}
                               className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                             >
+                              <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="5" cy="8" r="2.5" />
+                                <path d="M7.5 8H14M12 8v2.5M10 8v1.5" />
+                              </svg>
                               Full access
                             </span>
                             <span id={`group-member-fullaccess-${m.user.id}`} className="sr-only">
-                              {GROUP_FULL_ACCESS_DESCRIPTION} Group role: {m.role}, not in effect.
+                              {GROUP_FULL_ACCESS_DESCRIPTION} Group role: {m.role.charAt(0).toUpperCase() + m.role.slice(1)}, not in effect.
                             </span>
                           </>
                         ) : (
@@ -1403,7 +1408,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {confirmRemoveMemberId === m.user.id ? (
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="text-fg-tertiary">
-                              Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?
+                              {m.has_all_content_access === true ? (
+                                "Remove this group role? Full access is not affected."
+                              ) : (
+                                <>Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?</>
+                              )}
                             </span>
                             <button onClick={() => { void handleRemoveMember(m.user.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
                             <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
@@ -1412,7 +1421,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           <button
                             ref={removeMemberTriggerRef(m.user.id)}
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
-                            aria-label={`Remove ${m.user.display_name || m.user.username} from group`}
+                            aria-label={m.has_all_content_access === true ? `Remove group role for ${m.user.display_name || m.user.username}` : `Remove ${m.user.display_name || m.user.username} from group`}
                             className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           >
                             Remove
