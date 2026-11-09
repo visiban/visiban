@@ -650,7 +650,7 @@ Related behavior and limits:
 - **The tab that changed the password.** The Visiban web app treats `4003` as final. A browser tab that changes its own password keeps its new session, but its open board or group socket closes. The connection indicator shows the failed state until the page is reloaded. Other API clients should obtain a fresh credential (log in again, or mint a new ticket) and reconnect.
 - **`SECRET_KEY` rotation.** Rotating `DJANGO_SECRET_KEY` without listing the old key in `SECRET_KEY_FALLBACKS` invalidates every session hash. Each open socket then closes once with `4003` at its next re-check, the same way Django logs every session out. If the old key is kept as a fallback, open sockets stay open.
 - **Signed-cookie sessions.** With `SESSION_ENGINE` set to `django.contrib.sessions.backends.signed_cookies`, there is no server-side session record, so a logout cannot be detected for a connection that is already open. Password change, deactivation, and token revocation are still detected. The default database session engine and the cache engines detect logout. Startup emits system-check warning `accounts.W001` when the signed-cookie engine is configured.
-- **Cache-only sessions.** With `SESSION_ENGINE` set to `django.contrib.sessions.backends.cache`, the re-check reads the session straight from the cache, so a cache outage is an error, not an empty session: a socket whose frame-path re-check hits it closes with the reconnectable `1011`, as for a database outage (an idle socket stays open and retries at its next ping), and not with the final `4003` (*1.3+*, #2014). A cache outage during the handshake itself is also refused with `1011` (*1.3+*, #2086); see [Handshake during an outage](#handshake-during-an-outage-since-13). A session that is absent or expired still closes with `4003`. The `cached_db` and `db` engines do not misreport a cache outage as a revoked session.
+- **Cache-only sessions.** With `SESSION_ENGINE` set to `django.contrib.sessions.backends.cache`, the re-check reads the session straight from the cache, so a cache outage is an error, not an empty session: a socket whose frame-path re-check hits it closes with the reconnectable `4503`, as for a database outage (an idle socket stays open and retries at its next ping), and not with the final `4003` (*1.3+*, #2014). A cache outage during the handshake itself is also refused with `1011` (*1.3+*, #2086); see [Handshake during an outage](#handshake-during-an-outage-since-13). A session that is absent or expired still closes with `4003`. The `cached_db` and `db` engines do not misreport a cache outage as a revoked session.
 
 ### Missed frames
 
@@ -720,7 +720,8 @@ ws.onclose = (event) => {
     // was lost or the credential was revoked (see "Access re-check and
     // eviction"). Do not auto-retry.
   }
-  // otherwise (including 1011, a failed server-side access re-check):
+  // otherwise (including 4503, a failed server-side access re-check, and 1011,
+  // an unexpected server error):
   // reconnect logic and re-fetch full board state
 };
 ```

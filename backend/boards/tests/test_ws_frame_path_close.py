@@ -30,6 +30,8 @@ bug: without it, a check that never fires would pass for the wrong reason.
 No threads are started in this process (see the harness docstring), so
 CLAUDE.md's ``connections.close_all()`` rule does not apply.
 """
+import ast
+import inspect
 import logging
 import multiprocessing
 from unittest import mock, skipUnless
@@ -79,6 +81,34 @@ class CloseCodeRangeTests(SimpleTestCase):
             with self.subTest(code=code):
                 self.assertTrue(_autobahn_accepts(code))
         self.assertFalse(_autobahn_accepts(1011))  # why 4503, not 1011
+
+    def test_every_close_call_in_the_routed_consumers_uses_an_accepted_code(self):
+        """Scan each ``close(code=<expr>)`` in the boards/groups consumers.
+
+        The argument must be a literal or a CLOSE_* constant whose value
+        Daphne can send. The one local name allowed is ``close_code``, which
+        comes from ``_access_close_code`` and so only holds those constants."""
+        for module in (board_consumers, group_consumers):
+            tree = ast.parse(inspect.getsource(module))
+            for node in ast.walk(tree):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "close"
+                ):
+                    continue
+                kw = {k.arg: k.value for k in node.keywords}
+                if "code" not in kw:
+                    continue
+                arg = kw["code"]
+                with self.subTest(module=module.__name__, line=node.lineno):
+                    if isinstance(arg, ast.Constant):
+                        self.assertTrue(_autobahn_accepts(arg.value))
+                    elif isinstance(arg, ast.Name) and arg.id.startswith("CLOSE_"):
+                        self.assertTrue(_autobahn_accepts(getattr(module, arg.id)))
+                    else:
+                        self.assertIsInstance(arg, ast.Name)
+                        self.assertEqual(arg.id, "close_code")
 
     def test_group_consumer_shares_the_board_codes(self):
         self.assertEqual(group_consumers.CLOSE_ACCESS_CHECK_FAILED, CLOSE_ACCESS_CHECK_FAILED)

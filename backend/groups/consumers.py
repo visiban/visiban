@@ -183,7 +183,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
                     )
                     allowed = True
                 if not allowed:
-                    await self.close(code=4003)
+                    await self.close(code=CLOSE_ACCESS_DENIED)
                     return
                 await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
