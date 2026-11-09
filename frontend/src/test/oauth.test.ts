@@ -3,8 +3,13 @@ import { providerLoginPath, providerLoginUrl, startProviderConnect } from '../ut
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
+// Every cookie these tests set, so none leaks into the shared jsdom cookie jar.
+const TEST_COOKIES = ['csrftoken', 'other', 'xcsrftoken']
+
 function clearCsrfCookie() {
-  document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+  for (const name of TEST_COOKIES) {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+  }
 }
 
 describe('providerLoginPath (#1988)', () => {
@@ -73,6 +78,21 @@ describe('startProviderConnect (#1988)', () => {
     startProviderConnect('github')
     const input = submitted[0].querySelector('input[name="csrfmiddlewaretoken"]') as HTMLInputElement
     expect(input.value).toBe('second')
+  })
+
+  it('ignores a decoy cookie whose name merely ends in csrftoken', () => {
+    // Pins the (^| ) boundary in the cookie regex: xcsrftoken must not match.
+    document.cookie = 'xcsrftoken=bad; path=/'
+    document.cookie = 'csrftoken=tok123; path=/'
+    startProviderConnect('github')
+    const input = submitted[0].querySelector('input[name="csrfmiddlewaretoken"]') as HTMLInputElement
+    expect(input.value).toBe('tok123')
+  })
+
+  it('omits the CSRF input when only a decoy xcsrftoken cookie exists', () => {
+    document.cookie = 'xcsrftoken=bad; path=/'
+    startProviderConnect('github')
+    expect(submitted[0].querySelector('input[name="csrfmiddlewaretoken"]')).toBeNull()
   })
 
   it('omits the CSRF input when there is no csrftoken cookie', () => {
