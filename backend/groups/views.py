@@ -747,6 +747,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         if include_all_content:
             for row, m in zip(result, direct):
                 row["has_all_content_access"] = bool(m.user.can_access_all_content)
+                # Direct rows only: they are the ones with role and Remove
+                # controls, which update_member refuses on a site admin's row
+                # unless the caller is a site admin (#2164).
+                row["is_site_admin"] = bool(m.user.is_site_admin)
 
         # Inherited memberships from ancestor groups (nearest ancestor wins,
         # ancestors() returns nearest-first).

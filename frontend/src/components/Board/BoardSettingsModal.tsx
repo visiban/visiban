@@ -28,6 +28,7 @@ import InviteLinkPanel from "../Group/InviteLinkPanel";
 import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
 import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
+import { LOCKED_MEMBERSHIP_NOTE } from "../../constants/membership";
 import { formatExportFormatLabel, formatExportRowCount } from "../../utils/exportHistory";
 
 // Chip tooltip and accessible description for a member whose all-content access
@@ -35,7 +36,6 @@ import { formatExportFormatLabel, formatExportRowCount } from "../../utils/expor
 const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
 
 // Why a site admin's membership offers no remove action to a board admin (#1706).
-const LOCKED_MEMBERSHIP_NOTE = "This membership is managed at the instance level and cannot be removed here.";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },

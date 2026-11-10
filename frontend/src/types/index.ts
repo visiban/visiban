@@ -1172,6 +1172,10 @@ export interface GroupMembership {
   // unchanged). All-content access resolves to full access ahead of `role`,
   // so a row with this set is shown as "Full access" with no role picker (#2075).
   has_all_content_access?: boolean;
+  // Present on direct rows for a group admin reader (#2164). The server refuses
+  // to change or remove a site admin's membership unless the caller is a site
+  // admin, so the Members panel locks such a row for everyone else.
+  is_site_admin?: boolean;
 }
 
 export type RegistrationMode = "open" | "invite_only" | "closed";
