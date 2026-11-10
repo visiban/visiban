@@ -3290,13 +3290,15 @@ describe('CardDetail focus trap (#1732)', () => {
     const popover = moveTo.parentElement as HTMLElement
     const panel = screen.getByRole('dialog', { name: /./ })
     expect(panel.contains(popover)).toBe(true)
-    // Tab through the whole panel: the popover's controls must be visited.
-    const seen = new Set<Element>()
-    for (let i = 0; i < 200; i++) {
+    // Tab through the panel until a popover control takes focus. Stop there: 200
+    // unconditional Tabs cost ~1s locally and passed the 5s timeout on a slower CI
+    // runner. The bound is only the "never reached" failure path.
+    let reached = false
+    for (let i = 0; i < 200 && !reached; i++) {
       await user.tab()
-      if (document.activeElement) seen.add(document.activeElement)
+      reached = popover.contains(document.activeElement)
     }
-    expect(Array.from(seen).some((el) => popover.contains(el))).toBe(true)
+    expect(reached).toBe(true)
   })
 })
 
