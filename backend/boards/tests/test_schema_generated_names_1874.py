@@ -58,10 +58,12 @@ class GeneratedSchemaNamesTests(SimpleTestCase):
             self.assertNotIn(old, ids)
 
     def test_new_list_operations_are_not_named_retrieve(self):
-        """Generic guard: a 1.2-new GET that returns a collection must not be ``*_retrieve``."""
+        """Generic guard: a GET new since the GA baseline that returns a collection must
+        not be ``*_retrieve``. The baseline is the one ``api-compat-check`` diffs
+        against (v1.2.0 since #2101), so names that already shipped are exempt."""
         baseline_path = (
             Path(__file__).resolve().parents[3]
-            / "scripts" / "compat-baseline" / "v1.1.0" / "openapi.json"
+            / "scripts" / "compat-baseline" / "v1.2.0" / "openapi.json"
         )
         baseline = json.loads(baseline_path.read_text())
         shipped = {
