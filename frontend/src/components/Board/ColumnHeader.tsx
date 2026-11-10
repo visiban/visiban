@@ -8,6 +8,7 @@ import ColumnPolicyPopover from "./ColumnPolicyPopover";
 import { columnPolicy, policyCountSummary } from "../../utils/columnPolicy";
 import { updateColumn } from "../../api/boards";
 import OverflowMenu, { type OverflowItem } from "../Layout/OverflowMenu";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   column: Column;
@@ -219,7 +220,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
+                if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}

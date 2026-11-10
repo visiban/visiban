@@ -5,6 +5,7 @@ import { getSampleBoardFile, listSampleBoards } from "../../api/boards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { formatDateStr } from "../../utils/date";
 import type { ImportOptions, SampleBoardSummary } from "../../types";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   /** Called with a third `options` argument only when the user deselected
@@ -521,7 +522,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
+                if (e.key === "Enter" && !isImeComposing(e)) void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
                 // Escape is owned by the escape stack (#1973): the sample-load handler (48) cancels a load,
                 // otherwise ModalWrapper (40) closes. An inline onCancel here would run it twice.
               }}

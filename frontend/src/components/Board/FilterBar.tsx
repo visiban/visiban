@@ -138,7 +138,7 @@ interface BlockedOnlyButtonProps {
 
 /**
  * "Blocked only" toggle (#1149). A single filter, so it shows its active
- * state the way My cards does (aria-pressed + `border-info text-info`); the
+ * state the way My cards does (aria-pressed + `border-primary-soft text-info`); the
  * count says how many cards the filter would keep, and is part of the
  * accessible name because the visible number alone has no label.
  */
@@ -154,7 +154,7 @@ function BlockedOnlyButton({ filters, onChange, blockedCount }: BlockedOnlyButto
       title={isActive ? "Remove Blocked only filter" : "Show only blocked cards"}
       className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
         isActive
-          ? "border-info text-info"
+          ? "border-primary-soft text-info"
           : "border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
@@ -178,7 +178,7 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
       title={isActive ? "Remove My cards filter" : "Show only cards assigned to me"}
       className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
         isActive
-          ? "border-info text-info"
+          ? "border-primary-soft text-info"
           : "border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >

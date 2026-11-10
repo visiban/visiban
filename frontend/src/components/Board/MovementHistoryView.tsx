@@ -446,7 +446,7 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                         data-movement-id={m.id}
                         className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus:ring-inset focus:ring-2 focus:ring-primary-emphasis ${
                           isSelected
-                            ? "bg-info/10"
+                            ? "bg-primary-emphasis/10"
                             : isFocused
                             ? "bg-surface/60"
                             : "hover:bg-surface/40"

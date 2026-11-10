@@ -201,7 +201,7 @@ export default function SelectDropdown<T extends string>({
         onKeyDown={handleTriggerKeyDown}
         className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken
           ${open
-            ? "border-info text-info"
+            ? "border-primary-soft text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
           }`}
       >

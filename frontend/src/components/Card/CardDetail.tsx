@@ -41,6 +41,7 @@ import { importedNote } from "../../utils/importedHistory";
 import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON, DEMO_DELETE_COMMENT_REASON, DEMO_DELETE_ATTACHMENT_REASON, DEMO_CARD_DETAIL_NOTE, DEMO_EXTERNAL_REF_REASON, DEMO_CARD_FOOTER_NOTE } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { colorChipStyle } from "../../utils/colorContrast";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   card: Card;
@@ -837,7 +838,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   }, [moveForcing]);
 
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !isImeComposing(e)) {
       e.preventDefault();
       (e.target as HTMLInputElement).blur(); // blur triggers save
       if (closeEditorOnEnter) onClose();
@@ -1677,7 +1678,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           value={newLabelName}
                           onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
                           // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
-                          onKeyDown={(e) => { if (e.key === "Enter") void handleCreateLabel(); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleCreateLabel(); }}
                           aria-label="New label name"
                           placeholder="Label name"
                           className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
@@ -1924,7 +1925,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       value={newItemText}
                       onChange={(e) => setNewItemText(e.target.value)}
                       // void: handleAddChecklistItem now catches its own rejection and surfaces it via checklistError.
-                      onKeyDown={(e) => { if (e.key === "Enter") void handleAddChecklistItem(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleAddChecklistItem(); }}
                       placeholder="Add item (Enter)…"
                       className="flex-1 text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary placeholder-fg-muted"
                     />
@@ -1961,7 +1962,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onChange={(e) => setBulkText(e.target.value)}
                         // void: handleBulkAdd now catches its own rejection and surfaces it via checklistError.
                         // Escape is handled by the useEscapeStack registration (priority 37), not here (#1891).
-                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e) && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
                         className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
@@ -2328,8 +2329,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
-              <button onClick={executeDelete} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">{cardActionBusy ? "Deleting…" : "Delete"}</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
+              <button onClick={executeDelete} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">{cardActionBusy ? "Deleting…" : "Delete"}</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
@@ -2339,8 +2340,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
-              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
+              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
             </div>
           </>
         ) : null}

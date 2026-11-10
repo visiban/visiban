@@ -322,7 +322,7 @@ describe('CardItem', () => {
     expect(container.querySelector('div.absolute.inset-0.rounded-md.pointer-events-none')).not.toBeInTheDocument()
   })
 
-  it('a selected card drops the bg-info/20 fill under an aging tint but keeps the ring', () => {
+  it('a selected card drops the bg-primary-emphasis/20 fill under an aging tint but keeps the ring', () => {
     const { container } = render(
       <CardItem
         density="comfortable"
@@ -334,7 +334,7 @@ describe('CardItem', () => {
     )
     const cardEl = container.querySelector('[data-tour-step="card"]') as HTMLElement
     expect(cardEl.className).toContain('ring-primary-soft')
-    expect(cardEl.className).not.toContain('bg-info/20')
+    expect(cardEl.className).not.toContain('bg-primary-emphasis/20')
   })
 
   // #1844: the metadata row rescopes its text tokens to on-tint values on every tinted stage.
@@ -363,11 +363,11 @@ describe('CardItem', () => {
     expect(screen.getByRole('img', { name: 'Blocked by 1 card' }).closest('.card-aging-meta')).not.toBeNull()
   })
 
-  it('a selected untinted card keeps the bg-info/20 fill', () => {
+  it('a selected untinted card keeps the bg-primary-emphasis/20 fill', () => {
     const { container } = render(
       <CardItem density="comfortable" card={makeCard({ last_moved_at: new Date().toISOString() })} selected />
     )
-    expect((container.querySelector('[data-tour-step="card"]') as HTMLElement).className).toContain('bg-info/20')
+    expect((container.querySelector('[data-tour-step="card"]') as HTMLElement).className).toContain('bg-primary-emphasis/20')
   })
 
   it('a non-stale urgency badge on a tinted card uses its on-tint tone', () => {

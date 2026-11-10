@@ -244,11 +244,11 @@ function PickerRow({
       className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded text-left transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         blocked
           ? "cursor-not-allowed text-fg-muted"
-          : selected ? "bg-info/20 text-info-on-tint" : "hover:bg-surface-hover text-fg-secondary"
+          : selected ? "bg-primary-emphasis/20 text-info-on-tint" : "hover:bg-surface-hover text-fg-secondary"
       }`}
     >
       <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
-        selected ? "border-info" : "border-line-strong"
+        selected ? "border-primary-soft" : "border-line-strong"
       }`}>
         {selected && <span className="w-1.5 h-1.5 rounded-full bg-primary-soft" />}
       </span>

@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useState } from "react";
+import { isImeComposing } from "../../utils/imeComposition";
 import type { BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -47,7 +48,7 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
         setSelectedIndex((i) => (i + 1) % props.items.length);
         return true;
       }
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !isImeComposing(event)) {
         const u = props.items[selectedIndex];
         if (u) {
           props.command({ id: u.username, label: userDisplayName(u) });

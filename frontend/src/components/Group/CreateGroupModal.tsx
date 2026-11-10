@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { createGroup } from "../../api/groups";
 import type { Group } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
+import { isImeComposing } from "../../utils/imeComposition";
 
 const DESCRIPTION_MAX = 500;
 const DESCRIPTION_WARN = 450;
@@ -134,7 +135,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
                 onKeyDown={(e) => {
                   // void: handleAddSubgroup already catches its own rejection
                   // and surfaces it via subgroupError.
-                  if (e.key === "Enter") { e.preventDefault(); void handleAddSubgroup(); }
+                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleAddSubgroup(); }
                 }}
                 placeholder="Subgroup name"
                 disabled={subgroupSaving}
@@ -194,7 +195,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             onKeyDown={(e) => {
               // void: handleCreate already catches its own rejection and
               // surfaces it via `error`.
-              if (e.key === "Enter") { e.preventDefault(); void handleCreate(); }
+              if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleCreate(); }
             }}
             placeholder={parentGroup ? "e.g. Backend" : "e.g. Engineering"}
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition"

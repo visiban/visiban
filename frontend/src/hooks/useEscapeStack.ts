@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { isImeComposing } from "../utils/imeComposition";
 
 type EscapeHandler = () => boolean | void;
 
@@ -15,6 +16,8 @@ let listenerActive = false;
 
 function dispatch(e: KeyboardEvent): void {
   if (e.key !== "Escape") return;
+  // Escape cancels an IME composition; it must not also close the modal (#2167).
+  if (isImeComposing(e)) return;
   // Fire handlers in descending priority order. The first handler that does
   // NOT return false consumes the event and stops the chain.
   const sorted = [...registry].sort((a, b) => b.priority - a.priority);

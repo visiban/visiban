@@ -297,7 +297,7 @@ export default function TrelloImportModal({ groupId, groupName, onCancel, onImpo
                     setDragOver(false);
                     if (!previewing) pickFile(e.dataTransfer.files?.[0]);
                   }}
-                  className={`w-full border border-dashed rounded-lg p-6 text-center transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:cursor-not-allowed aria-disabled:opacity-60 ${
+                  className={`w-full border border-dashed rounded-lg p-6 text-center transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${
                     dragOver ? "border-primary-emphasis bg-primary-emphasis/10" : "border-line-strong hover:border-line-emphasis"
                   }`}
                 >

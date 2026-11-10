@@ -7,6 +7,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
+import { isImeComposing } from "../../utils/imeComposition";
 
 export type EditColumnTab = "settings" | "policy";
 
@@ -166,7 +167,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                   autoFocus={autoFocusNameRef.current}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }} // handleSave manages its own saving/error state and never rejects
+                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleSave(); }} // handleSave manages its own saving/error state and never rejects
                   className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                 />
               </div>

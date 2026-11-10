@@ -3,6 +3,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { POPOVER_VIEWPORT_MARGIN, clampLeftToVisible, getVisibleViewport, subscribeVisualViewport } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   value: string;
@@ -203,7 +204,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter without Shift submits the comment (when mention dropdown is not active)
-    if (e.key === "Enter" && !e.shiftKey && (!mention.active || suggestions.length === 0)) {
+    if (e.key === "Enter" && !isImeComposing(e) && !e.shiftKey && (!mention.active || suggestions.length === 0)) {
       e.preventDefault();
       onSubmit?.();
       return;
@@ -217,7 +218,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" || e.key === "Tab") {
+    } else if ((e.key === "Enter" && !isImeComposing(e)) || e.key === "Tab") {
       e.preventDefault();
       insertMention(suggestions[selectedIndex].username);
     }

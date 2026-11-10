@@ -3,6 +3,7 @@ import { listBoardTemplates } from "../../api/boards";
 import type { BoardTemplate, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import Spinner from "../Common/Spinner";
+import { isImeComposing } from "../../utils/imeComposition";
 
 // ---------------------------------------------------------------------------
 // Static icon map — SVG paths kept inline to avoid adding a dependency.
@@ -196,7 +197,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               value={name}
               onChange={(e) => { setName(e.target.value); setSubmitError(null); }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
+                if (e.key === "Enter" && !isImeComposing(e)) void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
               }}
               placeholder="e.g. Q3 Pipeline, Acme Onboarding…"
               className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
@@ -347,7 +348,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               value={swimlaneName}
               onChange={(e) => setSwimlaneName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
+                if (e.key === "Enter" && !isImeComposing(e)) void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
               }}
               placeholder={selected?.lane_placeholder || "e.g. General"}
               className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"

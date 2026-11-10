@@ -5,6 +5,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import { putLensConnection, deleteLensConnection } from "../../api/gitLens";
 import type { LensConnection, LensProvider } from "../../types";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -117,7 +118,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
             type="text"
             value={repoSlug}
             onChange={(e) => setRepoSlug(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && slugValid) { e.preventDefault(); void handleSubmit(); } }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e) && slugValid) { e.preventDefault(); void handleSubmit(); } }}
             placeholder="owner/repo"
             autoFocus
             className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"

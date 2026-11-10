@@ -130,7 +130,7 @@ describe("ActivityFilterDropdown", () => {
       />
     );
     const trigger = screen.getByRole("button", { name: /filter/i });
-    expect(trigger.className).toMatch(/border-info/);
+    expect(trigger.className).toMatch(/border-primary-soft/);
     expect(trigger.className).toMatch(/text-info/);
   });
 

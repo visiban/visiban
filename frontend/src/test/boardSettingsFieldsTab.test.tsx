@@ -71,6 +71,8 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(screen.getByText("Sprint")).toBeInTheDocument();
     expect(screen.getByText("Cost")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Unpin Sprint/ })).toBeInTheDocument();
+    // Pinned = persistent state: theme-aware primary-emphasis, not info (#1353)
+    expect(screen.getByRole("button", { name: /Unpin Sprint/ })).toHaveClass("bg-primary-emphasis/10", "border-primary-emphasis/25");
     expect(screen.getByRole("button", { name: /Pin Cost/ })).toBeInTheDocument();
     expect(screen.getByText((_, el) => el?.textContent === "2 of 30 · 1 of 2 pinned")).toBeInTheDocument();
   });

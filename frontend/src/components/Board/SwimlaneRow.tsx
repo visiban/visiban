@@ -13,6 +13,7 @@ import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
+import { isImeComposing } from "../../utils/imeComposition";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -313,7 +314,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
+                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
                 }}
                 onBlur={commitRename}
                 onClick={(e) => e.stopPropagation()}

@@ -9,6 +9,7 @@ import { ToggleField } from "../Common/Toggle";
 import { CUSTOM_FIELD_VALUE_MAX, URL_ERROR_COPY, isValidForType, normalizeUrl } from "../../utils/customFieldValue";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectValueInput from "./MultiSelectValueInput";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -195,7 +196,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           onFocus={(e) => { focusedEditRef.current = e.currentTarget; }}
           onBlur={() => { focusedEditRef.current = null; commitUrl(); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !isImeComposing(e)) {
               // An invalid value must not submit an enclosing form either —
               // the form would save the *previous* value without saying so.
               if (!commitUrl()) e.preventDefault();

@@ -15,6 +15,16 @@ describe('useEscapeStack', () => {
     expect(handler).toHaveBeenCalledOnce()
   })
 
+  it('ignores Escape pressed during IME composition (#2167)', () => {
+    const handler = vi.fn()
+    renderHook(() => useEscapeStack(handler, 0))
+    act(() => { fireEvent.keyDown(document, { key: 'Escape', isComposing: true }) })
+    act(() => { fireEvent.keyDown(document, { key: 'Escape', keyCode: 229 }) })
+    expect(handler).not.toHaveBeenCalled()
+    act(() => { fireEvent.keyDown(document, { key: 'Escape' }) })
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
   it('does not call the handler for other keys', () => {
     const handler = vi.fn()
     renderHook(() => useEscapeStack(handler, 0))
