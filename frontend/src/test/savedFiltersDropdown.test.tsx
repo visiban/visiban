@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SavedFiltersDropdown from '../components/Board/SavedFiltersDropdown'
 import { EMPTY_FILTER } from '../components/Board/FilterBar'
@@ -167,5 +167,62 @@ describe('SavedFiltersDropdown', () => {
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.queryByPlaceholderText(/filter name/i)).not.toBeInTheDocument()
     expect(screen.getByText(/save current filters/i)).toBeInTheDocument()
+  })
+  // #1989 — Escape priority and outside-click dismissal
+  describe('dismissal (#1989)', () => {
+    const activeFilters: FilterState = { ...EMPTY_FILTER, search: 'bug' }
+
+    it('first Escape in save mode cancels save mode and keeps the dropdown open; second Escape closes it', async () => {
+      const user = userEvent.setup()
+      render(<SavedFiltersDropdown {...defaultProps} filters={activeFilters} />)
+      await user.click(screen.getByRole('button', { name: /saved filters/i }))
+      await user.click(screen.getByText(/save current filters/i))
+      expect(screen.getByPlaceholderText(/filter name/i)).toBeInTheDocument()
+
+      await user.keyboard('{Escape}')
+      expect(screen.queryByPlaceholderText(/filter name/i)).not.toBeInTheDocument()
+      expect(screen.getByText(/save current filters/i)).toBeInTheDocument()
+
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText(/save current filters/i)).not.toBeInTheDocument()
+    })
+
+    it('Escape closes the dropdown when not in save mode', async () => {
+      const user = userEvent.setup()
+      render(<SavedFiltersDropdown {...defaultProps} />)
+      await user.click(screen.getByRole('button', { name: /saved filters/i }))
+      expect(screen.getByText(/no saved filters/i)).toBeInTheDocument()
+
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText(/no saved filters/i)).not.toBeInTheDocument()
+    })
+
+    it('mousedown outside closes the dropdown and drops save mode', async () => {
+      const user = userEvent.setup()
+      render(
+        <div>
+          <span data-testid="outside">outside</span>
+          <SavedFiltersDropdown {...defaultProps} filters={activeFilters} />
+        </div>,
+      )
+      await user.click(screen.getByRole('button', { name: /saved filters/i }))
+      await user.click(screen.getByText(/save current filters/i))
+      expect(screen.getByPlaceholderText(/filter name/i)).toBeInTheDocument()
+
+      fireEvent.mouseDown(screen.getByTestId('outside'))
+      expect(screen.queryByPlaceholderText(/filter name/i)).not.toBeInTheDocument()
+
+      // Reopening starts from the list view, proving save mode was reset.
+      await user.click(screen.getByRole('button', { name: /saved filters/i }))
+      expect(screen.getByText(/save current filters/i)).toBeInTheDocument()
+    })
+
+    it('mousedown inside the open menu does not close it', async () => {
+      const user = userEvent.setup()
+      render(<SavedFiltersDropdown {...defaultProps} />)
+      await user.click(screen.getByRole('button', { name: /saved filters/i }))
+      fireEvent.mouseDown(screen.getByText(/no saved filters/i))
+      expect(screen.getByText(/no saved filters/i)).toBeInTheDocument()
+    })
   })
 })
