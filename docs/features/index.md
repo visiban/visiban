@@ -72,6 +72,19 @@ Open **Import** on the Dashboard and pick a ready-made board under **Start from 
 
 ---
 
+## Emailed and shareable board invites
+
+> **Added in 1.2**
+
+Board admins can bring people onto a board without knowing their username. **Invite by email** sends a single-use link to one address, bound to that address, with a role of Member, Collaborator or Viewer. **New link** creates a shareable link for several people at once, with a role, an expiry (1, 7 or 30 days) and an optional single-use limit. Neither can grant Admin. Group admins have the same two options for groups.
+
+- A shareable link is shown once, so copy it straight away.
+- Emailed invites need working outbound email.
+
+→ [Board invites by email](rbac/managing.md#inviting-someone-by-email) · [Board shareable links](rbac/managing.md#sharing-an-invite-link) · [Group invite links](groups.md#invite-links) · [Boards API](../api/boards.md#board-invites)
+
+---
+
 ## Card detail
 
 Click any card to open a side panel with full context:
