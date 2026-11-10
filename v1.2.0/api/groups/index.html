@@ -4970,6 +4970,7 @@
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>A delete that arrives while the same group is being deleted, or while an invite to it (or to one of its subgroups) is being redeemed or a board is being placed in it or one of its subgroups, waits for that request to finish. A second delete of the same group then answers <code>404</code>, and a delete that waited behind an ownership transfer away from the caller answers <code>403</code> (#1638). It also waits for an in-flight write to the group or its subgroups — a subgroup create, an update, a board-defaults or member role change, an invite link create, send or revoke, a label create or update, a star, an ownership transfer, or a board import into the group — and then proceeds against what that write left: it deletes the new or changed rows with the group, detaches an imported board from it (the board itself is kept), and answers <code>403</code> if the write was an ownership transfer away from the caller (#1719).</p>
+<p><em>(1.3+)</em> Deleting a group deletes its subgroups with it, and the boards in the group and its subgroups become personal boards (<code>group</code> becomes <code>null</code>). After the delete commits, <code>group.deleted</code> is sent on the group's channel and on each ancestor's channel (parent and higher), and on each deleted subgroup's own channel with that subgroup's <code>id</code>; each of those boards receives <code>board.updated</code> on its <a href="../websockets/#board-channel">board channel</a> with <code>group</code>, <code>group_name</code> and <code>group_detail</code> cleared, recorded in its change feed. Before 1.3 only the group's own and its direct parent's <code>group.deleted</code> were sent, so open subgroup pages and board pages kept their old group until reloaded (#1742).</p>
 <hr />
 <h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidmembers"><code>GET /api/v1/groups/{id}/members/</code><a class="headerlink" href="#get-apiv1groupsidmembers" title="Permanent link">&para;</a></h3>
@@ -5018,6 +5019,11 @@
 <td><code>has_all_content_access</code></td>
 <td>boolean</td>
 <td>Whether the member has all-content access, which resolves to full access and overrides <code>role</code>. Present on every row only when the requesting user is a group admin; omitted otherwise. <em>(1.3+)</em></td>
+</tr>
+<tr>
+<td><code>is_site_admin</code></td>
+<td>boolean</td>
+<td>Whether the member is a site admin. Only a site admin can change or remove a site admin's membership (<a href="#patch-apiv1groupsidmembersuser_id"><code>PATCH</code></a> and <code>DELETE</code> answer <code>403</code> for anyone else), so clients use it to withhold those controls. Present on direct rows (<code>is_inherited: false</code>) only when the requesting user is a group admin; omitted on inherited rows and for other readers. <em>(1.3+, #2164)</em></td>
 </tr>
 </tbody>
 </table>
