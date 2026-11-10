@@ -10,8 +10,9 @@ export type WebhookRowStatus = "active" | "failing" | "disabled";
 
 /**
  * "Created by" / "Owner now" name (spec Part 8): display name or username,
- * "(site admin)" when that standing is what keeps the webhook delivering
- * (#2068), or "a former member" once the account is deleted.
+ * "(site admin)" when the user is a site admin (#2068; a label only, it does
+ * not decide whether the webhook delivers), or "a former member" once the
+ * account is deleted.
  */
 export function webhookPersonLabel(user: WebhookUser | null): string {
   if (!user) return "a former member";

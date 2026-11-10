@@ -198,9 +198,11 @@ _DISABLED_REASONS = [c.value for c in WebhookSubscription.DisabledReason if c.va
 class WebhookUserSerializer(BoardUserSerializer):
     """``BoardUserSerializer`` plus ``is_site_admin``, for a webhook's people (#2068).
 
-    The 1.3 UI spec (Part 8) labels a webhook created or owned by a site admin
-    "(site admin)", because that standing, not a board role, is what lets the
-    webhook keep delivering. Scoped to the webhook serializer's ``created_by``
+    The 1.3 UI spec (Part 8) labels a webhook's creator or owner "(site admin)"
+    when they are a site admin. The flag is a label only: delivery depends on
+    the owner's ``get_board_role`` standing (``webhooks.dispatch.STANDING_ROLES``),
+    whose site-admin role comes from ``can_access_all_content``, not
+    ``is_site_admin``. Scoped to the webhook serializer's ``created_by``
     and ``configured_by``, which only board admins and site admins read; the
     flag is deliberately not added to ``BoardUserSerializer``, which every
     board member sees on cards, comments and members.

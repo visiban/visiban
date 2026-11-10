@@ -2,8 +2,8 @@
 
 A subgroup's members panel lists members inherited from its ancestors and
 refetches only on its own channel, so removing a user from a group must
-announce ``member.removed`` on every descendant channel where the user lost
-access. Descendants where the user keeps access get no frame:
+announce ``member.removed`` on every descendant channel that no longer lists
+the user. Descendants that still list the user get no frame:
 ``GroupConsumer`` closes the socket of the user a ``member.removed`` names.
 """
 from unittest.mock import patch
@@ -73,7 +73,27 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
         frames = self._remove(self.child)
         # Still a root member: the child's own channel gets the frame as before
         # (#1051), the grandchild keeps listing them through root and gets none.
+        # Known gap #2175: had the child row carried a different role, the
+        # grandchild's inherited row would now show root's, with no frame.
         self.assertEqual(self._removed_channels(frames), {self.child.pk})
+
+    def test_all_content_member_is_announced_on_every_descendant(self):
+        # can_access_all_content grants access to every group but is not a row
+        # in a members panel: the subgroups listed this user only through root.
+        self.member.can_access_all_content = True
+        self.member.save(update_fields=["can_access_all_content"])
+        frames = self._remove(self.root)
+        self.assertEqual(
+            self._removed_channels(frames),
+            {self.root.pk, self.child.pk, self.grandchild.pk, self.sibling.pk},
+        )
+
+    def test_all_content_member_still_listed_through_a_membership_gets_no_frame(self):
+        self.member.can_access_all_content = True
+        self.member.save(update_fields=["can_access_all_content"])
+        GroupMembership.objects.create(group=self.child, user=self.member, role="member")
+        frames = self._remove(self.root)
+        self.assertEqual(self._removed_channels(frames), {self.root.pk, self.sibling.pk})
 
     def test_subtree_lookup_is_constant_in_descendant_count(self):
         for i in range(5):
@@ -81,8 +101,8 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
         GroupMembership.objects.filter(group=self.root, user=self.member).delete()
         subtree = set(Group.objects.exclude(pk=self.unrelated.pk).values_list("pk", flat=True))
         with patch("groups.broadcast.broadcast_group_event") as send:
-            # user + descendant groups (one JOINed query) + memberships.
-            with self.assertNumQueries(3):
+            # descendant groups (one JOINed query) + the user's memberships.
+            with self.assertNumQueries(2):
                 broadcast_member_removed(self.root.pk, self.member.pk, subtree)
         # root, then child, grandchild, sibling and the five leaves.
         self.assertEqual(send.call_count, 1 + 3 + 5)
@@ -98,7 +118,7 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
 
     def test_failed_lookup_is_logged_and_swallowed(self):
         with patch("groups.broadcast.broadcast_group_event") as send, \
-             patch("accounts.models.User.objects.filter", side_effect=RuntimeError("db down")), \
+             patch("groups.models.GroupMembership.objects.filter", side_effect=RuntimeError("db down")), \
              self.assertLogs("groups.broadcast", level="WARNING") as logs:
             broadcast_member_removed(self.root.pk, self.member.pk, {self.child.pk})
         # The removed group's own frame was already sent.
