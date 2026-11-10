@@ -132,6 +132,27 @@ describe('CreateBoardModal', () => {
     expect(onCancel).toHaveBeenCalledOnce()
   })
 
+  // #1973: ModalWrapper's useEscapeStack (priority 40) owns Escape; the inputs must not also call onCancel.
+  it('Escape in the board name input calls onCancel exactly once (#1973)', async () => {
+    const onCancel = vi.fn()
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={onCancel} />)
+    const nameInput = screen.getByPlaceholderText(/Q3 Pipeline/)
+    nameInput.focus()
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape in the swimlane input calls onCancel exactly once (#1973)', async () => {
+    const onCancel = vi.fn()
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={onCancel} />)
+    await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())
+    const laneInput = screen.getByText(/First Team \(swimlane\)/i).closest('div')!.querySelector('input') as HTMLInputElement
+    laneInput.focus()
+    expect(laneInput).toHaveFocus()
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
   it('shows swimlane prompt with template lane_label after template load', async () => {
     render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())

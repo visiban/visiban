@@ -522,8 +522,8 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
-                // While a sample loads, Escape belongs to the stack handler (48): it cancels the load.
-                if (e.key === "Escape" && sampleLoad?.status !== "loading") onCancel();
+                // Escape is owned by the escape stack (#1973): the sample-load handler (48) cancels a load,
+                // otherwise ModalWrapper (40) closes. An inline onCancel here would run it twice.
               }}
               placeholder={'Leave blank for "Imported: <name from file>"'}
               className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
