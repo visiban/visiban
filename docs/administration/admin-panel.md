@@ -14,7 +14,7 @@ Controls instance-wide registration behavior and feature availability.
 
 ### Registration mode
 
-Set who can create an account. Changes take effect immediately, with no restart.
+Set who can create an account. Changes take effect within about 60 seconds, with no restart.
 
 | Mode | Who can create an account |
 |---|---|

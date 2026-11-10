@@ -871,17 +871,7 @@ def _consumed(call: ast.Call, fn: ast.AST, parents: dict) -> bool:
         return child is node.test
     if isinstance(node, (ast.Assign, ast.AnnAssign)):
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        # Bare names only: ``self._ok = ...`` or ``ctx["ok"] = ...`` binds no
-        # name an ``if`` can read back, and walking to the root would let any
-        # unrelated ``if self.x: raise`` count as the comparison's refusal.
-        names: set[str] = set()
-        stack = list(targets)
-        while stack:
-            t = stack.pop()
-            if isinstance(t, ast.Name):
-                names.add(t.id)
-            elif isinstance(t, (ast.Tuple, ast.List)):
-                stack.extend(t.elts)
+        names = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
         for st in _body_nodes(fn):
             if isinstance(st, (ast.If, ast.While, ast.Assert)):
                 expr = st.test
@@ -944,6 +934,27 @@ def _branch_raises(stmt: ast.stmt, fn: ast.AST, parents: dict) -> bool:
     return idx is not None and idx + 1 < len(block) and isinstance(block[idx + 1], ast.Raise)
 
 
+def _comparison_bound_names(targets, value, node: ast.AST) -> set:
+    """Names that receive the sub-expression containing *node* (#2166)."""
+    names: set = set()
+
+    def holds(expr) -> bool:
+        return expr is not None and any(n is node for n in ast.walk(expr))
+
+    def bind(t, v) -> None:
+        if isinstance(t, ast.Name):
+            if holds(v):
+                names.add(t.id)
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            if isinstance(v, (ast.Tuple, ast.List)) and len(v.elts) == len(t.elts):
+                for te, ve in zip(t.elts, v.elts):
+                    bind(te, ve)
+
+    for t in targets:
+        bind(t, value)
+    return names
+
+
 def _raise_guarded(node: ast.AST, fn: ast.AST, parents: dict) -> bool:
     """True when *node*'s outcome decides whether a ``raise`` runs (#2166).
 
@@ -962,7 +973,12 @@ def _raise_guarded(node: ast.AST, fn: ast.AST, parents: dict) -> bool:
         return _branch_raises(stmt, fn, parents)
     if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
         targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
-        names = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+        # Bare names only, paired with the value element they receive:
+        # ``self._ok = ...`` / ``ctx["ok"] = ...`` bind no name an ``if`` can
+        # read back, and ``ok, flag = role in X, role is None`` binds only
+        # ``ok`` to the comparison. A tuple target with a non-matching value
+        # binds nothing.
+        names = _comparison_bound_names(targets, getattr(stmt, "value", None), node)
         for st in _body_nodes(fn):
             if (
                 isinstance(st, (ast.If, ast.While))
@@ -2420,6 +2436,34 @@ def self_test() -> int:
                 "    if holder.flag:\n"
                 "        raise PermissionDenied\n"
                 "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # Tuple binding: only ``ok`` receives the comparison, so a raise
+            # decided by ``flag`` is not the comparison's refusal.
+            "a tuple-bound sibling name does not carry the comparison to a raise",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    ok, flag = role in card_services.ANNOTATION_ROLES, role is None\n"
+                "    if flag:\n"
+                "        raise ValueError\n"
+                "    if ok:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
                 1,
             ).replace(
                 "        denied = _annotation_denied(role)\n"
