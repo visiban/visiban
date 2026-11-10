@@ -482,7 +482,7 @@ Update a user's account flags. Site admin only.
 | `has_completed_tour` | boolean | Reset (`false`) to re-show the onboarding tour to this user on next login |
 | `must_change_password` | boolean | `true` forces a password reset on next login. Only a superuser can change this on a superuser account (`400` otherwise). |
 
-`must_change_username` is **not** patchable here and is not in the admin user object: a `PATCH` that sends it is ignored. The flag is read-only to everyone but the account itself. The user sees it on [`GET /api/v1/auth/me/`](authentication.md#get-apiv1authme), and it clears when they choose a new username (see [`POST /api/v1/auth/choose-username/`](authentication.md#post-apiv1authchoose-username)).
+`must_change_username` is **not** patchable here and is not in the admin user object: a `PATCH` that sends it is ignored. The flag is read-only over the API for every account. The user sees it on [`GET /api/v1/auth/me/`](authentication.md#get-apiv1authme), and a username change by the account owner clears it: [`POST /api/v1/auth/choose-username/`](authentication.md#post-apiv1authchoose-username), or a changed `username` on `PATCH /api/v1/auth/me/`.
 
 > **Added in 1.2**
 
