@@ -104,6 +104,7 @@ import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../utils/filterCards";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -3555,7 +3556,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   value={deleteColumnInput}
                   onChange={(e) => setDeleteColumnInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && canConfirm) {
+                    if (e.key === "Enter" && !isImeComposing(e) && canConfirm) {
                       e.preventDefault();
                       // onColumnDeleted (useBoard.removeColumn) does its own
                       // optimistic update + reload-on-failure and never rejects.

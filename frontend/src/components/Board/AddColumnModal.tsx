@@ -4,6 +4,7 @@ import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -48,7 +49,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }} // handleSave manages its own saving/error state and never rejects
+            onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleSave(); }} // handleSave manages its own saving/error state and never rejects
             placeholder="e.g. In Progress"
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />

@@ -8,6 +8,7 @@ import {
 } from "../../constants/healthStatus";
 import { getHealthDisplay, healthStatusErrorMessage, type HealthFields } from "../../utils/healthStatus";
 import HealthStatusShape from "./HealthStatusShape";
+import { isImeComposing } from "../../utils/imeComposition";
 
 /** The draft: a stored value, or "inherit" for null (inherit at a nested level, clear at the root). */
 type Draft = HealthStatus | "inherit";
@@ -186,7 +187,7 @@ export default function HealthStatusPopover({
         onSubmit={(e) => { e.preventDefault(); void submit(); }}
         onKeyDown={(e) => {
           // Enter on a radio submits (browsers do not submit a form from a radio).
-          if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+          if (e.key === "Enter" && !isImeComposing(e) && (e.target as HTMLElement).tagName === "INPUT") {
             e.preventDefault();
             void submit();
           }

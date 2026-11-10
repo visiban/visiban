@@ -37,6 +37,7 @@ import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import ColorSwatchPicker from "../components/Common/ColorSwatchPicker";
 import { PALETTE_COLORS } from "../constants/colors";
+import { isImeComposing } from "../utils/imeComposition";
 
 interface Props {
   user: User;
@@ -768,7 +769,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // void: handleRenameSave manages its own try/catch and reverts optimistic
     // state on failure, so there is nothing further to await here.
-    if (e.key === "Enter") { e.preventDefault(); void handleRenameSave(); }
+    if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleRenameSave(); }
     if (e.key === "Escape") { e.preventDefault(); handleRenameCancel(); }
   };
 
@@ -1629,7 +1630,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       onChange={(e) => setNewLabelName(e.target.value)}
                       // void: handleAddGroupLabel manages its own try/catch and
                       // surfaces failures via labelError, nothing further to await here.
-                      onKeyDown={(e) => { if (e.key === "Enter") void handleAddGroupLabel(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleAddGroupLabel(); }}
                       placeholder="Label name…"
                       className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                     />

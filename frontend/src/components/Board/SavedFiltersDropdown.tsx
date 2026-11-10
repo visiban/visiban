@@ -6,6 +6,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { FilterState } from "./FilterBar";
 import { countActiveFilters } from "./FilterBar";
 import type { SavedFilter } from "../../types";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -196,7 +197,7 @@ export default function SavedFiltersDropdown({
                 value={newName}
                 onChange={(e) => { setNewName(e.target.value); setSaveError(null); }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); void handleSave(); }
+                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleSave(); }
                   // Escape is handled by useEscapeStack at priority 27 (exits save mode)
                   // followed by priority 25 (closes dropdown) on a second press.
                 }}

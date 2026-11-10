@@ -4,6 +4,7 @@ import type { Swimlane } from "../../types";
 import { PALETTE_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -47,7 +48,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             // void: handleSave now catches its own rejection and surfaces it via `error`.
-            onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleSave(); }}
             placeholder="Swimlane name"
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />

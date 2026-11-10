@@ -19,6 +19,7 @@ import Spinner from "../components/Common/Spinner";
 import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON } from "../constants/demoCopy";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
 import { HealthListingPill } from "../components/Common/HealthStatusPill";
+import { isImeComposing } from "../utils/imeComposition";
 
 interface Props {
   user: User;
@@ -340,7 +341,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           placeholder="https://…/join/abc123 or abc123"
           className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted mb-4"
           autoFocus
-          onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
           <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>

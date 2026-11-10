@@ -8,6 +8,7 @@ import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
 import SwimlaneFieldEditRow from "./SwimlaneFieldEditRow";
 import { urlErrorFromServer } from "../../utils/customFieldValue";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -265,7 +266,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }} // handleSave manages its own saving/error state (saveError) and never rejects
+                onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleSave(); }} // handleSave manages its own saving/error state (saveError) and never rejects
                 className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
               />
             </div>

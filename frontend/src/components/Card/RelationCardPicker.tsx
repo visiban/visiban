@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { useCardSearchResults } from "../../hooks/useCardSearchResults";
 import type { Card, CardRelation, CardRelationDirection, Column } from "../../types";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   boardId: number;
@@ -96,7 +97,7 @@ export default function RelationCardPicker({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !isImeComposing(e)) {
       // Never commits free text — only a highlighted option.
       e.preventDefault();
       if (activeIndex >= 0 && options[activeIndex]) commit(options[activeIndex]);

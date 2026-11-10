@@ -17,6 +17,7 @@ import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberForma
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   board: BoardFull;
@@ -511,7 +512,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
               value={deleteInput}
               onChange={(e) => setDeleteInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && deleteInput === deleteTarget.name) { e.preventDefault(); void confirmDelete(); }
+                if (e.key === "Enter" && !isImeComposing(e) && deleteInput === deleteTarget.name) { e.preventDefault(); void confirmDelete(); }
               }}
               placeholder={deleteTarget.name}
               className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-danger-emphasis focus:border-transparent placeholder-fg-muted"
