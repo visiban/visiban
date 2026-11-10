@@ -11,7 +11,7 @@ Run `python3 scripts/check-api-compat.py` to see what the `api-compat-check` CI 
 
 ## What it checks
 
-**OpenAPI.** The schema `manage.py spectacular` emits for the branch is compared with `scripts/compat-baseline/v1.1.0/openapi.json`. `$ref` and `allOf` are resolved on both sides, so a renamed component isn't a finding; only what a client can observe is.
+**OpenAPI.** The schema `manage.py spectacular` emits for the branch is compared with `scripts/compat-baseline/v1.2.0/openapi.json`. `$ref` and `allOf` are resolved on both sides, so a renamed component isn't a finding; only what a client can observe is. Array `items` and map values (`additionalProperties`, for a dict field such as a custom field's `choice_colors`) are walked like properties *(since #2101)*: a map value finding is reported under `.{*}`, and a map that stops accepting entries (`additionalProperties: false`) reads as a removed field.
 
 | Finding | Meaning |
 |---|---|
@@ -30,7 +30,7 @@ Run `python3 scripts/check-api-compat.py` to see what the `api-compat-check` CI 
 - **Not checked:** error statuses (4xx/5xx).
 - **Untyped fallback:** a baseline property that's a bare read-only `string` is treated as untyped. It's drf-spectacular's fallback for an unannotated `SerializerMethodField`, so correcting it to its real type isn't a break.
 
-**Settings.** Every env var name that `backend/visiban/settings.py` reads at the GA tag must still be read at HEAD. The gate counts these reads: `env(...)`, `env.<type>(...)`, `_secret_env(...)`, `os.environ`/`os.getenv`, the legacy name passed to `_warn_deprecated_env_alias`, and both names passed to `_env_alias_name`. A deprecated alias that's kept counts as present, which is exactly the rename policy in `CLAUDE.md`. The baseline is `scripts/compat-baseline/v1.1.0/settings-env.txt`.
+**Settings.** Every env var name that `backend/visiban/settings.py` reads at the GA tag must still be read at HEAD. The gate counts these reads: `env(...)`, `env.<type>(...)`, `_secret_env(...)`, `os.environ`/`os.getenv`, the legacy name passed to `_warn_deprecated_env_alias`, and both names passed to `_env_alias_name`. A deprecated alias that's kept counts as present, which is exactly the rename policy in `CLAUDE.md`. The baseline is `scripts/compat-baseline/v1.2.0/settings-env.txt`.
 
 ## Component names are not part of the contract
 
@@ -134,7 +134,7 @@ Put an intentional break (a planned major bump, or a removal of an item already 
 
 **Watch out:** An entry that no longer matches any finding is **stale and fails the job**, so the list can only shrink toward the truth. Entries without an issue reference fail the job outright.
 
-Prefer `key` entries. An `operation` entry silently covers every future finding under that operation, so use it only when the whole operation is deliberately retired (the five `#1080` catch-all entries are an example). The self-test pins the opposite behavior for `key` entries: a *new* finding under an operation that already has entries still fails.
+Prefer `key` entries. An `operation` entry silently covers every future finding under that operation, so use it only when the whole operation is deliberately retired. The self-test pins the opposite behavior for `key` entries: a *new* finding under an operation that already has entries still fails.
 
 ## Experimental operations
 
@@ -156,50 +156,11 @@ An operation documented as experimental (no stability promise until it graduates
 
 The only entries today are the Git Lens REST endpoints. The `lens_connection.*` WebSocket events and the `git_lens_enabled` user field are deliberately frozen (#1666) and aren't listed.
 
-### Frozen snapshot of the v1.1.0 baseline drift
+### The v1.2.0 baseline roll
 
-The v1.1.0 schema was generated before the schema-hygiene work (#1135-#1138, #1209, #1080) and documented fallback or wrong serializers for a number of operations (for example a card serializer standing in for the request body of `checklist/` and `comments/`). Diffing against it yields findings that look like documentation corrections rather than runtime changes.
+The baseline was rolled from v1.1.0 to v1.2.0 in #2101. The v1.1.0 schema predated the schema-hygiene work (#1135-#1138, #1209, #1080, #1695, #1783, #1788, #1792) and documented fallback serializers for many hand-written actions, so the allow-list carried 587 entries for findings that were documentation corrections, not runtime changes (the reasons are in the allow-list's git history, before #2101). Against the v1.2.0 schema none of them fire, so the allow-list is empty again, including the `#1912` entry for `DELETE /api/v1/admin/invite-links/{id}/`: the v1.2.0 schema already declares that operation's real `200` response.
 
-A read-only comparison of the v1.1.0 and current runtime code verified these classes as **documentation-only baseline errors, not breaks**:
-
-- `card_count` / `member_count` on `GET /boards/{id}/full/`: the v1.1.0 `BoardFullSerializer` never had them; the v1.1.0 schema showed the viewset's default `BoardSerializer`.
-- `assignee` / `created_by` nullable on cards: v1.1.0 already returned `null` for the `SET_NULL` foreign keys; only the schema (`allow_null=True`) changed.
-- `POST /boards/import/` `file`: v1.1.0 was already multipart-only and answered 400 "No file provided." without it.
-- `object` -> `array` list responses (activities, attachments, movements, saved-filters, and the group boards / descendant-boards / invite-links / labels / subgroups actions): these hand-written `@action`s returned bare arrays in both versions; only the schema's `pagination_class` was fixed.
-- 2xx status changes: an AST scan found none that differ at runtime.
-
-The same comparison found no serializer field and no URL route removed between v1.1.0 and `main` (the `dj_rest_auth` `include()` became explicit routes, and five declarations were rewritten as same-name `SerializerMethodField`s).
-
-Those findings are therefore frozen as exact per-finding `key` entries (generated once from the gate's own output with an empty allow-list, sorted for stable diffs). The snapshot is closed: anything not already in it, including a further change to an operation that has entries, fails the job.
-
-**Watch out:** Never add to the snapshot to get a pipeline green. A new finding is a real break or needs its own issue-referenced entry. The temporary `#1788`, `#1783` and `#1792` entries described below are such entries; none of them is part of the burn-down count below. The exception is an operation covered by an `operation` entry (the `#1783` ones): every finding under it passes, including a new one. That is why those entries must be deleted at the v1.2.0 roll.
-
-**Burn-down result** (#1695). Every one of the 51 operations with entries was checked against the v1.1.0 *view code* (`git show v1.1.0:backend/...`), not the v1.1.0 schema, and each entry's `reason` now records what v1.1.0 read and returned:
-
-- **556 entries under `#1695` are documentation-only.** The v1.1.0 schema showed a fallback serializer for hand-written `@action`s and `APIView`s:
-    - a card serializer for `move/`, `checklist/`, `comments/`, `attachments/`, `status/`, `timeline/`, `archived/`;
-    - a board serializer for `share/`, `members/`, `movements/`, `export-history/`;
-    - a group serializer for the group `labels/`, `members/`, `star/`, `invite-links/`, `boards/` actions.
-
-  It also echoed the request serializer as the response for the dj-rest-auth subclasses (`login/`, `password/reset/`, `password/reset/confirm/`, `registration/`), and documented `200` where the view returned `201` (or `204` where `DELETE share/` returned `200`). None of the listed fields or statuses was ever on the wire.
-- **4 entries under `#1302` are a real, deliberate runtime change**, already announced in `CHANGELOG.md`: `columns/reorder/` and `swimlanes/reorder/` used to treat a missing `order` as a `200` no-op and now answer `400` unless `order` is the board's full ID list. The upgrade-guide note for this is tracked in #1782.
-- **3 `REMOVED_REQUEST_MEDIA_TYPE` entries on `POST /auth/password/change/` were a HEAD schema defect, not a removal** (#1781, fixed). `VisibanPasswordChangeSerializer.__init__` called `has_usable_password()` on `AnonymousUser` during schema generation, so HEAD's schema lost the request body. The fix replaced them with three `NEW_REQUIRED_REQUEST_FIELD ... .old_password` entries under `#1257`, the deliberate security break.
-
-Until the baseline is rolled at the next GA, these entries stay in the file, because the drift lives in the frozen baseline itself. Deleting an entry whose finding still fires turns the job red, whether the finding is drift or a real break. Entries are only ever deleted (when one goes stale) or re-justified, never added. Exceptions:
-
-1. the #1781 replacement above;
-2. the temporary #1788 entries below;
-3. the temporary #1783 entries below;
-4. the #1792 entry below;
-5. a permanent one: the `REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204` entry under `#1912`. The v1.1.0 baseline listed `204` there (drf-spectacular's DELETE default), but v1.1.0 always answered `200` with the revoked link and `400` on a repeat revoke. That runtime contract is frozen for all of 1.x, so the schema now declares it and the entry isn't removed at the v1.2.0 roll.
-
-Delete every temporary entry below when the baseline is rolled at the v1.2.0 GA:
-
-- **Four `key` entries under `#1788`** cover `NEW_REQUIRED_REQUEST_BODY` on `POST swimlanes/`, `PUT swimlanes/{id}/`, and `PATCH swimlanes/{id}/set-collapsed/` and `set_collapsed/`. The v1.1.0 baseline lacks those bodies because `SwimlaneViewSet` crashed during schema generation; #1788 fixes the schema, and the endpoints always required the body.
-- **Sixteen `operation` entries under `#1783`** cover hand-written actions and `APIView`s whose schema showed a fallback serializer, no body, or a wrong status (for example `star/`, `move-group/`, `saved-filters/`, card `archive/` and `unarchive/`, `summary/`, `analytics/`, `export/`, the group `members/{user_id}/`, `transfer-ownership/` and `board-defaults/` actions, `auth/change-password/`, `auth/choose-username/` and `auth/registration/resend-email/`). The v1.1.0 baseline holds those wrong shapes, so each correction reads as a removal; no runtime behavior changed.
-- **One `key` entry under `#1792`** covers `REQUEST_BODY_BECAME_REQUIRED` on `POST boards/import/`. The baseline published the multipart upload body as optional, but the view has always answered 400 without `file`.
-
-**Yes, but:** The GA roll doesn't fix the schema by itself. It freezes the schema HEAD generates at that tag as the new baseline, so an operation that still documents a fallback serializer at the tag carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The board import request bodies were corrected in #1792; hand-written `GET`s that publish no response body are tracked in #1793. Any found later need the same fix before the following roll.
+**Watch out:** The roll freezes the schema HEAD generated at the tag. An operation that still documents a fallback serializer at the tag carries that error into the baseline, and correcting it later reads as a removal that needs its own issue-referenced allow-list entry. Hand-written `GET`s that publish no response body are tracked in #1793.
 
 ## Running it locally
 
@@ -215,7 +176,7 @@ bash scripts/tests/check-api-compat.test.sh
 Do this once, when a new GA tag is cut, from a clean checkout of the tag. Run it in a temporary worktree outside the repo and delete it afterward.
 
 ```bash
-TAG=v1.2.0
+TAG=v1.3.0   # the GA tag just cut
 VENV_PY="$PWD/backend/.venv/bin/python"   # run from the repository root
 git worktree add --detach /tmp/visiban-$TAG $TAG
 ( cd /tmp/visiban-$TAG/backend \
@@ -229,25 +190,16 @@ python3 scripts/check-api-compat.py --dump-env /tmp/visiban-$TAG/backend/visiban
 git worktree remove /tmp/visiban-$TAG
 ```
 
+**Watch out:** `--normalize` and `--dump-env` only read files under the repository, the current directory, or the system temp dir (`tempfile.gettempdir()`). On macOS that is `$TMPDIR`, not `/tmp`, so the commands above refuse `/tmp/$TAG.json` there with `path escapes the allowed directories`. Run them from the directory that holds the generated file (`cd /tmp` first), passing the script and output paths as absolute paths.
+
 Then, as a manual step on the release checklist:
 
-1. Point `BASELINE_SCHEMA` / `BASELINE_ENV` in `scripts/check-api-compat.py` (lines 52-53) at the new directory.
+1. Point `BASELINE_SCHEMA` / `BASELINE_ENV` near the top of `scripts/check-api-compat.py` at the new directory.
 2. Delete every allow-list entry the new baseline no longer needs, and delete the old baseline directory.
 
 `--normalize` strips prose, examples, and `x-` extensions so the fixture stays small and docs edits never read as contract changes, and drops every operation listed in `experimental.json`. Before the roll, remove the entry of any operation that should now freeze.
 
-Every allow-list entry is a diff against the v1.1.0 baseline. Once the baseline is the v1.2.0 schema and HEAD matches it, none of those findings fire, so all entries go stale, and a stale entry fails the job. After regenerating, run `python3 scripts/check-api-compat.py`, delete every entry it reports as stale (expected: the whole list, leaving `{"allow": []}`), and re-run until it prints OK with no stale entries.
-
-As a safety net for the temporary entries (those whose `reason` starts with `temporary:`, citing #1783, #1788, #1789 or #1792), this lists any left behind. After deleting, it must print nothing:
-
-```bash
-python3 -c "import json;[print(e['issue'],e.get('operation') or e['key']) for e in json.load(open('scripts/compat-baseline/allowlist.json'))['allow'] if e['reason'].startswith('temporary:') or e['issue'] in ('#1783','#1788','#1789','#1792')]"
-```
-
-A temporary entry left behind fails the roll MR loudly. Then, in this file:
-
-- delete every sentence or paragraph that describes temporary entries or counts exceptions to the "never added" rule (including any added for #1789 or #1792), keeping the existing "never added" sentence as is, and
-- revise the prose that describes the v1.1.0 baseline drift and allow-list burn-down (the "Frozen snapshot of the v1.1.0 baseline drift" section, the `#1080` catch-all mentions, the `v1.1.0/` paths, and the paragraph above) to the new baseline.
+Every allow-list entry is a diff against the old baseline. After regenerating, run `python3 scripts/check-api-compat.py` and delete every entry it reports as stale: a finding the new baseline already contains no longer fires. Re-run until it prints OK with no stale entries. An entry for a break that is still live (a field removed after the tag, for example) keeps firing and stays. Then update the baseline paths in this file and in `docs/development/ci-gates.md`.
 
 ## Not covered
 

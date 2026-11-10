@@ -983,13 +983,18 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # distinct from the board-channel eviction above (which closes
                 # stale board connections) — the group channel drives the members
                 # panel. New event type; no existing payload shape changed (#1051).
+                # Also sent to each subgroup whose members panel listed the user
+                # as inherited and where they lost access (#2168); the subtree
+                # was snapshotted above, before the delete.
                 group_id = group.pk
 
-                def _broadcast_group_member_removed(gid=group_id, uid=removed_user_id):
-                    from .broadcast import broadcast_group_event
+                def _broadcast_group_member_removed(
+                    gid=group_id, uid=removed_user_id, sub_ids=frozenset(subtree_ids),
+                ):
+                    from .broadcast import broadcast_member_removed
                     # member.* mirrors the board channel's member.added/updated/
                     # removed naming so one frontend socket layer handles both.
-                    broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": uid})
+                    broadcast_member_removed(gid, uid, sub_ids)
 
                 transaction.on_commit(_broadcast_group_member_removed)
 

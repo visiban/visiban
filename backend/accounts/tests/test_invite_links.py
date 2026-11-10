@@ -193,6 +193,44 @@ class AdminInviteLinkListTests(TestCase):
         item = r.json()[0]
         self.assertEqual(item["created_by_username"], self.admin.username)
 
+    def test_past_links_capped_pending_all_returned(self):
+        """Every pending link plus only the most recent past ones (#1966)."""
+        from accounts.admin_views import SITE_INVITE_LIST_MAX_PAST
+
+        now = timezone.now()
+        past_ids = []
+        for i in range(SITE_INVITE_LIST_MAX_PAST + 5):
+            link, _ = InviteLink.generate(created_by=self.admin)
+            # One of each past kind, so all three count as past.
+            field = ("revoked_at", "used_at", "expires_at")[i % 3]
+            setattr(link, field, now - timedelta(minutes=1))
+            link.save(update_fields=[field])
+            past_ids.append(link.pk)
+        # A pending link created after the past ones is still listed, and the
+        # two setUp links (older than every past row) are never cut.
+        newest, _ = InviteLink.generate(created_by=self.admin)
+        r = self.client.get("/api/v1/admin/invite-links/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        rows = r.json()
+        self.assertIsInstance(rows, list)
+        self.assertEqual(len(rows), 3 + SITE_INVITE_LIST_MAX_PAST)
+        ids = [row["id"] for row in rows]
+        self.assertEqual(ids[0], newest.pk)
+        self.assertEqual(set(ids) & set(past_ids), set(past_ids[-SITE_INVITE_LIST_MAX_PAST:]))
+        pending = [row for row in rows if row["status"] == "pending"]
+        self.assertEqual(len(pending), 3)
+        # Newest first across both halves.
+        created = [row["created_at"] for row in rows]
+        self.assertEqual(created, sorted(created, reverse=True))
+
+    def test_link_expiring_later_is_pending_not_past(self):
+        link, _ = InviteLink.generate(
+            created_by=self.admin, expires_at=timezone.now() + timedelta(days=1)
+        )
+        r = self.client.get("/api/v1/admin/invite-links/")
+        row = next(row for row in r.json() if row["id"] == link.pk)
+        self.assertEqual(row["status"], "pending")
+
     def test_non_admin_rejected(self):
         self.client.force_authenticate(self.other)
         r = self.client.get("/api/v1/admin/invite-links/")

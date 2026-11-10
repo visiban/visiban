@@ -221,7 +221,12 @@ class CreateTests(WebhookApiBase):
         self.assertEqual(r.data["url_host"], "hooks.example.com")
         self.assertEqual(r.data["configured_by"]["id"], self.admin.pk)
         self.assertEqual(r.data["created_by"]["id"], self.admin.pk)
-        self.assertEqual(set(r.data["configured_by"]), {"id", "username", "display_name", "avatar_url"})
+        # is_site_admin is the one field added over BoardUserSerializer (#2068).
+        self.assertEqual(
+            set(r.data["configured_by"]), {"id", "username", "display_name", "avatar_url", "is_site_admin"}
+        )
+        self.assertEqual(set(r.data["created_by"]), set(r.data["configured_by"]))
+        self.assertIs(r.data["created_by"]["is_site_admin"], False)
         # D5: starts at the board's newest event.
         self.assertEqual(r.data["last_delivered_event_id"], latest.pk)
         sub = WebhookSubscription.objects.get()
@@ -350,6 +355,28 @@ class CreateTests(WebhookApiBase):
         with patch.dict(WebhookConfigThrottle.THROTTLE_RATES, {"webhook_config": "1/hour"}):
             self.assertEqual(self.create().status_code, 201)
             self.assertEqual(self.create().status_code, 429)
+
+
+@ENABLED
+class SiteAdminFlagTests(WebhookApiBase):
+    """``created_by`` / ``configured_by`` carry ``is_site_admin`` (#2068)."""
+
+    def test_site_admin_creator_and_owner_flagged_on_list_and_detail(self):
+        site_admin = _make_user()
+        site_admin.is_site_admin = True
+        site_admin.save(update_fields=["is_site_admin"])
+        sub = make_subscription(self.board, site_admin)
+        WebhookSubscription.objects.filter(pk=sub.pk).update(configured_by=self.admin)
+        listed = self.client.get(_url(self.board.pk)).data[0]
+        detail = self.client.get(_url(self.board.pk, f"{sub.pk}/")).data
+        for body in (listed, detail):
+            self.assertIs(body["created_by"]["is_site_admin"], True)
+            self.assertIs(body["configured_by"]["is_site_admin"], False)
+
+    def test_flag_is_not_added_to_board_user_serializer(self):
+        from accounts.serializers import BoardUserSerializer
+
+        self.assertNotIn("is_site_admin", BoardUserSerializer(self.admin).data)
 
 
 @ENABLED

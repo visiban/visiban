@@ -299,6 +299,15 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "and both feed rows are required for a resumable cursor (#1114). Both "
         "cards are re-fetched in a single _card_queryset pass."
     ),
+    "backend/groups/broadcast.py::broadcast_member_removed": (
+        "One member.removed per descendant subgroup whose roster stops listing "
+        "the removed user (#2168). Each frame goes to a distinct channel "
+        "(group_<id> of that subgroup), and a subscriber on a subgroup channel "
+        "only hears its own channel, so they cannot be collapsed into one "
+        "payload. The bound is the removed group's subtree, capped by "
+        "_GROUP_TRAVERSAL_MAX_DEPTH, minus subgroups where the user is still "
+        "listed through a direct row or another inherited ancestor."
+    ),
     "backend/groups/views.py::GroupViewSet._broadcast_deleted": (
         "One group.deleted per ancestor and per cascaded subgroup, plus one "
         "board.updated per orphaned board, fired from the commit hook in "

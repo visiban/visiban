@@ -17,6 +17,7 @@ import {
   testResultCopy,
   urlErrorFromResponse,
   urlShapeError,
+  webhookPersonLabel,
 } from "../../../constants/webhooks";
 import WebhookStatusPill from "./WebhookStatusPill";
 import { axiosResponse, outcomeUnknown, urlInputClass } from "./webhookFormUtils";
@@ -83,10 +84,6 @@ function lastErrorLine(sub: WebhookSubscription, now: number): string | null {
   if (!label) return null;
   const ago = when(sub.last_attempt_at, now);
   return `${label}${ago ? ` · ${ago}` : ""}`;
-}
-
-function person(user: WebhookSubscription["created_by"]): string {
-  return user ? user.display_name || user.username : "a former member";
 }
 
 /** One webhook's detail view (1.3 UI spec Part 8 § webhook-detail). */
@@ -419,9 +416,9 @@ export default function WebhookDetail(props: Props) {
         </dd>
         <dt className="text-fg-tertiary">Created by</dt>
         <dd className="text-fg">
-          {person(sub.created_by)}{sub.created_at ? ` · ${dateLabel(sub.created_at)}` : ""}
+          {webhookPersonLabel(sub.created_by)}{sub.created_at ? ` · ${dateLabel(sub.created_at)}` : ""}
           {sub.configured_by?.id !== sub.created_by?.id && (
-            <span className="block text-fg-tertiary">Owner now: {person(sub.configured_by)}.</span>
+            <span className="block text-fg-tertiary">Owner now: {webhookPersonLabel(sub.configured_by)}.</span>
           )}
           <span className="block text-fg-tertiary">You can manage it like any other webhook. Its notices go to this board's admins.</span>
         </dd>

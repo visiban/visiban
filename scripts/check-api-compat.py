@@ -56,8 +56,8 @@ from _paths import cli_roots, resolve_within  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = REPO_ROOT / "backend"
 BASELINE_DIR = REPO_ROOT / "scripts" / "compat-baseline"
-BASELINE_SCHEMA = BASELINE_DIR / "v1.1.0" / "openapi.json"
-BASELINE_ENV = BASELINE_DIR / "v1.1.0" / "settings-env.txt"
+BASELINE_SCHEMA = BASELINE_DIR / "v1.2.0" / "openapi.json"
+BASELINE_ENV = BASELINE_DIR / "v1.2.0" / "settings-env.txt"
 ALLOWLIST = BASELINE_DIR / "allowlist.json"
 EXPERIMENTAL = BASELINE_DIR / "experimental.json"
 SETTINGS_PY = BACKEND_DIR / "visiban" / "settings.py"
@@ -289,6 +289,20 @@ class Comparer:
                     self.add("REQUEST_ENUM_VALUE_REMOVED", f"{loc} {v!r}")
         if "items" in o and "items" in n:
             self.compare_schema(o["items"], n["items"], f"{loc}[]", side, seen)
+        # Map values (#2101): a dict field such as ``choice_colors`` is an
+        # object whose ``additionalProperties`` is the value schema. Walked like
+        # ``items``, under the location ``.{*}``. A map that stops accepting
+        # any entry (``false``) reads as a removed field; a value schema that
+        # becomes untyped (absent or ``true``) is not a finding, the same rule
+        # as an untyped property.
+        o_ap, n_ap = o.get("additionalProperties"), n.get("additionalProperties")
+        if isinstance(o_ap, dict) and o_ap:
+            aloc = f"{loc} .{{*}}"
+            if isinstance(n_ap, dict):
+                self.compare_schema(o_ap, n_ap, aloc, side, seen)
+            elif n_ap is False:
+                kind = "REMOVED_RESPONSE_FIELD" if side == "response" else "REMOVED_REQUEST_FIELD"
+                self.add(kind, aloc)
         o_props, n_props = o.get("properties", {}), n.get("properties", {})
         o_req, n_req = set(o.get("required", [])), set(n.get("required", []))
         for name, sub in sorted(o_props.items()):
@@ -670,6 +684,24 @@ def self_test() -> int:
         "components": {"schemas": {"Tree": {"type": "object", "properties": {
             "child": {"$ref": "#/components/schemas/Tree"}}}}}}
     check("recursive schema terminates", _kinds(rec, rec), [])
+
+    # Map values (#2101): additionalProperties is walked like items.
+    def _map(value):
+        return _spec(props={"colors": {"type": "object", "additionalProperties": value}}, required=["colors"])
+
+    str_map = _map({"type": "string"})
+    check("map value unchanged passes", _kinds(str_map, str_map), [])
+    check("map value type change", _kinds(str_map, _map({"type": "integer"})), ["TYPE_CHANGED"])
+    check("map value became nullable", _kinds(str_map, _map({"type": "string", "nullable": True})),
+          ["RESPONSE_BECAME_NULLABLE"])
+    check("map stopped accepting entries", _kinds(str_map, _map(False)), ["REMOVED_RESPONSE_FIELD"])
+    check("map value became untyped passes", _kinds(str_map, _map(True)), [])
+    obj_map = _map({"type": "object", "properties": {"hex": {"type": "string"}}, "required": ["hex"]})
+    check("map value field removed",
+          _kinds(obj_map, _map({"type": "object", "properties": {}})), ["REMOVED_RESPONSE_FIELD"])
+    check("map value location",
+          [f.location for f in diff_schemas(normalize(str_map), normalize(_map({"type": "integer"})))],
+          ["GET /api/x/ response 200 application/json .colors .{*} string->integer"])
 
     # normalize keeps a field literally named "description".
     n = normalize({"type": "object", "description": "doc", "properties": {"description": {"type": "string", "description": "x"}}})

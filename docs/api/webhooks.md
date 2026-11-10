@@ -93,8 +93,8 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
   "last_success_at": "2026-11-01T09:14:31.551000Z",
   "last_error_code": "",
   "last_status_code": 204,
-  "created_by": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "" },
-  "configured_by": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "" },
+  "created_by": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "", "is_site_admin": false },
+  "configured_by": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "", "is_site_admin": false },
   "created_at": "2026-11-01T09:10:00.000000Z",
   "updated_at": "2026-11-01T09:14:31.552000Z",
   "configured_at": "2026-11-01T09:10:00.000000Z",
@@ -112,6 +112,7 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
 | `last_error_code` | `""`, or `connection_failed`, `tls_error`, `timeout` or `http_error`. Never the receiver's response or an exception message. |
 | `last_status_code` | The HTTP status of the last attempt, or `null` when no response was received. |
 | `configured_by` | The owner: the account whose board-admin standing keeps the webhook delivering. Set on create, URL change, rotate and re-enable. `null` once that account is deleted, and the webhook then turns off. |
+| `created_by`, `configured_by` → `is_site_admin` | `true` when that account is a site admin. *(1.3+, #2068)* Only on these two objects in webhook responses; the user objects elsewhere in the API do not carry it. |
 
 ### `POST /` — create
 

@@ -8,7 +8,9 @@ cascades the user's board and group memberships. The delete view and the
   card's board, rendered after the clear;
 - ``member.removed`` on every board the user was a member of, directly or
   through a group (or one of its ancestors);
-- ``member.removed`` on the group channel of each group the user belonged to.
+- ``member.removed`` on the group channel of each group the user belonged to
+  and of every group below it, whose members panel lists inherited members
+  (#2168).
 
 A refused delete announces nothing.
 """
@@ -131,13 +133,18 @@ class UserDeleteBroadcastTests(TestCase):
         }
         self.assertEqual(removed, {self.board.pk, self.group_board.pk, self.sub_board.pk})
         self.assertIn((self.group.pk, "member.removed", {"user_id": uid}), group_frames)
+        # The subgroup lists the victim as inherited, so it is told too (#2168).
+        self.assertIn((self.subgroup.pk, "member.removed", {"user_id": uid}), group_frames)
 
     def test_single_delete_announces_cleared_cards_and_removed_memberships(self):
         board_frames, group_frames = self._delete_one(self.victim)
         self.assertFalse(User.objects.filter(pk=self.victim.pk).exists())
         self._assert_victim_frames(board_frames, group_frames, self.victim.pk)
         self.assertEqual(len(board_frames), 5)
-        self.assertEqual(group_frames, [(self.group.pk, "member.removed", {"user_id": self.victim.pk})])
+        self.assertEqual(group_frames, [
+            (self.group.pk, "member.removed", {"user_id": self.victim.pk}),
+            (self.subgroup.pk, "member.removed", {"user_id": self.victim.pk}),
+        ])
         # The board frames carry change-feed rows, committed with the delete.
         self.assertEqual(
             BoardEvent.objects.filter(board_id=self.board.pk, event="card.updated").count(), 2
@@ -157,7 +164,10 @@ class UserDeleteBroadcastTests(TestCase):
         self.assertIsNone(unrelated_payload["assignee"])
         self.assertIn((self.board.pk, "member.removed", {"user_id": self.other.pk}), board_frames)
         self.assertIn((self.board.pk, "member.removed", {"user_id": self.victim.pk}), board_frames)
-        self.assertEqual(group_frames, [(self.group.pk, "member.removed", {"user_id": self.victim.pk})])
+        self.assertEqual(group_frames, [
+            (self.group.pk, "member.removed", {"user_id": self.victim.pk}),
+            (self.subgroup.pk, "member.removed", {"user_id": self.victim.pk}),
+        ])
 
     def test_user_with_no_cards_or_memberships_announces_nothing(self):
         loner = User.objects.create_user(username="loner_1635", password=PW)

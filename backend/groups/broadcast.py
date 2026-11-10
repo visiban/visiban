@@ -151,3 +151,80 @@ def broadcast_group_event(
             event_type,
             exc_info=True,
         )
+
+
+def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, actor_id: int | None = None) -> None:
+    """Publish ``member.removed`` for a group membership removal (#1051, #2168).
+
+    Call post-commit (``transaction.on_commit``). The frame always goes to
+    ``group_{group_id}``, the group the membership was in. It also goes to the
+    channel of each group in ``descendant_ids`` (the removed group's subtree,
+    snapshotted before the delete) that no longer lists the user: a
+    subgroup's members panel lists members inherited from its ancestors, so
+    a subgroup page open in another session must refetch too (#2168).
+
+    Which descendants get it follows the members panel's listing rule
+    (``GroupViewSet.members``), not the access rule: the user is listed on a
+    group through a membership of their own on it, or an inherited one (a
+    stored role within ``GroupMembership.Role``) on one of its ancestors,
+    capped at ``_GROUP_TRAVERSAL_MAX_DEPTH``. A descendant that still lists
+    the user (a membership on it or on the path to it, or on an ancestor of
+    the removed group) gets no frame: ``GroupConsumer`` closes the removed
+    user's socket on any ``member.removed`` that names them, which would
+    evict a user who still belongs. ``can_access_all_content`` is not
+    consulted: it grants access but not a row in the panel, so a site-wide
+    user's inherited row would otherwise stay on the subgroup page, and the
+    removed group's own channel already sends them this frame (#1051).
+
+    Known gap (#2175): on a descendant that keeps listing the
+    user through a different, farther membership, the inherited row's role
+    and source change, but no frame is sent, so that page shows the old ones
+    until its next refetch.
+
+    Cost is constant in the size of the subtree: one query for the
+    descendant groups with their ancestor chain, one for the user's
+    memberships. Best-effort like ``broadcast_group_event`` (#1462): a failed
+    lookup is logged and swallowed, since the transaction has already
+    committed; the subgroup page converges on its next refetch.
+    """
+    payload = {"user_id": user_id}
+    broadcast_group_event(group_id, EVT_MEMBER_REMOVED, payload, actor_id=actor_id)
+    descendant_ids = set(descendant_ids) - {group_id}
+    if not descendant_ids:
+        return
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH, Group, GroupMembership
+
+    try:
+        groups = list(Group.objects.filter(pk__in=descendant_ids).select_related(
+            "__".join(["parent"] * _GROUP_TRAVERSAL_MAX_DEPTH)
+        ))
+        # A deleted user's memberships are gone with them, so every descendant
+        # is announced.
+        rows = list(GroupMembership.objects.filter(user_id=user_id).values_list("group_id", "role"))
+    except Exception as exc:  # noqa: BLE001 — best-effort, see docstring
+        logger.warning(
+            "group member.removed subtree fan-out dropped: group_id=%s error=%s",
+            group_id,
+            type(exc).__name__,
+        )
+        return
+    # Direct rows are listed as stored; inherited ones only with a valid role.
+    direct_ids = {gid for gid, _ in rows}
+    inherited_ids = {gid for gid, role in rows if role in GroupMembership.Role.values}
+
+    def still_listed(group):
+        if group.pk in direct_ids:
+            return True
+        node = group
+        # Same cap as Group.ancestors(), walking only the select_related chain.
+        for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            if node.parent_id is None:
+                return False
+            node = node.parent
+            if node.pk in inherited_ids:
+                return True
+        return False
+
+    targets = sorted(g.pk for g in groups if not still_listed(g))
+    for gid in targets:
+        broadcast_group_event(gid, EVT_MEMBER_REMOVED, payload, actor_id=actor_id)

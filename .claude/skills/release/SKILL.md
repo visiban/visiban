@@ -355,21 +355,9 @@ chart, and the **GitHub** Release. It does not stop the docs. So after `release.
       against this release. Before regenerating, review `scripts/compat-baseline/experimental.json`
       and remove entries for operations that should freeze, since `--normalize` strips listed
       operations silently. Land it as a branch and MR, never on `main`.
-- [ ] **Clear the API allow-list (v1.2.0 roll only).** Every entry is a diff against the v1.1.0
-      baseline, so against the freshly rolled baseline all of them go stale and fail
-      `api-compat-check`. Run `python3 scripts/check-api-compat.py`, delete every entry it
-      reports as stale from `scripts/compat-baseline/allowlist.json` (expected: the whole list,
-      leaving `{"allow": []}`), and re-run until it prints OK with no stale entries. Safety net
-      for the temporary entries (reason starts with `temporary:`; issues #1783, #1788, #1789,
-      #1792); after deleting, it must print nothing:
-      `python3 -c "import json;[print(e['issue'],e.get('operation') or e['key']) for e in json.load(open('scripts/compat-baseline/allowlist.json'))['allow'] if e['reason'].startswith('temporary:') or e['issue'] in ('#1783','#1788','#1789','#1792')]"`
-- [ ] **Remove the temporary-entry prose (v1.2.0 roll only).** In
-      `docs/development/api-compat-gate.md`, delete every sentence or paragraph that describes
-      temporary entries or counts exceptions to the "never added" rule (including any added
-      for #1789 or #1792); keep the existing "never added" sentence as is.
-- [ ] **Revise the baseline-drift prose (v1.2.0 roll only).** Revise the doc prose that
-      describes the v1.1.0 baseline drift and allow-list burn-down (the section "Frozen
-      snapshot of the v1.1.0 baseline drift", the #1080 catch-all mentions, the `v1.1.0/`
-      paths, and the allow-list paragraph in "Regenerating the baseline") to the new baseline.
-- [ ] **Delete the v1.2.0-only items above from this skill** (or generalize them) so v1.3.0
-      does not inherit stale issue numbers.
+- [ ] **Clear stale API allow-list entries (GA roll).** Run `python3 scripts/check-api-compat.py`
+      against the rolled baseline and delete every entry it reports as stale from
+      `scripts/compat-baseline/allowlist.json`; re-run until it prints OK. An entry for a break
+      that is still live keeps firing and stays. Update the baseline paths in
+      `docs/development/api-compat-gate.md` and `docs/development/ci-gates.md`, and delete the
+      old `scripts/compat-baseline/<old-tag>/` directory.
