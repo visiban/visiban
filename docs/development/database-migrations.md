@@ -738,11 +738,23 @@ installs have already run them; these are documented instead.
   change; it only row-locks superuser rows, which is negligible.) Fine for typical sizes; see the
   [upgrade guide](../administration/upgrade.md#upgrading-to-12x) for very large installs.
 - **`boards/0054` overwrites system template columns** by slug, and its reverse restores
-  constants rather than prior database values. See the upgrade guide.
+  constants rather than prior database values. See the upgrade guide. The forward step
+  writes its `NEW_COLUMNS` literals over `BoardTemplate.columns_json` for each slug it lists,
+  so it would also replace an admin's edit to one of those system templates. The reverse
+  (`unfix_columns`) writes the `OLD_COLUMNS` literals back; it does not restore whatever the
+  row held before the forward step ran, so migrating back past `0054` loses such an edit too.
+  This is acknowledged rather than fixed (#2013): the table is small, the step is idempotent,
+  and the migration has shipped. A future data migration that rewrites rows by natural key
+  should snapshot the prior values if its reverse is meant to be value-exact.
 - **`accounts/0033` has an unneeded dependency** on `boards/0061` and `auth/0012` (an
   autodetector artifact). Remove it at the next squash; don't edit it now.
 - **Frozen history:** the duplicate `boards/0033` (merged by `0035`) and the missing
-  `boards/0053` aren't to be renumbered.
+  `boards/0053` aren't to be renumbered. No `boards/0053_*` migration has ever existed in
+  git history: `0054_fix_board_template_drift` depends directly on
+  `0052_board_show_wip_at_limit`, so the dependency chain is intact and nothing is
+  missing from it. Django orders migrations by their `dependencies`, not by the number in
+  the filename, and `scripts/check-migration-numbering.sh` does not flag a skipped number.
+  Don't add a `0053` to fill the gap (#2013).
 - **allauth pin:** `accounts/0031` and `0033` depend on allauth's
   `account.0009_emailaddress_unique_primary_email`. 1.1.0 and 1.2 both pin
   `django-allauth==65.14.3`, which ships it;
