@@ -564,7 +564,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       aria-current={current ? "true" : undefined}
       data-no-pan
       data-tour-step="card"
-      // A selected card drops its bg-info/20 fill while an aging tint is shown:
+      // A selected card drops its bg-primary-emphasis/20 fill while an aging tint is shown:
       // the fill under the tint pulled the badge to 3.7:1 (#1841). The
       // selection ring alone still marks it.
       className={`group bg-surface rounded-md select-none transition-all border z-0
@@ -573,7 +573,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? `ring-1 ring-info${overlayClass ? "" : " bg-info/10"}` : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-info/20"}` : ""}
+        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? `ring-1 ring-info${overlayClass ? "" : " bg-info/10"}` : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-primary-emphasis/20"}` : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
