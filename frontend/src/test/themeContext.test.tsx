@@ -397,3 +397,20 @@ describe('ThemeProvider — unavailable storage', () => {
     expect(() => render(<ThemeProvider><div /></ThemeProvider>)).not.toThrow()
   })
 })
+
+describe('themeSeededFromDefault under StrictMode (#1859)', () => {
+  it('stays true when the initializer runs twice on a fresh browser', async () => {
+    const { StrictMode } = await import('react')
+    const { render } = await import('@testing-library/react')
+    const mod = await import('../context/ThemeContext')
+    localStorage.clear()
+    render(
+      <StrictMode>
+        <mod.ThemeProvider>
+          <div />
+        </mod.ThemeProvider>
+      </StrictMode>,
+    )
+    expect(mod.themeSeededFromDefault).toBe(true)
+  })
+})

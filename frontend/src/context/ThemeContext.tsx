@@ -47,7 +47,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
-      themeSeededFromDefault = !stored;
+      // Sticky across a repeat init: React StrictMode (dev) double-invokes this
+      // initializer, and the second call sees the "system" the first just wrote.
+      // A stored non-"system" value is a real choice and clears the flag.
+      themeSeededFromDefault = !stored || (stored === "system" && themeSeededFromDefault);
       if (!stored) {
         localStorage.setItem(STORAGE_KEY, "system");
         return "system";
