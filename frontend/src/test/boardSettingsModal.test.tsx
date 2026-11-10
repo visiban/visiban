@@ -392,7 +392,10 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('Members tab shows "Add member" section heading for admins', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getByText(/add member/i)).toBeInTheDocument()
+    const heading = screen.getByText(/add member/i)
+    expect(heading).toBeInTheDocument()
+    // #1495: shares the section-heading style with Invite by email / Pending invites
+    expect(heading).toHaveClass('text-sm', 'font-medium', 'text-fg-tertiary', 'uppercase')
   })
 })
 
