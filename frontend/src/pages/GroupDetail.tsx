@@ -1255,9 +1255,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 )}
               </div>
               {subgroups.length === 0 ? (
-                <p className="text-fg-muted text-sm">
-                  Subgroups let you organize boards and members into nested workspaces.
-                </p>
+                <div className="flex flex-col items-center text-center py-6" data-testid="subgroups-empty">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-fg-faint mb-2" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                  <p className="text-fg-tertiary text-sm">No subgroups yet</p>
+                  <p className="text-fg-muted text-sm">
+                    Subgroups let you organize boards and members into nested workspaces.
+                  </p>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {subgroups.map((sg) => (

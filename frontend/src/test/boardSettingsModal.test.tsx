@@ -392,7 +392,10 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('Members tab shows "Add member" section heading for admins', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getByText(/add member/i)).toBeInTheDocument()
+    const heading = screen.getByText(/add member/i)
+    expect(heading).toBeInTheDocument()
+    // #1495: shares the section-heading style with Invite by email / Pending invites
+    expect(heading).toHaveClass('text-sm', 'font-medium', 'text-fg-tertiary', 'uppercase')
   })
 })
 
@@ -965,7 +968,8 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
-    expect(screen.getByText(/to be added/i)).toBeInTheDocument()
+    // #1495: shares the section-heading style with Add member
+    expect(screen.getByText(/to be added/i)).toHaveClass('text-sm', 'font-medium', 'text-fg-tertiary', 'uppercase')
   })
 
   it('staged invite shows the user name and a role select', async () => {

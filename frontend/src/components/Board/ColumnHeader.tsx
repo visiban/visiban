@@ -176,7 +176,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           <span aria-hidden="true" className={`text-xs leading-none ${overWip ? "text-danger" : "text-warning"}`}>⚠</span>
         )}
         <span
-          className="text-[11px] font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
+          className="text-xs font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
           title={column.name}
         >

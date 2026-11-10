@@ -1257,7 +1257,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {isAdmin && (
                 <div className="border-t border-line pt-4 mt-2">
-                  <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-3">Add member</p>
+                  <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">Add member</p>
                   <div className="flex flex-col gap-4">
                     <div className="relative">
                       <input
@@ -1332,7 +1332,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                     {staged.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">To be added</p>
+                        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-2">To be added</p>
                         <div className="flex flex-col gap-0">
                           {staged.map((s) => (
                             <div key={s.user.id} className="py-2.5 border-b border-line/60 last:border-0">

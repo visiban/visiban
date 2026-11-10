@@ -848,11 +848,12 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Typography
 
-- **Minimum text size for informational content is `text-xs` (12px).** Never use `text-[10px]` or smaller arbitrary pixel sizes for stats, labels, status text, or any text the user is meant to read. Sub-12px arbitrary sizes are reserved for decorative single-glyph indicators where the meaning is carried by an adjacent label or `title` attribute (e.g. the rotated column abbreviation in a collapsed column header).
+- **Minimum text size for informational content is `text-xs` (12px).** Never use `text-[10px]` or smaller arbitrary pixel sizes for stats, labels, status text, or any text the user is meant to read. Sub-12px arbitrary sizes are reserved for decorative single-glyph indicators where the meaning is carried by an adjacent label or `title` attribute (the collapsed column abbreviation is **not** one of these: it is the only way to identify a collapsed column, so it is `text-xs` (#1738)).
 - **Info-tooltip triggers (`RoleInfoTooltip`) are `w-6 h-6 text-xs`** (24px minimum target, 12px glyph floor) (#1857). A child `<strong>` inside an on-tint strip uses the same `*-on-tint` text token, never plain `text-<hue>`.
 - Page headings: `text-xl font-semibold text-fg`
 - Page-level section headings (Dashboard-style landmark regions like "My Boards", "Groups", "Favorite Boards"): `text-lg font-semibold text-fg`. These are top-level navigation regions on a full page, not sub-sections inside a card or panel. Pair each heading with an `id` and `aria-labelledby` on the enclosing `<section>` so the landmark has an accessible name.
 - Section headings (sub-sections inside a card, panel, or modal): `text-sm font-medium text-fg-tertiary uppercase tracking-wide`
+- **One section-heading style across the Members surfaces (#1495).** Within Board Settings → Members ("Add member", "To be added"), the board invite panel ("Invite by email", "Pending invites") and the group page's invite panel ("Invite by email"), section headings use the section-heading style above. On the group page, "Invite links" is the panel's title (`text-sm font-semibold text-fg-secondary`), not a section heading; "Pending invites" is a heading of the board panel variant only. Do not use `text-xs font-semibold text-fg-muted uppercase` for a section heading on these Members surfaces: it makes the newer sections look more prominent than the primary one. Two uses of that style in the Members tab are not section headings and stay as they are: the Member/Role column-header row and the "Role permissions" tooltip heading.
 - Body: `text-sm text-fg-secondary`
 - Muted/secondary: `text-sm text-fg-muted`
 - Monospace (version strings, IDs): `font-mono text-xs text-fg-muted`
