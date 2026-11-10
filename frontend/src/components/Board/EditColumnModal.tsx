@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import type { BoardColor } from "../../utils/boardColors";
 import { updateColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -21,6 +22,8 @@ interface Props {
   /** Open on this tab (#1101: "Add policy…" and the popover's "Edit policy"
    *  open on Policy). Unset opens on Settings. */
   initialTab?: EditColumnTab;
+  /** Colors in use on the board, offered in the custom color popover (#2098). */
+  boardColors?: BoardColor[];
 }
 
 const TABS: { id: EditColumnTab; label: string }[] = [
@@ -28,7 +31,7 @@ const TABS: { id: EditColumnTab; label: string }[] = [
   { id: "policy", label: "Policy" },
 ];
 
-export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab }: Props) {
+export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors }: Props) {
   const [tab, setTab] = useState<EditColumnTab>(initialTab ?? "settings");
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
@@ -195,7 +198,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
 
               <div>
                 <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-                <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom />
+                <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer select-none">

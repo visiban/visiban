@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { colorName } from "../../constants/colors";
 import { clampLeftToVisible, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { normalizeHex } from "../../utils/colorContrast";
+import { boardColorsOutsidePalette, type BoardColor } from "../../utils/boardColors";
 import { DISMISS_LAYER_ATTR } from "../../utils/dismissLayer";
 import CustomColorPanel from "./CustomColorPanel";
 
@@ -61,6 +62,12 @@ interface Props {
   allowCustom?: boolean;
   /** Wording of the custom panel's primary button. Default "Apply". */
   applyLabel?: string;
+  /**
+   * Colors already in use on the board (#2098), offered in the custom popover as an
+   * "On this board" row. Ones that are already a swatch in `colors` are dropped here,
+   * so callers pass the board's full list; an empty remainder hides the row.
+   */
+  boardColors?: readonly BoardColor[];
 }
 
 /**
@@ -83,6 +90,7 @@ export default function ColorSwatchPicker({
   groupLabel = "Color",
   allowCustom = false,
   applyLabel,
+  boardColors,
 }: Props) {
   const dim = size === "sm" ? "w-5 h-5" : "w-7 h-7";
   const current = normalizeHex(value);
@@ -112,6 +120,7 @@ export default function ColorSwatchPicker({
           dim={dim}
           onChange={onChange}
           applyLabel={applyLabel}
+          boardColors={boardColors}
         />
       )}
     </div>
@@ -125,10 +134,11 @@ interface ControlProps {
   dim: string;
   onChange: (color: string) => void;
   applyLabel?: string;
+  boardColors?: readonly BoardColor[];
 }
 
 /** The trigger, which shows a custom value itself, plus the popover while open. */
-function CustomColorControl({ colors, value, size, dim, onChange, applyLabel }: ControlProps) {
+function CustomColorControl({ colors, value, size, dim, onChange, applyLabel, boardColors }: ControlProps) {
   const [anchor, setAnchor] = useState<{ top: number; bottom: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const open = anchor !== null;
@@ -195,6 +205,7 @@ function CustomColorControl({ colors, value, size, dim, onChange, applyLabel }: 
           value={value}
           fallbackColor={colors[0] ?? "#000000"}
           applyLabel={applyLabel}
+          boardColors={boardColorsOutsidePalette(boardColors, colors)}
           onApply={apply}
           onClose={close}
         />
@@ -209,6 +220,8 @@ interface PopoverProps {
   value: string | null | undefined;
   fallbackColor: string;
   applyLabel?: string;
+  /** Already filtered to colors outside the preset palette; empty hides the row. */
+  boardColors: readonly BoardColor[];
   onApply: (color: string) => void;
   onClose: (refocus: boolean) => void;
 }
@@ -217,7 +230,9 @@ interface PopoverProps {
  * Mounted only while open, so the draft dies with it and Escape is registered only then.
  * Not portaled: it has to stay inside a host modal's focus trap.
  */
-function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLabel, onApply, onClose }: PopoverProps) {
+function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLabel, boardColors, onApply, onClose }: PopoverProps) {
+  const boardLabelId = useId();
+  const current = normalizeHex(value);
   const panelRef = useRef<HTMLDivElement>(null);
   const [left, setLeft] = useState(anchor.left);
 
@@ -272,6 +287,30 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
       className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 overflow-y-auto scroll-pb-8"
       style={{ top: top ?? 0, left, maxHeight: visibleMaxHeight(), visibility: top === null ? "hidden" : undefined }}
     >
+      {boardColors.length > 0 && (
+        // Reuse, not discovery: colors the board already uses, so a new column, row or
+        // label can match one without retyping its hex (#2098). Choosing one applies it.
+        <div role="group" aria-labelledby={boardLabelId} className="mb-3">
+          <p id={boardLabelId} className="text-xs font-medium text-fg-tertiary mb-1.5">On this board</p>
+          <div className="flex flex-wrap gap-2 max-w-[200px]">
+            {boardColors.map((b) => {
+              const selected = current !== null && current === normalizeHex(b.color);
+              return (
+                <button
+                  key={b.color}
+                  type="button"
+                  onClick={() => onApply(b.color)}
+                  aria-label={`Use color from ${b.usedBy}`}
+                  aria-pressed={selected}
+                  title={b.usedBy}
+                  className={`w-7 h-7 rounded-full border-2 ${SWATCH_FOCUS} ${selected ? SWATCH_SELECTED : "border-transparent"}`}
+                  style={{ backgroundColor: b.color }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
       <CustomColorPanel
         value={value}
         fallbackColor={fallbackColor}

@@ -110,14 +110,15 @@ describe('source scan: dots and chips (#2094)', () => {
 
   it.each(DOT_FILES)('%s: every rounded-full dot filled from a user color has color-dot', (file) => {
     const src = read(file)
-    // A dot is a <span> whose style fills it from a column/lane/label/row color.
-    const spans = src.match(/<span\b[^<]*?backgroundColor: *(?:[\w.]+\.color|colorDot|opt\.color)[^<]*?>/gs) ?? []
+    // A dot is a <span> whose style fills it from a column/lane/label/row color
+    // (`.dot` is the shared card-action choice's color field, #2103).
+    const spans = src.match(/<span\b[^<]*?backgroundColor: *(?:[\w.]+\.(?:color|dot)|colorDot|opt\.color)[^<]*?>/gs) ?? []
     // Stripes (w-1) sit beside a name and are decorative: no ring.
     const dots = spans.filter((s) => s.includes('rounded-full') && !/\bw-1 /.test(s))
     expect(dots.length).toBeGreaterThan(0)
     for (const s of dots) {
       // BulkActionToolbar's priority dot uses the fixed PRIORITY_COLORS palette (opaque, tested colors).
-      if (file.endsWith('BulkActionToolbar.tsx') && /\bp\.color\b/.test(s)) continue
+      if (file.endsWith('BulkActionToolbar.tsx') && /\bp\.(?:color|dot)\b/.test(s)) continue
       expect(s, s).toContain('color-dot')
     }
   })

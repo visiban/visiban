@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { BoardColor } from "../../utils/boardColors";
 import { createColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -10,9 +11,11 @@ interface Props {
   boardId: number;
   onAdded: (column: Column) => void;
   onClose: () => void;
+  /** Colors in use on the board, offered in the custom color popover (#2098). */
+  boardColors?: BoardColor[];
 }
 
-export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
+export default function AddColumnModal({ boardId, onAdded, onClose, boardColors }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
   const [wipLimit, setWipLimit] = useState("");
@@ -76,7 +79,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         </div>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-          <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom />
+          <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
         </div>
       </div>
 
