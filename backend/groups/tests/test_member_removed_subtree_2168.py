@@ -77,6 +77,15 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
         # grandchild's inherited row would now show root's, with no frame.
         self.assertEqual(self._removed_channels(frames), {self.child.pk})
 
+    def test_ancestor_row_with_an_unknown_role_does_not_keep_the_subtree(self):
+        # The members panel lists an inherited row only when its role is a
+        # known GroupMembership.Role (#1829), so a stale root row must not
+        # suppress the grandchild's frame.
+        GroupMembership.objects.filter(group=self.root, user=self.member).update(role="bogus")
+        GroupMembership.objects.create(group=self.child, user=self.member, role="member")
+        frames = self._remove(self.child)
+        self.assertEqual(self._removed_channels(frames), {self.child.pk, self.grandchild.pk})
+
     def test_all_content_member_is_announced_on_every_descendant(self):
         # can_access_all_content grants access to every group but is not a row
         # in a members panel: the subgroups listed this user only through root.
