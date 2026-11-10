@@ -290,7 +290,7 @@ Below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls 
 
 Site admins can manage the instance from the `/admin` panel (accessible via the sidebar or directly):
 
-- **Registration mode** — open (anyone can sign up), invite-only (registration disabled; admin creates accounts), or closed
+- **Registration mode** — open (anyone can sign up), invite-only (only someone with a valid invite link can sign up), or closed (no self-registration; admins create accounts)
 - **User management** — create accounts, toggle active/site-admin status, and force a password reset on next login
 - **Maintenance mode** — puts the instance into read-only mode for the duration of an upgrade or migration; non-admin writes are rejected while reads keep working
 - **Email (SMTP) configuration** — set up the outgoing mail server for password resets, verification, and notification email straight from the admin UI, no environment variables or restart required

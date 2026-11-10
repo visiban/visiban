@@ -17,7 +17,9 @@ prompt (``.claude/agents/rbac-check.md``) asks six questions; three of them are
      ``GATE_CALL_NAMES``, or an explicit ``role=`` hand-off to the service layer that owns the gate.
      Each must be about the *caller's* role, not a request body's or a target
      row's, and a returned denial must be acted on (#2116; see the notes above
-     :data:`CALLER_IDENTITY_ROOTS` and :func:`_consumed`).
+     :data:`CALLER_IDENTITY_ROOTS` and :func:`_consumed`). A helper refuses by
+     raising only where the raise is on the branch its comparison decides
+     (#2166; see :func:`_raise_guarded`).
 
 The other three (cross-board isolation beyond the mechanical lookup-scoping
 case, group-inheritance correctness, and "is this the *right* minimum role for
@@ -882,6 +884,111 @@ def _consumed(call: ast.Call, fn: ast.AST, parents: dict) -> bool:
     return False
 
 
+def _raises_directly(stmts) -> bool:
+    """True when *stmts* runs a ``raise`` whenever the block itself runs (#2166).
+
+    Only a ``raise`` that is a statement of the block counts, or one in a
+    ``with`` block that is (``with transaction.atomic(): raise ...``). A raise
+    under a nested ``if``/``elif``, loop or ``try`` is decided by another test,
+    and one inside a nested def does not run with the block at all.
+    """
+    for st in stmts:
+        if isinstance(st, ast.Raise):
+            return True
+        if isinstance(st, (ast.With, ast.AsyncWith)) and _raises_directly(st.body):
+            return True
+    return False
+
+
+def _block_of(stmt: ast.stmt, fn: ast.AST, parents: dict) -> list:
+    """The statement list that holds *stmt* (``fn.body`` for a top-level one)."""
+    parent = parents.get(stmt, fn)
+    for name in ("body", "orelse", "finalbody"):
+        block = getattr(parent, name, None)
+        if isinstance(block, list) and any(st is stmt for st in block):
+            return block
+    return []
+
+
+def _branch_raises(stmt: ast.stmt, fn: ast.AST, parents: dict) -> bool:
+    """True when a branch that *stmt*'s test decides raises (#2166).
+
+    Either branch counts when it raises unconditionally (``if role not in X:
+    raise`` and ``if role in X: ... else: raise`` both refuse on the
+    comparison's outcome), and so does an unconditional ``raise`` straight after
+    an ``if`` whose body always leaves (``if role in X: return None`` then
+    ``raise PermissionDenied``): that raise is reached only on the comparison's
+    other outcome. A ``raise`` anywhere else in the helper is decided by a
+    different test and proves nothing about this one: an unrelated ``if role is
+    None: raise ValueError``, an ``elif other: raise`` (an ``elif`` is a nested
+    ``if`` in ``orelse``), or a raise under an inner ``if`` in either branch.
+    """
+    if _raises_directly(stmt.body) or _raises_directly(stmt.orelse):
+        return True
+    if not isinstance(stmt, ast.If) or stmt.orelse or not stmt.body:
+        return False
+    if not isinstance(stmt.body[-1], (ast.Return, ast.Raise)):
+        return False
+    block = _block_of(stmt, fn, parents)
+    idx = next((i for i, st in enumerate(block) if st is stmt), None)
+    return idx is not None and idx + 1 < len(block) and isinstance(block[idx + 1], ast.Raise)
+
+
+def _comparison_bound_names(targets, value, node: ast.AST) -> set:
+    """Names that receive the sub-expression containing *node* (#2166)."""
+    names: set = set()
+
+    def holds(expr) -> bool:
+        return expr is not None and any(n is node for n in ast.walk(expr))
+
+    def bind(t, v) -> None:
+        if isinstance(t, ast.Name):
+            if holds(v):
+                names.add(t.id)
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            if isinstance(v, (ast.Tuple, ast.List)) and len(v.elts) == len(t.elts):
+                for te, ve in zip(t.elts, v.elts):
+                    bind(te, ve)
+
+    for t in targets:
+        bind(t, value)
+    return names
+
+
+def _raise_guarded(node: ast.AST, fn: ast.AST, parents: dict) -> bool:
+    """True when *node*'s outcome decides whether a ``raise`` runs (#2166).
+
+    That is: *node* is in a ``raise`` statement, or is (part of) the test of an
+    ``if``/``while`` with a raising branch (see :func:`_branch_raises`), or is
+    bound to a name that such a test reads. Before #2166 a helper counted as
+    raising if it held any ``raise`` at all, so an unrelated one let a caller
+    drop the helper's returned denial and still pass.
+    """
+    child, stmt = node, node
+    while not isinstance(stmt, ast.stmt) and stmt in parents:
+        child, stmt = stmt, parents[stmt]
+    if isinstance(stmt, ast.Raise):
+        return True
+    if isinstance(stmt, (ast.If, ast.While)) and child is stmt.test:
+        return _branch_raises(stmt, fn, parents)
+    if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+        targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
+        # Bare names only, paired with the value element they receive:
+        # ``self._ok = ...`` / ``ctx["ok"] = ...`` bind no name an ``if`` can
+        # read back, and ``ok, flag = role in X, role is None`` binds only
+        # ``ok`` to the comparison. A tuple target with a non-matching value
+        # binds nothing.
+        names = _comparison_bound_names(targets, getattr(stmt, "value", None), node)
+        for st in _body_nodes(fn):
+            if (
+                isinstance(st, (ast.If, ast.While))
+                and any(isinstance(n, ast.Name) and n.id in names for n in ast.walk(st.test))
+                and _branch_raises(st, fn, parents)
+            ):
+                return True
+    return False
+
+
 def _scan_gates(
     fn: ast.FunctionDef,
     cls: ast.ClassDef,
@@ -911,6 +1018,8 @@ def _scan_gates(
     caller = _caller_names(fn, trusted, methods, mod)
     parents = _parents(fn)
     cmp_gate = False
+    # Whether a gate found here refuses by raising on its own outcome (#2166).
+    raise_gate = False
 
     # A role comparison anywhere in the body, on the caller's side (#2116).
     for cmp_node in (n for n in _body_nodes(fn) if isinstance(n, ast.Compare)):
@@ -939,7 +1048,9 @@ def _scan_gates(
             for op in (cmp_node.left, *cmp_node.comparators)
         ):
             cmp_gate = True
-            break
+            if _raise_guarded(cmp_node, fn, parents):
+                raise_gate = True
+                break
 
     for call in _calls(fn):
         dotted = _dotted(call.func)
@@ -982,6 +1093,7 @@ def _scan_gates(
                 if tail in GATE_PREDICATE_NAMES:
                     if _consumed(call, fn, parents):
                         cmp_gate = True
+                        raise_gate |= _raise_guarded(call, fn, parents)
                 else:
                     ev.role_gate = True
         if dotted.split(".", 1)[0] in ROLE_DELEGATION_ROOTS and any(
@@ -1002,6 +1114,7 @@ def _scan_gates(
                 ev.role_gate |= inner.role_gate
                 if inner.returned_gate and _consumed(call, fn, parents):
                     cmp_gate = True
+                    raise_gate |= _raise_guarded(call, fn, parents)
                 ev.raw_membership |= inner.raw_membership
                 ev.unresolved.extend(inner.unresolved)
             continue
@@ -1036,10 +1149,12 @@ def _scan_gates(
 
     # A comparison refuses by raising, or by returning a denial. A handler's
     # return is the response; a helper's return is only a value its caller may
-    # drop, so a helper that never raises passes its gate up as returned_gate,
-    # and the caller counts it only where it acts on the result (#2116).
+    # drop, so a helper whose comparison does not decide a raise passes its gate
+    # up as returned_gate, and the caller counts it only where it acts on the
+    # result (#2116). The raise must be on the branch the comparison decides:
+    # an unrelated ``raise`` elsewhere in the helper refuses nothing (#2166).
     if cmp_gate:
-        if depth == 0 or any(isinstance(n, ast.Raise) for n in _body_nodes(fn)):
+        if depth == 0 or raise_gate:
             ev.role_gate = True
         else:
             ev.returned_gate = True
@@ -2159,6 +2274,207 @@ def self_test() -> int:
                 1,
             )},
             None,
+            None,
+            {},
+        ),
+        # ── #2166: the raise must be on the branch the comparison decides ──
+        (
+            # The issue's reproduction: an unrelated raise in the helper used to
+            # make the helper "raise", so dropping its returned denial passed.
+            "an unrelated raise in a gate helper does not make a dropped result a gate",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "def _annotation_denied(role):\n",
+                "def _annotation_denied(role):\n"
+                "    if role is None:\n"
+                "        raise ValueError\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        denied = _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # Same, with the unrelated raise after the allow-branch's return:
+            # it is reached only when the comparison fails, but a second test
+            # decides it, so it is not the comparison's refusal.
+            "a conditional raise after the allow-return is not the comparison's refusal",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "        return None\n"
+                "    if role is None:\n"
+                "        raise ValueError\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        denied = _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # An ``elif`` is a nested ``if`` in ``orelse``: its raise is decided
+            # by the elif's own test, not by the role comparison.
+            "a raise in an unrelated elif is not the comparison's refusal",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "        return None\n"
+                "    elif role is None:\n"
+                "        raise ValueError\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        denied = _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # Positive control: a raise on the comparison's own branch still
+            # refuses, so the caller need not act on the result.
+            "a helper that raises on the comparison's branch still gates a dropped result",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    if role not in card_services.ANNOTATION_ROLES:\n"
+                "        raise PermissionDenied\n"
+                "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            None,
+            None,
+            {},
+        ),
+        (
+            # Positive control: ``if allowed: return`` then an unconditional
+            # raise is the comparison's other outcome.
+            "an unconditional raise after the allow-return still gates a dropped result",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "        return None\n"
+                "    raise PermissionDenied\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            None,
+            None,
+            {},
+        ),
+        (
+            # Positive control for the Assign branch: ``ok = role in X`` then ``if not ok: raise``.
+            "a raise decided by a name bound from the comparison still gates a dropped result",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    ok = role in card_services.ANNOTATION_ROLES\n"
+                "    if not ok:\n"
+                "        raise PermissionDenied\n"
+                "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            None,
+            None,
+            {},
+        ),
+        (
+            # An attribute target binds no name: an unrelated ``if holder.flag: raise`` is not the comparison's refusal.
+            "a comparison stored on an attribute is not read back by an unrelated raise",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    holder.ok = role in card_services.ANNOTATION_ROLES\n"
+                "    if holder.flag:\n"
+                "        raise PermissionDenied\n"
+                "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # Tuple binding: only ``ok`` receives the comparison, so a raise
+            # decided by ``flag`` is not the comparison's refusal.
+            "a tuple-bound sibling name does not carry the comparison to a raise",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    ok, flag = role in card_services.ANNOTATION_ROLES, role is None\n"
+                "    if flag:\n"
+                "        raise ValueError\n"
+                "    if ok:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
             None,
             {},
         ),

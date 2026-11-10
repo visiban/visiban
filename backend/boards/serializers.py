@@ -8,7 +8,8 @@ from django.db.models import F, Prefetch, Q
 from django.db.models.functions import Coalesce, Concat, NullIf
 from django.utils.dateparse import parse_date
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
 from accounts.models import User
@@ -3193,6 +3194,25 @@ class CardAttachmentSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.file.url)
         return obj.file.url
+
+
+# The ``expand`` query parameter that ``_expand_requested`` reads by hand, for
+# the ``@extend_schema`` of every operation whose response carries a
+# ``BoardSerializer`` (#2031). No filter backend or paginator publishes a
+# hand-parsed parameter, so without this the schema omits it and generated
+# clients cannot request ``group_detail``. It stays a plain string, not an enum:
+# the value is a comma-separated list and unknown entries are ignored.
+EXPAND_QUERY_PARAMETER = OpenApiParameter(
+    name="expand",
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description=(
+        "Comma-separated list of related objects to expand. `group` populates "
+        "`group_detail` with the board's group and its ancestors; without it "
+        "`group_detail` is `null`. Unknown values are ignored."
+    ),
+)
 
 
 def _expand_requested(context, name):

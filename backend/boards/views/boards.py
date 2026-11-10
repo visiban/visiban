@@ -10,8 +10,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ErrorDetail, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
-    extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse,
+    extend_schema, extend_schema_view, inline_serializer, OpenApiParameter, OpenApiResponse,
 )
 
 from accounts.models import User
@@ -35,6 +36,7 @@ from ..permissions import (
     get_board_role,
 )
 from ..serializers import (
+    EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
@@ -195,6 +197,28 @@ def _group_gone_error():
 
     return ValidationError({"group": [ErrorDetail(_BOARD_GROUP_NOT_ALLOWED_MSG, code="does_not_exist")]})
 
+# ``get_queryset()`` reads ``starred`` by hand, so no filter backend publishes
+# it (#2031). It is compared to the literal ``"true"`` (case-sensitive) and
+# never reaches an ORM text lookup, so ``query_text()`` is not needed.
+_BOARDS_STARRED_PARAMETER = OpenApiParameter(
+    name="starred",
+    type=OpenApiTypes.BOOL,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description=(
+        "`true` returns only the boards the requesting user has starred. "
+        "Omitted or any other value returns every board the user can access."
+    ),
+)
+
+
+# list and retrieve are the inherited ModelViewSet actions, so their schema is
+# set here rather than on a method. Both parse ``expand`` (get_queryset and, on
+# list, get_serializer_context); only list documents ``starred`` (#2031).
+@extend_schema_view(
+    list=extend_schema(parameters=[EXPAND_QUERY_PARAMETER, _BOARDS_STARRED_PARAMETER]),
+    retrieve=extend_schema(parameters=[EXPAND_QUERY_PARAMETER]),
+)
 class BoardViewSet(
     BoardAnalyticsMixin,
     BoardImportExportMixin,
@@ -809,7 +833,7 @@ class BoardViewSet(
     # (no card_count/member_count; columns, cards, members, ... undocumented).
     # Publishing the real serializer is what lets `members` carry its own
     # effective-roster component (#1137). Schema only; the body is unchanged.
-    @extend_schema(responses=BoardFullSerializer)
+    @extend_schema(responses=BoardFullSerializer, parameters=[EXPAND_QUERY_PARAMETER])
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
         """Return the full board state: columns, swimlanes, cards, labels, and members.

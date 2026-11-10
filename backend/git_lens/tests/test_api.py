@@ -22,7 +22,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from boards.models import BoardMembership
+from boards.models import BoardEvent, BoardMembership
 from boards.tests.conftest import _make_board, _make_user
 from git_lens import views
 from git_lens.models import LensConnection
@@ -214,6 +214,9 @@ class LensConnectionRBACTests(TestCase):
                 resp = self._client(self.owner).delete(self.url)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         mock_bcast.assert_not_called()
+        self.assertFalse(
+            BoardEvent.objects.filter(board_id=self.board.id, event="lens_connection.removed").exists()
+        )
 
     def _board_vanishes_after_permission_check(self):
         # Non-threaded stand-in for a board delete winning the race (#1971):
@@ -260,10 +263,25 @@ class LensConnectionRBACTests(TestCase):
         mock_bcast.assert_called_once_with(
             self.board.id,
             "lens_connection.removed",
-            {"board_id": self.board.id},
+            {"board_uid": self.board.uid, "board_id": self.board.id},
             event_id=mock_bcast.call_args[1]["event_id"],
             actor_id=self.owner.id,
         )
+
+    def test_removed_event_carries_board_uid_and_deprecated_board_id(self):
+        # #1858: board_uid is added to match the other terminal events, and the
+        # deprecated integer board_id stays (frozen 1.x payload, #1055). The
+        # change-feed row stores the same payload as the socket frame.
+        LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
+        )
+        with patch("boards.broadcast.broadcast_board_event"):
+            with self.captureOnCommitCallbacks(execute=True):
+                self._client(self.owner).delete(self.url)
+        row = BoardEvent.objects.get(board_id=self.board.id, event="lens_connection.removed")
+        self.assertEqual(row.data, {"board_uid": self.board.uid, "board_id": self.board.id})
+        self.assertIsInstance(row.data["board_uid"], str)
+        self.assertTrue(row.data["board_uid"])
 
 
 class LensConnectionCreatedByNullabilityTests(TestCase):

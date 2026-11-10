@@ -7,7 +7,8 @@ from django.db.models import Exists, OuterRef, Q
 
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers as drf_serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -48,6 +49,7 @@ from .serializers import (
 # boards.serializers/.models lazily, so this does not change the app's
 # dependency direction (groups still has no *runtime* import of boards) — it
 # only makes the response type visible to schema generation.
+from boards.serializers import EXPAND_QUERY_PARAMETER as _EXPAND_QUERY_PARAMETER
 from boards.serializers import BoardSerializer as _BoardSerializer
 
 logger = logging.getLogger(__name__)
@@ -403,6 +405,23 @@ def _revoke_lapsed_subtree_invite_links(group):
         _revoke_lapsed_admin_invite_links(creator, group)
 
 
+# ``get_queryset()`` reads ``starred`` by hand, so no filter backend publishes
+# it (#2031). It is compared to the literal ``"true"`` (case-sensitive) and
+# never reaches an ORM text lookup.
+_GROUPS_STARRED_PARAMETER = OpenApiParameter(
+    name="starred",
+    type=OpenApiTypes.BOOL,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description=(
+        "`true` returns only the groups the requesting user has starred. "
+        "Omitted or any other value returns every group the user can access."
+    ),
+)
+
+
+# list is the inherited ModelViewSet action, so its schema is set here.
+@extend_schema_view(list=extend_schema(parameters=[_GROUPS_STARRED_PARAMETER]))
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
 
@@ -1039,7 +1058,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------
 
     # pagination_class=None: GET returns the full board list in one payload, never paginated.
-    @extend_schema(summary="List boards directly in a group", methods=["GET"], responses=_BoardSerializer(many=True))
+    @extend_schema(
+        summary="List boards directly in a group",
+        methods=["GET"],
+        responses=_BoardSerializer(many=True),
+        parameters=[_EXPAND_QUERY_PARAMETER],
+    )
     @extend_schema(
         summary="Create a board inside a group",
         methods=["POST"],
