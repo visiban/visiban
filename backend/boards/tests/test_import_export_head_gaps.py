@@ -955,7 +955,10 @@ class ImportOpenApiResponseTests(TestCase):
             for code in codes:
                 with self.subTest(path=path, code=code):
                     content = op["responses"][code]["content"]["application/json"]["schema"]
-                    self.assertEqual(content["type"], "object")
+                    # A declared 400 is widened to anyOf [declared, pre-view
+                    # 400 bodies] (#2178); every branch is still an object.
+                    for branch in content.get("anyOf", [content]):
+                        self.assertEqual(branch["type"], "object")
 
 
 class ImportTrelloTailTests(TestCase):

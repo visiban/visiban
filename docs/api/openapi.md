@@ -199,7 +199,8 @@ that status code, so `backend-schema-fuzz` has something to validate a real erro
 against instead of silently skipping an undocumented one. It never overwrites a response an
 operation already declares — the card-mutation 409s (`WipLimitExceeded`, `VersionConflict`,
 etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
-`@extend_schema` blocks from #1108 still win.
+`@extend_schema` blocks from #1108 still win. The one exception is a declared `400`, which is
+widened rather than replaced (see below).
 
 **Validation errors (`400`).** The same hook documents a `400` on every operation — including
 a path-parameter-only `GET` or `DELETE` — using DRF's validation-error
@@ -251,8 +252,30 @@ body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling
 and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. The project `EXCEPTION_HANDLER` answers both
 with the same JSON `400`. Because content negotiation reads the query string on every request, any
 operation can answer it, so the hook documents the `400` on every operation
-([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)). An operation that already declares
-its own `400` keeps it.
+([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)).
+
+*(Changed in 1.3, #2178)* An operation that declares its own `400` with `@extend_schema` keeps
+that schema, and the hook widens it to `anyOf: [<declared>, <pre-view 400s>]` so the `400`s raised
+before the view runs still conform. The declared body (move's `CardMoveVersionTypeError`, the invite
+`InviteEmailBadRequest`, and so on) stays documented, as the first branch. The pre-view branches are:
+
+- `{"detail": "<string>"}` and nothing else, for a malformed body, a refused charset or a server
+  limit. Every declared `400` that has a schema gets it, a `GET` or `DELETE` included, because the query-string limit
+  and the charset check apply to every operation.
+- `{"<field>": ["<string>", ...]}`, `StrictJSONParser`'s refusal of a lone surrogate under any key,
+  one the endpoint would ignore included. Every operation except a `GET` gets it (and a `GET` that
+  declares a request body): DRF parses a body only when the view reads it, and no `GET` view does.
+
+The branches are deliberately narrower than the validation-error shape above, which accepts any
+object: a union with that would stop a declared `400` constraining anything, such as the coded
+query-parameter `400`'s required `detail` and `code`. The union is `anyOf`, not `oneOf`: a body
+such as `{"detail": "x"}` can match both the declared schema and a pre-view branch, which `oneOf`
+would reject. A declared `400` with no body (a description only) gains the validation-error body
+instead, since it never described one. This changes the document, not the server: those `400`s
+were already sent, and `backend-schema-fuzz` failed on them depending on the seed.
+`test_schema_hooks.py` checks every operation's `400` against the pre-view bodies that operation
+can answer, so a new
+declared `400` needs no per-operation baseline entry.
 
 **Server-layer multipart rejections are filtered, not baselined.** When a request's
 `Content-Type` is `multipart/form-data` but the body is malformed, the ASGI server
