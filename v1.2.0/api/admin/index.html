@@ -5281,6 +5281,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 </tbody>
 </table>
+<p><code>must_change_username</code> is <strong>not</strong> patchable here and is not in the admin user object: a <code>PATCH</code> that sends it is ignored. The flag is read-only over the API for every account. The user sees it on <a href="../authentication/#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>, and a username change by the account owner clears it: <a href="../authentication/#post-apiv1authchoose-username"><code>POST /api/v1/auth/choose-username/</code></a>, or a changed <code>username</code> on <code>PATCH /api/v1/auth/me/</code>.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
