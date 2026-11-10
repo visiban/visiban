@@ -99,3 +99,14 @@ describe('ColumnHeader — Escape in the rename input (#1860)', () => {
     expect(onLower).toHaveBeenCalled()
   })
 })
+
+// #1738 — the collapsed abbreviation is the only identifier of a collapsed column,
+// so it must not drop below the 12px informational-text floor.
+describe('ColumnHeader — collapsed abbreviation size (#1738)', () => {
+  it('renders the abbreviation at text-xs, not a sub-12px arbitrary size', () => {
+    renderHeader({ collapsed: true, abbreviation: 'BKL' })
+    const abbr = screen.getByText('BKL')
+    expect(abbr).toHaveClass('text-xs')
+    expect(abbr.className).not.toMatch(/text-\[\d+px\]/)
+  })
+})
