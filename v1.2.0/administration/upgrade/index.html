@@ -5379,8 +5379,8 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 </ul>
 </div>
 <div class="admonition note">
-<p class="admonition-title">Browser storage keys for the sidebar and theme were renamed (migrated automatically)</p>
-<p>1.1 stored the sidebar and theme preferences under <code>sidebar-collapsed</code>, <code>sidebar-groups-expanded</code>, <code>visiban-theme</code> and <code>visiban-theme-synced</code>. 1.2 stores them as <code>user:prefs:sidebar-collapsed</code>, <code>user:prefs:sidebar-groups-expanded</code>, <code>user:prefs:theme</code> and <code>user:prefs:theme-synced</code>. Each browser copies the old value to the new key on first load and removes the old key, unless the new key already exists, so users keep their choices and no action is needed (#1855). The shim is idempotent and is planned for removal once the old keys have aged out (#1859). Only custom browser tests or scripts that seed the old key names need to change.</p>
+<p class="admonition-title">Browser storage keys for the sidebar and theme were renamed in 1.2</p>
+<p>1.2 renamed the browser storage keys for the sidebar and theme preferences to the <code>user:prefs:*</code> form (<code>user:prefs:sidebar-collapsed</code>, <code>user:prefs:sidebar-groups-expanded</code>, <code>user:prefs:theme</code> and <code>user:prefs:theme-synced</code>) and copied each browser's old values over on first load (#1855). 1.3 removes that copy (#1859): preferences still saved under the pre-1.2 key names are no longer migrated, so users upgrading directly from 1.1 or earlier to 1.3 find their sidebar preferences reset to the defaults once and set them again. Their theme is not reset: the browser takes it from the signed-in account. Anyone who went through 1.2 keeps their choices. Only custom browser tests or scripts that seed the pre-1.2 key names need to change.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">1.2 pre-release changes: change feed <code>next_cursor</code> and custom-field reorder</p>
