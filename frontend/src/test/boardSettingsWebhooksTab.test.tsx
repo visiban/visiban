@@ -49,8 +49,10 @@ const STATUS: WebhookStatus = {
   test_timeout_seconds: 10,
 }
 
-const maya = { id: 7, username: 'maya', display_name: 'Maya Kim', avatar_url: '' }
-const alex = { id: 8, username: 'alex', display_name: 'Alex Reed', avatar_url: '' }
+const maya = { id: 7, username: 'maya', display_name: 'Maya Kim', avatar_url: '', is_site_admin: false }
+const alex = { id: 8, username: 'alex', display_name: 'Alex Reed', avatar_url: '', is_site_admin: false }
+// A site admin (#2068): the creator/owner name carries "(site admin)".
+const dana = { id: 9, username: 'dana', display_name: 'Dana Soto', avatar_url: '', is_site_admin: true }
 
 function sub(overrides: Partial<WebhookSubscription> = {}): WebhookSubscription {
   return {
@@ -325,6 +327,17 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
 })
 
 describe('Webhooks tab — detail', () => {
+  it('labels a site-admin creator and owner "(site admin)" in the row and the detail (#2068)', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub({ created_by: dana, configured_by: maya })])
+    await renderTab()
+    expect(within(screen.getByTestId('webhook-row-1')).getByText(/Created by Dana Soto \(site admin\) ·/)).toBeInTheDocument()
+    await openDetail(user)
+    expect(screen.getByText(/^Dana Soto \(site admin\)/)).toBeInTheDocument()
+    // The owner is not a site admin: no suffix on that name.
+    expect(screen.getByText('Owner now: Maya Kim.')).toBeInTheDocument()
+  })
+
   it('Manage focuses the heading; Back returns focus to that row', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub({ created_by: alex, configured_by: maya })])

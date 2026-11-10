@@ -761,6 +761,14 @@ export type WebhookDisabledReason =
   | 'creator_lost_access'
   | 'secret_unavailable';
 
+/**
+ * A webhook's creator or owner (#2068): `BoardUser` plus `is_site_admin`.
+ * Only the webhook serializer carries the flag; `BoardUser` elsewhere does not.
+ */
+export interface WebhookUser extends BoardUser {
+  is_site_admin: boolean;
+}
+
 export interface WebhookSubscription {
   id: number;
   board: number;
@@ -782,9 +790,9 @@ export interface WebhookSubscription {
   /** '' or one of connection_failed | tls_error | timeout | http_error. */
   last_error_code: string;
   last_status_code: number | null;
-  created_by: BoardUser | null;
+  created_by: WebhookUser | null;
   /** The owner whose board-admin standing keeps the webhook delivering. */
-  configured_by: BoardUser | null;
+  configured_by: WebhookUser | null;
   created_at: string;
   updated_at: string;
   configured_at: string | null;

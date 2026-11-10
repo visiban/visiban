@@ -20,6 +20,7 @@ import {
   testResultCopy,
   urlErrorFromResponse,
   urlShapeError,
+  webhookPersonLabel,
   webhookPosition,
   webhookRowStatus,
 } from '../constants/webhooks'
@@ -102,6 +103,14 @@ describe('constants/webhooks (#863, Part 8)', () => {
     expect(testResultCopy('rate_limited').tone).toBe('warn')
   })
 
+  it('labels a webhook person, with "(site admin)" for a site admin (#2068)', () => {
+    const base = { id: 2, username: 'dana', display_name: 'Dana Soto', avatar_url: '' }
+    expect(webhookPersonLabel({ ...base, is_site_admin: true })).toBe('Dana Soto (site admin)')
+    expect(webhookPersonLabel({ ...base, is_site_admin: false })).toBe('Dana Soto')
+    expect(webhookPersonLabel({ ...base, display_name: '', is_site_admin: true })).toBe('dana (site admin)')
+    expect(webhookPersonLabel(null)).toBe('a former member')
+  })
+
   it('names a webhook by its list position', () => {
     const subs = [{ id: 7 }, { id: 3 }, { id: 9 }]
     expect(webhookPosition(subs, 7)).toBe('Webhook 1 of 3')
@@ -110,7 +119,7 @@ describe('constants/webhooks (#863, Part 8)', () => {
   })
 
   it('maps disabled reasons and the turn-on confirm', () => {
-    const owner = { id: 2, username: 'alex', display_name: 'Alex Reed', avatar_url: '' }
+    const owner = { id: 2, username: 'alex', display_name: 'Alex Reed', avatar_url: '', is_site_admin: false }
     expect(disabledReasonCopy({ disabled_reason: 'failures', configured_by: owner }, 20)?.body).toMatch(/after 20 failed deliveries/)
     expect(disabledReasonCopy({ disabled_reason: 'failures', configured_by: owner }, null)?.body).toMatch(/repeated failed deliveries/)
     expect(disabledReasonCopy({ disabled_reason: 'creator_lost_access', configured_by: owner }, 20)?.body).toMatch(/^Alex Reed is no longer/)

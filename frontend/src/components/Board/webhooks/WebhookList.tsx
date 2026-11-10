@@ -1,5 +1,5 @@
 import type { WebhookSubscription } from "../../../types";
-import { disabledReasonCopy, eventsSummary, lastErrorLabel, webhookRowStatus } from "../../../constants/webhooks";
+import { disabledReasonCopy, eventsSummary, lastErrorLabel, webhookPersonLabel, webhookRowStatus } from "../../../constants/webhooks";
 import { relativeTime } from "../../../utils/relativeTime";
 import WebhookStatusPill from "./WebhookStatusPill";
 
@@ -33,7 +33,7 @@ export default function WebhookList({ subs, now, highlightId, onManage, manageRe
         const status = webhookRowStatus(sub);
         const err = status !== "active" ? lastError(sub, now) : null;
         const reason = !sub.enabled ? disabledReasonCopy(sub, null) : null;
-        const creator = sub.created_by ? sub.created_by.display_name || sub.created_by.username : "a former member";
+        const creator = webhookPersonLabel(sub.created_by);
         return (
           <li
             key={sub.id}

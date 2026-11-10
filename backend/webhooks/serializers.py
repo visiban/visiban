@@ -195,12 +195,31 @@ class WebhookRotateSerializer(serializers.Serializer):
 _DISABLED_REASONS = [c.value for c in WebhookSubscription.DisabledReason if c.value]
 
 
+class WebhookUserSerializer(BoardUserSerializer):
+    """``BoardUserSerializer`` plus ``is_site_admin``, for a webhook's people (#2068).
+
+    The 1.3 UI spec (Part 8) labels a webhook created or owned by a site admin
+    "(site admin)", because that standing, not a board role, is what lets the
+    webhook keep delivering. Scoped to the webhook serializer's ``created_by``
+    and ``configured_by``, which only board admins and site admins read; the
+    flag is deliberately not added to ``BoardUserSerializer``, which every
+    board member sees on cards, comments and members.
+    """
+
+    is_site_admin = serializers.BooleanField(
+        read_only=True, help_text="True when this user is a site admin.",
+    )
+
+    class Meta(BoardUserSerializer.Meta):
+        fields = BoardUserSerializer.Meta.fields + ["is_site_admin"]
+
+
 class WebhookSubscriptionSerializer(serializers.ModelSerializer):
     url_display = serializers.SerializerMethodField()
     event_types = serializers.ListField(child=serializers.CharField(), read_only=True)
     disabled_reason = serializers.SerializerMethodField()
-    created_by = BoardUserSerializer(read_only=True, allow_null=True)
-    configured_by = BoardUserSerializer(read_only=True, allow_null=True)
+    created_by = WebhookUserSerializer(read_only=True, allow_null=True)
+    configured_by = WebhookUserSerializer(read_only=True, allow_null=True)
     board = serializers.IntegerField(source="board_id", read_only=True)
     last_delivered_event_id = serializers.SerializerMethodField(
         help_text="Id of the last change-feed row delivered or skipped by type.",

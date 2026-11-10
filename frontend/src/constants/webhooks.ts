@@ -1,4 +1,4 @@
-import type { WebhookSubscription, WebhookTestResult } from "../types";
+import type { WebhookSubscription, WebhookTestResult, WebhookUser } from "../types";
 
 /**
  * Board Settings → Webhooks copy and styles (#863). Source: 1.3 Release UI
@@ -7,6 +7,17 @@ import type { WebhookSubscription, WebhookTestResult } from "../types";
  */
 
 export type WebhookRowStatus = "active" | "failing" | "disabled";
+
+/**
+ * "Created by" / "Owner now" name (spec Part 8): display name or username,
+ * "(site admin)" when that standing is what keeps the webhook delivering
+ * (#2068), or "a former member" once the account is deleted.
+ */
+export function webhookPersonLabel(user: WebhookUser | null): string {
+  if (!user) return "a former member";
+  const name = user.display_name || user.username;
+  return user.is_site_admin ? `${name} (site admin)` : name;
+}
 
 /** Active / Failing / Disabled: a shape and a word, never color alone (departure 19). */
 export function webhookRowStatus(sub: Pick<WebhookSubscription, "enabled" | "consecutive_failures">): WebhookRowStatus {
