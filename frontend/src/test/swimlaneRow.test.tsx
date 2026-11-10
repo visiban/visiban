@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
@@ -7,6 +7,8 @@ import type { Card, Column, Swimlane } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
 
+vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn() }))
+import { updateSwimlane } from '../api/boards'
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDndContext: () => ({ active: null }),
@@ -497,5 +499,41 @@ describe('SwimlaneRow — Escape in the rename input (#1860)', () => {
     expect(onLower).not.toHaveBeenCalled()
     await user.keyboard('{Escape}')
     expect(onLower).toHaveBeenCalled()
+  })
+})
+
+describe('SwimlaneRow — focus returns to the rename opener (#2087)', () => {
+  it('Escape returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+  })
+  it('Enter commit returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+  })
+  it('a changed-name Enter commit saves via updateSwimlane and returns focus', async () => {
+    const user = userEvent.setup()
+    const props = defaultProps()
+    const updated = { ...props.swimlane, name: 'Customer A2' }
+    vi.mocked(updateSwimlane).mockResolvedValue(updated)
+    render(<SwimlaneRow {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.type(screen.getByDisplayValue('Customer A'), '2{Enter}')
+    await waitFor(() => expect(props.onSwimlaneUpdated).toHaveBeenCalledWith(updated))
+    expect(updateSwimlane).toHaveBeenCalledWith(props.boardId, props.swimlane.id, expect.objectContaining({ name: 'Customer A2' }))
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+  })
+  it('a blur commit does not pull focus back', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.click(document.body)
+    expect(screen.getByRole('button', { name: 'Customer A' })).not.toHaveFocus()
   })
 })

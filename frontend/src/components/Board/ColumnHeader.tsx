@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -44,6 +44,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const [draft, setDraft] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Focus returns to the opener on Escape/Enter (#2087); a blur-commit never steals focus back.
+  const renameTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusTriggerRef = useRef(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
 
@@ -70,8 +73,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     setRenaming(true);
   };
 
-  const commitRename = async () => {
+  const commitRename = async (restoreFocus = false) => {
     const trimmed = draft.trim();
+    if (restoreFocus) focusTriggerRef.current = true;
     setRenaming(false);
     if (!trimmed || trimmed === column.name) return;
     setRenameError(null);
@@ -84,9 +88,17 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   };
 
   const cancelRename = () => {
+    focusTriggerRef.current = true;
     setRenaming(false);
     setDraft("");
   };
+
+  useEffect(() => {
+    if (!renaming && focusTriggerRef.current) {
+      focusTriggerRef.current = false;
+      renameTriggerRef.current?.focus();
+    }
+  }, [renaming]);
 
   // Escape cancels the rename through the stack so it does not also clear the selection (#1860).
   useInlineEditEscape(() => renaming, cancelRename);
@@ -220,9 +232,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
+                if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(true); } // commitRename manages its own error state (renameError) and never rejects
               }}
-              onBlur={commitRename}
+              onBlur={() => void commitRename()}
               onClick={(e) => e.stopPropagation()}
               className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
             />
@@ -231,6 +243,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
               <button
                 type="button"
+                ref={renameTriggerRef}
                 className="font-medium text-fg text-sm truncate min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 title="Click to rename"
                 onClick={(e) => { e.stopPropagation(); startRenaming(); }}

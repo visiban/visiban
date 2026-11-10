@@ -9,6 +9,7 @@ import CollapsedFlyout from "../Common/CollapsedFlyout";
 import { buildSidebarTree } from "../../utils/groupTree";
 import type { SidebarTreeNode } from "../../utils/groupTree";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import Spinner from "../Common/Spinner";
 import { migrateLegacyKey } from "../../utils/migrateLegacyKey";
 import { DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON } from "../../constants/demoCopy";
@@ -262,6 +263,26 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     setRecentAnchor({ top: rect.top, left: rect.right });
   };
 
+  // The mobile drawer is a modal surface (#1776): trap Tab inside it, move focus in on open, and let
+  // useFocusTrap hand focus back to the hamburger that opened it on close (#1732 rule 2).
+  const drawerRef = useRef<HTMLElement>(null);
+  useFocusTrap(drawerRef, mobileOpen);
+  useEffect(() => {
+    if (mobileOpen) drawerRef.current?.focus();
+  }, [mobileOpen]);
+
+  // The drawer is a mobile-only surface: at lg the backdrop is hidden and the sidebar is the permanent
+  // desktop nav, so a drawer left open across a resize/rotate must close or the dialog role and Tab trap
+  // would persist on it (#1776).
+  useEffect(() => {
+    if (!mobileOpen || !onMobileClose || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    if (mql.matches) { onMobileClose(); return; }
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) onMobileClose(); };
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [mobileOpen, onMobileClose]);
+
   const sidebarWidth = collapsed ? "w-12" : "w-56";
 
   // Build favorites flyout sections
@@ -300,7 +321,9 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
         />
       )}
     <aside
-      className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line flex-col h-full overflow-hidden transition-all duration-200
+      ref={drawerRef}
+      {...(mobileOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Navigation menu", tabIndex: -1 } : {})}
+      className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line flex-col h-full overflow-hidden focus:outline-none transition-all duration-200
         ${mobileOpen ? "fixed inset-y-0 left-0 z-50 flex" : "hidden lg:flex"}`}
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >

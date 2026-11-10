@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
@@ -471,5 +471,57 @@ describe('BoardCell — Escape in the add-card input (#1860)', () => {
     render(<><EscapeLowerHandlers onLower={onLower} /><BoardCell {...defaultProps()} /></>)
     await user.keyboard('{Escape}')
     expect(onLower).toHaveBeenCalled()
+  })
+})
+
+describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
+  it('empty cell: Escape returns focus to the cell', async () => {
+    const user = userEvent.setup()
+    render(<BoardCell {...defaultProps()} />)
+    await user.click(screen.getByText('+ Add card'))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus()
+  })
+  it('empty cell: Cancel returns focus to the cell', async () => {
+    const user = userEvent.setup()
+    render(<BoardCell {...defaultProps()} />)
+    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByText('Cancel'))
+    expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus()
+  })
+  it('empty cell: a committed add returns focus to the cell', async () => {
+    const user = userEvent.setup()
+    mockCreateCard.mockResolvedValue(makeCard({ id: 99, title: 'N' }))
+    render(<BoardCell {...defaultProps()} />)
+    await user.click(screen.getByText('+ Add card'))
+    await user.type(screen.getByPlaceholderText('Card title…'), 'N')
+    await user.click(screen.getByText('Add'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus())
+  })
+  describe('populated cell', () => {
+    const populated = () => ({ ...defaultProps(), cards: [makeCard({ id: 1, title: 'A' })] })
+    it('Escape returns focus to the + Add card button', async () => {
+      const user = userEvent.setup()
+      render(<BoardCell {...populated()} />)
+      await user.click(screen.getByText('+ Add card'))
+      await user.keyboard('{Escape}')
+      expect(screen.getByText('+ Add card')).toHaveFocus()
+    })
+    it('Cancel returns focus to the + Add card button', async () => {
+      const user = userEvent.setup()
+      render(<BoardCell {...populated()} />)
+      await user.click(screen.getByText('+ Add card'))
+      await user.click(screen.getByText('Cancel'))
+      expect(screen.getByText('+ Add card')).toHaveFocus()
+    })
+    it('a committed add returns focus to the + Add card button', async () => {
+      const user = userEvent.setup()
+      mockCreateCard.mockResolvedValue(makeCard({ id: 99, title: 'N' }))
+      render(<BoardCell {...populated()} />)
+      await user.click(screen.getByText('+ Add card'))
+      await user.type(screen.getByPlaceholderText('Card title…'), 'N')
+      await user.click(screen.getByText('Add'))
+      await waitFor(() => expect(screen.getByText('+ Add card')).toHaveFocus())
+    })
   })
 })

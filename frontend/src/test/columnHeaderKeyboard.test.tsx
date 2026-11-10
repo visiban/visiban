@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { updateColumn } from '../api/boards'
 import ColumnHeader from '../components/Board/ColumnHeader'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Column } from '../types'
@@ -108,5 +109,41 @@ describe('ColumnHeader — collapsed abbreviation size (#1738)', () => {
     const abbr = screen.getByText('BKL')
     expect(abbr).toHaveClass('text-xs')
     expect(abbr.className).not.toMatch(/text-\[\d+px\]/)
+  })
+})
+
+describe('ColumnHeader — focus returns to the rename opener (#2087)', () => {
+  it('Escape returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Backlog' })).toHaveFocus()
+  })
+  it('Enter commit returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Backlog' })).toHaveFocus()
+  })
+  it('a changed-name Enter commit saves via updateColumn and returns focus', async () => {
+    const user = userEvent.setup()
+    const updated = { ...column, name: 'Backlog2' }
+    vi.mocked(updateColumn).mockResolvedValue(updated)
+    const onColumnUpdated = vi.fn()
+    renderHeader({ onColumnUpdated })
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.type(screen.getByDisplayValue('Backlog'), '2{Enter}')
+    await waitFor(() => expect(onColumnUpdated).toHaveBeenCalledWith(updated))
+    expect(updateColumn).toHaveBeenCalledWith(1, column.id, { name: 'Backlog2' })
+    expect(screen.getByRole('button', { name: 'Backlog' })).toHaveFocus()
+  })
+  it('a blur commit does not pull focus back', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.click(document.body)
+    expect(screen.getByRole('button', { name: 'Backlog' })).not.toHaveFocus()
   })
 })

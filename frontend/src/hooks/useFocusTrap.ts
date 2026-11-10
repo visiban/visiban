@@ -19,7 +19,7 @@ const trapStack: symbol[] = [];
  * the trap deactivates or unmounts (#1732). The opener is captured during
  * render, not in an effect: a child's `autoFocus` (and the surfaces' own
  * focus-on-open effects) have already moved focus by the time effects run.
- * Focus is restored only when it would otherwise be lost (dropped to `body`), so it never steals focus the user moved elsewhere.
+ * Focus is restored only when it would otherwise be lost (dropped to `body`, or left inside a container that stays mounted but is hidden, such as the AppSidebar mobile drawer, #1776), so it never steals focus the user moved elsewhere.
  *
  * Rule (frontend/CLAUDE.md): anything with `aria-modal` uses ModalWrapper or
  * this hook.
@@ -100,7 +100,11 @@ export function useFocusTrap(
       if (!target || !target.isConnected || target === document.body) return;
       const current = document.activeElement;
       // Focus is "lost" once the focused node unmounts: the browser drops it to body.
-      if (!current || current === document.body) target.focus();
+      // A container that stays mounted but gets hidden (the mobile drawer's aside) keeps
+      // document.activeElement inside it; the browser blurs it on display:none, jsdom does not.
+      // Focus inside the container being left is as lost as focus on <body> (#1776).
+      const lost = !current || current === document.body || !!containerRef.current?.contains(current);
+      if (lost) target.focus();
     };
   }, [active, containerRef]);
 }

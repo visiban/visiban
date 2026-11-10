@@ -21,7 +21,7 @@ describe('SingleSelectDropdown menu extensions (#1146)', () => {
     const alpha = screen.getByRole('menuitem', { name: 'Alpha First letter' })
     expect(within(alpha).getByText('First letter')).toHaveClass('text-xs', 'text-fg-tertiary')
     // An option without a description keeps its bare label.
-    expect(screen.getByRole('menuitem', { name: 'Beta' }).innerHTML).toBe('Beta')
+    expect(screen.getByRole('menuitem', { name: 'Beta' }).textContent).toBe('Beta')
   })
 
   it('renders the trigger suffix and folds the detail into the accessible name', () => {
@@ -108,5 +108,33 @@ describe('SingleSelectDropdown menu extensions (#1146)', () => {
     expect(screen.getAllByRole('menuitem')).toHaveLength(1)
     expect(screen.getByRole('menuitem')).not.toHaveAttribute('aria-checked')
     expect(screen.getByRole('menu')).not.toHaveAttribute('aria-describedby')
+  })
+})
+
+describe('SingleSelectDropdown selected-option semantics (#2108)', () => {
+  const opts = [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }]
+  it('marks only the selected option with a non-color check and aria-current (default role)', async () => {
+    render(<SingleSelectDropdown label="Pick" options={opts} selected="b" onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Beta/ }))
+    const beta = screen.getByRole('menuitem', { name: 'Beta' })
+    const alpha = screen.getByRole('menuitem', { name: 'Alpha' })
+    expect(beta).toHaveAttribute('aria-current', 'true')
+    expect(within(beta).getByTestId('singleselect-selected-mark')).toBeInTheDocument()
+    expect(alpha).not.toHaveAttribute('aria-current')
+    expect(within(alpha).queryByTestId('singleselect-selected-mark')).toBeNull()
+  })
+  it('menuitemradio keeps aria-checked and also shows the check', async () => {
+    render(<SingleSelectDropdown label="Pick" options={opts} selected="a" onChange={vi.fn()} optionRole="menuitemradio" />)
+    await userEvent.click(screen.getByRole('button', { name: /Alpha/ }))
+    const alpha = screen.getByRole('menuitemradio', { name: 'Alpha' })
+    expect(alpha).toHaveAttribute('aria-checked', 'true')
+    expect(alpha).not.toHaveAttribute('aria-current')
+    expect(within(alpha).getByTestId('singleselect-selected-mark')).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'Beta' })).toHaveAttribute('aria-checked', 'false')
+  })
+  it('shows no mark when nothing is selected', async () => {
+    render(<SingleSelectDropdown label="Pick" options={opts} selected={null} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Pick' }))
+    expect(screen.queryByTestId('singleselect-selected-mark')).toBeNull()
   })
 })

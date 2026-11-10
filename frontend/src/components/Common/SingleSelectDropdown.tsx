@@ -105,8 +105,12 @@ export interface SingleSelectDropdownProps<T extends string | number> {
   menuActions?: { key: string; label: string; onSelect: () => void }[];
   /**
    * #1146 — `"menuitemradio"` exposes the selection to assistive tech: options get
-   * that role plus `aria-checked`, instead of a color-only `text-info`. Opt-in; the
-   * default `"menuitem"` leaves existing callers unchanged.
+   * that role plus `aria-checked`. Opt-in: flipping the default would rename the
+   * role of every caller's options and every test and e2e spec that queries them.
+   *
+   * Every caller, opted in or not, marks its selected option with a check mark and
+   * (for the default `"menuitem"` role, which cannot carry `aria-checked`)
+   * `aria-current="true"` (#2108): color alone (`text-info`) fails WCAG 1.4.1.
    */
   optionRole?: "menuitem" | "menuitemradio";
 }
@@ -312,6 +316,7 @@ export default function SingleSelectDropdown<T extends string | number>({
             ref={(el) => { itemRefs.current[i] = el; }}
             role={optionRole}
             aria-checked={optionRole === "menuitemradio" ? selected === opt.value : undefined}
+            aria-current={optionRole === "menuitem" && selected === opt.value ? "true" : undefined}
             onClick={() => {
               onChange(selected === opt.value ? null : opt.value);
               setOpen(false);
@@ -331,14 +336,24 @@ export default function SingleSelectDropdown<T extends string | number>({
               selected === opt.value ? "text-info" : "text-fg-secondary"
             }`}
           >
-            {opt.description !== undefined ? (
-              <>
-                <span className="block">{opt.label}</span>
-                <span className="block text-xs text-fg-tertiary">{opt.description}</span>
-              </>
-            ) : (
-              opt.label
-            )}
+            <span className="flex items-start gap-2">
+              {/* Non-color selection cue (#2108). Reserves its width on every option so labels stay aligned. */}
+              <span aria-hidden="true" className="w-3 h-5 shrink-0 flex items-center">
+                {selected === opt.value && (
+                  <svg data-testid="singleselect-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8.5l3.5 3.5L13 4.5" />
+                  </svg>
+                )}
+              </span>
+              {opt.description !== undefined ? (
+                <span className="min-w-0">
+                  <span className="block">{opt.label}</span>
+                  <span className="block text-xs text-fg-tertiary">{opt.description}</span>
+                </span>
+              ) : (
+                <span className="min-w-0">{opt.label}</span>
+              )}
+            </span>
           </button>
         </div>
         );

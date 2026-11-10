@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import SeparatorPlus from "./SeparatorPlus";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
@@ -182,6 +182,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   const [draft, setDraft] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Focus returns to the opener on Escape/Enter (#2087); a blur-commit never steals focus back.
+  const renameTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusTriggerRef = useRef(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
   const [fieldsPopoverRect, setFieldsPopoverRect] = useState<DOMRect | null>(null);
@@ -219,8 +222,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     setRenaming(true);
   };
 
-  const commitRename = async () => {
+  const commitRename = async (restoreFocus = false) => {
     const trimmed = draft.trim();
+    if (restoreFocus) focusTriggerRef.current = true;
     setRenaming(false);
     if (!trimmed || trimmed === swimlane.name) return;
     setRenameError(null);
@@ -233,9 +237,17 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   };
 
   const cancelRename = () => {
+    focusTriggerRef.current = true;
     setRenaming(false);
     setDraft("");
   };
+
+  useEffect(() => {
+    if (!renaming && focusTriggerRef.current) {
+      focusTriggerRef.current = false;
+      renameTriggerRef.current?.focus();
+    }
+  }, [renaming]);
 
   // Escape cancels the rename through the stack so it does not also clear the selection (#1860).
   useInlineEditEscape(() => renaming, cancelRename);
@@ -314,9 +326,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
+                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(true); } // commitRename manages its own error state (renameError) and never rejects
                 }}
-                onBlur={commitRename}
+                onBlur={() => void commitRename()}
                 onClick={(e) => e.stopPropagation()}
                 className="w-full text-sm bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
               />
@@ -329,6 +341,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
                   <button
                     type="button"
+                    ref={renameTriggerRef}
                     className="block max-w-full truncate text-left cursor-text rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     title="Click to rename"
                     onClick={(e) => { e.stopPropagation(); startRenaming(); }}
