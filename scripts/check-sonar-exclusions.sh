@@ -117,7 +117,7 @@ pythonsecurity:S6350|Command argument injection via file content
 pythonsecurity:S8705|Argument injection
 secrets:S2068|Credentials should not be hard-coded
 pythonsecurity:S8707|Agentic workflows should not be vulnerable to path injection attacks
-tssecurity:S8476|Endpoints should not be vulnerable to injection attacks (taint flow into request path)
+tssecurity:S8476|Client-side requests should not be vulnerable to forging attacks
 shell:S5332|Using clear-text protocols is security-sensitive
 '
 
