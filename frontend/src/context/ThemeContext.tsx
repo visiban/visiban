@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { migrateLegacyKey } from "../utils/migrateLegacyKey";
-
 export type ThemePreference = "system" | "dark" | "light";
 
 interface ThemeContextValue {
@@ -12,8 +10,15 @@ interface ThemeContextValue {
 }
 
 export const STORAGE_KEY = "user:prefs:theme";
-// Pre-#1855 name; migrated on first read. Remove the shim under #1859.
-export const LEGACY_STORAGE_KEY = "visiban-theme";
+
+/**
+ * True when this page load found no stored theme and seeded the default
+ * ("system"). ThemeServerSync reads it so a browser with no local choice
+ * adopts the account's server-side theme instead of PATCHing the seeded
+ * default over it (#1859). Module-level because the seeding happens once,
+ * before any consumer renders.
+ */
+export let themeSeededFromDefault = false;
 
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "system",
@@ -40,9 +45,12 @@ function applyTheme(preference: ThemePreference): "dark" | "light" {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
-    migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
+      // Sticky across a repeat init: React StrictMode (dev) double-invokes this
+      // initializer, and the second call sees the "system" the first just wrote.
+      // A stored non-"system" value is a real choice and clears the flag.
+      themeSeededFromDefault = !stored || (stored === "system" && themeSeededFromDefault);
       if (!stored) {
         localStorage.setItem(STORAGE_KEY, "system");
         return "system";

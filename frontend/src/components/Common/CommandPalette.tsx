@@ -6,10 +6,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 import { listBoards } from "../../api/boards";
 import type { Board, BoardFull, Card, Column } from "../../types";
-import { userDisplayName } from "../../types";
-import { PRIORITY_COLORS } from "../../constants/colors";
 import {
-  PALETTE_COMMAND_LABELS, PRIORITY_CHOICES, paletteCardActions,
+  PALETTE_COMMAND_LABELS, assignChoices, moveChoices, priorityChoices, paletteCardActions,
   type CardActionDetail, type CardActionEntry, type CardTargetInfo,
 } from "../../utils/cardActions";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -187,16 +185,9 @@ export default function CommandPalette({
     return m;
   }, [columnsForMode])();
 
-  const choices = (kind: ChoiceKind): Choice[] => {
-    if (kind === "move") return columnsForMode.map((c) => ({ label: c.name, value: c.id, dot: c.color }));
-    if (kind === "assign") {
-      return [
-        { label: "Unassign", value: null },
-        ...members.filter((m) => m.role !== "viewer").map((m) => ({ label: userDisplayName(m.user), value: m.user.id })),
-      ];
-    }
-    return PRIORITY_CHOICES.map((p) => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p, dot: PRIORITY_COLORS[p] }));
-  };
+  const choices = (kind: ChoiceKind): Choice[] =>
+    (kind === "move" ? moveChoices(columnsForMode) : kind === "assign" ? assignChoices(members) : priorityChoices())
+      .map(({ label, value, dot }) => ({ label, value, dot }));
 
   // Card commands for the target: enabled ones that match; disabled ones only
   // when a typed query matches them (a viewer who types "block" learns why),

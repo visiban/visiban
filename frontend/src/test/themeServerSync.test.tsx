@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act, waitFor } from '@testing-library/react'
+import { render, act, waitFor, screen } from '@testing-library/react'
 import { ThemeProvider, useTheme } from '../context/ThemeContext'
 import type { ThemePreference } from '../context/ThemeContext'
 import { ThemeServerSync } from '../context/ThemeServerSync'
@@ -89,6 +89,29 @@ describe('ThemeServerSync', () => {
       expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
     })
 
+    it('adopts the server theme without PATCHing when no local theme was stored (#1859)', async () => {
+      // No theme key and no sentinel: a browser upgrading straight from <=1.1.
+      // ThemeProvider seeds "system" as a placeholder; it must not be PATCHed
+      // over the account's theme.
+      const user = makeUser('dark')
+      const onUserUpdated = vi.fn()
+
+      function Probe() {
+        return <span data-testid="pref">{useTheme().preference}</span>
+      }
+      render(
+        <ThemeProvider>
+          <ThemeServerSync user={user} onUserUpdated={onUserUpdated} />
+          <Probe />
+        </ThemeProvider>
+      )
+
+      await waitFor(() => expect(screen.getByTestId('pref')).toHaveTextContent('dark'))
+      expect(localStorage.getItem(STORAGE_KEY)).toBe('dark')
+      expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
+      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
+    })
+
     it('does not PATCH when local and server values already match', async () => {
       localStorage.setItem(STORAGE_KEY, 'dark')
       const user = makeUser('dark')
@@ -131,27 +154,7 @@ describe('ThemeServerSync', () => {
   // Subsequent-load server-wins behaviour
   // --------------------------------------------------------------------------
 
-  describe('legacy key migration (#1855)', () => {
-    it('treats a migrated legacy sentinel as already synced: no PATCH, server wins', async () => {
-      localStorage.setItem('visiban-theme', 'dark')
-      localStorage.setItem('visiban-theme-synced', '1')
-      const user = makeUser('light')
-
-      render(
-        <ThemeProvider>
-          <ThemeServerSync user={user} onUserUpdated={vi.fn()} />
-        </ThemeProvider>
-      )
-
-      await waitFor(() => {
-        expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
-      })
-      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
-      expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
-      expect(localStorage.getItem('visiban-theme-synced')).toBeNull()
-      expect(localStorage.getItem('visiban-theme')).toBeNull()
-    })
-
+  describe('unavailable storage', () => {
     it('does not crash or PATCH when storage throws', async () => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('blocked')

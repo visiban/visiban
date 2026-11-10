@@ -1,11 +1,10 @@
 import { useRef, useState } from "react";
-import { PRIORITY_COLORS } from "../../constants/colors";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import type { BoardFull, Card, Column, User } from "../../types";
-import { userDisplayName } from "../../types";
-import { moveCard, updateCard, deleteCard, archiveCard } from "../../api/cards";
+import type { BoardFull, Card, Priority, User } from "../../types";
+import { moveCard, updateCard, archiveCard } from "../../api/cards";
 import { failureReason } from "../../utils/moveFailure";
-import ModalWrapper from "../shared/ModalWrapper";
+import CardDeleteConfirm from "../Card/CardDeleteConfirm";
+import { assignChoices, moveChoices, priorityChoices } from "../../utils/cardActions";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { usePublishedHeight } from "../../hooks/usePublishedHeight";
@@ -52,11 +51,6 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     ref.current?.focus();
   }, 25);
 
-  useEscapeStack(() => {
-    if (!confirmDelete) return false;
-    setConfirmDelete(false);
-  }, 20);
-
   const count = selectedCardIds.size;
   const selectedCards = board.cards.filter((c) => selectedCardIds.has(c.id));
 
@@ -70,13 +64,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   // is inert, so the confirmation (and this note) can never open.
   const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
   const demoMode = useInstanceFlags().demo_mode;
-  const othersCards = currentUser
-    ? selectedCards.filter((c) => c.created_by?.id !== currentUser.id)
-    : selectedCards;
 
   const toggle = (d: Dropdown) => setDropdown((prev) => (prev === d ? null : d));
 
-  const handleMove = async (column: Column) => {
+  const handleMove = async (columnId: number) => {
     setDropdown(null);
     setPartialError(null);
     setBusy(true);
@@ -87,7 +78,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     for (const card of selectedCards) {
       try {
         const result = await moveCard(board.id, card.id, {
-          column_id: column.id,
+          column_id: columnId,
           swimlane_id: card.swimlane,
           position: 9999,
         });
@@ -145,7 +136,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     reportBulkResult(results, "assigned");
   };
 
-  const handlePriority = async (priority: "low" | "medium" | "high" | "urgent") => {
+  const handlePriority = async (priority: Priority) => {
     setDropdown(null);
     setPartialError(null);
     setBusy(true);
@@ -175,32 +166,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     reportBulkResult(results, "archived", "you can only archive cards you created");
   };
 
-  const handleDelete = async () => {
-    setConfirmDelete(false);
-    setDropdown(null);
-    setPartialError(null);
-    setBusy(true);
-    const results = await Promise.allSettled(
-      selectedCards.map((card) => deleteCard(board.id, card.id).then(() => card.id))
-    );
-    const deletedIds = results
-      .filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled")
-      .map((r) => r.value);
-    if (deletedIds.length > 0) onCardsDeleted(deletedIds);
-    reportBulkResult(results, "deleted", "you can only delete cards you created");
-  };
-
-  const priorities: Array<{ value: "low" | "medium" | "high" | "urgent"; color: string }> = [
-    { value: "low", color: PRIORITY_COLORS.low },
-    { value: "medium", color: PRIORITY_COLORS.medium },
-    { value: "high", color: PRIORITY_COLORS.high },
-    { value: "urgent", color: PRIORITY_COLORS.urgent },
-  ];
-
-  // Assign dropdown items: Unassign + non-viewer members
-  const assignMembers = board.members.filter((m) => m.role !== "viewer");
-  // Total assign items = 1 (Unassign) + assignMembers.length
-  const assignItemCount = 1 + assignMembers.length;
+  // The same Move / Assign / Priority lists the card context menu and ⌘K
+  // palette offer (#2103), so the three surfaces cannot drift apart.
+  const moveItems = moveChoices(board.columns);
+  const assignItems = assignChoices(board.members);
+  const priorityItems = priorityChoices();
 
   // Generic arrow-key handler for a flat list of item refs
   const makeItemKeyDown = (
@@ -243,9 +213,9 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     }
   };
 
-  const handleMoveItemKeyDown = makeItemKeyDown(moveItemRefs, board.columns.length, moveRef);
-  const handleAssignItemKeyDown = makeItemKeyDown(assignItemRefs, assignItemCount, assignRef);
-  const handlePriorityItemKeyDown = makeItemKeyDown(priorityItemRefs, priorities.length, priorityRef);
+  const handleMoveItemKeyDown = makeItemKeyDown(moveItemRefs, moveItems.length, moveRef);
+  const handleAssignItemKeyDown = makeItemKeyDown(assignItemRefs, assignItems.length, assignRef);
+  const handlePriorityItemKeyDown = makeItemKeyDown(priorityItemRefs, priorityItems.length, priorityRef);
 
   const handleMoveTriggerKeyDown = makeTriggerKeyDown(
     dropdown === "move",
@@ -291,17 +261,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               role="menu"
               className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
-              {board.columns.map((col, i) => (
+              {moveItems.map((col, i) => (
                 <button
-                  key={col.id}
+                  key={col.key}
                   ref={(el) => { moveItemRefs.current[i] = el; }}
                   role="menuitem"
-                  onClick={() => handleMove(col)}
+                  onClick={() => handleMove(col.value as number)}
                   onKeyDown={(e) => handleMoveItemKeyDown(e, i)}
                   className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
                 >
-                  <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                  {col.name}
+                  <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.dot }} />
+                  {col.label}
                 </button>
               ))}
             </div>
@@ -326,25 +296,16 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               role="menu"
               className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
-              <button
-                ref={(el) => { assignItemRefs.current[0] = el; }}
-                role="menuitem"
-                onClick={() => handleAssign(null)}
-                onKeyDown={(e) => handleAssignItemKeyDown(e, 0)}
-                className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg-tertiary italic ${MENU_ITEM_FOCUS_RING}`}
-              >
-                Unassign
-              </button>
-              {assignMembers.map((m, i) => (
+              {assignItems.map((m, i) => (
                 <button
-                  key={m.user.id}
-                  ref={(el) => { assignItemRefs.current[i + 1] = el; }}
+                  key={m.key}
+                  ref={(el) => { assignItemRefs.current[i] = el; }}
                   role="menuitem"
-                  onClick={() => handleAssign(m.user.id)}
-                  onKeyDown={(e) => handleAssignItemKeyDown(e, i + 1)}
-                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
+                  onClick={() => handleAssign(m.value as number | null)}
+                  onKeyDown={(e) => handleAssignItemKeyDown(e, i)}
+                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover ${m.italic ? "text-fg-tertiary italic" : "text-fg"} ${MENU_ITEM_FOCUS_RING}`}
                 >
-                  {userDisplayName(m.user)}
+                  {m.label}
                 </button>
               ))}
             </div>
@@ -369,17 +330,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               role="menu"
               className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px] max-w-[calc(100vw-2rem)]"
             >
-              {priorities.map((p, i) => (
+              {priorityItems.map((p, i) => (
                 <button
-                  key={p.value}
+                  key={p.key}
                   ref={(el) => { priorityItemRefs.current[i] = el; }}
                   role="menuitem"
-                  onClick={() => handlePriority(p.value)}
+                  onClick={() => handlePriority(p.value as Priority)}
                   onKeyDown={(e) => handlePriorityItemKeyDown(e, i)}
                   className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg capitalize ${MENU_ITEM_FOCUS_RING}`}
                 >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                  {p.value}
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.dot }} />
+                  {String(p.value)}
                 </button>
               ))}
             </div>
@@ -447,38 +408,25 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         )}
       </div>
 
-      <ModalWrapper
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title={`Delete ${count} card${count !== 1 ? "s" : ""}?`}
-        maxWidth="max-w-sm"
-        labelId="bulk-delete-title"
-      >
-        <p className="text-fg-tertiary text-sm mb-5">
-          This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
-        </p>
-        {!canModifyAll && othersCards.length > 0 && (
-          <p className="text-xs text-warning -mt-3 mb-4">
-            {othersCards.length === count
-              ? "You can only delete cards you created. None of the selected cards will be deleted."
-              : `${othersCards.length} card${othersCards.length !== 1 ? "s" : ""} created by others will be skipped.`}
-          </p>
-        )}
-        <div className="flex items-center justify-end gap-3">
-          <button
-            onClick={() => setConfirmDelete(false)}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDelete}
-            className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-          >
-            Delete
-          </button>
-        </div>
-      </ModalWrapper>
+      {confirmDelete && (
+        <CardDeleteConfirm
+          boardId={board.id}
+          cards={selectedCards}
+          canModifyAll={canModifyAll}
+          currentUserId={currentUser?.id ?? null}
+          onStart={() => { setDropdown(null); setBusy(true); setPartialError(null); }}
+          onDeleted={onCardsDeleted}
+          onClose={(failure, canceled) => {
+            setConfirmDelete(false);
+            // Cancel/Escape only closes the dialog; the selection stays.
+            if (canceled) return;
+            setBusy(false);
+            // Keep the selection on any failure so the user can see what is left.
+            if (failure) setPartialError(failure);
+            else onClearSelection();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -128,24 +128,6 @@ describe('AppSidebar', () => {
     expect(screen.getByText('My Board')).toBeInTheDocument()
   })
 
-  it('migrates legacy sidebar keys to user:prefs:* (#1855)', async () => {
-    localStorage.setItem('sidebar-collapsed', 'true')
-    localStorage.setItem('sidebar-groups-expanded', JSON.stringify([10]))
-    render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(localStorage.getItem('sidebar-collapsed')).toBeNull())
-    expect(localStorage.getItem('sidebar-groups-expanded')).toBeNull()
-    expect(localStorage.getItem('user:prefs:sidebar-collapsed')).toBe('true')
-    expect(JSON.parse(localStorage.getItem('user:prefs:sidebar-groups-expanded') || '[]')).toContain(10)
-  })
-
-  it('new sidebar key wins over a stale legacy key (#1855)', async () => {
-    localStorage.setItem('sidebar-collapsed', 'true')
-    localStorage.setItem('user:prefs:sidebar-collapsed', 'false')
-    render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(localStorage.getItem('sidebar-collapsed')).toBeNull())
-    expect(localStorage.getItem('user:prefs:sidebar-collapsed')).toBe('false')
-  })
-
   it('expanding a group reveals its boards', async () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByText('Alpha'))

@@ -381,3 +381,36 @@ describe('ThemeProvider — cross-tab storage sync', () => {
     expect(result.current.preference).toBe('system')
   })
 })
+
+describe('ThemeProvider — unavailable storage', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    })
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('does not crash when storage throws', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    expect(() => render(<ThemeProvider><div /></ThemeProvider>)).not.toThrow()
+  })
+})
+
+describe('themeSeededFromDefault under StrictMode (#1859)', () => {
+  it('stays true when the initializer runs twice on a fresh browser', async () => {
+    const { StrictMode } = await import('react')
+    const { render } = await import('@testing-library/react')
+    const mod = await import('../context/ThemeContext')
+    localStorage.clear()
+    render(
+      <StrictMode>
+        <mod.ThemeProvider>
+          <div />
+        </mod.ThemeProvider>
+      </StrictMode>,
+    )
+    expect(mod.themeSeededFromDefault).toBe(true)
+  })
+})

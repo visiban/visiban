@@ -36,23 +36,4 @@ test.describe('theme toggle', () => {
     await page.goto('/settings')
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   })
-
-  test('legacy visiban-theme key is honored pre-paint and migrated (#1855)', async ({ page }) => {
-    // Only the OLD key is seeded: theme-init.js must fall back to it so the
-    // first paint is dark, and ThemeProvider then migrates it.
-    await page.addInitScript(() => {
-      if (!window.localStorage.getItem('user:prefs:theme') && !window.sessionStorage.getItem('seeded1855')) {
-        window.localStorage.setItem('visiban-theme', 'dark')
-        window.sessionStorage.setItem('seeded1855', '1')
-      }
-    })
-
-    await page.goto('/settings')
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-    const keys = await page.evaluate(() => ({
-      next: window.localStorage.getItem('user:prefs:theme'),
-      legacy: window.localStorage.getItem('visiban-theme'),
-    }))
-    expect(keys).toEqual({ next: 'dark', legacy: null })
-  })
 })

@@ -63,7 +63,13 @@ class InjectLoneSurrogateTests(unittest.TestCase):
 
     def test_is_deterministic_for_replay_and_shrinking(self):
         body = _find_injecting_body(lambda i: {"title": f"t{i}"})
-        self.assertEqual(sur.inject_lone_surrogate(body), sur.inject_lone_surrogate(body))
+        # Separate names (not one assertEqual of two inline calls) so Sonar
+        # python:S5863 does not read this as a self-comparison (#2174).
+        first = sur.inject_lone_surrogate(body)
+        second = sur.inject_lone_surrogate(body)
+        self.assertTrue(_has_surrogate(first))
+        self.assertEqual(first, second)
+        self.assertEqual(json.dumps(first), json.dumps(second))
 
     def test_does_not_mutate_the_input(self):
         body = _find_injecting_body(lambda i: {"title": f"t{i}", "tags": ["a", "b"]})

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
-import CardContextMenu, { CARD_MENU_ESCAPE_PRIORITY } from '../components/Card/CardContextMenu'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import CardContextMenu, { CARD_MENU_ESCAPE_PRIORITY, SUBMENU_CLOSE_GRACE_MS } from '../components/Card/CardContextMenu'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import { cardActionEntries, type CardActionContext } from '../utils/cardActions'
@@ -170,8 +170,12 @@ describe('CardContextMenu', () => {
     expect(within(assign).getAllByRole('menuitem').map((e) => e.textContent)).toEqual(['Unassign', 'Alice'])
     fireEvent.click(within(assign).getByRole('menuitem', { name: 'Unassign' }))
     expect(onAction).toHaveBeenCalledWith('assign', null)
-    fireEvent.mouseEnter(item(/Set priority/))
-    expect(screen.queryByRole('menu', { name: 'Assign to' })).not.toBeInTheDocument()
+    vi.useFakeTimers()
+    try {
+      fireEvent.mouseEnter(item(/Set priority/))
+      act(() => { vi.advanceTimersByTime(SUBMENU_CLOSE_GRACE_MS + 1) })
+      expect(screen.queryByRole('menu', { name: 'Assign to' })).not.toBeInTheDocument()
+    } finally { vi.useRealTimers() }
     fireEvent.click(item(/Set priority/))
     const prio = screen.getByRole('menu', { name: 'Set priority' })
     expect(within(prio).getAllByRole('menuitem').map((e) => e.textContent)).toEqual(['Low', 'Medium', 'High', 'Urgent'])
@@ -242,5 +246,71 @@ describe('CardContextMenu', () => {
     const { onClose } = renderMenu()
     fireEvent(window, new Event('resize'))
     expect(onClose).toHaveBeenCalledWith('outside')
+  })
+
+  describe('submenu pointer grace and aria-controls (#2106)', () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    it('the open submenu trigger carries aria-controls pointing at the submenu', () => {
+      renderMenu()
+      expect(item(/Move/)).not.toHaveAttribute('aria-controls')
+      fireEvent.click(item(/Move/))
+      const sub = screen.getByTestId('card-context-submenu')
+      expect(sub.id).toBeTruthy()
+      expect(item(/Move/)).toHaveAttribute('aria-controls', sub.id)
+      expect(item(/Assign/)).not.toHaveAttribute('aria-controls')
+    })
+
+    it('keeps the submenu open during the grace period, then closes it', () => {
+      vi.useFakeTimers()
+      renderMenu()
+      fireEvent.click(item(/Move/))
+      fireEvent.mouseEnter(item(/Assign/))
+      act(() => { vi.advanceTimersByTime(SUBMENU_CLOSE_GRACE_MS - 1) })
+      expect(screen.getByTestId('card-context-submenu')).toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(2) })
+      expect(screen.queryByTestId('card-context-submenu')).not.toBeInTheDocument()
+    })
+
+    it('entering the submenu cancels the pending close', () => {
+      vi.useFakeTimers()
+      renderMenu()
+      fireEvent.click(item(/Move/))
+      fireEvent.mouseEnter(item(/Assign/))
+      fireEvent.pointerEnter(screen.getByTestId('card-context-submenu'))
+      act(() => { vi.advanceTimersByTime(SUBMENU_CLOSE_GRACE_MS * 3) })
+      expect(screen.getByTestId('card-context-submenu')).toBeInTheDocument()
+    })
+
+    it('opening another submenu while a close is pending is not closed by the stale timer', () => {
+      vi.useFakeTimers()
+      renderMenu()
+      fireEvent.click(item(/Move/))
+      fireEvent.mouseEnter(item(/Assign/))
+      fireEvent.click(item(/Assign/))
+      act(() => { vi.advanceTimersByTime(SUBMENU_CLOSE_GRACE_MS * 3) })
+      expect(screen.getByRole('menu', { name: 'Assign to' })).toBeInTheDocument()
+    })
+
+    it('returning to the trigger row cancels the pending close', () => {
+      vi.useFakeTimers()
+      renderMenu()
+      fireEvent.click(item(/Move/))
+      fireEvent.mouseEnter(item(/Assign/))
+      fireEvent.mouseEnter(item(/Move/))
+      act(() => { vi.advanceTimersByTime(SUBMENU_CLOSE_GRACE_MS * 3) })
+      expect(screen.getByTestId('card-context-submenu')).toBeInTheDocument()
+    })
+
+    it('clears the pending close on unmount', () => {
+      vi.useFakeTimers()
+      const { unmount } = renderMenu()
+      fireEvent.click(item(/Move/))
+      const before = vi.getTimerCount()
+      fireEvent.mouseEnter(item(/Assign/))
+      expect(vi.getTimerCount()).toBe(before + 1)
+      unmount()
+      expect(vi.getTimerCount()).toBe(before)
+    })
   })
 })

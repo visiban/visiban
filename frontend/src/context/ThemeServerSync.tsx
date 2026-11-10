@@ -3,8 +3,7 @@ import { useEffect, useRef } from "react";
 import { updateCurrentUser } from "../api/auth";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
 import type { User } from "../types";
-import { migrateLegacyKey } from "../utils/migrateLegacyKey";
-import { LEGACY_STORAGE_KEY, STORAGE_KEY, useTheme } from "./ThemeContext";
+import { STORAGE_KEY, themeSeededFromDefault, useTheme } from "./ThemeContext";
 
 /**
  * Bridges the per-browser ThemeContext (localStorage-backed) with the
@@ -28,11 +27,6 @@ import { LEGACY_STORAGE_KEY, STORAGE_KEY, useTheme } from "./ThemeContext";
  *     changes are extremely infrequent and the request is a single-field PATCH.
  */
 const SYNC_SENTINEL_KEY = "user:prefs:theme-synced";
-// Pre-#1855 name. The sentinel is renamed (not left behind) so every browser
-// storage key follows the user:prefs:* rule; migrating it also preserves
-// "already synced" for existing users, so the one-time local-to-server push
-// does not re-fire and clobber a newer server value. Remove under #1859.
-const LEGACY_SYNC_SENTINEL_KEY = "visiban-theme-synced";
 
 export function ThemeServerSync({
   user,
@@ -59,8 +53,6 @@ export function ThemeServerSync({
     if (!didInitialSyncRef.current) {
       didInitialSyncRef.current = true;
 
-      migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
-      migrateLegacyKey(LEGACY_SYNC_SENTINEL_KEY, SYNC_SENTINEL_KEY);
       const serverTheme = user.theme ?? "system";
       let localTheme: typeof preference;
       let sentinel: string | null;
@@ -71,6 +63,23 @@ export function ThemeServerSync({
       } catch {
         // Storage unavailable: with no reliable local state or sentinel, skip
         // the initial sync rather than guess (the server value is untouched).
+        return;
+      }
+
+      if (!sentinel && themeSeededFromDefault) {
+        // No local theme existed (a fresh browser, or one upgrading from <=1.1
+        // after the legacy-key migration was removed, #1859): "system" was only
+        // seeded as a placeholder, so adopt the account's theme rather than
+        // PATCH the placeholder over it on every device.
+        try {
+          localStorage.setItem(SYNC_SENTINEL_KEY, "1");
+        } catch {
+          // Non-fatal: the sync simply repeats on the next load.
+        }
+        if (serverTheme !== localTheme) {
+          lastServerPushRef.current = serverTheme;
+          setPreference(serverTheme);
+        }
         return;
       }
 

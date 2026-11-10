@@ -10,32 +10,36 @@ interface Props {
   /** Admin, site admin or moderator: may delete cards others created. */
   canModifyAll: boolean;
   currentUserId: number | null;
+  /** Fired when the deletes start, for callers that show their own in-flight state (the bulk toolbar's "Working..."). */
+  onStart?: () => void;
   onDeleted: (cardIds: number[]) => void;
-  /** Closes the dialog; `failure` is the bulk partial-failure line, or null. */
-  onClose: (failure: string | null) => void;
+  /**
+   * Closes the dialog. `failure` is the bulk partial-failure line, or null;
+   * `canceled` is true when the user dismissed it without deleting anything
+   * (Cancel, backdrop, Escape), so callers keep the selection and stay quiet.
+   */
+  onClose: (failure: string | null, canceled?: boolean) => void;
 }
 
 const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
 
 /**
- * Delete confirm opened by the card context menu's **Delete card…** (#2059).
- * Same copy and ownership note as the bulk toolbar's confirm; a delete never
+ * The one delete confirm for card actions: the card context menu's
+ * **Delete card…** (#2059) and the bulk toolbar's **Delete** (#2103); a delete never
  * runs from a single click. In flight the action is `aria-disabled` with a
  * progress label and Escape/backdrop dismissal is swallowed (#1437).
- *
- * The bulk toolbar's inline confirm should adopt this component so the two
- * cannot drift: tracked in #2103.
  */
-export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onDeleted, onClose }: Props) {
+export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onStart, onDeleted, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const count = cards.length;
-  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by != null && c.created_by.id !== currentUserId) : [];
+  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
 
   const handleDelete = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
+    onStart?.();
     const results = await Promise.allSettled(cards.map((card) => deleteCard(boardId, card.id).then(() => card.id)));
     const deleted = results.filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled").map((r) => r.value);
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
@@ -51,11 +55,11 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
   return (
     <ModalWrapper
       open
-      onClose={() => { if (!inFlight.current) onClose(null); }}
+      onClose={() => { if (!inFlight.current) onClose(null, true); }}
       dismissable={!busy}
       title={count === 1 ? "Delete this card?" : `Delete ${count} cards?`}
       maxWidth="max-w-sm"
-      labelId="card-menu-delete-title"
+      labelId="card-delete-title"
     >
       <p className={`text-fg-tertiary text-sm ${!canModifyAll && othersCards.length > 0 ? "mb-2" : "mb-5"}`}>
         This will permanently delete {count === 1 ? `“${cards[0]?.title}”` : `all ${count} cards`}. This cannot be undone.
@@ -70,7 +74,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
       <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          onClick={() => { if (!inFlight.current) onClose(null); }}
+          onClick={() => { if (!inFlight.current) onClose(null, true); }}
           aria-disabled={busy || undefined}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
