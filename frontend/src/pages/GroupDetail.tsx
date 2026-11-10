@@ -38,6 +38,7 @@ import ModalWrapper from "../components/shared/ModalWrapper";
 import ColorSwatchPicker from "../components/Common/ColorSwatchPicker";
 import { PALETTE_COLORS } from "../constants/colors";
 import { isImeComposing } from "../utils/imeComposition";
+import { LOCKED_MEMBERSHIP_NOTE } from "../constants/membership";
 
 interface Props {
   user: User;
@@ -564,6 +565,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         // A direct subgroup was deleted — drop it from the subgroup list.
         const deletedId = data.id;
         writeSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
+        // "Show subgroup boards" lists the deleted subtree's boards too (#1742).
+        if (showSubgroupBoardsRef.current) refetchSubgroupBoards();
       }
     } else if (
       evt.event === "member.added" ||
@@ -610,7 +613,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, setIsStarred]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, refetchSubgroupBoards, setIsStarred]);
 
   // Events fired while the socket was disconnected are not replayed. Re-read
   // everything the page shows that a frame can change after a reconnect so the
@@ -1404,7 +1407,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               <p className="text-fg-muted text-sm mb-4">Manage who has access to this group and their roles.</p>
               {memberError && <p role="alert" className="text-danger text-xs mb-2">{memberError}</p>}
               <div className="flex flex-col gap-2">
-                {members.map((m) => (
+                {members.map((m) => {
+                  // The server refuses to change or remove a site admin's
+                  // membership unless the caller is a site admin too, so such a
+                  // direct row gets no role picker and no Remove for anyone else,
+                  // as on the board Members panel (#2164). The flag is sent to
+                  // group admins only, the readers who would see those controls.
+                  const isLocked = !m.is_inherited && m.is_site_admin === true && !user.is_site_admin && m.user.id !== group?.owner.id;
+                  // The owner row has no controls for anyone, so it needs no lock note.
+                  return (
                   <div key={m.user.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
@@ -1413,6 +1424,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
                           <p className="text-xs text-fg-tertiary">
                             {groupRoleNote(m.role)}
+                          </p>
+                        )}
+                        {isLocked && (
+                          <p className="text-xs text-fg-tertiary">
+                            {LOCKED_MEMBERSHIP_NOTE}
                           </p>
                         )}
                       </div>
@@ -1428,7 +1444,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ↑ {m.inherited_from}
                         </span>
                       </div>
-                    ) : isAdmin && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
+                    ) : isAdmin && !isLocked && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
                       <div className="flex items-center gap-2 shrink-0">
                         {m.has_all_content_access === true && (
                           // All-content access resolves to full access before any
@@ -1487,7 +1503,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {m.has_all_content_access === true ? (
                           <GroupFullAccessChip userId={m.user.id} role={m.role} />
                         ) : (
-                          <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                          <p className="text-fg-muted text-xs capitalize" title={isLocked ? LOCKED_MEMBERSHIP_NOTE : undefined}>{m.role}</p>
                         )}
                         {m.user.id === group?.owner.id && (
                           <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
@@ -1495,7 +1511,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 

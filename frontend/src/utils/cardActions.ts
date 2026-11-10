@@ -16,6 +16,7 @@ import { PRIORITY_COLORS } from "../constants/colors";
 import { demoReason, DEMO_CARD_FOOTER_NOTE } from "../constants/demoCopy";
 import { blockedElapsedMs, formatBlockedDuration, isManuallyBlocked } from "./blockedState";
 import { failureReason } from "./moveFailure";
+import { isAssignableMember } from "./assignableMembers";
 
 /** Every card action. `open` and `delete` are menu-only; the palette offers the rest. */
 export type CardActionId =
@@ -283,7 +284,8 @@ export function moveChoices(columns: Column[]): CardChoice[] {
 export function assignChoices(members: BoardFull["members"]): CardChoice[] {
   return [
     { key: "unassign", label: "Unassign", value: null, italic: true },
-    ...members.filter((m) => m.role !== "viewer").map((m) => ({ key: `user-${m.user.id}`, label: userDisplayName(m.user), value: m.user.id })),
+    // Members the server accepts as an assignee: not viewers, not an unrecognized stored role (#1905).
+    ...members.filter(isAssignableMember).map((m) => ({ key: `user-${m.user.id}`, label: userDisplayName(m.user), value: m.user.id })),
   ];
 }
 

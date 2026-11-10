@@ -30,6 +30,11 @@ const user = (id: number, name: string) => ({ id, username: name.toLowerCase(), 
 const members = [
   { id: 1, user: user(1, 'Alice'), role: 'member', is_moderator: false, joined_at: '' },
   { id: 2, user: user(2, 'Victor'), role: 'viewer', is_moderator: false, joined_at: '' },
+  // Listed for admins to remove, but refused as an assignee (#1905).
+  { id: 3, user: user(3, 'Odd'), role: 'bogus', is_moderator: false, joined_at: '' },
+  // All-content access overrides the stored viewer role (#1905).
+  { id: 4, user: user(4, 'Ace'), role: 'viewer', is_moderator: false, joined_at: '', has_all_content_access: true },
+  { id: null, user: user(5, 'Sid'), role: 'site_admin', joined_at: '' },
 ] as unknown as BoardFull['members']
 
 const member: CardActionContext = { role: 'member', currentUserId: 1, isModerator: false, demoMode: false, maintenanceBlocked: false }
@@ -163,11 +168,12 @@ describe('CardContextMenu', () => {
     expect(onAction).toHaveBeenCalledWith('move', 11)
   })
 
-  it('Assign lists Unassign and every non-viewer member; Priority lists the four priorities', () => {
+  it('Assign lists Unassign and every assignable member; Priority lists the four priorities', () => {
     const { onAction } = renderMenu()
     fireEvent.click(item(/Assign to…/))
     const assign = screen.getByRole('menu', { name: 'Assign to' })
-    expect(within(assign).getAllByRole('menuitem').map((e) => e.textContent)).toEqual(['Unassign', 'Alice'])
+    // Not the viewer, not the out-of-enum row (#1905).
+    expect(within(assign).getAllByRole('menuitem').map((e) => e.textContent)).toEqual(['Unassign', 'Alice', 'Ace', 'Sid'])
     fireEvent.click(within(assign).getByRole('menuitem', { name: 'Unassign' }))
     expect(onAction).toHaveBeenCalledWith('assign', null)
     vi.useFakeTimers()

@@ -299,6 +299,15 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "and both feed rows are required for a resumable cursor (#1114). Both "
         "cards are re-fetched in a single _card_queryset pass."
     ),
+    "backend/groups/views.py::GroupViewSet._broadcast_deleted": (
+        "One group.deleted per ancestor and per cascaded subgroup, plus one "
+        "board.updated per orphaned board, fired from the commit hook in "
+        "GroupViewSet.destroy (#1742). Each frame goes to a distinct channel "
+        "(that ancestor's, that subgroup's own, that board's) and the subgroup "
+        "and board frames carry their own ids, so they cannot be collapsed into "
+        "one payload. The bound is the deleted group's ancestor chain plus its "
+        "subtree, and the boards in it; event rows are persisted before commit."
+    ),
 }
 
 # Broadcasts or writes whose shape the checker cannot classify and the

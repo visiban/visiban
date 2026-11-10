@@ -278,6 +278,30 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(region).toHaveAttribute('aria-atomic', 'true')
   })
 
+  // #1905 — the owner is an implicit admin whatever their stored row says.
+  it('keeps the owner shown as admin after their explicit row is set to viewer (#1905)', async () => {
+    const user = userEvent.setup()
+    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, owner: fakeMember2 }} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getAllByRole('combobox')[1])
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
+    await waitFor(() => expect(mockSetBoardMember).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getAllByRole('combobox')[1]).toHaveTextContent(/Admin/))
+    expect(screen.getAllByRole('combobox')[1]).not.toHaveTextContent(/Viewer/)
+  })
+
+  it('keeps the owner listed when their explicit row is removed (#1905)', async () => {
+    const user = userEvent.setup()
+    mockRemoveBoardMember.mockResolvedValue(undefined)
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, owner: fakeMember2 }} isAdmin={true} onClose={vi.fn()} />)
+    const removeButtons = screen.getAllByTitle('Remove direct board role')
+    await user.click(removeButtons[removeButtons.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(mockRemoveBoardMember).toHaveBeenCalledWith(1, 2))
+    await waitFor(() => expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1))
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+  })
+
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockResolvedValue(undefined)

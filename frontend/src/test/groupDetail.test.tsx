@@ -502,6 +502,57 @@ describe('GroupDetail', () => {
     expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
   })
 
+  it('locks a site-admin direct row with no role picker or Remove for a non-site-admin admin (#2164)', async () => {
+    const saUser: User = { ...fakeUser, id: 2, username: 'sam', display_name: 'Sam Admin', is_site_admin: true }
+    const saAcUser: User = { ...fakeUser, id: 3, username: 'ace', display_name: 'Ace Admin', is_site_admin: true }
+    const plainUser: User = { ...fakeUser, id: 4, username: 'bob', display_name: 'Bob Jones' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '', is_site_admin: false },
+      { id: 2, user: saUser, role: 'member', joined_at: '', has_all_content_access: false, is_site_admin: true },
+      { id: 3, user: saAcUser, role: 'viewer', joined_at: '', has_all_content_access: true, is_site_admin: true },
+      { id: 4, user: plainUser, role: 'member', joined_at: '', has_all_content_access: false, is_site_admin: false },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Sam Admin')
+    const note = 'This membership is managed at the instance level and cannot be removed here.'
+    const samRow = screen.getByText('Sam Admin').closest('div.rounded-lg') as HTMLElement
+    expect(within(samRow).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(samRow).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+    expect(within(samRow).getByText('member')).toBeInTheDocument()
+    expect(within(samRow).getByText(note)).toBeInTheDocument()
+    const aceRow = screen.getByText('Ace Admin').closest('div.rounded-lg') as HTMLElement
+    expect(within(aceRow).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+    expect(within(aceRow).getByText('Full access')).toBeInTheDocument()
+    expect(within(aceRow).getByText(note)).toBeInTheDocument()
+    // A row without the flag keeps its controls.
+    const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
+    expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()
+    expect(within(bobRow).getByRole('button', { name: 'Remove Bob Jones from group' })).toBeInTheDocument()
+    expect(within(bobRow).queryByText(note)).not.toBeInTheDocument()
+  })
+
+  it('keeps Remove on a site-admin direct row for a site-admin viewer (#2164)', async () => {
+    const saUser: User = { ...fakeUser, id: 2, username: 'sam', display_name: 'Sam Admin', is_site_admin: true }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '', is_site_admin: true },
+      { id: 2, user: saUser, role: 'member', joined_at: '', has_all_content_access: false, is_site_admin: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail(undefined, { ...fakeUser, is_site_admin: true })
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Sam Admin')
+    const samRow = screen.getByText('Sam Admin').closest('div.rounded-lg') as HTMLElement
+    expect(within(samRow).getByRole('combobox')).toBeInTheDocument()
+    expect(within(samRow).getByRole('button', { name: 'Remove Sam Admin from group' })).toBeInTheDocument()
+    expect(within(samRow).queryByText(/managed at the instance level/)).not.toBeInTheDocument()
+  })
+
   it('shows the Full access chip on inherited, owner and self rows, and omits the role note for an unknown role (#2075)', async () => {
     const ownerUser: User = { ...fakeUser, id: 3, username: 'boss', display_name: 'Big Boss' }
     const inhUser: User = { ...fakeUser, id: 5, username: 'ina', display_name: 'Ina Inherited' }
@@ -1983,6 +2034,26 @@ describe('GroupDetail', () => {
       await waitFor(() => {
         expect(screen.queryByText('Sub Team')).not.toBeInTheDocument()
       })
+    })
+
+    it('refetches the shown subgroup boards when a subgroup is deleted (#1742)', async () => {
+      const user = userEvent.setup()
+      const subgroup = { ...fakeGroup, id: 2, name: 'Sub Team', parent: 1 }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([subgroup])
+      mockGetGroupBoards.mockResolvedValue([])
+      mockGetGroupDescendantBoards.mockResolvedValue([])
+      renderGroupDetail()
+      await screen.findByText('Sub Team')
+      await user.click(screen.getByRole('switch'))
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+
+      act(() => {
+        capturedOnEvent?.({ event: 'group.deleted', data: { id: 2 } } as BoardEvent)
+      })
+
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
     })
 
     it('refetches subgroups on group.created (#998)', async () => {

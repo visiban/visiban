@@ -650,19 +650,69 @@ class GroupViewSet(viewsets.ModelViewSet):
             # SET_NULL) but lose every group-derived role; share links enabled
             # through one end with it (#1865). Read before the delete, cleared
             # after it, in the same transaction.
-            subtree_board_ids = _subtree_board_ids(gid)
+            from .services import _subtree_ids
+
+            # Read under the subtree locks taken above, so the set is the one
+            # the delete's CASCADE removes.
+            # Walked once for both the subgroup and the board ids.
+            from boards.models import Board as _Board
+
+            subtree_ids = _subtree_ids(gid)
+            subgroup_ids = sorted(subtree_ids - {gid})
+            subtree_board_ids = list(
+                _Board.objects.filter(group_id__in=subtree_ids).values_list("pk", flat=True)
+            )
+            # Every ancestor, not just the direct parent: a grandparent page
+            # with "Show subgroup boards" lists this subtree's boards too
+            # (#1742). Read before the delete, while the chain still exists.
+            ancestor_ids = []
+            if parent_id is not None:
+                from .models import _ancestor_ids_from, _GROUP_TRAVERSAL_MAX_DEPTH
+                ancestor_ids = _ancestor_ids_from(parent_id, _GROUP_TRAVERSAL_MAX_DEPTH)
             group.delete()
             if subtree_board_ids:
                 from boards.services.share_links import revoke_lapsed_share_links
                 revoke_lapsed_share_links(board_ids=subtree_board_ids)
             payload = {"id": gid}
+            # The boards survive as personal boards, so their group,
+            # group_name and group_detail just changed (#1742): each records
+            # board.updated, rendered after the SET_NULL and persisted here so
+            # a rolled-back delete leaves no feed row. Only the board channel:
+            # the group channel the board was listed on is the one being
+            # deleted. Bounded by the boards in the subtree.
+            board_sends = []
+            if subtree_board_ids:
+                from boards import broadcast as _board_broadcast
+                from boards.views._helpers import serialize_boards_for_broadcast
 
-            def _broadcast_deleted(g=gid, pid=parent_id, pl=payload):
+                for bid, _gid, board_data in serialize_boards_for_broadcast(subtree_board_ids, request):
+                    eid = _board_broadcast.persist_board_event(
+                        bid, _board_broadcast.EVT_BOARD_UPDATED, board_data, actor_id=request.user.pk,
+                    )
+                    board_sends.append((bid, board_data, eid))
+
+            def _broadcast_deleted(
+                g=gid, ancestors=ancestor_ids, pl=payload, subs=subgroup_ids, boards=board_sends,
+                aid=request.user.pk,
+            ):
+                from boards import broadcast as _board_broadcast
+
                 from .broadcast import broadcast_group_event
                 broadcast_group_event(g, _group_broadcast.EVT_GROUP_DELETED, pl)
-                if pid is not None:
-                    # Sidebar tree under the parent needs to refresh too.
-                    broadcast_group_event(pid, _group_broadcast.EVT_GROUP_DELETED, pl)
+                # The sidebar tree under the parent needs to refresh, and every
+                # higher ancestor page drops the subtree's boards (#1742).
+                for anc in ancestors:
+                    broadcast_group_event(anc, _group_broadcast.EVT_GROUP_DELETED, pl)
+                # Subgroups go with it (Group.parent is CASCADE). Each one's own
+                # channel hears its deletion, so an open subgroup page swaps
+                # to "isn't available" instead of staying stale (#1742). Their
+                # parents are deleted too, so no parent channel outlives them.
+                for sub in subs:
+                    broadcast_group_event(sub, _group_broadcast.EVT_GROUP_DELETED, {"id": sub})
+                for bid, bd, eid in boards:
+                    _board_broadcast.broadcast_board_event(
+                        bid, _board_broadcast.EVT_BOARD_UPDATED, bd, event_id=eid, actor_id=aid,
+                    )
 
             transaction.on_commit(_broadcast_deleted)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -711,6 +761,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         if include_all_content:
             for row, m in zip(result, direct):
                 row["has_all_content_access"] = bool(m.user.can_access_all_content)
+                # Direct rows only: they are the ones with role and Remove
+                # controls, which update_member refuses on a site admin's row
+                # unless the caller is a site admin (#2164).
+                row["is_site_admin"] = bool(m.user.is_site_admin)
 
         # Inherited memberships from ancestor groups (nearest ancestor wins,
         # ancestors() returns nearest-first).

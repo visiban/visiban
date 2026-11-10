@@ -100,8 +100,14 @@ export interface PendingMove {
  * A membership change never changes the member's instance-level flag, so the
  * known value stays correct.
  */
-function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): EffectiveBoardMember {
+function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership, ownerId?: number): EffectiveBoardMember {
   let merged: EffectiveBoardMember = incoming;
+  // The owner is an implicit admin whatever their stored row says (#1905); the
+  // backend get_members shapes the row the same way, so a frame for the
+  // owner's lower explicit row must not turn them back into a viewer.
+  if (ownerId !== undefined && incoming.user.id === ownerId && incoming.role !== "admin") {
+    merged = { ...merged, role: "admin" };
+  }
   if (!("is_site_admin" in incoming) && prev.is_site_admin !== undefined) {
     merged = { ...merged, is_site_admin: prev.is_site_admin };
   }
@@ -1182,13 +1188,13 @@ export function useBoard() {
     writeBoard((b) => {
       const exists = b.members.some((m) => m.user.id === membership.user.id);
       return exists
-        ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) }
-        : { ...b, members: [...b.members, membership] };
+        ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership, b.owner?.id) : m) }
+        : { ...b, members: [...b.members, mergeMemberRow({ ...membership } as EffectiveBoardMember, membership, b.owner?.id)] };
     });
   }, [writeBoard]);
 
   const updateMember = useCallback((membership: BoardMembership) => {
-    writeBoard((b) => ({ ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) }));
+    writeBoard((b) => ({ ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership, b.owner?.id) : m) }));
   }, [writeBoard]);
 
   const removeMember = useCallback((userId: number) => {
@@ -1200,6 +1206,8 @@ export function useBoard() {
       ...b,
       members: b.members.flatMap((m): EffectiveBoardMember[] => {
         if (m.user.id !== userId) return [m];
+        // The owner stays an implicit admin without a row (#1905).
+        if (b.owner?.id === userId) return [{ ...m, id: null, role: "admin" }];
         return m.has_all_content_access
           ? [{ ...m, id: null, role: "site_admin", has_all_content_access: true }]
           : [];

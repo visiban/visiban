@@ -272,6 +272,34 @@ def annotate_board_counts(qs):
     )
 
 
+def serialize_boards_for_broadcast(board_ids, request):
+    """Render ``BoardSerializer`` payloads for *board_ids*, for a ``board.updated`` fan-out.
+
+    Returns ``(board_id, group_id, payload)`` in board pk order. For writes
+    that change many boards at once outside ``BoardViewSet`` (a deactivation's
+    owner transfer #1741, a group delete's ``SET_NULL`` #1742): the payload
+    carries the same annotations a board edit's does, so subscribers receive
+    the shape they already patch from, read after the write. ``is_starred`` is
+    the acting user's own value; the consumers send it to that user only.
+    """
+    from ..serializers import BoardSerializer
+
+    boards = (
+        annotate_board_counts(
+            Board.objects.filter(pk__in=list(board_ids)).select_related("owner", "group", "group__parent")
+        )
+        .annotate(
+            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+        )
+        .order_by("pk")
+    )
+    boards = list(boards)
+    # many=True so the list serializer primes the group health map once for
+    # every board, instead of one ancestor-chain query per nested board.
+    data = BoardSerializer(boards, many=True, context={"request": request}).data
+    return [(b.pk, b.group_id, payload) for b, payload in zip(boards, data)]
+
+
 def get_accessible_boards_queryset(user):
     """Return the Board queryset `user` may access: owned, directly a member of,
     inherited via group membership (a member of the board's group or one of its

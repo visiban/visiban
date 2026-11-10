@@ -168,6 +168,8 @@ Delete a group. Requires the group owner, who must also hold an admin membership
 
 A delete that arrives while the same group is being deleted, or while an invite to it (or to one of its subgroups) is being redeemed or a board is being placed in it or one of its subgroups, waits for that request to finish. A second delete of the same group then answers `404`, and a delete that waited behind an ownership transfer away from the caller answers `403` (#1638). It also waits for an in-flight write to the group or its subgroups — a subgroup create, an update, a board-defaults or member role change, an invite link create, send or revoke, a label create or update, a star, an ownership transfer, or a board import into the group — and then proceeds against what that write left: it deletes the new or changed rows with the group, detaches an imported board from it (the board itself is kept), and answers `403` if the write was an ownership transfer away from the caller (#1719).
 
+*(1.3+)* Deleting a group deletes its subgroups with it, and the boards in the group and its subgroups become personal boards (`group` becomes `null`). After the delete commits, `group.deleted` is sent on the group's channel and on each ancestor's channel (parent and higher), and on each deleted subgroup's own channel with that subgroup's `id`; each of those boards receives `board.updated` on its [board channel](websockets.md#board-channel) with `group`, `group_name` and `group_detail` cleared, recorded in its change feed. Before 1.3 only the group's own and its direct parent's `group.deleted` were sent, so open subgroup pages and board pages kept their old group until reloaded (#1742).
+
 ---
 
 ## Members
@@ -186,6 +188,7 @@ List group members. Requires group membership.
 | `is_inherited` | boolean | `true` when the member's access comes from a parent (ancestor) group rather than a direct membership on this group |
 | `inherited_from` | string / null | Display name of the ancestor group that grants access, when `is_inherited` is `true`; `null` otherwise |
 | `has_all_content_access` | boolean | Whether the member has all-content access, which resolves to full access and overrides `role`. Present on every row only when the requesting user is a group admin; omitted otherwise. *(1.3+)* |
+| `is_site_admin` | boolean | Whether the member is a site admin. Only a site admin can change or remove a site admin's membership ([`PATCH`](#patch-apiv1groupsidmembersuser_id) and `DELETE` answer `403` for anyone else), so clients use it to withhold those controls. Present on direct rows (`is_inherited: false`) only when the requesting user is a group admin; omitted on inherited rows and for other readers. *(1.3+, #2164)* |
 
 ### `PATCH /api/v1/groups/{id}/members/{user_id}/`
 Change a member's role. Requires group admin. Cannot modify the membership of a site admin who is a member of the group. The target must already have a membership in the group (the role of an inactive member can be changed); otherwise the response is the same `404 Not Found` whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member.
