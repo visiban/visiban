@@ -24,6 +24,7 @@ import DemoModeBar from "./components/Common/DemoModeBar";
 import DemoWriteBlockedToast from "./components/Board/DemoWriteBlockedToast";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
+import { isValidJoinToken } from "./api/joinToken";
 import JoinPage from "./pages/JoinPage";
 import ShareBoardPage from "./pages/ShareBoardPage";
 import ConfirmEmailPage from "./pages/ConfirmEmailPage";
@@ -71,6 +72,9 @@ export default function App() {
     oauthJoinFired.current = true;
     sessionStorage.removeItem("pendingJoinToken");
     sessionStorage.removeItem("returnTo");
+    // Drop a malformed stored token instead of sending it anywhere (the api
+    // functions also enforce the allowlist; #2174).
+    if (!isValidJoinToken(pendingToken)) return;
     // A board invite (vbnb_, #1444) redeems through the board join endpoint;
     // every other pending token is a group invite. On failure JoinPage shows
     // the right state for either kind.

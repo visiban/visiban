@@ -276,7 +276,10 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
       {...{ [DISMISS_LAYER_ATTR]: "" }}
       onScroll={onScroll}
       // Every control in here is its own Tab stop, so focus scrolls the region and it
-      // needs no tabIndex of its own. scroll-pb-8 is the fade's height: focus clears the
+      // needs no tabIndex of its own. scroll-pb-11 is the fade's height (h-8) plus the
+      // panel's bottom padding (p-3): a sticky bottom-0 child pins to the inside of the
+      // padding, 12px above the scrollport edge that scroll-padding measures from, so
+      // scroll-pb-8 alone left the fade over a focused field (#2179). Focus clears the
       // fade, and on the last button reaches the true end, so the fade goes away.
       onBlur={(e) => {
         // relatedTarget is null when the window loses focus and on a Safari button
@@ -284,7 +287,7 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
         const next = e.relatedTarget as Node | null;
         if (next && !e.currentTarget.contains(next)) onClose(false);
       }}
-      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 overflow-y-auto scroll-pb-8"
+      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 overflow-y-auto scroll-pb-11"
       style={{ top: top ?? 0, left, maxHeight: visibleMaxHeight(), visibility: top === null ? "hidden" : undefined }}
     >
       {boardColors.length > 0 && (

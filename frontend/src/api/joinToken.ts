@@ -11,6 +11,11 @@
  */
 const JOIN_TOKEN_RE = /^[A-Za-z0-9_-]{1,256}$/;
 
+/** Non-throwing predicate form of the allowlist, for guarding before any request. */
+export function isValidJoinToken(token: string): boolean {
+  return JOIN_TOKEN_RE.test(token);
+}
+
 export function safeJoinToken(token: string): string {
   const match = JOIN_TOKEN_RE.exec(token);
   if (!match) throw new Error("Invalid join token");

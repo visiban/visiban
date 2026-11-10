@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { safeJoinToken, safeShareToken } from '../api/joinToken'
+import { isValidJoinToken, safeJoinToken, safeShareToken } from '../api/joinToken'
 
 describe('safeJoinToken', () => {
   it.each([
@@ -31,4 +31,14 @@ describe('safeShareToken', () => {
       expect(() => safeShareToken(t)).toThrow('Invalid share token')
     },
   )
+})
+
+describe('isValidJoinToken', () => {
+  it('accepts issued token shapes', () => {
+    expect(isValidJoinToken('vbnb_abc123')).toBe(true)
+    expect(isValidJoinToken('vbng_' + 'f'.repeat(40))).toBe(true)
+  })
+  it.each(['', '..', 'a/b', 'a%2F', 'a?b', 'a'.repeat(257)])('rejects %j', (t) => {
+    expect(isValidJoinToken(t)).toBe(false)
+  })
 })
