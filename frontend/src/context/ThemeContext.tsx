@@ -11,6 +11,15 @@ interface ThemeContextValue {
 
 export const STORAGE_KEY = "user:prefs:theme";
 
+/**
+ * True when this page load found no stored theme and seeded the default
+ * ("system"). ThemeServerSync reads it so a browser with no local choice
+ * adopts the account's server-side theme instead of PATCHing the seeded
+ * default over it (#1859). Module-level because the seeding happens once,
+ * before any consumer renders.
+ */
+export let themeSeededFromDefault = false;
+
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "system",
   resolved: "dark",
@@ -38,6 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
+      themeSeededFromDefault = !stored;
       if (!stored) {
         localStorage.setItem(STORAGE_KEY, "system");
         return "system";

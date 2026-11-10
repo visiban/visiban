@@ -2918,6 +2918,17 @@ describe('BoardView card actions (#2059)', () => {
     expect(toast).toHaveAttribute('data-variant', 'success')
   })
 
+  it('Cancel on the Delete card… confirm deletes nothing and reports nothing', async () => {
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete card…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete this card?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this card?' })).not.toBeInTheDocument())
+    expect(deleteCard).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
   it('Copy link writes the card deep link and announces it', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })

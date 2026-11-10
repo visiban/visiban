@@ -3322,11 +3322,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               const sel = cardActionStateRef.current.selectedCardIds;
               if (ids.length === deleteTargetIds.length && deleteTargetIds.every((id) => sel.has(id)) && sel.size === ids.length) clearSelection();
             }}
-            onClose={(failure) => {
+            onClose={(failure, canceled) => {
               const firstId = deleteTargetIds[0];
               setDeleteTargetIds(null);
               if (failure) reportCardAction(failure, "failed");
-              else if (delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
+              else if (!canceled && delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
               setTimeout(() => focusCardOrBoard(firstId), 0);
             }}
           />

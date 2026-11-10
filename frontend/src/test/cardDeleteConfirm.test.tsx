@@ -54,7 +54,7 @@ describe('CardDeleteConfirm', () => {
     render(<CardDeleteConfirm boardId={3} cards={[makeCard(2, 9)]} canModifyAll={false} currentUserId={1} onDeleted={vi.fn()} onClose={onClose} />)
     expect(screen.getByText('You can only delete cards you created. This card will not be deleted.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(onClose).toHaveBeenCalledWith(null)
+    expect(onClose).toHaveBeenCalledWith(null, true)
   })
 
   it('counts a card with no creator as created by others (matches the old toolbar rule)', () => {

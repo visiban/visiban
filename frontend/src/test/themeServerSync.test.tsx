@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act, waitFor } from '@testing-library/react'
+import { render, act, waitFor, screen } from '@testing-library/react'
 import { ThemeProvider, useTheme } from '../context/ThemeContext'
 import type { ThemePreference } from '../context/ThemeContext'
 import { ThemeServerSync } from '../context/ThemeServerSync'
@@ -87,6 +87,29 @@ describe('ThemeServerSync', () => {
         expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ theme: 'light' })
       })
       expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
+    })
+
+    it('adopts the server theme without PATCHing when no local theme was stored (#1859)', async () => {
+      // No theme key and no sentinel: a browser upgrading straight from <=1.1.
+      // ThemeProvider seeds "system" as a placeholder; it must not be PATCHed
+      // over the account's theme.
+      const user = makeUser('dark')
+      const onUserUpdated = vi.fn()
+
+      function Probe() {
+        return <span data-testid="pref">{useTheme().preference}</span>
+      }
+      render(
+        <ThemeProvider>
+          <ThemeServerSync user={user} onUserUpdated={onUserUpdated} />
+          <Probe />
+        </ThemeProvider>
+      )
+
+      await waitFor(() => expect(screen.getByTestId('pref')).toHaveTextContent('dark'))
+      expect(localStorage.getItem(STORAGE_KEY)).toBe('dark')
+      expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
+      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
     })
 
     it('does not PATCH when local and server values already match', async () => {

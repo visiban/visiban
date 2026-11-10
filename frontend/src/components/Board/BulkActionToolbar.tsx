@@ -414,12 +414,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           cards={selectedCards}
           canModifyAll={canModifyAll}
           currentUserId={currentUser?.id ?? null}
-          onStart={() => { setDropdown(null); setBusy(true); }}
+          onStart={() => { setDropdown(null); setBusy(true); setPartialError(null); }}
           onDeleted={onCardsDeleted}
-          onClose={(failure) => {
+          onClose={(failure, canceled) => {
             setConfirmDelete(false);
+            // Cancel/Escape only closes the dialog; the selection stays.
+            if (canceled) return;
             setBusy(false);
-            setPartialError(null);
             // Keep the selection on any failure so the user can see what is left.
             if (failure) setPartialError(failure);
             else onClearSelection();

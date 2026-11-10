@@ -105,7 +105,7 @@ Two keys are written to `localStorage` to survive page reloads and navigation:
 
 `user:prefs:sidebar-collapsed` is written on every toggle; `user:prefs:sidebar-groups-expanded` on every group expand or collapse. Both are read synchronously during component initialization, so there's no flash of the default state on load.
 
-Preferences saved under the older, pre-1.2 key names are no longer migrated (1.3 removed the one-time copy that 1.2 ran). A browser that jumps straight from 1.1 or earlier to 1.3 starts with the default sidebar state and theme once, then remembers new choices under these keys.
+Preferences saved under the older, pre-1.2 key names are no longer migrated (1.3 removed the one-time copy that 1.2 ran). A browser that jumps straight from 1.1 or earlier to 1.3 starts with the default sidebar state once (the theme is taken from the signed-in account), then remembers new choices under these keys.
 
 If `user:prefs:sidebar-groups-expanded` can't be parsed as valid JSON, the error is silently caught and the set of expanded groups starts empty.
 

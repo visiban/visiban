@@ -201,6 +201,7 @@ describe('BulkActionToolbar', () => {
 
   it('cancels delete confirmation when Cancel is clicked', async () => {
     const user = userEvent.setup()
+    const onClear = vi.fn()
     render(
       <BulkActionToolbar
         board={makeBoard()}
@@ -208,13 +209,16 @@ describe('BulkActionToolbar', () => {
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
         onCardsArchived={vi.fn()}
-        onClearSelection={vi.fn()}
+        onClearSelection={onClear}
       />
     )
     await user.click(screen.getByText('Delete'))
     expect(screen.getByText('Delete 2 cards?')).toBeInTheDocument()
     await user.click(screen.getByText('Cancel'))
     expect(screen.queryByText('Delete 2 cards?')).not.toBeInTheDocument()
+    // Cancel only closes the dialog; the selection stays.
+    expect(onClear).not.toHaveBeenCalled()
+    expect(deleteCard).not.toHaveBeenCalled()
   })
 
   it('shows singular "card" in delete confirmation for single selection', async () => {
@@ -444,8 +448,9 @@ describe('BulkActionToolbar', () => {
     expect(screen.queryByText('To Do')).not.toBeInTheDocument()
   })
 
-  it('closes delete confirmation on Escape key', async () => {
+  it('closes delete confirmation on Escape key and keeps the selection', async () => {
     const user = userEvent.setup()
+    const onClear = vi.fn()
     render(
       <BulkActionToolbar
         board={makeBoard()}
@@ -453,7 +458,7 @@ describe('BulkActionToolbar', () => {
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
         onCardsArchived={vi.fn()}
-        onClearSelection={vi.fn()}
+        onClearSelection={onClear}
       />
     )
     await user.click(screen.getByText('Delete'))
@@ -462,6 +467,7 @@ describe('BulkActionToolbar', () => {
     await waitFor(() =>
       expect(screen.queryByText('Delete 2 cards?')).not.toBeInTheDocument()
     )
+    expect(onClear).not.toHaveBeenCalled()
   })
 
   it('shows Working... indicator while busy', async () => {

@@ -13,8 +13,12 @@ interface Props {
   /** Fired when the deletes start, for callers that show their own in-flight state (the bulk toolbar's "Working..."). */
   onStart?: () => void;
   onDeleted: (cardIds: number[]) => void;
-  /** Closes the dialog; `failure` is the bulk partial-failure line, or null. */
-  onClose: (failure: string | null) => void;
+  /**
+   * Closes the dialog. `failure` is the bulk partial-failure line, or null;
+   * `canceled` is true when the user dismissed it without deleting anything
+   * (Cancel, backdrop, Escape), so callers keep the selection and stay quiet.
+   */
+  onClose: (failure: string | null, canceled?: boolean) => void;
 }
 
 const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
@@ -51,7 +55,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
   return (
     <ModalWrapper
       open
-      onClose={() => { if (!inFlight.current) onClose(null); }}
+      onClose={() => { if (!inFlight.current) onClose(null, true); }}
       dismissable={!busy}
       title={count === 1 ? "Delete this card?" : `Delete ${count} cards?`}
       maxWidth="max-w-sm"
@@ -70,7 +74,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
       <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          onClick={() => { if (!inFlight.current) onClose(null); }}
+          onClick={() => { if (!inFlight.current) onClose(null, true); }}
           aria-disabled={busy || undefined}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >

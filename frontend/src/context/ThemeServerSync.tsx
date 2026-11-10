@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { updateCurrentUser } from "../api/auth";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
 import type { User } from "../types";
-import { STORAGE_KEY, useTheme } from "./ThemeContext";
+import { STORAGE_KEY, themeSeededFromDefault, useTheme } from "./ThemeContext";
 
 /**
  * Bridges the per-browser ThemeContext (localStorage-backed) with the
@@ -63,6 +63,23 @@ export function ThemeServerSync({
       } catch {
         // Storage unavailable: with no reliable local state or sentinel, skip
         // the initial sync rather than guess (the server value is untouched).
+        return;
+      }
+
+      if (!sentinel && themeSeededFromDefault) {
+        // No local theme existed (a fresh browser, or one upgrading from <=1.1
+        // after the legacy-key migration was removed, #1859): "system" was only
+        // seeded as a placeholder, so adopt the account's theme rather than
+        // PATCH the placeholder over it on every device.
+        try {
+          localStorage.setItem(SYNC_SENTINEL_KEY, "1");
+        } catch {
+          // Non-fatal: the sync simply repeats on the next load.
+        }
+        if (serverTheme !== localTheme) {
+          lastServerPushRef.current = serverTheme;
+          setPreference(serverTheme);
+        }
         return;
       }
 
