@@ -35,8 +35,6 @@ import { formatExportFormatLabel, formatExportRowCount } from "../../utils/expor
 // overrides their board role (#1301).
 const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
 
-// Why a site admin's membership offers no remove action to a board admin (#1706).
-
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
   { value: "member",       label: "Member",        description: "Create, edit, and move cards" },
