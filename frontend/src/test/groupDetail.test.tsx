@@ -756,6 +756,8 @@ describe('GroupDetail', () => {
 
     // Non-admin lands on Boards tab; Settings tab is hidden entirely
     await screen.findByText(/Subgroups let you organize/)
+    expect(screen.getByText('No subgroups yet')).toBeInTheDocument()
+    expect(screen.getByTestId('subgroups-empty').querySelector('svg')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
     expect(screen.queryByText('Delete group')).not.toBeInTheDocument()
     expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
