@@ -64,8 +64,10 @@ class HandParsedQueryParameterSchemaTests(TestCase):
 
     def test_params_are_scoped_to_the_operations_that_parse_them(self):
         # The list-only declarations must not leak onto writes or other
-        # operations: board create, board update and group retrieve do not
-        # filter on ``starred``, and POST /groups/{id}/boards/ is not a read.
+        # operations. ``starred`` is documented as a list filter only; detail
+        # actions (board update, group retrieve) pick it up from
+        # ``get_queryset`` incidentally, so it is not advertised there. Nor is
+        # POST /groups/{id}/boards/, which is not a read.
         self.assertNotIn("starred", self._query_params(_BOARD))
         self.assertNotIn("starred", self._query_params(_GROUPS + "{id}/"))
         self.assertNotIn("expand", self._query_params(_BOARDS, "post"))

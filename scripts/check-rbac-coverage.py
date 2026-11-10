@@ -871,7 +871,17 @@ def _consumed(call: ast.Call, fn: ast.AST, parents: dict) -> bool:
         return child is node.test
     if isinstance(node, (ast.Assign, ast.AnnAssign)):
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        names = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+        # Bare names only: ``self._ok = ...`` or ``ctx["ok"] = ...`` binds no
+        # name an ``if`` can read back, and walking to the root would let any
+        # unrelated ``if self.x: raise`` count as the comparison's refusal.
+        names: set[str] = set()
+        stack = list(targets)
+        while stack:
+            t = stack.pop()
+            if isinstance(t, ast.Name):
+                names.add(t.id)
+            elif isinstance(t, (ast.Tuple, ast.List)):
+                stack.extend(t.elts)
         for st in _body_nodes(fn):
             if isinstance(st, (ast.If, ast.While, ast.Assert)):
                 expr = st.test
@@ -2371,6 +2381,56 @@ def self_test() -> int:
                 1,
             )},
             None,
+            None,
+            {},
+        ),
+        (
+            # Positive control for the Assign branch: ``ok = role in X`` then ``if not ok: raise``.
+            "a raise decided by a name bound from the comparison still gates a dropped result",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    ok = role in card_services.ANNOTATION_ROLES\n"
+                "    if not ok:\n"
+                "        raise PermissionDenied\n"
+                "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            None,
+            None,
+            {},
+        ),
+        (
+            # An attribute target binds no name: an unrelated ``if holder.flag: raise`` is not the comparison's refusal.
+            "a comparison stored on an attribute is not read back by an unrelated raise",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "    if role in card_services.ANNOTATION_ROLES:\n"
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "    holder.ok = role in card_services.ANNOTATION_ROLES\n"
+                "    if holder.flag:\n"
+                "        raise PermissionDenied\n"
+                "    return None\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
             None,
             {},
         ),
