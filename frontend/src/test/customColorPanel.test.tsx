@@ -477,6 +477,31 @@ describe('ColorSwatchPicker allowCustom', () => {
     expect(panel.querySelector('.bg-gradient-to-t')).not.toBeNull()
   })
 
+  // #2179: focus scrolls a field clear of the fade only if the scroll padding covers the
+  // fade's height plus the panel's bottom padding, because the sticky fade pins to the
+  // inside of that padding, not to the scrollport edge. jsdom has no layout, so pin the
+  // arithmetic on the classes; the short-viewport Playwright spec measures the real thing.
+  it('reserves scroll padding for the fade plus the panel padding, so focus clears the fade', () => {
+    render(<Host />)
+    fireEvent.click(emptyTrigger())
+    const panel = dialog()
+    vi.spyOn(panel, 'scrollHeight', 'get').mockReturnValue(400)
+    vi.spyOn(panel, 'clientHeight', 'get').mockReturnValue(200)
+    fireEvent.scroll(panel)
+    const fade = panel.querySelector('.bg-gradient-to-t') as HTMLElement
+    const step = (el: Element, prefix: string) => {
+      const values = Array.from(el.classList)
+        .filter((c) => c.startsWith(prefix))
+        .map((c) => Number(c.slice(prefix.length)))
+        .filter((n) => Number.isInteger(n))
+      expect(values, `one ${prefix}* class on ${el.className}`).toHaveLength(1)
+      return values[0]
+    }
+    expect(fade.className).toContain('sticky')
+    expect(fade.className).toContain('bottom-0')
+    expect(step(panel, 'scroll-pb-')).toBe(step(fade, 'h-') + step(panel, 'p-'))
+  })
+
   describe('Escape priority', () => {
     function Stack({ priority, handler }: { priority: number; handler: () => void }) {
       useEscapeStack(handler, priority)
