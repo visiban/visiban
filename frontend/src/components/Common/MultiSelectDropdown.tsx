@@ -356,7 +356,7 @@ export default function MultiSelectDropdown({
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         aria-label={`${label}: ${current.length > 0 ? current.join(", ") : "No value"}`}
-        className={`bg-surface border rounded px-2 py-1 text-sm w-full flex items-center justify-between gap-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-60 ${
+        className={`bg-surface border rounded px-2 py-1 text-sm w-full flex items-center justify-between gap-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 ${
           open ? "border-primary-soft" : "border-line-strong hover:border-line-emphasis"
         }`}
       >
