@@ -5218,11 +5218,23 @@ installs have already run them; these are documented instead.</p>
   change; it only row-locks superuser rows, which is negligible.) Fine for typical sizes; see the
   <a href="../../administration/upgrade/#upgrading-to-12x">upgrade guide</a> for very large installs.</li>
 <li><strong><code>boards/0054</code> overwrites system template columns</strong> by slug, and its reverse restores
-  constants rather than prior database values. See the upgrade guide.</li>
+  constants rather than prior database values. See the upgrade guide. The forward step
+  writes its <code>NEW_COLUMNS</code> literals over <code>BoardTemplate.columns_json</code> for each slug it lists,
+  so it would also replace an admin's edit to one of those system templates. The reverse
+  (<code>unfix_columns</code>) writes the <code>OLD_COLUMNS</code> literals back; it does not restore whatever the
+  row held before the forward step ran, so migrating back past <code>0054</code> loses such an edit too.
+  This is acknowledged rather than fixed (#2013): the table is small, the step is idempotent,
+  and the migration has shipped. A future data migration that rewrites rows by natural key
+  should snapshot the prior values if its reverse is meant to be value-exact.</li>
 <li><strong><code>accounts/0033</code> has an unneeded dependency</strong> on <code>boards/0061</code> and <code>auth/0012</code> (an
   autodetector artifact). Remove it at the next squash; don't edit it now.</li>
 <li><strong>Frozen history:</strong> the duplicate <code>boards/0033</code> (merged by <code>0035</code>) and the missing
-  <code>boards/0053</code> aren't to be renumbered.</li>
+  <code>boards/0053</code> aren't to be renumbered. No <code>boards/0053_*</code> migration has ever existed in
+  git history: <code>0054_fix_board_template_drift</code> depends directly on
+  <code>0052_board_show_wip_at_limit</code>, so the dependency chain is intact and nothing is
+  missing from it. Django orders migrations by their <code>dependencies</code>, not by the number in
+  the filename, and <code>scripts/check-migration-numbering.sh</code> does not flag a skipped number.
+  Don't add a <code>0053</code> to fill the gap (#2013).</li>
 <li><strong>allauth pin:</strong> <code>accounts/0031</code> and <code>0033</code> depend on allauth's
   <code>account.0009_emailaddress_unique_primary_email</code>. 1.1.0 and 1.2 both pin
   <code>django-allauth==65.14.3</code>, which ships it;

@@ -4228,17 +4228,28 @@
 <tr>
 <th>Toggle</th>
 <th>Default</th>
-<th>Effect when off</th>
+<th>Effect</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>File uploads</strong></td>
 <td>On</td>
-<td>All users, including board admins, receive <code>403 Forbidden</code> when attempting to upload an attachment. Existing attachments are preserved and remain viewable and downloadable.</td>
+<td>When off, all users, including board admins, receive <code>403 Forbidden</code> when attempting to upload an attachment. Existing attachments are preserved and remain viewable and downloadable.</td>
+</tr>
+<tr>
+<td><strong>Registration mode</strong> (<code>registration_mode</code>)</td>
+<td>Open (<code>open</code>)</td>
+<td>Controls who can create an account. <strong>Open</strong> (<code>open</code>): anyone can sign up. <strong>Invite-only</strong> (<code>invite_only</code>): only someone with a valid invite link can sign up, with a password or through a configured OAuth/OIDC provider. <strong>Closed</strong> (<code>closed</code>): all self-registration is off, and site admins create accounts. Only new sign-ups are gated: existing users keep logging in, by password or OAuth, in every mode.</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Registration mode</strong> has three settings rather than on and off, so it sits under
+<strong>/admin → Settings → Registration mode</strong> instead of <strong>Features</strong>, and a change to it
+propagates the same way as the toggles above. See <a href="../../administration/admin-panel/#registration-mode">Registration mode</a>
+for which invite links qualify, and
+<a href="../../administration/authentication/#oauthoidc-with-invite-only-registration">OAuth/OIDC with invite-only registration</a>
+for sign-up through an identity provider.</p>
 <p>New gated features will be added to this table.</p>
 <p><a id="who-can-change-toggles"></a></p>
 <h2 id="managing-toggles">Managing toggles<a class="headerlink" href="#managing-toggles" title="Permanent link">&para;</a></h2>

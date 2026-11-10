@@ -5382,8 +5382,8 @@ sees it appear or disappear without a reload.</p>
 </tr>
 <tr>
 <td><code>lens_connection.removed</code></td>
-<td>Lens connection deleted from this board (admin only)</td>
-<td><code>{ "board_id": &lt;int&gt; }</code></td>
+<td>Lens connection deleted from this board (admin only). Sent only when a connection existed: a <code>DELETE</code> with nothing to remove still answers <code>204</code> but emits nothing</td>
+<td><code>{ "board_uid": &lt;string&gt;, "board_id": &lt;int&gt; }</code>. <code>board_uid</code> is sent since 1.3 (#1858) and matches the other terminal events, such as <code>board.deleted</code>; key on it. <code>board_id</code> is <strong>deprecated</strong> since 1.3 and stays in the payload until a major release (#1055)</td>
 </tr>
 </tbody>
 </table>
