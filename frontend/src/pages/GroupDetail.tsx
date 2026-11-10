@@ -565,6 +565,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         // A direct subgroup was deleted — drop it from the subgroup list.
         const deletedId = data.id;
         writeSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
+        // "Show subgroup boards" lists the deleted subtree's boards too (#1742).
+        if (showSubgroupBoardsRef.current) refetchSubgroupBoards();
       }
     } else if (
       evt.event === "member.added" ||
@@ -611,7 +613,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, setIsStarred]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, refetchSubgroupBoards, setIsStarred]);
 
   // Events fired while the socket was disconnected are not replayed. Re-read
   // everything the page shows that a frame can change after a reconnect so the

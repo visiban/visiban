@@ -2036,6 +2036,26 @@ describe('GroupDetail', () => {
       })
     })
 
+    it('refetches the shown subgroup boards when a subgroup is deleted (#1742)', async () => {
+      const user = userEvent.setup()
+      const subgroup = { ...fakeGroup, id: 2, name: 'Sub Team', parent: 1 }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([subgroup])
+      mockGetGroupBoards.mockResolvedValue([])
+      mockGetGroupDescendantBoards.mockResolvedValue([])
+      renderGroupDetail()
+      await screen.findByText('Sub Team')
+      await user.click(screen.getByRole('switch'))
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+
+      act(() => {
+        capturedOnEvent?.({ event: 'group.deleted', data: { id: 2 } } as BoardEvent)
+      })
+
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
+    })
+
     it('refetches subgroups on group.created (#998)', async () => {
       await loadGroup()
       act(() => {
