@@ -23,6 +23,15 @@ export const CARD_MENU_ESCAPE_PRIORITY = 59;
 /** Viewport point (pointer) or the card's rect (keyboard, `⋯` button). */
 export type CardMenuAnchor = { top: number; bottom: number; left: number };
 
+/**
+ * Pointer grace (#2106): when the pointer leaves a submenu's trigger row for
+ * another row, the open submenu stays for this long so a diagonal move toward
+ * it does not close it. Entering the submenu (or the trigger again) cancels
+ * the close. A timer rather than a safe-triangle: far simpler, and 200 ms is
+ * short enough that a deliberate move to another row still feels immediate.
+ */
+export const SUBMENU_CLOSE_GRACE_MS = 200;
+
 export type CardMenuCloseReason = "escape" | "tab" | "outside" | "action";
 
 type Submenu = "move" | "assign" | "priority";
@@ -64,6 +73,13 @@ export default function CardContextMenu({ anchor, label, header, entries, column
   const [left, setLeft] = useState(anchor.left);
   const [subLeft, setSubLeft] = useState<number | null>(null);
   const baseId = useId();
+  const submenuId = `${baseId}-submenu`;
+  const graceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelGrace = useCallback(() => {
+    if (graceTimer.current !== null) { clearTimeout(graceTimer.current); graceTimer.current = null; }
+  }, []);
+  // A pending close must never fire after the menu is gone.
+  useEffect(() => cancelGrace, [cancelGrace]);
   const flat = CARD_MENU_GROUPS.flat()
     .map((id) => entries.find((e) => e.id === id))
     .filter((e): e is CardActionEntry => !!e);
@@ -126,6 +142,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
 
   const parentIndex = (id: Submenu) => flat.findIndex((e) => e.id === id);
   const closeSubmenu = () => {
+    cancelGrace();
     if (!submenu) return;
     const idx = parentIndex(submenu.id);
     setSubmenu(null);
@@ -142,6 +159,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
     id === "move" ? moveChoices(columns) : id === "assign" ? assignChoices(members) : priorityChoices();
 
   const openSubmenu = (id: Submenu, idx: number) => {
+    cancelGrace(); // an open trigger replaces the submenu; a stale close must not hit the new one
     const rect = itemRefs.current[idx]?.getBoundingClientRect();
     if (!rect) return;
     setSubmenu({ id, anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right } });
@@ -243,12 +261,18 @@ export default function CardContextMenu({ anchor, label, header, entries, column
                   aria-describedby={entry.enabled ? undefined : reasonId}
                   aria-haspopup={hasSub ? "menu" : undefined}
                   aria-expanded={hasSub ? submenu?.id === entry.id : undefined}
+                  aria-controls={hasSub && submenu?.id === entry.id ? submenuId : undefined}
                   data-action={entry.id}
                   onClick={() => activate(entry, idx)}
                   onKeyDown={(e) => onItemKeyDown(e, entry, idx)}
                   onMouseEnter={() => {
-                    // A pointer resting on another item closes an open submenu.
-                    if (submenu && submenu.id !== entry.id) setSubmenu(null);
+                    // A pointer resting on another item closes an open submenu,
+                    // after a short grace so a diagonal move toward it survives.
+                    if (!submenu) return;
+                    if (submenu.id === entry.id) { cancelGrace(); return; }
+                    if (graceTimer.current === null) {
+                      graceTimer.current = setTimeout(() => { graceTimer.current = null; setSubmenu(null); }, SUBMENU_CLOSE_GRACE_MS);
+                    }
                   }}
                   className={`w-full text-left px-3 py-1.5 text-sm transition flex flex-col ${
                     entry.enabled ? "hover:bg-surface-hover" : "cursor-not-allowed"
@@ -275,6 +299,8 @@ export default function CardContextMenu({ anchor, label, header, entries, column
       {submenu && (
         <div
           ref={subRef}
+          id={submenuId}
+          onPointerEnter={cancelGrace}
           role="menu"
           aria-label={submenu.id === "move" ? "Move to column" : submenu.id === "assign" ? "Assign to" : "Set priority"}
           data-testid="card-context-submenu"
