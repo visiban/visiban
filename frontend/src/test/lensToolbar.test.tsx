@@ -67,6 +67,7 @@ describe('LensToolbar', () => {
     const { onToggleLayout } = setup({ cardLayout: 'compact' })
     const btn = screen.getByRole('button', { name: 'Switch to expanded card layout' })
     expect(btn).toHaveAttribute('aria-pressed', 'true')
+    expect(btn).toHaveClass('bg-primary-emphasis/10')
     await user.click(btn)
     expect(onToggleLayout).toHaveBeenCalled()
   })

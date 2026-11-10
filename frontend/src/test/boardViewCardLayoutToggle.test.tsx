@@ -272,6 +272,7 @@ describe('BoardView — card layout toggle button', () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
     expect(getToggleButton()).toHaveAttribute('aria-pressed', 'true')
+    expect(getToggleButton()).toHaveClass('bg-primary-emphasis/10')
   })
 
   it('aria-label is "Switch to compact card layout" in expanded mode', () => {

@@ -2784,7 +2784,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
               className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 cardLayout === "compact"
-                  ? "text-info-on-tint bg-info/10"
+                  ? "text-info-on-tint bg-primary-emphasis/10"
                   : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
