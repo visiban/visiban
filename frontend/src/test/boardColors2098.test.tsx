@@ -3,6 +3,9 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import ColorSwatchPicker from '../components/Common/ColorSwatchPicker'
 import AddColumnModal from '../components/Board/AddColumnModal'
 import AddSwimlaneModal from '../components/Swimlane/AddSwimlaneModal'
+import EditColumnModal from '../components/Board/EditColumnModal'
+import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
+import type { Column, Swimlane } from '../types'
 import { boardColorsInUse, boardColorsOutsidePalette } from '../utils/boardColors'
 import { COLUMN_COLORS } from '../constants/colors'
 
@@ -76,6 +79,19 @@ describe('"On this board" row in the custom color popover (#2098)', () => {
     expect(screen.getByRole('button', { name: 'Use color from column To Do' })).toBeInTheDocument()
     unmount()
     render(<AddSwimlaneModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} boardColors={colors} />)
+    open()
+    expect(screen.getByRole('button', { name: 'Use color from column To Do' })).toBeInTheDocument()
+  })
+
+  it('EditColumnModal and EditSwimlaneModal pass the prop through', () => {
+    const colors = [{ color: '#112233', usedBy: 'column To Do' }]
+    const column = { id: 10, uid: 'coluid000001', name: 'Review', position: 1, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null } as unknown as Column
+    const swimlane = { id: 1, uid: 'sl1', name: 'Lane', color: '#6B7280', position: 0, is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null } as unknown as Swimlane
+    const { unmount } = render(<EditColumnModal boardId={1} column={column} cardCount={0} onUpdated={vi.fn()} onRequestDelete={vi.fn()} onClose={vi.fn()} boardColors={colors} />)
+    open()
+    expect(screen.getByRole('button', { name: 'Use color from column To Do' })).toBeInTheDocument()
+    unmount()
+    render(<EditSwimlaneModal boardId={1} swimlane={swimlane} cardCount={0} onUpdated={vi.fn()} onDeleted={vi.fn()} onClose={vi.fn()} boardColors={colors} />)
     open()
     expect(screen.getByRole('button', { name: 'Use color from column To Do' })).toBeInTheDocument()
   })

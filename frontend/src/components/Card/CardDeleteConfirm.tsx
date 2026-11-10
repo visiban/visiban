@@ -29,7 +29,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const count = cards.length;
-  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by != null && c.created_by.id !== currentUserId) : [];
+  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
 
   const handleDelete = async () => {
     if (inFlight.current) return;
