@@ -26,8 +26,10 @@ from boards.models import (
     BoardMembership,
     Card,
     CardAttachment,
+    CardBlock,
     CardChecklist,
     CardComment,
+    CardRelation,
     Column,
     Swimlane,
 )
@@ -202,18 +204,27 @@ class UserDeleteBroadcastTests(TestCase):
         )
         checklist = card("Checklist")
         CardChecklist.objects.create(card=checklist, text="item", created_by=self.victim)
-        return commented, uploaded, checklist
+        # A relation the victim made to a card already announced (``assigned``),
+        # so only the relation's own card adds a frame.
+        related = card("Related")
+        CardRelation.objects.create(
+            from_card=related, to_card=self.assigned,
+            relation_type=CardRelation.Type.BLOCKS, created_by=self.victim,
+        )
+        blocked = card("Blocked")
+        CardBlock.objects.create(card=blocked, board=self.board, blocked_by=self.victim, reason="wait")
+        return commented, uploaded, checklist, related, blocked
 
     def _assert_reference_frames(self, board_frames, cards):
         for c in cards:
             frames = [p for b, e, p in board_frames if e == "card.updated" and p["id"] == c.pk]
             self.assertEqual(len(frames), 1, c.title)
-        commented = next(p for b, e, p in board_frames if e == "card.updated" and p["id"] == cards[0].pk)
-        # Rendered after the clear: the comment no longer names the victim.
+        # The delete cleared the references the frames were sent for.
         self.assertEqual(CardComment.objects.get(card=cards[0]).author_id, None)
-        self.assertEqual(commented["id"], cards[0].pk)
+        self.assertIsNone(CardRelation.objects.get(from_card=cards[3]).created_by_id)
+        self.assertIsNone(CardBlock.objects.get(card=cards[4]).blocked_by_id)
 
-    def test_single_delete_announces_cards_only_referenced_by_a_comment_upload_or_checklist(self):
+    def test_single_delete_announces_cards_only_referenced_by_a_comment_upload_checklist_relation_or_block(self):
         cards = self._reference_only_cards()
         # A card in both sets (created and commented on) still gets one frame.
         CardComment.objects.create(card=self.created, author=self.victim, body="also")
@@ -227,7 +238,7 @@ class UserDeleteBroadcastTests(TestCase):
             sorted([self.assigned.pk, self.created.pk] + [c.pk for c in cards]),
         )
 
-    def test_bulk_delete_announces_cards_only_referenced_by_a_comment_upload_or_checklist(self):
+    def test_bulk_delete_announces_cards_only_referenced_by_a_comment_upload_checklist_relation_or_block(self):
         cards = self._reference_only_cards()
         CardComment.objects.create(card=self.created, author=self.victim, body="also")
         board_frames, _ = self._delete_bulk([self.victim, self.other])
