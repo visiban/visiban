@@ -260,7 +260,7 @@ before the view runs still conform. The declared body (move's `CardMoveVersionTy
 `InviteEmailBadRequest`, and so on) stays documented, as the first branch. The pre-view branches are:
 
 - `{"detail": "<string>"}` and nothing else, for a malformed body, a refused charset or a server
-  limit. Every declared `400` gets it, a `GET` or `DELETE` included, because the query-string limit
+  limit. Every declared `400` that has a schema gets it, a `GET` or `DELETE` included, because the query-string limit
   and the charset check apply to every operation.
 - `{"<field>": ["<string>", ...]}`, `StrictJSONParser`'s refusal of a lone surrogate under any key,
   one the endpoint would ignore included. Every operation except a `GET` gets it (and a `GET` that
@@ -273,7 +273,8 @@ such as `{"detail": "x"}` can match both the declared schema and a pre-view bran
 would reject. A declared `400` with no body (a description only) gains the validation-error body
 instead, since it never described one. This changes the document, not the server: those `400`s
 were already sent, and `backend-schema-fuzz` failed on them depending on the seed.
-`test_schema_hooks.py` checks every operation's `400` against both pre-view bodies, so a new
+`test_schema_hooks.py` checks every operation's `400` against the pre-view bodies that operation
+can answer, so a new
 declared `400` needs no per-operation baseline entry.
 
 **Server-layer multipart rejections are filtered, not baselined.** When a request's
