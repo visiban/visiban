@@ -11,7 +11,6 @@ import type { SidebarTreeNode } from "../../utils/groupTree";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import Spinner from "../Common/Spinner";
-import { migrateLegacyKey } from "../../utils/migrateLegacyKey";
 import { DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 
@@ -24,9 +23,6 @@ interface Props {
 
 const COLLAPSED_KEY = "user:prefs:sidebar-collapsed";
 const GROUPS_EXPANDED_KEY = "user:prefs:sidebar-groups-expanded";
-// Pre-#1855 names; migrated on first read.
-const LEGACY_COLLAPSED_KEY = "sidebar-collapsed";
-const LEGACY_GROUPS_EXPANDED_KEY = "sidebar-groups-expanded";
 
 function saveGroupsExpanded(ids: Set<number>): void {
   try {
@@ -42,7 +38,6 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
   const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState(() => {
-    migrateLegacyKey(LEGACY_COLLAPSED_KEY, COLLAPSED_KEY);
     try {
       return localStorage.getItem(COLLAPSED_KEY) === "true";
     } catch {
@@ -50,7 +45,6 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     }
   });
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(() => {
-    migrateLegacyKey(LEGACY_GROUPS_EXPANDED_KEY, GROUPS_EXPANDED_KEY);
     try {
       const saved = JSON.parse(
         localStorage.getItem(GROUPS_EXPANDED_KEY) || "[]"

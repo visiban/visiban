@@ -381,3 +381,19 @@ describe('ThemeProvider — cross-tab storage sync', () => {
     expect(result.current.preference).toBe('system')
   })
 })
+
+describe('ThemeProvider — unavailable storage', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    })
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('does not crash when storage throws', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    expect(() => render(<ThemeProvider><div /></ThemeProvider>)).not.toThrow()
+  })
+})

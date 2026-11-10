@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { migrateLegacyKey } from "../utils/migrateLegacyKey";
 
 export type ThemePreference = "system" | "dark" | "light";
 
@@ -12,8 +11,6 @@ interface ThemeContextValue {
 }
 
 export const STORAGE_KEY = "user:prefs:theme";
-// Pre-#1855 name; migrated on first read. Remove the shim under #1859.
-export const LEGACY_STORAGE_KEY = "visiban-theme";
 
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "system",
@@ -40,7 +37,6 @@ function applyTheme(preference: ThemePreference): "dark" | "light" {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
-    migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
       if (!stored) {

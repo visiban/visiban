@@ -5,9 +5,7 @@
 (function () {
   var s = null;
   try {
-    // New key first; fall back to the pre-#1855 name until ThemeContext has
-    // migrated it (remove the fallback under #1859).
-    s = localStorage.getItem("user:prefs:theme") || localStorage.getItem("visiban-theme");
+    s = localStorage.getItem("user:prefs:theme");
   } catch (e) {}
   var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   var isDark = s === "dark" || ((!s || s === "system") && prefersDark);

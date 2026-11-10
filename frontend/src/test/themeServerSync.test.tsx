@@ -131,27 +131,7 @@ describe('ThemeServerSync', () => {
   // Subsequent-load server-wins behaviour
   // --------------------------------------------------------------------------
 
-  describe('legacy key migration (#1855)', () => {
-    it('treats a migrated legacy sentinel as already synced: no PATCH, server wins', async () => {
-      localStorage.setItem('visiban-theme', 'dark')
-      localStorage.setItem('visiban-theme-synced', '1')
-      const user = makeUser('light')
-
-      render(
-        <ThemeProvider>
-          <ThemeServerSync user={user} onUserUpdated={vi.fn()} />
-        </ThemeProvider>
-      )
-
-      await waitFor(() => {
-        expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
-      })
-      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
-      expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
-      expect(localStorage.getItem('visiban-theme-synced')).toBeNull()
-      expect(localStorage.getItem('visiban-theme')).toBeNull()
-    })
-
+  describe('unavailable storage', () => {
     it('does not crash or PATCH when storage throws', async () => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('blocked')

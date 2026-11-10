@@ -1129,7 +1129,7 @@ Icon-only buttons that toggle a persistent mode (e.g. focus mode, collapse) must
 - **Board-scoped keys:** `board:{boardId}:{pref-name}` — for preferences that are per-board (hidden columns, filters, column widths)
 - **User-scoped keys:** `user:prefs:{pref-name}` — for preferences that apply across all boards (reading habits, display toggles)
 
-**Legacy-key migration (#1855).** `sidebar-collapsed`, `sidebar-groups-expanded`, `visiban-theme` and the `visiban-theme-synced` sentinel were renamed to `user:prefs:sidebar-collapsed`, `user:prefs:sidebar-groups-expanded`, `user:prefs:theme` and `user:prefs:theme-synced`. `utils/migrateLegacyKey.ts` does a one-time read-old, write-new, remove-old (new key wins if present; storage errors swallowed), called from `AppSidebar`, `ThemeProvider` and `ThemeServerSync`; `public/theme-init.js` reads the new key with a fallback to the old one. Remove the shim and the fallback under #1859. Any new persisted key must use the `user:prefs:` / `board:` prefix from the start.
+**Renamed keys are not migrated (#1859).** 1.2 renamed the sidebar and theme keys to the `user:prefs:*` form and shipped a one-time read-old, write-new, remove-old shim; 1.3 removed it, along with the old-name fallback in `public/theme-init.js`. A browser upgrading from 1.1 or earlier straight to 1.3 starts with defaults once. When renaming a persisted key in the future, ship a shim for one release cycle, remove it under a tracked issue, and say so in the changelog and `docs/administration/upgrade.md`. Any new persisted key must use the `user:prefs:` / `board:` prefix from the start.
 
 Each key in either namespace requires a `load()` function with try/catch + fallback-to-default, and a `save()` function that fails silently.
 
