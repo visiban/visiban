@@ -770,7 +770,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // void: handleRenameSave manages its own try/catch and reverts optimistic
     // state on failure, so there is nothing further to await here.
     if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleRenameSave(); }
-    if (e.key === "Escape") { e.preventDefault(); handleRenameCancel(); }
+    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleRenameCancel(); }
   };
 
   const handleDescriptionStart = () => {
@@ -805,7 +805,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape") { e.preventDefault(); handleDescriptionCancel(); }
+    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleDescriptionCancel(); }
     // Enter inserts a newline — do not submit
   };
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
 import CreateBoardModal from '../components/Board/CreateBoardModal'
@@ -74,7 +74,7 @@ vi.mock('../api/auth', () => ({
 
 import { createGroup, listGroups } from '../api/groups'
 import { changePassword } from '../api/auth'
-import { createColumn, updateColumn, moveBoardToGroup } from '../api/boards'
+import { createColumn, updateColumn, moveBoardToGroup, createSwimlane } from '../api/boards'
 
 const mockCreateGroup = createGroup as ReturnType<typeof vi.fn>
 const mockChangePassword = changePassword as ReturnType<typeof vi.fn>
@@ -853,5 +853,35 @@ describe('ForceChangePasswordModal', () => {
     await user.click(screen.getByText('Set new password'))
 
     expect(mockChangePassword).toHaveBeenCalledWith('oldpassword1', 'newpassword1234')
+  })
+})
+
+// IME composition (#2167): a composing Enter confirms the candidate and must not submit.
+describe('Enter during IME composition does not submit (#2167)', () => {
+  const cases: Array<[string, () => void, string, () => unknown]> = [
+    ['AddColumnModal', () => render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />), 'e.g. In Progress', () => mockCreateColumn],
+    ['AddSwimlaneModal', () => render(<AddSwimlaneModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />), 'Swimlane name', () => createSwimlane],
+  ]
+  it.each(cases)('%s', async (_name, renderIt, placeholder, getMock) => {
+    const mock = getMock() as ReturnType<typeof vi.fn>
+    mock.mockClear()
+    mock.mockRejectedValue(new Error('boom'))
+    renderIt()
+    const input = screen.getByPlaceholderText(placeholder)
+    fireEvent.change(input, { target: { value: 'ボード' } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+    expect(mock).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(mock).toHaveBeenCalledOnce())
+  })
+})
+
+describe('MoveBoardModal selected row token (#1353)', () => {
+  it('fills the selected row with bg-primary-emphasis/20', async () => {
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    const row = (await screen.findByText('Personal (no group)')).closest('button')!
+    expect(row).toHaveClass('bg-primary-emphasis/20')
+    expect(row.className).not.toContain('bg-info/20')
   })
 })

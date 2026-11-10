@@ -1177,7 +1177,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked
                               disabled
                               readOnly
-                              className="rounded accent-primary border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
+                              className="rounded accent-primary border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
                             />
                             <span className="text-xs text-fg-muted">Moderator</span>
                           </label>

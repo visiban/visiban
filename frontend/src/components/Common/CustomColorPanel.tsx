@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { normalizeHex } from "../../utils/colorContrast";
+import { isImeComposing } from "../../utils/imeComposition";
 
 const HEX_MESSAGE = "Use 3 or 6 hex digits.";
 const RGB_MESSAGE = "R, G and B go from 0 to 255.";
@@ -141,7 +142,7 @@ export default function CustomColorPanel({
     // document level. Nothing else may leave: see the component comment.
     if (e.key === "Escape" || e.key === "Tab") return;
     e.stopPropagation();
-    if (e.key !== "Enter" || e.target instanceof HTMLButtonElement) return;
+    if (e.key !== "Enter" || isImeComposing(e) || e.target instanceof HTMLButtonElement) return;
     e.preventDefault();
     // A held Enter that opened the panel from its trigger repeats onto the square.
     if (!e.repeat) attemptApply();

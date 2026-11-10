@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isImeComposing } from "../../utils/imeComposition";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -428,7 +429,7 @@ export default function RichTextEditor({
                 if (rect && popup) place(rect);
               },
               onKeyDown({ event }) {
-                if (event.key === "Escape") {
+                if (event.key === "Escape" && !isImeComposing(event)) {
                   popup?.remove();
                   comboboxOn = false;
                   if (editorDom && snapshot) clearMentionCombobox(editorDom, snapshot);

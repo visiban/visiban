@@ -333,7 +333,7 @@ describe('card metadata on an aging tint (#1844)', () => {
     const intended = new Set([
       'border-fg-tertiary', // dotted quick-edit underline under a chip value: follows the rescoped text tone
       'ring-info', // transient context-menu target outline on the card root (#2059), outside the metadata row
-      'bg-info', // selected-card fill on the card root, outside the metadata row (and dropped under a tint)
+      'bg-info', // context-target bg-info/10 fill on the card root (CardItem), outside the metadata row (and dropped under a tint)
     ])
     // Literal regex (no RegExp constructor); the token list must match the rescope exactly.
     const rebound = ['fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']

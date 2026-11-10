@@ -1661,6 +1661,8 @@ describe('BoardView', () => {
     await user.click(screen.getByTestId('focus-btn-20'))
     // Banner should be visible
     expect(screen.getByText('Focused on:')).toBeInTheDocument()
+    // Mode banner: bg-primary/15 per the mode-banner spec (#1353)
+    expect(screen.getByText('Focused on:').closest('[class*="bg-primary/15"]')).not.toBeNull()
     expect(screen.getAllByText('Customer A').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Exit focus')).toBeInTheDocument()
   })

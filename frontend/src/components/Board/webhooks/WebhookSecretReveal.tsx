@@ -133,7 +133,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
             else ackRef.current?.focus();
           }}
           className={`text-xs px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            acknowledged ? "text-fg-secondary hover:text-fg hover:bg-surface-hover" : "text-fg-muted opacity-60 cursor-not-allowed"
+            acknowledged ? "text-fg-secondary hover:text-fg hover:bg-surface-hover" : "text-fg-muted opacity-40 cursor-not-allowed"
           }`}
         >
           Done
