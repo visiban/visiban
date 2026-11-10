@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -798,5 +799,66 @@ describe('AppSidebar — hosted demo (#1179)', () => {
     expect(newBoard).not.toHaveAttribute('aria-disabled')
     await user.click(newBoard)
     expect(screen.getByTestId('create-board-modal')).toBeInTheDocument()
+  })
+})
+
+describe('AppSidebar mobile drawer (#1776)', () => {
+  beforeEach(() => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listStarredGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([])
+    localStorage.clear()
+  })
+
+  function Harness() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button onClick={() => setOpen(true)} aria-label="Open navigation menu">menu</button>
+        <button>behind</button>
+        <AppSidebar user={fakeUser} mobileOpen={open} onMobileClose={() => setOpen(false)} />
+      </>
+    )
+  }
+
+  it('has no dialog role when closed', () => {
+    render(<AppSidebar user={fakeUser} />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('is a named modal dialog when open and receives focus', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }))
+    const dialog = screen.getByRole('dialog', { name: 'Navigation menu' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveFocus()
+  })
+
+  it('cycles Tab and Shift+Tab inside the drawer', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }))
+    const dialog = screen.getByRole('dialog')
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('a[href],button:not([disabled])'))
+    const first = focusables[0]
+    const last = focusables[focusables.length - 1]
+    last.focus()
+    await user.tab()
+    expect(first).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(last).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'behind' })).not.toHaveFocus()
+  })
+
+  it('restores focus to the hamburger on close', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const hamburger = screen.getByRole('button', { name: 'Open navigation menu' })
+    await user.click(hamburger)
+    await user.click(screen.getByRole('button', { name: 'Close navigation menu' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(hamburger).toHaveFocus()
   })
 })
