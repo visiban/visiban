@@ -55,7 +55,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
       dismissable={!busy}
       title={count === 1 ? "Delete this card?" : `Delete ${count} cards?`}
       maxWidth="max-w-sm"
-      labelId="card-menu-delete-title"
+      labelId="card-delete-title"
     >
       <p className={`text-fg-tertiary text-sm ${!canModifyAll && othersCards.length > 0 ? "mb-2" : "mb-5"}`}>
         This will permanently delete {count === 1 ? `“${cards[0]?.title}”` : `all ${count} cards`}. This cannot be undone.

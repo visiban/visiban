@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-
 export type ThemePreference = "system" | "dark" | "light";
 
 interface ThemeContextValue {

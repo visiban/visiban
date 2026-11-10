@@ -292,7 +292,7 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
         // label can match one without retyping its hex (#2098). Choosing one applies it.
         <div role="group" aria-labelledby={boardLabelId} className="mb-3">
           <p id={boardLabelId} className="text-xs font-medium text-fg-tertiary mb-1.5">On this board</p>
-          <div className="flex flex-wrap gap-2 max-w-[13rem]">
+          <div className="flex flex-wrap gap-2 max-w-[200px]">
             {boardColors.map((b) => {
               const selected = current !== null && current === normalizeHex(b.color);
               return (
@@ -303,7 +303,7 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
                   aria-label={`Use color from ${b.usedBy}`}
                   aria-pressed={selected}
                   title={b.usedBy}
-                  className={`w-6 h-6 rounded-full border-2 ${SWATCH_FOCUS} ${selected ? SWATCH_SELECTED : "border-transparent"}`}
+                  className={`w-7 h-7 rounded-full border-2 ${SWATCH_FOCUS} ${selected ? SWATCH_SELECTED : "border-transparent"}`}
                   style={{ backgroundColor: b.color }}
                 />
               );
