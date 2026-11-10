@@ -654,8 +654,14 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             # Read under the subtree locks taken above, so the set is the one
             # the delete's CASCADE removes.
-            subgroup_ids = sorted(_subtree_ids(gid) - {gid})
-            subtree_board_ids = _subtree_board_ids(gid)
+            # Walked once for both the subgroup and the board ids.
+            from boards.models import Board as _Board
+
+            subtree_ids = _subtree_ids(gid)
+            subgroup_ids = sorted(subtree_ids - {gid})
+            subtree_board_ids = list(
+                _Board.objects.filter(group_id__in=subtree_ids).values_list("pk", flat=True)
+            )
             group.delete()
             if subtree_board_ids:
                 from boards.services.share_links import revoke_lapsed_share_links

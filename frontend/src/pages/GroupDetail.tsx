@@ -1411,7 +1411,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   // direct row gets no role picker and no Remove for anyone else,
                   // as on the board Members panel (#2164). The flag is sent to
                   // group admins only, the readers who would see those controls.
-                  const isLocked = !m.is_inherited && m.is_site_admin === true && !user.is_site_admin;
+                  const isLocked = !m.is_inherited && m.is_site_admin === true && !user.is_site_admin && m.user.id !== group?.owner.id;
+                  // The owner row has no controls for anyone, so it needs no lock note.
                   return (
                   <div key={m.user.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">

@@ -293,8 +293,11 @@ def serialize_boards_for_broadcast(board_ids, request):
         )
         .order_by("pk")
     )
-    context = {"request": request}
-    return [(b.pk, b.group_id, BoardSerializer(b, context=context).data) for b in boards]
+    boards = list(boards)
+    # many=True so the list serializer primes the group health map once for
+    # every board, instead of one ancestor-chain query per nested board.
+    data = BoardSerializer(boards, many=True, context={"request": request}).data
+    return [(b.pk, b.group_id, payload) for b, payload in zip(boards, data)]
 
 
 def get_accessible_boards_queryset(user):
