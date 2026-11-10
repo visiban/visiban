@@ -89,9 +89,9 @@ class NulQueryParamEndpointTests(TestCase):
                 )
                 declared = schema["paths"][path]["get"]["responses"]["400"]
                 body_schema = declared["content"]["application/json"]["schema"]
-                if "$ref" in body_schema:
-                    body_schema = schema["components"]["schemas"][body_schema["$ref"].rsplit("/", 1)[-1]]
-                jsonschema.validate(r.json(), body_schema)
+                # Resolve refs in place: a declared 400 is an anyOf whose first
+                # branch is the view's own $ref (#2178).
+                jsonschema.validate(r.json(), {**body_schema, "components": schema["components"]})
 
     def test_non_member_still_gets_404_before_the_search_check(self):
         # The board card list resolves access first, so the query string never

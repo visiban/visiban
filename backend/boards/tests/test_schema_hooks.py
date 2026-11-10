@@ -7,7 +7,14 @@ an undocumented error response.
 """
 from django.test import TestCase
 
-from visiban.schema_hooks import add_standard_error_responses, mark_deprecated_fields
+from visiban.schema_hooks import (
+    _PRE_VIEW_DETAIL_400_SCHEMA,
+    _PRE_VIEW_FIELD_400_SCHEMA,
+    _VALIDATION_ERROR_DESCRIPTION,
+    _VALIDATION_ERROR_SCHEMA,
+    add_standard_error_responses,
+    mark_deprecated_fields,
+)
 
 
 class AddStandardErrorResponsesTests(TestCase):
@@ -134,15 +141,100 @@ class ValidationErrorResponseTests(TestCase):
         self.assertIn("400", paths["get"]["responses"])
         self.assertIn("400", paths["delete"]["responses"])
 
-    def test_does_not_overwrite_a_declared_400(self):
-        custom_400 = {"description": "Specific body", "content": {}}
+    def test_keeps_a_declared_400_and_fills_in_missing_content(self):
+        """A description-only 400 keeps its description and gains the body (#2178)."""
+        custom_400 = {"description": "Specific body"}
         paths = self._run({
-            "post": {
-                "requestBody": {"content": {}},
-                "responses": {"200": {"description": "OK"}, "400": custom_400},
-            },
+            "post": {"responses": {"200": {"description": "OK"}, "400": custom_400}},
         })
         self.assertIs(paths["post"]["responses"]["400"], custom_400)
+        self.assertEqual(custom_400["description"], "Specific body")
+        self.assertEqual(
+            custom_400["content"]["application/json"]["schema"], _VALIDATION_ERROR_SCHEMA
+        )
+
+    def test_fills_in_an_empty_json_media_type(self):
+        custom_400 = {"description": "x", "content": {"application/json": {}}}
+        self._run({"delete": {"responses": {"400": custom_400}}})
+        self.assertEqual(
+            custom_400["content"]["application/json"]["schema"], _VALIDATION_ERROR_SCHEMA
+        )
+
+
+class WidenDeclared400Tests(TestCase):
+    """A declared 400 also admits the 400s raised before the view runs (#2178)."""
+
+    BOTH = [_PRE_VIEW_DETAIL_400_SCHEMA, _PRE_VIEW_FIELD_400_SCHEMA]
+
+    def _widen(self, schema, method="post", **operation):
+        response = {"description": "Declared", "content": {"application/json": {"schema": schema}}}
+        result = {"paths": {"/x/": {method: {**operation, "responses": {"400": response}}}}}
+        add_standard_error_responses(result, generator=None, request=None, public=True)
+        return response["content"]["application/json"]["schema"]
+
+    def test_wraps_a_ref_keeping_it_first(self):
+        ref = {"$ref": "#/components/schemas/CardMoveVersionTypeError"}
+        self.assertEqual(self._widen(dict(ref)), {"anyOf": [ref, *self.BOTH]})
+
+    def test_wraps_an_inline_schema_on_every_body_method_and_delete(self):
+        inline = {"type": "object", "properties": {"detail": {"type": "string"}}, "required": ["detail"]}
+        for method in ("post", "put", "patch", "delete"):
+            self.assertEqual(self._widen(dict(inline), method), {"anyOf": [inline, *self.BOTH]})
+
+    def test_a_get_gains_only_the_detail_branch(self):
+        """No GET view reads a body, so no field-keyed parser 400 (#1832 stays strict)."""
+        ref = {"$ref": "#/components/schemas/BoardAnalyticsBadRequest"}
+        self.assertEqual(self._widen(dict(ref), "get"), {"anyOf": [ref, _PRE_VIEW_DETAIL_400_SCHEMA]})
+
+    def test_a_get_with_a_request_body_gains_both(self):
+        ref = {"$ref": "#/components/schemas/X"}
+        self.assertEqual(
+            self._widen(dict(ref), "get", requestBody={"content": {}}), {"anyOf": [ref, *self.BOTH]}
+        )
+
+    def test_wraps_a_declared_one_of_rather_than_merging_into_it(self):
+        one_of = {"oneOf": [{"type": "string"}, {"type": "integer"}]}
+        self.assertEqual(self._widen(dict(one_of)), {"anyOf": [one_of, *self.BOTH]})
+
+    def test_extends_a_declared_any_of_without_nesting(self):
+        any_of = {"anyOf": [{"type": "string"}, _PRE_VIEW_DETAIL_400_SCHEMA]}
+        self.assertEqual(self._widen(any_of), {"anyOf": [{"type": "string"}, *self.BOTH]})
+
+    def test_is_idempotent(self):
+        ref = {"$ref": "#/components/schemas/X"}
+        response = {"description": "d", "content": {"application/json": {"schema": ref}}}
+        result = {"paths": {"/x/": {"post": {"responses": {"400": response}}}}}
+        for _ in range(2):
+            add_standard_error_responses(result, generator=None, request=None, public=True)
+        self.assertEqual(
+            response["content"]["application/json"]["schema"], {"anyOf": [ref, *self.BOTH]}
+        )
+
+    def test_leaves_the_validation_error_schema_itself_alone(self):
+        self.assertEqual(self._widen(dict(_VALIDATION_ERROR_SCHEMA)), _VALIDATION_ERROR_SCHEMA)
+
+    def test_leaves_other_media_types_alone(self):
+        html = {"schema": {"type": "string"}}
+        response = {"description": "d", "content": {"text/html": html}}
+        result = {"paths": {"/x/": {"post": {"responses": {"400": response}}}}}
+        add_standard_error_responses(result, generator=None, request=None, public=True)
+        self.assertIs(response["content"]["text/html"], html)
+        self.assertEqual(
+            response["content"]["application/json"]["schema"], _VALIDATION_ERROR_SCHEMA
+        )
+
+    def test_pre_view_branches_stay_constrained(self):
+        """The branches admit the parser's bodies and nothing much wider."""
+        from jsonschema import Draft7Validator
+
+        detail = Draft7Validator(_PRE_VIEW_DETAIL_400_SCHEMA)
+        field = Draft7Validator(_PRE_VIEW_FIELD_400_SCHEMA)
+        self.assertTrue(detail.is_valid({"detail": "JSON parse error - x"}))
+        self.assertTrue(field.is_valid({"Hgg": ["Surrogate characters are not allowed: U+DBFF."]}))
+        for body in ({"detail": "x", "code": "other"}, {"detail": 5}, {}, ["x"]):
+            self.assertFalse(detail.is_valid(body), body)
+        for body in ({"offset": "x"}, {}, {"detail": "x"}, ["x"]):
+            self.assertFalse(field.is_valid(body), body)
 
 
 class GeneratedSchemaDocuments400Tests(TestCase):
@@ -171,6 +263,65 @@ class GeneratedSchemaDocuments400Tests(TestCase):
             if "400" not in op["responses"]
         ]
         self.assertEqual(missing, [])
+
+    def test_every_400_accepts_the_bodies_raised_before_the_view(self):
+        """Each 400, declared or not, admits the parser's and limits' bodies (#2178).
+
+        ``StrictJSONParser`` names a surrogate-bearing field (even one the
+        serializer ignores, the fuzzer's random ``Hgg``) on any operation that
+        reads a body, and a malformed body, a refused charset or an oversize
+        query string answers ``{"detail"}`` on any operation.
+        Before #2178 an explicit 400 such as move's ``CardMoveVersionTypeError``
+        rejected the first and an ``InviteEmailBadRequest`` rejected the second.
+        """
+        from drf_spectacular.generators import SchemaGenerator
+        from jsonschema import Draft7Validator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        detail = {"detail": "JSON parse error - Expecting value: line 1 column 1 (char 0)"}
+        field = {"Hgg": ["Surrogate characters are not allowed: U+DBFF."]}
+        rejected, declared = [], 0
+        for path, item in schema["paths"].items():
+            for method, op in item.items():
+                if method not in ("get", "post", "put", "patch", "delete"):
+                    continue
+                response = op["responses"]["400"]
+                if response["description"] != _VALIDATION_ERROR_DESCRIPTION:
+                    declared += 1
+                body_schema = response.get("content", {}).get("application/json", {}).get("schema")
+                if body_schema is None:
+                    rejected.append(f"{method.upper()} {path} documents no JSON 400 body")
+                    continue
+                validator = Draft7Validator(
+                    {**body_schema, "components": schema.get("components", {})}
+                )
+                # A GET reads no body, so only the {"detail"} 400s reach it.
+                bodies = (detail,) if method == "get" and "requestBody" not in op else (detail, field)
+                rejected += [
+                    f"{method.upper()} {path} rejects {body!r}"
+                    for body in bodies
+                    if not validator.is_valid(body)
+                ]
+        # The explicit-400 class must be present, or this passes vacuously.
+        self.assertGreater(declared, 20)
+        self.assertEqual(rejected, [])
+
+    def test_move_keeps_its_declared_400_documented(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/boards/{board_pk}/cards/{id}/move/"]["post"]
+        body_schema = op["responses"]["400"]["content"]["application/json"]["schema"]
+        self.assertEqual(
+            body_schema,
+            {
+                "anyOf": [
+                    {"$ref": "#/components/schemas/CardMoveVersionTypeError"},
+                    _PRE_VIEW_DETAIL_400_SCHEMA,
+                    _PRE_VIEW_FIELD_400_SCHEMA,
+                ]
+            },
+        )
 
 
 class PinNamedEnumsTests(TestCase):

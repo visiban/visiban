@@ -61,6 +61,11 @@ class ActionSchemaDeclarationTests(TestCase):
     def _component(self, ref):
         return self.schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
 
+    def _declared_400_ref(self, method, path):
+        # The hook widens a declared 400 to anyOf [declared, pre-view 400s],
+        # keeping the declared schema first (#2178).
+        return self._op(method, path)["responses"]["400"]["content"][_JSON]["schema"]["anyOf"][0]["$ref"]
+
     def _request_schema(self, method, path, media_type=_JSON):
         return self._op(method, path)["requestBody"]["content"][media_type]["schema"]
 
@@ -158,7 +163,7 @@ class ActionSchemaDeclarationTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self._assert_matches("get", path, 400, resp.json())
         # The one 400 shape for a bad query parameter (#1825): code is required.
-        ref = op["responses"]["400"]["content"][_JSON]["schema"]["$ref"]
+        ref = self._declared_400_ref("get", path)
         self.assertTrue(ref.endswith("/BoardAnalyticsBadRequest"))
         self.assertEqual(sorted(self._component(ref)["required"]), ["code", "detail"])
 
@@ -255,10 +260,10 @@ class ActionSchemaDeclarationTests(TestCase):
     def test_member_refusals_document_their_code(self):
         # #1825: the owner and last-active-admin refusals carry a string code.
         path = "/api/v1/groups/{id}/members/{user_id}/"
-        delete_ref = self._op("delete", path)["responses"]["400"]["content"][_JSON]["schema"]["$ref"]
+        delete_ref = self._declared_400_ref("delete", path)
         self.assertTrue(delete_ref.endswith("/GroupMemberRemoveRefused"))
         self.assertEqual(sorted(self._component(delete_ref)["required"]), ["code", "detail"])
-        patch_ref = self._op("patch", path)["responses"]["400"]["content"][_JSON]["schema"]["$ref"]
+        patch_ref = self._declared_400_ref("patch", path)
         self.assertTrue(patch_ref.endswith("/GroupMemberRoleUpdateRefused"))
         # PATCH also answers 400 for a bad role, with detail only.
         self.assertEqual(self._component(patch_ref)["required"], ["detail"])

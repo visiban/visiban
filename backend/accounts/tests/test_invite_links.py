@@ -1047,6 +1047,9 @@ class AdminInviteLinkRevokeContractTests(TestCase):
         ref = responses["200"]["content"]["application/json"]["schema"]["$ref"]
         self.assertTrue(ref.endswith("/InviteLink"))
         for code in ("400", "404"):
-            body_ref = responses[code]["content"]["application/json"]["schema"]["$ref"]
+            body_schema = responses[code]["content"]["application/json"]["schema"]
+            # A declared 400 is widened to anyOf [declared, pre-view 400
+            # bodies], with the declared $ref first (#2178).
+            body_ref = body_schema["anyOf"][0]["$ref"] if code == "400" else body_schema["$ref"]
             component = schema["components"]["schemas"][body_ref.rsplit("/", 1)[-1]]
             self.assertIn("detail", component["properties"])

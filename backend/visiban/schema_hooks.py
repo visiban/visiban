@@ -14,7 +14,8 @@ Registered via ``SPECTACULAR_SETTINGS["POSTPROCESSING_HOOKS"]`` in
 # documented exception: the card mutation endpoints construct their own
 # bodies (some without a ``detail`` key at all) and are already declared
 # per-endpoint via ``@extend_schema`` (#1108) — this hook never overwrites a
-# response that an operation already declares.
+# response that an operation already declares (a declared 400 is only widened,
+# #2178).
 _ERROR_ENVELOPE_SCHEMA = {
     "type": "object",
     "properties": {"detail": {"type": "string"}},
@@ -50,7 +51,8 @@ _STANDARD_ERROR_RESPONSES = {
 # There is no single stricter shape that is true for every endpoint, so the
 # schema says exactly that much: an object or an array. Endpoints whose 400 has
 # a specific body (the ``CardServiceError`` family) still declare it with
-# ``@extend_schema`` and are never overwritten here.
+# ``@extend_schema``; that schema is kept and widened to also admit the 400s
+# raised before the view runs (#2178), never replaced.
 _VALIDATION_ERROR_SCHEMA = {
     "oneOf": [
         {"type": "object", "additionalProperties": True},
@@ -69,6 +71,85 @@ _VALIDATION_ERROR_DESCRIPTION = (
 _HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete"})
 
 
+# The 400 bodies raised *before* a view runs (#2178), which an operation's own
+# ``@extend_schema`` 400 does not describe:
+#   * ``{"detail": "..."}``, and nothing else: ``ParseError`` for a malformed
+#     body or a surrogate in a key (#2085), a form or query string over a
+#     Django upload limit (#2072, #2073, #2140), a refused ``charset`` (#2120)
+#     or multipart part header (#2151). The limit and charset ones reach every
+#     operation, a GET or DELETE included.
+#   * ``{"<field>": ["..."]}``: ``StrictJSONParser`` naming a field whose value
+#     holds a lone surrogate, under any key, one the serializer would ignore
+#     included (the fuzzer's random ``Hgg``). Only a view that reads the body
+#     can raise it.
+# Deliberately narrower than ``_VALIDATION_ERROR_SCHEMA``: that one accepts any
+# object, so a union with it would stop a declared 400 constraining anything
+# (#1832's coded query-param 400 requires ``detail`` and ``code``, and its tests
+# prove a bare field-keyed body is rejected on those GETs).
+_PRE_VIEW_DETAIL_400_SCHEMA = {
+    "type": "object",
+    "properties": {"detail": {"type": "string"}},
+    "required": ["detail"],
+    "additionalProperties": False,
+}
+_PRE_VIEW_FIELD_400_SCHEMA = {
+    "type": "object",
+    "minProperties": 1,
+    "additionalProperties": {"type": "array", "items": {"type": "string"}},
+}
+
+
+def _pre_view_400_branches(method, operation):
+    """The pre-view 400 shapes this operation can answer.
+
+    The field-keyed branch applies to every method but GET, and to a GET that
+    declares a request body: DRF parses a body only when the view reads
+    ``request.data``, and no GET view here does, while a DELETE view may. The
+    ``{"detail"}`` branch applies to every operation (see above).
+    """
+    if method != "get" or "requestBody" in operation:
+        return [_PRE_VIEW_DETAIL_400_SCHEMA, _PRE_VIEW_FIELD_400_SCHEMA]
+    return [_PRE_VIEW_DETAIL_400_SCHEMA]
+
+
+def _widen_declared_400(response, method, operation):
+    """Make an operation's own 400 also accept the pre-view 400 bodies (#2178).
+
+    A view's ``@extend_schema`` 400 describes the body *that view* builds (the
+    move endpoint's ``CardMoveVersionTypeError``, an invite's
+    ``InviteEmailBadRequest``), not the 400s raised before it runs, so the
+    fuzzer's surrogate body ``{"Hgg": [...]}`` violated move's contract and a
+    ``{"detail"}`` ParseError violated the invite one. Every declared 400 is
+    widened, not only those of operations with a JSON request body, because
+    the query-string limit and the charset check reach every operation.
+
+    The declared schema stays first, so it remains documented. The union is
+    ``anyOf``, not ``oneOf``: a declared ``{detail}`` schema and the pre-view
+    ``{detail}`` branch both match ``{"detail": "x"}``, which ``oneOf``
+    rejects. Server behavior does not change; the document now describes
+    responses the API already sends.
+
+    Per declared shape: a ``$ref``, an inline schema or a ``oneOf`` is wrapped;
+    an ``anyOf`` gains the missing branches (no nesting, and a second run adds
+    nothing); a 400 with no JSON schema (a description only, such as block's)
+    never described its body, so it gains the full ``_VALIDATION_ERROR_SCHEMA``
+    rather than a narrower claim about the view's own body.
+    """
+    content = response.setdefault("content", {})
+    media = content.get("application/json")
+    if not media or not media.get("schema"):
+        content["application/json"] = {**(media or {}), "schema": _VALIDATION_ERROR_SCHEMA}
+        return
+    schema = media["schema"]
+    if schema == _VALIDATION_ERROR_SCHEMA:
+        return  # already admits every pre-view body
+    branches = _pre_view_400_branches(method, operation)
+    if set(schema) == {"anyOf"}:
+        schema["anyOf"] += [b for b in branches if b not in schema["anyOf"]]
+        return
+    media["schema"] = {"anyOf": [schema, *branches]}
+
+
 def add_standard_error_responses(result, generator, request, public):
     """Document the standard DRF error envelope on every operation.
 
@@ -82,7 +163,9 @@ def add_standard_error_responses(result, generator, request, public):
 
     Only fills in a status code an operation has not already declared a
     response for, so a view's own ``@extend_schema`` (e.g. the WIP/weight
-    limit 409s on CardViewSet.move) is never clobbered.
+    limit 409s on CardViewSet.move) is never clobbered. The one exception is
+    a declared 400, which keeps its schema but is widened to also admit the
+    400 bodies raised before the view runs (#2178, ``_widen_declared_400``).
     """
     for path_item in result.get("paths", {}).values():
         for method, operation in path_item.items():
@@ -92,8 +175,11 @@ def add_standard_error_responses(result, generator, request, public):
             # Every operation, not only ones that read client input: content
             # negotiation parses the query string on every request, so a query
             # string over DATA_UPLOAD_MAX_NUMBER_FIELDS is a JSON 400 anywhere
-            # (#2073, #2140).
-            if "400" not in responses:
+            # (#2073, #2140). A 400 the view declares is kept but widened to
+            # admit the pre-view 400s (#2178); see _widen_declared_400.
+            if "400" in responses:
+                _widen_declared_400(responses["400"], method, operation)
+            else:
                 responses["400"] = {
                     "description": _VALIDATION_ERROR_DESCRIPTION,
                     "content": {
