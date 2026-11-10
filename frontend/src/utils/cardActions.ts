@@ -11,6 +11,8 @@
  */
 import { archiveCard, moveCard, updateCard } from "../api/cards";
 import type { BoardFull, Card, Column, Priority } from "../types";
+import { userDisplayName } from "../types";
+import { PRIORITY_COLORS } from "../constants/colors";
 import { demoReason, DEMO_CARD_FOOTER_NOTE } from "../constants/demoCopy";
 import { blockedElapsedMs, formatBlockedDuration, isManuallyBlocked } from "./blockedState";
 import { failureReason } from "./moveFailure";
@@ -255,6 +257,39 @@ export function cardLink(boardId: number, cardId: number, origin: string = windo
 }
 
 export const PRIORITY_CHOICES: Priority[] = ["low", "medium", "high", "urgent"];
+
+/**
+ * One option in a Move / Assign / Priority choice list (#2103). The card
+ * context menu, the ⌘K palette and the bulk toolbar all render these, so the
+ * three surfaces cannot disagree on which columns, members or priorities are
+ * offered or in what order.
+ */
+export interface CardChoice {
+  key: string;
+  label: string;
+  /** Move: column id. Assign: user id, or `null` for Unassign. Priority: the priority. */
+  value: number | string | null;
+  /** Color dot (column color, priority color). */
+  dot?: string;
+  /** Muted italic row (Unassign). */
+  italic?: boolean;
+}
+
+export function moveChoices(columns: Column[]): CardChoice[] {
+  return columns.map((c) => ({ key: `col-${c.id}`, label: c.name, value: c.id, dot: c.color }));
+}
+
+/** Unassign, then every member who can hold a card (viewers cannot). */
+export function assignChoices(members: BoardFull["members"]): CardChoice[] {
+  return [
+    { key: "unassign", label: "Unassign", value: null, italic: true },
+    ...members.filter((m) => m.role !== "viewer").map((m) => ({ key: `user-${m.user.id}`, label: userDisplayName(m.user), value: m.user.id })),
+  ];
+}
+
+export function priorityChoices(): CardChoice[] {
+  return PRIORITY_CHOICES.map((p) => ({ key: `prio-${p}`, label: p.charAt(0).toUpperCase() + p.slice(1), value: p, dot: PRIORITY_COLORS[p] }));
+}
 
 const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
 

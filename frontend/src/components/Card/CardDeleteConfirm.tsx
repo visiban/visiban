@@ -10,6 +10,8 @@ interface Props {
   /** Admin, site admin or moderator: may delete cards others created. */
   canModifyAll: boolean;
   currentUserId: number | null;
+  /** Fired when the deletes start, for callers that show their own in-flight state (the bulk toolbar's "Working..."). */
+  onStart?: () => void;
   onDeleted: (cardIds: number[]) => void;
   /** Closes the dialog; `failure` is the bulk partial-failure line, or null. */
   onClose: (failure: string | null) => void;
@@ -18,15 +20,12 @@ interface Props {
 const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
 
 /**
- * Delete confirm opened by the card context menu's **Delete card…** (#2059).
- * Same copy and ownership note as the bulk toolbar's confirm; a delete never
+ * The one delete confirm for card actions: the card context menu's
+ * **Delete card…** (#2059) and the bulk toolbar's **Delete** (#2103); a delete never
  * runs from a single click. In flight the action is `aria-disabled` with a
  * progress label and Escape/backdrop dismissal is swallowed (#1437).
- *
- * The bulk toolbar's inline confirm should adopt this component so the two
- * cannot drift: tracked in #2103.
  */
-export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onDeleted, onClose }: Props) {
+export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onStart, onDeleted, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const count = cards.length;
@@ -36,6 +35,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
+    onStart?.();
     const results = await Promise.allSettled(cards.map((card) => deleteCard(boardId, card.id).then(() => card.id)));
     const deleted = results.filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled").map((r) => r.value);
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");

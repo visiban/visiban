@@ -2,11 +2,9 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from "react-dom";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible, getVisibleViewport } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { PRIORITY_COLORS } from "../../constants/colors";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
-import type { BoardFull, Column, Priority } from "../../types";
-import { userDisplayName } from "../../types";
-import { CARD_MENU_GROUPS, PRIORITY_CHOICES, type CardActionEntry, type CardActionId } from "../../utils/cardActions";
+import type { BoardFull, Column } from "../../types";
+import { CARD_MENU_GROUPS, assignChoices, moveChoices, priorityChoices, type CardActionEntry, type CardActionId, type CardChoice } from "../../utils/cardActions";
 
 /**
  * Escape priority of the card context menu (#2059). The 1.3 UI spec proposed
@@ -43,8 +41,6 @@ interface Props {
   /** Called on every close; `escape`/`tab` mean focus should return to the target card. */
   onClose: (reason: CardMenuCloseReason) => void;
 }
-
-interface SubItem { key: string; label: string; value: number | string | null; dot?: string; italic?: boolean }
 
 /**
  * Card context menu (#2059, 1.3 UI spec Part 9 § 2): opened by right-click,
@@ -142,17 +138,8 @@ export default function CardContextMenu({ anchor, label, header, entries, column
     onClose("escape");
   }, CARD_MENU_ESCAPE_PRIORITY);
 
-  const subItems = (id: Submenu): SubItem[] => {
-    if (id === "move") return columns.map((c) => ({ key: `col-${c.id}`, label: c.name, value: c.id, dot: c.color }));
-    if (id === "assign") {
-      return [
-        { key: "unassign", label: "Unassign", value: null, italic: true },
-        // Same list as the toolbar's Assign menu: every member who can hold a card.
-        ...members.filter((m) => m.role !== "viewer").map((m) => ({ key: `user-${m.user.id}`, label: userDisplayName(m.user), value: m.user.id })),
-      ];
-    }
-    return PRIORITY_CHOICES.map((p: Priority) => ({ key: `prio-${p}`, label: p.charAt(0).toUpperCase() + p.slice(1), value: p, dot: PRIORITY_COLORS[p] }));
-  };
+  const subItems = (id: Submenu): CardChoice[] =>
+    id === "move" ? moveChoices(columns) : id === "assign" ? assignChoices(members) : priorityChoices();
 
   const openSubmenu = (id: Submenu, idx: number) => {
     const rect = itemRefs.current[idx]?.getBoundingClientRect();

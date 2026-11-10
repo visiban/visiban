@@ -230,8 +230,8 @@ describe('BulkActionToolbar', () => {
       />
     )
     await user.click(screen.getByText('Delete'))
-    expect(screen.getByText('Delete 1 card?')).toBeInTheDocument()
-    expect(screen.getByText(/This will permanently delete this card/)).toBeInTheDocument()
+    expect(screen.getByText('Delete this card?')).toBeInTheDocument()
+    expect(screen.getByText(/This will permanently delete .Card 1./)).toBeInTheDocument()
   })
 
   it('calls handleMove and onCardsUpdated when a column is selected in move dropdown', async () => {
@@ -620,7 +620,7 @@ describe('BulkActionToolbar', () => {
     )
     await user.click(screen.getByText('Delete'))
 
-    expect(screen.getByText(/None of the selected cards will be deleted/)).toBeInTheDocument()
+    expect(screen.getByText(/None of these cards will be deleted/)).toBeInTheDocument()
   })
 
   it('dropdown triggers have aria-expanded reflecting open/closed state', async () => {
