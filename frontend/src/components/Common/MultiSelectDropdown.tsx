@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { isImeComposing } from "../../utils/imeComposition";
 import { createPortal } from "react-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
@@ -221,7 +222,7 @@ export default function MultiSelectDropdown({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" || (e.key === " " && query === "")) {
+    } else if ((e.key === "Enter" && !isImeComposing(e)) || (e.key === " " && query === "")) {
       // Space types into a non-empty search; with no search it toggles.
       // Enter never submits an enclosing form.
       e.preventDefault();

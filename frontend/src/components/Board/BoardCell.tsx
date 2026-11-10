@@ -10,6 +10,7 @@ import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { trippedLimitLabel, type TrippedLimit } from "../../utils/placementLimits";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
+import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
   column: Column;
@@ -263,7 +264,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && !isImeComposing(e) && !e.shiftKey) {
                 if (closeEditorOnEnter) { e.preventDefault(); void handleAdd(); } // handleAdd manages its own error state (addError) and never rejects
                 // else: fall through so the browser inserts a newline (default textarea behavior)
               }

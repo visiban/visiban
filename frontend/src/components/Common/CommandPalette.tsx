@@ -12,6 +12,7 @@ import {
   PALETTE_COMMAND_LABELS, PRIORITY_CHOICES, paletteCardActions,
   type CardActionDetail, type CardActionEntry, type CardTargetInfo,
 } from "../../utils/cardActions";
+import { isImeComposing } from "../../utils/imeComposition";
 
 type PriorityLevel = "high" | "medium" | "low" | "none";
 
@@ -366,7 +367,7 @@ export default function CommandPalette({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((prev) => (results.length === 0 ? 0 : (prev - 1 + results.length) % results.length));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !isImeComposing(e)) {
       e.preventDefault();
       const item = results[activeIndex];
       if (item) activate(item, e.metaKey || e.ctrlKey);

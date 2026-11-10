@@ -248,7 +248,7 @@ function PickerRow({
       }`}
     >
       <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
-        selected ? "border-info" : "border-line-strong"
+        selected ? "border-primary-soft" : "border-line-strong"
       }`}>
         {selected && <span className="w-1.5 h-1.5 rounded-full bg-primary-soft" />}
       </span>
