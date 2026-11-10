@@ -59,14 +59,29 @@ def get_client_ip(request) -> str:
     same address as the DRF throttles, or two controls disagree about who the
     client is. Falls back to REMOTE_ADDR for direct connections.
 
-    One deliberate, safe divergence from DRF's own ``get_ident`` (re-checked by
-    completeness-check, #1180, after an earlier version of this note got it
-    wrong): when neither ``X-Forwarded-For`` nor ``REMOTE_ADDR`` is present,
-    this returns the literal string ``"unknown"`` rather than DRF's ``None`` --
-    a safer default for a value used as a throttle/audit key. A
-    present-but-empty ``X-Forwarded-For`` is NOT a divergence: it is falsy, so
-    this falls through to ``REMOTE_ADDR`` exactly as DRF's own falsy check
-    does.
+    Three deliberate, safe divergences from DRF's own ``get_ident`` (the first
+    re-checked by completeness-check, #1180; the second corrected in #1852,
+    after an earlier version of this note claimed the opposite; the third is
+    the unconfigured ``NUM_PROXIES`` case, also documented in
+    docs/architecture/open-core-boundary.md):
+
+    * When neither ``X-Forwarded-For`` nor ``REMOTE_ADDR`` is present, this
+      returns the literal string ``"unknown"`` rather than DRF's ``None`` -- a
+      safer default for a value used as a throttle/audit key.
+    * A present-but-empty ``X-Forwarded-For`` with ``NUM_PROXIES >= 1`` falls
+      through to ``REMOTE_ADDR`` here (the header is falsy), whereas DRF only
+      falls back to ``REMOTE_ADDR`` when the header is absent (``xff is None``);
+      an empty string is split to ``[""]`` and DRF returns ``""``, keying every
+      such client on one shared bucket. Returning the real peer address is the
+      safer key. The bundled nginx always appends the peer address
+      (``proxy_add_x_forwarded_for``), so the header is never empty behind it;
+      this only matters for a non-default proxy that forwards an empty header.
+    * With ``NUM_PROXIES = None`` (the DRF default, i.e. the setting dropped),
+      DRF keys on the whole client-controlled ``X-Forwarded-For`` string
+      (whitespace stripped), so a client can pick a fresh bucket per request.
+      This function skips the header entirely (``num_proxies`` is falsy) and
+      returns ``REMOTE_ADDR``. That is the safer key, though behind a proxy
+      every client then shares the proxy's address.
     """
     from rest_framework.settings import api_settings
 

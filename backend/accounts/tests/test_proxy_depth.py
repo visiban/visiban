@@ -66,7 +66,8 @@ class ParseNumProxiesTests(SimpleTestCase):
 
 
 class GetClientIpTests(SimpleTestCase):
-    """visiban.utils.get_client_ip mirrors DRF's get_ident for every NUM_PROXIES."""
+    """visiban.utils.get_client_ip mirrors DRF's get_ident except for the divergences
+    documented in its docstring (missing address, empty X-Forwarded-For, NUM_PROXIES=None)."""
 
     def setUp(self):
         self.factory = RequestFactory()
@@ -100,6 +101,14 @@ class GetClientIpTests(SimpleTestCase):
         # The visitor sends its own X-Forwarded-For; Cloudflare appends the real address.
         xff = f"127.0.0.1, {VISITOR_A}, {TUNNEL_POD}"
         self.assertEqual(get_client_ip(self._req(xff)), VISITOR_A)
+
+    @override_settings(REST_FRAMEWORK=_rf(1))
+    def test_empty_xff_falls_back_to_remote_addr_unlike_drf(self):
+        # Documented divergence (#1852): DRF returns "" for a present-but-empty
+        # header when NUM_PROXIES >= 1; we return the peer address instead.
+        req = self._req("", remote="10.9.9.9")
+        self.assertEqual(get_client_ip(req), "10.9.9.9")
+        self.assertEqual(AnonRateThrottle().get_ident(req), "")
 
     @override_settings(REST_FRAMEWORK=_rf(0))
     def test_zero_proxies_uses_remote_addr(self):
