@@ -884,23 +884,19 @@ def _consumed(call: ast.Call, fn: ast.AST, parents: dict) -> bool:
     return False
 
 
-_NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+def _raises_directly(stmts) -> bool:
+    """True when *stmts* runs a ``raise`` whenever the block itself runs (#2166).
 
-
-def _has_raise(stmts) -> bool:
-    """True when a ``raise`` runs somewhere in *stmts*, not counting nested defs.
-
-    A ``raise`` inside a closure or nested class defined on the branch does not
-    run when the branch does, so it refuses nothing there.
+    Only a ``raise`` that is a statement of the block counts, or one in a
+    ``with`` block that is (``with transaction.atomic(): raise ...``). A raise
+    under a nested ``if``/``elif``, loop or ``try`` is decided by another test,
+    and one inside a nested def does not run with the block at all.
     """
-    todo = list(stmts)
-    while todo:
-        node = todo.pop()
-        if isinstance(node, ast.Raise):
+    for st in stmts:
+        if isinstance(st, ast.Raise):
             return True
-        if isinstance(node, _NESTED_SCOPES):
-            continue
-        todo.extend(ast.iter_child_nodes(node))
+        if isinstance(st, (ast.With, ast.AsyncWith)) and _raises_directly(st.body):
+            return True
     return False
 
 
@@ -917,15 +913,17 @@ def _block_of(stmt: ast.stmt, fn: ast.AST, parents: dict) -> list:
 def _branch_raises(stmt: ast.stmt, fn: ast.AST, parents: dict) -> bool:
     """True when a branch that *stmt*'s test decides raises (#2166).
 
-    Either branch counts (``if role not in X: raise`` and ``if role in X: ...
-    else: raise`` both refuse on the comparison's outcome), and so does an
-    unconditional ``raise`` straight after an ``if`` whose body always leaves
-    (``if role in X: return None`` then ``raise PermissionDenied``): that raise is
-    reached only on the comparison's other outcome. A ``raise`` anywhere else in
-    the helper (``if role is None: raise ValueError``) is decided by a different
-    test and proves nothing about this one.
+    Either branch counts when it raises unconditionally (``if role not in X:
+    raise`` and ``if role in X: ... else: raise`` both refuse on the
+    comparison's outcome), and so does an unconditional ``raise`` straight after
+    an ``if`` whose body always leaves (``if role in X: return None`` then
+    ``raise PermissionDenied``): that raise is reached only on the comparison's
+    other outcome. A ``raise`` anywhere else in the helper is decided by a
+    different test and proves nothing about this one: an unrelated ``if role is
+    None: raise ValueError``, an ``elif other: raise`` (an ``elif`` is a nested
+    ``if`` in ``orelse``), or a raise under an inner ``if`` in either branch.
     """
-    if _has_raise(stmt.body) or _has_raise(stmt.orelse):
+    if _raises_directly(stmt.body) or _raises_directly(stmt.orelse):
         return True
     if not isinstance(stmt, ast.If) or stmt.orelse or not stmt.body:
         return False
@@ -2287,6 +2285,31 @@ def self_test() -> int:
                 "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
                 "        return None\n"
                 "    if role is None:\n"
+                "        raise ValueError\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                1,
+            ).replace(
+                "        denied = _annotation_denied(role)\n"
+                "        if denied is not None:\n"
+                "            return denied\n"
+                "        CardComment.objects.create(",
+                "        denied = _annotation_denied(role)\n"
+                "        CardComment.objects.create(",
+                1,
+            )},
+            "TargetRowViewSet::@action comments [post]: no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # An ``elif`` is a nested ``if`` in ``orelse``: its raise is decided
+            # by the elif's own test, not by the role comparison.
+            "a raise in an unrelated elif is not the comparison's refusal",
+            {"backend/boards/views/targets.py": _FIXTURE_TARGETS.replace(
+                "        return None\n"
+                "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
+                "        return None\n"
+                "    elif role is None:\n"
                 "        raise ValueError\n"
                 "    return Response(status=status.HTTP_403_FORBIDDEN)\n",
                 1,
