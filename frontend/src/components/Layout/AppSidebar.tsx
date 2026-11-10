@@ -271,6 +271,18 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     if (mobileOpen) drawerRef.current?.focus();
   }, [mobileOpen]);
 
+  // The drawer is a mobile-only surface: at lg the backdrop is hidden and the sidebar is the permanent
+  // desktop nav, so a drawer left open across a resize/rotate must close or the dialog role and Tab trap
+  // would persist on it (#1776).
+  useEffect(() => {
+    if (!mobileOpen || !onMobileClose || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    if (mql.matches) { onMobileClose(); return; }
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) onMobileClose(); };
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [mobileOpen, onMobileClose]);
+
   const sidebarWidth = collapsed ? "w-12" : "w-56";
 
   // Build favorites flyout sections

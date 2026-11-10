@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { useEscapeStack } from '../hooks/useEscapeStack'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppSidebar from '../components/Layout/AppSidebar'
 import type { User, Group, Board } from '../types'
@@ -850,6 +851,60 @@ describe('AppSidebar mobile drawer (#1776)', () => {
     await user.tab({ shift: true })
     expect(last).toHaveFocus()
     expect(screen.getByRole('button', { name: 'behind' })).not.toHaveFocus()
+  })
+
+  it('restores focus to the hamburger when closed with Escape', async () => {
+    const user = userEvent.setup()
+    function EscHarness() {
+      const [open, setOpen] = useState(false)
+      useEscapeStack(() => { if (!open) return false; setOpen(false) }, 20)
+      return (
+        <>
+          <button onClick={() => setOpen(true)} aria-label="Open navigation menu">menu</button>
+          <AppSidebar user={fakeUser} mobileOpen={open} onMobileClose={() => setOpen(false)} />
+        </>
+      )
+    }
+    render(<EscHarness />)
+    const hamburger = screen.getByRole('button', { name: 'Open navigation menu' })
+    await user.click(hamburger)
+    expect(screen.getByRole('dialog')).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(hamburger).toHaveFocus()
+  })
+
+  describe('lg breakpoint', () => {
+    const original = window.matchMedia
+    afterEach(() => { window.matchMedia = original })
+    function mockMql(matches: boolean) {
+      const listeners = new Set<(e: { matches: boolean }) => void>()
+      window.matchMedia = vi.fn().mockImplementation(() => ({
+        matches,
+        addEventListener: (_: string, cb: (e: { matches: boolean }) => void) => listeners.add(cb),
+        removeEventListener: (_: string, cb: (e: { matches: boolean }) => void) => listeners.delete(cb),
+      }))
+      return listeners
+    }
+    it('closes an open drawer when the viewport grows to lg', () => {
+      const listeners = mockMql(false)
+      const onMobileClose = vi.fn()
+      render(<AppSidebar user={fakeUser} mobileOpen onMobileClose={onMobileClose} />)
+      expect(onMobileClose).not.toHaveBeenCalled()
+      act(() => listeners.forEach((cb) => cb({ matches: true })))
+      expect(onMobileClose).toHaveBeenCalledTimes(1)
+    })
+    it('closes immediately when already at lg', () => {
+      mockMql(true)
+      const onMobileClose = vi.fn()
+      render(<AppSidebar user={fakeUser} mobileOpen onMobileClose={onMobileClose} />)
+      expect(onMobileClose).toHaveBeenCalledTimes(1)
+    })
+    it('does not listen while the drawer is closed', () => {
+      const listeners = mockMql(false)
+      render(<AppSidebar user={fakeUser} onMobileClose={vi.fn()} />)
+      expect(listeners.size).toBe(0)
+    })
   })
 
   it('restores focus to the hamburger on close', async () => {

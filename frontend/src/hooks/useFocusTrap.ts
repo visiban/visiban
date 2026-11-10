@@ -100,7 +100,11 @@ export function useFocusTrap(
       if (!target || !target.isConnected || target === document.body) return;
       const current = document.activeElement;
       // Focus is "lost" once the focused node unmounts: the browser drops it to body.
-      if (!current || current === document.body) target.focus();
+      // A container that stays mounted but gets hidden (the mobile drawer's aside) keeps
+      // document.activeElement inside it; the browser blurs it on display:none, jsdom does not.
+      // Focus inside the container being left is as lost as focus on <body> (#1776).
+      const lost = !current || current === document.body || !!containerRef.current?.contains(current);
+      if (lost) target.focus();
     };
   }, [active, containerRef]);
 }
