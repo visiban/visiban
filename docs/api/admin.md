@@ -594,7 +594,11 @@ Invite links allow new users to self-register when the instance is in `invite_on
 
 ### `GET /api/v1/admin/invite-links/`
 
-List all invite links on the instance.
+List the instance's invite links, newest first: every pending link, plus the 50
+most recent revoked, used or expired ones. *(1.3+, #1966)* Before 1.3 every
+link ever created was returned. Older past links are not deleted; they are only
+left out of this list. The response is still a bare array, not a paginated
+object.
 
 **Permission:** `IsSiteAdmin`.
 

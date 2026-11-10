@@ -1379,6 +1379,11 @@ class AdminUserDetailView(APIView):
         return Response(AdminUserSerializer(target).data)
 
 
+# Revoked/used/expired site invite links returned by the admin list, most
+# recent first (#1966); pending links are always all returned.
+SITE_INVITE_LIST_MAX_PAST = 50
+
+
 class AdminInviteLinkListCreateView(APIView):
     """
     GET  /api/admin/invite-links/  — list all invite links
@@ -1388,7 +1393,21 @@ class AdminInviteLinkListCreateView(APIView):
 
     @extend_schema(responses=InviteLinkSerializer(many=True))
     def get(self, request):
-        links = InviteLink.objects.select_related("created_by").all()
+        # Every pending link (bounded by the active-link caps) plus only the
+        # most recent past ones (#1966): revoked, used and expired rows are
+        # never purged, so the full history grows without bound. Same shape as
+        # the board invite list (``BOARD_INVITE_LIST_MAX_PAST``), and still a
+        # bare array, so the response stays backward compatible. "Pending"
+        # mirrors ``InviteLink.status`` on the stored fields; the computed
+        # creator-standing check stays in the serializer.
+        now = timezone.now()
+        base = InviteLink.objects.select_related("created_by")
+        pending_q = Q(revoked_at__isnull=True, used_at__isnull=True) & (
+            Q(expires_at__isnull=True) | Q(expires_at__gte=now)
+        )
+        pending = list(base.filter(pending_q).order_by("-created_at", "-pk"))
+        past = list(base.exclude(pending_q).order_by("-created_at", "-pk")[:SITE_INVITE_LIST_MAX_PAST])
+        links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
         return Response(InviteLinkSerializer(links, many=True, context={"creator_memo": {}}).data)
 
     @extend_schema(request=InviteLinkCreateSerializer, responses={201: InviteLinkCreateResponseSerializer})
