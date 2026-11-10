@@ -1594,3 +1594,8 @@ Every chart is hand-rolled SVG on the shared primitive, `components/Common/Chart
 - **Layout.** Two columns from `lg` (1024px), one below; a frame never grows past 760px.
 
 The Analytics tab scrolls as one page since #448: it no longer pins the heatmap, so § Analytics / split-panel scroll layout does not apply to it. Dropdowns on that page pass `portalMenu`, because the page is a scrolling ancestor. `AnalyticsView` has one return, with the heatmap's states inside one slot: a child that fetches on mount must not change position when a sibling changes state, or React remounts it. Here a remount was four history replays and lost every filter.
+
+## Locked member rows and assignee pickers (#2164, #1905)
+
+- **Locked member rows.** When the server refuses to change a membership (a site admin's membership, viewed by an admin who is not a site admin), the board and group Members panels drop both the role picker and Remove from the DOM and show the read-only role or Full access chip. `LOCKED_MEMBERSHIP_NOTE` (`src/constants/membership.ts`) is the one shared explanation. The group panel shows it as visible text under the name on every locked row, and as the `title` of the plain role text. Never write a second copy of the string.
+- **Assignee pickers** filter the roster with `isAssignableMember` (`src/utils/assignableMembers.ts`), which mirrors the server's `_get_assignable_member_ids`. Never filter with an inline `role !== "viewer"`, because that offers out-of-enum rows the server refuses. Filter and history dropdowns (FilterBar, MovementHistoryView) are exempt: they list existing data, not new assignments.

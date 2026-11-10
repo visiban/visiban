@@ -1500,7 +1500,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {m.has_all_content_access === true ? (
                           <GroupFullAccessChip userId={m.user.id} role={m.role} />
                         ) : (
-                          <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                          <p className="text-fg-muted text-xs capitalize" title={isLocked ? LOCKED_MEMBERSHIP_NOTE : undefined}>{m.role}</p>
                         )}
                         {m.user.id === group?.owner.id && (
                           <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
