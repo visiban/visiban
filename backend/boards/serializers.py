@@ -4040,6 +4040,15 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # Include the board owner if not already present
         if obj.owner_id and obj.owner_id not in seen:
             seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "is_moderator": False, "joined_at": obj.created_at}
+        elif obj.owner_id and seen[obj.owner_id]["role"] != BoardMembership.Role.ADMIN:
+            # get_board_role puts ownership above any explicit row, so an owner
+            # whose stored row says viewer (or a role outside the enum) is an
+            # admin here and is assignable. Show that, or the assignee pickers
+            # hide an owner the server accepts (#1905). The row keeps its id,
+            # so an admin can still find and remove the stored membership.
+            # All-content owners are left alone: the rung above ownership is
+            # signalled by has_all_content_access (below), not by ``role``.
+            seen[obj.owner_id] = {**seen[obj.owner_id], "role": BoardMembership.Role.ADMIN}
 
         # Resolve the requesting user's role once here rather than per row: it
         # decides which rows are listed below and which flags each row carries

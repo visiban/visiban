@@ -42,6 +42,7 @@ import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON, DEMO_DELETE_COMMENT_REASON, DE
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { colorChipStyle } from "../../utils/colorContrast";
 import { isImeComposing } from "../../utils/imeComposition";
+import { isAssignableMember } from "../../utils/assignableMembers";
 
 interface Props {
   card: Card;
@@ -1536,7 +1537,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     options={[
                       { value: "", label: "Unassigned" },
                       ...board.members
-                        .filter((m) => m.role !== "viewer")
+                        .filter(isAssignableMember)
                         .map((m) => ({
                           value: String(m.user.id),
                           label: userDisplayName(m.user),

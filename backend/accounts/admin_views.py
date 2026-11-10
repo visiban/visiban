@@ -1833,13 +1833,62 @@ class AdminUserDeactivateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # All transfers valid — execute in bulk. In board pk order, the order
-        # every multi-board lock takes (#1632).
-        for t in sorted(transfers, key=lambda t: t["board_id"]):
-            Board.objects.filter(id=t["board_id"], owner=target).update(
-                owner_id=t["transfer_to"]
-            )
         return None
+
+    @staticmethod
+    def _apply_transfers(transfers, target):
+        """Hand each validated board to its new owner; return the moved board ids.
+
+        In board pk order, the order every multi-board lock takes (#1632). A
+        board counts as moved only when its UPDATE matched a row still owned by
+        *target*, so a board whose ownership changed meanwhile is neither
+        rewritten nor announced.
+        """
+        from boards.models import Board
+
+        moved = []
+        for t in sorted(transfers, key=lambda t: t["board_id"]):
+            if Board.objects.filter(id=t["board_id"], owner=target).update(owner_id=t["transfer_to"]):
+                moved.append(t["board_id"])
+        return moved
+
+    @staticmethod
+    def _announce_owner_transfers(board_ids, request):
+        """Record ``board.updated`` for every board whose owner the deactivation moved (#1741).
+
+        ``owner`` is a ``BoardSerializer`` field, so an open board page and a
+        group's board list would otherwise show the deactivated owner until a
+        reload. Same envelope as a board edit: persisted to the change feed
+        here, inside the deactivation's transaction, and published to the
+        board channel and (for a grouped board) its group channel from one
+        ``on_commit`` callback, so a rolled-back deactivation announces nothing.
+        Bounded by the boards the user owned.
+        """
+        if not board_ids:
+            return
+        from boards import broadcast as _board_broadcast
+        from boards.views._helpers import serialize_boards_for_broadcast
+
+        actor_id = request.user.pk
+        sends = []
+        for board_id, group_id, payload in serialize_boards_for_broadcast(board_ids, request):
+            event_id = _board_broadcast.persist_board_event(
+                board_id, _board_broadcast.EVT_BOARD_UPDATED, payload, actor_id=actor_id,
+            )
+            sends.append((board_id, group_id, payload, event_id))
+
+        def _send(sends=sends, aid=actor_id):
+            from groups.broadcast import broadcast_group_event
+
+            for bid, gid, pl, eid in sends:
+                _board_broadcast.broadcast_board_event(
+                    bid, _board_broadcast.EVT_BOARD_UPDATED, pl, event_id=eid, actor_id=aid,
+                )
+                if gid is not None:
+                    # GroupDetail's board list patches its row from this frame.
+                    broadcast_group_event(gid, _board_broadcast.EVT_BOARD_UPDATED, pl, actor_id=aid)
+
+        transaction.on_commit(_send)
 
     @extend_schema(request=DeactivateSerializer, responses=AdminUserSerializer)
     @transaction.atomic
@@ -1901,8 +1950,12 @@ class AdminUserDeactivateView(APIView):
             if error is not None:
                 return error
 
+        moved_board_ids = self._apply_transfers(transfers, target) if owned_boards else []
+
         target.is_active = False
         target.save(update_fields=["is_active"])
+
+        self._announce_owner_transfers(moved_board_ids, request)
 
         self._revoke_invite_links(target, request.user)
 

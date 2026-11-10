@@ -863,10 +863,25 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
                   "resolves to full access and overrides this row's role. "
                   "Present only for a group admin reader, on every row.",
     )
+    # Not a model field; set by the members action on direct rows, for the same
+    # group admin readers as has_all_content_access (#2164). The server refuses
+    # to change or remove a site admin's membership unless the caller is a site
+    # admin too, so the Members panel uses this to withhold those controls
+    # instead of offering an action that ends in a 403. Not read_only, for the
+    # same schema reason as has_all_content_access.
+    is_site_admin = serializers.BooleanField(
+        required=False,
+        help_text="Whether the member is a site admin, whose membership only a "
+                  "site admin can change or remove. Present only for a group "
+                  "admin reader, on direct rows.",
+    )
 
     class Meta:
         model = GroupMembership
-        fields = ["id", "user", "role", "joined_at", "is_inherited", "inherited_from", "has_all_content_access"]
+        fields = [
+            "id", "user", "role", "joined_at", "is_inherited", "inherited_from", "has_all_content_access",
+            "is_site_admin",
+        ]
 
 
 class GroupMemberRoleUpdateSerializer(GroupMembershipSerializer):

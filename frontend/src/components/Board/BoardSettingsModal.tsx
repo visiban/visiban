@@ -28,14 +28,12 @@ import InviteLinkPanel from "../Group/InviteLinkPanel";
 import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
 import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
+import { LOCKED_MEMBERSHIP_NOTE } from "../../constants/membership";
 import { formatExportFormatLabel, formatExportRowCount } from "../../utils/exportHistory";
 
 // Chip tooltip and accessible description for a member whose all-content access
 // overrides their board role (#1301).
 const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
-
-// Why a site admin's membership offers no remove action to a board admin (#1706).
-const LOCKED_MEMBERSHIP_NOTE = "This membership is managed at the instance level and cannot be removed here.";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -669,9 +667,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setMemberActionError(null);
     try {
       const updated = await setBoardMember(board.id, userId, role);
+      // The owner is an implicit admin whatever their stored row says (#1905),
+      // as in useBoard's mergeMemberRow: keep showing admin for the owner.
+      const shown = board.owner?.id === userId && updated.role !== "admin" ? "admin" as const : updated.role;
       setMembers((prev) => {
-        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: updated.role, is_moderator: updated.is_moderator } : m);
-        if (!next.find((m) => m.user.id === userId)) next.push(updated);
+        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: shown, is_moderator: updated.is_moderator } : m);
+        if (!next.find((m) => m.user.id === userId)) next.push({ ...updated, role: shown });
         return next;
       });
     } catch {
@@ -796,6 +797,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       setMembers((prev) =>
         prev.flatMap((m) => {
           if (m.user.id !== userId) return [m];
+          // The owner stays an implicit admin without a row (#1905), as in
+          // useBoard's removeMember.
+          if (board.owner?.id === userId) return [{ ...m, id: null, role: "admin" as const }];
           // Removing the explicit membership of an all-content user does not
           // remove their access (#1301), so keep the row, now with no
           // membership. This is the local view only: a later re-read lists

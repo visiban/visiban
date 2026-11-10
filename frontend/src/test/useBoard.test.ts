@@ -1198,6 +1198,36 @@ describe('useBoard', () => {
     expect(result.current.board!.members[0].is_site_admin).toBe(false)
   })
 
+  // #1905 — the owner is an implicit admin; a frame for their lower explicit
+  // row must not turn them back into a viewer in the open roster.
+  it('keeps the board owner an admin across member.added / member.updated / member.removed (#1905)', async () => {
+    const owner = { id: 1, username: 'admin', display_name: 'Admin User', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      members: [{ id: null, user: owner, role: 'admin', is_moderator: false, joined_at: '' }],
+    }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.updateMember({ id: 50, user: owner, role: 'viewer', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ id: 50, role: 'admin' })
+
+    act(() => { result.current.addMember({ id: 50, user: owner, role: 'viewer', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ id: 50, role: 'admin' })
+
+    act(() => { result.current.removeMember(owner.id) })
+    expect(result.current.board!.members).toHaveLength(1)
+    expect(result.current.board!.members[0]).toMatchObject({ id: null, role: 'admin' })
+  })
+
+  it('addMember for the owner with no listed row appends them as admin (#1905)', async () => {
+    const owner = { id: 1, username: 'admin', display_name: 'Admin User', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({ members: [] }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    act(() => { result.current.addMember({ id: 50, user: owner, role: 'viewer', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ id: 50, role: 'admin' })
+  })
+
   it('addMember appends a membership that is not already present', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())
