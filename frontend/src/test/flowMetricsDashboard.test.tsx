@@ -224,7 +224,7 @@ describe('FlowMetricsDashboard states', () => {
     mockAll()
     await renderLoaded()
     const range = screen.getByRole('button', { name: 'Date range: Last 90 days' })
-    expect(range.className).not.toContain('border-info')
+    expect(range.className).not.toContain('border-primary-soft')
     await userEvent.click(range)
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     await waitFor(() => expect(cycleMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
@@ -233,7 +233,7 @@ describe('FlowMetricsDashboard states', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Urgent' }))
     await waitFor(() => expect(cycleMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: 4 }))
     await screen.findByTestId('flow-cycle-time')
-    expect(screen.getByRole('button', { name: 'Date range: Last 30 days' }).className).toContain('border-info')
+    expect(screen.getByRole('button', { name: 'Date range: Last 30 days' }).className).toContain('border-primary-soft')
     // Clearing the date range falls back to the default rather than no range.
     await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))

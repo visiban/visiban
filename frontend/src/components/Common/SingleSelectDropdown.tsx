@@ -371,7 +371,7 @@ export default function SingleSelectDropdown<T extends string | number>({
         }
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected !== null
-            ? "border-info text-info"
+            ? "border-primary-soft text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         } ${className ?? ""}`}
       >
