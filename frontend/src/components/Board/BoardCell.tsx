@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, memo } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -76,6 +76,17 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
     ? getEntryCriteria(Number(active?.id), column)
     : [];
   const [adding, setAdding] = useState(false);
+  // Every exit of the add-card input (Escape, Cancel, commit) returns focus to the control that
+  // opened it (#2087): the cell itself when empty, the "+ Add card" button when populated.
+  const cellRef = useRef<HTMLDivElement | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const focusTriggerRef = useRef(false);
+  useEffect(() => {
+    if (!adding && focusTriggerRef.current) {
+      focusTriggerRef.current = false;
+      (addButtonRef.current ?? cellRef.current)?.focus();
+    }
+  }, [adding]);
   // The card currently expanded over this cell, if any (see the CardItem
   // dimming note in the render below).
   const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
@@ -92,6 +103,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       const card = await createCard(boardId, { column: column.id, swimlane: swimlane.id, title: title.trim() });
       onCardAdded(card);
       setTitle("");
+      focusTriggerRef.current = true;
       setAdding(false);
     } catch (err) {
       // A WIP/weight-limit 409 (#1428) names the column and the numbers;
@@ -112,7 +124,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // Several cells can have the input open at once (it has no onBlur close), so the predicate is
   // scoped to focus inside this cell's editor; otherwise the first-registered cell would close.
   const addEditorRef = useRef<HTMLDivElement>(null);
-  const cancelAdd = () => { setAdding(false); setAddError(null); };
+  const cancelAdd = () => { focusTriggerRef.current = true; setAdding(false); setAddError(null); };
   useInlineEditEscape(() => adding && !!addEditorRef.current?.contains(document.activeElement), cancelAdd);
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
@@ -128,7 +140,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(el) => { cellRef.current = el; setNodeRef(el); }}
       // The card detail sheet anchors to this cell's column edges (#1914).
       data-board-cell
       role={isEmptyAddable ? "button" : undefined}
@@ -302,6 +314,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           whole cell intercepting Enter. */}
       {column.allow_card_creation && canEdit && !adding && cards.length > 0 && (
         <button
+          ref={addButtonRef}
           onClick={() => setAdding(true)}
           // On an overlay tint fg-faint sinks out of sight, and this button sits on the
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.

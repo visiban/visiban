@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { isImeComposing } from "../../utils/imeComposition";
 
@@ -13,7 +13,18 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
   const [value, setValue] = useState(name);
   const [error, setError] = useState<string | null>(null);
 
+  // Focus returns to the name button on Escape/Enter (#2087); a blur-commit never steals focus back.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const focusTriggerRef = useRef(false);
+  useEffect(() => {
+    if (!editing && focusTriggerRef.current) {
+      focusTriggerRef.current = false;
+      triggerRef.current?.focus();
+    }
+  }, [editing]);
+
   const cancel = () => {
+    focusTriggerRef.current = true;
     setEditing(false);
     setError(null);
   };
@@ -31,7 +42,8 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
     setEditing(true);
   };
 
-  const save = async () => {
+  const save = async (restoreFocus = false) => {
+    if (restoreFocus) focusTriggerRef.current = true;
     const trimmed = value.trim();
     if (!trimmed) {
       setError("Board name cannot be empty.");
@@ -51,7 +63,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void save(); } // save manages its own error state and never rejects
+    if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void save(true); } // save manages its own error state and never rejects
   };
 
   return (
@@ -62,7 +74,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
-          onBlur={save}
+          onBlur={() => void save()}
           aria-label="Board name"
           className="text-fg text-sm font-medium bg-transparent border border-primary-emphasis rounded px-1 min-w-[8rem] focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
         />
@@ -70,6 +82,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
         <>
           <button
             type="button"
+            ref={triggerRef}
             onClick={start}
             title={name}
             className="text-fg text-sm font-medium cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 transition-colors max-w-[12rem] truncate focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

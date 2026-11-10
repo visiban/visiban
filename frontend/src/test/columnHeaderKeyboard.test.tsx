@@ -110,3 +110,27 @@ describe('ColumnHeader — collapsed abbreviation size (#1738)', () => {
     expect(abbr.className).not.toMatch(/text-\[\d+px\]/)
   })
 })
+
+describe('ColumnHeader — focus returns to the rename opener (#2087)', () => {
+  it('Escape returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Backlog' })).toHaveFocus()
+  })
+  it('Enter commit returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Backlog' })).toHaveFocus()
+  })
+  it('a blur commit does not pull focus back', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.click(document.body)
+    expect(screen.getByRole('button', { name: 'Backlog' })).not.toHaveFocus()
+  })
+})

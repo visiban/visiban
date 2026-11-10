@@ -499,3 +499,27 @@ describe('SwimlaneRow — Escape in the rename input (#1860)', () => {
     expect(onLower).toHaveBeenCalled()
   })
 })
+
+describe('SwimlaneRow — focus returns to the rename opener (#2087)', () => {
+  it('Escape returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+  })
+  it('Enter commit returns focus to the name button', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+  })
+  it('a blur commit does not pull focus back', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.click(document.body)
+    expect(screen.getByRole('button', { name: 'Customer A' })).not.toHaveFocus()
+  })
+})

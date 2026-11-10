@@ -142,3 +142,34 @@ describe('InlineBoardName — Escape (#1860)', () => {
     expect(onLower).toHaveBeenCalled()
   })
 })
+
+describe('InlineBoardName — focus returns to the opener (#2087)', () => {
+  async function open() {
+    const user = userEvent.setup()
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<InlineBoardName name="Old name" canEdit={true} onSave={onSave} />)
+    await user.click(screen.getByRole('button', { name: 'Old name' }))
+    return { user, onSave }
+  }
+  it('Escape returns focus to the name button', async () => {
+    const { user } = await open()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Old name' })).toHaveFocus())
+  })
+  it('Enter commit returns focus to the name button', async () => {
+    const { user } = await open()
+    await user.clear(screen.getByRole('textbox', { name: /board name/i }))
+    await user.type(screen.getByRole('textbox', { name: /board name/i }), 'New name{Enter}')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Old name' })).toHaveFocus())
+  })
+  it('an unchanged Enter commit returns focus to the name button', async () => {
+    const { user } = await open()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Old name' })).toHaveFocus())
+  })
+  it('a blur commit does not pull focus back', async () => {
+    const { user } = await open()
+    await user.click(document.body)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Old name' })).not.toHaveFocus())
+  })
+})
