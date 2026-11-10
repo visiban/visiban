@@ -4525,7 +4525,7 @@ reference on a non-comment line, and fails if any of them:</p>
 <tr>
 <td><code>scripts/check-api-compat.py</code></td>
 <td><code>api-compat-check</code></td>
-<td>Diffs the OpenAPI schema and the env var names <code>settings.py</code> reads against the v1.1.0 baseline (#1667). Self-test covers removal, type change, required-ness change, addition, allow-listed removal, stale entry, a new finding under an already allow-listed operation (must fail), and the experimental-operation cases (skip, strip, dead or malformed entry). See <a href="../api-compat-gate/">API compatibility gate</a>.</td>
+<td>Diffs the OpenAPI schema and the env var names <code>settings.py</code> reads against the last GA baseline, v1.2.0 since #2101 (#1667). Self-test covers removal, type change, a map value (<code>additionalProperties</code>) change, required-ness change, addition, allow-listed removal, stale entry, a new finding under an already allow-listed operation (must fail), and the experimental-operation cases (skip, strip, dead or malformed entry). See <a href="../api-compat-gate/">API compatibility gate</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/security-deferred-verdict.sh</code></td>

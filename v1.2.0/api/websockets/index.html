@@ -5209,7 +5209,8 @@ uploader of an attachment, or the creator of a relation or block record on it,
 so an open card detail refetches and stops showing the deleted user), and a <code>member.removed</code> frame on every
 board the user was a member of, directly or through a group or one of its
 ancestors, and on the <a href="#group-channel-since-11">group channel</a> of each group
-the user belonged to. Before 1.3 it sent none of these, so connected clients
+the user belonged to and of every subgroup below it (since 1.3, #2168: a
+subgroup's members panel lists members inherited from its ancestors). Before 1.3 it sent none of these, so connected clients
 kept showing the deleted user until they reloaded.</p>
 <p><strong>Cards that survive the delete (since 1.2).</strong> A card outside the deleted
 container can be blocked by a card inside it. Its row survives but its
@@ -5490,7 +5491,7 @@ sees it appear or disappear without a reload.</p>
 </tr>
 <tr>
 <td><code>member.removed</code></td>
-<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329). If this frame is lost, the <a href="#access-re-check-and-eviction">access re-check</a> still closes that socket</td>
+<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329). If this frame is lost, the <a href="#access-re-check-and-eviction">access re-check</a> still closes that socket. <em>(1.3+, #2168)</em> Also sent on the channel of each subgroup below the group where the removed user lost access, because a subgroup's members list includes members inherited from its ancestors; the subgroups that get it are the ones whose members list no longer shows the user, so a user with a site role that grants access to all content gets it too. A subgroup that still lists the user (through a membership of their own on it or between it and the group, or a membership on an ancestor of the group) gets no frame, since the frame would close that user's socket; where that listing's inherited role or source changed, the subgroup page shows the old ones until its next refetch (#2175). Before 1.3 only the group itself was told, so an open subgroup page kept listing the removed member until a reload</td>
 <td><code>{ "user_id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
