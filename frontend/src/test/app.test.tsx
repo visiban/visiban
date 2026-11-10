@@ -684,6 +684,15 @@ describe('App — pending invite after OAuth (#1444)', () => {
     await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('/groups/4'))
     expect(mockJoinBoard).not.toHaveBeenCalled()
   })
+
+  it('drops a malformed stored token without calling either join endpoint (#2174)', async () => {
+    sessionStorage.setItem('pendingJoinToken', 'vbnb_a/../b')
+    render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
+    await waitFor(() => expect(sessionStorage.getItem('pendingJoinToken')).toBeNull())
+    expect(mockJoinBoard).not.toHaveBeenCalled()
+    expect(mockJoinGroup).not.toHaveBeenCalled()
+    expect(screen.getByTestId('probe')).not.toHaveTextContent('/join/')
+  })
 })
 
 describe('App — palette receives the signed-in user id (#1955)', () => {
