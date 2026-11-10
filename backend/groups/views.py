@@ -662,6 +662,13 @@ class GroupViewSet(viewsets.ModelViewSet):
             subtree_board_ids = list(
                 _Board.objects.filter(group_id__in=subtree_ids).values_list("pk", flat=True)
             )
+            # Every ancestor, not just the direct parent: a grandparent page
+            # with "Show subgroup boards" lists this subtree's boards too
+            # (#1742). Read before the delete, while the chain still exists.
+            ancestor_ids = []
+            if parent_id is not None:
+                from .models import _ancestor_ids_from, _GROUP_TRAVERSAL_MAX_DEPTH
+                ancestor_ids = _ancestor_ids_from(parent_id, _GROUP_TRAVERSAL_MAX_DEPTH)
             group.delete()
             if subtree_board_ids:
                 from boards.services.share_links import revoke_lapsed_share_links
@@ -685,16 +692,17 @@ class GroupViewSet(viewsets.ModelViewSet):
                     board_sends.append((bid, board_data, eid))
 
             def _broadcast_deleted(
-                g=gid, pid=parent_id, pl=payload, subs=subgroup_ids, boards=board_sends,
+                g=gid, ancestors=ancestor_ids, pl=payload, subs=subgroup_ids, boards=board_sends,
                 aid=request.user.pk,
             ):
                 from boards import broadcast as _board_broadcast
 
                 from .broadcast import broadcast_group_event
                 broadcast_group_event(g, _group_broadcast.EVT_GROUP_DELETED, pl)
-                if pid is not None:
-                    # Sidebar tree under the parent needs to refresh too.
-                    broadcast_group_event(pid, _group_broadcast.EVT_GROUP_DELETED, pl)
+                # The sidebar tree under the parent needs to refresh, and every
+                # higher ancestor page drops the subtree's boards (#1742).
+                for anc in ancestors:
+                    broadcast_group_event(anc, _group_broadcast.EVT_GROUP_DELETED, pl)
                 # Subgroups go with it (Group.parent is CASCADE). Each one's own
                 # channel hears its deletion, so an open subgroup page swaps
                 # to "isn't available" instead of staying stale (#1742). Their

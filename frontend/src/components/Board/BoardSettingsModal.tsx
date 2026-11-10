@@ -667,9 +667,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setMemberActionError(null);
     try {
       const updated = await setBoardMember(board.id, userId, role);
+      // The owner is an implicit admin whatever their stored row says (#1905),
+      // as in useBoard's mergeMemberRow: keep showing admin for the owner.
+      const shown = board.owner?.id === userId && updated.role !== "admin" ? "admin" as const : updated.role;
       setMembers((prev) => {
-        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: updated.role, is_moderator: updated.is_moderator } : m);
-        if (!next.find((m) => m.user.id === userId)) next.push(updated);
+        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: shown, is_moderator: updated.is_moderator } : m);
+        if (!next.find((m) => m.user.id === userId)) next.push({ ...updated, role: shown });
         return next;
       });
     } catch {
@@ -794,6 +797,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       setMembers((prev) =>
         prev.flatMap((m) => {
           if (m.user.id !== userId) return [m];
+          // The owner stays an implicit admin without a row (#1905), as in
+          // useBoard's removeMember.
+          if (board.owner?.id === userId) return [{ ...m, id: null, role: "admin" as const }];
           // Removing the explicit membership of an all-content user does not
           // remove their access (#1301), so keep the row, now with no
           // membership. This is the local view only: a later re-read lists

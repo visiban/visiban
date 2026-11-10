@@ -33,7 +33,8 @@ class GroupDeleteCascadeBroadcastTests(TestCase):
             GroupMembership.objects.create(group=g, user=self.owner, role="admin")
             return g
 
-        self.root = group("Root")
+        self.top = group("Top")
+        self.root = group("Root", parent=self.top)
         self.target = group("Target", parent=self.root)
         self.child = group("Child", parent=self.target)
         self.grandchild = group("Grandchild", parent=self.child)
@@ -58,6 +59,7 @@ class GroupDeleteCascadeBroadcastTests(TestCase):
         self.assertCountEqual(deleted, [
             (self.target.pk, self.target.pk),
             (self.root.pk, self.target.pk),
+            (self.top.pk, self.target.pk),
             (self.child.pk, self.child.pk),
             (self.grandchild.pk, self.grandchild.pk),
         ])
@@ -92,10 +94,20 @@ class GroupDeleteCascadeBroadcastTests(TestCase):
         self.assertEqual(resp.status_code, 204)
         self.assertCountEqual(
             [c.args[0] for c in group_send.call_args_list if c.args[1] == EVT_GROUP_DELETED],
-            [self.sibling.pk, self.root.pk],
+            [self.sibling.pk, self.root.pk, self.top.pk],
         )
         # The sibling's one board lost its group.
         self.assertEqual(
             [c.args[0] for c in board_send.call_args_list if c.args[1] == EVT_BOARD_UPDATED],
             [self.b_sibling.pk],
+        )
+
+    def test_grandparent_channel_hears_the_delete(self):
+        with patch("boards.broadcast.broadcast_board_event"), \
+             patch("groups.broadcast.broadcast_group_event") as group_send, \
+             self.captureOnCommitCallbacks(execute=True):
+            self._delete()
+        self.assertIn(
+            (self.top.pk, {"id": self.target.pk}),
+            [(c.args[0], c.args[2]) for c in group_send.call_args_list if c.args[1] == EVT_GROUP_DELETED],
         )
