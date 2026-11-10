@@ -968,7 +968,8 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
-    expect(screen.getByText(/to be added/i)).toBeInTheDocument()
+    // #1495: shares the section-heading style with Add member
+    expect(screen.getByText(/to be added/i)).toHaveClass('text-sm', 'font-medium', 'text-fg-tertiary', 'uppercase')
   })
 
   it('staged invite shows the user name and a role select', async () => {

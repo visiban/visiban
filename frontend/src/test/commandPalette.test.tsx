@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import CommandPalette from "../components/Common/CommandPalette";
+import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Card, Column } from "../types";
 import { DEMO_CARD_FOOTER_NOTE } from "../constants/demoCopy";
 
@@ -71,6 +72,11 @@ const defaultProps = {
   onOpenCard: vi.fn(),
   onAction: vi.fn(),
 };
+
+function LowerPriorityEscape({ handler }: { handler: () => void }) {
+  useEscapeStack(handler, 40);
+  return null;
+}
 
 function renderPalette(props = {}) {
   return render(
@@ -433,6 +439,20 @@ describe("CommandPalette — card actions (#2059)", () => {
     expect(screen.getByRole("option", { name: /^Set priority…/ })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("Escape at priority 60 is consumed before a lower-priority (40) handler (#1989)", () => {
+    const onClose = vi.fn();
+    const lower = vi.fn();
+    render(
+      <MemoryRouter>
+        <LowerPriorityEscape handler={lower} />
+        <CommandPalette {...defaultProps} onClose={onClose} />
+      </MemoryRouter>
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(lower).not.toHaveBeenCalled();
   });
 
   it("→ on a card search result drills into that card's actions; ← returns", () => {
