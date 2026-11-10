@@ -19,7 +19,7 @@ const trapStack: symbol[] = [];
  * the trap deactivates or unmounts (#1732). The opener is captured during
  * render, not in an effect: a child's `autoFocus` (and the surfaces' own
  * focus-on-open effects) have already moved focus by the time effects run.
- * Focus is restored only when it would otherwise be lost (dropped to `body`), so it never steals focus the user moved elsewhere.
+ * Focus is restored only when it would otherwise be lost (dropped to `body`, or left inside a container that stays mounted but is hidden, such as the AppSidebar mobile drawer, #1776), so it never steals focus the user moved elsewhere.
  *
  * Rule (frontend/CLAUDE.md): anything with `aria-modal` uses ModalWrapper or
  * this hook.

@@ -43,12 +43,14 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
   };
 
   const save = async (restoreFocus = false) => {
-    if (restoreFocus) focusTriggerRef.current = true;
     const trimmed = value.trim();
     if (!trimmed) {
       setError("Board name cannot be empty.");
       return;
     }
+    // Set only once the editor is certain to close; an empty-name Enter keeps it open, and a stale flag
+    // would pull focus off whatever the user clicks next when a later blur-commit closes it.
+    if (restoreFocus) focusTriggerRef.current = true;
     if (trimmed === name) {
       setEditing(false);
       return;
