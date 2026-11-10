@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import type { BoardColor } from "../../utils/boardColors";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
 import type { Card, Column, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
 import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
@@ -25,6 +26,8 @@ interface Props {
   columns?: Column[];
   /** The row's cards, for the limits' "Now N" helpers (#1150). */
   laneCards?: Card[];
+  /** Colors in use on the board, offered in the custom color popover (#2098). */
+  boardColors?: BoardColor[];
   /** The board's enforce_* flags, which "Follow board settings" inherits (#1150). */
   limitFlags?: LimitFlags;
 }
@@ -71,7 +74,7 @@ function boardModeDescription(flags: LimitFlags): string {
   return `Board now: ${wip}; ${weight}.`;
 }
 
-export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false } }: Props) {
+export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], boardColors, limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false } }: Props) {
   const [name, setName] = useState(swimlane.name);
   const [color, setColor] = useState(swimlane.color);
   // Row limits (#1150). Seeded once from the swimlane at mount (useState
@@ -273,7 +276,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
 
             <div>
               <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-              <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom />
+              <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
             </div>
           </div>
 

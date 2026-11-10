@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { BoardColor } from "../../utils/boardColors";
 import { createSwimlane } from "../../api/boards";
 import type { Swimlane } from "../../types";
 import { PALETTE_COLORS } from "../../constants/colors";
@@ -10,9 +11,11 @@ interface Props {
   boardId: number;
   onAdded: (swimlane: Swimlane) => void;
   onClose: () => void;
+  /** Colors in use on the board, offered in the custom color popover (#2098). */
+  boardColors?: BoardColor[];
 }
 
-export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
+export default function AddSwimlaneModal({ boardId, onAdded, onClose, boardColors }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [color, setColor] = useState(PALETTE_COLORS[0]);
@@ -68,7 +71,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
         </p>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-          <ColorSwatchPicker colors={PALETTE_COLORS} value={color} onChange={setColor} allowCustom />
+          <ColorSwatchPicker colors={PALETTE_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
         </div>
       </div>
 

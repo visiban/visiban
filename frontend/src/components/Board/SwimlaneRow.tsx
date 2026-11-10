@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import SeparatorPlus from "./SeparatorPlus";
+import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -162,6 +163,8 @@ interface Props {
    * Swimlane modal's enforcement choice. Omitted, the row reads as unenforced.
    */
   limitFlags?: LimitFlags;
+  /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
+  boardColors?: BoardColor[];
   /** The board's `show_wip_at_limit` (#973): whether the "at limit" state shows. */
   showWipAtLimit?: boolean;
   /**
@@ -176,7 +179,7 @@ interface Props {
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -636,6 +639,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           cardCount={cards.length}
           columns={columns}
           laneCards={cards}
+          boardColors={boardColors}
           limitFlags={limitFlags}
           onUpdated={(s) => { onSwimlaneUpdated(s); setEditing(false); }}
           onDeleted={(id) => { onSwimlaneDeleted(id); setEditing(false); }}

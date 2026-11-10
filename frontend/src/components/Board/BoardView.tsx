@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
+import { boardColorsInUse } from "../../utils/boardColors";
 import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
@@ -2019,6 +2020,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Unique 3-char abbreviations for collapsed column headers.
   // Algorithm: strip spaces, take first 3 chars uppercased; if two columns share
   // the same base, suffix the later ones with a digit (e.g. "DON", "DO2").
+  // Colors already in use, offered by the four column / swimlane modals' custom color popover (#2098).
+  const boardColors = useMemo(
+    () => boardColorsInUse({ columns: board.columns, swimlanes: board.swimlanes, labels: board.labels }),
+    [board.columns, board.swimlanes, board.labels],
+  );
+
   const columnAbbreviations = useCallback((): Map<number, string> => {
     const result = new Map<number, string>();
     const seen = new Map<string, number>();
@@ -3074,6 +3081,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     column={col}
                     cards={board.cards.filter((c) => c.column === col.id)}
                     boardId={board.id}
+                    boardColors={boardColors}
                     isAdmin={isAdmin}
                     onColumnUpdated={handleColumnUpdated}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
@@ -3190,6 +3198,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}
                       limitFlags={board}
+                      boardColors={boardColors}
                       showWipAtLimit={board.show_wip_at_limit}
                       getDropVerdict={getDropVerdict}
                       getEntryCriteria={getEntryCriteria}
@@ -3372,6 +3381,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {isAdmin && showAddColumn && (
         <AddColumnModal
           boardId={board.id}
+          boardColors={boardColors}
           onAdded={handleColumnAdded}
           onClose={() => { setShowAddColumn(false); setInsertPosition(null); }}
         />
@@ -3380,6 +3390,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {isAdmin && showAddSwimlane && (
         <AddSwimlaneModal
           boardId={board.id}
+          boardColors={boardColors}
           onAdded={(swimlane) => { handleSwimlaneAdded(swimlane); setShowAddSwimlane(false); setInsertSwimlanePosition(null); }}
           onClose={() => { setShowAddSwimlane(false); setInsertSwimlanePosition(null); }}
         />
