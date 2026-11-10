@@ -151,3 +151,58 @@ def broadcast_group_event(
             event_type,
             exc_info=True,
         )
+
+
+def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, actor_id: int | None = None) -> None:
+    """Publish ``member.removed`` for a group membership removal (#1051, #2168).
+
+    Call post-commit (``transaction.on_commit``). The frame always goes to
+    ``group_{group_id}``, the group the membership was in. It also goes to the
+    channel of each group in ``descendant_ids`` (the removed group's subtree,
+    snapshotted before the delete) where the user no longer has access: a
+    subgroup's members panel lists members inherited from its ancestors, so
+    a subgroup page open in another session must refetch too (#2168).
+
+    A descendant where the user keeps access (a direct membership there or on
+    the path to it, a membership on an ancestor of the removed group, or a
+    site role) gets no frame: the user is still listed there, and
+    ``GroupConsumer`` closes the removed user's socket on any ``member.removed``
+    that names them, which would evict a user who still belongs. The access
+    rule is ``group_access_resolver``, the bulk form of the predicate the REST
+    group routes and ``GroupConsumer`` use, so the three cannot disagree.
+
+    Cost is constant in the size of the subtree: one query for the user, one
+    for the descendant groups with their ancestor chain, one for the user's
+    memberships. Best-effort like ``broadcast_group_event`` (#1462): a failed
+    lookup is logged and swallowed, since the transaction has already
+    committed; the subgroup page converges on its next refetch.
+    """
+    payload = {"user_id": user_id}
+    broadcast_group_event(group_id, EVT_MEMBER_REMOVED, payload, actor_id=actor_id)
+    descendant_ids = set(descendant_ids) - {group_id}
+    if not descendant_ids:
+        return
+    from accounts.models import User
+
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH, Group, group_access_resolver
+
+    try:
+        user = User.objects.filter(pk=user_id).first()
+        groups = Group.objects.filter(pk__in=descendant_ids).select_related(
+            "__".join(["parent"] * _GROUP_TRAVERSAL_MAX_DEPTH)
+        )
+        if user is None:
+            # Deleted meanwhile: no access anywhere.
+            targets = sorted(g.pk for g in groups)
+        else:
+            has_access = group_access_resolver(user)
+            targets = sorted(g.pk for g in groups if not has_access(g))
+    except Exception as exc:  # noqa: BLE001 — best-effort, see docstring
+        logger.warning(
+            "group member.removed subtree fan-out dropped: group_id=%s error=%s",
+            group_id,
+            type(exc).__name__,
+        )
+        return
+    for gid in targets:
+        broadcast_group_event(gid, EVT_MEMBER_REMOVED, payload, actor_id=actor_id)

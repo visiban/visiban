@@ -835,7 +835,14 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         for group_id, user_id in groups:
             for sub_id in subtrees[group_id]:
                 boards.update((board_id, user_id) for board_id in board_groups.get(sub_id, ()))
-        return {"cards": cards, "boards": boards, "groups": groups}
+        # A subgroup's members panel lists members inherited from its ancestors,
+        # so ``member.removed`` goes to every group in each subtree, not only
+        # the group the user belonged to (#2168). The user is deleted, so they
+        # lose access to the whole subtree; no per-group access re-check.
+        group_frames = {
+            (sub_id, user_id) for group_id, user_id in groups for sub_id in subtrees[group_id]
+        }
+        return {"cards": cards, "boards": boards, "groups": group_frames}
 
     @staticmethod
     def _record_delete_events(request, snapshot):
