@@ -554,7 +554,7 @@ These two events and their payloads are part of the frozen 1.x WebSocket contrac
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object (its `created_by` is `null` if the configuring user has since been deleted) |
-| `lens_connection.removed` | Lens connection deleted from this board (admin only) | `{ "board_id": <int> }` |
+| `lens_connection.removed` | Lens connection deleted from this board (admin only). Sent only when a connection existed: a `DELETE` with nothing to remove still answers `204` but emits nothing | `{ "board_uid": <string>, "board_id": <int> }`. `board_uid` is sent since 1.3 (#1858) and matches the other terminal events, such as `board.deleted`; key on it. `board_id` is **deprecated** since 1.3 and stays in the payload until a major release (#1055) |
 
 ### Keepalive
 

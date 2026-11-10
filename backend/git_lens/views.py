@@ -505,8 +505,14 @@ class LensConnectionView(APIView):
             # other members' Lens tabs to disappear or add a feed row (#1971).
             if deleted:
                 board_id_int = board.id
+                # ``board_uid`` matches the other terminal events (``board.deleted``,
+                # ``share_link.updated``), which name the board by uid. ``board_id``
+                # is deprecated but stays: the payload is frozen 1.x contract, so a
+                # field can be added but not removed before 2.0 (#1858, #1055).
                 record_board_event(
-                    board_id_int, EVT_LENS_CONNECTION_REMOVED, {"board_id": board_id_int},
+                    board_id_int,
+                    EVT_LENS_CONNECTION_REMOVED,
+                    {"board_uid": board.uid, "board_id": board_id_int},
                     actor_id=request.user.id,
                 )
         return Response(status=204)
