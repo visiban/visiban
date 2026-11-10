@@ -71,7 +71,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   };
 
   const handleDeleteBoard = async (boardId: number) => {
-    const previousBoards = boards;
+    const removedIndex = boards.findIndex((b) => b.id === boardId);
+    const removedBoard = removedIndex === -1 ? undefined : boards[removedIndex];
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setConfirmDeleteId(null);
     setDeleteConfirmInput("");
@@ -80,12 +81,20 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     } catch {
       // The delete failed after the board was optimistically removed from the
       // list — refetch to reconcile with the server, and if that also fails,
-      // fall back to the pre-delete snapshot so the board doesn't appear
-      // deleted when it is not.
+      // re-insert only the board that failed to delete. Restoring a whole-list
+      // snapshot here would silently overwrite any other mutation (rename,
+      // star, a second delete) that succeeded while this call was in flight.
       try {
         setBoards(await listBoards());
       } catch {
-        setBoards(previousBoards);
+        if (removedBoard) {
+          setBoards((prev) => {
+            if (prev.some((b) => b.id === boardId)) return prev;
+            const next = prev.slice();
+            next.splice(Math.min(removedIndex, next.length), 0, removedBoard);
+            return next;
+          });
+        }
       }
       setLoadError("Failed to delete the board. Please try again.");
     }

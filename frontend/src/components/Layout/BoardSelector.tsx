@@ -21,11 +21,11 @@ export default function BoardSelector({ user, onSelect }: Props) {
   // Board ids with a deleteBoard() call currently in flight. The confirm
   // dialog closes synchronously on submit (see handleDelete below), which
   // otherwise lets a second board's delete be confirmed and started while
-  // the first is still pending — each call captures its own `prevBoards`
-  // snapshot, so an overlapping failure can roll one delete's state back
-  // over the other's already-successful removal. Rather than reconciling
-  // overlapping snapshots, disable every delete trigger while any delete is
-  // in flight — that removes the only UI entry point for the race (#1375).
+  // the first is still pending, so overlapping deletes could interleave their
+  // optimistic removals and failure rollbacks. Disable every delete trigger
+  // while any delete is in flight — that removes the only UI entry point
+  // for the race (#1375). The failure rollback itself also re-inserts by
+  // board id rather than restoring a list snapshot (#1385).
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const dialogTitleId = useId();
 
@@ -41,7 +41,8 @@ export default function BoardSelector({ user, onSelect }: Props) {
   useEffect(() => { loadBoards(); }, [loadBoards]);
 
   const handleDelete = async (boardId: number) => {
-    const prevBoards = boards;
+    const removedIndex = boards.findIndex((b) => b.id === boardId);
+    const removedBoard = removedIndex === -1 ? undefined : boards[removedIndex];
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setConfirmDeleteId(null);
     setDeleteConfirmInput("");
@@ -49,14 +50,21 @@ export default function BoardSelector({ user, onSelect }: Props) {
     try {
       await deleteBoard(boardId);
     } catch {
-      // Restore the optimistically-removed board immediately from the
-      // pre-delete snapshot — this is correct regardless of what else may
-      // have changed, unlike relying solely on a refetch that could itself
-      // fail and leave the board missing with no explanation (#1375).
-      setBoards(prevBoards);
+      // Re-insert only the board that failed to delete, by id, at its
+      // original index. Restoring a whole-list snapshot would overwrite any
+      // other mutation that succeeded while this call was in flight, such as
+      // a board created in the meantime (#1385). No-op if already present.
+      if (removedBoard) {
+        setBoards((prev) => {
+          if (prev.some((b) => b.id === boardId)) return prev;
+          const next = prev.slice();
+          next.splice(Math.min(removedIndex, next.length), 0, removedBoard);
+          return next;
+        });
+      }
       setDeleteError("Failed to delete board.");
-      // Best-effort refresh to reconcile with the server; the snapshot
-      // restore above already keeps the UI consistent if this also fails.
+      // Best-effort refresh to reconcile with the server; the id-based
+      // re-insert above already keeps the UI consistent if this also fails.
       listBoards().then(setBoards).catch(() => {});
     } finally {
       setDeletingIds((prev) => {

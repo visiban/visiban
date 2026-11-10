@@ -460,7 +460,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     )
   })
 
-  it('falls back to the pre-delete snapshot when both the delete and the reconciling refetch fail', async () => {
+  it('re-inserts the failed board when both the delete and the reconciling refetch fail', async () => {
     const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
     mockListBoards.mockResolvedValueOnce([board])
     mockListGroups.mockResolvedValue([])
@@ -474,11 +474,77 @@ describe('Dashboard — rejection paths (#1374)', () => {
     await user.click(screen.getByTitle('Delete board'))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
-    // The board is restored from the pre-delete snapshot rather than left missing.
+    // The board is re-inserted by id rather than left missing.
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
     )
+  })
+
+  // #1385 — the double-failure rollback must reconcile by board id, not restore
+  // a whole-list snapshot that would clobber a concurrent successful mutation.
+  it('keeps a concurrent successful delete of another board when the double-failure rollback runs (#1385)', async () => {
+    const mk = (id: number, name: string) => ({ id, name, description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' })
+    mockListBoards.mockResolvedValueOnce([mk(1, 'Board Alpha'), mk(2, 'Board Beta')])
+    mockListGroups.mockResolvedValue([])
+    let rejectA: (e: Error) => void = () => undefined
+    mockDeleteBoard.mockImplementation((id: number) =>
+      id === 1 ? new Promise((_, reject) => { rejectA = reject }) : Promise.resolve()
+    )
+    // The reconciling refetch for the failed delete also fails.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Board Alpha')
+
+    // Start deleting A (stays in flight), then delete B successfully.
+    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Board Beta' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText('Board Beta')).not.toBeInTheDocument())
+
+    rejectA(new Error('server error'))
+
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+    expect(screen.getByText('Board Alpha')).toBeInTheDocument()
+    expect(screen.queryByText('Board Beta')).not.toBeInTheDocument()
+  })
+
+  // #1385 — if the failed board is already back in the list when the rollback
+  // runs (a duplicate/partial reconcile), the re-insert must be a no-op.
+  it('does not duplicate the failed board when it is already back in the list at rollback (#1385)', async () => {
+    const mk = (id: number, name: string) => ({ id, name, description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' })
+    mockListBoards.mockResolvedValueOnce([mk(1, 'Board Alpha')])
+    mockListGroups.mockResolvedValue([])
+    let rejectA: (e: Error) => void = () => undefined
+    mockDeleteBoard.mockImplementation(() => new Promise((_, reject) => { rejectA = reject }))
+    // The reconciling refetch fails, so only the id-based re-insert runs.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+    // A create resolves with the same id while the delete is in flight,
+    // putting the board back in the list before the rollback runs.
+    mockCreateBoard.mockResolvedValue(mk(1, 'Board Alpha'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Board Alpha')
+    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText('Board Alpha')).not.toBeInTheDocument())
+
+    await user.click(screen.getByText('+ New board'))
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'Board Alpha')
+    await user.click(screen.getByRole('button', { name: 'Create Board' }))
+    await screen.findByText('Board Alpha')
+
+    rejectA(new Error('server error'))
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+    expect(screen.getAllByText('Board Alpha')).toHaveLength(1)
   })
 })
 
