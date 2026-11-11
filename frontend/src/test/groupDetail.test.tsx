@@ -490,7 +490,7 @@ describe('GroupDetail', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     await screen.findByText('Alice Smith')
     const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
-    expect(within(aliceRow).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(aliceRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
     expect(within(aliceRow).getByText(/not in effect while this account has all-content access/)).toBeInTheDocument()
     expect(within(aliceRow).getByText('Group role: Viewer — not in effect while this account has all-content access.')).toBeInTheDocument()
@@ -500,6 +500,34 @@ describe('GroupDetail', () => {
     const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
     expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
+  })
+
+  it('offers an all-content member below admin only their stored role and Admin, and promotes (#2165)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    const adminAc: User = { ...fakeUser, id: 5, username: 'ada', display_name: 'Ada Admin' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'viewer', joined_at: '', has_all_content_access: true },
+      { id: 5, user: adminAc, role: 'admin', joined_at: '', has_all_content_access: true },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroupMemberRole.mockResolvedValue({ id: 2, user: otherUser, role: 'admin', joined_at: '' })
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+    const user = userEvent.setup()
+    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
+    await user.click(within(aliceRow).getByRole('combobox'))
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Admin', 'Viewer'])
+    await user.click(screen.getByRole('option', { name: 'Admin' }))
+    expect(mockUpdateGroupMemberRole).toHaveBeenCalledWith(1, 2, 'admin')
+    // An admin-role all-content row keeps the full picker.
+    const adaRow = screen.getByText('Ada Admin').closest('div.rounded-lg') as HTMLElement
+    await user.click(within(adaRow).getByRole('combobox'))
+    expect(screen.getAllByRole('option')).toHaveLength(4)
   })
 
   it('locks a site-admin direct row with no role picker or Remove for a non-site-admin admin (#2164)', async () => {
@@ -1077,6 +1105,42 @@ describe('GroupDetail', () => {
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(mockUpdateGroup).not.toHaveBeenCalled()
+  })
+
+  it('rename returns focus to the name button on Escape and committed Enter, not on blur (#2170)', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
+    renderGroupDetail()
+    const open = async () => {
+      const heading = await screen.findByRole('heading', { name: /Engineering|Platform/ })
+      fireEvent.click(within(heading).getByRole('button'))
+      return screen.getByRole('textbox')
+    }
+    let input = await open()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Engineering' })).getByRole('button')).toHaveFocus())
+
+    input = await open()
+    fireEvent.change(input, { target: { value: 'Platform' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Platform' })).getByRole('button')).toHaveFocus())
+
+    // Empty-name Enter keeps the editor open and sets no stale flag; a later blur-commit leaves focus alone.
+    input = await open()
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'Platform' } })
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    outside.focus()
+    fireEvent.blur(input)
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    expect(outside).toHaveFocus()
+    outside.remove()
   })
 
   it('non-admin cannot click heading to rename', async () => {
