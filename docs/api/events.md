@@ -29,7 +29,7 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 
 1. Open the board WebSocket and process frames as they arrive.
 2. Keep a feed cursor: the `next_cursor` (or the last row `id`) from your most
-   recent feed read, or from a `/full/`-then-feed read. Do **not** use a
+   recent feed read, or the last row `id` of the final page. Do **not** use a
    frame's `event_id` as the cursor. Frames from two concurrent writes can
    arrive out of `event_id` order, so the last frame's `event_id` can be past
    an event that was still committing when the socket dropped (see
@@ -41,9 +41,10 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
    late-committing lower id is delayed, never skipped. Replay the results
    through the same handler, skipping ids you have already applied (a frame may
    have delivered the same event first). Keep the `next_cursor` it returns for
-   the next reconnect. A client that has no feed cursor yet (it started from a
-   socket and a `/full/` read) reads the feed from `after=0` once, or
-   re-fetches `/full/`, and keeps the cursor from that read.
+   the next reconnect. A client that has no feed cursor yet (`/full/` returns none) reads the
+   feed from `after=0` once to get one (or gets one from a `410` as in step 4).
+   When a page has `next_cursor: null`, the last row `id` is the cursor; it is
+   safe because the feed never reaches past an event still committing.
 4. If that call returns `410 Gone`, events after your cursor have aged out of
    the retention window. Keep the `next_cursor` from the `410` body, re-fetch
    `GET /api/v1/boards/{id}/full/`, then resume with
