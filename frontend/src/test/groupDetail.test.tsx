@@ -475,7 +475,7 @@ describe('GroupDetail', () => {
     expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
   })
 
-  it('shows effective access instead of a role picker for an all-content member, keeping Remove (#2075)', async () => {
+  it('shows effective access alongside a limited role picker for an all-content member, keeping Remove (#2075)', async () => {
     const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
     const plainUser: User = { ...fakeUser, id: 4, username: 'bob', display_name: 'Bob Jones' }
     mockGetGroup.mockResolvedValue(fakeGroup)
@@ -1166,6 +1166,34 @@ describe('GroupDetail', () => {
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
     expect(outside).toHaveFocus()
     outside.remove()
+  })
+
+  it('Escape in the rename and description editors does not navigate away and returns focus (#2170)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Team description' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    mockNavigate.mockClear()
+
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    fireEvent.click(within(heading).getByRole('button'))
+    const input = screen.getByRole('textbox')
+    input.focus()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Engineering' })).getByRole('button')).toHaveFocus())
+    expect(mockNavigate).not.toHaveBeenCalled()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Team description' }))
+    const area = screen.getByRole('textbox')
+    area.focus()
+    fireEvent.keyDown(area, { key: 'Escape' })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Team description' })).toHaveFocus())
+    expect(mockNavigate).not.toHaveBeenCalled()
+
+    // With no editor open, Escape still leaves the page.
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(mockNavigate).toHaveBeenCalled()
   })
 
   it('non-admin cannot click heading to rename', async () => {

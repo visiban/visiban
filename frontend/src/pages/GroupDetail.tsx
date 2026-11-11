@@ -165,6 +165,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // priority-0 handler below, which would navigate away from the page.
     if (confirmRemoveMemberId !== null) { setConfirmRemoveMemberId(null); return; }
     if (confirmRemoveLabelId !== null) { setConfirmRemoveLabelId(null); return; }
+    // Inline rename / description editors (#2170): handled here, not in the
+    // input's onKeyDown. The stack listens on `document` and runs after React's
+    // handler; once that handler's state change commits and focus moves to the
+    // trigger button, the priority-0 navigate handler below would no longer see
+    // an INPUT/TEXTAREA as the active element and would leave the page.
+    if (renaming) { handleRenameCancel(); return; }
+    if (editingDescription) { handleDescriptionCancel(); return; }
     return false;
   }, 40);
 
@@ -793,7 +800,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // void: handleRenameSave manages its own try/catch and reverts optimistic
     // state on failure, so there is nothing further to await here.
     if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleRenameSave(true); }
-    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleRenameCancel(); }
+    // Escape is handled by the priority-40 useEscapeStack entry (#2170).
   };
 
   const handleDescriptionStart = () => {
@@ -837,11 +844,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       writeGroup((g) => (g ? { ...g, description: prev } : g));
       setDescriptionError("Failed to save description. Please try again.");
     }
-  };
-
-  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleDescriptionCancel(); }
-    // Enter inserts a newline — do not submit
   };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
@@ -1162,7 +1164,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   rows={3}
                   value={descriptionValue}
                   onChange={(e) => setDescriptionValue(e.target.value)}
-                  onKeyDown={handleDescriptionKeyDown}
                   onBlur={handleDescriptionSave}
                   className="w-full bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
                   placeholder="Add a description…"
