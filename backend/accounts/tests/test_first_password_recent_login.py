@@ -135,6 +135,9 @@ class RecentLoginRefusalSchemaTests(TestCase):
                 body = schema["paths"][path]["post"]["responses"]["403"]["content"][
                     "application/json"
                 ]["schema"]
-                component = schema["components"]["schemas"][body["$ref"].rsplit("/", 1)[-1]]
+                # #2181: a declared 403 is widened to anyOf [declared, {detail}] so DRF's own
+                # code-less 403s validate. The declared (coded) schema is always the first branch.
+                declared = body["anyOf"][0] if "anyOf" in body else body
+                component = schema["components"]["schemas"][declared["$ref"].rsplit("/", 1)[-1]]
                 self.assertEqual(set(component["properties"]), {"detail", "code"})
                 self.assertEqual(component["required"], ["detail"])
