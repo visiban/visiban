@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SelectDropdown from '../components/Common/SelectDropdown'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
@@ -242,6 +242,15 @@ describe('SelectDropdown', () => {
       // With the menu closed, Escape falls through to the enclosing handler.
       fireEvent.keyDown(document, { key: 'Escape' })
       expect(outer).toHaveBeenCalledTimes(1)
+    })
+
+    it('marks the selected option with a check mark, not color alone (#2171)', async () => {
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const selected = screen.getAllByRole('option').filter((o) => o.getAttribute('aria-selected') === 'true')
+      expect(selected).toHaveLength(1)
+      expect(within(selected[0]).getByTestId('select-selected-mark')).toBeInTheDocument()
+      expect(screen.getAllByTestId('select-selected-mark')).toHaveLength(1)
     })
 
     it('shows the overflow fade only while more options sit below the fold', async () => {

@@ -92,7 +92,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       ) : loadError ? (
         <p className="text-sm text-danger py-4 text-center">Could not load groups. Please try again.</p>
       ) : (
-        <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
+        <div role="radiogroup" aria-label="Destination group" className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
           <PickerRow
             label="Personal (no group)"
             icon={"\u{1F3E0}"}
@@ -238,7 +238,8 @@ function PickerRow({
     <button
       type="button"
       onClick={blocked ? undefined : onSelect}
-      aria-pressed={selected}
+      role="radio"
+      aria-checked={selected}
       aria-disabled={blocked || undefined}
       aria-describedby={note ? noteId : undefined}
       className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded text-left transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
@@ -247,10 +248,13 @@ function PickerRow({
           : selected ? "bg-primary-emphasis/20 text-info-on-tint" : "hover:bg-surface-hover text-fg-secondary"
       }`}
     >
-      <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
-        selected ? "border-primary-soft" : "border-line-strong"
-      }`}>
-        {selected && <span className="w-1.5 h-1.5 rounded-full bg-primary-soft" />}
+      {/* Non-color selection cue (#2171), the same check slot as SingleSelectDropdown. Reserves its width on every row. */}
+      <span aria-hidden="true" className="shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+        {selected && (
+          <svg data-testid="move-board-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8.5l3.5 3.5L13 4.5" />
+                  </svg>
+        )}
       </span>
       <span>{icon}</span>
       <span className="flex-1 truncate font-medium" title={label}>{label}</span>

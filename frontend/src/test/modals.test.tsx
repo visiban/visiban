@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
 import CreateBoardModal from '../components/Board/CreateBoardModal'
@@ -250,6 +250,20 @@ describe('CreateBoardModal', () => {
     const salesRadio = salesLabel.querySelector('input[type="radio"]') as HTMLInputElement
     expect(salesRadio.checked).toBe(true)
   })
+
+  it('marks only the selected template with a check mark, not color alone (#2171)', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByText('Sales Pipeline')).toBeInTheDocument())
+    const salesLabel = screen.getByText('Sales Pipeline').closest('label')!
+    await user.click(salesLabel)
+    expect(within(salesLabel).getByTestId('template-selected-mark')).toBeInTheDocument()
+    expect(screen.getAllByTestId('template-selected-mark')).toHaveLength(1)
+    const blankLabel = screen.getByText('No preset columns').closest('label')!
+    await user.click(blankLabel)
+    expect(within(blankLabel).getByTestId('template-selected-mark')).toBeInTheDocument()
+    expect(within(salesLabel).queryByTestId('template-selected-mark')).not.toBeInTheDocument()
+  })
 })
 
 describe('ImportBoardModal', () => {
@@ -380,13 +394,17 @@ describe('MoveBoardModal group placement rights', () => {
     expect(row).toHaveAccessibleDescription('Group admins only')
     expect(row).not.toHaveAttribute('title')
     expect(screen.getByText('Locked Leaf')).toHaveAttribute('title', 'Locked Leaf')
-    expect(row).toHaveAttribute('aria-pressed', 'false')
+    expect(row).toHaveAttribute('aria-checked', 'false')
     // Clicking it does not change the selection.
     const personal = screen.getByText('Personal (no group)').closest('button')!
-    expect(personal).toHaveAttribute('aria-pressed', 'true')
+    expect(personal).toHaveAttribute('aria-checked', 'true')
+    expect(personal).toHaveAttribute('role', 'radio')
+    expect(within(personal).getByTestId('move-board-selected-mark')).toBeInTheDocument()
+    expect(within(row).queryByTestId('move-board-selected-mark')).not.toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Destination group' })).toContainElement(personal)
     await userEvent.setup().click(row)
-    expect(row).toHaveAttribute('aria-pressed', 'false')
-    expect(personal).toHaveAttribute('aria-pressed', 'true')
+    expect(row).toHaveAttribute('aria-checked', 'false')
+    expect(personal).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Move')).toBeDisabled()
     expect(mockMoveBoardToGroup).not.toHaveBeenCalled()
     expect(screen.queryByText(/only place boards in groups where you are an admin/)).not.toBeInTheDocument()
@@ -399,7 +417,7 @@ describe('MoveBoardModal group placement rights', () => {
     render(<MoveBoardModal board={boardInLocked} onMoved={vi.fn()} onClose={onClose} />)
     const row = await rowFor('Locked Leaf')
     expect(row).not.toHaveAttribute('aria-disabled')
-    expect(row).toHaveAttribute('aria-pressed', 'true')
+    expect(row).toHaveAttribute('aria-checked', 'true')
     expect(row).toHaveAccessibleDescription('Current group')
     expect(screen.queryByText('Group admins only')).not.toBeInTheDocument()
     const user = userEvent.setup()
@@ -407,7 +425,7 @@ describe('MoveBoardModal group placement rights', () => {
     await user.click(screen.getByText('Personal (no group)'))
     expect(screen.getByText('Move')).not.toBeDisabled()
     await user.click(row)
-    expect(row).toHaveAttribute('aria-pressed', 'true')
+    expect(row).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Move')).toBeDisabled()
     expect(mockMoveBoardToGroup).not.toHaveBeenCalled()
     expect(screen.getByText('You can only place boards in groups where you are an admin.')).toBeInTheDocument()
@@ -450,7 +468,7 @@ describe('MoveBoardModal group placement rights', () => {
     const boardInChild: Board = { ...fakeBoard, group: 13 }
     render(<MoveBoardModal board={boardInChild} onMoved={vi.fn()} onClose={vi.fn()} />)
     expect(await screen.findByRole('button', { name: 'Collapse Locked Parent' })).toHaveAttribute('aria-expanded', 'true')
-    expect(await rowFor('Locked Child')).toHaveAttribute('aria-pressed', 'true')
+    expect(await rowFor('Locked Child')).toHaveAttribute('aria-checked', 'true')
   })
 })
 
