@@ -249,7 +249,7 @@ describe("resume from the feed cursor (#2159)", () => {
     store.set(1, 10);
     const got = (await drain(client.iterEvents(1, { store }))) as { id: number }[];
     expect(got.map((e) => e.id)).toEqual([11, 12]);
-    expect(requests[0].query.after).toBe("10");
+    expect(requests[0]?.query.after).toBe("10");
   });
 });
 
