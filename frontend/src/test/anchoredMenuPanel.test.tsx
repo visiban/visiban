@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { useRef } from "react";
+import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CheckboxDropdown from "../components/Common/CheckboxDropdown";
@@ -133,6 +135,45 @@ describe("AnchoredMenuPanel overflow fade (#2180)", () => {
     const fade = screen.getByTestId("menu-more-below");
     expect(fade.previousElementSibling).toHaveClass("scroll-pb-8");
     vi.restoreAllMocks();
+  });
+});
+
+describe("AnchoredMenuPanel inputAnchored (#2163)", () => {
+  // 700px of content in a 768px window: 346 below the anchor, 368 above it.
+  const anchor = { top: 380, bottom: 410, left: 40, right: 240 };
+
+  function Panel({ inputAnchored }: { inputAnchored?: boolean }) {
+    const ref = useRef<HTMLDivElement>(null);
+    return (
+      <AnchoredMenuPanel anchor={anchor} panelRef={ref} onDismiss={() => {}} minWidth={200} inputAnchored={inputAnchored} data-testid="p">
+        <div>rows</div>
+      </AnchoredMenuPanel>
+    );
+  }
+  const panel = () => document.querySelector("[data-anchored-menu]") as HTMLElement;
+
+  afterEach(() => { clearVisualViewport(); vi.restoreAllMocks(); });
+
+  it("caps to the larger side for a text-input anchor", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(700);
+    render(<Panel inputAnchored />);
+    expect(panel().style.top).toBe("8px");
+    expect(panel().style.maxHeight).toBe("368px");
+  });
+
+  it("caps to the visible viewport when visualViewport is stubbed", () => {
+    stubVisualViewport({ height: 500 });
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(700);
+    render(<Panel inputAnchored />);
+    expect(panel().style.top).toBe("8px");
+    expect(panel().style.maxHeight).toBe("368px");
+  });
+
+  it("still pins a non-input anchor, with the viewport cap", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(700);
+    render(<Panel />);
+    expect(panel().style.top).toBe("60px");
+    expect(panel().style.maxHeight).toBe(`${window.innerHeight - 16}px`);
   });
 });
 

@@ -974,8 +974,9 @@ describe('AdminPage — Users tab', () => {
   })
 
   // #1482: the panel re-measures when the debounced result count changes, so a
-  // longer list is re-placed (pinned to the viewport) instead of keeping the
-  // placement measured for the shorter one.
+  // longer list is re-placed instead of keeping the placement measured for the
+  // shorter one. The anchor is a text input, so it is capped to its side rather
+  // than pinned over the input (#2163).
   it('re-measures the offboarding results panel when the result count grows (#1482)', async () => {
     const owner: AdminUser = {
       ...fakeAdminUsers[1],
@@ -996,11 +997,14 @@ describe('AdminPage — Users tab', () => {
       fireEvent.change(input, { target: { value: 'us' } })
       const panelOf = (el: HTMLElement) => el.closest('[data-anchored-menu]') as HTMLElement
       const few = panelOf(await screen.findByText('@u0', {}, { timeout: 2000 }))
-      const topFew = few.style.top
+      const capFew = few.style.maxHeight
       fireEvent.change(input, { target: { value: 'use' } })
       await waitFor(() => expect(screen.getAllByText(/^@u\d$/)).toHaveLength(8), { timeout: 2000 })
       const many = panelOf(screen.getByText('@u0'))
-      expect(many.style.top).not.toBe(topFew)
+      // jsdom rects are all zero: 1600px of rows fits neither side, so it takes the larger (below) capped to it.
+      expect(many.style.top).toBe('4px')
+      expect(many.style.maxHeight).toBe(`${window.innerHeight - 8 - 4}px`)
+      expect(many.style.maxHeight).not.toBe(capFew)
     } finally {
       spy.mockRestore()
     }

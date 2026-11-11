@@ -339,7 +339,7 @@ export default function RichTextEditor({
             let side: AnchoredSide | undefined;
             let clientRect: (() => DOMRect | null) | null | undefined;
             const place = (rect: DOMRect) => {
-              side = placeFixedElement(popup, rect, side) ?? side;
+              side = placeFixedElement(popup, rect, side, true) ?? side;
             };
             // A resize changes the viewport the popup was fitted to: end the
             // suggestion (onExit then removes the popup), as Escape does.
@@ -402,6 +402,8 @@ export default function RichTextEditor({
                 popup.dataset.testid = "mention-popup";
                 popup.style.position = "fixed";
                 popup.style.zIndex = "9999";
+                // Scrolls when placeFixedElement caps it to the larger side (#2163).
+                popup.style.overflowY = "auto";
                 document.body.appendChild(popup);
                 popup.appendChild(component.element);
                 window.addEventListener("scroll", onScroll, true);

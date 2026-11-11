@@ -4,7 +4,7 @@ import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub";
 import {
   computeAnchoredPlacement, computeAnchoredTop, placeFixedElement,
   getVisibleViewport, subscribeVisualViewport, useAnchoredPlacement,
-  visibleMaxHeight, clampLeftToVisible,
+  visibleMaxHeight, clampLeftToVisible, useInputAnchoredPlacement,
 } from "../hooks/useAnchoredPlacement";
 
 /**
@@ -229,5 +229,79 @@ describe("visualViewport placement (#2138)", () => {
     const { result } = renderHook(() => useAnchoredPlacement(ref, { anchor: null }));
     expect(result.current).toBeNull();
     expect(add).not.toHaveBeenCalled();
+  });
+});
+
+describe("input-anchored lists never pin over their input (#2163)", () => {
+  afterEach(() => { clearVisualViewport(); vi.restoreAllMocks(); });
+
+  // A 700px list, 768 high: 346 below the input, 368 above it. Neither fits.
+  const tall = { anchorTop: 380, anchorBottom: 410, height: 700, viewportHeight: VH };
+
+  it("keeps pinning a non-input anchor by default", () => {
+    expect(computeAnchoredPlacement(tall)).toEqual({ top: 60, side: "pinned" });
+  });
+
+  it("takes the larger side with a cap that fits it", () => {
+    expect(computeAnchoredPlacement({ ...tall, inputAnchored: true }))
+      .toEqual({ top: 8, side: "above", maxHeight: 368 });
+    // More room below: it goes below.
+    expect(computeAnchoredPlacement({ ...tall, anchorTop: 100, anchorBottom: 130, inputAnchored: true }))
+      .toEqual({ top: 134, side: "below", maxHeight: 626 });
+  });
+
+  it("adds no cap when the list fits, and never pins even if a pinned lock is passed", () => {
+    expect(computeAnchoredPlacement({ ...tall, height: 100, inputAnchored: true }))
+      .toEqual({ top: 414, side: "below" });
+    expect(computeAnchoredPlacement({ ...tall, lockedSide: "pinned", inputAnchored: true }).side).not.toBe("pinned");
+  });
+
+  it("measures the visible viewport when visualViewport is stubbed", () => {
+    // Keyboard open: 500 visible, so 500 - 8 - 414 = 78 below, 368 above.
+    stubVisualViewport({ height: 500 });
+    const el = document.createElement("div");
+    vi.spyOn(el, "offsetHeight", "get").mockReturnValue(700);
+    const side = placeFixedElement(el, { top: 380, bottom: 410, left: 0 }, undefined, true);
+    expect(side).toBe("above");
+    expect(el.style.top).toBe("8px");
+    expect(el.style.maxHeight).toBe("368px");
+  });
+
+  it("placeFixedElement measures the natural height with its own cap lifted", () => {
+    const el = document.createElement("div");
+    vi.spyOn(el, "offsetHeight", "get").mockImplementation(() => (el.style.maxHeight === "none" ? 700 : 368));
+    expect(placeFixedElement(el, { top: 380, bottom: 410, left: 0 }, undefined, true)).toBe("above");
+    // Re-placed while capped (a list that only reports its capped height): same side, same cap.
+    expect(placeFixedElement(el, { top: 380, bottom: 410, left: 0 }, "above", true)).toBe("above");
+    expect(el.style.maxHeight).toBe("368px");
+    // A short list clears the cap.
+    vi.spyOn(el, "offsetHeight", "get").mockReturnValue(100);
+    placeFixedElement(el, { top: 380, bottom: 410, left: 0 }, "above", true);
+    expect(el.style.maxHeight).toBe("");
+  });
+
+  it("placeFixedElement without the flag still pins and sets no cap", () => {
+    const el = document.createElement("div");
+    vi.spyOn(el, "offsetHeight", "get").mockReturnValue(700);
+    expect(placeFixedElement(el, { top: 380, bottom: 410, left: 0 })).toBe("pinned");
+    expect(el.style.maxHeight).toBe("");
+  });
+
+  it("useInputAnchoredPlacement returns the cap, and re-fits when the keyboard opens", () => {
+    const { vv } = stubVisualViewport({ height: 768 });
+    const panel = document.createElement("div");
+    vi.spyOn(panel, "offsetHeight", "get").mockReturnValue(700);
+    const ref = { current: panel };
+    const { result } = renderHook(() => useInputAnchoredPlacement(ref, { anchor: { top: 380, bottom: 410 } }));
+    expect(result.current).toEqual({ top: 8, maxHeight: 368 });
+    act(() => { vv.height = 300; vv.dispatchEvent(new Event("resize")); });
+    expect(result.current).toEqual({ top: 8, maxHeight: 368 });
+  });
+
+  it("useInputAnchoredPlacement works without visualViewport and reports no cap when it fits", () => {
+    const panel = document.createElement("div");
+    vi.spyOn(panel, "offsetHeight", "get").mockReturnValue(100);
+    const { result } = renderHook(() => useInputAnchoredPlacement({ current: panel }, { anchor: { top: 380, bottom: 410 } }));
+    expect(result.current).toEqual({ top: 414, maxHeight: undefined });
   });
 });

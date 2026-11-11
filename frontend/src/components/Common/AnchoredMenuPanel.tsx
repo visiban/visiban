@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacementFit, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import type { MenuAnchor } from "../../utils/menuAnchor";
 
@@ -22,6 +22,12 @@ interface Props {
    * outside the dialog (the Move popover does the same, #1732).
    */
   mode?: "portal" | "inline";
+  /**
+   * The anchor is a text input the user is typing in (#2163): the panel then
+   * never pins over it, and takes the larger side capped to fit, scrolling its
+   * list. Default false: a button trigger keeps the pinned fallback.
+   */
+  inputAnchored?: boolean;
   /** Re-measure when content that changes the panel's height changes. */
   deps?: readonly unknown[];
   /**
@@ -51,14 +57,15 @@ interface Props {
  */
 export default function AnchoredMenuPanel({
   anchor, panelRef, onDismiss, align = "left", minWidth, mode = "portal",
-  deps = [], onPlaced, returnFocusRef, className = "", children, ...aria
+  inputAnchored = false, deps = [], onPlaced, returnFocusRef, className = "", children, ...aria
 }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
-  const top = useAnchoredPlacement(panelRef, {
+  const { top, maxHeight: inputMaxHeight } = useAnchoredPlacementFit(panelRef, {
     anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
     deps,
     onResize: onDismiss,
     onOutsideScroll: onDismiss,
+    inputAnchored,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [anchor !== null, ...deps]);
 
@@ -106,7 +113,7 @@ export default function AnchoredMenuPanel({
         minWidth,
         // Hidden only for the pre-paint measuring pass.
         visibility: top === null ? "hidden" : undefined,
-        maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
+        maxHeight: inputMaxHeight ?? visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
         display: "flex",
         flexDirection: "column",
