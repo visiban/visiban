@@ -27,9 +27,17 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 
 ## How the two surfaces fit together
 
-1. Open the board WebSocket and process frames as they arrive.
-2. Keep a feed cursor: the `next_cursor` (or the last row `id`) from your most
-   recent feed read, or the last row `id` of the final page. Do **not** use a
+1. Bootstrap a feed cursor before you take a snapshot. `/full/` returns no
+   event id, and `after=0` never returns `410`, so a first cursor comes only
+   from the feed itself. Page the feed to the end (`next_cursor: null`) and
+   **discard the rows**: applying up to 30 days of history over a fresh
+   snapshot (`BOARD_EVENT_RETENTION_DAYS`) can revert newer state. Keep the
+   last row `id` you saw as cursor `C` (`0` if the feed is empty). Then open
+   the board WebSocket, fetch `/full/`, and apply the frames you buffered
+   meanwhile. An event committed between `C` and the snapshot arrives again on
+   the next feed read; de-duplicate by event id, as in step 3.
+2. Keep a feed cursor: the `next_cursor` (or the last row `id` of the final
+   page) from your most recent feed read. Do **not** use a
    frame's `event_id` as the cursor. Frames from two concurrent writes can
    arrive out of `event_id` order, so the last frame's `event_id` can be past
    an event that was still committing when the socket dropped (see
@@ -41,10 +49,10 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
    late-committing lower id is delayed, never skipped. Replay the results
    through the same handler, skipping ids you have already applied (a frame may
    have delivered the same event first). Keep the `next_cursor` it returns for
-   the next reconnect. A client that has no feed cursor yet (`/full/` returns none) reads the
-   feed from `after=0` once to get one (or gets one from a `410` as in step 4).
-   When a page has `next_cursor: null`, the last row `id` is the cursor; it is
-   safe because the feed never reaches past an event still committing.
+   the next reconnect. A client with no feed cursor yet bootstraps one as in step 1; it
+   does not replay from `after=0` over a snapshot. When a page has
+   `next_cursor: null`, the last row `id` is the cursor; it is safe because the
+   feed never reaches past an event still committing.
 4. If that call returns `410 Gone`, events after your cursor have aged out of
    the retention window. Keep the `next_cursor` from the `410` body, re-fetch
    `GET /api/v1/boards/{id}/full/`, then resume with

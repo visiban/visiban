@@ -248,11 +248,12 @@ def broadcast_board_event(
     It is **additive**: the frozen ``{event, data}`` envelope is unchanged, and
     the key is omitted entirely — rather than sent as null — when the caller
     broadcast without persisting, so no client has to distinguish "no feed row"
-    from "feed row zero". A client can hand an ``event_id`` it saw to
-    ``GET /boards/<id>/events/?after=`` after a reconnect and replay what it
-    missed. Frames go out after each transaction's own commit, so they can
-    arrive out of id order and the latest one is not a gap-free resume point
-    (#2159): resume from an older one and skip ids already applied.
+    from "feed row zero". Use ``event_id`` to order and de-duplicate frames,
+    never as a resume point (#2159). Frames go out after each transaction's own
+    commit, so they can arrive out of id order, and the latest one can be past
+    a lower id that is still committing. Resume only from a feed
+    ``next_cursor`` read from ``GET /boards/<id>/events/?after=``, which never
+    reaches past an event still committing.
 
     **Best-effort: a channel-layer failure is logged, not raised (#1462).** This runs
     from ``transaction.on_commit``, after the mutation and its ``BoardEvent`` row

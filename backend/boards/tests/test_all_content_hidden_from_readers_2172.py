@@ -47,6 +47,29 @@ class AllContentHiddenFromNonAdminReadersTests(TestCase):
             self.assertNotIn("has_all_content_access", row)
             self.assertNotEqual(row["role"], "site_admin")
 
+    def test_admin_reader_does_see_the_signal(self):
+        # Positive control: the key exists for admins, so the non-admin
+        # assertion above cannot pass just because the key was dropped for all.
+        resp = self._client(self.owner).get(f"/api/v1/boards/{self.board.pk}/full/")
+        self.assertEqual(resp.status_code, 200)
+        rows = {m["user"]["id"]: m for m in resp.json()["members"]}
+        self.assertIs(rows[self.allcontent.pk]["has_all_content_access"], True)
+
+    def test_unrecognized_role_row_is_shown_as_stored_and_still_assignable(self):
+        BoardMembership.objects.filter(board=self.board, user=self.allcontent).update(role="bogus")
+        resp = self._client(self.member).get(f"/api/v1/boards/{self.board.pk}/full/")
+        self.assertEqual(resp.status_code, 200)
+        rows = {m["user"]["id"]: m for m in resp.json()["members"]}
+        row = rows[self.allcontent.pk]
+        self.assertEqual(row["role"], "bogus")
+        self.assertNotIn("has_all_content_access", row)
+        resp = self._client(self.owner).patch(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+            {"assignee_id": self.allcontent.pk},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+
     def test_server_still_accepts_the_user_as_assignee(self):
         resp = self._client(self.owner).patch(
             f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",

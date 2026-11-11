@@ -156,6 +156,22 @@ class FrameOrderResumeTests(unittest.TestCase):
         self.assertEqual(s.requests[0]["query"]["after"], "10")
 
 
+class BootstrapCursorTests(unittest.TestCase):
+    """Draining the feed from 0 leaves the store at the newest id (#2159 bootstrap)."""
+
+    def test_draining_from_zero_leaves_last_id_in_store(self):
+        pages = [
+            {"status": 200, "body": {"results": [{"id": 1}, {"id": 2}], "next_cursor": 2}},
+            {"status": 200, "body": {"results": [{"id": 3}], "next_cursor": None}},
+        ]
+        store = MemoryCursorStore()
+        with ScriptedServer(pages) as s:
+            for _ in Client(s.url, "vbn_x").iter_events(1, store=store, limit=2):
+                pass
+        self.assertEqual([r["query"]["after"] for r in s.requests], ["0", "2"])
+        self.assertEqual(store.get(1), 3)
+
+
 class ProtocolTests(unittest.TestCase):
     def _run(self, body, **kw):
         with ScriptedServer([{"status": 200, "body": body}]) as s:

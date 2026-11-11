@@ -49,6 +49,12 @@ for await (const item of client.iterEvents(boardId, { store, pollIntervalMs: 500
   arrive out of `event_id` order, so a frame's id can be past an event that is
   still committing; the feed's cursor never is ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
   This client has no socket code and only ever resumes from the feed cursor.
+- **Bootstrap a first cursor.** `/full/` carries no event id and `after=0`
+  never returns `410`. For a socket consumer, drain the feed first and discard
+  the rows (`for await (const _ of client.iterEvents(boardId, { store })) {}`), so the
+  store holds the newest id; then open the socket and fetch `/full/`. Do not
+  apply 30 days of history over a fresh snapshot. Events committed after that
+  cursor may repeat over the snapshot; de-duplicate by event id.
 - **Caught up** means the server's `next_cursor` was `null`; the client never
   counts rows.
 - **Polling.** Without `pollIntervalMs` the iterator ends once caught up; with it,

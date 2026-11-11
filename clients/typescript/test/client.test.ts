@@ -253,6 +253,16 @@ describe("resume from the feed cursor (#2159)", () => {
   });
 });
 
+describe("bootstrap a first cursor (#2159)", () => {
+  it("draining the feed from 0 leaves the newest id in the store", async () => {
+    const { client, requests } = make([ok([{ id: 1 }, { id: 2 }], 2), ok([{ id: 3 }])]);
+    const store = new MemoryCursorStore();
+    await drain(client.iterEvents(1, { store, limit: 2 }));
+    expect(requests.map((r) => r.query.after)).toEqual(["0", "2"]);
+    expect(store.get(1)).toBe(3);
+  });
+});
+
 describe("redelivery and default store", () => {
   it("a new iterator after a handler throw redelivers the failed item", async () => {
     const page = { status: 200, body: { results: [{ id: 1 }, { id: 2 }], next_cursor: null } };
