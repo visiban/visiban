@@ -252,11 +252,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             </span>
                             <span className="text-fg text-sm font-medium leading-tight">{t.name}</span>
                             {/* Non-color selection cue (#2171): the card's border and tint alone fail WCAG 1.4.1. */}
-                            {isSelected && (
-                              <svg data-testid="template-selected-mark" aria-hidden="true" className="ml-auto w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 8.5l3.5 3.5L13 4.5" />
-                              </svg>
-                            )}
+                            {/* Reserved slot so selecting never rewraps a long name. */}
+                            <span aria-hidden="true" className="ml-auto w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info">
+                              {isSelected && (
+                                <svg data-testid="template-selected-mark" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 8.5l3.5 3.5L13 4.5" />
+                                </svg>
+                              )}
+                            </span>
                           </div>
 
                           {/* Description */}

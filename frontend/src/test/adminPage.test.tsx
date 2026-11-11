@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import type { User, AdminUser, SiteSettings, SiteEmailSettings } from '../types'
 import { stallEventLoopAfterWaitFor } from './eventLoopStall'
+import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -977,7 +978,14 @@ describe('AdminPage — Users tab', () => {
   // longer list is re-placed instead of keeping the placement measured for the
   // shorter one. The anchor is a text input, so it is capped to its side rather
   // than pinned over the input (#2163).
-  it('re-measures the offboarding results panel when the result count grows (#1482)', async () => {
+  describe.each([
+    // jsdom rects are all zero: 1600px of rows fits neither side, so the panel takes the larger side capped to it.
+    { name: 'without a visualViewport', vv: null, grows: true, top: '4px', expectedCap: (): string => `${window.innerHeight - 8 - 4}px` },
+    // The stub shrinks the visible viewport (phone keyboard), so the cap follows it, not window.innerHeight (#2163).
+    { name: 'with a visualViewport', vv: { height: 400 }, grows: false, top: '4px', expectedCap: (): string => `${400 - 8 - 4}px` },
+  ])('offboarding results panel placement $name', ({ vv, grows, top, expectedCap }) => {
+  it('re-measures when the result count grows (#1482)', async () => {
+    if (vv) stubVisualViewport(vv)
     const owner: AdminUser = {
       ...fakeAdminUsers[1],
       owned_boards: [{ id: 42, uid: 'boarduid00042', name: 'Owned Board' }],
@@ -1002,12 +1010,16 @@ describe('AdminPage — Users tab', () => {
       await waitFor(() => expect(screen.getAllByText(/^@u\d$/)).toHaveLength(8), { timeout: 2000 })
       const many = panelOf(screen.getByText('@u0'))
       // jsdom rects are all zero: 1600px of rows fits neither side, so it takes the larger (below) capped to it.
-      expect(many.style.top).toBe('4px')
-      expect(many.style.maxHeight).toBe(`${window.innerHeight - 8 - 4}px`)
-      expect(many.style.maxHeight).not.toBe(capFew)
+      expect(many.style.top).toBe(top)
+      expect(many.style.maxHeight).toBe(expectedCap())
+      // Without the stub the 2-row list is shorter than the cap; in the 400px viewport both lists hit it.
+      if (grows) expect(many.style.maxHeight).not.toBe(capFew)
+      else expect(many.style.maxHeight).toBe(capFew)
     } finally {
       spy.mockRestore()
+      clearVisualViewport()
     }
+  })
   })
 
   // Regression guard (#1305): OffboardingModal's per-board member search

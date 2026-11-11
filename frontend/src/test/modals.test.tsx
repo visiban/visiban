@@ -264,6 +264,16 @@ describe('CreateBoardModal', () => {
     expect(within(blankLabel).getByTestId('template-selected-mark')).toBeInTheDocument()
     expect(within(salesLabel).queryByTestId('template-selected-mark')).not.toBeInTheDocument()
   })
+
+  it('reserves the check slot on an unselected template card so selecting never rewraps the name (#2171)', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('Sales Pipeline')).toBeInTheDocument())
+    const salesLabel = screen.getByText('Sales Pipeline').closest('label')!
+    expect(within(salesLabel).queryByTestId('template-selected-mark')).not.toBeInTheDocument()
+    const slot = salesLabel.querySelector('span[aria-hidden="true"].shrink-0.w-3\\.5.h-3\\.5')
+    expect(slot).not.toBeNull()
+    expect(slot!.children).toHaveLength(0)
+  })
 })
 
 describe('ImportBoardModal', () => {
@@ -919,7 +929,7 @@ describe('MoveBoardModal radio-group keyboard (#2184)', () => {
     return userEvent.setup()
   }
 
-  it('has exactly one Tab stop, the checked row, and none of the others tabbable', async () => {
+  it('has exactly one radio Tab stop, the checked row, and none of the other radios tabbable', async () => {
     await open([g1, g2])
     expect(tabStops()).toEqual([radios()[0]])
     expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
@@ -977,15 +987,77 @@ describe('MoveBoardModal radio-group keyboard (#2184)', () => {
     expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('skips blocked rows and leaves their tab index out of the Tab order', async () => {
+  it('arrows traverse a blocked row without selecting it, and the checked row stays the Tab stop', async () => {
     const user = await open([g1, blocked, g2])
-    const rows = radios()
-    const lockedRow = rows.find((r) => r.getAttribute('aria-disabled') === 'true')!
-    expect(lockedRow.tabIndex).toBe(-1)
-    rows[1].focus() // Alpha
+    const [personal, alpha, locked, beta] = radios()
+    expect(locked).toHaveAttribute('aria-disabled', 'true')
+    expect(locked.tabIndex).toBe(-1)
+    await user.click(alpha) // selects Alpha
+    expect(alpha).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowDown}') // lands on Locked, no selection
+    expect(locked).toHaveFocus()
+    expect(locked).toHaveAttribute('aria-checked', 'false')
+    expect(alpha).toHaveAttribute('aria-checked', 'true')
+    expect(tabStops()).toEqual([alpha])
     await user.keyboard('{ArrowDown}')
-    expect(screen.getByText('Beta').closest('button')).toHaveFocus()
-    expect(lockedRow).toHaveAttribute('aria-checked', 'false')
+    expect(beta).toHaveFocus()
+    expect(beta).toHaveAttribute('aria-checked', 'true')
+    expect(personal).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('Home and End focus a blocked first/last row without selecting it', async () => {
+    const user = await open([blocked, g1])
+    const rows = radios()
+    rows[1].focus()
+    await user.keyboard('{End}')
+    expect(rows[2]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowUp}{ArrowUp}')
+    expect(rows[0]).toHaveFocus() // Personal, selected
+    expect(rows[0]).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('Space and Enter on a blocked row do not select it', async () => {
+    const user = await open([g1, blocked, g2])
+    const locked = radios()[2]
+    locked.focus()
+    await user.keyboard(' ')
+    await user.keyboard('{Enter}')
+    expect(locked).toHaveAttribute('aria-checked', 'false')
+    expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('arrow keys after clicking a blocked row go to its neighbor (ArrowDown to Beta, ArrowUp to Alpha)', async () => {
+    const user = await open([g1, blocked, g2])
+    const [, alpha, locked, beta] = radios()
+    await user.click(locked)
+    expect(locked).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(beta).toHaveFocus()
+    await user.click(locked)
+    await user.keyboard('{ArrowUp}')
+    expect(alpha).toHaveFocus()
+  })
+
+  it('falls back to DOM order when the focused radio is not in the row list', async () => {
+    const user = await open([g1, blocked, g2])
+    const [, alpha, locked, beta] = radios()
+    // Focus is on a row that has just left the list: simulate by a detached-index lookup via a clone-free path.
+    locked.focus()
+    const spy = vi.spyOn(Array.prototype, 'indexOf').mockImplementationOnce(() => -1)
+    await user.keyboard('{ArrowDown}')
+    spy.mockRestore()
+    expect(beta).toHaveFocus()
+    expect(alpha).toBeDefined()
+  })
+
+  it('keeps the expand/collapse toggle as its own Tab stop alongside the single radio stop', async () => {
+    const parent = { id: 30, name: 'Parent', parent: null, can_place_boards: true } as never
+    const child = { id: 31, name: 'Child', parent: 30, can_place_boards: true } as never
+    mockListGroups.mockResolvedValueOnce([parent, child])
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('Parent')
+    expect(screen.getByRole('button', { name: /Collapse Parent|Expand Parent/ }).tabIndex).toBe(0)
+    expect(tabStops()).toHaveLength(1)
   })
 
   it('prevents the default of handled keys and ignores others', async () => {

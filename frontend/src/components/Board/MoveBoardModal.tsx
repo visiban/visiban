@@ -29,9 +29,14 @@ function hasTargetBelow(node: TreeNode, selected: number | null): boolean {
   );
 }
 
-/** Rows a keyboard user can land on: radios the caller may choose (blocked rows are `aria-disabled`). */
-function enabledRadios(group: HTMLElement): HTMLElement[] {
-  return Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]:not([aria-disabled="true"])'));
+/** Every visible radio row in DOM order, blocked ones included (they stay focusable). */
+function allRadios(group: HTMLElement): HTMLElement[] {
+  return Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+}
+
+/** True for a row the caller may not choose (`aria-disabled`): focusable, never selectable. */
+function isBlocked(row: HTMLElement): boolean {
+  return row.getAttribute("aria-disabled") === "true";
 }
 
 interface Props {
@@ -50,39 +55,50 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const moveButtonRef = useRef<HTMLButtonElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
 
-  // WAI-ARIA radio group: one Tab stop, the checked row (the first row when
-  // none is checked or the checked one is hidden in a collapsed subtree).
-  // Set on the DOM because a row's visibility depends on expand state that
+  // WAI-ARIA radio group: one radio Tab stop, the checked row (the first
+  // enabled row when none is checked or the checked one is hidden in a
+  // collapsed subtree; a blocked row only if no enabled row exists). Blocked
+  // rows are reachable by arrow keys, not Tab. Set on the DOM because a row's visibility depends on expand state that
   // lives in the tree nodes, not here.
   const syncTabStop = useCallback(() => {
     const group = groupRef.current;
     if (!group) return;
-    const rows = enabledRadios(group);
-    const stop = rows.find((row) => row.getAttribute("aria-checked") === "true") ?? rows[0];
-    group.querySelectorAll<HTMLElement>('[role="radio"]').forEach((row) => {
+    const rows = allRadios(group);
+    const enabled = rows.filter((row) => !isBlocked(row));
+    const stop = enabled.find((row) => row.getAttribute("aria-checked") === "true") ?? enabled[0] ?? rows[0];
+    rows.forEach((row) => {
       row.tabIndex = row === stop ? 0 : -1;
     });
   }, []);
   useLayoutEffect(syncTabStop);
 
-  // Arrow keys move focus and the selection together ("selection follows
-  // focus"); clicking the neighbor reuses each row's own select handler.
+  // Arrow keys move focus through every row, blocked ones included (a blocked
+  // row stays focusable so the user sees why it is unavailable), and select the
+  // row they land on unless it is blocked ("selection follows focus");
+  // clicking the neighbor reuses each row's own select handler.
   const handleGroupKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const keys = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"];
     if (!keys.includes(e.key) || e.altKey || e.ctrlKey || e.metaKey) return;
     const current = (e.target as HTMLElement).closest<HTMLElement>('[role="radio"]');
     if (!current) return;
-    const rows = enabledRadios(e.currentTarget);
+    const rows = allRadios(e.currentTarget);
     if (rows.length === 0) return;
     e.preventDefault();
+    const forward = e.key === "ArrowDown" || e.key === "ArrowRight";
     const index = rows.indexOf(current);
     let next: number;
     if (e.key === "Home") next = 0;
     else if (e.key === "End") next = rows.length - 1;
-    else if (e.key === "ArrowDown" || e.key === "ArrowRight") next = (index + 1) % rows.length;
-    else next = (index - 1 + rows.length) % rows.length;
+    else if (index >= 0) next = (index + (forward ? 1 : rows.length - 1)) % rows.length;
+    else {
+      // `current` is not among the rows: fall back to its DOM neighbor.
+      const after = rows.findIndex((row) => current.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (forward) next = after === -1 ? 0 : after;
+      else next = (after === -1 ? rows.length : after) - 1;
+      if (next < 0) next = rows.length - 1;
+    }
     rows[next].focus();
-    rows[next].click();
+    if (!isBlocked(rows[next])) rows[next].click();
   };
 
   useEffect(() => {
@@ -275,7 +291,7 @@ function PickerRow({
   icon: string;
   selected: boolean;
   onSelect: () => void;
-  /** The caller may not choose this row: aria-disabled (stays focusable), no click. */
+  /** The caller may not choose this row: aria-disabled (stays focusable and in the arrow-key order, never selected), no click. */
   blocked?: boolean;
   /** Inline note (the block reason, or "Current group"), tied to the row by aria-describedby. */
   note?: string;
