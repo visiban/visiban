@@ -1606,7 +1606,7 @@ Redeem an invite as the signed-in user. Returns `{ "board_id", "board_name", "ro
 | Status | When |
 |---|---|
 | `401 Unauthorized` | No credentials. |
-| `403 Forbidden` | The account must change its password or username first (`must_change_password` / `must_change_username`), or a personal access token lacks the `write` scope. |
+| `403 Forbidden` | `{"detail": "..."}` with no `code`: the account must change its password or username first (`must_change_password` / `must_change_username`), a personal access token lacks the `write` scope, or a session request fails the CSRF check. |
 | `403 Forbidden` | *(1.2+, #1678)* `{"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}`: an emailed invite, and none of the caller's addresses is the one it was sent to. Under `EMAIL_VERIFICATION=mandatory` only verified addresses count; under `optional` or `none` the account's `email` counts too. Matching ignores case and surrounding spaces. Nothing is written and the invite is not consumed. The response never names the invited address. Shareable links and emailed invites sent before upgrading to this version are not checked. A consumed invite followed again by the person who redeemed it is not checked either. |
 
 Redeeming depends on the access you already have, because an explicit board membership **replaces** any role inherited from the board's group rather than adding to it:
