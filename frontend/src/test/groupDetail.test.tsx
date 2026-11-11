@@ -1143,6 +1143,31 @@ describe('GroupDetail', () => {
     outside.remove()
   })
 
+  it('description returns focus to its button on Escape, not on blur (#2170)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Team description' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    const open = async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Team description' }))
+      return screen.getByRole('textbox')
+    }
+    let area = await open()
+    fireEvent.keyDown(area, { key: 'Escape' })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Team description' })).toHaveFocus())
+
+    // A blur-commit leaves focus wherever the user went.
+    area = await open()
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    outside.focus()
+    fireEvent.blur(area)
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    expect(outside).toHaveFocus()
+    outside.remove()
+  })
+
   it('non-admin cannot click heading to rename', async () => {
     const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })

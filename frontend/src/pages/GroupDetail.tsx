@@ -803,7 +803,19 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setEditingDescription(true);
   };
 
+  // Escape returns focus to the description button (#2170); Enter inserts a
+  // newline and a blur-commit never steals focus back from where the user went.
+  const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusDescriptionTriggerRef = useRef(false);
+  useEffect(() => {
+    if (!editingDescription && focusDescriptionTriggerRef.current) {
+      focusDescriptionTriggerRef.current = false;
+      descriptionTriggerRef.current?.focus();
+    }
+  }, [editingDescription]);
+
   const handleDescriptionCancel = () => {
+    focusDescriptionTriggerRef.current = true;
     setEditingDescription(false);
     setDescriptionError(null);
   };
@@ -1160,6 +1172,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {/* Text region is a real button (Tab + Enter/Space) rather than a click handler on a div (#1376). */}
                   <button
                     type="button"
+                    ref={descriptionTriggerRef}
                     onClick={handleDescriptionStart}
                     className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
