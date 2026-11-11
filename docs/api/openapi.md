@@ -273,6 +273,13 @@ such as `{"detail": "x"}` can match both the declared schema and a pre-view bran
 would reject. A declared `400` with no body (a description only) gains the validation-error body
 instead, since it never described one. This changes the document, not the server: those `400`s
 were already sent, and `backend-schema-fuzz` failed on them depending on the seed.
+
+*(Changed in 1.3, #2181)* A declared `401` or `403` is widened the same way, to
+`anyOf: [<declared>, {"detail": "<string>"}]`. `POST /api/v1/boards/join/{token}/` and
+`POST /api/v1/groups/join/{token}/` declare the coded `invite_recipient_mismatch` `403`
+(`code` and `detail` both required), but they also answer DRF's own refusals, which carry
+`detail` and no `code`: a token missing a scope, a pending password or username change, a
+session CSRF failure. The declared component stays first and keeps its name.
 `test_schema_hooks.py` checks every operation's `400` against the pre-view bodies that operation
 can answer, so a new
 declared `400` needs no per-operation baseline entry.
