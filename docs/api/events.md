@@ -1,6 +1,6 @@
 # Replay missed board changes with one cursor request
 
-`GET /api/v1/boards/{id}/events/?after=<cursor>` returns what happened on a board after that event id, in order. Use the last `id` the feed handed you; a WebSocket frame's `event_id` is not a gap-free cursor, so resume from one a few seconds before a drop ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
+`GET /api/v1/boards/{id}/events/?after=<cursor>` returns what happened on a board after that event id, in order. Use the last `next_cursor` (or row `id`) the feed itself handed you. A WebSocket frame's `event_id` is not a gap-free cursor, so never resume from one ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 
 ```bash
 curl -H "Authorization: Token $TOKEN" \
@@ -28,15 +28,22 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 ## How the two surfaces fit together
 
 1. Open the board WebSocket and process frames as they arrive.
-2. Remember the `event_id` of the last frame you processed.
-3. When the socket drops and reconnects, call
-   `GET /api/v1/boards/{id}/events/?after=<cursor>` and replay the results
-   through the same handler, skipping ids you have already applied. No
-   `/full/` re-fetch, no diffing. Frames from two concurrent writes can arrive
-   out of `event_id` order, so the last frame's `event_id` can be past an
-   event that was still committing when the socket dropped. Use an `event_id`
-   from a few seconds before the drop as the cursor, not the last one (see
-   [Event coverage](#event-coverage); tracked in [#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
+2. Keep a feed cursor: the `next_cursor` (or the last row `id`) from your most
+   recent feed read, or from a `/full/`-then-feed read. Do **not** use a
+   frame's `event_id` as the cursor. Frames from two concurrent writes can
+   arrive out of `event_id` order, so the last frame's `event_id` can be past
+   an event that was still committing when the socket dropped (see
+   [Event coverage](#event-coverage); decided in
+   [#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
+3. When the socket drops and reconnects, resync with a feed read:
+   `GET /api/v1/boards/{id}/events/?after=<your feed cursor>`. The feed never
+   hands out a cursor past an event whose transaction is still open, so a
+   late-committing lower id is delayed, never skipped. Replay the results
+   through the same handler, skipping ids you have already applied (a frame may
+   have delivered the same event first). Keep the `next_cursor` it returns for
+   the next reconnect. A client that has no feed cursor yet (it started from a
+   socket and a `/full/` read) reads the feed from `after=0` once, or
+   re-fetches `/full/`, and keeps the cursor from that read.
 4. If that call returns `410 Gone`, events after your cursor have aged out of
    the retention window. Keep the `next_cursor` from the `410` body, re-fetch
    `GET /api/v1/boards/{id}/full/`, then resume with
@@ -218,11 +225,10 @@ Two consequences worth knowing:
   after their own transaction commits, so two concurrent writes can arrive in
   either `id` order, and a frame can arrive while a lower `id` is still
   committing. A client that resumes with `after=` set to the last frame's
-  `event_id` can miss that lower event if the socket dropped in between. To cover
-  this, resume from a feed cursor (the last `id` the feed handed you), or
-  from an `event_id` a few seconds older than the drop, and skip ids you have
-  already applied. A gap-free socket resume point is tracked in
-  [#2159](https://gitlab.com/visiban/visiban/-/issues/2159).
+  `event_id` can miss that lower event if the socket dropped in between. Resume
+  from the feed's own cursor only (the `next_cursor` of your last feed read) and
+  skip ids you have already applied. Frames do not carry a horizon-safe cursor
+  and the frame schema is unchanged by design ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 - **A container delete is one delete event.** Deleting a column, swimlane, or
   board deletes its cards too, and the feed records only the `column.deleted`,
   `swimlane.deleted`, or `board.deleted` row, with no `card.deleted` row per

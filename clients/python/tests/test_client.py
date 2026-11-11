@@ -140,6 +140,22 @@ class RedeliveryTests(unittest.TestCase):
         self.assertEqual([r["query"]["after"] for r in s.requests], ["0", "0"])
 
 
+class FrameOrderResumeTests(unittest.TestCase):
+    """#2159: resume is from the feed cursor, never from a WebSocket frame's event_id."""
+
+    def test_reconnect_resumes_from_feed_cursor_and_does_not_skip_lower_id(self):
+        # The socket delivered frame 12 before frame 11 committed, then dropped.
+        # The consumer's feed cursor is still 10, so the feed read after=10 must
+        # return both, and 11 must not be skipped.
+        store = MemoryCursorStore()
+        store.set(1, 10)
+        page = {"status": 200, "body": {"results": [{"id": 11}, {"id": 12}], "next_cursor": None}}
+        with ScriptedServer([page]) as s:
+            ids = [e["id"] for e in Client(s.url, "vbn_x").iter_events(1, store=store)]
+        self.assertEqual(ids, [11, 12])
+        self.assertEqual(s.requests[0]["query"]["after"], "10")
+
+
 class ProtocolTests(unittest.TestCase):
     def _run(self, body, **kw):
         with ScriptedServer([{"status": 200, "body": body}]) as s:

@@ -100,6 +100,10 @@ Five roles control access at the group, board, and site level; the tables below 
 !!! note "Export analytics CSV is a UI convenience, not an API boundary"
     The analytics CSV is generated client-side from data already returned by the `summary`/`analytics` endpoints, which any board member (including Viewers) can read. Hiding the **Export CSV** button for non-Admins keeps the action consistent with the board-structure permissions above; it is not a data-access restriction, since a Member could already read the same numbers through the API.
 
+## All-content users in the assignee picker
+
+A user with all-content access can be assigned to a card on any board, because the server accepts them. The Members list and the assignee picker show that only to board admins and site admins. For a reader below admin (member or collaborator), an all-content user whose explicit board row is `viewer` (or is not a recognized role) still shows the role stored on that row and stays out of the assignee picker. Revealing it would tell every reader which accounts have instance-wide access. This is a deliberate privacy trade-off (#2172): the picker fails closed and nothing is refused. A board admin sees the user as assignable and can assign them.
+
 ## Group membership implies board access
 
 <a id="group-membership-board-visibility"></a>

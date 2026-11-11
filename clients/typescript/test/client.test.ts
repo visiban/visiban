@@ -240,6 +240,19 @@ describe("protocol", () => {
   });
 });
 
+describe("resume from the feed cursor (#2159)", () => {
+  it("a reconnect resumes after the feed cursor, so a frame delivered out of order cannot skip the lower id", async () => {
+    // The socket delivered frame 12 before frame 11 committed, then dropped.
+    // The feed cursor is still 10, so the read after=10 returns 11 and 12.
+    const { client, requests } = make([ok([{ id: 11 }, { id: 12 }])]);
+    const store = new MemoryCursorStore();
+    store.set(1, 10);
+    const got = (await drain(client.iterEvents(1, { store }))) as { id: number }[];
+    expect(got.map((e) => e.id)).toEqual([11, 12]);
+    expect(requests[0].query.after).toBe("10");
+  });
+});
+
 describe("redelivery and default store", () => {
   it("a new iterator after a handler throw redelivers the failed item", async () => {
     const page = { status: 200, body: { results: [{ id: 1 }, { id: 2 }], next_cursor: null } };
