@@ -903,3 +903,96 @@ describe('MoveBoardModal selected row token (#1353)', () => {
     expect(row.className).not.toContain('bg-info/20')
   })
 })
+
+// #2184 — the destination list is a WAI-ARIA radio group: one Tab stop, arrow keys move focus and selection.
+describe('MoveBoardModal radio-group keyboard (#2184)', () => {
+  const g1 = { id: 21, name: 'Alpha', parent: null, can_place_boards: true } as never
+  const g2 = { id: 22, name: 'Beta', parent: null, can_place_boards: true } as never
+  const blocked = { id: 23, name: 'Locked', parent: null, can_place_boards: false } as never
+  const radios = () => screen.getAllByRole('radio')
+  const tabStops = () => radios().filter((r) => r.tabIndex === 0)
+
+  async function open(groups: unknown[]) {
+    mockListGroups.mockResolvedValueOnce(groups as never)
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    await screen.findByText('Alpha')
+    return userEvent.setup()
+  }
+
+  it('has exactly one Tab stop, the checked row, and none of the others tabbable', async () => {
+    await open([g1, g2])
+    expect(tabStops()).toEqual([radios()[0]])
+    expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
+    expect(radios().slice(1).every((r) => r.tabIndex === -1)).toBe(true)
+  })
+
+  it('moves the Tab stop to the first row when the checked row is hidden in a collapsed subtree', async () => {
+    const parent = { id: 30, name: 'Parent', parent: null, can_place_boards: true } as never
+    const child = { id: 31, name: 'Child', parent: 30, can_place_boards: true } as never
+    mockListGroups.mockResolvedValueOnce([parent, child])
+    render(<MoveBoardModal board={{ ...fakeBoard, group: 31 }} onMoved={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('Child')
+    expect(tabStops()).toHaveLength(1)
+    expect(tabStops()[0]).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('button', { name: 'Collapse Parent' }))
+    expect(tabStops()).toHaveLength(1)
+    expect(tabStops()[0]).toHaveAccessibleName(/Personal/)
+  })
+
+  it('ArrowDown/ArrowRight select and focus the next row, wrapping at the end', async () => {
+    const user = await open([g1, g2])
+    radios()[0].focus()
+    await user.keyboard('{ArrowDown}')
+    expect(radios()[1]).toHaveFocus()
+    expect(radios()[1]).toHaveAttribute('aria-checked', 'true')
+    expect(radios()[0]).toHaveAttribute('aria-checked', 'false')
+    expect(tabStops()).toEqual([radios()[1]])
+    await user.keyboard('{ArrowRight}')
+    expect(radios()[2]).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(radios()[0]).toHaveFocus()
+    expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('ArrowUp/ArrowLeft select and focus the previous row, wrapping at the start', async () => {
+    const user = await open([g1, g2])
+    radios()[0].focus()
+    await user.keyboard('{ArrowUp}')
+    expect(radios()[2]).toHaveFocus()
+    expect(radios()[2]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowLeft}')
+    expect(radios()[1]).toHaveFocus()
+    expect(radios()[1]).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('Home and End jump to the first and last row', async () => {
+    const user = await open([g1, g2])
+    radios()[0].focus()
+    await user.keyboard('{End}')
+    expect(radios()[2]).toHaveFocus()
+    expect(radios()[2]).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{Home}')
+    expect(radios()[0]).toHaveFocus()
+    expect(radios()[0]).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('skips blocked rows and leaves their tab index out of the Tab order', async () => {
+    const user = await open([g1, blocked, g2])
+    const rows = radios()
+    const lockedRow = rows.find((r) => r.getAttribute('aria-disabled') === 'true')!
+    expect(lockedRow.tabIndex).toBe(-1)
+    rows[1].focus() // Alpha
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByText('Beta').closest('button')).toHaveFocus()
+    expect(lockedRow).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('prevents the default of handled keys and ignores others', async () => {
+    await open([g1])
+    radios()[0].focus()
+    expect(fireEvent.keyDown(radios()[0], { key: 'ArrowDown' })).toBe(false)
+    expect(fireEvent.keyDown(radios()[0], { key: 'a' })).toBe(true)
+    expect(fireEvent.keyDown(radios()[0], { key: 'ArrowDown', ctrlKey: true })).toBe(true)
+  })
+})

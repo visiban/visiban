@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import axios from "axios";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
@@ -28,6 +29,11 @@ function hasTargetBelow(node: TreeNode, selected: number | null): boolean {
   );
 }
 
+/** Rows a keyboard user can land on: radios the caller may choose (blocked rows are `aria-disabled`). */
+function enabledRadios(group: HTMLElement): HTMLElement[] {
+  return Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]:not([aria-disabled="true"])'));
+}
+
 interface Props {
   board: Board;
   onMoved: (updated: Board) => void;
@@ -42,6 +48,42 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const [loadError, setLoadError] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // WAI-ARIA radio group: one Tab stop, the checked row (the first row when
+  // none is checked or the checked one is hidden in a collapsed subtree).
+  // Set on the DOM because a row's visibility depends on expand state that
+  // lives in the tree nodes, not here.
+  const syncTabStop = useCallback(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const rows = enabledRadios(group);
+    const stop = rows.find((row) => row.getAttribute("aria-checked") === "true") ?? rows[0];
+    group.querySelectorAll<HTMLElement>('[role="radio"]').forEach((row) => {
+      row.tabIndex = row === stop ? 0 : -1;
+    });
+  }, []);
+  useLayoutEffect(syncTabStop);
+
+  // Arrow keys move focus and the selection together ("selection follows
+  // focus"); clicking the neighbor reuses each row's own select handler.
+  const handleGroupKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"];
+    if (!keys.includes(e.key) || e.altKey || e.ctrlKey || e.metaKey) return;
+    const current = (e.target as HTMLElement).closest<HTMLElement>('[role="radio"]');
+    if (!current) return;
+    const rows = enabledRadios(e.currentTarget);
+    if (rows.length === 0) return;
+    e.preventDefault();
+    const index = rows.indexOf(current);
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = rows.length - 1;
+    else if (e.key === "ArrowDown" || e.key === "ArrowRight") next = (index + 1) % rows.length;
+    else next = (index - 1 + rows.length) % rows.length;
+    rows[next].focus();
+    rows[next].click();
+  };
 
   useEffect(() => {
     setLoadError(false);
@@ -92,7 +134,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       ) : loadError ? (
         <p className="text-sm text-danger py-4 text-center">Could not load groups. Please try again.</p>
       ) : (
-        <div role="radiogroup" aria-label="Destination group" className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
+        <div ref={groupRef} role="radiogroup" aria-label="Destination group" onKeyDown={handleGroupKeyDown} className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
           <PickerRow
             label="Personal (no group)"
             icon={"\u{1F3E0}"}
@@ -109,6 +151,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
               selected={selected}
               currentGroupId={board.group}
               onSelect={(id) => { setSelected(id); setMoveError(null); }}
+              onTreeChange={syncTabStop}
             />
           ))}
 
@@ -148,12 +191,14 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
 }
 
 function GroupPickerNode({
-  node, selected, currentGroupId, onSelect, depth = 0,
+  node, selected, currentGroupId, onSelect, onTreeChange, depth = 0,
 }: {
   node: TreeNode;
   selected: number | null;
   currentGroupId: number | null;
   onSelect: (id: number | null) => void;
+  /** Called after expanding or collapsing, so the radio group can re-pick its Tab stop. */
+  onTreeChange: () => void;
   depth?: number;
 }) {
   const hasChildren = node.children.length > 0;
@@ -161,6 +206,7 @@ function GroupPickerNode({
   // placeable subgroup is never hidden behind a collapsed blocked parent.
   const [expanded, setExpanded] = useState(() => hasTargetBelow(node, selected));
   const { group } = node;
+  useLayoutEffect(onTreeChange, [expanded, onTreeChange]);
   const isCurrent = group.id === currentGroupId;
   const note = group.can_place_boards ? undefined : isCurrent ? CURRENT_GROUP_NOTE : NOT_PLACEABLE_REASON;
 
@@ -210,6 +256,7 @@ function GroupPickerNode({
                   selected={selected}
                   currentGroupId={currentGroupId}
                   onSelect={onSelect}
+                  onTreeChange={onTreeChange}
                   depth={depth + 1}
                 />
               </div>

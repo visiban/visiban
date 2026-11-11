@@ -142,10 +142,10 @@ describe("AnchoredMenuPanel inputAnchored (#2163)", () => {
   // 700px of content in a 768px window: 346 below the anchor, 368 above it.
   const anchor = { top: 380, bottom: 410, left: 40, right: 240 };
 
-  function Panel({ inputAnchored }: { inputAnchored?: boolean }) {
+  function Panel({ inputAnchored, at = anchor }: { inputAnchored?: boolean; at?: typeof anchor }) {
     const ref = useRef<HTMLDivElement>(null);
     return (
-      <AnchoredMenuPanel anchor={anchor} panelRef={ref} onDismiss={() => {}} minWidth={200} inputAnchored={inputAnchored} data-testid="p">
+      <AnchoredMenuPanel anchor={at} panelRef={ref} onDismiss={() => {}} minWidth={200} inputAnchored={inputAnchored} data-testid="p">
         <div>rows</div>
       </AnchoredMenuPanel>
     );
@@ -162,11 +162,13 @@ describe("AnchoredMenuPanel inputAnchored (#2163)", () => {
   });
 
   it("caps to the visible viewport when visualViewport is stubbed", () => {
-    stubVisualViewport({ height: 500 });
+    // Keyboard open: 400 visible. Anchor 100-130: 400 - 8 - 134 = 258 below beats 88 above.
+    // Without the stub the 768px window would give 626 below, so this fails if visualViewport is ignored.
+    stubVisualViewport({ height: 400 });
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(700);
-    render(<Panel inputAnchored />);
-    expect(panel().style.top).toBe("8px");
-    expect(panel().style.maxHeight).toBe("368px");
+    render(<Panel inputAnchored at={{ top: 100, bottom: 130, left: 40, right: 240 }} />);
+    expect(panel().style.top).toBe("134px");
+    expect(panel().style.maxHeight).toBe("258px");
   });
 
   it("still pins a non-input anchor, with the viewport cap", () => {

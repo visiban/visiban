@@ -37,6 +37,21 @@ describe("CustomFieldQuickEditPopover", () => {
     vi.restoreAllMocks();
   });
 
+  it("marks the selected row with a check, including the no-value row (#2171)", () => {
+    const { rerender } = render(
+      <CustomFieldQuickEditPopover anchorRect={makeRect()} choices={CHOICES} selected="" onSelect={() => {}} onDismiss={() => {}} />
+    );
+    const noValue = screen.getByRole("option", { name: /No value/ });
+    expect(noValue).toHaveAttribute("aria-selected", "true");
+    expect(noValue).toHaveTextContent("✓");
+    expect(screen.getByRole("option", { name: "Low" })).not.toHaveTextContent("✓");
+    rerender(
+      <CustomFieldQuickEditPopover anchorRect={makeRect()} choices={CHOICES} selected="Low" onSelect={() => {}} onDismiss={() => {}} />
+    );
+    expect(screen.getByRole("option", { name: /No value/ })).not.toHaveTextContent("✓");
+    expect(screen.getByRole("option", { name: /Low/ })).toHaveTextContent("✓");
+  });
+
   it("calls onDismiss when Escape is pressed", () => {
     const onDismiss = vi.fn();
     render(

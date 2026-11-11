@@ -708,14 +708,15 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
   })
 
   it('caps the popup to the visible viewport when the keyboard shrinks it (#2163)', () => {
-    stubVisualViewport({ height: 500 })
+    // 400 visible, caret 100-120: 400 - 8 - 124 = 268 below beats 88 above; the 768px window would allow 636.
+    stubVisualViewport({ height: 400 })
     try {
       const { renderer, editor } = setup()
       vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(700)
-      renderer.onStart({ editor, clientRect: () => rect(380) })
+      renderer.onStart({ editor, clientRect: () => rect(100) })
       const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
-      expect(popup.style.top).toBe('8px')
-      expect(popup.style.maxHeight).toBe('368px')
+      expect(popup.style.top).toBe('124px')
+      expect(popup.style.maxHeight).toBe('268px')
     } finally {
       clearVisualViewport()
     }

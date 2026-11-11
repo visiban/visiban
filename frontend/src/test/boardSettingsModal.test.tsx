@@ -956,11 +956,12 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   })
 
   it('caps the suggestions to the visible viewport when the on-screen keyboard shrinks it (#2163)', async () => {
-    stubVisualViewport({ height: 500 })
+    // 400 visible, search 100-130: 258 below beats 88 above; the 768px window would allow 626.
+    stubVisualViewport({ height: 400 })
     try {
-      const panel = await showSuggestionsAt(380, 410, 700)
-      expect(panel.style.top).toBe('8px')
-      expect(panel.style.maxHeight).toBe('368px')
+      const panel = await showSuggestionsAt(100, 130, 700)
+      expect(panel.style.top).toBe('134px')
+      expect(panel.style.maxHeight).toBe('258px')
     } finally {
       clearVisualViewport()
       vi.restoreAllMocks()
