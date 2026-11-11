@@ -13,7 +13,7 @@ export type BoardEvent = {
    * resumes from it (and no client should: it is not a gap-free resume point, #2159); on reconnect the SPA re-fetches `/full/` via the
    * `onReconnected` option (#1463), and on a late first open via
    * `onFirstConnected` (#1968). It is declared here so the type keeps matching what the server
-   * sends, and so a future resume-from-cursor client does not have to widen the
+   * sends, and so a future client that orders or de-duplicates frames by id does not have to widen the
    * type first.
    */
   event_id?: number;

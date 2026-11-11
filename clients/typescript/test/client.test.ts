@@ -240,10 +240,12 @@ describe("protocol", () => {
   });
 });
 
-describe("resume from the feed cursor (#2159)", () => {
-  it("a reconnect resumes after the feed cursor, so a frame delivered out of order cannot skip the lower id", async () => {
-    // The socket delivered frame 12 before frame 11 committed, then dropped.
-    // The feed cursor is still 10, so the read after=10 returns 11 and 12.
+// Pins existing behavior; it is not coverage of the frame-ordering hazard,
+// because the client never sees a WebSocket frame.
+describe("resume from the stored feed cursor (#2159)", () => {
+  it("resumes after the stored feed cursor", async () => {
+    // Scenario: the socket delivered frame 12 before frame 11 committed, then
+    // dropped. The stored feed cursor is still 10, so the read is after=10.
     const { client, requests } = make([ok([{ id: 11 }, { id: 12 }])]);
     const store = new MemoryCursorStore();
     store.set(1, 10);

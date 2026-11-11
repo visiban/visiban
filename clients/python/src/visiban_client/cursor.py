@@ -1,6 +1,7 @@
 """Cursor storage.
 
 A cursor is the integer id of the last event a consumer finished handling.
+It is a feed row id, never the ``event_id`` of a WebSocket frame.
 The client calls ``set`` only after the consumer's handler returned, which is
 what makes delivery at-least-once.
 """

@@ -1,6 +1,6 @@
 # Replay missed board changes with one cursor request
 
-`GET /api/v1/boards/{id}/events/?after=<cursor>` returns what happened on a board after that event id, in order. Use the last `next_cursor` (or row `id`) the feed itself handed you. A WebSocket frame's `event_id` is not a gap-free cursor, so never resume from one ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
+`GET /api/v1/boards/{id}/events/?after=<cursor>` returns what happened on a board after that event id, in order. Use the last row `id` the feed itself returned (it equals `next_cursor` when a page has one; after an empty page, keep the `after` you sent). A WebSocket frame's `event_id` is not a gap-free cursor, so never resume from one ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 
 ```bash
 curl -H "Authorization: Token $TOKEN" \
@@ -29,30 +29,45 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 
 1. Bootstrap a feed cursor before you take a snapshot. `/full/` returns no
    event id, and `after=0` never returns `410`, so a first cursor comes only
-   from the feed itself. Page the feed to the end (`next_cursor: null`) and
-   **discard the rows**: applying up to 30 days of history over a fresh
-   snapshot (`BOARD_EVENT_RETENTION_DAYS`) can revert newer state. Keep the
-   last row `id` you saw as cursor `C` (`0` if the feed is empty). Then open
+   from the feed itself. Page the feed to the end (`next_cursor: null`) with
+   `limit=500` (the maximum) and **discard the rows**: applying up to 30 days
+   of history over a fresh snapshot (`BOARD_EVENT_RETENTION_DAYS`) can revert
+   newer state. Draining the retained feed costs one request per 500 rows, and
+   each page also checks for writes in flight; at the default `limit` of 100
+   it is five times as many requests against the 5000-per-hour user throttle
+   of a production install. Keep the last row `id` you saw as cursor `C`. An
+   empty first page does not prove the feed is empty: while a write is
+   committing the page is empty too (see [Event coverage](#event-coverage)),
+   and a long-running write such as a board import holds it back for as long
+   as it runs. If the first page is empty, read again after a short delay and
+   take `C = 0` only once you know no write is in flight; otherwise the next
+   feed read replays the whole retained history over your snapshot. Then open
    the board WebSocket, fetch `/full/`, and apply the frames you buffered
    meanwhile. An event committed between `C` and the snapshot arrives again on
-   the next feed read; de-duplicate by event id, as in step 3.
-2. Keep a feed cursor: the `next_cursor` (or the last row `id` of the final
-   page) from your most recent feed read. Do **not** use a
+   the next feed read, and your client never applied its id, so de-duplicating
+   by id cannot catch it: apply feed rows idempotently, as in step 4.
+2. Keep a feed cursor: the last row `id` your most recent feed read returned
+   (equal to `next_cursor` when the page has one). After an empty page, keep the
+   `after` you sent. Do **not** use a
    frame's `event_id` as the cursor. Frames from two concurrent writes can
    arrive out of `event_id` order, so the last frame's `event_id` can be past
    an event that was still committing when the socket dropped (see
    [Event coverage](#event-coverage); decided in
-   [#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
+   [#2159](https://gitlab.com/visiban/visiban/-/issues/2159)). A client
+   that stays connected must also read the feed periodically to move that
+   cursor forward, and drop the applied frame ids at or below it; otherwise it
+   keeps every applied id since bootstrap, and past the retention window its
+   next feed read is a needless `410` and full re-sync.
 3. When the socket drops and reconnects, resync with a feed read:
    `GET /api/v1/boards/{id}/events/?after=<your feed cursor>`. The feed never
    hands out a cursor past an event whose transaction is still open, so a
    late-committing lower id is delayed, never skipped. Replay the results
    through the same handler, skipping ids you have already applied (a frame may
-   have delivered the same event first). Keep the `next_cursor` it returns for
-   the next reconnect. A client with no feed cursor yet bootstraps one as in step 1; it
-   does not replay from `after=0` over a snapshot. When a page has
-   `next_cursor: null`, the last row `id` is the cursor; it is safe because the
-   feed never reaches past an event still committing.
+   have delivered the same event first). Keep the last row `id` it returns (its
+   `next_cursor` when it has one) for the next reconnect. A client with no feed cursor yet bootstraps one as in step 1; it
+   does not replay from `after=0` over a snapshot. A short page has
+   `next_cursor: null`, so there the last row `id` is the cursor; it is safe
+   because the feed never reaches past an event still committing.
 4. If that call returns `410 Gone`, events after your cursor have aged out of
    the retention window. Keep the `next_cursor` from the `410` body, re-fetch
    `GET /api/v1/boards/{id}/full/`, then resume with
@@ -235,7 +250,8 @@ Two consequences worth knowing:
   either `id` order, and a frame can arrive while a lower `id` is still
   committing. A client that resumes with `after=` set to the last frame's
   `event_id` can miss that lower event if the socket dropped in between. Resume
-  from the feed's own cursor only (the `next_cursor` of your last feed read) and
+  from the feed's own cursor only (the last row `id` your feed read returned, equal to
+  `next_cursor` when a page has one; after an empty page keep the `after` you sent) and
   skip ids you have already applied. Frames do not carry a horizon-safe cursor
   and the frame schema is unchanged by design ([#2159](https://gitlab.com/visiban/visiban/-/issues/2159)).
 - **A container delete is one delete event.** Deleting a column, swimlane, or
@@ -412,6 +428,6 @@ The change feed is a public contract from 1.2 and follows the same compatibility
 - **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).
 - **Per-reader fields are the exception.** The fields documented under [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading) are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.
 - **`next_cursor` is the cursor; `next` is deprecated.** `next_cursor` is the documented cursor field. `next` was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read `next_cursor`. `next` is removed only at a major version bump. See [Pagination shapes](#pagination-shapes).
-- **When `410` fires was corrected in 1.3** (#2058). It now fires when an event after the cursor that you could have read was pruned (#2079): an idle consumer whose own cursor event was pruned no longer gets it, and a consumer whose missed events were all pruned now does, rather than an empty page. The status, `code` and `resync_url` are unchanged, and the body gained `next_cursor`, the cursor to resume from after re-syncing. A client that handles `410` by re-syncing keeps working; reading `next_cursor` lets it resume the feed without a socket `event_id`. See [When a cursor expires](#errors).
+- **When `410` fires was corrected in 1.3** (#2058). It now fires when an event after the cursor that you could have read was pruned (#2079): an idle consumer whose own cursor event was pruned no longer gets it, and a consumer whose missed events were all pruned now does, rather than an empty page. The status, `code` and `resync_url` are unchanged, and the body gained `next_cursor`, the cursor to resume from after re-syncing. A client that handles `410` by re-syncing keeps working; reading `next_cursor` lets it resume the feed from a feed row id instead of a socket `event_id`. The `detail` text of a `410` is unchanged, and the "newest event id" it mentions means a row `id` of the feed, never a WebSocket frame's `event_id`. See [When a cursor expires](#errors).
 - A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
 - **Not covered:** how long history is kept. The retention window is an operator setting (`BOARD_EVENT_RETENTION_DAYS`), so a consumer must handle `410 Gone` rather than assume any particular depth of history. See [Retention](#retention).

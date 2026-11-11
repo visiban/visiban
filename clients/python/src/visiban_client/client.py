@@ -205,7 +205,8 @@ class Client:
     ) -> Iterator[Item]:
         """Yield events in feed order, and a ``Resync`` when the cursor expired.
 
-        - Start: ``cursor`` if given, else ``store.get(board_id)``, else 0.
+        - Start: ``cursor`` if given (a feed row id, never a WebSocket frame's
+          ``event_id``), else ``store.get(board_id)``, else 0.
           With no ``store`` a fresh ``MemoryCursorStore`` is created *per call*,
           so a bare ``iter_events(board_id)`` replays from 0 every time it is
           called. Keep one store across calls, or pass ``cursor``, to resume.

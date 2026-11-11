@@ -50,10 +50,10 @@ for item in client.iter_events(board_id, store=store, poll_interval=5):
   This client has no socket code and only ever resumes from the feed cursor.
 - **Bootstrap a first cursor.** `/full/` carries no event id and `after=0`
   never returns `410`. For a socket consumer, drain the feed first and discard
-  the rows (`for _ in client.iter_events(board_id, store=store): pass`), so the
+  the rows (`for _ in client.iter_events(board_id, store=store, limit=500): pass`), so the
   store holds the newest id; then open the socket and fetch `/full/`. Do not
   apply 30 days of history over a fresh snapshot. Events committed after that
-  cursor may repeat over the snapshot; de-duplicate by event id.
+  cursor may repeat over the snapshot, and your client never applied their ids, so apply them idempotently. `limit=500` is the maximum page size; draining costs one request per 500 retained rows against a production 5000-per-hour user throttle. An empty first page does not prove the feed is empty (a write in flight, such as a long import, also gives one): read again after a short delay before taking 0 as the cursor. A long-connected socket consumer should also read the feed now and then to move the cursor forward.
 - **Caught up** means the server's `next_cursor` was `null`; the client never
   counts rows.
 - **Cursor store.** Any object with `get(board_id) -> int | None` and

@@ -121,13 +121,13 @@ Since 1.2, also includes `custom_field_definitions` (the board's card custom fie
 ### `GET /api/v1/boards/{id}/events/`
 Board change feed: committed board mutations in ascending `id` order, so a consumer can resume after a dropped WebSocket instead of re-fetching `/full/`. Added in 1.2.
 
-**Query parameters:** `after` (cursor — the last event `id` processed; default `0`) and `limit` (`1`–`500`, default `100`). Both are validated, not clamped; an out-of-range or malformed value returns `400`.
+**Query parameters:** `after` (cursor — a feed row `id`, never a WebSocket frame's `event_id`; default `0`) and `limit` (`1`–`500`, default `100`). Both are validated, not clamped; an out-of-range or malformed value returns `400`.
 
 **Response:** `{ "results": [{ id, event, data, actor_id, actor, created_at }, ...], "next_cursor": <int|null>, "next": <int|null> }`. `next_cursor` is the cursor for the following page (pass it as `after`), or `null` when the caller is caught up. `next` is a deprecated duplicate with the same value; use `next_cursor`. `actor` (since 1.2, #1663) is the acting user as a nullable nested `BoardUser` object (`id`, `username`, `display_name`, `avatar_url`), alongside the unchanged integer `actor_id`; see [Change Feed](events.md).
 
 **Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it — except on the row belonging to the reader themselves, which always carries the field (#1191).
 
-**`410 Gone`:** an event after the cursor that the caller could have read has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and been pruned. Re-sync via `/full/`, then resume with the body's `next_cursor` as `after` (1.3+; `/full/` carries no event id). A cursor whose own event was pruned, with nothing the caller could have read pruned after it, is not expired (1.3+, #2058, #2079); see [When a cursor expires](events.md#errors) for the exact rule and for boards not pruned since the upgrade.
+**`410 Gone`:** an event after the cursor that the caller could have read has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and been pruned. Re-sync via `/full/`, then resume with the body's `next_cursor` as `after` (1.3+; `/full/` carries no event id). A cursor whose own event was pruned, with nothing the caller could have read pruned after it, is not expired (1.3+, #2058, #2079); see [When a cursor expires](events.md#errors) for the exact rule and for boards not pruned since the upgrade. The `detail` text's "newest event id" means a row `id` of this feed, never a WebSocket frame's `event_id`.
 
 ```json
 {

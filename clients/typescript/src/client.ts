@@ -56,7 +56,7 @@ export interface ClientOptions {
 }
 
 export interface IterEventsOptions {
-  /** Start after this event id. Default: the store's value, else 0. */
+  /** Start after this event id: a feed row id, never a WebSocket frame's `event_id`. Default: the store's value, else 0. */
   cursor?: number;
   /**
    * Default: a fresh MemoryCursorStore created per iterEvents call, so a bare

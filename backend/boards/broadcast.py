@@ -252,8 +252,10 @@ def broadcast_board_event(
     never as a resume point (#2159). Frames go out after each transaction's own
     commit, so they can arrive out of id order, and the latest one can be past
     a lower id that is still committing. Resume only from a feed
-    ``next_cursor`` read from ``GET /boards/<id>/events/?after=``, which never
-    reaches past an event still committing.
+    cursor: the last row ``id`` that ``GET /boards/<id>/events/?after=``
+    returned (its ``next_cursor`` when a page has one; after an empty page,
+    keep the ``after`` you sent). The feed never reaches past an event still
+    committing.
 
     **Best-effort: a channel-layer failure is logged, not raised (#1462).** This runs
     from ``transaction.on_commit``, after the mutation and its ``BoardEvent`` row
