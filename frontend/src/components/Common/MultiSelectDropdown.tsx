@@ -311,7 +311,7 @@ export default function MultiSelectDropdown({
         aria-multiselectable="true"
         aria-label={label}
         onScroll={onScroll}
-        className="py-1 min-h-0 overflow-y-auto"
+        className="py-1 min-h-0 overflow-y-auto scroll-pb-8"
       >
         {visibleOptions.map((entry, i) => renderOption(entry, i, false))}
         {visibleOrphans.length > 0 && (

@@ -251,6 +251,8 @@ describe('SelectDropdown', () => {
       renderIt()
       await userEvent.click(screen.getByRole('combobox'))
       expect(screen.getByTestId('select-more-below')).toBeInTheDocument()
+      // The fade covers the bottom 32px, so the active option scrolls clear of it (#2180).
+      expect(screen.getByRole('listbox')).toHaveClass('scroll-pb-8')
     })
 
     it('caps the panel width to the viewport', async () => {
@@ -526,6 +528,8 @@ describe('SingleSelectDropdown', () => {
         render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
         await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
         expect(screen.getByTestId('singleselect-more-below')).toBeInTheDocument()
+        // The fade covers the bottom 32px, so a focused item scrolls clear of it (#2180).
+        expect(screen.getByRole('menu').firstElementChild).toHaveClass('scroll-pb-8')
         sh.mockReturnValue(100)
       })
 

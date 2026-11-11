@@ -241,7 +241,7 @@ export default function SelectDropdown<T extends string>({
             ref={listRef}
             onScroll={onScroll}
             role="listbox"
-            className="min-h-0 overflow-y-auto"
+            className="min-h-0 overflow-y-auto scroll-pb-8"
           >
             {options.map((opt, i) => (
               <div key={opt.value}>

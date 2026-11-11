@@ -198,6 +198,8 @@ describe('CollapsedFlyout', () => {
       vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200)
       mount(100)
       expect(screen.getByTestId('collapsed-flyout-more-below')).toBeInTheDocument()
+      // The fade covers the bottom 32px, so a focused item scrolls clear of it (#2180).
+      expect(screen.getByRole('menu')).toHaveClass('scroll-pb-8')
       const menu = screen.getByRole('menu')
       menu.scrollTop = 300
       fireEvent.scroll(menu)

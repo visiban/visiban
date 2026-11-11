@@ -35,6 +35,20 @@ describe('EditColumnModal', () => {
 
   beforeEach(() => { vi.clearAllMocks() })
 
+  it('the body scroll region reserves the bottom fade height as scroll padding (#2180)', () => {
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={makeColumn({ is_done: false })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onRequestDelete={onRequestDelete}
+        onClose={onClose}
+      />
+    )
+    expect(screen.getByRole('region', { name: 'Column settings' })).toHaveClass('scroll-pb-8')
+  })
+
   it('renders is_done checkbox unchecked for a non-done column', () => {
     render(
       <EditColumnModal

@@ -124,6 +124,18 @@ describe("CheckboxDropdown menu (#1482)", () => {
   });
 });
 
+describe("AnchoredMenuPanel overflow fade (#2180)", () => {
+  it("scrolls a focused control clear of the bottom fade", async () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(500);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(100);
+    render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
+    const fade = screen.getByTestId("menu-more-below");
+    expect(fade.previousElementSibling).toHaveClass("scroll-pb-8");
+    vi.restoreAllMocks();
+  });
+});
+
 describe("ActivityFilterDropdown menu (#1482)", () => {
   it("stays in the trigger's DOM subtree (inside the card sheet's focus trap) but fixed", async () => {
     render(

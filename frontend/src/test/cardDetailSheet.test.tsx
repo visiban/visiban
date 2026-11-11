@@ -765,6 +765,8 @@ describe('CardDetail sheet — shared demo and long content (#1914, frames 5 and
     fireEvent.scroll(body)
     expect(screen.queryByTestId('card-body-shadow-top')).not.toBeInTheDocument()
     expect(screen.getByTestId('card-body-shadow-bottom')).toBeInTheDocument()
+    // The fades cover h-6 (top) and h-10 (bottom), so a focused control scrolls clear of both (#2180).
+    expect(body).toHaveClass('scroll-pt-6', 'scroll-pb-10')
     body.scrollTop = 400
     fireEvent.scroll(body)
     expect(screen.getByTestId('card-body-shadow-top')).toBeInTheDocument()

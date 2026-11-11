@@ -119,7 +119,7 @@ export default function CollapsedFlyout({
         aria-label={title}
         tabIndex={0}
         onScroll={onScroll}
-        className="min-h-0 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+        className="min-h-0 overflow-y-auto scroll-pb-8 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
       >
 
       {sections.map((section, si) => (

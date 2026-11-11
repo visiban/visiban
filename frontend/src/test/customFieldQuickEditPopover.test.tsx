@@ -342,6 +342,8 @@ describe("CustomFieldQuickEditPopover", () => {
       mount(makeRect());
       expect(screen.getByTestId("quick-edit-more-below")).toBeInTheDocument();
       const list = screen.getByRole("listbox", { name: "Choices" });
+      // The fade covers the bottom 32px, so a focused choice scrolls clear of it (#2180).
+      expect(list).toHaveClass("scroll-pb-8");
       list.scrollTop = 300;
       fireEvent.scroll(list);
       expect(screen.queryByTestId("quick-edit-more-below")).not.toBeInTheDocument();

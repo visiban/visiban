@@ -113,7 +113,7 @@ export default function AnchoredMenuPanel({
       }}
       className={`${mode === "inline" ? "z-[60]" : "z-50"} bg-surface border border-line-strong rounded-lg shadow-lg py-1 ${className}`}
     >
-      <div ref={listRef} onScroll={onScroll} className="min-h-0 overflow-y-auto">
+      <div ref={listRef} onScroll={onScroll} className="min-h-0 overflow-y-auto scroll-pb-8">
         {children}
       </div>
       {moreBelow && (

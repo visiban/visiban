@@ -275,7 +275,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       className={`${portalMenu ? "" : "absolute top-full mt-1 left-0 "}z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]`}
     >
       {/* Inner scroll region so the overflow fade can sit over it (#1455 rule (b)). */}
-      <div ref={listRef} onScroll={onScroll} className={portalMenu ? "min-h-0 overflow-y-auto" : undefined}>
+      <div ref={listRef} onScroll={onScroll} className={portalMenu ? "min-h-0 overflow-y-auto scroll-pb-8" : undefined}>
       {menuHeader !== undefined && menuHeader !== null && (
         <div id={`${id}-header`} className="px-3 py-1.5 text-xs text-fg-tertiary">{menuHeader}</div>
       )}
