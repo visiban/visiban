@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
 import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
@@ -943,6 +944,28 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const panel = await showSuggestionsAt(window.innerHeight - 60, window.innerHeight - 30, 200)
     expect(panel.style.top).toBe(`${window.innerHeight - 60 - 4 - 200}px`)
     vi.restoreAllMocks()
+  })
+
+  // #2163 — the member search is a text input, so a list that fits neither side
+  // takes the larger side capped to it instead of pinning over the input.
+  it('caps the suggestions to the larger side when they fit neither, never pinned over the input', async () => {
+    const panel = await showSuggestionsAt(380, 410, 700)
+    expect(panel.style.top).toBe('8px')
+    expect(panel.style.maxHeight).toBe('368px')
+    vi.restoreAllMocks()
+  })
+
+  it('caps the suggestions to the visible viewport when the on-screen keyboard shrinks it (#2163)', async () => {
+    // 400 visible, search 100-130: 258 below beats 88 above; the 768px window would allow 626.
+    stubVisualViewport({ height: 400 })
+    try {
+      const panel = await showSuggestionsAt(100, 130, 700)
+      expect(panel.style.top).toBe('134px')
+      expect(panel.style.maxHeight).toBe('258px')
+    } finally {
+      clearVisualViewport()
+      vi.restoreAllMocks()
+    }
   })
 
   it('flips the suggestions above the search when a later query returns more rows than fit below', async () => {

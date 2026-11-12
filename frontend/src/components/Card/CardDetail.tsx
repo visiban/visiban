@@ -1450,7 +1450,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{loadingAnnouncement}</p>
 
         <div className="relative flex-1 overflow-hidden">
-          <div ref={bodyScrollRef} onScroll={updateBodyShadows} aria-busy={loading} className="h-full overflow-y-auto px-5 py-4">
+          <div ref={bodyScrollRef} onScroll={updateBodyShadows} aria-busy={loading} className="h-full overflow-y-auto px-5 py-4 scroll-pb-10 scroll-pt-6">
           {tab === "details" ? (
             <div className="flex flex-col gap-6">
 

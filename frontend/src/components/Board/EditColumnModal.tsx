@@ -158,7 +158,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           aria-label={tab === "settings" ? "Column settings" : "Column policy"}
           tabIndex={0}
           onScroll={onBodyScroll}
-          className="flex-1 min-h-0 overflow-y-auto px-6 py-4 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+          className="flex-1 min-h-0 overflow-y-auto scroll-pb-8 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
         >
           <div id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-tab-${tab}`}>
           {tab === "settings" ? (

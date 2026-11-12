@@ -260,7 +260,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             tabIndex={0}
             role="region"
             aria-label="Swimlane settings"
-            className="flex-1 min-h-0 overflow-y-auto px-6 pb-2 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+            className="flex-1 min-h-0 overflow-y-auto scroll-pb-8 px-6 pb-2 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
           >
           <div className="flex flex-col gap-3">
             <div>

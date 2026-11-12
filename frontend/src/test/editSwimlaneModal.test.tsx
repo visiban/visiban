@@ -585,5 +585,7 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
     renderModal()
     const region = screen.getByRole('region', { name: 'Swimlane settings' })
     expect(region).toHaveAttribute('tabIndex', '0')
+    // The bottom fade covers 32px, so a focused field scrolls clear of it (#2180).
+    expect(region).toHaveClass('scroll-pb-8')
   })
 })

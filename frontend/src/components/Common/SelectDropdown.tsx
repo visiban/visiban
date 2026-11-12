@@ -241,7 +241,7 @@ export default function SelectDropdown<T extends string>({
             ref={listRef}
             onScroll={onScroll}
             role="listbox"
-            className="min-h-0 overflow-y-auto"
+            className="min-h-0 overflow-y-auto scroll-pb-8"
           >
             {options.map((opt, i) => (
               <div key={opt.value}>
@@ -270,7 +270,17 @@ export default function SelectDropdown<T extends string>({
                     ${i === activeIndex ? "bg-surface-hover" : ""}
                     ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
                 >
-                  {opt.label}
+                  <span className="flex items-start gap-2">
+                    {/* Non-color selection cue (#2171). Reserves its width on every option so labels stay aligned. */}
+                    <span aria-hidden="true" className="w-3 h-5 shrink-0 flex items-center">
+                      {opt.value === value && (
+                        <svg data-testid="select-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8.5l3.5 3.5L13 4.5" />
+                  </svg>
+                      )}
+                    </span>
+                    <span className="min-w-0">{opt.label}</span>
+                  </span>
                 </div>
               </div>
             ))}

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import axios from "axios";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
@@ -28,6 +29,16 @@ function hasTargetBelow(node: TreeNode, selected: number | null): boolean {
   );
 }
 
+/** Every visible radio row in DOM order, blocked ones included (they stay focusable). */
+function allRadios(group: HTMLElement): HTMLElement[] {
+  return Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+}
+
+/** True for a row the caller may not choose (`aria-disabled`): focusable, never selectable. */
+function isBlocked(row: HTMLElement): boolean {
+  return row.getAttribute("aria-disabled") === "true";
+}
+
 interface Props {
   board: Board;
   onMoved: (updated: Board) => void;
@@ -42,6 +53,53 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const [loadError, setLoadError] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // WAI-ARIA radio group: one radio Tab stop, the checked row (the first
+  // enabled row when none is checked or the checked one is hidden in a
+  // collapsed subtree; a blocked row only if no enabled row exists). Blocked
+  // rows are reachable by arrow keys, not Tab. Set on the DOM because a row's visibility depends on expand state that
+  // lives in the tree nodes, not here.
+  const syncTabStop = useCallback(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const rows = allRadios(group);
+    const enabled = rows.filter((row) => !isBlocked(row));
+    const stop = enabled.find((row) => row.getAttribute("aria-checked") === "true") ?? enabled[0] ?? rows[0];
+    rows.forEach((row) => {
+      row.tabIndex = row === stop ? 0 : -1;
+    });
+  }, []);
+  useLayoutEffect(syncTabStop);
+
+  // Arrow keys move focus through every row, blocked ones included (a blocked
+  // row stays focusable so the user sees why it is unavailable), and select the
+  // row they land on unless it is blocked ("selection follows focus");
+  // clicking the neighbor reuses each row's own select handler.
+  const handleGroupKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"];
+    if (!keys.includes(e.key) || e.altKey || e.ctrlKey || e.metaKey) return;
+    const current = (e.target as HTMLElement).closest<HTMLElement>('[role="radio"]');
+    if (!current) return;
+    const rows = allRadios(e.currentTarget);
+    if (rows.length === 0) return;
+    e.preventDefault();
+    const forward = e.key === "ArrowDown" || e.key === "ArrowRight";
+    const index = rows.indexOf(current);
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = rows.length - 1;
+    else if (index >= 0) next = (index + (forward ? 1 : rows.length - 1)) % rows.length;
+    else {
+      // `current` is not among the rows: fall back to its DOM neighbor.
+      const after = rows.findIndex((row) => current.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (forward) next = after === -1 ? 0 : after;
+      else next = (after === -1 ? rows.length : after) - 1;
+      if (next < 0) next = rows.length - 1;
+    }
+    rows[next].focus();
+    if (!isBlocked(rows[next])) rows[next].click();
+  };
 
   useEffect(() => {
     setLoadError(false);
@@ -92,7 +150,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       ) : loadError ? (
         <p className="text-sm text-danger py-4 text-center">Could not load groups. Please try again.</p>
       ) : (
-        <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
+        <div ref={groupRef} role="radiogroup" aria-label="Destination group" onKeyDown={handleGroupKeyDown} className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
           <PickerRow
             label="Personal (no group)"
             icon={"\u{1F3E0}"}
@@ -109,6 +167,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
               selected={selected}
               currentGroupId={board.group}
               onSelect={(id) => { setSelected(id); setMoveError(null); }}
+              onTreeChange={syncTabStop}
             />
           ))}
 
@@ -148,12 +207,14 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
 }
 
 function GroupPickerNode({
-  node, selected, currentGroupId, onSelect, depth = 0,
+  node, selected, currentGroupId, onSelect, onTreeChange, depth = 0,
 }: {
   node: TreeNode;
   selected: number | null;
   currentGroupId: number | null;
   onSelect: (id: number | null) => void;
+  /** Called after expanding or collapsing, so the radio group can re-pick its Tab stop. */
+  onTreeChange: () => void;
   depth?: number;
 }) {
   const hasChildren = node.children.length > 0;
@@ -161,6 +222,7 @@ function GroupPickerNode({
   // placeable subgroup is never hidden behind a collapsed blocked parent.
   const [expanded, setExpanded] = useState(() => hasTargetBelow(node, selected));
   const { group } = node;
+  useLayoutEffect(onTreeChange, [expanded, onTreeChange]);
   const isCurrent = group.id === currentGroupId;
   const note = group.can_place_boards ? undefined : isCurrent ? CURRENT_GROUP_NOTE : NOT_PLACEABLE_REASON;
 
@@ -210,6 +272,7 @@ function GroupPickerNode({
                   selected={selected}
                   currentGroupId={currentGroupId}
                   onSelect={onSelect}
+                  onTreeChange={onTreeChange}
                   depth={depth + 1}
                 />
               </div>
@@ -228,7 +291,7 @@ function PickerRow({
   icon: string;
   selected: boolean;
   onSelect: () => void;
-  /** The caller may not choose this row: aria-disabled (stays focusable), no click. */
+  /** The caller may not choose this row: aria-disabled (stays focusable and in the arrow-key order, never selected), no click. */
   blocked?: boolean;
   /** Inline note (the block reason, or "Current group"), tied to the row by aria-describedby. */
   note?: string;
@@ -238,7 +301,8 @@ function PickerRow({
     <button
       type="button"
       onClick={blocked ? undefined : onSelect}
-      aria-pressed={selected}
+      role="radio"
+      aria-checked={selected}
       aria-disabled={blocked || undefined}
       aria-describedby={note ? noteId : undefined}
       className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded text-left transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
@@ -247,10 +311,13 @@ function PickerRow({
           : selected ? "bg-primary-emphasis/20 text-info-on-tint" : "hover:bg-surface-hover text-fg-secondary"
       }`}
     >
-      <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
-        selected ? "border-primary-soft" : "border-line-strong"
-      }`}>
-        {selected && <span className="w-1.5 h-1.5 rounded-full bg-primary-soft" />}
+      {/* Non-color selection cue (#2171), the same check slot as SingleSelectDropdown. Reserves its width on every row. */}
+      <span aria-hidden="true" className="shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+        {selected && (
+          <svg data-testid="move-board-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8.5l3.5 3.5L13 4.5" />
+                  </svg>
+        )}
       </span>
       <span>{icon}</span>
       <span className="flex-1 truncate font-medium" title={label}>{label}</span>

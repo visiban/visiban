@@ -97,15 +97,17 @@ export default function CustomFieldQuickEditPopover({ anchorRect, choices, selec
         aria-label="Choices"
         tabIndex={0}
         onScroll={onScroll}
-        className="min-h-0 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+        className="min-h-0 overflow-y-auto scroll-pb-8 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
       >
       <button
         role="option"
         aria-selected={selected === ""}
         onClick={() => { onSelect(""); onDismiss(); }}
-        className={`w-full text-left px-2.5 py-1 text-xs rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${selected === "" ? "bg-surface-hover text-fg" : "text-fg-muted hover:bg-surface-hover"}`}
+        className={`w-full text-left px-2.5 py-1 text-xs rounded transition flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${selected === "" ? "bg-surface-hover text-fg" : "text-fg-muted hover:bg-surface-hover"}`}
       >
-        — No value —
+        <span className="truncate">— No value —</span>
+        {/* Non-color selection cue (#2171), the same check the choice rows carry. */}
+        {selected === "" && <span data-testid="quick-edit-no-value-mark" className="text-info shrink-0">✓</span>}
       </button>
       {choices.map((choice) => (
         <button

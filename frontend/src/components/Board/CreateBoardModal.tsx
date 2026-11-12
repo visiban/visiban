@@ -251,6 +251,15 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                               {ICONS[t.slug] ?? FALLBACK_ICON}
                             </span>
                             <span className="text-fg text-sm font-medium leading-tight">{t.name}</span>
+                            {/* Non-color selection cue (#2171): the card's border and tint alone fail WCAG 1.4.1. */}
+                            {/* Reserved slot so selecting never rewraps a long name. */}
+                            <span aria-hidden="true" className="ml-auto w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info">
+                              {isSelected && (
+                                <svg data-testid="template-selected-mark" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 8.5l3.5 3.5L13 4.5" />
+                                </svg>
+                              )}
+                            </span>
                           </div>
 
                           {/* Description */}
@@ -302,6 +311,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             <p className="text-fg-tertiary text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
                           </div>
                           <span className="text-fg-muted text-xs flex-shrink-0">No preset columns</span>
+                          {/* Reserved slot so selecting the row does not shift its text. */}
+                          <span aria-hidden="true" className="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info">
+                            {isSelected && (
+                              <svg data-testid="template-selected-mark" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 8.5l3.5 3.5L13 4.5" />
+                              </svg>
+                            )}
+                          </span>
                         </label>
                       </div>
                     );

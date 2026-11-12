@@ -193,6 +193,8 @@ describe("MultiSelectDropdown (#1391)", () => {
       vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
       await withTrigger(100, 130);
       expect(screen.getByTestId("multiselect-more-below")).toBeInTheDocument();
+      // The fade covers the bottom 32px, so the active option scrolls clear of it (#2180).
+      expect(screen.getByRole("listbox")).toHaveClass("scroll-pb-8");
       const list = screen.getByRole("listbox");
       list.scrollTop = 300;
       fireEvent.scroll(list);

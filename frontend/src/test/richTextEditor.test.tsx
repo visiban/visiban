@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
 import { useEditor, ReactRenderer } from '@tiptap/react'
@@ -692,6 +693,33 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     document.querySelectorAll('[data-testid="mention-popup"]').forEach((el) => el.remove())
+  })
+
+  // #2163 — the mention list is anchored to the caret in a text input, so a
+  // list that fits neither side takes the larger one, capped and scrollable.
+  it('caps the popup to the larger side instead of pinning over the caret', () => {
+    const { renderer, editor } = setup()
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(700)
+    renderer.onStart({ editor, clientRect: () => rect(380) })
+    const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
+    expect(popup.style.overflowY).toBe('auto')
+    expect(popup.style.top).toBe('8px')
+    expect(popup.style.maxHeight).toBe('368px')
+  })
+
+  it('caps the popup to the visible viewport when the keyboard shrinks it (#2163)', () => {
+    // 400 visible, caret 100-120: 400 - 8 - 124 = 268 below beats 88 above; the 768px window would allow 636.
+    stubVisualViewport({ height: 400 })
+    try {
+      const { renderer, editor } = setup()
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(700)
+      renderer.onStart({ editor, clientRect: () => rect(100) })
+      const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
+      expect(popup.style.top).toBe('124px')
+      expect(popup.style.maxHeight).toBe('268px')
+    } finally {
+      clearVisualViewport()
+    }
   })
 
   it('places the popup below the caret, re-anchors on outside scroll, and cleans up on exit', () => {

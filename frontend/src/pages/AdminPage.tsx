@@ -512,6 +512,7 @@ function TransferResultsPanel({ anchor, count, onDismiss, children }: {
       panelRef={ref}
       onDismiss={onDismiss}
       mode="inline"
+      inputAnchored
       deps={[count]}
       minWidth={anchor ? anchor.right - anchor.left : 0}
     >

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SelectDropdown from '../components/Common/SelectDropdown'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
@@ -244,6 +244,15 @@ describe('SelectDropdown', () => {
       expect(outer).toHaveBeenCalledTimes(1)
     })
 
+    it('marks the selected option with a check mark, not color alone (#2171)', async () => {
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const selected = screen.getAllByRole('option').filter((o) => o.getAttribute('aria-selected') === 'true')
+      expect(selected).toHaveLength(1)
+      expect(within(selected[0]).getByTestId('select-selected-mark')).toBeInTheDocument()
+      expect(screen.getAllByTestId('select-selected-mark')).toHaveLength(1)
+    })
+
     it('shows the overflow fade only while more options sit below the fold', async () => {
       mockGeometry(100, 130, 120)
       vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
@@ -251,6 +260,8 @@ describe('SelectDropdown', () => {
       renderIt()
       await userEvent.click(screen.getByRole('combobox'))
       expect(screen.getByTestId('select-more-below')).toBeInTheDocument()
+      // The fade covers the bottom 32px, so the active option scrolls clear of it (#2180).
+      expect(screen.getByRole('listbox')).toHaveClass('scroll-pb-8')
     })
 
     it('caps the panel width to the viewport', async () => {
@@ -526,6 +537,8 @@ describe('SingleSelectDropdown', () => {
         render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
         await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
         expect(screen.getByTestId('singleselect-more-below')).toBeInTheDocument()
+        // The fade covers the bottom 32px, so a focused item scrolls clear of it (#2180).
+        expect(screen.getByRole('menu').firstElementChild).toHaveClass('scroll-pb-8')
         sh.mockReturnValue(100)
       })
 

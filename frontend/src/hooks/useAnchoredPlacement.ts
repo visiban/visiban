@@ -93,6 +93,22 @@ interface PlacementInput {
    * which would cover the field being typed in.
    */
   lockedSide?: AnchoredSide;
+  /**
+   * The anchor is a text input the user is typing in (#2163). A list that fits
+   * neither below nor above is then never `pinned` (that can cover the input);
+   * it takes the larger side and reports a `maxHeight` that fits it, so the
+   * caller can cap the list and let it scroll, as `MentionTextarea` does.
+   * `height` must be the list's natural (uncapped) height. Ignored in `side`
+   * mode, which has no input anchor.
+   */
+  inputAnchored?: boolean;
+}
+
+interface Placement {
+  top: number;
+  side: AnchoredSide;
+  /** Set only for an `inputAnchored` list that did not fit on either side: the height that fits the side taken. */
+  maxHeight?: number;
 }
 
 /**
@@ -105,20 +121,20 @@ interface PlacementInput {
  * Never estimate `height` from an item count — a popover sized to its content
  * is the whole point.
  */
-export function computeAnchoredPlacement(input: PlacementInput): { top: number; side: AnchoredSide } {
+export function computeAnchoredPlacement(input: PlacementInput): Placement {
   const vt = input.viewportTop ?? 0;
   if (vt === 0) return computeInVisibleBox(input);
   // Solve in the visible box's own coordinates, then shift back.
   const placement = computeInVisibleBox({
     ...input, anchorTop: input.anchorTop - vt, anchorBottom: input.anchorBottom - vt,
   });
-  return { top: placement.top + vt, side: placement.side };
+  return { ...placement, top: placement.top + vt };
 }
 
 function computeInVisibleBox({
   anchorTop, anchorBottom, height, viewportHeight, mode = "below",
-  margin = POPOVER_VIEWPORT_MARGIN, gap = 4, lockedSide,
-}: PlacementInput): { top: number; side: AnchoredSide } {
+  margin = POPOVER_VIEWPORT_MARGIN, gap = 4, lockedSide, inputAnchored = false,
+}: PlacementInput): Placement {
   const pinned = Math.max(margin, viewportHeight - margin - height);
   if (mode === "side") {
     return anchorTop + height <= viewportHeight - margin
@@ -131,10 +147,19 @@ function computeInVisibleBox({
   const fitsAbove = above >= margin;
   if (lockedSide === "below" && fitsBelow) return { top: below, side: "below" };
   if (lockedSide === "above" && fitsAbove) return { top: above, side: "above" };
-  if (lockedSide === "pinned") return { top: pinned, side: "pinned" };
+  if (lockedSide === "pinned" && !inputAnchored) return { top: pinned, side: "pinned" };
   // Unlocked, or grown past the edge on its locked side: choose again.
   if (fitsBelow) return { top: below, side: "below" };
   if (fitsAbove) return { top: above, side: "above" };
+  if (inputAnchored) {
+    // Neither side fits: take the larger one and cap the list to it (#2163),
+    // never pinned over the input being typed in.
+    const roomBelow = Math.max(0, viewportHeight - margin - below);
+    const roomAbove = Math.max(0, anchorTop - gap - margin);
+    return roomBelow >= roomAbove
+      ? { top: below, side: "below", maxHeight: roomBelow }
+      : { top: anchorTop - gap - roomAbove, side: "above", maxHeight: roomAbove };
+  }
   return { top: pinned, side: "pinned" };
 }
 
@@ -159,15 +184,23 @@ export function placeFixedElement(
   el: HTMLElement,
   anchor: { top: number; bottom: number; left: number },
   lockedSide?: AnchoredSide,
+  /** The anchor is a caret or text input (#2163): never pin; cap `maxHeight` to the larger side instead. */
+  inputAnchored = false,
 ): AnchoredSide | undefined {
+  // Measure the natural height: a cap from an earlier placement would otherwise
+  // make the list look like it fits, lift the cap, and flip back (#2163).
+  const priorMaxHeight = el.style.maxHeight;
+  if (inputAnchored) el.style.maxHeight = "none";
   const height = el.offsetHeight;
+  if (inputAnchored) el.style.maxHeight = priorMaxHeight;
   if (height === 0) return undefined;
   el.style.left = `${anchor.left}px`;
   const vv = getVisibleViewport();
   const placement = computeAnchoredPlacement({
     anchorTop: anchor.top, anchorBottom: anchor.bottom, height,
-    viewportHeight: vv.height, viewportTop: vv.top, lockedSide,
+    viewportHeight: vv.height, viewportTop: vv.top, lockedSide, inputAnchored,
   });
+  if (inputAnchored) el.style.maxHeight = placement.maxHeight === undefined ? "" : `${placement.maxHeight}px`;
   el.style.top = `${placement.top}px`;
   el.style.visibility = "";
   return placement.side;
@@ -188,6 +221,8 @@ interface Options {
    * as its own list, is ignored (#1455 rule (c)).
    */
   onOutsideScroll?: () => void;
+  /** The anchor is a text input (#2163): see `PlacementInput.inputAnchored`. Use `useInputAnchoredPlacement`, which returns the cap. */
+  inputAnchored?: boolean;
 }
 
 /**
@@ -205,9 +240,43 @@ interface Options {
  */
 export function useAnchoredPlacement(
   panelRef: RefObject<HTMLElement | null>,
-  { anchor, mode = "below", deps = [], onResize, onOutsideScroll }: Options,
+  options: Omit<Options, "inputAnchored">,
 ): number | null {
-  const [top, setTop] = useState<number | null>(null);
+  return usePlacement(panelRef, options).top;
+}
+
+/**
+ * `useAnchoredPlacement` for a list anchored to a text input (#2163). It is
+ * never `pinned` over the input: when it fits neither above nor below, it takes
+ * the larger side and returns a `maxHeight` (px) that fits it. Apply it to the
+ * panel's style (`maxHeight: maxHeight ?? visibleMaxHeight(...)`) and keep the
+ * list scrollable inside. The natural height is measured with any such cap
+ * lifted, so a capped list does not flip sides as the cap changes.
+ */
+export function useInputAnchoredPlacement(
+  panelRef: RefObject<HTMLElement | null>,
+  options: Omit<Options, "inputAnchored" | "mode">,
+): { top: number | null; maxHeight: number | undefined } {
+  return usePlacement(panelRef, { ...options, inputAnchored: true });
+}
+
+/**
+ * The shared implementation: `top` plus the `maxHeight` an `inputAnchored` list
+ * needs (#2163). Prefer `useAnchoredPlacement` or `useInputAnchoredPlacement`;
+ * this is for a component whose anchor kind is a prop.
+ */
+export function useAnchoredPlacementFit(
+  panelRef: RefObject<HTMLElement | null>,
+  options: Omit<Options, "mode">,
+): { top: number | null; maxHeight: number | undefined } {
+  return usePlacement(panelRef, options);
+}
+
+function usePlacement(
+  panelRef: RefObject<HTMLElement | null>,
+  { anchor, mode = "below", deps = [], onResize, onOutsideScroll, inputAnchored = false }: Options,
+): { top: number | null; maxHeight: number | undefined } {
+  const [placed, setPlaced] = useState<{ top: number; maxHeight: number | undefined } | null>(null);
   // Bumped on a visualViewport resize/scroll (#2138) so the layout effect below re-places the panel.
   const [viewportTick, setViewportTick] = useState(0);
   const anchorTop = anchor?.top;
@@ -218,7 +287,7 @@ export function useAnchoredPlacement(
   useLayoutEffect(() => {
     if (anchorTop === undefined || anchorBottom === undefined) {
       lockRef.current = null;
-      setTop(null);
+      setPlaced(null);
       return;
     }
     const lock = lockRef.current;
@@ -226,15 +295,22 @@ export function useAnchoredPlacement(
       ? lock.side
       : undefined;
     const vv = getVisibleViewport();
+    const panel = panelRef.current;
+    // Natural height: lift a cap from an earlier placement while measuring (#2163).
+    const priorMaxHeight = panel?.style.maxHeight ?? "";
+    if (inputAnchored && panel) panel.style.maxHeight = "none";
+    const height = panel?.offsetHeight ?? 0;
+    if (inputAnchored && panel) panel.style.maxHeight = priorMaxHeight;
     const placement = computeAnchoredPlacement({
-      anchorTop, anchorBottom, mode, lockedSide,
-      height: panelRef.current?.offsetHeight ?? 0,
+      anchorTop, anchorBottom, mode, lockedSide, height, inputAnchored,
       viewportHeight: vv.height, viewportTop: vv.top,
     });
     lockRef.current = { anchorTop, anchorBottom, side: placement.side };
-    setTop(placement.top);
+    setPlaced((prev) => (prev && prev.top === placement.top && prev.maxHeight === placement.maxHeight
+      ? prev
+      : { top: placement.top, maxHeight: placement.maxHeight }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `deps` is the caller's list of height-affecting inputs
-  }, [anchorTop, anchorBottom, mode, panelRef, viewportTick, ...deps]);
+  }, [anchorTop, anchorBottom, mode, inputAnchored, panelRef, viewportTick, ...deps]);
 
   // The keyboard opening or closing changes the visible area without moving the
   // anchor or firing a window event the panel hears; re-place, never dismiss (#2138).
@@ -262,5 +338,5 @@ export function useAnchoredPlacement(
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [onOutsideScroll, anchorTop, panelRef]);
 
-  return top;
+  return { top: placed?.top ?? null, maxHeight: placed?.maxHeight };
 }
