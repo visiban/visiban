@@ -5316,7 +5316,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <tr>
 <td><code>403 Forbidden</code></td>
 <td><code>{"detail": "..."}</code></td>
-<td>Caller is not a site admin.</td>
+<td>Caller is not a site admin. <em>(1.3+)</em> A demotion (<code>is_site_admin: false</code>) or deactivation (<code>is_active: false</code>) verifies the caller's access again when the change is applied; if it no longer holds, this response is returned and nothing is changed.</td>
 </tr>
 <tr>
 <td><code>409 Conflict</code></td>
@@ -5405,6 +5405,10 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <tr>
 <td><code>400 Bad Request</code></td>
 <td>A board in the <code>transfers</code> list does not belong to this user</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>Caller is not a site admin. <em>(1.3+)</em> Caller's access is verified again when the deactivation is applied; if it no longer holds, this response is returned and nothing is changed</td>
 </tr>
 <tr>
 <td><code>409 Conflict</code></td>
