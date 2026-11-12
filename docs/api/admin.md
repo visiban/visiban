@@ -503,7 +503,7 @@ Clearing `is_site_admin` revokes the user's unused site invite links. Site invit
 |---|---|---|
 | `400 Bad Request` | `{"detail": "..."}` | Invalid field value, or attempting to demote yourself / the last active site admin, or to set `is_site_admin: false` on a superuser (remove superuser status first; the body carries both `detail` and an `is_site_admin` field error). |
 | `400 Bad Request` | `{"can_access_all_content": ["Only a superuser can grant all-content access."], "detail": "Only a superuser can grant all-content access."}` | *(1.3+)* Caller is not an active superuser and set `can_access_all_content: true` on an account that does not have it. Nothing in the request is applied. |
-| `403 Forbidden` | `{"detail": "..."}` | Caller is not a site admin. |
+| `403 Forbidden` | `{"detail": "..."}` | Caller is not a site admin. *(1.3+)* A demotion (`is_site_admin: false`) or deactivation (`is_active: false`) verifies the caller's access again when the change is applied; if it no longer holds, this response is returned and nothing is changed. |
 | `409 Conflict` | `{"code": "owned_boards", "detail": "...", "owned_boards": [{"id", "uid", "name"}, ...]}` | Caller attempted to set `is_active: false` on a user who owns one or more boards. Use [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate) instead and supply a `transfers` list. The `owned_boards` array identifies which boards block the deactivation. |
 
 ### `POST /api/v1/admin/users/{id}/deactivate/`
@@ -565,6 +565,7 @@ After a successful deactivation with transfers, `owned_boards` will be `[]` — 
 |---|---|
 | `400 Bad Request` | A `transfer_to` does not have access to the specified board (neither direct membership nor group-inherited access) |
 | `400 Bad Request` | A board in the `transfers` list does not belong to this user |
+| `403 Forbidden` | Caller is not a site admin. *(1.3+)* Caller's access is verified again when the deactivation is applied; if it no longer holds, this response is returned and nothing is changed |
 | `409 Conflict` | User owns one or more boards and no `transfers` were provided |
 
 If a `transfers` item is malformed (missing or non-integer `board_id` or `transfer_to`), the `400` body keys the item errors by zero-based item index, for example `{"transfers": {"1": {"board_id": ["A valid integer is required."]}}}`; valid items are omitted. Through 1.2.0-beta.1 (Django REST framework 3.17) this was an array with one entry per item.

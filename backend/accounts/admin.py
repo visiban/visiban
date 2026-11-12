@@ -449,6 +449,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             apply_access_loss_revocations,
             deactivation_refusal,
             demotion_refusal,
+            lock_admin_accounts,
         )
 
         with transaction.atomic():
@@ -467,15 +468,11 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             # save does not change the pk; if a submitted unique key (the
             # username) does change, PostgreSQL escalates that UPDATE to the
             # stronger mode by itself.
-            locked = list(
-                User.objects.select_for_update(no_key=True)
-                .filter(
-                    Q(pk=obj.pk)
-                    | Q(is_site_admin=True, is_active=True)
-                    | Q(is_superuser=True, is_active=True)
-                )
-                .order_by("pk")
-            )
+            #
+            # The same lock set (``lock_admin_accounts``) the admin API takes
+            # before a demotion or deactivation (#1956), so the two routes
+            # queue against each other in one order.
+            locked = lock_admin_accounts(obj.pk)
             stored = next((u for u in locked if u.pk == obj.pk), None)
             # clean() compared row_version before this lock; compare it again
             # with the locked row so a submission made against an older state

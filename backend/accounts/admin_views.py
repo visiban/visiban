@@ -1126,6 +1126,81 @@ def last_active_site_admin(target):
     return not User.objects.filter(is_site_admin=True, is_active=True).exclude(pk=target.pk).exists()
 
 
+def lock_admin_accounts(*pks):
+    """Lock the *pks* rows and every active site-admin and superuser row, in pk order.
+
+    One ``FOR NO KEY UPDATE`` statement ordered by pk, the lock set
+    ``VisibanUserAdmin.save_model`` takes, so every route that can lower the
+    number of active site admins (the admin API demotion and both
+    deactivation routes, the Django admin user form) acquires the rows in the
+    same order and queues instead of deadlocking. While it is held, no other
+    such route can change an active administrator's ``is_active``,
+    ``is_site_admin`` or ``is_superuser``, so the last-admin count and the
+    actor's standing read afterwards cannot move until this transaction ends,
+    and concurrent changes of this kind are judged in turn, each against the
+    state the previous one committed.
+
+    ``FOR NO KEY UPDATE`` for the reason given on :func:`lock_user_row`. Take
+    it as the first account-row lock of the transaction: a transaction that
+    already holds one account row and then asks for this set would not be in
+    pk order. Rows that start to match after the statement's snapshot (an
+    account promoted meanwhile) are not locked; that only raises the count.
+    Callers re-read state with fresh queries after this returns. A caller
+    that re-checks the actor's standing (:func:`actor_standing_refusal`) must
+    pass the actor's pk: an actor who is no longer an active administrator is
+    otherwise not in the set, and the re-check would judge an unlocked row.
+    """
+    return list(
+        User.objects.select_for_update(no_key=True)
+        .filter(
+            Q(pk__in=pks)
+            | Q(is_site_admin=True, is_active=True)
+            | Q(is_superuser=True, is_active=True)
+        )
+        .order_by("pk")
+    )
+
+
+def actor_standing_refusal(actor):
+    """``403`` unless *actor* is, on a fresh read, still an active site admin.
+
+    The permission check judged the account as loaded at authentication; a
+    caller holding :func:`lock_admin_accounts` reads it again so a change
+    committed meanwhile is seen. The body is the permission check's own.
+    """
+    if not User.objects.filter(pk=actor.pk, is_active=True, is_site_admin=True).exists():
+        return GuardRefusal(status.HTTP_403_FORBIDDEN, {"detail": IsSiteAdmin.message})
+    return None
+
+
+def site_admin_floor_refusal(locked_target, actor, *, deactivating=False, demoting=False):
+    """Refusal for lowering the active site-admin count, judged under :func:`lock_admin_accounts`.
+
+    The checks the admin API makes before its transaction run on unlocked
+    reads, so they are made again here on the locked rows (#1956): the actor
+    must still be an active site admin (another request may have demoted or
+    deactivated them since this request was authenticated; the refusal is the
+    ``403`` the permission check would now give), and *locked_target* must
+    not be the last active site admin. Refusal bodies match the ones the
+    unlocked checks return.
+    """
+    refusal = actor_standing_refusal(actor)
+    if refusal is not None:
+        return refusal
+    if (
+        (deactivating or demoting)
+        and locked_target.is_active
+        and locked_target.is_site_admin
+        and last_active_site_admin(locked_target)
+    ):
+        verb = "deactivate" if deactivating else "demote"
+        return GuardRefusal(
+            status.HTTP_400_BAD_REQUEST,
+            {"detail": f"Cannot {verb} the last active site admin."},
+        )
+    return None
+
+
 def deactivation_refusal(target, actor, *, include_last_site_admin=False):
     """The one rule set for deactivating *target* by *actor*, or ``None`` if allowed.
 
@@ -1296,7 +1371,18 @@ class AdminUserDetailView(APIView):
         if update_fields:
             # Atomic with the revocations below: a rolled-back deactivation must
             # not leave links revoked (and the on_commit broadcasts never fire).
+            deactivating = validated.get("is_active") is False
+            demoting = validated.get("is_site_admin") is False
             with transaction.atomic():
+                if deactivating or demoting:
+                    # The guards above ran on unlocked reads. Lock the target,
+                    # the actor and every active administrator first, in pk
+                    # order, so a concurrent demotion or deactivation of
+                    # another administrator queues behind this one and the
+                    # floor is judged again below on state that cannot move
+                    # (#1956). The target row is then already held, so
+                    # lock_user_row re-reads it without a second lock wait.
+                    lock_admin_accounts(target.pk, request.user.pk)
                 # Also what serializes a deactivation with the group
                 # admin-minimum guard (#1814): a member removal or demotion
                 # holds its group's admin account rows while it counts active
@@ -1330,6 +1416,12 @@ class AdminUserDetailView(APIView):
                 ):
                     # Same rule as above, on the locked row.
                     refusal = superuser_target_refusal(locked, request.user)
+                    if refusal is not None:
+                        return Response(refusal.body, status=refusal.status)
+                if deactivating or demoting:
+                    refusal = site_admin_floor_refusal(
+                        locked, request.user, deactivating=deactivating, demoting=demoting
+                    )
                     if refusal is not None:
                         return Response(refusal.body, status=refusal.status)
                 # All-content access reads and writes every board and group,
@@ -1906,6 +1998,17 @@ class AdminUserDeactivateView(APIView):
             # UPDATE takes anyway. It is also what serializes a deactivation
             # with the group admin-minimum guard, which holds the group's
             # admin account rows while it counts active admins (#1814).
+            #
+            # The target is locked together with the actor and every active
+            # administrator, in pk order (lock_admin_accounts), so concurrent
+            # deactivations and demotions are judged in turn, each against
+            # the state the previous one committed (#1956). The actor's
+            # standing is judged first, before anything about the target is
+            # answered; the get below re-reads the already-held target row.
+            lock_admin_accounts(pk, request.user.pk)
+            refusal = actor_standing_refusal(request.user)
+            if refusal is not None:
+                return Response(refusal.body, status=refusal.status)
             target = User.objects.select_for_update(no_key=True).get(pk=pk)
         except User.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -1925,6 +2028,11 @@ class AdminUserDeactivateView(APIView):
                 {"detail": "User is already inactive."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # The actor's standing and the site-admin floor, on the locked rows.
+        refusal = site_admin_floor_refusal(target, request.user, deactivating=True)
+        if refusal is not None:
+            return Response(refusal.body, status=refusal.status)
 
         from boards.models import Board
 
