@@ -140,6 +140,41 @@ class RedeliveryTests(unittest.TestCase):
         self.assertEqual([r["query"]["after"] for r in s.requests], ["0", "0"])
 
 
+class StoredCursorResumeTests(unittest.TestCase):
+    """#2159: the client resumes from its stored feed cursor.
+
+    Pins existing behavior; it is not coverage of the frame-ordering hazard,
+    because the client never sees a WebSocket frame.
+    """
+
+    def test_resumes_after_the_stored_feed_cursor(self):
+        # Scenario: the socket delivered frame 12 before frame 11 committed, then
+        # dropped. The stored feed cursor is still 10, so the read is after=10.
+        store = MemoryCursorStore()
+        store.set(1, 10)
+        page = {"status": 200, "body": {"results": [{"id": 11}, {"id": 12}], "next_cursor": None}}
+        with ScriptedServer([page]) as s:
+            ids = [e["id"] for e in Client(s.url, "vbn_x").iter_events(1, store=store)]
+        self.assertEqual(ids, [11, 12])
+        self.assertEqual(s.requests[0]["query"]["after"], "10")
+
+
+class BootstrapCursorTests(unittest.TestCase):
+    """Draining the feed from 0 leaves the store at the newest id (#2159 bootstrap)."""
+
+    def test_draining_from_zero_leaves_last_id_in_store(self):
+        pages = [
+            {"status": 200, "body": {"results": [{"id": 1}, {"id": 2}], "next_cursor": 2}},
+            {"status": 200, "body": {"results": [{"id": 3}], "next_cursor": None}},
+        ]
+        store = MemoryCursorStore()
+        with ScriptedServer(pages) as s:
+            for _ in Client(s.url, "vbn_x").iter_events(1, store=store, limit=2):
+                pass
+        self.assertEqual([r["query"]["after"] for r in s.requests], ["0", "2"])
+        self.assertEqual(store.get(1), 3)
+
+
 class ProtocolTests(unittest.TestCase):
     def _run(self, body, **kw):
         with ScriptedServer([{"status": 200, "body": body}]) as s:

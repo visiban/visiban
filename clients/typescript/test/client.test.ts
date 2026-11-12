@@ -240,6 +240,31 @@ describe("protocol", () => {
   });
 });
 
+// Pins existing behavior; it is not coverage of the frame-ordering hazard,
+// because the client never sees a WebSocket frame.
+describe("resume from the stored feed cursor (#2159)", () => {
+  it("resumes after the stored feed cursor", async () => {
+    // Scenario: the socket delivered frame 12 before frame 11 committed, then
+    // dropped. The stored feed cursor is still 10, so the read is after=10.
+    const { client, requests } = make([ok([{ id: 11 }, { id: 12 }])]);
+    const store = new MemoryCursorStore();
+    store.set(1, 10);
+    const got = (await drain(client.iterEvents(1, { store }))) as { id: number }[];
+    expect(got.map((e) => e.id)).toEqual([11, 12]);
+    expect(requests[0]?.query.after).toBe("10");
+  });
+});
+
+describe("bootstrap a first cursor (#2159)", () => {
+  it("draining the feed from 0 leaves the newest id in the store", async () => {
+    const { client, requests } = make([ok([{ id: 1 }, { id: 2 }], 2), ok([{ id: 3 }])]);
+    const store = new MemoryCursorStore();
+    await drain(client.iterEvents(1, { store, limit: 2 }));
+    expect(requests.map((r) => r.query.after)).toEqual(["0", "2"]);
+    expect(store.get(1)).toBe(3);
+  });
+});
+
 describe("redelivery and default store", () => {
   it("a new iterator after a handler throw redelivers the failed item", async () => {
     const page = { status: 200, body: { results: [{ id: 1 }, { id: 2 }], next_cursor: null } };

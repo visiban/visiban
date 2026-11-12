@@ -58,7 +58,7 @@ All messages from the server use the following shape:
 { "event": "<event_type>", "data": { ... }, "event_id": 84213 }
 ```
 
-`data` holds the serialized resource (card, column, swimlane, etc.) for the event. `event_id` (since 1.2) is the frame's id in the [change feed](events.md): keep the last one you processed and resume from it after a reconnect.
+`data` holds the serialized resource (card, column, swimlane, etc.) for the event. `event_id` (since 1.2) is the frame's id in the [change feed](events.md): use it to order and de-duplicate frames, never as a resume point: frames can arrive out of `event_id` order. Resume only from a feed cursor (see [How the two surfaces fit together](events.md#how-the-two-surfaces-fit-together)).
 
 ### Event types
 
