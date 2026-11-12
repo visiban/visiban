@@ -659,6 +659,8 @@ Join the group with the role configured on the invite link. Requires authenticat
 
 An emailed link (`delivery: "email"`) works only for an account with the address it was sent to. Otherwise the response is `403 {"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}`, nothing is written, and the link is not consumed. The same address rules apply as for [board invites](boards.md#post-apiv1boardsjointoken): verified addresses, plus the account's `email` unless `EMAIL_VERIFICATION=mandatory`, ignoring case. Shareable links and emailed links sent before upgrading to this version are not checked. Only a keyed fingerprint of the address is stored, and it is never returned.
 
+The framework's own `403`s carry `{"detail": "..."}` with no `code`: a personal access token that lacks the `write` scope, an account with a pending password or username change, or a session request that fails the CSRF check. Clients should branch on `code` only when it is present.
+
 **Response body** — returns the full group object (same shape as `GET /api/v1/groups/{id}/` but using the list serializer, without `ancestors`):
 
 ```json

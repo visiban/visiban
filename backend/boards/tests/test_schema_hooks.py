@@ -8,6 +8,7 @@ an undocumented error response.
 from django.test import TestCase
 
 from visiban.schema_hooks import (
+    _ERROR_ENVELOPE_SCHEMA,
     _PRE_VIEW_DETAIL_400_SCHEMA,
     _PRE_VIEW_FIELD_400_SCHEMA,
     _VALIDATION_ERROR_DESCRIPTION,
@@ -322,6 +323,80 @@ class GeneratedSchemaDocuments400Tests(TestCase):
                 ]
             },
         )
+
+
+class WidenDeclaredAuthErrorTests(TestCase):
+    """A declared 401/403 also admits DRF's ``{"detail"}`` refusal (#2181)."""
+
+    def _widen(self, status, schema):
+        response = {"description": "Declared", "content": {"application/json": {"schema": schema}}}
+        result = {"paths": {"/x/": {"post": {"responses": {status: response}}}}}
+        add_standard_error_responses(result, generator=None, request=None, public=True)
+        return response["content"]["application/json"]["schema"]
+
+    def test_wraps_a_declared_403_keeping_it_first(self):
+        ref = {"$ref": "#/components/schemas/BoardJoinRecipientMismatch"}
+        for status in ("401", "403"):
+            self.assertEqual(
+                self._widen(status, dict(ref)),
+                {"anyOf": [ref, _PRE_VIEW_DETAIL_400_SCHEMA]},
+            )
+
+    def test_extends_an_any_of_once_and_is_idempotent(self):
+        schema = self._widen("403", {"anyOf": [{"type": "string"}]})
+        self.assertEqual(schema, {"anyOf": [{"type": "string"}, _PRE_VIEW_DETAIL_400_SCHEMA]})
+        response = {"content": {"application/json": {"schema": schema}}}
+        result = {"paths": {"/x/": {"post": {"responses": {"403": response}}}}}
+        add_standard_error_responses(result, generator=None, request=None, public=True)
+        self.assertEqual(len(schema["anyOf"]), 2)
+
+    def test_leaves_the_plain_envelope_and_other_statuses_alone(self):
+        self.assertEqual(self._widen("403", dict(_ERROR_ENVELOPE_SCHEMA)), _ERROR_ENVELOPE_SCHEMA)
+        self.assertEqual(self._widen("404", {"type": "string"}), {"type": "string"})
+
+
+class GeneratedSchemaAuthErrorsTests(TestCase):
+    def test_every_401_and_403_accepts_a_detail_body(self):
+        """Every operation's 401/403 admits ``{"detail": "x"}`` (#2181)."""
+        from drf_spectacular.generators import SchemaGenerator
+        from jsonschema import Draft7Validator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        rejected, declared = [], 0
+        for path, item in schema["paths"].items():
+            for method, op in item.items():
+                if method not in ("get", "post", "put", "patch", "delete"):
+                    continue
+                for status in ("401", "403"):
+                    response = op["responses"].get(status)
+                    if response is None:
+                        continue
+                    body_schema = response.get("content", {}).get("application/json", {}).get("schema")
+                    if body_schema is None:
+                        continue
+                    if body_schema != _ERROR_ENVELOPE_SCHEMA:
+                        declared += 1
+                    validator = Draft7Validator(
+                        {**body_schema, "components": schema.get("components", {})}
+                    )
+                    if not validator.is_valid({"detail": "x"}):
+                        rejected.append(f"{method.upper()} {path} {status}")
+        self.assertGreater(declared, 0)  # the coded join 403s must be present
+        self.assertEqual(rejected, [])
+
+    def test_join_keeps_its_coded_403_documented(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        for path, name in (
+            ("/api/v1/boards/join/{token}/", "BoardJoinRecipientMismatch"),
+            ("/api/v1/groups/join/{token}/", "GroupJoinRecipientMismatch"),
+        ):
+            body = schema["paths"][path]["post"]["responses"]["403"]["content"]["application/json"]["schema"]
+            self.assertEqual(
+                body,
+                {"anyOf": [{"$ref": f"#/components/schemas/{name}"}, _PRE_VIEW_DETAIL_400_SCHEMA]},
+            )
 
 
 class PinNamedEnumsTests(TestCase):

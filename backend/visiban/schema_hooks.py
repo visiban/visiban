@@ -150,6 +150,32 @@ def _widen_declared_400(response, method, operation):
     media["schema"] = {"anyOf": [schema, *branches]}
 
 
+def _widen_declared_auth_error(response):
+    """Make an operation's own 401/403 also accept DRF's ``{"detail"}`` body (#2181).
+
+    A view declaring a coded 403 (the invite joins' ``BoardJoinRecipientMismatch``,
+    with ``code`` and ``detail`` both required) describes the body it builds,
+    but the same operation also answers framework refusals that render only
+    ``{"detail": "..."}``: ``TokenHasScope``, the pending password or username
+    change gates, a session CSRF failure. Same defect class as #2178's 400s.
+
+    The declared schema stays first and the union is ``anyOf``, not ``oneOf``,
+    so a body matching both arms is still valid. A response with no
+    JSON schema already is, or never described, the envelope: left alone.
+    Idempotent. Server behavior does not change.
+    """
+    media = response.get("content", {}).get("application/json")
+    if not media or not media.get("schema"):
+        return
+    schema = media["schema"]
+    if schema == _ERROR_ENVELOPE_SCHEMA or _PRE_VIEW_DETAIL_400_SCHEMA in schema.get("anyOf", ()):
+        return
+    if set(schema) == {"anyOf"}:
+        schema["anyOf"].append(_PRE_VIEW_DETAIL_400_SCHEMA)
+        return
+    media["schema"] = {"anyOf": [schema, _PRE_VIEW_DETAIL_400_SCHEMA]}
+
+
 def add_standard_error_responses(result, generator, request, public):
     """Document the standard DRF error envelope on every operation.
 
@@ -188,6 +214,8 @@ def add_standard_error_responses(result, generator, request, public):
                 }
             for status_code, (description, schema) in _STANDARD_ERROR_RESPONSES.items():
                 if status_code in responses:
+                    if status_code in ("401", "403"):
+                        _widen_declared_auth_error(responses[status_code])
                     continue
                 responses[status_code] = {
                     "description": description,
