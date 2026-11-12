@@ -89,6 +89,12 @@ function removeBoardRows(matches: (b: Board) => boolean): BoardsWrite {
 const GROUP_FULL_ACCESS_DESCRIPTION = "Full access to all groups and boards. This account's group role doesn't apply.";
 
 const GROUP_ROLES = ["admin", "member", "collaborator", "viewer"];
+const GROUP_ROLE_OPTIONS: { value: "admin" | "member" | "collaborator" | "viewer"; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "Member" },
+  { value: "collaborator", label: "Collaborator" },
+  { value: "viewer", label: "Viewer" },
+];
 
 // A stored role outside the known set is not named in the "not in effect" text:
 // the chip alone says what the member can do (same guard as the board panel).
@@ -159,6 +165,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // priority-0 handler below, which would navigate away from the page.
     if (confirmRemoveMemberId !== null) { setConfirmRemoveMemberId(null); return; }
     if (confirmRemoveLabelId !== null) { setConfirmRemoveLabelId(null); return; }
+    // Inline rename / description editors (#2170): handled here, not in the
+    // input's onKeyDown. The stack listens on `document` and runs after React's
+    // handler; once that handler's state change commits and focus moves to the
+    // trigger button, the priority-0 navigate handler below would no longer see
+    // an INPUT/TEXTAREA as the active element and would leave the page.
+    if (renaming) { handleRenameCancel(); return; }
+    if (editingDescription) { handleDescriptionCancel(); return; }
     return false;
   }, 40);
 
@@ -741,18 +754,32 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setRenaming(true);
   };
 
+  // Focus returns to the name button on Escape and committed Enter (#2170); a
+  // blur-commit never steals focus back from wherever the user went.
+  const renameTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusRenameTriggerRef = useRef(false);
+  useEffect(() => {
+    if (!renaming && focusRenameTriggerRef.current) {
+      focusRenameTriggerRef.current = false;
+      renameTriggerRef.current?.focus();
+    }
+  }, [renaming]);
+
   const handleRenameCancel = () => {
+    focusRenameTriggerRef.current = true;
     setRenaming(false);
     setRenameError(null);
   };
 
-  const handleRenameSave = async () => {
+  const handleRenameSave = async (restoreFocus = false) => {
     if (!group) return;
     const trimmed = renameValue.trim();
     if (!trimmed) {
       setRenameError("Group name cannot be empty.");
       return;
     }
+    // Set only once the editor is certain to close: an empty-name Enter keeps it open.
+    if (restoreFocus) focusRenameTriggerRef.current = true;
     if (trimmed === group.name) {
       setRenaming(false);
       return;
@@ -772,8 +799,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // void: handleRenameSave manages its own try/catch and reverts optimistic
     // state on failure, so there is nothing further to await here.
-    if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleRenameSave(); }
-    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleRenameCancel(); }
+    if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void handleRenameSave(true); }
+    // Escape is handled by the priority-40 useEscapeStack entry (#2170).
   };
 
   const handleDescriptionStart = () => {
@@ -783,7 +810,19 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setEditingDescription(true);
   };
 
+  // Escape returns focus to the description button (#2170); Enter inserts a
+  // newline and a blur-commit never steals focus back from where the user went.
+  const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusDescriptionTriggerRef = useRef(false);
+  useEffect(() => {
+    if (!editingDescription && focusDescriptionTriggerRef.current) {
+      focusDescriptionTriggerRef.current = false;
+      descriptionTriggerRef.current?.focus();
+    }
+  }, [editingDescription]);
+
   const handleDescriptionCancel = () => {
+    focusDescriptionTriggerRef.current = true;
     setEditingDescription(false);
     setDescriptionError(null);
   };
@@ -805,11 +844,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       writeGroup((g) => (g ? { ...g, description: prev } : g));
       setDescriptionError("Failed to save description. Please try again.");
     }
-  };
-
-  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape" && !isImeComposing(e)) { e.preventDefault(); handleDescriptionCancel(); }
-    // Enter inserts a newline — do not submit
   };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
@@ -1085,7 +1119,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={handleRenameKeyDown}
-                    onBlur={handleRenameSave}
+                    onBlur={() => { void handleRenameSave(); }}
                     className="text-fg text-2xl font-bold w-full bg-transparent border border-primary-emphasis rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                   />
                 ) : (
@@ -1093,6 +1127,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <h1 className="text-fg text-2xl font-bold">
                       {/* Button inside the heading keeps heading semantics and gives keyboard users Tab + Enter/Space rename (#1376). */}
                       <button
+                        ref={renameTriggerRef}
                         type="button"
                         onClick={handleRenameStart}
                         className="font-bold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -1129,7 +1164,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   rows={3}
                   value={descriptionValue}
                   onChange={(e) => setDescriptionValue(e.target.value)}
-                  onKeyDown={handleDescriptionKeyDown}
                   onBlur={handleDescriptionSave}
                   className="w-full bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
                   placeholder="Add a description…"
@@ -1139,6 +1173,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {/* Text region is a real button (Tab + Enter/Space) rather than a click handler on a div (#1376). */}
                   <button
                     type="button"
+                    ref={descriptionTriggerRef}
                     onClick={handleDescriptionStart}
                     className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
@@ -1452,20 +1487,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           // effective access. The stored role is kept (#2075).
                           <GroupFullAccessChip userId={m.user.id} role={m.role} />
                         )}
-                        {/* An admin-role row keeps its picker: it still counts toward the
-                            group's admin minimum and ownership transfer, so it stays
-                            editable. Any other all-content row has no picker because
-                            its role changes nothing. */}
-                        {(m.has_all_content_access !== true || m.role === "admin") && (
+                        {/* An all-content row below admin offers only the roles that have an
+                            effect: its stored role (it applies again if the access is revoked)
+                            and Admin, which counts toward the admin minimum and ownership
+                            transfer (#2165). Admin rows and rows without the flag keep the full picker. */}
+                        {(m.has_all_content_access !== true || GROUP_ROLES.includes(m.role)) && (
                         <SelectDropdown
                           value={m.role}
                           onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
-                          options={[
-                            { value: "admin", label: "Admin" },
-                            { value: "member", label: "Member" },
-                            { value: "collaborator", label: "Collaborator" },
-                            { value: "viewer", label: "Viewer" },
-                          ]}
+                          options={GROUP_ROLE_OPTIONS.filter(
+                            (o) => m.has_all_content_access !== true || m.role === "admin" || o.value === "admin" || o.value === m.role,
+                          )}
+                          ariaLabel={m.has_all_content_access === true ? `Group role for ${m.user.display_name || m.user.username}` : undefined}
                           size="xs"
                         />
                         )}
