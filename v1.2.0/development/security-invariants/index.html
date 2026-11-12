@@ -4996,6 +4996,13 @@ admins (<code>site_admin_field_visible</code>) and to <code>site_admin_roster_vi
 (an instance site admin on a lower board role). This discloses to a board admin which of the board's own members hold
 all-content access; it does not list anyone who is not already a member, and a
 reader below admin gets no key.</p>
+<p>That omission is deliberate and has a visible consequence (#2172). For a reader
+below admin, an all-content user whose explicit board row is <code>viewer</code> (or outside
+the role enum) shows the stored role and is absent from the assignee pickers,
+although <code>_get_assignable_member_ids</code> accepts them on the server. This fails
+closed: nothing is refused. No "assignable" signal or other serializer field is
+added for lower readers, because it would reveal instance-wide access to them.
+Pinned by <code>backend/boards/tests/test_all_content_hidden_from_readers_2172.py</code>.</p>
 <p><code>site_admin_roster_visible(role, viewer_is_site_admin)</code> returns true when the
 reader's board role is <code>site_admin</code> (which is what <code>can_access_all_content</code>
 resolves to) or the reader has <code>User.is_site_admin</code>, so a reader with
