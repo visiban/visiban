@@ -8149,7 +8149,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
-<td>The account must change its password or username first (<code>must_change_password</code> / <code>must_change_username</code>), or a personal access token lacks the <code>write</code> scope.</td>
+<td><code>{"detail": "..."}</code> with no <code>code</code>: the account must change its password or username first (<code>must_change_password</code> / <code>must_change_username</code>), a personal access token lacks the <code>write</code> scope, or a session request fails the CSRF check.</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
