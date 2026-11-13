@@ -5251,7 +5251,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Urgency badge:</strong> at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date (<code>⚑ 2d late</code> for overdue, <code>⏱ Tomorrow</code> for due-soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues; the badge is a <em>replacement</em> at lower densities, not an addition.</p>
+<p><strong>Urgency badge:</strong> at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a <em>replacement</em> at lower densities, not an addition. The flag and stopwatch icons appear under the <strong>Default</strong> <a href="#board-presets">board preset</a>; with <strong>Classic</strong> or no preset the badge keeps its earlier ⚑ / ⏱ text symbols and the dense due date stays plain colored text.</p>
 <p>Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the <strong>card peek</strong> (hover for 600 ms) as a single muted line — <code>Weight 5 · 3 attachments</code>. The full detail panel always shows everything.</p>
 <p><strong>Upgrading from 1.0:</strong> existing boards are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).</p>
 <h4 id="personal-density-override">Personal density override<a class="headerlink" href="#personal-density-override" title="Permanent link">&para;</a></h4>
@@ -5312,7 +5312,7 @@
 </tr>
 <tr>
 <td>Due date</td>
-<td>Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red</td>
+<td>Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red</td>
 </tr>
 <tr>
 <td>Weight</td>
@@ -5811,11 +5811,11 @@
 <tbody>
 <tr>
 <td><strong>Classic</strong></td>
-<td>The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own <a href="#card-density">card density</a>, no overlay.</td>
+<td>The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own <a href="#card-density">card density</a>, no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic.</td>
 </tr>
 <tr>
 <td><strong>Default</strong></td>
-<td>Standard density, no overlay.</td>
+<td>Standard density, no overlay, and the flag and stopwatch <a href="#card-density">urgency icons</a>.</td>
 </tr>
 </tbody>
 </table>
