@@ -214,7 +214,7 @@ export default function ColumnHeader({ boardColors, column, cards, boardId, isAd
       >
         {/* Row 1: collapse toggle, color dot, name, edit icon */}
         <div className="flex items-center gap-2">
-          <button
+          <button type="button"
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
             className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             title="Collapse column"

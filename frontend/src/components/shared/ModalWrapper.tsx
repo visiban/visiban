@@ -121,7 +121,7 @@ export default function ModalWrapper({
             {subtitle && <p className="text-fg-tertiary text-sm mt-0.5">{subtitle}</p>}
           </div>
           {dismissable && (
-            <button
+            <button type="button"
               onClick={onClose}
               className="flex-shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label="Close"

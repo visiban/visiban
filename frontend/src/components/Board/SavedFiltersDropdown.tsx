@@ -277,7 +277,7 @@ export default function SavedFiltersDropdown({
                     >
                       {f.name}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={(e) => { e.stopPropagation(); onDelete(f.id); }}
                       aria-label={`Delete saved filter "${f.name}"`}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

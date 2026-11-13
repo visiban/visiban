@@ -1375,7 +1375,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                       {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
                       aria-label={`Move ${b.name} to another group`}

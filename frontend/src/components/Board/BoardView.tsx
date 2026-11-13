@@ -2872,6 +2872,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           {isAdmin && (
             <Tooltip content={`Board settings (${formatShortcut({ mod: true, key: "," })})`}>
               <button
+                type="button"
                 onClick={() => setShowSettings(true)}
                 className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 aria-label="Board settings"

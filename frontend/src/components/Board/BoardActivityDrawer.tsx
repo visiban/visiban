@@ -65,7 +65,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
           <div className="text-sm font-medium text-fg">Activity</div>
           <div className="text-xs text-fg-muted">Live · board events</div>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           aria-label="Close activity drawer"
           className="text-fg-tertiary hover:text-fg hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

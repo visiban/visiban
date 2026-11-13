@@ -6,7 +6,7 @@ import { BOARD_FULL, CARD } from './fixtures/board'
 // reports 0-sized rects, so Vitest cannot show that an arrow press moves the
 // row by one item (dnd-kit's default keyboard coordinates move a fixed ~25px
 // and never cross a neighbor). This runs in a real browser: Tab to the handle,
-// Space to lift, ArrowDown, Space to drop, then assert the new order and the
+// Space to lift, ArrowDown twice, Space to drop, then assert the new order and the
 // reorder request.
 
 const defBase = {
@@ -36,28 +36,44 @@ async function openSettingsTab(page: Page, tab: string) {
   await page.getByRole('button', { name: tab }).click()
 }
 
-async function reorderFirstDown(page: Page, firstName: string, secondName: string) {
-  const handle = page.getByRole('button', { name: `Drag to reorder ${firstName}` })
+async function reorderFirstToLast(page: Page, names: [string, string, string]) {
+  const [first, second, third] = names
+  const handle = page.getByRole('button', { name: `Drag to reorder ${first}` })
   await handle.focus()
   await expect(handle).toBeFocused()
   await page.keyboard.press('Space')
   // KeyboardSensor attaches its arrow-key listener on a later tick than the
-  // pick-up, so an arrow pressed before the first "moved over" announcement is dropped.
+  // pick-up, so an arrow pressed before the pick-up announcement is dropped.
   await expect(page.getByText(/Draggable item 1 was moved over droppable area 1/)).toBeAttached()
+  // Each press is gated on its own announcement (never on timing). With
+  // dnd-kit's default ~25px coordinate getter the item moves a fixed distance
+  // and needs many presses to cross a neighbor, so the press budget below is
+  // what proves `sortableKeyboardCoordinates` is wired (#1739): one press per
+  // neighbor. Only the FIRST press may be dropped: dnd-kit ignores an arrow
+  // pressed before its keyboard listener and droppable rects are ready (the
+  // pick-up announcement lands first), so that one press is retried once.
+  let presses = 0
+  await expect(async () => {
+    presses += 1
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByText(/Draggable item 1 was moved over droppable area 2/)).toBeAttached({ timeout: 1_000 })
+  }).toPass({ timeout: 15_000 })
+  expect(presses, 'one ArrowDown must move over the next item (a dropped first key allows one retry)').toBeLessThanOrEqual(2)
+  // The listener is live by now, so the second neighbor takes exactly one press.
   await page.keyboard.press('ArrowDown')
-  // dnd-kit announces the target it is hovering; dropping before that lands
-  // would drop on the origin.
-  await expect(page.getByText(new RegExp(`over droppable area 2`))).toBeAttached()
+  await expect(page.getByText(/Draggable item 1 was moved over droppable area 3/)).toBeAttached()
   await page.keyboard.press('Space')
-  // The second row's handle is now first in DOM order.
+  await expect(page.getByText(/Draggable item 1 was dropped over droppable area 3/)).toBeAttached()
   const handles = page.getByRole('button', { name: /^Drag to reorder / })
-  await expect(handles.first()).toHaveAccessibleName(`Drag to reorder ${secondName}`)
+  await expect(handles.nth(0)).toHaveAccessibleName(`Drag to reorder ${second}`)
+  await expect(handles.nth(1)).toHaveAccessibleName(`Drag to reorder ${third}`)
+  await expect(handles.nth(2)).toHaveAccessibleName(`Drag to reorder ${first}`)
 }
 
 test.describe('custom-field keyboard reorder (#1739)', () => {
   test.use({ viewport: { width: 1600, height: 900 } })
 
-  test('Card fields: Space, ArrowDown, Space moves the row down one place', async ({ page }) => {
+  test('Card fields: Space, ArrowDown twice, Space moves the row to the end', async ({ page }) => {
     let sent: { order: number[] } | null = null
     await page.route('**/custom-fields/reorder/', (route) => {
       sent = route.request().postDataJSON()
@@ -68,11 +84,11 @@ test.describe('custom-field keyboard reorder (#1739)', () => {
       })
     })
     await openSettingsTab(page, 'Card fields')
-    await reorderFirstDown(page, 'Alpha', 'Bravo')
-    await expect.poll(() => sent).toEqual({ order: [2, 1, 3] })
+    await reorderFirstToLast(page, ['Alpha', 'Bravo', 'Charlie'])
+    await expect.poll(() => sent).toEqual({ order: [2, 3, 1] })
   })
 
-  test('Swimlane fields: Space, ArrowDown, Space moves the row down one place', async ({ page }) => {
+  test('Swimlane fields: Space, ArrowDown twice, Space moves the row to the end', async ({ page }) => {
     let sent: { order: number[] } | null = null
     await page.route('**/swimlane-custom-fields/reorder/', (route) => {
       sent = route.request().postDataJSON()
@@ -83,7 +99,7 @@ test.describe('custom-field keyboard reorder (#1739)', () => {
       })
     })
     await openSettingsTab(page, 'Swimlane fields')
-    await reorderFirstDown(page, 'Owner', 'Region')
-    await expect.poll(() => sent).toEqual({ order: [2, 1, 3] })
+    await reorderFirstToLast(page, ['Owner', 'Region', 'Team'])
+    await expect.poll(() => sent).toEqual({ order: [2, 3, 1] })
   })
 })

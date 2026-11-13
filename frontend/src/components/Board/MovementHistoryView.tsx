@@ -97,7 +97,7 @@ function SlideInPanel({ movement, relatedMovements, onClose, user }: SlideInPane
         <h2 className="text-sm font-medium text-fg pr-2 leading-snug line-clamp-2">
           {movement.card_title}
         </h2>
-        <button
+        <button type="button"
           ref={closeRef}
           onClick={onClose}
           className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

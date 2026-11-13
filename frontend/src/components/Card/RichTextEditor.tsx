@@ -193,11 +193,13 @@ function ColorPicker({
         title="Text color"
         aria-label="Text color"
         aria-expanded={open}
-        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis flex items-center gap-1 ${
+        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis relative flex items-center gap-1 ${
           active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
         <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "rgb(var(--fg-tertiary))"}` }}>A</span>
+        {/* Menu trigger, not a toggle (no aria-pressed): the underline is the non-color cue that a color is set (#2188). */}
+        <ActiveUnderline active={active} />
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-2.5 w-40">

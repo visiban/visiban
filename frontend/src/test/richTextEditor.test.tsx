@@ -444,6 +444,42 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
     }
   })
 
+  it('shows a set text color as a pressed swatch and an underline on the trigger (#2188)', () => {
+    const { editor } = makeFakeEditor('current markdown', '#f87171')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      const trigger = screen.getByTitle('Text color')
+      // Menu trigger, not a toggle: no aria-pressed, but the non-color cue shows.
+      expect(trigger).not.toHaveAttribute('aria-pressed')
+      expect(within(trigger).getByTestId('active-underline')).toBeInTheDocument()
+      fireEvent.mouseDown(trigger)
+      const red = screen.getByRole('button', { name: 'Text color Red' })
+      expect(red).toHaveAttribute('aria-pressed', 'true')
+      expect(red).toHaveClass('ring-fg')
+      for (const name of ['Default', 'White', 'Orange', 'Blue']) {
+        const other = screen.getByRole('button', { name: `Text color ${name}` })
+        expect(other).toHaveAttribute('aria-pressed', 'false')
+        expect(other).not.toHaveClass('ring-fg')
+      }
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('shows no underline on the text color trigger when no color is set (#2188)', () => {
+    const { editor } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      expect(within(screen.getByTitle('Text color')).queryByTestId('active-underline')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
   it('ColorPicker swatch selection calls setColor, and the Default swatch calls unsetColor', () => {
     const { editor, calls } = makeFakeEditor()
     vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
