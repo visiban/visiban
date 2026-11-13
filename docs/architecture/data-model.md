@@ -158,7 +158,7 @@ SavedFilter
  ├── user → User
  ├── board → Board
  ├── name (str)
- ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate)
+ ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate, customFields, visibleCustomFieldFilterIds)
  └── unique_together: (user, board, name)
 
 Notification

@@ -3824,14 +3824,14 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                     )
         if "priorities" in value:
             prios = value["priorities"]
-            if not isinstance(prios, list) or not all(p in self._STATE_V1_PRIORITIES for p in prios):
+            if not isinstance(prios, list) or not all(isinstance(p, str) and p in self._STATE_V1_PRIORITIES for p in prios):
                 raise serializers.ValidationError(
                     f"state_json.priorities must be a list with values from {sorted(self._STATE_V1_PRIORITIES)}."
                 )
         if "dueDate" in value:
             # None is the "no filter" value in the frontend FilterState type;
             # it round-trips through saved presets so we must accept it here.
-            if value["dueDate"] is not None and value["dueDate"] not in self._STATE_V1_DUE_DATE:
+            if value["dueDate"] is not None and not (isinstance(value["dueDate"], str) and value["dueDate"] in self._STATE_V1_DUE_DATE):
                 raise serializers.ValidationError(
                     f"state_json.dueDate must be null or one of {sorted(self._STATE_V1_DUE_DATE)}."
                 )
@@ -3869,6 +3869,9 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             if not isinstance(entry, dict):
                 raise err("state_json.customFields values must be objects.")
             kind = entry.get("kind")
+            # A list/dict kind is unhashable and would 500 on the set lookups below.
+            if not isinstance(kind, str):
+                kind = None
             if kind == "text":
                 if not isinstance(entry.get("query"), str) or len(entry["query"]) > cap:
                     raise err(f"state_json.customFields text query must be a string of at most {cap} characters.")

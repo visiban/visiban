@@ -565,7 +565,7 @@ Top-level keys are validated server-side. Unknown keys are rejected; each known 
 | `labelIds` | integer[] | Label IDs to include |
 | `priorities` | string[] | Subset of `low`, `medium`, `high`, `urgent` |
 | `dueDate` | string \| null | One of `overdue`, `today`, `this_week`, `none`, or `null` for "no filter" |
-| `customFields` | object | Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is `{kind: "text", query}`, `{kind: "number" \| "date", equals}` (strings), or `{kind: "choice" \| "multi_choice", values}` (at most 50 strings). Strings are capped at 500 characters. Fixed in 1.2.x: earlier builds rejected this key (#2213) |
+| `customFields` | object | Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is `{kind: "text", query}`, `{kind: "number" \| "date", equals}` (strings), or `{kind: "choice" \| "multi_choice", values}` (at most 50 strings). Strings are capped at 500 characters. |
 | `visibleCustomFieldFilterIds` | integer[] | IDs of custom-field filters shown in the filter bar, at most 50 |
 
 All keys are optional. The total serialized size of `state_json` must not exceed 64 KB.
