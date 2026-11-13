@@ -951,13 +951,16 @@ def classify_ts(type_text: str, unions: dict[str, frozenset[str]]) -> TypeInfo:
         return TypeInfo(UNKNOWN, nullable, None, UNKNOWN)
 
     literals = {p[1:-1] for p in rest if len(p) >= 2 and p[0] in "\"'" and p[-1] == p[0]}
+    # `_clean_enum` runs on this side too: a blankable choice field whose
+    # frontend union spells its blank value (`"" | "above" | "below"`, #1122)
+    # matches a schema enum that `_clean_enum` already stripped of `""`.
     if literals and len(literals) == len(rest):
-        return TypeInfo("string", nullable, frozenset(literals), "string")
+        return TypeInfo("string", nullable, _clean_enum(frozenset(literals)), "string")
 
     if len(rest) == 1:
         one = rest[0]
         if one in unions:
-            return TypeInfo("string", nullable, unions[one], "string")
+            return TypeInfo("string", nullable, _clean_enum(unions[one]), "string")
         if one.endswith("[]") or one.startswith("Array<"):
             return TypeInfo("array", nullable, None, "array", _ts_item_name(one))
         if one in _TS_PRIMITIVES:
@@ -1406,6 +1409,14 @@ def self_test() -> int:
               and classify_ts("LeadingPipeRole", unions).enum == frozenset({"admin", "viewer"}))
         check("a non-union alias resolves to nothing rather than an empty enum",
               "NotAUnion" not in unions)
+
+        # A blankable choice field's TS union may spell its blank value. The
+        # schema side drops `""` in `_clean_enum`; the TS side must too, or every
+        # such field reports a false enum mismatch (#1122 threshold_direction).
+        check("a TS literal union drops its blank member like the schema side",
+              classify_ts('"" | "above" | "below"', {}).enum == frozenset({"above", "below"}))
+        check("a TS alias union drops its blank member like the schema side",
+              classify_ts("Dir", {"Dir": frozenset({"", "above"})}).enum == frozenset({"above"}))
 
         # A `=>` must not be read as a closing bracket. When it was, every field
         # after the first function-typed one vanished and the gate silently
