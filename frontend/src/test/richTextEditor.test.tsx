@@ -5,6 +5,8 @@ import type { Element as HastElement, Root } from 'hast'
 import { useEditor, ReactRenderer } from '@tiptap/react'
 import MentionExtension from '@tiptap/extension-mention'
 import RichTextEditor from '../components/Card/RichTextEditor'
+import ColorSpan from '../components/Card/RichTextColorSpan'
+import { COLOR_STYLE_PATTERN } from '../utils/richTextSanitize'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
 // Behavioral tests for the real editor (typing, toolbar marks, markdown
@@ -274,8 +276,8 @@ describe('RichTextEditor', () => {
 // (1) <script> and event-handler attributes are stripped, and
 // (2) <span style="color:..."> values from the Tiptap Color extension are preserved.
 describe('XSS sanitization schema', () => {
-  // COLOR_PATTERN mirrors the regex in SANITIZE_SCHEMA in RichTextEditor.tsx.
-  const COLOR_PATTERN = /^color:\s*(#[0-9a-fA-F]{3,6}|[a-z]+)$/
+  // The component's own pattern, so the test cannot drift from SANITIZE_SCHEMA.
+  const COLOR_PATTERN = COLOR_STYLE_PATTERN
 
   // Minimal schema that replicates the component's SANITIZE_SCHEMA shape for these tests.
   // Uses hast-util-sanitize's defaultSchema as the base (imported directly, not mocked).
@@ -396,6 +398,7 @@ function makeFakeEditor(markdown = 'current markdown', textColor = '') {
     storage: { markdown: { getMarkdown: vi.fn(() => markdown) } },
     chain: vi.fn(() => chain),
     commands,
+    state: { selection: { from: 3, to: 7 } },
   }
   return { editor, calls, commands }
 }
@@ -1054,4 +1057,184 @@ describe('RichTextEditor exits keep focus in the enclosing dialog (#2182)', () =
     act(() => lastBlur()({ event: { relatedTarget: document.body } }))
     expect(onSave).toHaveBeenCalledTimes(1)
   })
+})
+
+describe('RichTextEditor custom text color (#2097)', () => {
+  const withEditor = (textColor: string, run: (h: ReturnType<typeof makeFakeEditor> & { onSave: ReturnType<typeof vi.fn> }) => void) => {
+    const h = makeFakeEditor('current markdown', textColor)
+    const onSave = vi.fn()
+    vi.mocked(useEditor).mockReturnValue(h.editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      run({ ...h, onSave })
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  }
+  const openPanel = () => {
+    fireEvent.mouseDown(screen.getByTitle('Text color'))
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Text color Custom' }))
+  }
+
+  it('adds a 10th Custom swatch that is unpressed for a preset color', () => {
+    withEditor('#f87171', () => {
+      fireEvent.mouseDown(screen.getByTitle('Text color'))
+      const swatches = screen.getAllByRole('button', { name: /^Text color / }).filter((b) => b.getAttribute('title') !== 'Text color')
+      expect(swatches).toHaveLength(10)
+      expect(screen.getByRole('button', { name: 'Text color Custom' })).toHaveAttribute('aria-pressed', 'false')
+    })
+  })
+
+  it('compares preset colors case-insensitively', () => {
+    withEditor('#F87171', () => {
+      fireEvent.mouseDown(screen.getByTitle('Text color'))
+      expect(screen.getByRole('button', { name: 'Text color Red' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Text color Custom' })).toHaveAttribute('aria-pressed', 'false')
+    })
+  })
+
+  it('rings the Custom swatch for a non-preset color', () => {
+    withEditor('#123ABC', () => {
+      fireEvent.mouseDown(screen.getByTitle('Text color'))
+      const custom = screen.getByRole('button', { name: 'Text color Custom' })
+      expect(custom).toHaveAttribute('aria-pressed', 'true')
+      expect(custom.className).toContain('ring-fg')
+    })
+  })
+
+  it('opens the trigger and selects a preset from the keyboard (click with detail 0)', () => {
+    withEditor('', ({ calls }) => {
+      const trigger = screen.getByTitle('Text color')
+      fireEvent.click(trigger, { detail: 0 })
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+      fireEvent.click(screen.getByTitle('Red'), { detail: 0 })
+      expect(calls).toContain(`setColor(${JSON.stringify(['#f87171'])})`)
+      expect(screen.queryByTitle('Red')).not.toBeInTheDocument()
+    })
+  })
+
+  it('ignores the click that follows a mouse press (detail > 0), so nothing runs twice', () => {
+    withEditor('', ({ calls }) => {
+      const trigger = screen.getByTitle('Text color')
+      fireEvent.mouseDown(trigger)
+      fireEvent.click(trigger, { detail: 1 })
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+      fireEvent.click(screen.getByTitle('Red'), { detail: 1 })
+      expect(calls.filter((c) => c.startsWith('setColor'))).toHaveLength(0)
+    })
+  })
+
+  it('opens the custom panel inside the editor container, marked as a dismiss layer', () => {
+    withEditor('', () => {
+      openPanel()
+      const panel = screen.getByRole('group', { name: 'Color value' })
+      const layer = panel.closest('[data-dismiss-layer]')
+      expect(layer).not.toBeNull()
+      expect(layer?.className).toContain('w-max')
+      // No portal: the layer lives under the same container as the toolbar.
+      expect(layer?.closest('.flex.flex-col')).toContainElement(screen.getByTitle('Bold (Ctrl+B)'))
+    })
+  })
+
+  it('Apply re-applies the range captured on open, then sets the color', () => {
+    withEditor('', ({ calls }) => {
+      openPanel()
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+      const sel = calls.indexOf(`setTextSelection(${JSON.stringify([{ from: 3, to: 7 }])})`)
+      const set = calls.indexOf(`setColor(${JSON.stringify(['#60A5FA'])})`)
+      expect(sel).toBeGreaterThanOrEqual(0)
+      expect(set).toBeGreaterThan(sel)
+      expect(screen.queryByRole('group', { name: 'Color value' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('Cancel restores the selection without coloring', () => {
+    withEditor('', ({ calls }) => {
+      openPanel()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(calls).toContain(`setTextSelection(${JSON.stringify([{ from: 3, to: 7 }])})`)
+      expect(calls.filter((c) => c.startsWith('setColor'))).toHaveLength(0)
+      expect(screen.queryByRole('group', { name: 'Color value' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('Escape closes the custom panel, restores the selection and stays in edit mode', () => {
+    withEditor('', ({ calls }) => {
+      openPanel()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('group', { name: 'Color value' })).not.toBeInTheDocument()
+      expect(calls).toContain(`setTextSelection(${JSON.stringify([{ from: 3, to: 7 }])})`)
+      expect(screen.getByTitle('Bold (Ctrl+B)')).toBeInTheDocument()
+    })
+  })
+
+  it('a press outside the editor discards the draft and runs the blur-save', () => {
+    withEditor('', ({ calls, onSave }) => {
+      openPanel()
+      fireEvent.mouseDown(document.body)
+      expect(calls.filter((c) => c.startsWith('setColor'))).toHaveLength(0)
+      expect(onSave).toHaveBeenCalledWith('current markdown')
+      expect(screen.queryByTitle('Bold (Ctrl+B)')).not.toBeInTheDocument()
+    })
+  })
+
+  it('a press on the panel padding is default-prevented so the editor does not blur', () => {
+    withEditor('', ({ onSave }) => {
+      openPanel()
+      const layer = screen.getByRole('group', { name: 'Color value' }).closest('[data-dismiss-layer]') as HTMLElement
+      const notPrevented = fireEvent.mouseDown(layer)
+      expect(notPrevented).toBe(false)
+      expect(screen.getByRole('group', { name: 'Color value' })).toBeInTheDocument()
+      expect(onSave).not.toHaveBeenCalled()
+      // A control keeps its own focus behavior.
+      expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Apply' }))).toBe(true)
+    })
+  })
+})
+
+describe('RichTextEditor view-mode color span (#2097)', () => {
+  it('emits per-theme custom properties for a hex color', () => {
+    render(<ColorSpan style={{ color: '#f1f5f9' }}>white</ColorSpan>)
+    const span = screen.getByText('white')
+    expect(span.className).toContain('rt-color')
+    expect(span.style.getPropertyValue('--rt-fg-dark')).toBe('#F1F5F9')
+    // White is 1.1:1 on a light surface: the light-theme value must be darkened.
+    expect(span.style.getPropertyValue('--rt-fg-light')).not.toBe('#F1F5F9')
+  })
+
+  it('accepts a style string and a 3-digit hex', () => {
+    render(<ColorSpan style={'color: #fff' as unknown as React.CSSProperties}>short</ColorSpan>)
+    expect(screen.getByText('short').className).toContain('rt-color')
+  })
+
+  it('renders the raw span for a named color or a 4-digit hex', () => {
+    render(<><ColorSpan style={{ color: 'red' }}>named</ColorSpan><ColorSpan style={{ color: '#abcd' }}>four</ColorSpan></>)
+    for (const t of ['named', 'four']) {
+      const span = screen.getByText(t)
+      expect(span.className).not.toContain('rt-color')
+      expect(span.style.color).not.toBe('')
+    }
+  })
+})
+
+describe('COLOR_STYLE_PATTERN (#2097)', () => {
+  it.each([
+    'color:#ff0000',
+    'color: #FFF',
+    'color: red',
+    'color: rgb(18, 52, 86);',
+    'color:rgb(1,2,3)',
+  ])('admits %s', (v) => expect(COLOR_STYLE_PATTERN.test(v)).toBe(true))
+
+  it.each([
+    'color: rgb(1, 2, 3, 0.5)',
+    'color: rgba(1, 2, 3, 1)',
+    'color: rgb(var(--x), 2, 3)',
+    'color: url(javascript:alert(1))',
+    'color: red; background: url(x)',
+    'color: rgb(1, 2, 3); position: fixed',
+    'color: #12',
+    'color: expression(alert(1))',
+  ])('rejects %s', (v) => expect(COLOR_STYLE_PATTERN.test(v)).toBe(false))
 })

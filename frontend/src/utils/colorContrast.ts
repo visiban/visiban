@@ -75,6 +75,23 @@ export function normalizeHex(value: unknown): string | null {
   return null;
 }
 
+const RGB_FN_RE = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i;
+
+/**
+ * Like `normalizeHex`, but also reads the `rgb(r, g, b)` form a browser serializes a
+ * `style="color: #123456"` to when Tiptap writes the description back out (#2097).
+ * Returns an uppercase `#RRGGBB`, or null for anything else (channels over 255 included).
+ */
+export function cssColorToHex(value: unknown): string | null {
+  const hex = normalizeHex(value);
+  if (hex) return hex;
+  if (typeof value !== "string") return null;
+  const m = RGB_FN_RE.exec(value.trim());
+  if (!m) return null;
+  const channels = [m[1], m[2], m[3]].map(Number);
+  return channels.every((c) => c <= 255) ? toHex(channels) : null;
+}
+
 function pairFor(base: string, surface: string, alpha: number, extreme: string): ChipPair {
   const bg = mix(base, surface, alpha);
   let fg = base;
@@ -115,4 +132,44 @@ export function colorChipStyle(color: unknown): CSSProperties {
     "--cf-fg-dark": c.dark.fg,
     "--cf-border-dark": c.dark.border,
   } as CSSProperties;
+}
+
+/**
+ * Surfaces rich-text color spans render on (#2097): the description's view mode sits
+ * on `--surface` and its editing view on `--surface-sunken`, so legibility is
+ * measured against the worse of the two for each theme. Values mirror index.css.
+ */
+export const TEXT_SURFACES = {
+  light: ["#FFFFFF", "#F8FAFC"],
+  dark: ["#1E293B", "#0F172A"],
+} as const;
+
+/** WCAG AA for body text. */
+export const MIN_TEXT_CONTRAST = 4.5;
+
+/**
+ * The stored hex mixed toward black (light theme) or white (dark theme) until it
+ * reaches `MIN_TEXT_CONTRAST` against both surfaces for that theme. A color that
+ * already clears it is returned unchanged (normalized); non-hex input returns null so
+ * the caller can render the stored value untouched.
+ */
+export function readableTextColor(hex: string, theme: "light" | "dark"): string | null {
+  const base = normalizeHex(hex);
+  if (!base) return null;
+  const extreme = theme === "light" ? "#000000" : "#FFFFFF";
+  const worst = (c: string) => Math.min(...TEXT_SURFACES[theme].map((s) => contrastRatio(c, s)));
+  let fg = base;
+  // 2% steps toward the extreme; t = 1 is pure black/white, which always clears 4.5:1.
+  for (let t = 0.02; t <= 1.0001 && worst(fg) < MIN_TEXT_CONTRAST; t += 0.02) {
+    fg = mix(extreme, base, Math.min(t, 1));
+  }
+  return fg;
+}
+
+/** `--rt-fg-*` custom properties for one `.rt-color` span (index.css picks the theme). */
+export function textColorStyle(hex: string): CSSProperties | null {
+  const light = readableTextColor(hex, "light");
+  const dark = readableTextColor(hex, "dark");
+  if (!light || !dark) return null;
+  return { "--rt-fg-light": light, "--rt-fg-dark": dark } as CSSProperties;
 }

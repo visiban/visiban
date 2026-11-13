@@ -2,9 +2,14 @@
 import { describe, it, expect } from "vitest";
 import {
   MIN_CHIP_CONTRAST,
+  MIN_TEXT_CONTRAST,
+  TEXT_SURFACES,
+  readableTextColor,
+  textColorStyle,
   chipColors,
   colorChipStyle,
   contrastRatio,
+  cssColorToHex,
   normalizeHex,
 } from "../utils/colorContrast";
 
@@ -54,3 +59,45 @@ describe("chipColors (#2094)", () => {
     ]);
   });
 });
+
+describe('readableTextColor (#2097)', () => {
+  const surfacesOf = (theme: 'light' | 'dark') => TEXT_SURFACES[theme]
+
+  it('clears 4.5:1 against both surfaces in both themes across the RGB cube', () => {
+    const steps = [0, 51, 102, 153, 204, 255]
+    const hex = (n: number) => n.toString(16).padStart(2, '0')
+    for (const r of steps) for (const g of steps) for (const b of steps) {
+      const input = `#${hex(r)}${hex(g)}${hex(b)}`
+      for (const theme of ['light', 'dark'] as const) {
+        const out = readableTextColor(input, theme)!
+        for (const surface of surfacesOf(theme)) {
+          expect(contrastRatio(out, surface), `${input} ${theme} on ${surface}`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+        }
+      }
+    }
+  })
+
+  it('leaves an already legible color unchanged and darkens near-white on light', () => {
+    expect(readableTextColor('#f87171', 'dark')).toBe('#F87171')
+    expect(readableTextColor('#f1f5f9', 'light')).not.toBe('#F1F5F9')
+  })
+
+  it('expands #RGB and returns null for non-hex input', () => {
+    expect(readableTextColor('#fff', 'dark')).toBe('#FFFFFF')
+    expect(readableTextColor('red', 'light')).toBeNull()
+    expect(textColorStyle('red')).toBeNull()
+  })
+})
+
+describe('cssColorToHex (#2097)', () => {
+  it('reads hex and the rgb() form a browser serializes', () => {
+    expect(cssColorToHex('#abc')).toBe('#AABBCC')
+    expect(cssColorToHex('rgb(18, 52, 86)')).toBe('#123456')
+    expect(cssColorToHex('rgb(18,52,86)')).toBe('#123456')
+  })
+  it('rejects out-of-range channels, alpha forms and non-strings', () => {
+    expect(cssColorToHex('rgb(256, 0, 0)')).toBeNull()
+    expect(cssColorToHex('rgba(1, 2, 3, 1)')).toBeNull()
+    expect(cssColorToHex(undefined)).toBeNull()
+  })
+})

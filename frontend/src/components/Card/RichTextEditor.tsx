@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { isImeComposing } from "../../utils/imeComposition";
 import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
+import { useEditor, EditorContent, ReactRenderer, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextStyle, Color } from "@tiptap/extension-text-style";
 import { Placeholder } from "@tiptap/extensions";
@@ -21,6 +21,11 @@ import MentionList from "./MentionList";
 import { placeFixedElement, subscribeVisualViewport, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
 import ActiveUnderline from "../Common/ActiveUnderline";
+import CustomColorPanel from "../Common/CustomColorPanel";
+import { DISMISS_LAYER_ATTR } from "../../utils/dismissLayer";
+import ColorSpan from "./RichTextColorSpan";
+import { cssColorToHex } from "../../utils/colorContrast";
+import { COLOR_STYLE_PATTERN } from "../../utils/richTextSanitize";
 
 /**
  * Our own key for the mention suggestion plugin, so the popup can end the
@@ -102,7 +107,7 @@ interface Props {
   showActions?: boolean;
 }
 
-// A small set of readable text colors for the dark theme.
+// A small set of text color presets (dark-theme values; view mode adjusts them per theme, #2097).
 // Stored as inline HTML spans in markdown: <span style="color: #hex">text</span>
 const TEXT_COLORS: { label: string; value: string }[] = [
   { label: "Default",  value: ""        },
@@ -151,45 +156,119 @@ function ToolbarButton({
   );
 }
 
+const sameColor = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** Seed for the custom panel when the selection carries no color of its own. */
+const CUSTOM_FALLBACK = "#60A5FA";
+
 // Color swatch picker rendered in the toolbar
 function ColorPicker({
+  editor,
+  containerRef,
   currentColor,
   onSelect,
+  onOutsideBlurSave,
 }: {
+  editor: Editor | null;
+  containerRef: RefObject<HTMLDivElement | null>;
   currentColor: string;
   onSelect: (color: string) => void;
+  /** Blur-save for a press outside the whole editor while the custom panel holds focus. */
+  onOutsideBlurSave: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [custom, setCustom] = useState(false);
+  // Captured when the custom panel opens: focus moves into the panel, and the
+  // editor's own selection must still be what Apply colors.
+  const rangeRef = useRef<{ from: number; to: number }>({ from: 0, to: 0 });
+  const [panelKey, setPanelKey] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setCustom(false);
+  }, []);
+
+  // Cancel and Escape put the caret back where it was; the panel's focus is gone.
+  const closeAndRestore = useCallback(() => {
+    close();
+    editor?.chain().focus().setTextSelection(rangeRef.current).run();
+  }, [close, editor]);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // composedPath, not contains(): pressing the Custom swatch unmounts it during this
+      // very event, and a listener re-attached by that render still sees the press.
+      if (ref.current && e.composedPath().includes(ref.current)) return;
+      const wasCustom = custom;
+      close();
+      // The editor is unfocused while the panel is open, so its onBlur will not fire
+      // for a press outside the whole editor: save-and-exit here, discarding the draft.
+      if (wasCustom && !containerRef.current?.contains(target)) onOutsideBlurSave();
     };
     document.addEventListener("mousedown", handler);
     return () => {
       document.removeEventListener("mousedown", handler);
     };
-  }, [open]);
+  }, [open, custom, close, containerRef, onOutsideBlurSave]);
 
   // Priority 33 — above RichTextEditor edit-mode cancel (31) so Escape closes the
   // color picker without also exiting edit mode in the same keypress.
   useEscapeStack(() => {
     if (!open) return false;
-    setOpen(false);
+    if (custom) closeAndRestore();
+    else close();
   }, 33);
+
+  // The wider custom body is shifted to stay inside the editor container.
+  useLayoutEffect(() => {
+    if (!custom) {
+      setShift(0);
+      return;
+    }
+    const pop = popoverRef.current;
+    const box = containerRef.current;
+    if (!pop || !box) return;
+    const popRect = pop.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+    const overflow = popRect.right - boxRect.right;
+    if (overflow > 0) setShift(-Math.min(overflow, popRect.left - boxRect.left));
+    pop.scrollIntoView?.({ block: "nearest" });
+  }, [custom, containerRef]);
 
   // Any non-empty color value (including White) means a color is actively set.
   // Previously excluded #f1f5f9 (White) from the active state, causing the
   // toolbar indicator to show as inactive when the user explicitly chose White.
   const active = currentColor !== "";
+  const isPreset = TEXT_COLORS.some((c) => sameColor(c.value, currentColor));
+  const customSelected = active && !isPreset;
+
+  const toggle = () => {
+    if (open) close();
+    else setOpen(true);
+  };
+  const choose = (value: string) => {
+    onSelect(value);
+    close();
+  };
+  const openCustom = () => {
+    const sel = editor?.state.selection;
+    rangeRef.current = { from: sel?.from ?? 0, to: sel?.to ?? 0 };
+    setPanelKey((k) => k + 1);
+    setCustom(true);
+  };
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
+        onMouseDown={(e) => { e.preventDefault(); toggle(); }}
+        // Keyboard activation fires click with detail 0; a mouse click already acted on mousedown.
+        onClick={(e) => { if (e.detail === 0) toggle(); }}
         title="Text color"
         aria-label="Text color"
         aria-expanded={open}
@@ -202,27 +281,78 @@ function ColorPicker({
         <ActiveUnderline active={active} />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-2.5 w-40">
-          {TEXT_COLORS.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSelect(c.value);
-                setOpen(false);
+        <div
+          ref={popoverRef}
+          {...{ [DISMISS_LAYER_ATTR]: "" }}
+          style={shift ? { marginLeft: shift } : undefined}
+          // Pressing the panel's padding or preview would otherwise move focus to <body>
+          // and blur-save the editor out from under the draft. Controls keep their own focus.
+          onMouseDown={(e) => {
+            if (!custom) return;
+            if (!(e.target as Element).closest("input,button,[tabindex]")) e.preventDefault();
+          }}
+          className={`absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 ${
+            custom ? "w-max" : "flex flex-wrap gap-2.5 w-40"
+          }`}
+        >
+          {custom ? (
+            <CustomColorPanel
+              key={panelKey}
+              value={currentColor || null}
+              fallbackColor={CUSTOM_FALLBACK}
+              onChange={(hex) => {
+                const range = rangeRef.current;
+                editor?.chain().focus().setTextSelection(range).setColor(hex).run();
+                close();
               }}
-              title={c.label}
-              aria-label={`Text color ${c.label}`}
-              aria-pressed={currentColor === c.value}
-              className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                currentColor === c.value
-                  ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
-                  : "border-line-strong"
-              }`}
-              style={{ backgroundColor: c.value || "rgb(var(--fg-tertiary))" }}
+              onCancel={closeAndRestore}
+              focusSquare
             />
-          ))}
+          ) : (
+            <>
+              {TEXT_COLORS.map((c) => {
+                const selected = sameColor(currentColor, c.value);
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      choose(c.value);
+                    }}
+                    onClick={(e) => { if (e.detail === 0) choose(c.value); }}
+                    title={c.label}
+                    aria-label={`Text color ${c.label}`}
+                    aria-pressed={selected}
+                    className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                      selected
+                        ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
+                        : "border-line-strong"
+                    }`}
+                    style={{ backgroundColor: c.value || "rgb(var(--fg-tertiary))" }}
+                  />
+                );
+              })}
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); openCustom(); }}
+                onClick={(e) => { if (e.detail === 0) openCustom(); }}
+                title="Custom"
+                aria-label="Text color Custom"
+                aria-pressed={customSelected}
+                className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  customSelected
+                    ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
+                    : "border-line-strong"
+                }`}
+                style={
+                  customSelected
+                    ? { backgroundColor: currentColor }
+                    : { background: "conic-gradient(#f87171, #fbbf24, #4ade80, #60a5fa, #c084fc, #f87171)" }
+                }
+              />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -262,10 +392,12 @@ const SANITIZE_SCHEMA = {
     ...defaultSchema.attributes,
     span: [
       ...(defaultSchema.attributes?.span ?? []),
-      ["style", /^color:\s*(#[0-9a-fA-F]{3,6}|[a-z]+)$/],
+      ["style", COLOR_STYLE_PATTERN],
     ],
   },
 };
+
+const VIEW_COMPONENTS = { span: ColorSpan };
 
 export default function RichTextEditor({
   value,
@@ -534,7 +666,18 @@ export default function RichTextEditor({
     handleCancel();
   }, 31);
 
-  const currentColor = (editor?.getAttributes("textStyle").color as string) ?? "";
+  // Same as the editor's onBlur save, for a press outside the editor while the custom
+  // color panel (which holds focus) is open: onBlur cannot fire then (#2097).
+  const blurSave = useCallback(() => {
+    if (showActions || exitingRef.current) return;
+    onSave(editor?.storage.markdown?.getMarkdown() ?? "");
+    setIsEditing(false);
+  }, [editor, onSave, showActions]);
+
+  // A parsed span may carry `rgb(r, g, b)`: normalize to hex so the swatch compare and the
+  // custom panel seed see one form.
+  const rawColor = (editor?.getAttributes("textStyle").color as string) ?? "";
+  const currentColor = cssColorToHex(rawColor)?.toLowerCase() ?? rawColor;
 
   if (!isEditing) {
     return (
@@ -589,7 +732,7 @@ export default function RichTextEditor({
               "[&_blockquote]:border-l-4 [&_blockquote]:border-line-strong [&_blockquote]:pl-4 [&_blockquote]:text-fg-tertiary",
               "[&_hr]:border-line",
             ].join(" ")}>
-              <ReactMarkdown rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]}>{value}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]} components={VIEW_COMPONENTS}>{value}</ReactMarkdown>
             </div>
           ) : (
             !readOnly && (
@@ -660,6 +803,9 @@ export default function RichTextEditor({
         </ToolbarButton>
         <div className="w-px h-4 bg-surface-active mx-0.5" />
         <ColorPicker
+          editor={editor}
+          containerRef={containerRef}
+          onOutsideBlurSave={blurSave}
           currentColor={currentColor}
           onSelect={(color) => {
             if (color === "") {
