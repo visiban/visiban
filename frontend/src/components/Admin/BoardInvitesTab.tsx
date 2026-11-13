@@ -25,7 +25,7 @@ function statusStyle(status: string): string {
 }
 
 const ALREADY_USED_REVOKE_ERROR = "This invite is no longer pending, so it can't be revoked.";
-const GENERIC_REVOKE_ERROR = "Could not revoke invite.";
+const GENERIC_REVOKE_ERROR = "Failed to revoke invite. Please try again.";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";

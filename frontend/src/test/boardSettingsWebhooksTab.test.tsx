@@ -607,8 +607,8 @@ describe('Webhooks tab — detail', () => {
     await renderTab()
     await openDetail(user)
     for (const [trigger, text] of [
-      ['Delete webhook', "Couldn't delete the webhook. Try again."],
-      ['Turn off', "Couldn't turn the webhook off. Try again."],
+      ['Delete webhook', "Failed to delete the webhook. Please try again."],
+      ['Turn off', "Failed to turn off the webhook. Please try again."],
     ] as const) {
       await user.click(screen.getByRole('button', { name: trigger }))
       await user.click(screen.getByRole('button', { name: /^Confirm:/ }))
@@ -640,7 +640,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't rotate the secret. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent("Failed to rotate the secret. Please try again.")
   })
 
   it('a rotate with no response refetches, so the until line shows a rotation that landed', async () => {
@@ -892,7 +892,7 @@ describe('Webhooks tab — detail', () => {
       await openDetail(user)
       await user.click(screen.getByRole('button', { name: 'Turn off' }))
       await user.click(screen.getByRole('button', { name: /^Confirm: Turn off/ }))
-      await screen.findByText("Couldn't turn the webhook off. Try again.")
+      await screen.findByText("Failed to turn off the webhook. Please try again.")
       fireEvent.keyDown(document, { key: 'Escape' })
       await waitFor(() => expect(screen.queryByRole('button', { name: /^Confirm: Turn off/ })).not.toBeInTheDocument())
     })

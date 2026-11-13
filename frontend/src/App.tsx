@@ -224,7 +224,7 @@ export default function App() {
                   {flags.demo_mode && <DemoWriteBlockedToast />}
                   {/* Mobile navigation bar — visible below lg breakpoint only */}
                   <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
-                    <button
+                    <button type="button"
                       onClick={() => setMobileMenuOpen(true)}
                       className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       aria-label="Open navigation menu"

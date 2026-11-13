@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
 import { useEditor, ReactRenderer } from '@tiptap/react'
 import MentionExtension from '@tiptap/extension-mention'
@@ -74,6 +74,8 @@ describe('RichTextEditor', () => {
     it('shows pencil icon button when editable', () => {
       render(<RichTextEditor value="some text" onSave={onSave} />)
       expect(screen.getByTitle('Edit description')).toBeInTheDocument()
+      // title alone is not a reliable accessible name (#1737)
+      expect(screen.getByTitle('Edit description')).toHaveAttribute('aria-label', 'Edit description')
     })
 
     it('does not show pencil icon when readOnly', () => {
@@ -206,6 +208,7 @@ describe('RichTextEditor', () => {
       const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
       fireEvent.click(container.firstChild as Element)
       expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'false')
+      expect(within(screen.getByTitle('Bold (Ctrl+B)')).queryByTestId('active-underline')).not.toBeInTheDocument()
     })
 
     it('sets aria-pressed to true on the toolbar button for the active mark', () => {
@@ -226,6 +229,9 @@ describe('RichTextEditor', () => {
         fireEvent.click(container.firstChild as Element)
         expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'true')
         expect(screen.getByTitle('Italic (Ctrl+I)')).toHaveAttribute('aria-pressed', 'false')
+        // Non-color active cue (#2188): the underline bar moves with aria-pressed.
+        expect(within(screen.getByTitle('Bold (Ctrl+B)')).getByTestId('active-underline')).toBeInTheDocument()
+        expect(within(screen.getByTitle('Italic (Ctrl+I)')).queryByTestId('active-underline')).not.toBeInTheDocument()
       } finally {
         // Restore the module-level default so later tests in this file see a
         // null editor again.
@@ -433,6 +439,42 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
       // Every click must also chain through focus() and terminate with run()
       expect(calls.filter((c) => c === 'focus').length).toBeGreaterThanOrEqual(7)
       expect(calls.filter((c) => c === 'run').length).toBeGreaterThanOrEqual(7)
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('shows a set text color as a pressed swatch and an underline on the trigger (#2188)', () => {
+    const { editor } = makeFakeEditor('current markdown', '#f87171')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      const trigger = screen.getByTitle('Text color')
+      // Menu trigger, not a toggle: no aria-pressed, but the non-color cue shows.
+      expect(trigger).not.toHaveAttribute('aria-pressed')
+      expect(within(trigger).getByTestId('active-underline')).toBeInTheDocument()
+      fireEvent.mouseDown(trigger)
+      const red = screen.getByRole('button', { name: 'Text color Red' })
+      expect(red).toHaveAttribute('aria-pressed', 'true')
+      expect(red).toHaveClass('ring-fg')
+      for (const name of ['Default', 'White', 'Orange', 'Blue']) {
+        const other = screen.getByRole('button', { name: `Text color ${name}` })
+        expect(other).toHaveAttribute('aria-pressed', 'false')
+        expect(other).not.toHaveClass('ring-fg')
+      }
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('shows no underline on the text color trigger when no color is set (#2188)', () => {
+    const { editor } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      expect(within(screen.getByTitle('Text color')).queryByTestId('active-underline')).not.toBeInTheDocument()
     } finally {
       vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
     }

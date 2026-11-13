@@ -13,6 +13,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import Spinner from "../Common/Spinner";
 import { DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 interface Props {
   user: User;
@@ -324,7 +325,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       {/* Collapse toggle / mobile close */}
       <div className={`border-b border-line shrink-0 ${collapsed ? "py-1" : "flex items-center justify-end px-2 py-2"}`}>
         {!collapsed && mobileOpen && onMobileClose && (
-          <button
+          <button type="button"
             onClick={onMobileClose}
             className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface mr-auto lg:hidden focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             aria-label="Close navigation menu"
@@ -334,9 +335,9 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
             </svg>
           </button>
         )}
-        <button
+        <button type="button"
           onClick={() => setCollapsed((v) => !v)}
-          className={`text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
+          className={`relative text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-pressed={collapsed}
@@ -358,6 +359,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
               />
             </svg>
           )}
+          <ActiveUnderline active={collapsed} />
         </button>
       </div>
 
@@ -434,7 +436,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
             {/* ── Collapsed: Favorites flyout trigger ── */}
             {collapsed && hasFavorites && (
-              <button
+              <button type="button"
                 onClick={openFavorites}
                 onMouseDown={(e) => { if (favoritesAnchor) e.stopPropagation(); }}
                 title="Favorites"
@@ -539,7 +541,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
             {/* ── Collapsed: Recent boards flyout trigger ── */}
             {collapsed && recentBoards.length > 0 && (
-              <button
+              <button type="button"
                 onClick={openRecent}
                 onMouseDown={(e) => { if (recentAnchor) e.stopPropagation(); }}
                 title="Recent boards"
@@ -563,7 +565,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
             {/* ── Collapsed: Groups flyout trigger — single icon regardless of how many groups ── */}
             {collapsed && sidebarTree.length > 0 && (
-              <button
+              <button type="button"
                 onClick={openGroups}
                 onMouseDown={(e) => { if (groupsAnchor) e.stopPropagation(); }}
                 title="Groups"
@@ -608,7 +610,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
             {/* ── Collapsed: Personal boards flyout trigger ── */}
             {collapsed && personalBoards.length > 0 && (
-              <button
+              <button type="button"
                 onClick={openPersonal}
                 onMouseDown={(e) => { if (personalAnchor) e.stopPropagation(); }}
                 title="Personal boards"
@@ -896,7 +898,7 @@ function SidebarGroupNode({
     <div>
       {/* Group row */}
       <div className="flex items-center" style={{ paddingLeft: depth * 12 + 2 }}>
-        <button
+        <button type="button"
           onClick={() => toggleGroup(group.id)}
           className={`shrink-0 flex items-center justify-center w-5 h-8 text-fg-muted hover:text-fg transition text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
             !hasContent ? "opacity-0 pointer-events-none" : ""

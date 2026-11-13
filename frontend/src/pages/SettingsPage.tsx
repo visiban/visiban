@@ -644,7 +644,7 @@ function ConnectedAccountsSection({
       setConfirmingId(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setRowStatus({ provider: id, error: detail ?? `Couldn't disconnect ${labelFor(id)}. Please try again.`, fromUrl: false });
+      setRowStatus({ provider: id, error: detail ?? `Failed to disconnect ${labelFor(id)}. Please try again.`, fromUrl: false });
       setConfirmingId(null);
     } finally {
       setDisconnectingId(null);

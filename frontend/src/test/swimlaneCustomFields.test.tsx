@@ -34,6 +34,7 @@ vi.mock('@dnd-kit/core', () => ({
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   verticalListSortingStrategy: {},
+  sortableKeyboardCoordinates: () => undefined,
   useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
   arrayMove: <T,>(a: T[], from: number, to: number) => {
     const next = [...a]
@@ -652,6 +653,31 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
       />
     )
     expect(screen.queryByText(/members and viewers see none of these/i)).not.toBeInTheDocument()
+  })
+
+  it('the drag handle is a named, ringed, focusable button (#1739)', async () => {
+    // dnd-kit is mocked in this file, so this proves only the handle markup and
+    // tab stop. The pick-up is covered with real sensors in
+    // boardSettingsFieldsTab.test.tsx, and the actual arrow-key reorder (jsdom
+    // has no layout) in e2e/field-keyboard-reorder.spec.ts.
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} />)
+    const handle = screen.getAllByRole('button', { name: /^Drag to reorder / })[0]
+    expect(handle.tagName).toBe('BUTTON')
+    expect(handle).toHaveAttribute('type', 'button')
+    expect(handle).toHaveClass('focus:opacity-100', 'focus:ring-2', 'focus:ring-primary-emphasis')
+    await user.tab()
+    expect(handle).toHaveFocus()
+  })
+
+  it("names each choice's remove button (#1737)", async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.click(screen.getByRole('button', { name: /Dropdown/ }))
+    await user.click(screen.getByRole('button', { name: '+ Add choice' }))
+    const remove = screen.getByRole('button', { name: 'Remove choice 1' })
+    expect(remove).toHaveAttribute('type', 'button')
   })
 
   it('defaults a new field to admin-only', async () => {

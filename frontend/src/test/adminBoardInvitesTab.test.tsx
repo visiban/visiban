@@ -211,7 +211,7 @@ describe('BoardInvitesTab (#439)', () => {
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
     reject({ response: { status: 500 } })
-    expect(await screen.findByText('Could not revoke invite.')).toBeInTheDocument()
+    expect(await screen.findByText('Failed to revoke invite. Please try again.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
     expect(mockRevoke).toHaveBeenCalledTimes(1)
   })

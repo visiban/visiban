@@ -400,6 +400,15 @@ describe('CardDetail', () => {
     expect(screen.getByText('+')).toBeInTheDocument()
   })
 
+  it('names the weight steppers and gives them a focus ring (#1737)', () => {
+    render(<CardDetail {...defaultProps()} />)
+    for (const name of ['Decrease weight', 'Increase weight']) {
+      const btn = screen.getByRole('button', { name })
+      expect(btn).toHaveAttribute('type', 'button')
+      expect(btn).toHaveClass('focus:ring-2', 'focus:ring-primary-emphasis')
+    }
+  })
+
   it('clicking + increments weight', async () => {
     render(<CardDetail {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('+'))
@@ -1620,7 +1629,7 @@ describe('CardDetail', () => {
       mockDelete.mockRejectedValueOnce(new Error('boom'))
       const { user } = await renderWithComment()
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
-      const err = await screen.findByText('Could not delete comment.')
+      const err = await screen.findByText('Failed to delete comment. Please try again.')
       expect(err.closest('[role="status"]')).not.toBeNull()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
@@ -3606,7 +3615,7 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
     const { rerender } = render(<CardDetail {...props} />)
     rerender(<CardDetail {...props} card={makeCard({ weight: 5, version: 4 })} />)
     expect(screen.getByText('5')).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: '+' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Increase weight' }))
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 6 }))
   })
 
@@ -3614,10 +3623,10 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
     const props = defaultProps()
     const user = userEvent.setup()
     const { rerender } = render(<CardDetail {...props} />)
-    await user.click(screen.getByRole('button', { name: '+' }))
+    await user.click(screen.getByRole('button', { name: 'Increase weight' }))
     rerender(<CardDetail {...props} card={makeCard({ weight: 7, version: 4 })} />)
     expect(screen.getByText('2')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+' }))
+    await user.click(screen.getByRole('button', { name: 'Increase weight' }))
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 3 }))
     expect(mockUpdateCard).toHaveBeenCalledTimes(1)
   })
@@ -3626,7 +3635,7 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
     const props = defaultProps()
     const { rerender } = render(<CardDetail {...props} />)
     rerender(<CardDetail {...props} card={makeCard({ weight: 5, version: 4 })} />)
-    await userEvent.setup().click(screen.getByRole('button', { name: '−' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Decrease weight' }))
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 4 }))
   })
 })

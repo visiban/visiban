@@ -325,7 +325,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
       const updated = await revokeAdminInviteLink(id);
       setLinks((prev) => prev.map((l) => (l.id === id ? updated : l)));
     } catch {
-      setError("Failed to revoke invite link.");
+      setError("Failed to revoke invite link. Please try again.");
     } finally {
       setRevokeConfirm(null);
       setRevokingId(null);
@@ -797,7 +797,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
       savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
     } catch {
       setSettings((s) => s ? { ...s, maintenance_mode: prev } : s);
-      setError("Failed to save settings.");
+      setError(`Failed to turn ${next ? "on" : "off"} maintenance mode. Please try again.`);
     } finally {
       setSaving(false);
     }

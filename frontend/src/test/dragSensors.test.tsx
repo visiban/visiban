@@ -20,6 +20,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, act, renderHook } from '@testing-library/react'
 import { DndContext, KeyboardSensor, TouchSensor, closestCenter, useDraggable, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { MOUSE_ACTIVATION, PrimaryButtonMouseSensor, TOUCH_ACTIVATION, useDragSensors } from '../hooks/useDragSensors'
 
 const COL_B: DOMRect = Object.assign(
@@ -190,5 +191,16 @@ describe('useDragSensors — sensor set', () => {
   it('adds the keyboard sensor on request, preserving DndContext default keyboard reordering', () => {
     const { result } = renderHook(() => useDragSensors({ keyboard: true }))
     expect(result.current.map((s) => s.sensor)).toEqual([PrimaryButtonMouseSensor, TouchSensor, KeyboardSensor])
+  })
+
+  it('sets the sortable coordinate getter only when `sortable` is requested (#1739)', () => {
+    const keyboardOptions = (opts?: { keyboard?: boolean; sortable?: boolean }) => {
+      const { result } = renderHook(() => useDragSensors(opts))
+      return result.current.find((s) => s.sensor === KeyboardSensor)?.options as
+        | { coordinateGetter?: unknown }
+        | undefined
+    }
+    expect(keyboardOptions({ keyboard: true, sortable: true })?.coordinateGetter).toBe(sortableKeyboardCoordinates)
+    expect(keyboardOptions({ keyboard: true })?.coordinateGetter).toBeUndefined()
   })
 })

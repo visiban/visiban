@@ -1244,7 +1244,7 @@ describe('AdminPage — Escape key', () => {
     fireEvent.click(screen.getByText('Invite Links'))
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByText('Failed to revoke invite link.')).toBeInTheDocument()
+    expect(await screen.findByText('Failed to revoke invite link. Please try again.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
   })
 
@@ -1507,7 +1507,7 @@ describe('AdminPage — maintenance mode', () => {
     await waitFor(() => screen.getByText('Confirm'))
     fireEvent.click(screen.getByText('Confirm'))
 
-    await waitFor(() => screen.getByText('Failed to save settings.'))
+    await waitFor(() => screen.getByText('Failed to turn on maintenance mode. Please try again.'))
     expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
   })
 })

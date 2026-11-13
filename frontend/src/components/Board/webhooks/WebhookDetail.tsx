@@ -214,7 +214,7 @@ export default function WebhookDetail(props: Props) {
         } else if (axiosResponse(err)?.status === 429) {
           setConfirmError("Too many attempts. Try again in a few minutes.");
         } else {
-          setConfirmError("Couldn't turn the webhook on. Try again.");
+          setConfirmError("Failed to turn on the webhook. Please try again.");
         }
       },
     );
@@ -228,7 +228,7 @@ export default function WebhookDetail(props: Props) {
       "rotate",
       () => props.onRotate(choice === "keep" ? ROTATE_OVERLAP_SECONDS : 0),
       (err) => {
-        setConfirmError(outcomeUnknown(err) ? ROTATE_UNCONFIRMED_COPY : "Couldn't rotate the secret. Try again.");
+        setConfirmError(outcomeUnknown(err) ? ROTATE_UNCONFIRMED_COPY : "Failed to rotate the secret. Please try again.");
       },
     );
   };
@@ -514,7 +514,7 @@ export default function WebhookDetail(props: Props) {
       <div className="pt-3 border-t border-line flex flex-col gap-1">
         {sub.enabled && (confirm === "disable"
           ? inlineConfirm("disable", "Turn off this webhook? Visiban stops sending to this address until an admin turns it back on.", () =>
-              void handle("disable", async () => { await props.onDisable(); setFocusTurnOn(true); }, () => setConfirmError("Couldn't turn the webhook off. Try again.")))
+              void handle("disable", async () => { await props.onDisable(); setFocusTurnOn(true); }, () => setConfirmError("Failed to turn off the webhook. Please try again.")))
           : (
             <div>
               <button ref={triggerRef("disable")} type="button" onClick={() => onConfirmChange("disable")} className="min-h-6 px-1 text-sm text-fg-secondary hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
@@ -524,7 +524,7 @@ export default function WebhookDetail(props: Props) {
           ))}
         {confirm === "delete"
           ? inlineConfirm("delete", "Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.", () =>
-              void handle("delete", props.onDelete, () => setConfirmError("Couldn't delete the webhook. Try again.")))
+              void handle("delete", props.onDelete, () => setConfirmError("Failed to delete the webhook. Please try again.")))
           : (
             <div>
               <button ref={triggerRef("delete")} type="button" onClick={() => onConfirmChange("delete")} className="min-h-6 px-1 text-sm text-danger hover:text-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">

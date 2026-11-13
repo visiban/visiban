@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LensToolbar from '../components/Board/Lens/LensToolbar'
@@ -60,6 +60,26 @@ describe('LensToolbar', () => {
   it('shows the active-filter count from the URL', () => {
     setup({ url: '/?state=open&milestone=0.3' })
     expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toBeInTheDocument()
+  })
+
+  it('marks the active Filters and layout toggles with the underline cue, not tint alone (#2188)', () => {
+    setup()
+    const filters = screen.getByRole('button', { name: 'Filters' })
+    const layout = screen.getByRole('button', { name: 'Switch to compact card layout' })
+    expect(filters).toHaveAttribute('aria-pressed', 'false')
+    expect(within(filters).queryByTestId('active-underline')).not.toBeInTheDocument()
+    expect(layout).toHaveAttribute('aria-pressed', 'false')
+    expect(within(layout).queryByTestId('active-underline')).not.toBeInTheDocument()
+  })
+
+  it('shows the underline cue on Filters while open and on the layout toggle while compact (#2188)', () => {
+    setup({ showFilters: true, cardLayout: 'compact' })
+    const filters = screen.getByRole('button', { name: 'Filters' })
+    const layout = screen.getByRole('button', { name: 'Switch to expanded card layout' })
+    expect(filters).toHaveAttribute('aria-pressed', 'true')
+    expect(within(filters).getByTestId('active-underline')).toHaveClass('bg-fg')
+    expect(layout).toHaveAttribute('aria-pressed', 'true')
+    expect(within(layout).getByTestId('active-underline')).toBeInTheDocument()
   })
 
   it('layout toggle reflects cardLayout and toggles', async () => {

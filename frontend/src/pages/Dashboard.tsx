@@ -138,7 +138,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
       </button>
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
-        <button
+        <button type="button"
           onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
           className="text-fg-muted hover:text-info p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           title="Move to group"
@@ -150,7 +150,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           </svg>
         </button>
         {canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true }) && (
-          <button
+          <button type="button"
             onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
             className="text-fg-muted hover:text-danger p-1 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
             title="Delete board"

@@ -32,7 +32,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss }: F
         <Avatar user={avatarUser} size="xs" />
       )}
       <span className="truncate">{label}</span>
-      <button
+      <button type="button"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         onKeyDown={(e) => e.stopPropagation()}
         aria-label={`Remove ${label} filter`}

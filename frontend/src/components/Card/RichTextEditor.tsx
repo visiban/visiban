@@ -20,6 +20,7 @@ import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
 import { placeFixedElement, subscribeVisualViewport, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 /**
  * Our own key for the mention suggestion plugin, so the popup can end the
@@ -138,13 +139,14 @@ function ToolbarButton({
       title={title}
       aria-label={title}
       aria-pressed={active ?? false}
-      className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      className={`relative px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
           : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
       }`}
     >
       {children}
+      <ActiveUnderline active={active ?? false} />
     </button>
   );
 }
@@ -191,11 +193,13 @@ function ColorPicker({
         title="Text color"
         aria-label="Text color"
         aria-expanded={open}
-        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis flex items-center gap-1 ${
+        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis relative flex items-center gap-1 ${
           active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
-        <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
+        <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "rgb(var(--fg-tertiary))"}` }}>A</span>
+        {/* Menu trigger, not a toggle (no aria-pressed): the underline is the non-color cue that a color is set (#2188). */}
+        <ActiveUnderline active={active} />
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-2.5 w-40">
@@ -216,7 +220,7 @@ function ColorPicker({
                   ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
                   : "border-line-strong"
               }`}
-              style={{ backgroundColor: c.value || "#94a3b8" }}
+              style={{ backgroundColor: c.value || "rgb(var(--fg-tertiary))" }}
             />
           ))}
         </div>
@@ -549,6 +553,7 @@ export default function RichTextEditor({
             onClick={enterEdit}
             className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Edit description"
+            aria-label="Edit description"
             tabIndex={0}
             onFocus={enterEdit}
           >

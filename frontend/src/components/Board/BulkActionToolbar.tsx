@@ -384,7 +384,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
         {/* Deselect */}
-        <button
+        <button type="button"
           onClick={() => { setPartialError(null); onClearSelection(); }}
           disabled={busy}
           className="text-fg-tertiary hover:text-fg transition p-1 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"

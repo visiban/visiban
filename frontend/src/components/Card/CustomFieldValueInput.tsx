@@ -365,7 +365,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
             />
           </div>
           {local && !disabled && (
-            <button
+            <button type="button"
               onClick={() => onCommit("")}
               className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
               title="Clear date"

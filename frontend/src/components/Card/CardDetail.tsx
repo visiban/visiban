@@ -1223,7 +1223,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setConfirmDeleteCommentId(null);
     } catch {
       // Keep the prompt open so the user can retry or Cancel; never leave it stuck.
-      setCommentDeleteError("Could not delete comment.");
+      setCommentDeleteError("Failed to delete comment. Please try again.");
     } finally {
       setDeletingCommentId(null);
     }
@@ -1414,7 +1414,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               Block…
             </button>
           )}
-          <button
+          <button type="button"
             ref={closeButtonRef}
             onClick={onClose}
             className={`${fullscreen ? "w-11 h-11 -my-2 -mr-2" : "w-7 h-7"} flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
@@ -1590,7 +1590,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
-                        <button
+                        <button type="button"
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
                           className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           title="Clear due date"
@@ -1777,7 +1777,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Weight</p>
                 <div className="flex items-center gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => {
                       const w = Math.max(1, localCard.weight - 1);
                       setLocalCard((c) => ({ ...c, weight: w }));
@@ -1785,10 +1785,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
+                    aria-label="Decrease weight"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >−</button>
                   <span className="text-sm font-semibold text-fg w-6 text-center">{localCard.weight}</span>
-                  <button
+                  <button type="button"
                     onClick={() => {
                       const w = localCard.weight + 1;
                       setLocalCard((c) => ({ ...c, weight: w }));
@@ -1796,7 +1797,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
+                    aria-label="Increase weight"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >+</button>
                 </div>
                 <AutosaveIndicator
@@ -1854,8 +1856,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Checklist */}
               <div>
-                <button
-                  className="flex items-center justify-between w-full mb-2 group/cl"
+                <button type="button"
+                  className="flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
@@ -1906,7 +1908,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             {item.text}
                           </span>
                           {(canEdit || role === "collaborator") && canModifyChecklistItem(item) && (
-                            <button
+                            <button type="button"
                               onClick={() => handleDeleteChecklistItem(item.id)}
                               className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Remove item"
@@ -1985,8 +1987,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {/* Attachments */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <button
-                    className="flex items-center gap-1.5 group/att"
+                  <button type="button"
+                    className="flex items-center gap-1.5 group/att rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
@@ -2012,10 +2014,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </button>
                       ) : (
                         <>
-                          <button
+                          <button type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="text-xs text-info hover:text-info font-medium disabled:opacity-40 transition"
+                            className="text-xs text-info hover:text-info font-medium disabled:opacity-40 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                           >
                             {uploading ? "Uploading…" : "+ Upload"}
                           </button>
@@ -2065,7 +2067,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               className="opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                             >✕</button>
                           ) : (
-                            <button
+                            <button type="button"
                               onClick={() => handleDeleteAttachment(a.id)}
                               className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Delete"
@@ -2144,7 +2146,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   {commentDeleteError && <p className="text-xs text-danger mt-1">{commentDeleteError}</p>}
                                 </div>
                               ) : (
-                                <button
+                                <button type="button"
                                   ref={deleteCommentTriggerRef(c.id)}
                                   title="Delete comment"
                                   onClick={() => { setCommentDeleteError(null); setConfirmDeleteCommentId(c.id); }}

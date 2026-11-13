@@ -1157,12 +1157,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           </button>
                         )}
                         {canRemove && !isRemoving && !allContent && (
-                          <button
+                          <button type="button"
                             ref={removeTriggerRef(m.user.id)}
                             onClick={() => setPendingRemove(m.user.id)}
                             disabled={isDisabled}
-                            className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 w-5 text-center"
+                            className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 w-5 text-center rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                             title="Remove direct board role"
+                            aria-label={`Remove direct board role for ${userDisplayName(m.user)}`}
                           >
                             ✕
                           </button>
@@ -1322,7 +1323,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               key={u.id}
                               type="button"
                               onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition flex items-center gap-2.5"
+                              className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
                             >
                               <Avatar user={u} size="sm" />
                               <div className="min-w-0">
@@ -1362,15 +1363,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                     disabled={inviting}
                                     ariaDescribedBy={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
                                   />
-                                  <button
+                                  <button type="button"
                                     aria-describedby={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
                                     onClick={() => {
                                       setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id));
                                       clearStagedError(s.user.id);
                                     }}
-                                    className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
+                                    className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 w-5 text-center rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                     title="Remove from invite list"
-                                    aria-label="Remove from invite list"
+                                    aria-label={`Remove ${userDisplayName(s.user)} from invite list`}
                                     // Removing a row mid-flight would not cancel its add, and the
                                     // person could be re-staged under a new reason (#1299).
                                     disabled={inviting}

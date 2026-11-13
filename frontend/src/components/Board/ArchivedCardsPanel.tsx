@@ -339,7 +339,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           <h2 className="text-sm font-medium text-fg">
             Archived cards{shownTotal > 0 && <span className="ml-2 text-fg-tertiary font-normal">({shownTotal})</span>}
           </h2>
-          <button
+          <button type="button"
             onClick={onClose}
             className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             aria-label="Close"

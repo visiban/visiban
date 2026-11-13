@@ -111,7 +111,7 @@ const LINK_ROLE_OPTIONS: { value: LinkRole; label: string }[] = [
 ];
 
 const ALREADY_USED_REVOKE_ERROR = "This invite was already used, so it can't be revoked.";
-const GENERIC_REVOKE_ERROR = "Could not revoke invite.";
+const GENERIC_REVOKE_ERROR = "Failed to revoke invite. Please try again.";
 
 // No invite grants Admin, shareable or emailed (#1727, #2006); say how to make an admin.
 const GROUP_LINK_ADMIN_HINT =

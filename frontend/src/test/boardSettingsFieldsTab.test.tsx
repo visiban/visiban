@@ -62,6 +62,26 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(screen.queryByRole("button", { name: /add field/i })).not.toBeInTheDocument();
   });
 
+  it("the drag handle is a named, ringed button with a working keyboard pick-up (#1739)", async () => {
+    const user = userEvent.setup();
+    const board = makeBoard([
+      makeDefinition({ id: 1, name: "Sprint", field_type: "text" }),
+      makeDefinition({ id: 2, name: "Cost", field_type: "number" }),
+    ]);
+    render(<BoardSettingsFieldsTab board={board} isAdmin onFieldsUpdated={vi.fn()} />);
+    const handle = screen.getByRole("button", { name: "Drag to reorder Sprint" });
+    expect(handle.tagName).toBe("BUTTON");
+    expect(handle).toHaveAttribute("type", "button");
+    expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+    expect(handle).toHaveClass("focus:opacity-100", "focus:ring-2", "focus:ring-primary-emphasis");
+    // Reachable by Tab, and the KeyboardSensor picks it up on Space.
+    await user.tab();
+    expect(handle).toHaveFocus();
+    await user.keyboard(" ");
+    expect(await screen.findByText(/Picked up draggable item 1/)).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+  });
+
   it("lists existing fields with name, type, and pin state", () => {
     const board = makeBoard([
       makeDefinition({ id: 1, name: "Sprint", field_type: "text", show_on_card: true }),
@@ -91,6 +111,18 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await user.click(screen.getByRole("button", { name: "Save field" }));
     expect(await screen.findByText("Name is required.")).toBeInTheDocument();
     expect(boardsApi.createCustomFieldDefinition).not.toHaveBeenCalled();
+  });
+
+  it("names each choice's remove button (#1737)", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.click(screen.getByRole("button", { name: /Dropdown/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    const remove = screen.getByRole("button", { name: "Remove choice 1" });
+    expect(remove).toHaveAttribute("type", "button");
+    await user.type(screen.getAllByRole("textbox").at(-1)!, "Alpha");
+    expect(screen.getByRole("button", { name: "Remove choice Alpha" })).toBe(remove);
   });
 
   it("a dropdown field requires at least one choice before it can be saved", async () => {

@@ -73,7 +73,7 @@ function GroupNode({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void navigate(`/groups/${group.id}`); } }}
       >
         {/* Chevron — reserves space for leaf nodes to keep alignment */}
-        <button
+        <button type="button"
           aria-label={expanded ? `Collapse ${group.name}` : `Expand ${group.name}`}
           onClick={(e) => { e.stopPropagation(); if (hasChildren) setExpanded((v) => !v); }}
           className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-fg-muted hover:text-fg-secondary transition-transform duration-150 ${expanded && hasChildren ? "rotate-90" : ""} ${!hasChildren ? "opacity-0 pointer-events-none" : ""}`}
@@ -99,7 +99,7 @@ function GroupNode({
         )}
 
         {/* Add subgroup button — visible on hover */}
-        <button
+        <button type="button"
           onClick={(e) => { e.stopPropagation(); setAddingSubgroup(true); }}
           title={`Add subgroup to ${group.name}`}
           aria-label={`Add subgroup to ${group.name}`}

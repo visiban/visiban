@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import ColorSwatchPicker from '../components/Common/ColorSwatchPicker'
-import { colorName, COLOR_NAMES, COLUMN_COLORS, PALETTE_COLORS } from '../constants/colors'
+import { colorName, COLOR_NAMES, COLUMN_COLORS, PALETTE_COLORS, colorForPriority, PRIORITY_COLORS, PRIORITY_FALLBACK_COLOR } from '../constants/colors'
 
 describe('ColorSwatchPicker', () => {
   it('renders one type=button per color, named by color name and never by hex', () => {
@@ -61,5 +61,17 @@ describe('colorName', () => {
     PALETTE_COLORS.forEach(c => expect(COLOR_NAMES[c]).toBeTruthy())
     expect(colorName('#3b82f6')).toBe('Blue')
     expect(colorName('#123456')).toBe('Custom color')
+  })
+})
+
+// One fallback for the card face, card peek and share page (#1892).
+describe('colorForPriority', () => {
+  it('returns the PRIORITY_COLORS entry for a known priority', () => {
+    expect(colorForPriority('high')).toBe(PRIORITY_COLORS.high)
+  })
+
+  it('falls back to the palette Gray for an unknown priority', () => {
+    expect(colorForPriority('none')).toBe(PRIORITY_FALLBACK_COLOR)
+    expect(PRIORITY_FALLBACK_COLOR).toBe('#6B7280')
   })
 })

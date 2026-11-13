@@ -355,7 +355,7 @@ function RelationRow({
   onRemove: () => void;
 }) {
   const remove = canEdit ? (
-    <button
+    <button type="button"
       onClick={onRemove}
       className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
       title="Remove relation"

@@ -40,7 +40,7 @@ Seven types are available:
 
 Open **Board Settings** and select **Card fields** (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.
 
-The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder. That order is the order in the card detail panel and, for pinned fields, on the card face.
+The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder, or use the keyboard: Tab to the handle, press Space to pick the field up, press the arrow keys to move it past its neighbors, and press Space to drop it (Escape cancels). That order is the order in the card detail panel and, for pinned fields, on the card face.
 
 ### Adding or editing a field
 
@@ -228,7 +228,7 @@ Board admins can also define typed fields on **swimlanes** (rows) instead of car
 
 ### Managing swimlane fields (Board Settings → Swimlane fields)
 
-Open **Board Settings** and select **Swimlane fields**, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields.
+Open **Board Settings** and select **Swimlane fields**, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields. Reorder by dragging the `⋮⋮` handle, or with the keyboard: Tab to the handle, Space to pick up, arrow keys to move, Space to drop.
 
 **Shortcut:** when a swimlane's `+N` popover is open and the board has two or more swimlane fields, admins can choose **Edit field order…** in its footer. It closes the popover and opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
 

@@ -120,7 +120,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                   {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
                 </button>
                 {canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true }) && (
-                  <button
+                  <button type="button"
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); setDeleteError(null); }}
                     disabled={deletingIds.size > 0}
                     className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:cursor-not-allowed disabled:opacity-40"

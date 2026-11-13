@@ -1069,7 +1069,7 @@ describe('SecurityTab — connected accounts', () => {
     const github = screen.getByTestId('connected-account-github')
     expect(github).toHaveTextContent('jane@github.example')
     expect(github).not.toHaveTextContent('Not connected')
-    expect(screen.queryByText(/Couldn't disconnect/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Failed to disconnect/)).not.toBeInTheDocument()
     expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
   })
 
@@ -1154,6 +1154,14 @@ describe('SecurityTab — connected accounts', () => {
     // A refused disconnect does not refetch the list (only the initial load ran).
     expect(mockListConnectedAccounts).toHaveBeenCalledTimes(1)
     expect(screen.getByTestId('connected-account-google')).toHaveTextContent('jane@gmail.com')
+  })
+
+  it('a failed disconnect with no server detail uses the inline-confirm failure voice (#1436)', async () => {
+    mockDisconnectAccount.mockRejectedValue(new Error('500'))
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    expect(await screen.findByText(/^Failed to disconnect .+\. Please try again\.$/)).toBeInTheDocument()
   })
 
   it('a failed list load shows an error with Retry, not "Not connected" rows', async () => {
