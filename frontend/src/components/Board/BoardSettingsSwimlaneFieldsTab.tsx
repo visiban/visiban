@@ -909,7 +909,7 @@ function FieldEditPanel({
         {atPinCap && <span className="text-xs text-fg-muted ml-1">{PIN_CAP} of {PIN_CAP} pinned — you'll pick a swap.</span>}
       </div>
 
-      <p className="text-xs h-4 mt-2">
+      <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
