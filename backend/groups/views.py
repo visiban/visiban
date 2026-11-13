@@ -1530,8 +1530,14 @@ class GroupViewSet(viewsets.ModelViewSet):
         from .services import GroupGone, GroupTransferError, transfer_group_ownership
         with transaction.atomic():
             try:
+                # ``require_active``: a deactivated admin cannot act for the
+                # group, so handing it to one would leave it owned by an
+                # unusable account, repairable only by a superuser (#1828).
+                # Judged under the new owner's account row lock, the same
+                # check the Django admin transfer applies.
                 group = transfer_group_ownership(
                     group.pk, new_owner_id, expected_owner_id=request.user.id,
+                    require_active=True,
                 )
             except GroupGone:
                 # Queued on the row lock behind a delete of the group (#1719).

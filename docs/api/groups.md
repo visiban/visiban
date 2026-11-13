@@ -551,7 +551,7 @@ Transfer group ownership to another user. Requires the **current owner** (not ju
 { "new_owner_id": 42, "confirmation": "Engineering" }
 ```
 
-- `new_owner_id` — the user ID of the new owner; must already be a group **admin**
+- `new_owner_id` — the user ID of the new owner; must already be a group **admin**, and *(1.3+)* an active account
 - `confirmation` — must exactly match the group's name (case-sensitive) to prevent accidental transfers
 
 Since 1.2, a `new_owner_id` that is not an integer, or is beyond the 64-bit integer range, returns `400 Bad Request` (it returned `500` before). A body that is not a JSON object was already a `400`.
@@ -566,6 +566,7 @@ The previous owner becomes a regular admin after transfer. Returns the updated g
 - `400 Bad Request` — confirmation does not match group name
 - `400 Bad Request` — `new_owner_id` is not a member of this group
 - `400 Bad Request` — `new_owner_id` is a member but not an admin
+- `400 Bad Request` *(1.3+)* — `new_owner_id` is a deactivated account (`New owner must be an active user.`); before 1.3 the transfer succeeded and left the group owned by an account that cannot sign in (#1828)
 - `400 Bad Request` — the group's owner changed while the request was being processed (`Only the group owner can transfer ownership.`)
 - `404 Not Found` *(1.2+)* — the group was deleted while the request waited for it (#1719)
 

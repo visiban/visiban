@@ -401,10 +401,11 @@ class SiteAdminMembershipProtectionTests(TestCase):
 
 
 class LastAdminSelfDemotionTests(TestCase):
-    """Document the current behavior when the last admin tries to demote themselves.
+    """The owner cannot demote their own membership (#1828).
 
-    Currently the API does NOT block this, so the owner can change their own role
-    to a lower role. This test documents that behavior for visibility.
+    Before 1.3 the API accepted this and stored the lower role, which changed
+    nothing: ``get_board_role`` grants the owner admin through ``Board.owner``.
+    It is now refused like a group owner's demotion.
     """
 
     def setUp(self):
@@ -413,24 +414,17 @@ class LastAdminSelfDemotionTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.owner)
 
-    def test_last_admin_can_demote_self_via_membership_update(self):
-        """Document: the API currently allows the last admin to demote themselves.
-        This may be undesirable, but we test current behavior rather than failing."""
+    def test_owner_cannot_demote_self_via_membership_update(self):
         resp = self.client.post(
             f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": self.owner.pk, "role": "viewer"},
         )
-        # The API allows this — the owner role is determined by Board.owner,
-        # so even if the membership says "viewer", get_board_role returns ADMIN
-        # for the board owner. The membership record changes but effective
-        # permissions are unaffected.
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.json()["code"], "board_owner_protected")
         membership = BoardMembership.objects.get(board=self.board, user=self.owner)
-        self.assertEqual(membership.role, BoardMembership.Role.VIEWER)
-        # But effective role is still admin because of ownership
+        self.assertEqual(membership.role, BoardMembership.Role.ADMIN)
         from boards.permissions import get_board_role
-        effective = get_board_role(self.owner, self.board)
-        self.assertEqual(effective, BoardMembership.Role.ADMIN)
+        self.assertEqual(get_board_role(self.owner, self.board), BoardMembership.Role.ADMIN)
 
 
 class ViewerCannotPatchBoardTests(TestCase):

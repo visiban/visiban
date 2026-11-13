@@ -297,11 +297,20 @@ class BoardRoleChangeTests(_ShareFixtures):
         self.assert_cleared()
 
     def test_owner_demoted_by_membership_keeps_link(self, bc):
-        """The owner is an admin by ownership whatever the membership row says."""
+        """The owner is an admin by ownership whatever the membership row says.
+
+        The API no longer stores a lower role for the owner (#1828), so the row
+        is lowered as a Django admin edit or a pre-1.3 API write would have
+        left it, and a moderator-only update (which keeps the stored role)
+        runs the share-link re-check.
+        """
         token = self.enable(user=self.owner)
+        BoardMembership.objects.filter(board=self.board, user=self.owner).update(
+            role=BoardMembership.Role.MEMBER
+        )
         r = _client(self.enabler).post(
             f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": self.owner.pk, "role": "member"}, format="json",
+            {"user_id": self.owner.pk, "is_moderator": False}, format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
         self.assert_kept(token)

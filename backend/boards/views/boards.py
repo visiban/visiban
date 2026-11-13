@@ -61,6 +61,30 @@ from .invites import BoardInviteLinksMixin
 
 logger = logging.getLogger(__name__)
 
+# The board owner's membership is refused removal and demotion (#1828), as a
+# group owner's is (#1722, #1787; ``groups/services.py``
+# ``OWNER_MEMBERSHIP_CODE``). Why: ``get_board_role`` and ``board_access_q``
+# grant the owner admin through ``Board.owner`` whatever their membership row
+# says, so deleting or lowering that row changed nothing the owner can do while
+# the roster stopped showing it. ``code`` is part of the public ``{detail,
+# code}`` 400 contract; ``detail`` is prose and may be reworded.
+BOARD_OWNER_PROTECTED_CODE = "board_owner_protected"
+BOARD_OWNER_PROTECTED_MESSAGE = (
+    "The board owner's membership cannot be removed or demoted. "
+    "The owner keeps admin access to the board while they own it."
+)
+_BOARD_OWNER_REFUSED_CODE_HELP = (
+    "`board_owner_protected`: the target is the board owner, whose membership "
+    "cannot be removed or demoted."
+)
+
+
+def _board_owner_refusal():
+    return Response(
+        {"detail": BOARD_OWNER_PROTECTED_MESSAGE, "code": BOARD_OWNER_PROTECTED_CODE},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
 
 def _broadcast_board_group_change(board_id, board_data, old_group_id, new_group_id, *, actor_id=None):
     """Group-channel half of a board write that may have changed its group.
@@ -1208,8 +1232,21 @@ class BoardViewSet(
             200: BoardMembershipSerializer,
             201: BoardMembershipSerializer,
             400: OpenApiResponse(
-                description="`role` is not a string within the allowed role set, or moderator entitlement was requested for a collaborator or viewer role.",
-                response=inline_serializer(name="AddMemberBadRequest", fields={"detail": serializers.CharField()}),
+                description=(
+                    "`role` is not a string within the allowed role set, moderator entitlement was requested "
+                    "for a collaborator or viewer role, or the change would give the board owner a role "
+                    "below `admin` (this one carries `code`). Nothing is written."
+                ),
+                response=inline_serializer(
+                    name="AddMemberBadRequest",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(
+                            required=False,
+                            help_text="Present only on a refused owner demotion. " + _BOARD_OWNER_REFUSED_CODE_HELP,
+                        ),
+                    },
+                ),
             ),
             403: OpenApiResponse(
                 description="Requester is not a board admin, or attempted to modify a site admin's membership.",
@@ -1269,6 +1306,16 @@ class BoardViewSet(
             # Keep the stored role so a request that only touches the
             # moderator flag cannot change what the member can do.
             member_role = existing.role
+        # The owner's row may not be written below admin (#1828). A request
+        # that names no role on an existing row keeps the stored role, so it
+        # is not a demotion and passes. ``Board.owner`` is not writable through
+        # the API, so this pre-lock read cannot go stale under the lock below.
+        if (
+            target_user.pk == board.owner_id
+            and member_role != BoardMembership.Role.ADMIN
+            and (role_supplied or existing is None)
+        ):
+            return _board_owner_refusal()
         raw_mod = body.get("is_moderator")
         # Normalize: None means "not provided", else coerce to bool.
         # Multipart forms send "false"/"true" as strings.
@@ -1406,6 +1453,21 @@ class BoardViewSet(
         # 201 for a new membership, 200 for a role update on an existing one.
         return Response(membership_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            400: OpenApiResponse(
+                description="The target is the board owner, whose membership cannot be removed. Nothing is written.",
+                response=inline_serializer(
+                    name="BoardMemberRemoveRefused",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(help_text=_BOARD_OWNER_REFUSED_CODE_HELP),
+                    },
+                ),
+            ),
+        },
+    )
     @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[0-9]+)")
     def remove_member(self, request, pk=None, user_id=None):
         """Remove a member from the board (admin only)."""
@@ -1430,6 +1492,12 @@ class BoardViewSet(
         # it follows the membership lookup (#1706).
         if membership.user.is_site_admin and not request.user.is_site_admin:
             raise PermissionDenied("Cannot remove a site admin from a board.")
+        # The owner keeps admin through ``Board.owner`` whatever happens to this
+        # row, so removing it only hid them from the roster (#1828). Refused for
+        # every caller, site admins included, as groups refuse it; the owner
+        # leaves by deleting the board.
+        if membership.user_id == board.owner_id:
+            return _board_owner_refusal()
         target_user = membership.user
         board_id = board.id
         removed_user_id = target_user.id
