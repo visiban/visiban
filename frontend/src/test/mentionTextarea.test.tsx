@@ -279,6 +279,30 @@ describe('MentionTextarea placement hardening (#2092)', () => {
     expect(list.style.left).toBe('300px')
   })
 
+  it('a capped list keeps its scroll position: its own scroll does not re-place it, and a re-place restores it (#967)', async () => {
+    // Textarea 301-355 in a 480px viewport: a 314px list is capped to 289px above and must scroll.
+    const { list } = await open(R(301, 355), 314)
+    window.dispatchEvent(new Event('resize'))
+    expect(parseFloat(list.style.maxHeight)).toBe(289)
+    // Browser model: laying the list out without its cap (to measure the natural height) clamps scrollTop to 0.
+    let st = 0
+    Object.defineProperty(list, 'scrollTop', { configurable: true, get: () => st, set: (v: number) => { st = v } })
+    const measure = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this !== list) return 0
+      if (!this.style.maxHeight) { st = 0; return 314 }
+      return Math.min(314, parseFloat(this.style.maxHeight))
+    })
+    list.scrollTop = 25
+    const before = measure.mock.calls.length
+    fireEvent.scroll(list) // ArrowDown's scrollIntoView, or the wheel
+    expect(measure.mock.calls.length).toBe(before) // not re-placed
+    expect(list.scrollTop).toBe(25)
+    window.dispatchEvent(new Event('scroll')) // an outside scroll still re-places...
+    expect(measure.mock.calls.length).toBeGreaterThan(before)
+    expect(parseFloat(list.style.maxHeight)).toBe(289)
+    expect(list.scrollTop).toBe(25) // ...without snapping the list back to its first option
+  })
+
   it('clamps the list inside the viewport horizontally', async () => {
     const { ta, list } = await open(R(50, 90, 1000), 100)
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(224)

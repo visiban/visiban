@@ -78,7 +78,9 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     if (!ta || !el) return;
     const r = ta.getBoundingClientRect();
     lastRectRef.current = { top: r.top, bottom: r.bottom, left: r.left };
-    // Measure the natural height with no inline cap from an earlier placement.
+    // Measure the natural height with no inline cap from an earlier placement. Clearing the cap
+    // clamps a capped list's scrollTop to 0, so keep it and restore it once the cap is back (#967).
+    const scrollTop = el.scrollTop;
     el.style.maxHeight = "";
     const natural = el.offsetHeight;
     if (natural === 0) return; // not rendered yet / transient empty render: stay hidden or as-is
@@ -101,6 +103,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     const space = Math.max(0, side === "below" ? spaceBelow : spaceAbove);
     const height = Math.min(natural, space);
     if (natural > space) el.style.maxHeight = `${space}px`;
+    el.scrollTop = scrollTop;
     sideRef.current = side;
     el.style.top = `${side === "below" ? r.bottom + gap : r.top - gap - height}px`;
     el.style.left = `${clampLeftToVisible(r.left, el.offsetWidth, margin)}px`;
@@ -138,13 +141,19 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
 
   // Re-anchor (never dismiss) on scroll and resize: typing makes the browser scroll the caret into
   // view, so closing on scroll would end the list mid-word. Capture catches inner scroll regions.
+  // The list's own scroll is ignored: it cannot move the textarea, and re-placing on it cleared the
+  // cap mid-scroll, snapping a capped list back to its first option (#967).
   useEffect(() => {
     if (!open) return;
-    window.addEventListener("scroll", place, true);
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && dropdownRef.current?.contains(e.target)) return;
+      place();
+    };
+    window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", place);
     const unsubscribeViewport = subscribeVisualViewport(place);
     return () => {
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", place);
       unsubscribeViewport();
     };
