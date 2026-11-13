@@ -5,6 +5,7 @@ import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampL
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
+import SelectedCheck from "./SelectedCheck";
 
 export interface SingleSelectDropdownProps<T extends string | number> {
   label: string;
@@ -338,13 +339,7 @@ export default function SingleSelectDropdown<T extends string | number>({
           >
             <span className="flex items-start gap-2">
               {/* Non-color selection cue (#2108). Reserves its width on every option so labels stay aligned. */}
-              <span aria-hidden="true" className="w-3 h-5 shrink-0 flex items-center">
-                {selected === opt.value && (
-                  <svg data-testid="singleselect-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 8.5l3.5 3.5L13 4.5" />
-                  </svg>
-                )}
-              </span>
+              <SelectedCheck selected={selected === opt.value} testId="singleselect-selected-mark" slotClassName="w-3 h-5 shrink-0 flex items-center" />
               {opt.description !== undefined ? (
                 <span className="min-w-0">
                   <span className="block">{opt.label}</span>
