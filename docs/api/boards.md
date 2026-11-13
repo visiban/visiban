@@ -1711,7 +1711,7 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single column. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/columns/`
-Create a column. Requires board admin.
+Create a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false, "is_done": false }`
 
@@ -1793,7 +1793,7 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single swimlane. Same role-gated field rules as the list endpoint.
 
 ### `POST /api/v1/boards/{id}/swimlanes/`
-Create a swimlane. Requires board admin.
+Create a swimlane. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Acme Corp", "contact_email": "", "color": "#3B82F6" }`
 
@@ -1911,7 +1911,7 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single label. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/labels/`
-Create a label. Requires board admin.
+Create a label. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Bug", "color": "#EF4444" }`
 
@@ -2133,7 +2133,7 @@ List the board's custom field definitions in `position` order. Available to **al
 Get a single definition. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/custom-fields/`
-Create a definition. Requires board admin.
+Create a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "show_on_card": true }`
 
@@ -2246,7 +2246,7 @@ Get a single definition. Available to all board members. A definition `id` belon
 another board returns `404 Not Found`.
 
 ### `POST /api/v1/boards/{id}/swimlane-custom-fields/`
-Create a definition. Requires board admin.
+Create a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "show_on_row": true, "is_admin_only": true }`
 

@@ -1,8 +1,10 @@
-"""Board and column PUT/PATCH check the role before validating the body (#2009).
+"""Admin-only writes check the role before validating the body (#2009).
 
-DRF validates the serializer before ``perform_update``, so a caller below admin
-sending an invalid body got a 400 that named the bad fields, while a valid body
-got 403. ``CardViewSet.update`` already checked first; these two now do too.
+DRF validates the serializer before ``perform_create``/``perform_update``, so a
+caller below admin sending an invalid body got a 400 that named the bad fields,
+while a valid body got 403. ``CardViewSet.update`` already checked first; the
+board, column, label, swimlane and both custom-field viewsets now do too, for
+PUT/PATCH (board: update only) and POST (the five sub-resources).
 """
 from django.test import TestCase
 from rest_framework import status
@@ -138,3 +140,52 @@ class RoleBeforeValidationSubResourceTests(TestCase):
         for name, (url, bad) in self.cases.items():
             with self.subTest(resource=name):
                 self.assertEqual(outsider.patch(url, bad, format="json").status_code, 404)
+
+
+class RoleBeforeValidationCreateTests(RoleBeforeValidationSubResourceTests):
+    """POST on the five admin-only sub-resource collections (#2009)."""
+
+    def setUp(self):
+        super().setUp()
+        base = f"/api/v1/boards/{self.board.pk}"
+        self.create_urls = {
+            "column": f"{base}/columns/",
+            "label": f"{base}/labels/",
+            "swimlane": f"{base}/swimlanes/",
+            "custom_field": f"{base}/custom-fields/",
+            "swimlane_custom_field": f"{base}/swimlane-custom-fields/",
+        }
+        self.valid = {
+            "column": {"name": "New col"},
+            "label": {"name": "New label", "color": "#445566"},
+            "swimlane": {"name": "New lane"},
+            "custom_field": {"name": "New CF", "field_type": "text"},
+            "swimlane_custom_field": {"name": "New SCF", "field_type": "text"},
+        }
+
+    def test_below_admin_invalid_create_is_403(self):
+        for name, url in self.create_urls.items():
+            for role, user in self.users.items():
+                with self.subTest(resource=name, role=role):
+                    r = self._client(user).post(url, {"name": ""}, format="json")
+                    self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.content)
+
+    def test_admin_invalid_create_is_still_400(self):
+        admin = self._client(self.owner)
+        for name, url in self.create_urls.items():
+            with self.subTest(resource=name):
+                r = admin.post(url, {"name": ""}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_non_member_create_still_gets_404(self):
+        outsider = self._client(User.objects.create_user(username="rbv2_out2", password="pass"))
+        for name, url in self.create_urls.items():
+            with self.subTest(resource=name):
+                self.assertEqual(outsider.post(url, {"name": ""}, format="json").status_code, 404)
+
+    def test_admin_valid_create_is_201(self):
+        admin = self._client(self.owner)
+        for name, url in self.create_urls.items():
+            with self.subTest(resource=name):
+                r = admin.post(url, self.valid[name], format="json")
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
