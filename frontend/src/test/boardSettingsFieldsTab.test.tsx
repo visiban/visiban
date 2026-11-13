@@ -513,6 +513,129 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([]));
   });
 
+  describe("type lock reason and Delete in the editor (#2194)", () => {
+    const LOCK_RE = /The type can't be changed because cards already have values/;
+
+    it("explains the lock when the server rejects a type change", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue({ response: { data: { field_type: ["locked"] } } });
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /# Number/ }));
+      await user.click(screen.getByRole("button", { name: "Change type" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      const reason = await screen.findByText(LOCK_RE);
+      expect(reason).toHaveTextContent("add a new field of that type, then delete this one");
+      expect(reason).toHaveTextContent("permanently deletes all of its values");
+      expect(reason).toHaveTextContent("can't be recovered");
+    });
+
+    it("keeps the generic message for other save failures", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("boom"));
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      expect(await screen.findByText("Couldn't save this field. Check the values and try again.")).toBeInTheDocument();
+      expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
+    });
+
+    it("offers Delete field only when editing an existing field", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Delete field" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "+ Add field" }));
+      expect(screen.queryByRole("button", { name: "Delete field" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      await user.click(screen.getByTitle("Edit Sprint"));
+      expect(screen.getByRole("button", { name: "Delete field" })).toBeInTheDocument();
+    });
+
+    it("opens the existing confirmation, deletes, and closes the editor", async () => {
+      const user = userEvent.setup();
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Delete field" }));
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.type(within(dialog).getByLabelText(/Type/), "Sprint");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(boardsApi.deleteCustomFieldDefinition).toHaveBeenCalledWith(1, 1));
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([]));
+      expect(screen.queryByPlaceholderText("e.g. Sprint")).not.toBeInTheDocument();
+      // A stale editingId would hide both the empty state and "+ Add field".
+      expect(screen.getByRole("button", { name: "+ Add field" })).toBeInTheDocument();
+    });
+
+    it("disables Delete field while a save is in flight", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockReturnValue(new Promise(() => {}));
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      expect(screen.getByRole("button", { name: "Delete field" })).toBeDisabled();
+    });
+
+    it("announces a save error in a polite status region", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("boom"));
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      const msg = "Couldn't save this field. Check the values and try again.";
+      await screen.findByText(msg);
+      // Other role=status regions exist (dnd live region); pick ours by text.
+      const status = screen.getAllByRole("status").find((el) => el.textContent === msg);
+      expect(status).toBeDefined();
+      expect(status).toHaveAttribute("aria-live", "polite");
+    });
+
+    it("does not prompt when the type is changed back to the saved type", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: /# Number/ }));
+      await user.click(screen.getByRole("button", { name: "Change type" }));
+      await user.click(screen.getByRole("button", { name: /Aa\s*Text/ }));
+      expect(screen.queryByRole("button", { name: "Change type" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Aa\s*Text/ }).className).toContain("bg-primary/10");
+      expect(screen.getByRole("button", { name: /# Number/ }).className).not.toContain("bg-primary/10");
+    });
+
+    it("keeps the editor and its edits open when the DELETE fails", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.deleteCustomFieldDefinition).mockRejectedValue(new Error("boom"));
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), " 2");
+      await user.click(screen.getByRole("button", { name: "Delete field" }));
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.type(within(dialog).getByLabelText(/Type/), "Sprint");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(boardsApi.deleteCustomFieldDefinition).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Delete field?" })).not.toBeInTheDocument());
+      expect(screen.getByPlaceholderText("e.g. Sprint")).toHaveValue("Sprint 2");
+      expect(onFieldsUpdated).not.toHaveBeenCalled();
+    });
+
+    it("keeps Delete off the default focus, left of Cancel and Save, in danger styling", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      const del = screen.getByRole("button", { name: "Delete field" });
+      const cancel = screen.getByRole("button", { name: "Cancel" });
+      const save = screen.getByRole("button", { name: "Save field" });
+      expect(del).not.toHaveFocus();
+      expect(screen.getByPlaceholderText("e.g. Sprint")).toHaveFocus();
+      expect(del.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(cancel.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(del.className).toContain("bg-danger-bg");
+      expect(del.className).toContain("mr-auto");
+    });
+  });
+
   it("shows an amber warning near the 30-field cap", () => {
     const near = makeBoard(Array.from({ length: 28 }, (_, i) => makeDefinition({ id: i + 1, name: `Field ${i + 1}` })));
     render(<BoardSettingsFieldsTab board={near} isAdmin onFieldsUpdated={vi.fn()} />);
@@ -716,9 +839,9 @@ describe("BoardSettingsFieldsTab — number format (#1391)", () => {
     await user.click(screen.getByRole("button", { name: "Edit Budget" }));
 
     await user.click(screen.getByRole("button", { name: "Aa Text" }));
-    const prompt = screen.getByText(/may make existing values unreadable/).parentElement as HTMLElement;
+    const prompt = screen.getByText(/the save will be refused/).parentElement as HTMLElement;
     await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText(/may make existing values unreadable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/the save will be refused/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aa Text" })).toHaveFocus();
   });
 

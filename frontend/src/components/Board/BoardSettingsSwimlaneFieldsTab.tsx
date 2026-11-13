@@ -18,6 +18,7 @@ import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberForma
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
+import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
@@ -372,11 +373,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       // a client-side derivation that can go stale if a value is written
       // between board load and save. The server is the real gate.
       const detail = (err as { response?: { data?: { field_type?: unknown } } })?.response?.data?.field_type;
-      setFormError(
-        detail
-          ? "Couldn't change this field's type — swimlanes already have values for it."
-          : "Couldn't save this field. Check the values and try again."
-      );
+      setFormError(detail ? typeLockedMessage("swimlanes") : "Couldn't save this field. Check the values and try again.");
     } finally {
       setSaving(false);
     }
@@ -385,9 +382,13 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
+    // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
+    const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteSwimlaneCustomFieldDefinition(board.id, deleteTarget.id);
+      // Close only once the DELETE succeeded, so a failure keeps unsaved edits.
+      if (wasEditing) cancelEdit();
       commit(fields.filter((f) => f.id !== deleteTarget.id));
     } catch {
       setFields(prev);
@@ -507,6 +508,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                     saving={saving}
                     onSave={() => void handleSave()}
                     onCancel={cancelEdit}
+                    onDelete={() => setDeleteTarget(def)}
                   />
                 )}
               </FieldRow>
@@ -741,13 +743,15 @@ interface FieldEditPanelProps {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** Present only when editing an existing field (admin-only tab): opens the type-the-name delete confirmation. */
+  onDelete?: () => void;
 }
 
 function FieldEditPanel({
   form, setForm, typeLocked,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel,
+  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
@@ -766,7 +770,7 @@ function FieldEditPanel({
       />
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Type</p>
-      <div className="flex gap-1.5 flex-wrap mb-2" aria-describedby={typeLocked ? "swimlane-field-type-lock" : undefined}>
+      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type" aria-describedby={typeLocked ? "swimlane-field-type-lock" : undefined}>
         {FIELD_TYPE_OPTIONS.map((opt) => {
           const selected = form.field_type === opt.value;
           // Diverges from the card tab's soft warning: here the constraint is
@@ -782,7 +786,6 @@ function FieldEditPanel({
               className={`border rounded px-2.5 py-1 text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
                 selected ? "border-primary-emphasis text-fg bg-primary/10 font-medium" : "border-line text-fg-secondary hover:border-line-strong"
               }`}
-              title={locked ? "This field's type is locked — swimlanes already have values for it." : undefined}
             >
               <span className="font-semibold">{opt.glyph}</span>{opt.label}
             </button>
@@ -790,14 +793,14 @@ function FieldEditPanel({
         })}
       </div>
 
-      {form.field_type === "multi_select" && (
-        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
+      {typeLocked && (
+        <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3 max-w-prose">
+          {typeLockedMessage("swimlanes")}
+        </p>
       )}
 
-      {typeLocked && (
-        <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3">
-          Type is locked — swimlanes already have values for this field. Delete the field and add it again to change the type.
-        </p>
+      {form.field_type === "multi_select" && (
+        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
       )}
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Help text</p>
@@ -904,11 +907,26 @@ function FieldEditPanel({
         {atPinCap && <span className="text-xs text-fg-muted ml-1">{PIN_CAP} of {PIN_CAP} pinned — you'll pick a swap.</span>}
       </div>
 
-      <p className="text-xs h-4 mt-2">
+      <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex justify-end gap-3 mt-1">
+      <div className="flex flex-wrap items-center justify-end gap-3 mt-1">
+        {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
+            miss. DOM-first so it sits at the far left, apart from Save, and so
+            Tab reaches Delete -> Cancel -> Save (Cancel always sits between
+            Delete and Save). It never takes default focus (the name input
+            autofocuses) and only renders for an existing field. */}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={saving}
+            className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          >
+            Delete field
+          </button>
+        )}
         <button
           onClick={onCancel}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
