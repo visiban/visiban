@@ -4571,7 +4571,8 @@
 <p>Click <strong>Save field</strong> to commit, or <strong>Cancel</strong> to discard.</p>
 <div class="admonition warning">
 <p class="admonition-title">A field's type locks once it holds a value</p>
-<p>Once any card on the board has a stored value for a field, the API blocks changing that field's type. The editor disables the other type buttons and explains why, the same way it does for <a href="#swimlane-row-custom-fields">swimlane fields</a>. Delete the field and add it again under a new type if you need to change it. A brand-new, unsaved field has no values yet, so its type can be changed freely.</p>
+<p>Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. <strong>Deleting a field permanently deletes all of its values.</strong> They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.</p>
+<p>To delete a field from its editor, click <strong>Delete field</strong> at the bottom left. It opens the same type-the-name confirmation as the ✕ on the field's row. Only admins can edit or delete fields.</p>
 </div>
 <h3 id="field-limits">Field limits<a class="headerlink" href="#field-limits" title="Permanent link">&para;</a></h3>
 <p>The tab header shows a running count, for example <code>12 of 30 · 1 of 2 pinned</code>.</p>
@@ -4583,7 +4584,7 @@
 <p>Up to <strong>2 fields per board</strong> can be pinned so their values show on the card face without opening the card. Toggle <strong>Pin to card face</strong> in the field editor, or click <strong>Pin</strong> on a field's row.</p>
 <p>Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which to replace. Unpinning doesn't delete data: unpinned values stay visible in the card detail panel and in the <a href="#hover-peek">hover peek</a>.</p>
 <h3 id="deleting-a-field">Deleting a field<a class="headerlink" href="#deleting-a-field" title="Permanent link">&para;</a></h3>
-<p>Click <strong>✕</strong> on a field's row. Deleting is permanent: it removes the field definition <strong>and every card's stored value for it</strong>. To confirm, type the field's exact name into the dialog.</p>
+<p>Click <strong>✕</strong> on a field's row, or open the field's editor and click <strong>Delete field</strong>. Deleting is permanent: it removes the field definition <strong>and every card's stored value for it</strong>. To confirm, type the field's exact name into the dialog.</p>
 <div class="admonition danger">
 <p class="admonition-title">This cannot be undone</p>
 <p>There is no way to recover a deleted field's values. If you only want to stop showing a field on the card face, unpin it instead of deleting it.</p>
@@ -4767,7 +4768,7 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Field type is locked once a swimlane holds a value</p>
-<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why. Delete the field and add it again under a new type if you need to change it.</p>
+<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. <strong>Delete field</strong> at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.</p>
 </div>
 <h3 id="pinned-fields-in-the-swimlane-label-panel">Pinned fields in the swimlane label panel<a class="headerlink" href="#pinned-fields-in-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
 <p>Up to 8 pinned fields render as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name), stacked below the row name. They're hidden while the swimlane is collapsed, like the rest of the panel's detail.</p>
