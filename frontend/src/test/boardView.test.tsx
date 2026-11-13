@@ -127,7 +127,7 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 vi.mock('../components/Board/SwimlaneRow', () => ({
   default: ({ swimlane, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId }: { swimlane: { id: number; name: string }; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
+      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -3114,5 +3114,128 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     })
     expect(await screen.findByTestId('card-detail')).toHaveAttribute('data-block-form', 'block')
     expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+  })
+})
+
+
+// #2205 — lane filters: hidden lanes, focus pause, counts, empty state, notice.
+describe('BoardView lane filters (#2205)', () => {
+  type LaneProps = { hiddenLaneCount?: number; laneFiltersPaused?: boolean; filters?: Record<string, unknown>; onChange?: (f: Record<string, unknown>) => void }
+  const laneProps = () => capturedFilterBarProps as unknown as LaneProps
+  const aeField = {
+    id: 7, uid: 'slf000000007', name: 'AE', field_type: 'dropdown' as const, choices: ['Priya', 'Sam'], position: 0,
+    show_on_row: true, is_admin_only: false, is_required: false, help_text: '', number_prefix: '', number_suffix: '',
+    number_decimals: null, choice_colors: {}, created_at: '',
+  }
+  const lane = (id: number, name: string, ae?: string) => ({
+    id, uid: `laneuid0000${id}`, name, contact_email: '', notes: '', position: id, color: '#6B7280', is_collapsed: false,
+    created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
+    custom_field_values: ae ? [{ field_definition: 7, value: ae }] : [],
+  })
+  const boardWith = (lanes: ReturnType<typeof lane>[], extra: Partial<BoardFull> = {}) =>
+    makeBoard({ swimlanes: lanes, swimlane_custom_field_definitions: [aeField], ...extra })
+  const priyaParam = `f_lanes=${encodeURIComponent('1.[{"f":7,"o":"is","v":"Priya"}]')}`
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getCardStatus).mockResolvedValue({ archived: false })
+    mockSearchParams = new URLSearchParams()
+    mockSearchTruncation = null
+    localStorage.clear()
+    capturedFilterBarProps = {}
+  })
+
+  it('hides lanes that fail the rules from ?f_lanes and reports the count', () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Sam'), lane(22, 'Customer C')]) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    // No value fails `is` (empty-value rule).
+    expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(laneProps().hiddenLaneCount).toBe(2)
+    expect(laneProps().laneFiltersPaused).toBe(false)
+  })
+
+  it('a malformed ?f_lanes is ignored rather than hiding anything', () => {
+    mockSearchParams = new URLSearchParams('f_lanes=1.%7Bnot-json')
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Sam')]) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+  })
+
+  it('focus mode pauses lane filters: the focused lane shows and the banner says so', () => {
+    mockSearchParams = new URLSearchParams(`${priyaParam}&focus=21`)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Sam')]) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    expect(screen.getByText('Lane filters paused')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(laneProps().hiddenLaneCount).toBe(0)
+    expect(laneProps().laneFiltersPaused).toBe(true)
+  })
+
+  it('shows the all-lanes-hidden empty state ahead of the card one, and clears lane rules from it', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(21, 'Customer B', 'Sam')]) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
+    expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Clear lane filters' }))
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()
+  })
+
+  it('prunes a rule on an admin-only field for a non-admin, so it never hides lanes', () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({
+      board: makeBoard({
+        current_user_role: 'member',
+        swimlanes: [lane(21, 'Customer B')],
+        swimlane_custom_field_definitions: [{ ...aeField, is_admin_only: true }],
+      }),
+    })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(laneProps().filters?.laneFilter).toBeUndefined()
+  })
+
+  it('writes lane rules to ?f_lanes and removes the param when they are cleared', () => {
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya')]) })
+    render(<BoardView {...defaultProps()} />)
+    fireEvent.keyDown(document, { key: 'f' })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 7, op: 'is', value: 'Priya' }] }
+    act(() => { laneProps().onChange?.({ ...laneProps().filters, laneFilter }) })
+    const resolve = (call: unknown[]) => (typeof call[0] === 'function' ? (call[0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams()) : call[0]) as URLSearchParams
+    expect(resolve(mockSetSearchParams.mock.calls.at(-1) as unknown[]).get('f_lanes')).toBe('1.[{"f":7,"o":"is","v":"Priya"}]')
+    act(() => { const next = { ...laneProps().filters }; delete next.laneFilter; laneProps().onChange?.(next) })
+    expect(resolve(mockSetSearchParams.mock.calls.at(-1) as unknown[]).get('f_lanes')).toBeNull()
+  })
+
+  it('a lane holding keyboard focus that stops matching shows the notice and focus moves to the board', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    act(() => { screen.getByTestId('focus-btn-20').focus() })
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    const text = '“Customer A” is now hidden because it no longer matches your lane filters.'
+    expect(screen.getAllByText(text).length).toBeGreaterThan(0)
+    expect(document.activeElement).toBe(document.querySelector('[data-board-scroll]'))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss notice' }))
+    expect(screen.queryByText(text)).not.toBeInTheDocument()
+  })
+
+  it('stays silent when a remote edit hides a lane the user is not in', () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
   })
 })

@@ -257,7 +257,14 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   const laneFmt: LaneValueFormatter = useCallback(
     (field, raw) => {
       const def = (swimlaneDefs ?? []).find((d) => d.id === field.id);
-      return def ? formatCustomFieldValue(def, raw, userDateFormat) : raw;
+      if (!def) return raw;
+      const shown = formatCustomFieldValue(def, raw, userDateFormat);
+      // A number with no display format comes back as typed; group its
+      // thousands so "Deal value 50,000 or more" reads at a glance.
+      if (def.field_type === "number" && shown === raw && Number.isFinite(Number(raw))) {
+        return Number(raw).toLocaleString("en-US", { maximumFractionDigits: 10 });
+      }
+      return shown;
     },
     [swimlaneDefs, userDateFormat],
   );

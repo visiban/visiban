@@ -194,5 +194,18 @@ describe('useSavedFilters', () => {
       expect(fs.search).toBe('ship')
       expect(fs.priorities).toEqual(['urgent'])
     })
+
+    // #2205
+    it('restores a saved laneFilter and drops a malformed one', async () => {
+      vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
+      const { result } = renderHook(() => useSavedFilters(1))
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 7, op: 'is', value: 'Priya' }] }
+      const good = { ...makeFilter(1, 'Lanes'), state_json: { laneFilter } }
+      expect(result.current.hydrateFilter(good).laneFilter).toEqual(laneFilter)
+      const bad = { ...makeFilter(2, 'Bad'), state_json: { laneFilter: { items: 'x' } } }
+      expect(result.current.hydrateFilter(bad)).not.toHaveProperty('laneFilter')
+      expect(result.current.hydrateFilter(makeFilter(3, 'Old'))).not.toHaveProperty('laneFilter')
+    })
   })
 })

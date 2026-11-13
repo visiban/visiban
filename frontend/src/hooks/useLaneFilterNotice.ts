@@ -39,6 +39,10 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
   // Closest [data-swimlane-id] of the last focused element. Deliberately not
   // cleared when focus drops to <body>: that drop is what recovery detects.
   const focusedLaneIdRef = useRef<number | null>(null);
+  // The lane focus was recovered from in this commit. Layout effects run
+  // before the notice effect, and the recovery focus() itself fires focusin,
+  // so the notice reads this snapshot rather than focusedLaneIdRef.
+  const recoveredLaneIdRef = useRef<number | null>(null);
   const prevRef = useRef<{ filterKey: string; focus: number | null; laneIds: Set<number>; hidden: ReadonlySet<number> } | null>(null);
 
   useEffect(() => {
@@ -60,6 +64,8 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
     prevRef.current = { filterKey, focus: focusedSwimlaneId, laneIds, hidden: hiddenIds };
     const edits = localEditsRef.current;
     localEditsRef.current = new Set();
+    const focusedLane = recoveredLaneIdRef.current ?? focusedLaneIdRef.current;
+    recoveredLaneIdRef.current = null;
     if (!prev) return;
     if (prev.filterKey !== filterKey || prev.focus !== focusedSwimlaneId) {
       setNotice(null);
@@ -71,7 +77,7 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
       if (!prev.laneIds.has(lane.id)) {
         if (edits.has(lane.id)) hit.push({ name: lane.name, isNew: true });
       } else if (!prev.hidden.has(lane.id)) {
-        if (edits.has(lane.id) || focusedLaneIdRef.current === lane.id || openCardSwimlaneId === lane.id) {
+        if (edits.has(lane.id) || focusedLane === lane.id || openCardSwimlaneId === lane.id) {
           hit.push({ name: lane.name, isNew: false });
         }
       }
@@ -91,6 +97,7 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
     const active = document.activeElement;
     if (active && active !== document.body && document.body.contains(active)) return;
     focusedLaneIdRef.current = null;
+    recoveredLaneIdRef.current = lane;
     document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR)?.focus();
   }, [hiddenIds]);
 
