@@ -185,12 +185,115 @@ test.describe('card detail', () => {
     const line = dialog.getByRole('button', { name: /^Last activity: Jordan moved to Review/ })
     await line.click()
     await expect(dialog.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
-    await expect(dialog.getByRole('listitem').first()).toBeFocused()
+    await expect(dialog.getByRole('tabpanel').getByRole('listitem').first()).toBeFocused()
     // Six type toggles, all on, each with its count.
     const show = dialog.getByRole('group', { name: 'Show' })
     await expect(show.getByRole('button')).toHaveCount(6)
     await expect(show.getByRole('button', { name: /Column moves/ })).toHaveAttribute('aria-pressed', 'true')
     await expect(show.getByRole('button', { name: /Column moves/ })).toContainText('2')
+  })
+
+  test('key facts: each fact jumps to its field and moves focus there (#1916)', async ({ page }) => {
+    const card = { ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner }
+    await routeBoard(page, { ...BOARD_FULL, cards: [card] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByText(CARD.title).first().click()
+    const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 5_000 })
+
+    const facts = dialog.getByRole('list', { name: 'Key facts' })
+    await expect(facts.getByRole('button')).toHaveCount(3)
+
+    // From another tab, a fact returns to Details and lands focus on the field.
+    await dialog.getByRole('tab', { name: /^Comments/ }).click()
+    await facts.getByRole('button', { name: /Go to Due date/ }).click()
+    await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByLabel('Due date', { exact: true }).first()).toBeFocused()
+
+    await facts.getByRole('button', { name: /Go to Assignee/ }).click()
+    await expect(dialog.locator('[data-fact-section="assignee"] button').first()).toBeFocused()
+
+    // The Column fact opens the same Move popover as the Move button.
+    await facts.getByRole('button', { name: /Go to Move/ }).click()
+    await expect(page.locator('[data-move-popover]')).toBeVisible()
+    await expect(page.locator('[data-move-popover] :focus')).toHaveCount(1)
+  })
+
+  test.describe('key facts row on a short window (#1916)', () => {
+    test.use({ viewport: { width: 1366, height: 600 } })
+
+    test('collapses to one line plus +N and leaves the body at least half the sheet', async ({ page }) => {
+      const defs = [0, 1, 2, 3, 4].map((i) => ({
+        id: 900 + i, uid: `cfuid0000${900 + i}`, name: `Field${i}`, field_type: 'text', choices: [], position: i, show_on_card: true,
+        is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+        created_at: '2026-01-01T00:00:00Z',
+      }))
+      const long = 'x'.repeat(40)
+      const card = {
+        ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner,
+        custom_field_values: defs.map((d) => ({ field_definition: d.id, value: long })),
+      }
+      await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.getByText(CARD.title).first().click()
+      const dialog = page.locator('[role="dialog"]')
+      await expect(dialog).toBeVisible({ timeout: 5_000 })
+      const facts = dialog.getByRole('list', { name: 'Key facts' })
+      await expect(facts.locator('[data-fact-more]')).toHaveCount(1)
+
+      // One line: every visible chip (and +N) shares one top.
+      const tops = await facts.locator('li:not([hidden])').evaluateAll((els) => els.map((el) => (el as HTMLElement).offsetTop))
+      // Chips differ by a pixel or two in height; a new line is a jump of a chip.
+      expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(8)
+
+      const dialogBox = (await dialog.boundingBox())!
+      const bodyBox = (await dialog.getByRole('tabpanel').boundingBox())!
+      expect(bodyBox.height).toBeGreaterThanOrEqual(dialogBox.height * 0.5)
+    })
+  })
+
+  test.describe('key facts row on a phone (#1916)', () => {
+    test.use({ viewport: { width: 375, height: 667 } })
+
+    const pinned = (id: number, name: string, position: number) => ({
+      id, uid: `cfuid0000${id}`, name, field_type: 'text', choices: [], position, show_on_card: true,
+      is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      created_at: '2026-01-01T00:00:00Z',
+    })
+
+    async function openWith(page: Page, values: string[]) {
+      const defs = values.map((_, i) => pinned(900 + i, `Field${i}`, i))
+      const card = {
+        ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner,
+        custom_field_values: values.map((v, i) => ({ field_definition: 900 + i, value: v })),
+      }
+      await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.getByText(CARD.title).first().click()
+      const dialog = page.locator('[role="dialog"]')
+      await expect(dialog).toBeVisible({ timeout: 5_000 })
+      return dialog.getByRole('list', { name: 'Key facts' })
+    }
+
+    test('an assignee, a due date and two short pinned fields all stay visible, with no +N', async ({ page }) => {
+      const facts = await openWith(page, ['a', 'b'])
+      await expect(facts.getByRole('button', { name: /Go to Assignee/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Due date/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Field0/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Field1/ })).toBeVisible()
+      await expect(facts.locator('[data-fact-more]')).toHaveCount(0)
+    })
+
+    test('long pinned values collapse into a +N that counts the hidden chips, keeping the due date', async ({ page }) => {
+      const long = 'x'.repeat(40)
+      const facts = await openWith(page, [long, long, long, long, long])
+      const more = facts.locator('[data-fact-more]')
+      await expect(more).toHaveCount(1)
+      await expect(facts.getByRole('button', { name: /Go to Due date/ })).toBeVisible()
+      const hidden = await facts.locator('li[data-fact-index][hidden]').count()
+      expect(hidden).toBeGreaterThan(0)
+      await expect(more).toContainText(`+${hidden}`)
+    })
   })
 
   test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {

@@ -92,7 +92,7 @@ describe('CardRelationsSection — loading and populated', () => {
   it('shows the count in the header and the linked card column', async () => {
     mockGet.mockResolvedValue([makeRelation()])
     renderSection()
-    expect(await screen.findByText('(1)')).toBeInTheDocument()
+    expect(await screen.findByTestId('card-section-count-relations')).toHaveTextContent('1')
     expect(screen.getByText('To Do')).toBeInTheDocument()
   })
 
@@ -551,5 +551,45 @@ describe('CardRelationsSection — navigation and escape', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument())
     expect(panelClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('CardRelationsSection — section count (#1916)', () => {
+  it('shows "Relations 0" with the zero, once the list has loaded', async () => {
+    mockGet.mockResolvedValue([])
+    renderSection()
+    expect(await screen.findByTestId('card-section-count-relations')).toHaveTextContent('0')
+  })
+
+  it('hides the count while the first fetch is pending and after it fails (never a 0)', async () => {
+    let resolve!: (r: CardRelation[]) => void
+    mockGet.mockImplementationOnce(() => new Promise<CardRelation[]>((r) => { resolve = r }))
+    const { unmount } = renderSection()
+    expect(screen.queryByTestId('card-section-count-relations')).not.toBeInTheDocument()
+    await act(async () => { resolve([]) })
+    expect(await screen.findByTestId('card-section-count-relations')).toBeInTheDocument()
+    unmount()
+
+    mockGet.mockRejectedValueOnce(new Error('nope'))
+    renderSection({ card: makeCard({ blocker_count: 1 }) })
+    await screen.findByText(/Failed to load relations\./)
+    expect(screen.queryByTestId('card-section-count-relations')).not.toBeInTheDocument()
+  })
+
+  it('heading count follows an add and a remove live', async () => {
+    mockGet.mockResolvedValue([makeRelation()])
+    mockSearch.mockResolvedValue([makeCard({ id: 42, title: 'Provision cluster', column: 11 })])
+    mockAdd.mockResolvedValue(makeRelation({ id: 900, card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }))
+    mockDelete.mockResolvedValue(undefined as never)
+    renderSection()
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('1'))
+
+    await userEvent.click(await screen.findByRole('button', { name: '+ Add relation' }))
+    await userEvent.type(screen.getByRole('combobox'), 'prov')
+    fireEvent.mouseDown(await screen.findByRole('option', { name: /Provision cluster/ }))
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('2'))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove relation to Blocker card' }))
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('1'))
   })
 })

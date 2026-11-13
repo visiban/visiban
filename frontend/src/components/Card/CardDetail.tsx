@@ -6,7 +6,10 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, isBoardTreePointerEvent, useCardSheetPlacement } from "../../hooks/useCardSheetPlacement";
 import type { SheetPlacement } from "../../hooks/useCardSheetPlacement";
 import { useCardSheetDockedPref } from "../../hooks/useCardSheetDockedPref";
-import { claimDeparture, departSheet, dropOwnDeparture, playTransition } from "./cardSheetMotion";
+import { claimDeparture, departSheet, dropOwnDeparture, playTransition, prefersReducedMotion } from "./cardSheetMotion";
+import CardKeyFacts from "./CardKeyFacts";
+import { buildKeyFacts } from "../../utils/cardKeyFacts";
+import type { KeyFactTarget } from "../../utils/cardKeyFacts";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
@@ -242,6 +245,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // #445: session-only (never persisted), so a returning user sees every item.
   const [hideCompleted, setHideCompleted] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
+  // The Attachments count is unknown, not 0, until a fetch has succeeded (#1916).
+  const [attachmentsLoaded, setAttachmentsLoaded] = useState(false);
   // Surfaces a failure in the comments/checklist/attachments load effects
   // below — previously silent (#1375): the panel just stayed on whatever it
   // had before (empty on first mount), with nothing telling the user a
@@ -432,8 +437,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     };
   }, []);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
+  // The Column key fact that opened Move (#1916); focus returns there on close. Null when the Move button opened it.
+  const moveOpenerRef = useRef<HTMLElement | null>(null);
   const movePopoverRef = useRef<HTMLDivElement>(null);
   const [showMovePopover, setShowMovePopover] = useState(false);
+  // Every close path (Escape, Cancel, no-op submit, success, version bump)
+  // goes through here so focus never drops to <body>: it returns to whatever
+  // opened the popover (the Column fact), else to the Move button.
+  const closeMovePopover = (restoreFocus = true) => {
+    setShowMovePopover(false);
+    if (restoreFocus) {
+      const opener = moveOpenerRef.current?.isConnected ? moveOpenerRef.current : moveButtonRef.current;
+      opener?.focus();
+    }
+    moveOpenerRef.current = null;
+  };
   const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);
   const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
@@ -504,6 +522,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true)).finally(settle("comments"));
     getCardAttachments(board.id, card.id).then((data) => {
       setAttachments(data);
+      setAttachmentsLoaded(true);
       setAttachmentsOpen(data.length > 0);
     }).catch(() => setLoadError(true)).finally(settle("attachments"));
     getChecklist(board.id, card.id).then((data) => {
@@ -524,7 +543,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (lastSignalRef.current === refreshSignal) return;
     lastSignalRef.current = refreshSignal;
     getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true));
-    getCardAttachments(board.id, card.id).then(setAttachments).catch(() => setLoadError(true));
+    getCardAttachments(board.id, card.id).then((data) => { setAttachments(data); setAttachmentsLoaded(true); }).catch(() => setLoadError(true));
     getChecklist(board.id, card.id).then(setChecklist).catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; board.id/card.id are stable for this instance's lifetime (BoardView remounts CardDetail via `key={selectedCard.id}` on card change)
   }, [refreshSignal]);
@@ -679,15 +698,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     const target = moveTargetRef.current;
     const landedOnTarget = target.column === card.column && target.swimlane === card.swimlane;
     setMoveNotice(wasOpen && !landedOnTarget ? "This card was changed elsewhere. Its current location is shown." : "");
-    setShowMovePopover(false);
-    // Closing unmounts the focused control: hand focus back to the Move button,
+    // Closing unmounts the focused control: hand focus back to the opener,
     // but only when the popover was open and focus was inside it (or lost to
     // body). A version bump while the popover is closed must never move focus.
     if (wasOpen) {
       const active = document.activeElement;
-      if (!active || active === document.body || movePopoverRef.current?.contains(active)) {
-        moveButtonRef.current?.focus();
-      }
+      const focusInside = !active || active === document.body || movePopoverRef.current?.contains(active);
+      closeMovePopover(focusInside);
+    } else {
+      setShowMovePopover(false);
     }
   }, [card.version, card.column, card.swimlane]);
 
@@ -698,7 +717,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Swallow Escape while the admin override is in flight: closing would hide
     // its outcome (#1772).
     if (moveForcingRef.current) return;
-    setShowMovePopover(false);
+    closeMovePopover();
   }, 36);
   // Bulk-add overlay is a modal over the panel: Escape closes it first (priority 37, above
   // the move popover) instead of closing the whole card panel (#1376).
@@ -823,7 +842,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!onMoveCard || moveTargetColumn === null || moveTargetSwimlane === null) return;
     // No-op if the card is already in this location.
     if (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane) {
-      setShowMovePopover(false);
+      closeMovePopover();
       return;
     }
     setMoveSubmitting(true);
@@ -881,9 +900,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId }));
       setMovePopoverError(null);
       setMoveRefusal(null);
-      setShowMovePopover(false);
       // The panel may have closed while the request was in flight.
-      moveButtonRef.current?.focus();
+      closeMovePopover();
     } catch (err) {
       // Defensive: useBoard.forceMoveCardTo never rejects (it reports failure in
       // its result), but the prop is a plain Promise, so a rejecting caller still
@@ -1337,6 +1355,79 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!allLabels.find((bl) => bl.id === l.id)) allLabels.push(l);
   });
 
+  // Shared by the Move button and the Column key fact (#1916), so both open
+  // the same popover the same way.
+  const toggleMovePopover = () => {
+    // Inert while the popover's admin override is in flight: toggling
+    // would close the popover and hide the pending outcome (#1772).
+    if (moveForcingRef.current) return;
+    moveOpenerRef.current = null;
+    setMoveToSeen(true);
+    // Calculate fixed position from the button's viewport rect so the
+    // popover isn't clipped by the panel's overflow-hidden container.
+    const rect = moveButtonRef.current?.getBoundingClientRect();
+    if (rect) {
+      // Right-align to button, clamped so the popover never clips the left edge.
+      const popoverWidth = 256; // w-64
+      const left = Math.max(8, window.innerWidth - (window.innerWidth - rect.right) - popoverWidth);
+      setMovePopoverAnchor({ top: rect.bottom + 4, left });
+    }
+    setMoveTargetColumn(localCard.column);
+    setMoveTargetSwimlane(localCard.swimlane);
+    setMovePopoverError(null);
+    setMoveRefusal(null);
+    setMoveNotice("");
+    setShowMovePopover((v) => !v);
+  };
+
+  // Key-facts jump (#1916): switch to Details if needed, open a collapsed
+  // section, then (after the render that makes the target exist) scroll it to
+  // the top of the body, under the fixed header, and focus its first control.
+  const [pendingJump, setPendingJump] = useState<{ target: KeyFactTarget; n: number } | null>(null);
+  const focusMovePopoverNext = useRef(false);
+  // Short windows (design 1.2): below 720px tall a non-fullscreen sheet shows
+  // one line of facts so the body keeps at least half the sheet.
+  const [windowHeight, setWindowHeight] = useState(() => (typeof window === "undefined" ? 800 : window.innerHeight));
+  useEffect(() => {
+    const onResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const jumpTo = (target: KeyFactTarget, opener?: HTMLElement) => {
+    if (target === "move") {
+      if (!canEdit || !onMoveCard) return;
+      focusMovePopoverNext.current = !showMovePopover;
+      toggleMovePopover();
+      if (focusMovePopoverNext.current && opener) moveOpenerRef.current = opener;
+      return;
+    }
+    if (target.startsWith("field:")) setCustomFieldsOpen(true);
+    if (tab !== "details") selectTab("details");
+    setPendingJump((j) => ({ target, n: (j?.n ?? 0) + 1 }));
+  };
+  useEffect(() => {
+    if (!pendingJump || tab !== "details") return;
+    const section = bodyScrollRef.current?.querySelector<HTMLElement>(`[data-fact-section="${pendingJump.target}"]`);
+    setPendingJump(null);
+    if (!section) return;
+    if (typeof section.scrollIntoView === "function") {
+      // Instant under reduced motion; the body's scroll-padding keeps the
+      // target clear of the top fade.
+      section.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    }
+    // A viewer's disabled control cannot take focus, and a read-only field has
+    // no control at all: fall back to the section itself (tabIndex -1).
+    const control = section.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])");
+    (control ?? section).focus({ preventScroll: true });
+  }, [pendingJump, tab]);
+  useEffect(() => {
+    if (!showMovePopover || !focusMovePopoverNext.current) return;
+    focusMovePopoverNext.current = false;
+    movePopoverRef.current?.querySelector<HTMLElement>("button, [tabindex]")?.focus();
+  }, [showMovePopover]);
+
+  const keyFacts = buildKeyFacts({ card: localCard, board, userTimezone, userDateFormat });
+
   const anchored = placement.mode === "anchored";
   const fullscreen = placement.mode === "fullscreen";
   const commentCount = pendingSections.comments ? undefined : comments.length;
@@ -1477,27 +1568,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   )}
                   <button
                     ref={moveButtonRef}
-                    onClick={() => {
-                      // Inert while the popover's admin override is in flight: toggling
-                      // would close the popover and hide the pending outcome (#1772).
-                      if (moveForcingRef.current) return;
-                      setMoveToSeen(true);
-                      // Calculate fixed position from the button's viewport rect so the
-                      // popover isn't clipped by the panel's overflow-hidden container.
-                      const rect = moveButtonRef.current?.getBoundingClientRect();
-                      if (rect) {
-                        // Right-align to button, clamped so the popover never clips the left edge.
-                        const popoverWidth = 256; // w-64
-                        const left = Math.max(8, window.innerWidth - (window.innerWidth - rect.right) - popoverWidth);
-                        setMovePopoverAnchor({ top: rect.bottom + 4, left });
-                      }
-                      setMoveTargetColumn(localCard.column);
-                      setMoveTargetSwimlane(localCard.swimlane);
-                      setMovePopoverError(null);
-                      setMoveRefusal(null);
-                      setMoveNotice("");
-                      setShowMovePopover((v) => !v);
-                    }}
+                    onClick={toggleMovePopover}
                     // On coarse pointers (touch) this is the non-drag way to move a card,
                     // but a 20px icon is too small to tap and its hover tooltip never
                     // shows (#1287). Grow it to 32px and show the "Move" label inline.
@@ -1574,6 +1645,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             aria-label="Close"
           >×</button>
         </div>
+
+        {/* Key facts (#1916): row 3 of the header, so it stays put while the body
+            scrolls. Read-only viewers keep it: navigation is reading. The Column
+            fact has nothing to open for someone who cannot move the card. */}
+        <CardKeyFacts facts={keyFacts} maxLines={windowHeight < 720 && !fullscreen ? 1 : 2} onJump={jumpTo} inertTargets={canEdit && onMoveCard ? [] : ["move"]} />
 
         {/* Tabs (#967): full tablist pattern with roving tabIndex. A count
             is part of the tab's name ("Comments, 4") and is left out while
@@ -1695,7 +1771,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Assignee + Due date */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div data-fact-section="assignee" tabIndex={-1} className="focus:outline-none">
                   <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Assignee</p>
                   <SelectDropdown
                     value={String(localCard.assignee?.id ?? "")}
@@ -1726,7 +1802,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     className="w-full"
                   />
                 </div>
-                <div>
+                <div data-fact-section="due" tabIndex={-1} className="focus:outline-none">
                   <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Due date</p>
                   {/* The native <input type="date"> always displays in the browser's locale
                       format (e.g. mm/dd/yyyy on en-US) regardless of user settings.
@@ -1924,16 +2000,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           .map((definition) => {
                             const existing = localCard.custom_field_values.find((v) => v.field_definition === definition.id);
                             return (
-                              <CustomFieldEditRow
-                                key={definition.id}
-                                definition={definition}
-                                value={existing?.value}
-                                disabled={!canEdit}
-                                userDateFormat={userDateFormat}
-                                onSave={(v) => save({
-                                  custom_field_values: withCustomFieldValue(localCard.custom_field_values, definition.id, v),
-                                })}
-                              />
+                              <div key={definition.id} data-fact-section={`field:${definition.id}`} tabIndex={-1} className="focus:outline-none">
+                                <CustomFieldEditRow
+                                  definition={definition}
+                                  value={existing?.value}
+                                  disabled={!canEdit}
+                                  userDateFormat={userDateFormat}
+                                  onSave={(v) => save({
+                                    custom_field_values: withCustomFieldValue(localCard.custom_field_values, definition.id, v),
+                                  })}
+                                />
+                              </div>
                             );
                           })}
                       </div>
@@ -2196,7 +2273,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                      Attachments{attachments.length > 0 && <span className="ml-1.5 normal-case font-normal text-fg-muted">({attachments.length})</span>}
+                      Attachments{attachmentsLoaded && <span className="ml-1.5 normal-case font-normal text-fg-muted" data-testid="card-section-count-attachments">{attachments.length}</span>}
                     </p>
                     <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/att:text-fg-tertiary transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -2536,7 +2613,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setShowMovePopover(false)}
+                onClick={() => closeMovePopover()}
                 disabled={moveForcing}
                 className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40"
               >Cancel</button>

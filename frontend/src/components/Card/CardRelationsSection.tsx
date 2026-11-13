@@ -91,6 +91,9 @@ export default function CardRelationsSection({
   const [relations, setRelations] = useState<CardRelation[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // True once a fetch has succeeded. A refetch keeps the last known count on
+  // screen instead of flickering the label; a failed first fetch never shows 0.
+  const [loaded, setLoaded] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -109,6 +112,7 @@ export default function CardRelationsSection({
     getCardRelations(board.id, card.id)
       .then((data) => {
         setRelations(data);
+        setLoaded(true);
         setOpen(data.length > 0);
         setLoading(false);
       })
@@ -119,6 +123,10 @@ export default function CardRelationsSection({
   }, [board.id, card.id]);
 
   useEffect(load, [load]);
+
+  // A refetch that fails after a success leaves the (possibly stale) list in
+  // place, so the count stays known; only "never loaded" is unknown.
+  const count = loaded ? relations.length : null;
 
   // Refetch when another session adds/removes a relation on this card while
   // the panel is open (#1310). Keyed on whether the signal CHANGED rather than
@@ -203,9 +211,9 @@ export default function CardRelationsSection({
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Relations
-            {relations.length > 0 && (
-              <span className="ml-1.5 normal-case font-normal text-fg-muted">
-                ({relations.length})
+            {count !== null && (
+              <span className="ml-1.5 normal-case font-normal text-fg-muted" data-testid="card-section-count-relations">
+                {count}
               </span>
             )}
           </p>

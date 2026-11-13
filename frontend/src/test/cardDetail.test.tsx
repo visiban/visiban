@@ -180,8 +180,9 @@ describe('CardDetail', () => {
   it('renders swimlane and column names', () => {
     render(<CardDetail {...defaultProps()} />)
     // Swimlane and column names are in the same <p> split by a span
-    expect(screen.getByText(/Customer A/)).toBeInTheDocument()
-    expect(screen.getByText(/To Do/)).toBeInTheDocument()
+    // The column also appears in the key-facts row (#1916), so scope to the breadcrumb buttons.
+    expect(screen.getByTitle('Customer A')).toBeInTheDocument()
+    expect(screen.getByTitle('To Do')).toBeInTheDocument()
   })
 
   it('renders close button', () => {
@@ -2709,6 +2710,42 @@ describe('CardDetail', () => {
         expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toHaveFocus()
       })
 
+      const columnFact = () => within(screen.getByRole('list', { name: 'Key facts' })).getByRole('button', { name: /Go to Move/ })
+
+      it('returns focus to the Column fact when the refresh closes a popover it opened (#1916)', async () => {
+        const onMoveCard = vi.fn().mockResolvedValue({ ok: true })
+        const board = makeBoardWithTwoCols()
+        const props = defaultProps()
+        const user = userEvent.setup()
+        const { container, rerender } = render(<CardDetail {...props} board={board} onMoveCard={onMoveCard} />)
+        await user.click(columnFact())
+        const popover = container.querySelector('[class*="w-64"]')!
+        ;(popover.querySelector('button') as HTMLButtonElement).focus()
+        rerender(<CardDetail {...props} board={board} onMoveCard={onMoveCard} card={makeCard({ version: 2, column: 11 })} />)
+        await waitFor(() => expect(screen.queryByText('Move to')).not.toBeInTheDocument())
+        expect(columnFact()).toHaveFocus()
+      })
+
+      it('Cancel returns focus to the Move button when it opened the popover (#1916)', async () => {
+        const board = makeBoardWithTwoCols()
+        const user = userEvent.setup()
+        render(<CardDetail {...defaultProps()} board={board} onMoveCard={vi.fn()} />)
+        await openPopover(user)
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toHaveFocus()
+      })
+
+      it('Cancel returns focus to the Column fact when it opened the popover (#1916)', async () => {
+        const board = makeBoardWithTwoCols()
+        const user = userEvent.setup()
+        render(<CardDetail {...defaultProps()} board={board} onMoveCard={vi.fn()} />)
+        await user.click(columnFact())
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+        expect(columnFact()).toHaveFocus()
+      })
+
       it('does not close the popover for the optimistic update of its own in-flight move', async () => {
         let resolveMove!: (v: MoveOutcome) => void
         const onMoveCard = vi.fn().mockImplementation(() => new Promise<MoveOutcome>((r) => { resolveMove = r }))
@@ -2863,6 +2900,22 @@ describe('CardDetail', () => {
         expect(screen.getByTitle('In Progress')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toHaveFocus()
         expect(screen.getByTestId('move-notice')).toBeEmptyDOMElement()
+      })
+
+      it('on success returns focus to the Column fact when it opened the popover (#1916)', async () => {
+        const board = { ...makeBoardWithTwoCols(), current_user_role: 'admin' as const }
+        const onMoveCard = vi.fn().mockResolvedValue({ ok: false, error: axiosFailure(409, wipBody) })
+        const onForceMoveCard = vi.fn<ForceFn>().mockResolvedValue({ ok: true })
+        const user = userEvent.setup()
+        const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} onForceMoveCard={onForceMoveCard} />)
+        await user.click(within(screen.getByRole('list', { name: 'Key facts' })).getByRole('button', { name: /Go to Move/ }))
+        const popover = container.querySelector('[class*="w-64"]')!
+        await user.click(Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!)
+        await user.click(screen.getByText('In Progress'))
+        await user.click(screen.getByRole('button', { name: 'Move' }))
+        await user.click(await screen.findByRole('button', { name: overrideName }))
+        await waitFor(() => expect(screen.queryByText('Move to')).not.toBeInTheDocument())
+        expect(within(screen.getByRole('list', { name: 'Key facts' })).getByRole('button', { name: /Go to Move/ })).toHaveFocus()
       })
 
       it('stays silent when the forced move bumps the live card version mid-flight', async () => {

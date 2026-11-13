@@ -63,7 +63,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await routeAuth(page)
     await routeBoard(page)
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/**`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : []) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByText(CARD.title).first().click()
