@@ -385,6 +385,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
+    // Deleting from inside the editor: close it, or the editor would stay open on a removed field.
+    if (editingId === deleteTarget.id) cancelEdit();
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteSwimlaneCustomFieldDefinition(board.id, deleteTarget.id);
@@ -507,6 +509,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                     saving={saving}
                     onSave={() => void handleSave()}
                     onCancel={cancelEdit}
+                    onDelete={() => setDeleteTarget(def)}
                   />
                 )}
               </FieldRow>
@@ -741,13 +744,15 @@ interface FieldEditPanelProps {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** Present only when editing an existing field (admin-only tab): opens the type-the-name delete confirmation. */
+  onDelete?: () => void;
 }
 
 function FieldEditPanel({
   form, setForm, typeLocked,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel,
+  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
@@ -795,8 +800,8 @@ function FieldEditPanel({
       )}
 
       {typeLocked && (
-        <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3">
-          Type is locked — swimlanes already have values for this field. Delete the field and add it again to change the type.
+        <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3 max-w-prose">
+          The type can't be changed because swimlanes already have values for this field. To use a different type, add a new field of that type, then delete this one. Deleting a field permanently deletes all of its values, and they can't be recovered or found in history.
         </p>
       )}
 
@@ -908,7 +913,21 @@ function FieldEditPanel({
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex justify-end gap-3 mt-1">
+      <div className="flex items-center justify-end gap-3 mt-1">
+        {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
+            miss. DOM-first so it sits at the far left, apart from Save, and so
+            Tab reaches Delete -> Cancel -> Save (Cancel always sits between
+            Delete and Save). It never takes default focus (the name input
+            autofocuses) and only renders for an existing field. */}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          >
+            Delete field
+          </button>
+        )}
         <button
           onClick={onCancel}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

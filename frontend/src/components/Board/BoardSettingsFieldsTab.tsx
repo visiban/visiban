@@ -94,6 +94,10 @@ function formFromDefinition(d: CustomFieldDefinition): FormState {
  * interdependent (only one row can be in edit mode, drag is disabled while
  * editing, etc.) in a way that doesn't decompose cleanly.
  */
+/** Shown when the server refuses a type change because cards already hold values (#2194). */
+const TYPE_LOCKED_MESSAGE =
+  "The type can't be changed because cards already have values for this field. To use a different type, add a new field of that type, then delete this one. Deleting a field permanently deletes all of its values, and they can't be recovered or found in card history.";
+
 export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated }: Props) {
   const [fields, setFields] = useState<CustomFieldDefinition[]>(
     () => [...board.custom_field_definitions].sort((a, b) => a.position - b.position)
@@ -350,8 +354,13 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
         setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
-    } catch {
-      setFormError("Couldn't save this field. Check the values and try again.");
+    } catch (err: unknown) {
+      // The card tab has no client-side value count (the definition payload
+      // carries none, and archived cards still count server-side), so the
+      // server's `field_type` rejection is the source of truth. Explain it
+      // rather than showing the generic failure.
+      const detail = (err as { response?: { data?: { field_type?: unknown } } })?.response?.data?.field_type;
+      setFormError(detail ? TYPE_LOCKED_MESSAGE : "Couldn't save this field. Check the values and try again.");
     } finally {
       setSaving(false);
     }
@@ -360,6 +369,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
+    // Deleting from inside the editor: close it, or the editor would stay open on a removed field.
+    if (editingId === deleteTarget.id) cancelEdit();
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteCustomFieldDefinition(board.id, deleteTarget.id);
@@ -469,6 +480,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                     saving={saving}
                     onSave={() => void handleSave()}
                     onCancel={cancelEdit}
+                    onDelete={() => setDeleteTarget(def)}
                   />
                 )}
               </FieldRow>
@@ -703,13 +715,15 @@ interface FieldEditPanelProps {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** Present only when editing an existing field (admin-only tab): opens the type-the-name delete confirmation. */
+  onDelete?: () => void;
 }
 
 function FieldEditPanel({
   form, setForm, onTypeSelect, pendingTypeChange, onConfirmTypeChange, onCancelTypeChange,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel,
+  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
@@ -843,11 +857,25 @@ function FieldEditPanel({
         {atPinCap && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
       </div>
 
-      <p className="text-xs h-4 mt-2">
+      <p className="text-xs min-h-4 mt-2">
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex justify-end gap-3 mt-1">
+      <div className="flex items-center justify-end gap-3 mt-1">
+        {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
+            miss. DOM-first so it sits at the far left, apart from Save, and so
+            Tab reaches Delete -> Cancel -> Save (Cancel always sits between
+            Delete and Save). It never takes default focus (the name input
+            autofocuses) and only renders for an existing field. */}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          >
+            Delete field
+          </button>
+        )}
         <button
           onClick={onCancel}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
