@@ -54,7 +54,7 @@ Each saved filter carries a `state_version` field identifying the shape of its s
 
 **Yes, but:** that check is separate from the `state_json` key allow-list.
 
-- The server still accepts only the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`), whatever version is declared.
+- The server still accepts only the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`, `blockedOnly`, `customFields`, `visibleCustomFieldFilterIds`), whatever version is declared.
 - A genuinely new v2-only key is rejected with `400` until the backend's allow-list is updated.
 - On read, older clients fall back to a defensive v1 reader for any shared fields.
 
