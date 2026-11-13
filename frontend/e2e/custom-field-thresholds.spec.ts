@@ -34,6 +34,38 @@ test.describe('Threshold marks on number fields (#1122)', () => {
     await expect(peek.getByTestId('card-peek-thresholds')).toContainText('Alert: at or above $6000')
   })
 
+  test('configuring a threshold in Card fields sends it and marks the chip', async ({ page }) => {
+    const off = { ...spend, threshold_direction: '', threshold_warn: null, threshold_alert: null }
+    const card = { ...CARD, custom_field_values: [{ field_definition: spend.id, value: '6500' }] }
+    let sent: Record<string, unknown> | null = null
+    await page.route(`**/custom-fields/${spend.id}/`, (route) => {
+      if (route.request().method() !== 'PATCH') return route.fallback()
+      sent = route.request().postDataJSON()
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ...off, ...sent }),
+      })
+    })
+    await routeAuth(page)
+    await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: [off] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('[data-threshold-level]')).toHaveCount(0)
+
+    await page.keyboard.press('Control+,')
+    await page.getByRole('button', { name: 'Card fields' }).click()
+    await page.getByRole('button', { name: `Edit ${spend.name}` }).click()
+    await page.getByRole('radiogroup', { name: 'Mark values' }).getByRole('radio', { name: 'Above' }).check()
+    await page.getByLabel('Alert at').fill('6000')
+    await page.getByRole('button', { name: 'Save field' }).click()
+
+    await expect.poll(() => sent).toMatchObject({ threshold_direction: 'above', threshold_alert: 6000 })
+    await page.keyboard.press('Escape')
+    const chip = page.locator('[data-threshold-level="alert"]').first()
+    await expect(chip).toBeVisible()
+    await expect(chip.locator('svg[data-threshold-mark="alert"]')).toHaveCount(1)
+  })
+
   test('a value below every threshold gets no mark', async ({ page }) => {
     const card = { ...CARD, custom_field_values: [{ field_definition: spend.id, value: '100' }] }
     await routeAuth(page)
