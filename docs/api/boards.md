@@ -2118,7 +2118,7 @@ Optional, **display-only** thresholds on a card custom field of type `"number"` 
 - **Changing the type clears them.** Retyping a definition (possible only while it has no
   values) resets all five to their defaults unless the same request sets thresholds valid
   for the new type.
-- **Other `400`s:** `NaN` or infinity (`Thresholds must be finite numbers.`), a value out of
+- **Other `400`s:** `NaN` or infinity (`A valid number is required.`), a value out of
   range (`Ensure this value is less than or equal to …`), a non-integer day offset
   (`A valid integer is required.`), an unknown direction (`"sideways" is not a valid choice.`).
   Errors are plain field-keyed lists, like [number formatting](#number-formatting).

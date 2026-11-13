@@ -524,7 +524,7 @@ function dayInTimeZone(now: Date, timeZone: string): string {
  * A stored date value as a UTC day number, or `null`. Defensive on purpose:
  * the server keeps a date as typed once Python's `date.fromisoformat`
  * accepts it, which on 3.11+ includes `20260101` and ISO week dates
- * (`2026-W01-1`, `2026W011`) as well as `YYYY-MM-DD` (debt D2). Anything
+ * (`2026-W01-1`, `2026W011`) as well as `YYYY-MM-DD` (#TBD-D2). Anything
  * else, or an impossible calendar date, is `null` (no mark).
  */
 function utcDayOf(raw: string): number | null {

@@ -1178,9 +1178,11 @@ THRESHOLD_DAYS_MAX = 3650
 def threshold_value_field():
     """``threshold_warn`` / ``threshold_alert`` (#1122): a finite float or null.
 
-    ``min_value``/``max_value`` put the bound in the API schema; NaN passes
-    both comparisons, so :func:`validate_thresholds` also rejects non-finite
-    values explicitly.
+    ``min_value``/``max_value`` put the bound in the API schema. DRF's
+    ``FloatField`` already rejects NaN and infinity ("A valid number is
+    required."), which is the message a client sees; NaN would pass both
+    bound comparisons, so :func:`validate_thresholds` keeps its own finite
+    check as defense in depth in case that DRF behavior ever changes.
     """
     return serializers.FloatField(
         min_value=-THRESHOLD_VALUE_MAX, max_value=THRESHOLD_VALUE_MAX,
@@ -1231,6 +1233,8 @@ def validate_thresholds(attrs, instance, field_type):
     """
     for key in THRESHOLD_NUMBER_KEYS:
         value = attrs.get(key)
+        # Defense in depth: FloatField rejects NaN/infinity first, so this is
+        # unreachable through the serializer today (see threshold_value_field).
         if value is not None and not math.isfinite(value):
             raise serializers.ValidationError({key: "Thresholds must be finite numbers."})
 

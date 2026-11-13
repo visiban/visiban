@@ -2463,6 +2463,12 @@ class CustomFieldThresholdTests(CustomFieldTestBase):
                 r = self._create(threshold_direction="above", threshold_warn=bad)
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
                 self.assertIn("threshold_warn", r.data)
+        # docs/api/boards.md names this message: DRF's FloatField refuses
+        # NaN/infinity before validate_thresholds' own finite check runs.
+        for bad in ("nan", "inf", "-Infinity"):
+            with self.subTest(message_for=bad):
+                r = self._create(threshold_direction="above", threshold_warn=bad)
+                self.assertEqual([str(m) for m in r.data["threshold_warn"]], ["A valid number is required."])
         for bad in (3651, -3651, 1.5, "x"):
             with self.subTest(bad=bad):
                 r = self._create(field_type="date", threshold_direction="above", threshold_warn_days=bad)
