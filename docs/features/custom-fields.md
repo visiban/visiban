@@ -56,7 +56,9 @@ Click **+ Add field**, or **✎** on a field, to open the inline editor:
 Click **Save field** to commit, or **Cancel** to discard.
 
 !!! warning "A field's type locks once it holds a value"
-    Once any card on the board has a stored value for a field, the API blocks changing that field's type. The editor disables the other type buttons and explains why, the same way it does for [swimlane fields](#swimlane-row-custom-fields). Delete the field and add it again under a new type if you need to change it. A brand-new, unsaved field has no values yet, so its type can be changed freely.
+    Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. **Deleting a field permanently deletes all of its values.** They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.
+
+    To delete a field from its editor, click **Delete field** at the bottom left. It opens the same type-the-name confirmation as the ✕ on the field's row. Only admins can edit or delete fields.
 
 ### Field limits
 
@@ -73,7 +75,7 @@ Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which
 
 ### Deleting a field
 
-Click **✕** on a field's row. Deleting is permanent: it removes the field definition **and every card's stored value for it**. To confirm, type the field's exact name into the dialog.
+Click **✕** on a field's row, or open the field's editor and click **Delete field**. Deleting is permanent: it removes the field definition **and every card's stored value for it**. To confirm, type the field's exact name into the dialog.
 
 !!! danger "This cannot be undone"
     There is no way to recover a deleted field's values. If you only want to stop showing a field on the card face, unpin it instead of deleting it.
@@ -239,7 +241,7 @@ The editor matches the card field editor (name, type, help text, choices for dro
 - **Admin only:** toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely. Members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.
 
 !!! note "Field type is locked once a swimlane holds a value"
-    Unlike a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why. Delete the field and add it again under a new type if you need to change it.
+    Unlike a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. **Delete field** at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.
 
 ### Pinned fields in the swimlane label panel
 

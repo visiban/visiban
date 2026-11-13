@@ -18,6 +18,7 @@ import NumberFormatFields from "./NumberFormatFields";
 import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
+import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
@@ -85,6 +86,8 @@ function emptyForm(): FormState {
 function formFromDefinition(d: CustomFieldDefinition): FormState {
   return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, show_on_card: d.show_on_card };
 }
+
+const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
 
 /**
  * Board Settings → Fields tab (#371) — Layout 1: single pane, inline
@@ -160,11 +163,14 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
 
   const handleTypeSelect = (nextType: CustomFieldType) => {
     // Confirm before changing an *existing, already-persisted* field's type —
-    // #1121 (backend gap: field_type has no immutability guard) means a
-    // retype after values exist can leave unreadable data. A brand-new
-    // unsaved field ("new") has nothing to protect yet, so it commits the
-    // selection directly.
-    if (editingId !== "new" && nextType !== form.field_type) {
+    // The server refuses a retype once cards hold values, but this tab has no
+    // client-side value count to lock up front (see #2202), so it warns first
+    // and the refusal is explained on save. A brand-new unsaved field ("new")
+    // has nothing to protect yet, so it commits the selection directly.
+    // Returning to the *saved* type needs no prompt: the server accepts a save
+    // whose type equals the stored one.
+    const savedType = fields.find((f) => f.id === editingId)?.field_type;
+    if (editingId !== "new" && nextType !== form.field_type && nextType !== savedType) {
       setPendingTypeChange(nextType);
       return;
     }
@@ -350,8 +356,13 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
         setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
-    } catch {
-      setFormError("Couldn't save this field. Check the values and try again.");
+    } catch (err: unknown) {
+      // The card tab has no client-side value count (the definition payload
+      // carries none, and archived cards still count server-side), so the
+      // server's `field_type` rejection is the source of truth. Explain it
+      // rather than showing the generic failure.
+      const detail = (err as { response?: { data?: { field_type?: unknown } } })?.response?.data?.field_type;
+      setFormError(detail ? TYPE_LOCKED_MESSAGE : "Couldn't save this field. Check the values and try again.");
     } finally {
       setSaving(false);
     }
@@ -360,9 +371,14 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
+    // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
+    // (Focus handling after the delete is tracked in #2204.)
+    const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteCustomFieldDefinition(board.id, deleteTarget.id);
+      // Close only once the DELETE succeeded, so a failure keeps unsaved edits.
+      if (wasEditing) cancelEdit();
       commit(fields.filter((f) => f.id !== deleteTarget.id));
     } catch {
       setFields(prev);
@@ -469,6 +485,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                     saving={saving}
                     onSave={() => void handleSave()}
                     onCancel={cancelEdit}
+                    onDelete={() => setDeleteTarget(def)}
                   />
                 )}
               </FieldRow>
@@ -703,13 +720,15 @@ interface FieldEditPanelProps {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** Present only when editing an existing field (admin-only tab): opens the type-the-name delete confirmation. */
+  onDelete?: () => void;
 }
 
 function FieldEditPanel({
   form, setForm, onTypeSelect, pendingTypeChange, onConfirmTypeChange, onCancelTypeChange,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel,
+  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
@@ -730,7 +749,7 @@ function FieldEditPanel({
       />
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Type</p>
-      <div className="flex gap-1.5 flex-wrap mb-2">
+      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type">
         {FIELD_TYPE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -751,7 +770,7 @@ function FieldEditPanel({
 
       {pendingTypeChange && (
         <div className="mb-3 flex items-center gap-2 text-xs">
-          <span className="text-warning">Changing this field's type may make existing values unreadable. Continue?</span>
+          <span className="text-warning">If cards already have values for this field, the save will be refused. To use a different type, add a new field of that type, then delete this one. Continue?</span>
           <button onClick={onConfirmTypeChange} className="text-warning hover:underline focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded">Change type</button>
           <button onClick={onCancelTypeChange} className="text-fg-secondary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
         </div>
@@ -843,11 +862,26 @@ function FieldEditPanel({
         {atPinCap && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
       </div>
 
-      <p className="text-xs h-4 mt-2">
+      <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex justify-end gap-3 mt-1">
+      <div className="flex flex-wrap items-center justify-end gap-3 mt-1">
+        {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
+            miss. DOM-first so it sits at the far left, apart from Save, and so
+            Tab reaches Delete -> Cancel -> Save (Cancel always sits between
+            Delete and Save). It never takes default focus (the name input
+            autofocuses) and only renders for an existing field. */}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={saving}
+            className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          >
+            Delete field
+          </button>
+        )}
         <button
           onClick={onCancel}
           className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
