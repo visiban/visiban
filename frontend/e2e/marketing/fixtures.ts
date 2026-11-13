@@ -430,6 +430,8 @@ export const CHECKLIST: CardChecklistItem[] = [
   is_checked: done as boolean,
   position,
   created_by: PRIYA,
+  assignee: null,
+  due_date: null,
 }))
 
 // ---------------------------------------------------------------------------

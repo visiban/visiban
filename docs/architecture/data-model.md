@@ -144,7 +144,7 @@ Card
  ├── CardComment  (author, body)
  ├── CardActivity  (event_type, from_value, to_value, actor)
  ├── CardBlock  (blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column + name + uid at block time, board, card uid/title snapshot; at most one open per card; 1.3+)
- ├── CardChecklist  (text, is_checked, position)
+ ├── CardChecklist  (text, is_checked, position, created_by, assignee, due_date; assignee and due_date 1.3+)
  ├── CardAttachment  (file, filename, size, uploaded_by)
  ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
  ├── CardExternalRef  (1:1 — provider, ref, url; a card's link to a PR/MR on an external forge)

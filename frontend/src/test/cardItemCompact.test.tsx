@@ -22,6 +22,8 @@ vi.mock('../components/Common/Avatar', () => ({
 }))
 
 vi.mock('../utils/date', () => ({
+  // Used by checklistToday (#445) to compare checklist due dates against today.
+  todayInTimezone: (_tz: string) => '2026-01-10',
   formatDueDate: (_date: string, _tz: string, _fmt: string) => ({ label: 'Jan 15', overdue: false }),
   // Return null when date is null (matches real implementation behaviour); otherwise return
   // a fixed label so tests can assert its presence/absence without depending on wall-clock time.

@@ -3203,7 +3203,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}
                       density={effectiveCardDensity}
-                      userTimezone={userTimezone}
+                      userTimezone={userTimezone} currentUserId={currentUser?.id}
                       userDateFormat={userDateFormat}
                       compact={cardLayout === "compact"}
                       staleness_threshold_days={board.staleness_threshold_days ?? 14}
@@ -3279,7 +3279,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>{/* end flex-row wrapper */}
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay density={effectiveCardDensity} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} inDoneColumn={board.columns.find((c) => c.id === activeCard.column)?.is_done ?? false} customFieldDefinitions={board.custom_field_definitions} />}
+          {activeCard && <CardItem card={activeCard} overlay density={effectiveCardDensity} userTimezone={userTimezone} currentUserId={currentUser?.id} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} inDoneColumn={board.columns.find((c) => c.id === activeCard.column)?.is_done ?? false} customFieldDefinitions={board.custom_field_definitions} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2 min-w-0">

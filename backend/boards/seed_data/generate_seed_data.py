@@ -488,6 +488,8 @@ def _archive_some(cards: list[dict], done_cols: set[str], slug: str) -> None:
 # One board is enough to show the feature and cover both activity types;
 # every other sample stays byte-identical.
 BLOCK_SAMPLES = {"simple_kanban": {"closed": 2, "open": 1}}
+# Templates that carry one checklist item with an assignee and a due date (#445).
+CHECKLIST_ASSIGN_SAMPLES = {"simple_kanban"}
 
 _BLOCK_REASONS = [
     "Waiting on a decision from the stakeholder.",
@@ -553,6 +555,40 @@ def _add_blocks(cards: list[dict], spec: dict, slug: str, done_cols: set[str]) -
             card["blocked_reason"] = ""
         card["blocks"] = [block]
         card["activities"] = sorted(card["activities"] + acts, key=lambda a: a["created_at"])
+
+
+def _add_checklist_assign_due(cards: list[dict], slug: str, done_cols: set[str]) -> None:
+    """Give one checklist item an assignee and due date, with its history (#445).
+
+    Writes the shapes ``_record_checklist_assign_due`` writes: the assignee
+    event carries usernames, the due-date event ISO dates, both from an empty
+    side. The two rows sit minutes after the item's ``checklist_item_added`` row,
+    so they stay inside the card's own timeline. No random draw is made, so no
+    other card or template shifts.
+    """
+    eligible = [
+        c for c in cards
+        if c.get("checklist") and not c.get("archived_at") and c["column"] not in done_cols
+    ]
+    if not eligible:
+        return
+    card = min(eligible, key=lambda c: zlib.crc32(f"{slug}|checklist-assign|{c['title']}".encode()))
+    item = card["checklist"][0]
+    added = next(
+        a for a in card["activities"]
+        if a["event_type"] == "checklist_item_added" and a["to_value"] == item["text"]
+    )
+    when = _parse(added["created_at"])
+    assignee = card.get("assignee") or DEMO_USERS[0]
+    due = (when + timedelta(days=14)).strftime("%Y-%m-%d")
+    item["assignee"] = assignee
+    item["due_date"] = due
+    card["activities"] = sorted(card["activities"] + [
+        {"event_type": "checklist_item_assigned", "from_value": "", "to_value": assignee,
+         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=10))},
+        {"event_type": "checklist_item_due_changed", "from_value": "", "to_value": due,
+         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=20))},
+    ], key=lambda a: a["created_at"])
 
 
 # ── Card enrichment ───────────────────────────────────────────────────────────
@@ -622,6 +658,8 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
     _set_column_limits(data, (features or {}).get("column_limits", {}))
     if slug in BLOCK_SAMPLES:
         _add_blocks(enriched, BLOCK_SAMPLES[slug], slug, {c["name"] for c in data["columns"] if c["is_done"]})
+    if slug in CHECKLIST_ASSIGN_SAMPLES:
+        _add_checklist_assign_due(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.
     order = ["schema_version", "name", "description", "columns", "swimlanes",

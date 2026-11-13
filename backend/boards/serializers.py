@@ -2118,10 +2118,30 @@ class CardChecklistSerializer(serializers.ModelSerializer):
     # that as moderator-only (#1943). Same declared-nested-field gap as
     # CardCommentSerializer.author; schema-only, the field is read_only.
     created_by = BoardUserSerializer(read_only=True, allow_null=True)
+    # #445: nested read, id write — the same shape as CardSerializer.assignee /
+    # assignee_id. Fail closed: the write queryset is none() until __init__
+    # re-scopes it from context["board"], so a call site that forgets the
+    # board rejects every id instead of accepting any user (IDOR, #1050).
+    assignee = BoardUserSerializer(read_only=True, allow_null=True)
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        write_only=True, queryset=User.objects.none(), source="assignee",
+        required=False, allow_null=True,
+    )
+    due_date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = CardChecklist
-        fields = ["id", "text", "is_checked", "position", "created_by"]
+        fields = ["id", "text", "is_checked", "position", "created_by", "assignee", "assignee_id", "due_date"]
+
+    def __init__(self, *args, **kwargs):
+        """Scope assignee_id to the board's assignable members (viewers excluded)."""
+        super().__init__(*args, **kwargs)
+        board = self.context.get("board")
+        if board is not None and "assignee_id" in self.fields:
+            from .utils import _get_assignable_member_ids
+            self.fields["assignee_id"].queryset = User.objects.filter(
+                pk__in=_get_assignable_member_ids(board), is_active=True,
+            )
 
     def validate(self, attrs):
         # Position is writable only through the dedicated reorder endpoint
@@ -2623,6 +2643,24 @@ def _card_checklist_items(card):
     return _parked_or_manager(card, _PARKED_CHECKLIST_ITEMS, "checklist_items")
 
 
+def _checklist_open_due_dates(card) -> list[str]:
+    """Sorted ISO due dates of the card's unchecked checklist items (#445)."""
+    return sorted(
+        item.due_date.isoformat()
+        for item in _card_checklist_items(card)
+        if not item.is_checked and item.due_date is not None
+    )
+
+
+def _checklist_open_assignee_ids(card) -> list[int]:
+    """Assignee ids of the card's unchecked checklist items, one per item (#445)."""
+    return [
+        item.assignee_id
+        for item in _card_checklist_items(card)
+        if not item.is_checked and item.assignee_id is not None
+    ]
+
+
 def _card_movements(card):
     """The card's full movement list, newest-first when parked.
 
@@ -2806,7 +2844,10 @@ def _card_queryset(qs, stale_cutoff=None):
             Prefetch("attachments", to_attr=_PARKED_ATTACHMENTS),
             Prefetch(
                 "checklist_items",
-                queryset=CardChecklist.objects.select_related("created_by"),
+                # assignee joined for the MCP card_detail checklist rows, which
+                # render CardChecklistSerializer (#445); the board face reads
+                # only assignee_id.
+                queryset=CardChecklist.objects.select_related("created_by", "assignee"),
                 to_attr=_PARKED_CHECKLIST_ITEMS,
             ),
             # Custom field values (#371). One query for the whole page, with the
@@ -2959,6 +3000,17 @@ class CardSerializer(serializers.ModelSerializer):
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
+    # #445 (architect R3a): raw per-item data for the card-face checklist
+    # suffix. "Overdue" is relative to the viewer's local date and "mine" to
+    # the viewer, and one card payload is fanned out to every subscriber, so
+    # the client derives both; the server sends only what it can know. Read
+    # from the parked checklist list — no extra query.
+    checklist_open_due_dates = serializers.SerializerMethodField(
+        help_text="Sorted `YYYY-MM-DD` due dates of this card's unchecked checklist items that have one.",
+    )
+    checklist_open_assignee_ids = serializers.SerializerMethodField(
+        help_text="User ids of the assignees of this card's unchecked checklist items, one entry per assigned item.",
+    )
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
     is_blocked = serializers.SerializerMethodField(
@@ -2976,6 +3028,7 @@ class CardSerializer(serializers.ModelSerializer):
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "last_move_is_creation", "column_entered_at",
             "attachment_count", "checklist_total", "checklist_done",
+            "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
             # Manual blocked state (#1149). Additive; read-only here — they
@@ -3159,6 +3212,28 @@ class CardSerializer(serializers.ModelSerializer):
 
     def get_checklist_done(self, obj) -> int:
         return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
+
+    def to_representation(self, instance):
+        # Four method fields read the checklist rows (total, done, and the two
+        # #445 face fields). A card from _card_queryset has them parked; one
+        # serialized straight after a create or update does not, and each
+        # accessor call would issue its own query. Park one fetch for this
+        # render only, then drop it so a later write on the same instance is
+        # never served a stale list.
+        park = getattr(instance, _PARKED_CHECKLIST_ITEMS, None) is None and instance.pk is not None
+        if park:
+            setattr(instance, _PARKED_CHECKLIST_ITEMS, list(instance.checklist_items.all()))
+        try:
+            return super().to_representation(instance)
+        finally:
+            if park:
+                instance.__dict__.pop(_PARKED_CHECKLIST_ITEMS, None)
+
+    def get_checklist_open_due_dates(self, obj) -> list[str]:
+        return _checklist_open_due_dates(obj)
+
+    def get_checklist_open_assignee_ids(self, obj) -> list[int]:
+        return _checklist_open_assignee_ids(obj)
 
     def get_is_stale(self, obj) -> bool:
         # Fast path: use the queryset-level annotation when it was pre-computed

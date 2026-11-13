@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { chartTint } from "../../utils/chartScale";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, isBoardTreePointerEvent, useCardSheetPlacement } from "../../hooks/useCardSheetPlacement";
@@ -10,6 +11,7 @@ import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
+import ActiveMark from "../Common/ActiveMark";
 import { isHardLimit, limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
 import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
@@ -47,6 +49,20 @@ import { colorChipStyle } from "../../utils/colorContrast";
 import { isImeComposing } from "../../utils/imeComposition";
 import { isAssignableMember } from "../../utils/assignableMembers";
 import ActiveUnderline from "../Common/ActiveUnderline";
+
+import ChecklistItemControls from "./ChecklistItemControls";
+import { checklistToday } from "../../utils/checklistFaceSuffix";
+
+/** The #445 card-face fields, recomputed from the detail sheet's checklist so
+ *  the face suffix updates at once after a local edit. Mirrors the server's
+ *  _checklist_open_due_dates / _checklist_open_assignee_ids. */
+function checklistFaceFields(items: CardChecklistItem[]) {
+  const open = items.filter((i) => !i.is_checked);
+  return {
+    checklist_open_due_dates: open.flatMap((i) => (i.due_date ? [i.due_date] : [])).sort(),
+    checklist_open_assignee_ids: open.flatMap((i) => (i.assignee ? [i.assignee.id] : [])),
+  };
+}
 
 interface Props {
   card: Card;
@@ -223,6 +239,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [checklistOpen, setChecklistOpen] = useState(true);
+  // #445: session-only (never persisted), so a returning user sees every item.
+  const [hideCompleted, setHideCompleted] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
   // Surfaces a failure in the comments/checklist/attachments load effects
   // below — previously silent (#1375): the panel just stayed on whatever it
@@ -1102,13 +1120,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
       setChecklist(newChecklist);
       const done = newChecklist.filter((i) => i.is_checked).length;
-      onUpdated({ ...liveCardBase(), checklist_done: done, checklist_total: newChecklist.length });
+      onUpdated({ ...liveCardBase(), checklist_done: done, checklist_total: newChecklist.length, ...checklistFaceFields(newChecklist) });
     } catch {
       setChecklistError("Could not update item.");
     } finally {
       checklistToggleInFlight.current = false;
     }
   };
+
+  const checklistDoneCount = checklist.filter((i) => i.is_checked).length;
+  const assignableChecklistMembers = board.members.filter(isAssignableMember).map((m) => m.user);
 
   const handleDeleteChecklistItem = async (itemId: number) => {
     if (checklistDeleteInFlight.current) return;
@@ -1119,11 +1140,33 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       const newChecklist = checklist.filter((i) => i.id !== itemId);
       setChecklist(newChecklist);
       const done = newChecklist.filter((i) => i.is_checked).length;
-      onUpdated({ ...liveCardBase(), checklist_total: newChecklist.length, checklist_done: done });
+      onUpdated({ ...liveCardBase(), checklist_total: newChecklist.length, checklist_done: done, ...checklistFaceFields(newChecklist) });
     } catch {
       setChecklistError("Could not delete item.");
     } finally {
       checklistDeleteInFlight.current = false;
+    }
+  };
+
+  // #445: assign or date one item. The server limits the assignee to the
+  // board's assignable members and keeps the creator-only edit gate.
+  const handleChecklistItemFields = async (
+    item: CardChecklistItem,
+    patch: { assignee_id?: number | null; due_date?: string | null },
+  ) => {
+    setChecklistError(null);
+    try {
+      const updated = await updateChecklistItem(board.id, card.id, item.id, patch);
+      // From the closure snapshot, as handleToggleChecklistItem does.
+      const next = checklist.map((i) => (i.id === item.id ? updated : i));
+      setChecklist(next);
+      onUpdated({ ...liveCardBase(), ...checklistFaceFields(next) });
+    } catch {
+      setChecklistError(
+        "assignee_id" in patch
+          ? "Failed to assign checklist item. Please try again."
+          : "Failed to set checklist item due date. Please try again.",
+      );
     }
   };
 
@@ -1982,31 +2025,59 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Checklist */}
               <div>
-                <button type="button"
+                <button
+                  type="button"
                   className="flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  aria-expanded={checklistOpen}
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                     Checklist
                     {checklist.length > 0 && (
-                      <span className="ml-1.5 normal-case font-normal text-fg-muted">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
+                      <span className="ml-1.5 normal-case font-normal text-fg-muted">{checklistDoneCount}/{checklist.length}</span>
                     )}
                   </p>
-                  <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/cl:text-fg-tertiary transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                  <svg aria-hidden="true" className={`w-3.5 h-3.5 text-fg-faint group-hover/cl:text-fg-tertiary transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {pendingSections.checklist && <SectionSkeleton rows={2} testId="checklist-skeleton" />}
+                {checklistOpen && checklist.length === 0 && !pendingSections.checklist && (
+                  // Design § 5 empty state (#445).
+                  <p className="text-xs text-fg-faint italic px-1 mb-2">No checklist items.</p>
+                )}
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
-                    <div className="h-1 bg-surface-hover rounded-full mb-3 overflow-hidden">
+                    <div className="flex items-center gap-3 mb-3">
                       <div
-                        className="h-full bg-success-emphasis rounded-full transition-all"
-                        style={{ width: `${Math.round((checklist.filter((i) => i.is_checked).length / checklist.length) * 100)}%` }}
-                      />
+                        role="progressbar"
+                        aria-label="Checklist progress"
+                        aria-valuemin={0}
+                        aria-valuemax={checklist.length}
+                        aria-valuenow={checklistDoneCount}
+                        aria-valuetext={`${checklistDoneCount} of ${checklist.length} done`}
+                        className="flex-1 h-1 bg-surface-hover rounded-full overflow-hidden"
+                      >
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ backgroundColor: chartTint(1), width: `${Math.round((checklistDoneCount / checklist.length) * 100)}%` }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        aria-pressed={hideCompleted}
+                        onClick={() => setHideCompleted((h) => !h)}
+                        className="inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      >
+                        <ActiveMark active={hideCompleted} />
+                        Hide completed
+                      </button>
                     </div>
                     <div className="flex flex-col gap-1 mb-3">
-                      {checklist.map((item) => (
+                      {hideCompleted && checklistDoneCount > 0 && (
+                        <p className="text-xs text-fg-tertiary px-1 py-0.5">{checklistDoneCount} completed hidden</p>
+                      )}
+                      {checklist.filter((item) => !(hideCompleted && item.is_checked)).map((item) => (
                         <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-surface-hover">
                           <input
                             type="checkbox"
@@ -2033,6 +2104,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-faint" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
+                          <ChecklistItemControls
+                            item={item}
+                            members={assignableChecklistMembers}
+                            canEdit={canComment && canModifyChecklistItem(item)}
+                            today={checklistToday(userTimezone)}
+                            onSave={(patch) => void handleChecklistItemFields(item, patch)}
+                          />
                           {(canEdit || role === "collaborator") && canModifyChecklistItem(item) && (
                             <button type="button"
                               onClick={() => handleDeleteChecklistItem(item.id)}

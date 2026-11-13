@@ -230,6 +230,9 @@ _CARD_SPEC = {
     "attachment_count": _FieldSpec((int,)),
     "checklist_total": _FieldSpec((int,)),
     "checklist_done": _FieldSpec((int,)),
+    # #445 (R3a): raw data for the card-face checklist suffix.
+    "checklist_open_due_dates": _FieldSpec((list,)),
+    "checklist_open_assignee_ids": _FieldSpec((list,)),
     "is_stale": _FieldSpec((bool,)),
     "archived_at": _FieldSpec((str,), nullable=True),
     "version": _FieldSpec((int,)),

@@ -2009,11 +2009,12 @@ class ExportJsonShapeTests(ExportBase):
         self.assertEqual(
             out["checklist"],
             [
-                {"text": "first", "is_checked": False},
-                {"text": "second", "is_checked": True},
+                # assignee and due_date are additive (#445).
+                {"text": "first", "is_checked": False, "assignee": None, "due_date": None},
+                {"text": "second", "is_checked": True, "assignee": None, "due_date": None},
             ],
         )
-        self.assertEqual(list(out["checklist"][0]), ["text", "is_checked"])
+        self.assertEqual(list(out["checklist"][0]), ["text", "is_checked", "assignee", "due_date"])
         self.assertEqual(
             out["movements"],
             [

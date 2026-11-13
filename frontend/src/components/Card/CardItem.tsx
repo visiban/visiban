@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
+import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
@@ -49,6 +50,8 @@ interface Props {
    */
   density?: CardDensity;
   userTimezone?: string;
+  /** #445: the viewer, for the checklist "mine" suffix. Absent: no "mine" suffix. */
+  currentUserId?: number;
   userDateFormat?: string;
   /** When true, the card is non-interactive: no drag, no hover lift, no onClick. Used on the share page. */
   readOnly?: boolean;
@@ -128,6 +131,9 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.attachment_count !== next.card.attachment_count ||
     prev.card.checklist_total !== next.card.checklist_total ||
     prev.card.checklist_done !== next.card.checklist_done ||
+    // #445: the face suffix reads these; a remote assign or due change must re-render.
+    (prev.card.checklist_open_due_dates ?? []).join() !== (next.card.checklist_open_due_dates ?? []).join() ||
+    (prev.card.checklist_open_assignee_ids ?? []).join() !== (next.card.checklist_open_assignee_ids ?? []).join() ||
     prev.card.is_stale !== next.card.is_stale ||
     prev.card.blocker_count !== next.card.blocker_count ||
     prev.card.blocked_at !== next.card.blocked_at ||
@@ -171,6 +177,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.onSelect === next.onSelect &&
     prev.density === next.density &&
     prev.userTimezone === next.userTimezone &&
+    prev.currentUserId === next.currentUserId &&
     prev.userDateFormat === next.userDateFormat &&
     prev.readOnly === next.readOnly &&
     prev.peekSuppressed === next.peekSuppressed &&
@@ -188,7 +195,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -398,6 +405,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     : null;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
+  const checklistSuffix = card.checklist_total > 0
+    ? checklistFaceSuffix(card, checklistToday(userTimezone), currentUserId)
+    : null;
   // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case.
   // formatRelativeMovedAt returns "moved today" for ms < 86_400_000, which is unreachable here
   // because movedLabel is only computed when !isRecent (same threshold). See date.ts JSDoc.
@@ -995,6 +1005,30 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   >
                     ✓{card.checklist_done}/{card.checklist_total}
                   </span>
+                )}
+                {/* #445: at most one suffix, overdue item first, else items
+                    assigned to the viewer. Never feeds the urgency badge or
+                    border (A-Q9); the word or glyph carries it, not color alone. */}
+                {card.checklist_total > 0 && checklistSuffix && (
+                  checklistSuffix.kind === "overdue" ? (
+                    <span
+                      className="text-xs font-medium shrink-0 text-danger"
+                      title={`${checklistSuffix.count} overdue checklist item${checklistSuffix.count === 1 ? "" : "s"}`}
+                      data-testid="checklist-suffix"
+                    >
+                      <span aria-hidden="true">· ⚑ {checklistSuffix.count}</span>
+                      <span className="sr-only">{checklistSuffix.count} overdue checklist item{checklistSuffix.count === 1 ? "" : "s"}</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="text-xs shrink-0 text-fg-tertiary"
+                      title={`${checklistSuffix.count} checklist item${checklistSuffix.count === 1 ? "" : "s"} assigned to you`}
+                      data-testid="checklist-suffix"
+                    >
+                      <span aria-hidden="true">· mine {checklistSuffix.count}</span>
+                      <span className="sr-only">{checklistSuffix.count} checklist item{checklistSuffix.count === 1 ? "" : "s"} assigned to you</span>
+                    </span>
+                  )
                 )}
 
                 {/* Attachments — standard + dense only; comfortable folds into peek */}

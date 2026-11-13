@@ -43,7 +43,8 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
-    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _column_entered_at,
+    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset,
+    _checklist_open_assignee_ids, _checklist_open_due_dates, _column_entered_at,
     _last_moved_at, _last_move_is_creation,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
@@ -114,6 +115,9 @@ class CardQuerySerializer(serializers.ModelSerializer):
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
+    # Parity with CardSerializer (#445, R3a).
+    checklist_open_due_dates = serializers.SerializerMethodField()
+    checklist_open_assignee_ids = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
     is_blocked = serializers.SerializerMethodField()
@@ -128,6 +132,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "priority", "assignee", "labels", "due_date", "weight", "position",
             "created_by", "created_at", "updated_at", "last_moved_at",
             "last_move_is_creation", "column_entered_at", "attachment_count", "checklist_total", "checklist_done",
+            "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
             # Manual blocked state (#1149), as on CardSerializer.
@@ -166,6 +171,12 @@ class CardQuerySerializer(serializers.ModelSerializer):
 
     def get_checklist_done(self, obj) -> int:
         return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
+
+    def get_checklist_open_due_dates(self, obj) -> list[str]:
+        return _checklist_open_due_dates(obj)
+
+    def get_checklist_open_assignee_ids(self, obj) -> list[int]:
+        return _checklist_open_assignee_ids(obj)
 
     def get_blocker_count(self, obj) -> int:
         # Present because CardQuerySerializerFieldParityTests requires this
