@@ -496,11 +496,23 @@ const DAY_MS = 86_400_000;
  * timezone (the user never set one) uses the browser's, the same fallback
  * the due-date display gets from `browserTimezone()`; an unknown one, UTC.
  */
+// One formatter per timeZone: constructing Intl.DateTimeFormat is costly and
+// this runs once per card per custom field on every render of a board.
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+function dayFormatter(timeZone: string): Intl.DateTimeFormat {
+  let f = dayFormatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timeZone || undefined, year: "numeric", month: "2-digit", day: "2-digit",
+    });
+    dayFormatters.set(timeZone, f);
+  }
+  return f;
+}
+
 function dayInTimeZone(now: Date, timeZone: string): string {
   try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timeZone || undefined, year: "numeric", month: "2-digit", day: "2-digit",
-    }).formatToParts(now);
+    const parts = dayFormatter(timeZone).formatToParts(now);
     const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
     return `${get("year")}-${get("month")}-${get("day")}`;
   } catch {
