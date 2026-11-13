@@ -2827,6 +2827,7 @@ frontend-test:
   rules:
     - changes:
         - frontend/**/*
+        - backend/boards/tests/fixtures/filter_state_keys.json
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - cd frontend
@@ -2929,6 +2930,7 @@ frontend-diff-coverage:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - frontend/**/*
+        - backend/boards/tests/fixtures/filter_state_keys.json
   before_script:
     - apt-get update -qq && apt-get install -y -qq git
     - !reference [.pip-floor, script]

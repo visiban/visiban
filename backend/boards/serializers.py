@@ -4411,7 +4411,21 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # rejected so typos and accidental payload bloat fail loudly rather than
     # piling up as stale state in the DB.
     # blockedOnly (#1149) is additive: a filter saved without it still loads.
-    _STATE_V1_KEYS = {"search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly"}
+    # customFields / visibleCustomFieldFilterIds (#371, #2213): the frontend
+    # always posts both (EMPTY_FILTER carries them), so omitting them here made
+    # every save a 400. Pinned against FilterState by the shared fixture
+    # boards/tests/fixtures/filter_state_keys.json.
+    _STATE_V1_KEYS = {
+        "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
+        "customFields", "visibleCustomFieldFilterIds",
+    }
+    # Bounds keep a user-controlled JSON blob small; checked before any
+    # per-item work so an oversized payload fails fast.
+    _CF_MAX_ENTRIES = 50
+    _CF_MAX_VALUES = 50
+    _CF_MAX_STRING = 500
+    _CF_KINDS_EQUALS = {"number", "date"}
+    _CF_KINDS_VALUES = {"choice", "multi_choice"}
     _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
@@ -4422,7 +4436,10 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # standalone and creates the row directly), so this does not change what
     # is accepted or returned.
     state_json = serializers.DictField(
-        help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, blockedOnly}.",
+        help_text=(
+            "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
+            "blockedOnly, customFields, visibleCustomFieldFilterIds}."
+        ),
     )
 
     class Meta:
@@ -4451,6 +4468,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
 
         if "search" in value and not isinstance(value["search"], str):
             raise serializers.ValidationError("state_json.search must be a string.")
+        if "search" in value:
+            self._reject_nul(value["search"], "state_json.search")
         for list_key in ("assigneeIds", "labelIds"):
             if list_key in value:
                 items = value[list_key]
@@ -4460,21 +4479,89 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                     )
         if "priorities" in value:
             prios = value["priorities"]
-            if not isinstance(prios, list) or not all(p in self._STATE_V1_PRIORITIES for p in prios):
+            if not isinstance(prios, list) or not all(isinstance(p, str) and p in self._STATE_V1_PRIORITIES for p in prios):
                 raise serializers.ValidationError(
                     f"state_json.priorities must be a list with values from {sorted(self._STATE_V1_PRIORITIES)}."
                 )
         if "dueDate" in value:
             # None is the "no filter" value in the frontend FilterState type;
             # it round-trips through saved presets so we must accept it here.
-            if value["dueDate"] is not None and value["dueDate"] not in self._STATE_V1_DUE_DATE:
+            if value["dueDate"] is not None and not (isinstance(value["dueDate"], str) and value["dueDate"] in self._STATE_V1_DUE_DATE):
                 raise serializers.ValidationError(
                     f"state_json.dueDate must be null or one of {sorted(self._STATE_V1_DUE_DATE)}."
                 )
         if "blockedOnly" in value and not isinstance(value["blockedOnly"], bool):
             raise serializers.ValidationError("state_json.blockedOnly must be true or false.")
+        if "customFields" in value:
+            self._validate_custom_fields(value["customFields"])
+        if "visibleCustomFieldFilterIds" in value:
+            ids = value["visibleCustomFieldFilterIds"]
+            if (
+                not isinstance(ids, list)
+                or len(ids) > self._CF_MAX_ENTRIES
+                or not all(isinstance(x, int) and not isinstance(x, bool) for x in ids)
+            ):
+                raise serializers.ValidationError(
+                    "state_json.visibleCustomFieldFilterIds must be a list of at most "
+                    f"{self._CF_MAX_ENTRIES} integers."
+                )
 
         return value
+
+    @staticmethod
+    def _reject_nul(value, label):
+        """Postgres jsonb refuses NUL (\\u0000) with a DataError (500), so reject
+        it as a 400. Reuses ``reject_nul_byte``; its ValidationError carries a
+        plain string message, which the view flattens to the string ``detail``."""
+        reject_nul_byte(value, field_label=label)
+
+    def _validate_custom_fields(self, cf):
+        """Shape check for ``customFields``: {"<field id>": {kind, ...}}.
+
+        Always raises a plain string message (never a dict) because the view
+        flattens errors into the string ``detail`` the SPA displays.
+        """
+        err = serializers.ValidationError
+        cap = self._CF_MAX_STRING
+        if not isinstance(cf, dict) or len(cf) > self._CF_MAX_ENTRIES:
+            raise err(
+                f"state_json.customFields must be an object with at most {self._CF_MAX_ENTRIES} entries."
+            )
+        for key, entry in cf.items():
+            if not (isinstance(key, str) and key.isascii() and key.isdigit()):
+                raise err("state_json.customFields keys must be numeric field ids.")
+            if not isinstance(entry, dict):
+                raise err("state_json.customFields values must be objects.")
+            kind = entry.get("kind")
+            # A list/dict kind is unhashable and would 500 on the set lookups below.
+            if not isinstance(kind, str):
+                kind = None
+            if kind == "text":
+                if not isinstance(entry.get("query"), str) or len(entry["query"]) > cap:
+                    raise err(f"state_json.customFields text query must be a string of at most {cap} characters.")
+                self._reject_nul(entry["query"], "state_json.customFields text query")
+            elif kind in self._CF_KINDS_EQUALS:
+                if not isinstance(entry.get("equals"), str) or len(entry["equals"]) > cap:
+                    raise err(f"state_json.customFields {kind} equals must be a string of at most {cap} characters.")
+                self._reject_nul(entry["equals"], f"state_json.customFields {kind} equals")
+            elif kind in self._CF_KINDS_VALUES:
+                vals = entry.get("values")
+                if (
+                    not isinstance(vals, list)
+                    or len(vals) > self._CF_MAX_VALUES
+                    or not all(isinstance(v, str) and len(v) <= cap for v in vals)
+                ):
+                    raise err(
+                        f"state_json.customFields {kind} values must be a list of at most "
+                        f"{self._CF_MAX_VALUES} strings of at most {cap} characters."
+                    )
+                for v in vals:
+                    self._reject_nul(v, f"state_json.customFields {kind} values")
+            else:
+                raise err(
+                    "state_json.customFields kind must be one of "
+                    "['choice', 'date', 'multi_choice', 'number', 'text']."
+                )
 
 
 # ---------------------------------------------------------------------------
