@@ -108,7 +108,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
+import { isLaneFilterActive, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
 interface Props {
@@ -3107,7 +3107,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </svg>
           <span className="text-info-on-tint">Focused on:</span>
           <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
-          {laneFilterKey !== "" && (
+          {isLaneFilterActive(effectiveFilters.laneFilter) && (
             <>
               <span aria-hidden="true" className="text-xs text-fg-tertiary">·</span>
               <span className="text-xs text-fg-tertiary">Lane filters paused</span>
