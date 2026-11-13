@@ -4276,7 +4276,12 @@
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">}</span>
 </code></pre></div></p>
-<p>Only the failing subsystems appear in <code>errors</code>, each with the fixed value <code>unavailable</code>. Failure details are written to the server log, not the response. The <code>errors</code> values are fixed strings; only the component keys (<code>db</code>, <code>redis</code>) are a stable contract. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
+<p>Only the failing subsystems appear in <code>errors</code>, each with the fixed value <code>unavailable</code>. Failure details are written to the server log, not the response. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Deprecated <em>(1.3+)</em>: the <code>errors</code> object</p>
+<p>The <code>errors</code> object, and its component keys <code>db</code> and <code>redis</code>, are deprecated. They are still returned unchanged on every <code>503</code> for all of 1.x, but they name the backing services to anonymous callers, so they are planned for removal in 2.0 (<a href="https://gitlab.com/visiban/visiban/-/issues/1902">#1902</a>). After that the degraded body is <code>{"status": "error"}</code> only.</p>
+<p>Decide readiness from the HTTP status code (<code>200</code> or <code>503</code>), or from <code>status</code>. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses <code>errors</code>, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (<code>Readiness check failed: database</code> or <code>Readiness check failed: cache</code>).</p>
+</div>
 <hr />
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
 <p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header).</p>

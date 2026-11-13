@@ -2783,6 +2783,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Backend tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#serializer-fallback-guard-13-1731" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serializer fallback guard (1.3+, #1731)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4493,6 +4510,8 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>-q<span class="w"> </span>boards/tests/test_views_extra.py::CardAttachmentTests::test_list_attachments_empty<span class="w">  </span><span class="c1"># one test</span>
 </code></pre></div>
 <p>Use Django's <code>TestCase</code> for anything that touches the database. If a test spawns threads that hit the ORM, close per-thread connections before the thread exits — see <a href="https://gitlab.com/visiban/visiban/-/blob/main/CLAUDE.md#threaded-tests--always-close-db-connections"><code>CLAUDE.md</code></a> for the pattern.</p>
+<h3 id="serializer-fallback-guard-13-1731">Serializer fallback guard <em>(1.3+, #1731)</em><a class="headerlink" href="#serializer-fallback-guard-13-1731" title="Permanent link">&para;</a></h3>
+<p>Several serializer method fields (<code>BoardSerializer</code> and <code>GroupSerializer</code> counts and <code>is_starred</code>, <code>BoardFullSerializer.archived_card_count</code>, <code>AdminUserSerializer.owned_boards</code>, <code>GroupInviteLinkSerializer.created_by_username</code>, <code>GroupDetailSerializer.ancestors</code>) read an annotation or prefetch from the endpoint's queryset and fall back to a live query without it. On a list that fallback is one query per row. The test suite runs with <code>SERIALIZER_FALLBACK_GUARD = "raise"</code> (<code>visiban/settings.py</code>), so rendering such a list from an unannotated queryset raises <code>visiban.query_fallbacks.UnannotatedFallback</code>, naming the field. Fix the caller: fetch through the annotated queryset the field's comment names (for example <code>annotate_board_counts</code>, or <code>GroupViewSet.get_queryset()</code>). A single-object response is not reported, since one fallback query is what the fallback is for. The one exception is <code>GroupDetailSerializer.ancestors</code>: it also raises on a single object whose parent chain is not loaded, because its only caller (<code>retrieve</code>) uses the annotated queryset and a bare instance costs up to 6 queries. Under <code>DEBUG</code> the guard logs a warning instead, and in production it is off and changes nothing.</p>
 <h2 id="frontend-unit-tests">Frontend unit tests<a class="headerlink" href="#frontend-unit-tests" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>npx<span class="w"> </span>vitest<span class="w">              </span><span class="c1"># watch mode</span>

@@ -5070,7 +5070,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>Board member add or role change</td>
 <td><code>boards/views/boards.py</code> <code>BoardViewSet.members</code></td>
-<td>An existing membership is updated as is (the site-admin refusal applies to it); a new one requires an active user, whatever the user's site role. Unknown and inactive ids answer the same <code>404</code>. Also checks the submitted <code>role</code> is a string within <code>BoardMembership.Role.values</code></td>
+<td>An existing membership is updated as is (the site-admin refusal applies to it); a new one requires an active user, whatever the user's site role. Unknown and inactive ids answer the same <code>404</code>. Also checks the submitted <code>role</code> is a string within <code>BoardMembership.Role.values</code>. A write that would give the board owner a stored role below <code>admin</code> is refused with <code>400</code> <code>board_owner_protected</code> (#1828)</td>
 </tr>
 <tr>
 <td>Group member role change</td>
@@ -5080,7 +5080,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>Board and group member removal</td>
 <td><code>boards/views/boards.py</code> <code>BoardViewSet.remove_member</code>; <code>groups/views.py</code> <code>GroupViewSet.update_member</code> (DELETE)</td>
-<td>Resolved through the membership row: no membership answers the same <code>404</code> whatever the id is, and the site-admin refusal is evaluated after that lookup; an inactive user with a membership can be removed</td>
+<td>Resolved through the membership row: no membership answers the same <code>404</code> whatever the id is, and the site-admin refusal is evaluated after that lookup; an inactive user with a membership can be removed. The board owner's membership is refused with <code>400</code> <code>board_owner_protected</code> after the site-admin refusal (#1828), as the group owner's is (Rule 11). Accepted exception: the Django admin (<code>boards/admin.py</code> <code>BoardMembershipAdmin</code>) can still delete or lower the owner's row; the owner keeps admin through <code>Board.owner</code>, so only the roster is affected</td>
 </tr>
 <tr>
 <td>Card assignee (REST)</td>
@@ -5594,7 +5594,7 @@ with it. The order is also recorded in <code>groups/services.py</code>, above
 <tr>
 <td>Group ownership transfer (REST)</td>
 <td><code>groups/views.py</code> <code>GroupViewSet.transfer_ownership</code></td>
-<td><code>groups/services.py</code> <code>transfer_group_ownership</code>: the new owner must already be an admin and the previous owner stays an admin; the new owner's account row is locked first, then the group row <code>FOR UPDATE</code>, which queues with the member-change lock</td>
+<td><code>groups/services.py</code> <code>transfer_group_ownership</code> with <code>require_active=True</code> (#1828): the new owner must already be an admin, on an active account, and the previous owner stays an admin; the new owner's account row is locked first, then the group row <code>FOR UPDATE</code>, which queues with the member-change lock</td>
 </tr>
 <tr>
 <td>Group ownership transfer (Django admin)</td>
