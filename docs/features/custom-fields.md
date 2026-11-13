@@ -50,7 +50,7 @@ Click **+ Add field**, or **✎** on a field, to open the inline editor:
 - **Type:** one of the seven types, chosen from a row of buttons
 - **Help text:** optional hint shown next to the input wherever the field is edited
 - **Format** (number only): optional **Prefix**, **Suffix**, and **Decimals**; see [Number formatting](#number-formatting)
-- **Thresholds** (number and date only): **Off**, **Above** or **Below**, with a **Warn at** and an **Alert at** value; see [Threshold marking](#threshold-marking)
+- **Thresholds** (number and date only): **Off**, **Above** or **Below** (**On or after** or **On or before** for dates), with a **Warn at** and an **Alert at** value; see [Threshold marking](#threshold-marking)
 - **Choices** (dropdown and multi-select): add rows with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add from a block of text in one step. Each line becomes a choice, and so does each cell of a row copied from a spreadsheet; choices already in the list are skipped, and **Add N choices** counts only the new ones. Text still in the paste box when you click **Save field** is added too, and closing the box with text still in it adds that text to the choices instead of holding it aside. The round swatch in front of each choice sets its color; see [Choice colors](#choice-colors)
 - **Pin to card face:** toggle to show this field's value on the card face; see [Pinned fields on the card face](#pinned-fields-on-the-card-face)
 
@@ -149,12 +149,12 @@ The same options are available on [swimlane fields](#swimlane-row-custom-fields)
 
 A number or date card field can mark values that cross a threshold, so a card whose spend is over budget or whose renewal is close stands out without opening it.
 
-- **Set it up** in Board settings → Card fields → the field → **Thresholds**. Choose **Above** (mark large values, or dates far ahead) or **Below** (mark small values, or dates that are close or past), then enter a **Warn at** value, an **Alert at** value, or both. With both, the alert must lie beyond the warning in that direction. **Off** clears them. The editor refuses to save an invalid combination and says why.
-- **Dates use days from today**, in your own timezone, the same "today" as due dates. `0` is today, `3` is three days from now and `-2` is two days ago. So **Below** with **Warn at** `14` and **Alert at** `0` warns two weeks ahead and alerts on the day and after.
+- **Set it up** in Board settings → Card fields → the field → **Thresholds**. Choose **Above** (mark large numbers) or **Below** (mark small numbers); for a date field the choices read **On or after** (mark dates far ahead) and **On or before** (mark dates that are close or past). Then enter a **Warn at** value, an **Alert at** value, or both. With both, the alert must lie beyond the warning in that direction. **Off** clears them. The editor refuses to save an invalid combination and says why.
+- **Dates use days from today**, in your own timezone, the same "today" as due dates (your profile timezone, or UTC if you have not set one). `0` is today, `3` is three days from now and `-2` is two days ago. So **On or before** with **Warn at** `14` and **Alert at** `0` warns two weeks ahead and alerts on the day and after.
 - **Boundaries count.** A value exactly at a threshold is marked: **Above** `5000` marks `5000`.
 - **On the card face** a marked value gets a chevron and bold text: one chevron (`›`) at warning, two (`»`) at alert, pointing left for a **Below** threshold. There is no red or amber: those colors already mean priority and urgency on a card, so a threshold never borrows them. Screen readers hear the words, for example "Spend: $6,100, Alert: at or above $6,000". The settings block shows the same legend.
 - **In words** in the [hover peek](#hover-peek) and the card detail panel, for example `Alert: at or above $6,000` or `Warning: 3 days from today or earlier`. On a touch screen, tap the card to see them.
-- **Card fields only.** Swimlane (row) fields, filter chips and the Summary view do not show threshold marks in this release (swimlane fields: #2217). A value that is not a valid number or date is never marked.
+- **Card fields only.** Swimlane (row) fields, filter chips and the Summary view do not show threshold marks in this release (swimlane fields: #2217; filter chips and Summary tables: #2221). A value that is not a valid number or date is never marked.
 - **Changing the type clears them**, as it does the number format.
 
 ### URL fields

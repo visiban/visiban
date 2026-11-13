@@ -16,6 +16,7 @@ import {
   thresholdPayload,
   thresholdDraftFrom,
 } from "../utils/customFieldValue";
+import { todayInTimezone } from "../utils/date";
 import type { CustomFieldDefinition } from "../types";
 
 function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDefinition {
@@ -277,6 +278,24 @@ describe("thresholdLevel / thresholdPhrase (#1122)", () => {
     const above = date({ threshold_direction: "above", threshold_warn_days: 30, threshold_alert_days: 60 });
     expect(thresholdLevel(above, "2026-05-09", NOW, "UTC")).toBe("alert");
     expect(thresholdLevel(above, "2026-04-09", NOW, "UTC")).toBe("warn");
+  });
+
+  it("treats a blank timezone as UTC, the same today as due dates", () => {
+    // 23:30 UTC on Mar 12 is already Mar 13 in Auckland. A blank zone must
+    // count Mar 12 (UTC), whatever zone the browser itself is in.
+    const late = new Date("2026-03-12T23:30:00Z");
+    const def = date({ threshold_warn_days: 2, threshold_alert_days: 1 });
+    const savedTz = process.env.TZ;
+    process.env.TZ = "Pacific/Auckland";
+    try {
+      expect(todayInTimezone("", late)).toBe("2026-03-12");
+      // Mar 14 is 2 days out from UTC's Mar 12 (warn); from Auckland's Mar 13 it would be 1 (alert).
+      expect(thresholdLevel(def, "2026-03-14", late, "")).toBe("warn");
+      expect(thresholdLevel(def, "2026-03-14", late, "Pacific/Auckland")).toBe("alert");
+    } finally {
+      if (savedTz === undefined) delete process.env.TZ;
+      else process.env.TZ = savedTz;
+    }
   });
 
   it("parses the non-canonical date forms the server accepts, and ignores garbage", () => {

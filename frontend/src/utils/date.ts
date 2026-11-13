@@ -197,19 +197,33 @@ export function browserTimezone(): string {
   }
 }
 
-/** Returns today's date as YYYY-MM-DD in the given IANA timezone (falls back to UTC). */
-export function todayInTimezone(tz: string): string {
+// One formatter per timezone: constructing Intl.DateTimeFormat is costly and
+// threshold marking (#1122) calls this once per card per field on every render.
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * Returns today's date as YYYY-MM-DD in the given IANA timezone. A blank
+ * timezone falls back to UTC, and so does an unknown one. `now` is injectable
+ * so threshold marking can be tested at a fixed instant.
+ */
+export function todayInTimezone(tz: string, now: Date = new Date()): string {
   try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: tz || "UTC",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(new Date());
+    const zone = tz || "UTC";
+    let formatter = dayFormatters.get(zone);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: zone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      dayFormatters.set(zone, formatter);
+    }
+    const parts = formatter.formatToParts(now);
     const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
     return `${get("year")}-${get("month")}-${get("day")}`;
   } catch {
-    return new Date().toISOString().slice(0, 10);
+    return now.toISOString().slice(0, 10);
   }
 }
 
