@@ -163,6 +163,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // Opens on the tab chosen last this session, or a deep link's (#967).
   const [tab, setTab] = useState<CardDetailTab>(getRememberedCardDetailTab);
   const selectTab = (t: CardDetailTab) => {
+    if (t !== tab && bodyScrollRef.current) bodyScrollRef.current.scrollTop = 0;
     setTab(t);
     rememberCardDetailTab(t);
   };
@@ -504,16 +505,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // and after this session posts a comment, so the count and line stay true.
   // A failure leaves the count unknown (no number, never 0); the History tab
   // reports its own load error.
+  // Aborted on cleanup, so arrowing past cards or a burst of updates does
+  // not leave the server working on pages nobody will see.
   useEffect(() => {
-    let live = true;
-    getCardTimeline(board.id, card.id, { limit: HISTORY_PAGE_LIMIT, offset: 0, include_counts: true })
+    const controller = new AbortController();
+    getCardTimeline(board.id, card.id, { limit: HISTORY_PAGE_LIMIT, offset: 0, include_counts: true }, controller.signal)
       .then((page) => {
-        if (!live) return;
+        if (controller.signal.aborted) return;
         setHistoryPage(page);
         if (page.counts) setHistoryCounts(page.counts);
       })
       .catch(() => {});
-    return () => { live = false; };
+    return () => controller.abort();
   }, [board.id, card.id, card.version, refreshSignal, historyReload]);
 
   // Dismiss confirm overlay before closing the panel so Escape has two stages:
@@ -954,6 +957,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setComments((prev) => [...prev, c]);
       setCommentBody("");
       setHistoryReload((n) => n + 1);
+      // The composer is pinned: bring the new comment, at the thread's end, into view.
+      requestAnimationFrame(() => {
+        const el = bodyScrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
     } catch {
       // Typed text is kept so the user can retry without retyping.
       setCommentError("Could not post comment.");
@@ -1536,7 +1544,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 tabIndex={tab === t ? 0 : -1}
                 onClick={() => selectTab(t)}
                 onKeyDown={handleTabKeyDown}
-                className={`${fullscreen ? "px-3" : "px-5"} py-2.5 font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded ${
+                className={`${fullscreen ? "px-3" : "px-5"} py-2.5 font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded-t ${
                   tab === t ? "border-b-2 border-info text-info" : "text-fg-muted hover:text-fg-secondary"
                 }`}
               >
@@ -2197,7 +2205,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   type="button"
                   onClick={goToLatestHistory}
                   data-testid="card-last-activity"
-                  className="self-start max-w-full text-left text-xs text-fg-tertiary hover:text-fg truncate rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="self-start max-w-full py-1 text-left text-xs text-fg-tertiary hover:text-fg underline decoration-dotted underline-offset-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Last activity: {lastActivitySummary(lastHistoryEntry, userDateFormat)} ·{" "}
                   <time dateTime={lastHistoryEntry.ts} title={formatDateTimeUser(lastHistoryEntry.ts, currentUser)}>
@@ -2253,6 +2261,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                                   <span className="text-fg-tertiary">Delete this comment?</span>
                                   <button
+                                    type="button"
                                     onClick={() => handleDeleteComment(c.id)}
                                     disabled={deletingCommentId !== null}
                                     className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
@@ -2260,6 +2269,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                     Confirm
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={cancelCommentDelete}
                                     disabled={deletingCommentId !== null}
                                     className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -2270,7 +2280,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   {commentDeleteError && <p className="text-xs text-danger mt-1">{commentDeleteError}</p>}
                                 </div>
                               ) : (
-                                <button type="button"
+                                <button
+                                  type="button"
                                   ref={deleteCommentTriggerRef(c.id)}
                                   title="Delete comment"
                                   onClick={() => { setCommentDeleteError(null); setConfirmDeleteCommentId(c.id); }}
@@ -2299,7 +2310,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {canComment && (
                   // Pinned to the bottom of the Comments tab (#967 design § 1.4),
                   // so a note can be written without scrolling the thread.
-                  <div className="sticky -bottom-4 -mb-4 pb-4 pt-2 bg-surface flex flex-col gap-2">
+                  <div className="sticky -bottom-4 -mb-4 pb-4 pt-2 bg-surface border-t border-line flex flex-col gap-2">
                     <MentionTextarea
                       value={commentBody}
                       onChange={setCommentBody}
@@ -2320,6 +2331,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </p>
                     <div className="flex justify-end">
                       <button
+                        type="button"
                         onClick={handleComment}
                         aria-disabled={demoMode ? true : undefined}
                         aria-describedby={demoMode ? "card-comment-demo-reason" : undefined}
@@ -2353,7 +2365,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           {bodyShadows.above && (
             <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-surface to-transparent pointer-events-none" aria-hidden="true" data-testid="card-body-shadow-top" />
           )}
-          {bodyShadows.below && (
+          {/* Not on Comments: the pinned composer sits at the bottom edge and the fade would cover it. */}
+          {bodyShadows.below && !(tab === "comments" && canComment) && (
             <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent pointer-events-none" aria-hidden="true" data-testid="card-body-shadow-bottom" />
           )}
         </div>

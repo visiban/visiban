@@ -18,7 +18,8 @@ export interface ActivityFilterDropdownProps {
   defaultSelected?: string[];
 }
 
-// Specialized dropdown for the card-detail Activity tab filter.
+// Specialized multi-select filter dropdown (built for the card-detail Activity
+// tab filter, which #967 replaced with toggle buttons; not mounted in the app today).
 // Differs from the shared CheckboxDropdown in three ways:
 // 1. The panel is right-aligned (right-0) so the menu grows leftward from the
 //    trigger. The panel is `fixed` (#1482) and stays in the card sheet's DOM

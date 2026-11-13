@@ -263,7 +263,7 @@ describe('CardDetail', () => {
       render(<CardDetail {...defaultProps()} />)
       expect(screen.queryByTestId('card-tab-count-history')).not.toBeInTheDocument()
       await waitFor(() => expect(screen.getByTestId('card-tab-count-history')).toHaveTextContent('4'))
-      expect(timeline()).toHaveBeenCalledWith(1, 1, { limit: 50, offset: 0, include_counts: true })
+      expect(timeline()).toHaveBeenCalledWith(1, 1, { limit: 50, offset: 0, include_counts: true }, expect.any(AbortSignal))
       expect(screen.queryByTestId('card-tab-count-details')).not.toBeInTheDocument()
     })
 
@@ -290,6 +290,28 @@ describe('CardDetail', () => {
       render(<CardDetail {...defaultProps()} />)
       await waitFor(() => expect(screen.getByTestId('card-tab-count-history')).toHaveTextContent('0'))
       expect(screen.queryByTestId('card-last-activity')).not.toBeInTheDocument()
+    })
+
+    it('aborts the in-flight History fetch when the sheet unmounts (swap or close)', () => {
+      timeline().mockReturnValueOnce(new Promise(() => {}))
+      const { unmount } = render(<CardDetail {...defaultProps()} />)
+      const signal = timeline().mock.calls[0][3] as AbortSignal
+      expect(signal.aborted).toBe(false)
+      unmount()
+      expect(signal.aborted).toBe(true)
+    })
+
+    it('does not draw the bottom fade over the pinned comment composer', async () => {
+      rememberCardDetailTab('comments')
+      render(<CardDetail {...defaultProps()} />)
+      const body = screen.getByRole('tabpanel')
+      Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 1000 })
+      Object.defineProperty(body, 'clientHeight', { configurable: true, value: 300 })
+      fireEvent.scroll(body)
+      expect(screen.queryByTestId('card-body-shadow-bottom')).not.toBeInTheDocument()
+      await userEvent.setup().click(screen.getByRole('tab', { name: /^Details/ }))
+      fireEvent.scroll(screen.getByRole('tabpanel'))
+      expect(screen.getByTestId('card-body-shadow-bottom')).toBeInTheDocument()
     })
 
     it('opens on the tab chosen last, across remounts (session memory)', async () => {

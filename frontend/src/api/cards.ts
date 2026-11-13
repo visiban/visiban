@@ -230,10 +230,11 @@ export interface TimelinePage {
 export const getCardTimeline = (
   boardId: number,
   cardId: number,
-  params?: { limit?: number; offset?: number; event_types?: string; include_counts?: boolean }
+  params?: { limit?: number; offset?: number; event_types?: string; include_counts?: boolean },
+  signal?: AbortSignal
 ): Promise<TimelinePage> =>
   client
-    .get<TimelinePage>(`/api/v1/boards/${boardId}/cards/${cardId}/timeline/`, { params })
+    .get<TimelinePage>(`/api/v1/boards/${boardId}/cards/${cardId}/timeline/`, { params, signal })
     .then((r) => r.data);
 
 export interface CardStatus {

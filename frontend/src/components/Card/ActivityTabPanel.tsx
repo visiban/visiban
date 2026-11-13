@@ -287,11 +287,12 @@ export default function ActivityTabPanel({
                 key={o.value}
                 type="button"
                 aria-pressed={on}
+                aria-label={count !== undefined ? `${o.label}, ${count}` : undefined}
                 aria-disabled={lastOn || undefined}
                 aria-describedby={lastOn ? `history-filter-reason-${cardId}` : undefined}
                 title={lastOn ? LAST_ON_REASON : undefined}
                 onClick={() => toggleType(o.value)}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   on ? "bg-surface-hover border-line-strong text-fg font-medium" : "border-line text-fg-tertiary hover:text-fg"
                 } ${lastOn ? "cursor-not-allowed" : ""}`}
               >
@@ -303,7 +304,8 @@ export default function ActivityTabPanel({
           })}
         </div>
         <p id={`history-filter-reason-${cardId}`} className="sr-only">{LAST_ON_REASON}</p>
-        <span className="text-xs text-fg-muted">
+        {/* Always mounted: a filter change announces the new total. */}
+        <span role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg-muted">
           {loading
             ? "Loading…"
             : `${totalCount} event${totalCount !== 1 ? "s" : ""}`}
@@ -345,7 +347,7 @@ export default function ActivityTabPanel({
           <button
             type="button"
             onClick={() => setSelectedTypes(ALL_GROUPS)}
-            className="text-xs text-info hover:text-info transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            className="py-1 text-xs text-info hover:underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Show all types
           </button>

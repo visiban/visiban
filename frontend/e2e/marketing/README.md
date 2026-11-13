@@ -24,7 +24,7 @@ Six PNGs are written to `~/Downloads`:
 |---|---|
 | `visiban-01-dashboard.png` | Dashboard: groups, favorite boards, my boards |
 | `visiban-02-board.png` | Board: customer swimlanes across pipeline columns |
-| `visiban-03-card-detail.png` | Card drawer, Activity tab showing column moves |
+| `visiban-03-card-detail.png` | Card drawer, History tab (all event types) |
 | `visiban-04-group-settings.png` | Group settings |
 | `visiban-05-share-board.png` | Public read-only share page |
 | `visiban-06-admin.png` | Site admin, Users tab |

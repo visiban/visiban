@@ -152,6 +152,8 @@ describe("ActivityTabPanel", () => {
         "Column moves4", "Comments3", "Field changes2", "Checklist1", "Attachments0", "System events0",
       ]);
       buttons.forEach((b) => expect(b).toHaveAttribute("aria-pressed", "true"));
+      expect(toggle(/Column moves/)).toHaveAccessibleName("Column moves, 4");
+      expect(screen.getByRole("status")).toHaveTextContent("1 event");
       // The dropdown is gone.
       expect(screen.queryByRole("button", { name: /^filter/i })).not.toBeInTheDocument();
     });

@@ -412,7 +412,7 @@ The card detail panel now includes a **Move to** button in the breadcrumb row. C
 
 The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a `?view=` search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.
 
-Within the card detail Activity tab, the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time. *(Removed in 1.3: the History tab's event-type filter replaces the toggle, and the stored choice is ignored.)*
+Within the card detail Activity tab (now **History**), the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time. *(Removed in 1.3: the History tab's event-type filter replaces the toggle, and the stored choice is ignored.)*
 
 → [Board & Cards](board.md) · [Card History](card-history.md)
 
