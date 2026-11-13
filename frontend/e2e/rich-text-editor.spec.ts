@@ -364,4 +364,109 @@ test.describe('rich text editor', () => {
       await expect(pm).not.toHaveAttribute(a)
     }
   })
+
+  // #2097: the custom color panel. jsdom has no real focus or pointer-driven focus
+  // changes, so these are the only guards for the selection and blur behavior.
+  async function openCustomPanel(page: Page, dialog: Locator) {
+    await dialog.getByTitle('Text color').click()
+    await dialog.getByRole('button', { name: 'Text color Custom' }).click()
+    const panel = dialog.getByRole('group', { name: 'Color value' })
+    await expect(panel).toBeVisible()
+    return panel
+  }
+
+  test('dragging the color square does not exit edit mode', async ({ page }) => {
+    const sink: { description?: string } = {}
+    await routeCardWithPatchCapture(page, sink)
+    const { dialog, editor } = await openDescriptionEditor(page)
+    await editor.click()
+    await page.keyboard.press(END_OF_LINE)
+    await page.keyboard.type(' standout')
+    await selectWordInEditor(editor, 'standout')
+    const panel = await openCustomPanel(page, dialog)
+
+    const square = panel.locator('.react-colorful__saturation')
+    const box = (await square.boundingBox())!
+    await page.mouse.move(box.x + 10, box.y + 10)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width - 10, box.y + box.height / 2, { steps: 5 })
+    await page.mouse.up()
+    // Pressing the preview swatch (a non-focusable surface) must not blur-save either.
+    await panel.getByTestId('custom-color-preview').click()
+
+    await expect(panel).toBeVisible()
+    await expect(editor).toBeVisible()
+    expect(sink.description).toBeUndefined()
+  })
+
+  test('Apply colors the selection captured when the panel opened', async ({ page }) => {
+    const sink: { description?: string } = {}
+    await routeCardWithPatchCapture(page, sink)
+    const { dialog, editor } = await openDescriptionEditor(page)
+    await editor.click()
+    await page.keyboard.press(END_OF_LINE)
+    await page.keyboard.type(' standout')
+    await selectWordInEditor(editor, 'standout')
+    const panel = await openCustomPanel(page, dialog)
+
+    await panel.getByRole('textbox', { name: 'Hex value' }).fill('#123456')
+    await panel.getByRole('button', { name: 'Apply' }).click()
+    await expect(panel).toBeHidden()
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect.poll(() => sink.description, { timeout: 5_000 }).toMatch(/color:\s*rgb\(18, 52, 86\)[^>]*>standout</i)
+    expect(sink.description).not.toMatch(/color:[^>]*>This is the card description/)
+  })
+
+  test('a press outside the editor discards the draft color and keeps the edit', async ({ page }) => {
+    const sink: { description?: string } = {}
+    await routeCardWithPatchCapture(page, sink)
+    const { dialog, editor } = await openDescriptionEditor(page)
+    await editor.click()
+    await page.keyboard.press(END_OF_LINE)
+    await page.keyboard.type(' kept')
+    await selectWordInEditor(editor, 'kept')
+    const panel = await openCustomPanel(page, dialog)
+    await panel.getByRole('textbox', { name: 'Hex value' }).fill('#654321')
+
+    // Far from the sheet, outside the editor container. This sheet's editor uses
+    // Save/Cancel (showActions), so the blur-save is a no-op here by design (the
+    // unit test covers the blur-save path): the draft goes, edit mode stays.
+    await page.mouse.click(5, 5)
+    await expect(panel).toBeHidden()
+    await expect(editor).toBeVisible()
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect.poll(() => sink.description, { timeout: 5_000 }).toContain('kept')
+    expect(sink.description).not.toContain('101, 67, 33')
+  })
+
+  test('a near-white custom color stays legible on the light theme in view mode', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('user:prefs:theme', 'light'))
+    const sink: { description?: string } = {}
+    await routeCardWithPatchCapture(page, sink)
+    const { dialog, editor } = await openDescriptionEditor(page)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await editor.click()
+    await page.keyboard.press(END_OF_LINE)
+    await page.keyboard.type(' pale')
+    await selectWordInEditor(editor, 'pale')
+    const panel = await openCustomPanel(page, dialog)
+    await panel.getByRole('textbox', { name: 'Hex value' }).fill('#FEFEFE')
+    await panel.getByRole('button', { name: 'Apply' }).click()
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => sink.description, { timeout: 5_000 }).toContain('rgb(254, 254, 254)')
+
+    const span = dialog.locator('.rt-color', { hasText: 'pale' })
+    await expect(span).toBeVisible({ timeout: 5_000 })
+    const lum = await span.evaluate((el) => {
+      const [r, g, b] = getComputedStyle(el).color.match(/\d+/g)!.slice(0, 3).map((v) => {
+        const c = Number(v) / 255
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    })
+    // 4.5:1 against a white surface needs a luminance of at most (1.05 / 4.5) - 0.05.
+    expect(lum).toBeLessThanOrEqual(1.05 / 4.5 - 0.05)
+  })
 })

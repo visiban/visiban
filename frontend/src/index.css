@@ -218,6 +218,19 @@ body {
 }
 
 /*
+  Rich-text color span (#2097). RichTextEditor's view mode puts --rt-fg-{light,dark}
+  (textColorStyle() in src/utils/colorContrast.ts) on each stored color span, so the
+  chosen hex stays legible on both themes without a re-render on theme switch.
+*/
+.rt-color {
+  color: var(--rt-fg-dark);
+}
+
+[data-theme="light"] .rt-color {
+  color: var(--rt-fg-light);
+}
+
+/*
   Color dot ring (#2094). A user color can be near-white or near-black, which
   vanishes against one theme's surface (white on light is 1.0:1, black on dark
   1.44:1). A constant mid-gray 1px ring keeps the dot's edge visible in both.

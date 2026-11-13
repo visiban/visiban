@@ -1283,8 +1283,11 @@ describe('BoardView', () => {
     mockedGetCardStatus.mockResolvedValue({ archived: true })
     mockSearchParams = new URLSearchParams('card=999')
     render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    // Query the toast by test id, not text: the same message is also mirrored
+    // into the sr-only toast announcer once it settles, so getByText races
+    // between one and two matches and fails intermittently on a loaded runner.
     await waitFor(() =>
-      expect(screen.getByText('This card has been archived.')).toBeInTheDocument()
+      expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent('This card has been archived.')
     )
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
