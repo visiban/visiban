@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
 import {
   SHEET_GAP, SHEET_WIDTH, NOTCH_INSET,
-  classifyTransition, computeCardSheetPlacement, computeNotch, sameFrame, samePlacement,
+  classifyTransition, computeCardSheetPlacement, computeNotch, sameFrame, samePlacement, useCardSheetPlacement,
 } from '../hooks/useCardSheetPlacement'
 import type { SheetGeometry, SheetPlacement } from '../hooks/useCardSheetPlacement'
 
@@ -192,5 +193,49 @@ describe('classifyTransition (#1914)', () => {
     const down: SheetPlacement = { ...anchoredRight, notch: { y: 28, clamped: true, direction: 'down' } }
     expect(samePlacement(up, down)).toBe(false)
     expect(samePlacement(up, { ...up, notch: { ...up.notch! } })).toBe(true)
+  })
+})
+
+// #1915 — the hook tags a change of the docked input as a 'dock-toggle'. At
+// >= 1280px the sheet anchors when undocked and docks when docked, so the
+// toggle changes the placement and is not swallowed as an unchanged frame.
+describe('useCardSheetPlacement dock toggle (#1915)', () => {
+  const originalWidth = window.innerWidth
+  let board: HTMLElement
+  beforeEach(() => {
+    // A measurable card, so the undocked placement anchors instead of docking.
+    board = document.createElement('div')
+    board.setAttribute('data-board-scroll', '')
+    const card = document.createElement('div')
+    card.setAttribute('data-card-id', '1')
+    card.getBoundingClientRect = () => ({ left: 240, right: 460, top: 280, bottom: 320, width: 220, height: 40, x: 240, y: 280, toJSON: () => ({}) })
+    board.appendChild(card)
+    document.body.appendChild(board)
+  })
+  afterEach(() => { window.innerWidth = originalWidth; board.remove() })
+
+  it("reports reason 'dock-toggle' and a docked placement when the docked input flips", () => {
+    window.innerWidth = 1600
+    const { result, rerender } = renderHook(
+      ({ d }) => useCardSheetPlacement(1, 'a:b', d),
+      { initialProps: { d: false } },
+    )
+    expect(result.current.placement.mode).toBe('anchored')
+    expect(result.current.reason).toBe('open')
+    rerender({ d: true })
+    expect(result.current.reason).toBe('dock-toggle')
+    expect(result.current.placement.mode).toBe('docked')
+  })
+
+  it("does not report 'dock-toggle' when the docked input is unchanged", () => {
+    window.innerWidth = 1600
+    const { result, rerender } = renderHook(
+      ({ d }) => useCardSheetPlacement(1, 'a:b', d),
+      { initialProps: { d: true } },
+    )
+    expect(result.current.placement.mode).toBe('docked')
+    rerender({ d: true })
+    expect(result.current.reason).not.toBe('dock-toggle')
+    expect(result.current.reason).toBe('open')
   })
 })
