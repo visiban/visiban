@@ -10,6 +10,7 @@ vi.mock("../api/boards", () => ({
   updateCustomFieldDefinition: vi.fn(),
   deleteCustomFieldDefinition: vi.fn(),
   reorderCustomFields: vi.fn(),
+  listCustomFieldDefinitions: vi.fn(),
 }));
 
 const fakeUser: User = {
@@ -221,6 +222,262 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await waitFor(() => {
       expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_card: false });
       expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 3, { show_on_card: true });
+    });
+  });
+
+  describe("swap ordering and failure (#2193)", () => {
+    const defs = () => [
+      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+      makeDefinition({ id: 2, name: "Status", show_on_card: true }),
+      makeDefinition({ id: 3, name: "Cost", show_on_card: false }),
+    ];
+
+    it("sends the unpin and waits for it to resolve before sending the pin", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      let resolveUnpin!: (v: CustomFieldDefinition) => void;
+      vi.mocked(boardsApi.updateCustomFieldDefinition)
+        .mockImplementationOnce(() => new Promise((r) => { resolveUnpin = r; }))
+        .mockImplementationOnce(() => Promise.resolve({ ...d[2], show_on_card: true }));
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenLastCalledWith(1, 1, { show_on_card: false });
+      resolveUnpin({ ...d[0], show_on_card: false });
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(2));
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenLastCalledWith(1, 3, { show_on_card: true });
+    });
+
+    it("re-syncs from the server and shows an error when the pin fails after the unpin succeeded", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      const serverState = [{ ...d[0], show_on_card: false }, d[1], d[2]];
+      vi.mocked(boardsApi.updateCustomFieldDefinition)
+        .mockResolvedValueOnce(serverState[0])
+        .mockRejectedValueOnce(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue(serverState);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't finish replacing the pinned field/);
+      expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
+      expect(onFieldsUpdated).toHaveBeenCalledWith(serverState);
+      expect(screen.getByRole("button", { name: /Pin Sprint/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Pin Cost/ })).toBeInTheDocument();
+    });
+
+    it("keeps only the confirmed unpin when the re-sync itself fails", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      const unpinned = { ...d[0], show_on_card: false };
+      vi.mocked(boardsApi.updateCustomFieldDefinition)
+        .mockResolvedValueOnce(unpinned)
+        .mockRejectedValueOnce(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockRejectedValue(new Error("offline"));
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledTimes(1));
+      expect(onFieldsUpdated).toHaveBeenCalledWith([unpinned, d[1], d[2]]);
+    });
+
+    it("never sends the pin and shows an alert when the unpin itself fails", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValueOnce(new Error("500"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue(d);
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1);
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_card: false });
+    });
+  });
+
+  describe("refused pins on the other paths (#2193)", () => {
+    it("the row Pin button shows an alert and re-syncs when the server refuses", async () => {
+      const user = userEvent.setup();
+      const d = [makeDefinition({ id: 1, name: "Sprint" }), makeDefinition({ id: 2, name: "Cost", position: 1 })];
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue(d);
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /Pin Sprint/ }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't change that pin/);
+      expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
+      expect(screen.getByRole("button", { name: /Pin Sprint/ })).toBeInTheDocument();
+    });
+
+    it("a created field stays in the list, is not re-created, and an alert shows when its follow-up pin is refused", async () => {
+      const user = userEvent.setup();
+      const defs = [makeDefinition({ id: 1, name: "Sprint", show_on_card: true })];
+      const created = makeDefinition({ id: 9, name: "Region", position: 1 });
+      vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue([...defs, created]);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+
+      await user.click(screen.getByRole("button", { name: "+ Add field" }));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Region");
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't change that pin/);
+      expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
+      expect(onFieldsUpdated).toHaveBeenLastCalledWith([...defs, created]);
+      expect(screen.getByRole("button", { name: /Pin Region/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save field" })).not.toBeInTheDocument();
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // #2193: the field editor's "Pin to card face" toggle was only read on
+  // create. Saving an existing field dropped it, so the editor could neither
+  // unpin, re-pin nor pin a different field, and at the cap the editor's
+  // "you'll pick a swap" promise was never kept.
+  describe("the editor's pin toggle (#2193)", () => {
+    const echo = (defs: CustomFieldDefinition[]) =>
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockImplementation((_boardId, fieldId, data) =>
+        // Undefined keys (e.g. `choices` on a text field) are not sent, so not echoed.
+        Promise.resolve({
+          ...defs.find((f) => f.id === fieldId)!,
+          ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)),
+        } as CustomFieldDefinition)
+      );
+
+    it("unpins an existing pinned field, then re-pins it, from the editor", async () => {
+      const user = userEvent.setup();
+      const defs = [
+        makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+        makeDefinition({ id: 2, name: "Status", show_on_card: true }),
+      ];
+      echo(defs);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+        1, 1, expect.objectContaining({ show_on_card: false }),
+      ));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Pin Sprint to card face" })).toBeInTheDocument());
+
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockClear();
+      echo([{ ...defs[0], show_on_card: false }, defs[1]]);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+        1, 1, expect.objectContaining({ show_on_card: true }),
+      ));
+      expect(await screen.findByRole("button", { name: "Unpin Sprint from card face" })).toBeInTheDocument();
+    });
+
+    it("pins a different field from the editor when under the cap", async () => {
+      const user = userEvent.setup();
+      const defs = [
+        makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+        makeDefinition({ id: 2, name: "Cost", show_on_card: false }),
+      ];
+      echo(defs);
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+
+      await user.click(screen.getByTitle("Edit Cost"));
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+        1, 2, expect.objectContaining({ show_on_card: true }),
+      ));
+      expect(await screen.findByRole("button", { name: "Unpin Cost from card face" })).toBeInTheDocument();
+    });
+
+    it("leaves the pin alone when the toggle was not touched", async () => {
+      const user = userEvent.setup();
+      const defs = [makeDefinition({ id: 1, name: "Sprint", show_on_card: true })];
+      echo(defs);
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalled());
+      expect(vi.mocked(boardsApi.updateCustomFieldDefinition).mock.calls[0][2]).not.toHaveProperty("show_on_card");
+    });
+
+    it("at the cap, saves the field without the pin and opens the swap prompt for it", async () => {
+      const user = userEvent.setup();
+      const defs = [
+        makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+        makeDefinition({ id: 2, name: "Status", show_on_card: true }),
+        makeDefinition({ id: 3, name: "Cost", show_on_card: false }),
+      ];
+      echo(defs);
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+
+      await user.click(screen.getByTitle("Edit Cost"));
+      expect(screen.getByText(/you'll pick a swap/)).toBeInTheDocument();
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+
+      expect(await screen.findByText("The card face holds 2 fields.")).toBeInTheDocument();
+      expect(vi.mocked(boardsApi.updateCustomFieldDefinition).mock.calls[0][2]).not.toHaveProperty("show_on_card");
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+      await waitFor(() => {
+        expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_card: false });
+        expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 3, { show_on_card: true });
+      });
+    });
+
+    it("under the cap, a new field with the toggle on is pinned with a PATCH after the create", async () => {
+      const user = userEvent.setup();
+      const defs = [makeDefinition({ id: 1, name: "Sprint", show_on_card: true })];
+      const created = makeDefinition({ id: 9, name: "Region", position: 1, show_on_card: false });
+      const pinned = { ...created, show_on_card: true };
+      vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(pinned);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+
+      await user.click(screen.getByRole("button", { name: "+ Add field" }));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Region");
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+
+      await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 9, { show_on_card: true }));
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([...defs, pinned]));
+      expect(screen.queryByText("The card face holds 2 fields.")).not.toBeInTheDocument();
+    });
+
+    it("at the cap, a new field asking to be pinned opens the swap prompt instead of a refused pin", async () => {
+      const user = userEvent.setup();
+      const defs = [
+        makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+        makeDefinition({ id: 2, name: "Status", show_on_card: true }),
+      ];
+      const created = makeDefinition({ id: 9, name: "Region", position: 2, show_on_card: false });
+      vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+
+      await user.click(screen.getByRole("button", { name: "+ Add field" }));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Region");
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([...defs, created]));
+      expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
+      expect(await screen.findByText("The card face holds 2 fields.")).toBeInTheDocument();
+      expect(screen.queryByText(/Couldn't save this field/)).not.toBeInTheDocument();
     });
   });
 

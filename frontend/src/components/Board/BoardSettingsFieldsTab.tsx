@@ -10,6 +10,7 @@ import { Toggle } from "../Common/Toggle";
 import {
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
+  listCustomFieldDefinitions,
   deleteCustomFieldDefinition,
   reorderCustomFields,
 } from "../../api/boards";
@@ -61,6 +62,7 @@ function hasChoices(t: CustomFieldType): boolean {
 }
 
 
+const PIN_ERROR = "Couldn't change that pin. The list now shows what is pinned.";
 const FIELD_CAP = 30;
 const PIN_CAP = 2;
 
@@ -112,6 +114,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [formError, setFormError] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
   const [pasteListOpen, setPasteListOpen] = useState(false);
   const [pasteListText, setPasteListText] = useState("");
   const [pendingTypeChange, setPendingTypeChange] = useState<CustomFieldType | null>(null);
@@ -174,6 +177,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   };
 
   const handlePin = (def: CustomFieldDefinition) => {
+    setSwapError(null);
     if (def.show_on_card) {
       void savePin(def, false);
       return;
@@ -193,22 +197,40 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       const updated = await updateCustomFieldDefinition(board.id, def.id, { show_on_card: pinned });
       commit(fields.map((f) => (f.id === def.id ? updated : f)));
     } catch {
-      setFields(prev);
+      // The server may have refused on a stale count (#2193): say so and
+      // re-sync, keeping the pre-click list only if the re-sync fails too.
+      setSwapError(PIN_ERROR);
+      try {
+        commit(await listCustomFieldDefinitions(board.id));
+      } catch {
+        setFields(prev);
+      }
     }
   };
 
+  // The unpin must commit before the pin is sent: the server checks the cap
+  // before taking any lock, so a parallel pin can be refused while the unpin
+  // still succeeds (#2193). On any failure we re-sync from the server rather
+  // than roll back to a stale snapshot, since the unpin may have landed.
   const swapPin = async (replaceId: number, newId: number) => {
-    const prev = fields;
     setSwapPromptId(null);
+    setSwapError(null);
+    let unpinned: typeof fields[number] | null = null;
     try {
-      const [unpinned, pinned] = await Promise.all([
-        updateCustomFieldDefinition(board.id, replaceId, { show_on_card: false }),
-        updateCustomFieldDefinition(board.id, newId, { show_on_card: true }),
-      ]);
-      commit(fields.map((f) => (f.id === replaceId ? unpinned : f.id === newId ? pinned : f)));
+      unpinned = await updateCustomFieldDefinition(board.id, replaceId, { show_on_card: false });
+      const pinned = await updateCustomFieldDefinition(board.id, newId, { show_on_card: true });
+      commit(fields.map((f) => (f.id === replaceId ? unpinned! : f.id === newId ? pinned : f)));
     } catch {
-      // Treat the pair as one logical operation — either failing rolls back both.
-      setFields(prev);
+      setSwapError("Couldn't finish replacing the pinned field. The list now shows what is pinned; try again.");
+      try {
+        commit(await listCustomFieldDefinitions(board.id));
+      } catch {
+        // Re-sync failed too: keep only what the server actually confirmed.
+        if (unpinned) {
+          const confirmed = unpinned;
+          commit(fields.map((f) => (f.id === replaceId ? confirmed : f)));
+        }
+      }
     }
   };
 
@@ -274,6 +296,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
 
     setSaving(true);
     setFormError(null);
+    setSwapError(null);
     try {
       if (editingId === "new") {
         const created = await createCustomFieldDefinition(board.id, {
@@ -284,12 +307,36 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
         });
-        let finalDef = created;
+        // Commit the created field first: if the follow-up pin is refused the
+        // field still exists server-side, and a second Save would re-create it.
+        commit([...fields, created]);
+        // At the cap the pin goes through the swap prompt (the editor's "you'll
+        // pick a swap" hint), never a PATCH the server refuses (#2193).
+        let swapFor: number | null = null;
         if (form.show_on_card) {
-          finalDef = await updateCustomFieldDefinition(board.id, created.id, { show_on_card: true });
+          if (pinnedCount >= PIN_CAP) swapFor = created.id;
+          else {
+            try {
+              const pinned = await updateCustomFieldDefinition(board.id, created.id, { show_on_card: true });
+              commit([...fields, pinned]);
+            } catch {
+              setSwapError(PIN_ERROR);
+              try {
+                commit(await listCustomFieldDefinitions(board.id));
+              } catch {
+                // Re-sync failed: the created field is already in the list.
+              }
+            }
+          }
         }
-        commit([...fields, finalDef]);
+        setSwapPromptId(swapFor);
       } else if (editingId !== null) {
+        // #2193: the editor's pin toggle used to be read on create only, so
+        // saving an existing field could not unpin, re-pin or pin it. Sent only
+        // when it changed, so a plain rename never touches the pin.
+        const current = fields.find((f) => f.id === editingId);
+        const pinChanged = current !== undefined && form.show_on_card !== current.show_on_card;
+        const needsSwap = pinChanged && form.show_on_card && pinnedCount >= PIN_CAP;
         const updated = await updateCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
@@ -297,8 +344,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
+          ...(pinChanged && !needsSwap ? { show_on_card: form.show_on_card } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
+        setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
     } catch {
@@ -375,6 +424,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
       </div>
+
+      {swapError && <p role="alert" className="text-xs text-danger mb-2">{swapError}</p>}
 
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
