@@ -2066,9 +2066,10 @@ class SwimlaneCustomFieldDefinition(models.Model):
     # *vertically* down that column, so eight pinned fields cost eight lines
     # rather than competing for one line's width. Raising this trades rows
     # visible on screen for metadata per row. It was 3 until #1416 raised it so
-    # the Sales Territory (Overlay) demo can pin AD, AE, OAE, OSA and SVC; 8 is
-    # a deliberately generous interim cap and the right number is to be revisited
-    # in 1.3 (see the follow-up UX issue).
+    # the Sales Territory (Overlay) demo can pin AD, AE, OAE, OSA and SVC.
+    # Decided in #1417: the pin cap stays 8, and how many chips actually show on
+    # a row follows card density (frontend ``utils/swimlaneRowChips.ts``), so
+    # the cap is no longer an interim number.
     MAX_PINNED_PER_BOARD = 8
     # Referenced, not re-chosen. The constraint behind the number is the same
     # one the card model documents: ``scfv_definition_value_idx`` is a btree,

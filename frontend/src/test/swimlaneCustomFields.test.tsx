@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
+import SwimlaneFieldsPopover, { type SwimlaneFieldEntry } from '../components/Board/SwimlaneFieldsPopover'
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
 import SwimlaneFieldEditRow from '../components/Board/SwimlaneFieldEditRow'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
@@ -78,6 +79,20 @@ function makeDef(overrides: Partial<SwimlaneCustomFieldDefinition> = {}): Swimla
     number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
     created_at: '2026-01-01', ...overrides,
   }
+}
+
+function SwimlanePopoverUnderTest({ entries, foldedPinnedIds }: { entries: SwimlaneFieldEntry[]; foldedPinnedIds?: ReadonlySet<number> }) {
+  const triggerRef = { current: null as HTMLButtonElement | null }
+  return (
+    <SwimlaneFieldsPopover
+      swimlaneName="Acme Corp"
+      entries={entries}
+      foldedPinnedIds={foldedPinnedIds}
+      anchorRect={new DOMRect(10, 10, 20, 20)}
+      onDismiss={() => {}}
+      triggerRef={triggerRef}
+    />
+  )
 }
 
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
@@ -548,6 +563,25 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
     const names = Array.from(dialog.querySelectorAll('.sr-only')).map((n) => n.textContent)
     expect(names).not.toContain('Owner: ')
+  })
+})
+
+describe('SwimlaneFieldsPopover — foldedPinnedIds alone (#1417)', () => {
+  it('lists folded pinned first (pin order), then unpinned, then On row', () => {
+    const entries = [
+      { def: makeDef({ id: 1, name: 'OnRowField', show_on_row: true, position: 0 }), value: 'a' },
+      { def: makeDef({ id: 2, uid: 'sfuid0000002', name: 'FoldedTwo', show_on_row: true, position: 1 }), value: 'b' },
+      { def: makeDef({ id: 3, uid: 'sfuid0000003', name: 'Unpinned', show_on_row: false, position: 2 }), value: 'c' },
+      { def: makeDef({ id: 4, uid: 'sfuid0000004', name: 'FoldedFour', show_on_row: true, position: 3 }), value: 'd' },
+    ]
+    render(
+      <SwimlanePopoverUnderTest entries={entries} foldedPinnedIds={new Set([2, 4])} />,
+    )
+    const list = screen.getByTestId('swimlane-fields-list')
+    const text = list.textContent ?? ''
+    const order = ['FoldedTwo', 'FoldedFour', 'Unpinned', 'On row', 'OnRowField'].map((s) => text.indexOf(s))
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 })
 
