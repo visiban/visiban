@@ -4483,6 +4483,11 @@ reference on a non-comment line, and fails if any of them:</p>
 <td>The meta-gate itself — see above.</td>
 </tr>
 <tr>
+<td><code>scripts/check-script-tests-wired.sh</code></td>
+<td><code>script-tests</code></td>
+<td>Self-test plants a test file only mentioned in a comment, a reasonless allowlist entry, a wired-but-allowlisted file and a stale entry. Fails when a <code>scripts/tests/*.test.sh</code> is neither run by a non-comment <code>bash scripts/tests/&lt;name&gt;</code> line in <code>.gitlab-ci.yml</code> nor listed in <code>scripts/tests/unwired-allowlist.txt</code> with a reason (#2117). The <code>script-tests</code> job also runs the tests that have no gate job of their own.</td>
+</tr>
+<tr>
 <td><code>scripts/check-compose-image-pins.sh</code></td>
 <td><code>compose-hygiene</code></td>
 <td>Self-test plants an untagged image, an explicit <code>:latest</code>, a ported-registry reference (<code>host:5000/img</code>, whose colon must not read as a tag separator), and a first-party <code>${VAR}</code> reference that must NOT be reported.</td>
