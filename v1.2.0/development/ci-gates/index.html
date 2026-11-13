@@ -4545,7 +4545,7 @@ reference on a non-comment line, and fails if any of them:</p>
 <tr>
 <td><code>scripts/check-broadcast-deferral.py</code></td>
 <td><code>broadcast-deferral</code></td>
-<td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table.</td>
+<td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table. It also scans writes in mixin classes, not just viewset bodies.</td>
 </tr>
 <tr>
 <td><code>scripts/check-release-images.sh</code></td>
