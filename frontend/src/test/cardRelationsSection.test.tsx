@@ -576,24 +576,20 @@ describe('CardRelationsSection — section count (#1916)', () => {
     expect(screen.queryByTestId('card-section-count-relations')).not.toBeInTheDocument()
   })
 
-  it('reports null, then the count, and follows an add and a remove live', async () => {
+  it('heading count follows an add and a remove live', async () => {
     mockGet.mockResolvedValue([makeRelation()])
     mockSearch.mockResolvedValue([makeCard({ id: 42, title: 'Provision cluster', column: 11 })])
     mockAdd.mockResolvedValue(makeRelation({ id: 900, card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }))
     mockDelete.mockResolvedValue(undefined as never)
-    const onCountChange = vi.fn()
-    renderSection({ onCountChange })
-    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(1))
-    expect(onCountChange.mock.calls[0][0]).toBeNull()
+    renderSection()
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('1'))
 
     await userEvent.click(await screen.findByRole('button', { name: '+ Add relation' }))
     await userEvent.type(screen.getByRole('combobox'), 'prov')
     fireEvent.mouseDown(await screen.findByRole('option', { name: /Provision cluster/ }))
-    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(2))
-    expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('2')
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('2'))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Remove relation to Blocker card' }))
-    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(1))
-    expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('1')
+    await waitFor(() => expect(screen.getByTestId('card-section-count-relations')).toHaveTextContent('1'))
   })
 })

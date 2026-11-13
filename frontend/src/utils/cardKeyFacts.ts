@@ -31,8 +31,8 @@ export interface KeyFact {
   staticLabel: string;
   /** Full value for a tooltip when the visible text is truncated. */
   title?: string;
-  /** Text tone for urgency (on-tint tokens); default neutral. */
-  tone?: "danger" | "warning";
+  /** Text tone for urgency (on-tint tokens); default neutral. #1922 may add a tone when it adds Readiness. */
+  tone?: "danger";
   /** Assignee facts show a small avatar. */
   avatarUser?: Card["assignee"];
 }

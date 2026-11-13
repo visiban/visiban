@@ -419,6 +419,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     };
   }, []);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
+  // The Column key fact that opened Move (#1916); focus returns there on close. Null when the Move button opened it.
+  const moveOpenerRef = useRef<HTMLElement | null>(null);
   const movePopoverRef = useRef<HTMLDivElement>(null);
   const [showMovePopover, setShowMovePopover] = useState(false);
   const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -674,7 +676,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (wasOpen) {
       const active = document.activeElement;
       if (!active || active === document.body || movePopoverRef.current?.contains(active)) {
-        moveButtonRef.current?.focus();
+        (moveOpenerRef.current?.isConnected ? moveOpenerRef.current : moveButtonRef.current)?.focus();
+        moveOpenerRef.current = null;
       }
     }
   }, [card.version, card.column, card.swimlane]);
@@ -687,6 +690,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // its outcome (#1772).
     if (moveForcingRef.current) return;
     setShowMovePopover(false);
+    if (moveOpenerRef.current?.isConnected) moveOpenerRef.current.focus();
+    moveOpenerRef.current = null;
   }, 36);
   // Bulk-add overlay is a modal over the panel: Escape closes it first (priority 37, above
   // the move popover) instead of closing the whole card panel (#1376).
@@ -871,7 +876,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setMoveRefusal(null);
       setShowMovePopover(false);
       // The panel may have closed while the request was in flight.
-      moveButtonRef.current?.focus();
+      (moveOpenerRef.current?.isConnected ? moveOpenerRef.current : moveButtonRef.current)?.focus();
+      moveOpenerRef.current = null;
     } catch (err) {
       // Defensive: useBoard.forceMoveCardTo never rejects (it reports failure in
       // its result), but the prop is a plain Promise, so a rejecting caller still
@@ -1306,6 +1312,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Inert while the popover's admin override is in flight: toggling
     // would close the popover and hide the pending outcome (#1772).
     if (moveForcingRef.current) return;
+    moveOpenerRef.current = null;
     setMoveToSeen(true);
     // Calculate fixed position from the button's viewport rect so the
     // popover isn't clipped by the panel's overflow-hidden container.
@@ -1329,11 +1336,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // the top of the body, under the fixed header, and focus its first control.
   const [pendingJump, setPendingJump] = useState<{ target: KeyFactTarget; n: number } | null>(null);
   const focusMovePopoverNext = useRef(false);
-  const jumpTo = (target: KeyFactTarget) => {
+  const jumpTo = (target: KeyFactTarget, opener?: HTMLElement) => {
     if (target === "move") {
       if (!canEdit || !onMoveCard) return;
       focusMovePopoverNext.current = !showMovePopover;
       toggleMovePopover();
+      if (focusMovePopoverNext.current && opener) moveOpenerRef.current = opener;
       return;
     }
     if (target.startsWith("field:")) setCustomFieldsOpen(true);
