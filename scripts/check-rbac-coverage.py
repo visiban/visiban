@@ -301,8 +301,12 @@ GATE_SUBJECT_MARKERS = ("role", "user", "request", "board", "group", "actor", "m
 # Every entry becomes a finding, and asks to be deleted, once it matches nothing
 # in the tree. PUBLIC_BY_DESIGN and VIEWER_PERMITTED_WRITES go further: an entry
 # also becomes a finding once its view gains the gate it was excused from.
-# AGENT_REVIEWED does not: a recorded handler is skipped, so it is not re-checked
-# when its code changes, and a reviewed entry can outlive its reason (#2125).
+# AGENT_REVIEWED goes only part of the way: a recorded handler is skipped, so its
+# own body is not re-scanned, but an entry that names its guard in
+# AGENT_REVIEWED_GUARDS fails once that guard is no longer reached (#2125). An
+# entry with no guard chain is still trusted blind. A chain proves each named
+# function still CALLS the next one, not that the call is unconditional or that
+# the callee still refuses; the tests each reason cites pin that.
 
 # Views with deliberately no authentication gate. The reason must say what
 # stands in for authentication, because "public" alone is not a design.
@@ -455,6 +459,86 @@ AGENT_REVIEWED: dict[str, str] = {
         "the list identity and covers anon/non-admin/forced-flow/405."
     ),
 }
+
+
+# The guard chain each AGENT_REVIEWED entry relies on (#2125). A link is
+# ``(module, function, callee)``: *function* in *module* (``Class.method`` for a
+# method, a bare name for a module-level function) must still contain a call
+# whose callee name ends in *callee*. Chained end to end, handler -> ... ->
+# guard, so removing ``_require_group_admin`` from
+# ``resolve_group_for_board_placement``, or no longer routing an importer through
+# ``_resolve_import_group``, fails the run even though the handler itself is
+# skipped. This proves reachability by name, not behavior; the backend tests the
+# reasons cite still prove the guard refuses.
+GuardLink = tuple[str, str, str]
+_IMPORT = "backend/boards/views/import_export.py"
+_MIXIN = "BoardImportExportMixin"
+_PLACEMENT_CHAIN: tuple[GuardLink, ...] = (
+    (_IMPORT, f"{_MIXIN}._resolve_import_group", "resolve_group_for_board_placement"),
+    ("backend/groups/views.py", "resolve_group_for_board_placement", "_require_group_admin"),
+)
+AGENT_REVIEWED_GUARDS: dict[str, tuple[GuardLink, ...]] = {
+    f"{_IMPORT}::{_MIXIN}::@action import_board [post]": (
+        (_IMPORT, f"{_MIXIN}._import_json", "_resolve_import_group"),
+        (_IMPORT, f"{_MIXIN}._import_json", "_lock_import_group"),
+        (_IMPORT, f"{_MIXIN}._import_csv", "_resolve_import_group"),
+        (_IMPORT, f"{_MIXIN}._import_csv", "_lock_import_group"),
+    ) + _PLACEMENT_CHAIN,
+    f"{_IMPORT}::{_MIXIN}::@action import_trello [post]": (
+        (_IMPORT, f"{_MIXIN}.import_trello", "_resolve_import_group"),
+        (_IMPORT, f"{_MIXIN}.import_trello", "_lock_import_group"),
+    ) + _PLACEMENT_CHAIN,
+    "backend/boards/views/boards.py::BoardViewSet::create": (
+        ("backend/boards/serializers.py", "BoardSerializer.validate_group", "_check_group_change"),
+        ("backend/boards/serializers.py", "BoardSerializer._check_group_change", "_require_group_admin"),
+    ),
+}
+
+
+def _guard_findings(root: Path) -> list[str]:
+    """Findings for every AGENT_REVIEWED_GUARDS link that no longer holds."""
+    out: list[str] = []
+    cache: dict[str, Module] = {}
+    for key, links in AGENT_REVIEWED_GUARDS.items():
+        if key not in AGENT_REVIEWED:
+            out.append(
+                f"AGENT_REVIEWED_GUARDS entry {key} has no AGENT_REVIEWED entry "
+                f"- delete it."
+            )
+            continue
+        for rel, func, callee in links:
+            if rel not in cache:
+                cache[rel] = _load_module(root, rel)
+            mod = cache[rel]
+            cls_name, _, meth = func.rpartition(".")
+            fns: list = []
+            if cls_name:
+                for cls in mod.classes:
+                    if cls.name == cls_name:
+                        fns += [
+                            n for n in cls.body
+                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and n.name == meth
+                        ]
+            elif meth in mod.functions:
+                fns = [mod.functions[meth]]
+            if not fns:
+                out.append(
+                    f"{key}: its reviewed guard chain names {rel}::{func}, which "
+                    f"no longer exists - re-review the handler and update "
+                    f"AGENT_REVIEWED_GUARDS."
+                )
+            elif not any(
+                _dotted(c.func).rsplit(".", 1)[-1] == callee
+                for fn in fns
+                for c in _calls(fn)
+            ):
+                out.append(
+                    f"{key}: {rel}::{func} no longer calls {callee}, which the "
+                    f"recorded review relies on as its guard - the handler is "
+                    f"skipped by this checker, so re-review it."
+                )
+    return out
 
 
 class CheckerError(Exception):
@@ -1410,6 +1494,7 @@ def run(root: Path, *, quiet: bool = False) -> Report:
                 f"VIEWER_PERMITTED_WRITES entry {key} matches no write action any "
                 f"more — delete it. (recorded reason: {reason.splitlines()[0]})"
             )
+    rep.findings.extend(_guard_findings(root))
     for key, reason in AGENT_REVIEWED.items():
         if key not in used_reviewed:
             rep.findings.append(
@@ -2519,14 +2604,16 @@ def self_test() -> int:
 
     import contextlib
 
-    global PUBLIC_BY_DESIGN, AGENT_REVIEWED, VIEWER_PERMITTED_WRITES
+    global PUBLIC_BY_DESIGN, AGENT_REVIEWED, VIEWER_PERMITTED_WRITES, AGENT_REVIEWED_GUARDS
     real_tables = (PUBLIC_BY_DESIGN, AGENT_REVIEWED, VIEWER_PERMITTED_WRITES)
+    real_guards = AGENT_REVIEWED_GUARDS
 
     print("=== check-rbac-coverage.py --self-test ===")
     failures = 0
     for name, overrides, expect_finding, expect_defer, tables in cases:
         PUBLIC_BY_DESIGN = dict(_FIXTURE_PUBLIC_BY_DESIGN)
         AGENT_REVIEWED = dict(_FIXTURE_AGENT_REVIEWED)
+        AGENT_REVIEWED_GUARDS = dict(tables.get("guards", {}))
         VIEWER_PERMITTED_WRITES = dict(_FIXTURE_VIEWER_PERMITTED)
         PUBLIC_BY_DESIGN.update(tables.get("public", {}))
         AGENT_REVIEWED.update(tables.get("reviewed", {}))
@@ -2543,6 +2630,7 @@ def self_test() -> int:
             continue
         finally:
             PUBLIC_BY_DESIGN, AGENT_REVIEWED, VIEWER_PERMITTED_WRITES = real_tables
+            AGENT_REVIEWED_GUARDS = real_guards
 
         if expect_finding is None and expect_defer is None:
             ok = not rep.findings and not rep.defers
