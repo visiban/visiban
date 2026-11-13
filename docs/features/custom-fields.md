@@ -56,7 +56,7 @@ Click **+ Add field**, or **✎** on a field, to open the inline editor:
 Click **Save field** to commit, or **Cancel** to discard.
 
 !!! warning "A field's type locks once it holds a value"
-    Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. **Deleting a field permanently deletes all of its values.** They can't be recovered and aren't kept in card history. A brand-new, unsaved field has no values yet, so its type can be changed freely.
+    Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. **Deleting a field permanently deletes all of its values.** They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.
 
     To delete a field from its editor, click **Delete field** at the bottom left. It opens the same type-the-name confirmation as the ✕ on the field's row. Only admins can edit or delete fields.
 

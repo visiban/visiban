@@ -18,6 +18,7 @@ import NumberFormatFields from "./NumberFormatFields";
 import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
+import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
@@ -86,6 +87,8 @@ function formFromDefinition(d: CustomFieldDefinition): FormState {
   return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, show_on_card: d.show_on_card };
 }
 
+const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
+
 /**
  * Board Settings → Fields tab (#371) — Layout 1: single pane, inline
  * expansion. See the ux-design spec posted on issue #371 for the full
@@ -94,10 +97,6 @@ function formFromDefinition(d: CustomFieldDefinition): FormState {
  * interdependent (only one row can be in edit mode, drag is disabled while
  * editing, etc.) in a way that doesn't decompose cleanly.
  */
-/** Shown when the server refuses a type change because cards already hold values (#2194). */
-const TYPE_LOCKED_MESSAGE =
-  "The type can't be changed because cards already have values for this field. To use a different type, add a new field of that type, then delete this one. Deleting a field permanently deletes all of its values, and they can't be recovered or found in card history.";
-
 export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated }: Props) {
   const [fields, setFields] = useState<CustomFieldDefinition[]>(
     () => [...board.custom_field_definitions].sort((a, b) => a.position - b.position)
@@ -164,10 +163,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
 
   const handleTypeSelect = (nextType: CustomFieldType) => {
     // Confirm before changing an *existing, already-persisted* field's type —
-    // #1121 (backend gap: field_type has no immutability guard) means a
-    // retype after values exist can leave unreadable data. A brand-new
-    // unsaved field ("new") has nothing to protect yet, so it commits the
-    // selection directly.
+    // The server refuses a retype once cards hold values, but this tab has no
+    // client-side value count to lock up front (see #2202), so it warns first
+    // and the refusal is explained on save. A brand-new unsaved field ("new")
+    // has nothing to protect yet, so it commits the selection directly.
     if (editingId !== "new" && nextType !== form.field_type) {
       setPendingTypeChange(nextType);
       return;
@@ -369,11 +368,13 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
-    // Deleting from inside the editor: close it, or the editor would stay open on a removed field.
-    if (editingId === deleteTarget.id) cancelEdit();
+    // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
+    const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteCustomFieldDefinition(board.id, deleteTarget.id);
+      // Close only once the DELETE succeeded, so a failure keeps unsaved edits.
+      if (wasEditing) cancelEdit();
       commit(fields.filter((f) => f.id !== deleteTarget.id));
     } catch {
       setFields(prev);
@@ -744,7 +745,7 @@ function FieldEditPanel({
       />
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Type</p>
-      <div className="flex gap-1.5 flex-wrap mb-2">
+      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type">
         {FIELD_TYPE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -765,7 +766,7 @@ function FieldEditPanel({
 
       {pendingTypeChange && (
         <div className="mb-3 flex items-center gap-2 text-xs">
-          <span className="text-warning">Changing this field's type may make existing values unreadable. Continue?</span>
+          <span className="text-warning">If cards already have values for this field, the save will be refused. To use a different type, add a new field of that type, then delete this one. Continue?</span>
           <button onClick={onConfirmTypeChange} className="text-warning hover:underline focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded">Change type</button>
           <button onClick={onCancelTypeChange} className="text-fg-secondary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
         </div>
@@ -861,7 +862,7 @@ function FieldEditPanel({
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex items-center justify-end gap-3 mt-1">
+      <div className="flex flex-wrap items-center justify-end gap-3 mt-1">
         {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
             miss. DOM-first so it sits at the far left, apart from Save, and so
             Tab reaches Delete -> Cancel -> Save (Cancel always sits between
@@ -871,6 +872,7 @@ function FieldEditPanel({
           <button
             type="button"
             onClick={onDelete}
+            disabled={saving}
             className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             Delete field

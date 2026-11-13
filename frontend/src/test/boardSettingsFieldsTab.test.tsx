@@ -566,6 +566,23 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       expect(screen.queryByPlaceholderText("e.g. Sprint")).not.toBeInTheDocument();
     });
 
+    it("keeps the editor and its edits open when the DELETE fails", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.deleteCustomFieldDefinition).mockRejectedValue(new Error("boom"));
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), " 2");
+      await user.click(screen.getByRole("button", { name: "Delete field" }));
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.type(within(dialog).getByLabelText(/Type/), "Sprint");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(boardsApi.deleteCustomFieldDefinition).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Delete field?" })).not.toBeInTheDocument());
+      expect(screen.getByPlaceholderText("e.g. Sprint")).toHaveValue("Sprint 2");
+      expect(onFieldsUpdated).not.toHaveBeenCalled();
+    });
+
     it("keeps Delete off the default focus, left of Cancel and Save, in danger styling", async () => {
       const user = userEvent.setup();
       render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
@@ -785,9 +802,9 @@ describe("BoardSettingsFieldsTab — number format (#1391)", () => {
     await user.click(screen.getByRole("button", { name: "Edit Budget" }));
 
     await user.click(screen.getByRole("button", { name: "Aa Text" }));
-    const prompt = screen.getByText(/may make existing values unreadable/).parentElement as HTMLElement;
+    const prompt = screen.getByText(/the save will be refused/).parentElement as HTMLElement;
     await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText(/may make existing values unreadable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/the save will be refused/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aa Text" })).toHaveFocus();
   });
 

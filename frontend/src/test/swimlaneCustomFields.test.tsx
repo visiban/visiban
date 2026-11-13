@@ -1,3 +1,4 @@
+import { typeLockedMessage } from '../constants/customFields'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1090,7 +1091,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       await user.click(screen.getByRole('button', { name: /# Number/ }))
       await user.click(screen.getByRole('button', { name: 'Save field' }))
       expect(
-        await screen.findByText("Couldn't change this field's type — swimlanes already have values for it.")
+        await screen.findByText(typeLockedMessage('swimlanes'))
       ).toBeInTheDocument()
     })
   })
@@ -1392,6 +1393,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
 
   describe('type lock reason and Delete in the editor (#2194)', () => {
     const LOCK_RE = /The type can't be changed because swimlanes already have values/
+    // The paragraph is the shared text, referenced by the type group.
 
     function renderWithValues(defs: SwimlaneCustomFieldDefinition[], onFieldsUpdated = vi.fn()) {
       const board = {
@@ -1410,6 +1412,9 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       expect(reason).toHaveTextContent('add a new field of that type, then delete this one')
       expect(reason).toHaveTextContent('permanently deletes all of its values')
       expect(reason).toHaveTextContent("can't be recovered")
+      expect(reason).toHaveTextContent(typeLockedMessage('swimlanes'))
+      expect(screen.getByRole('group', { name: 'Field type' })).toHaveAccessibleDescription(typeLockedMessage('swimlanes'))
+      expect(screen.getByRole('button', { name: /# Number/ })).not.toHaveAttribute('title')
       expect(screen.getByRole('button', { name: /# Number/ })).toBeDisabled()
     })
 
@@ -1448,6 +1453,22 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       expect(mockApi.deleteSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1)
       expect(screen.queryByPlaceholderText(NAME)).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: '+ Add field' })).toBeInTheDocument()
+    })
+
+    it('keeps the editor and its edits open when the DELETE fails', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.type(screen.getByPlaceholderText(NAME), ' 2')
+      await user.click(screen.getByRole('button', { name: 'Delete field' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Delete field?' })
+      await user.type(within(dialog).getByPlaceholderText('A'), 'A')
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(mockApi.deleteSwimlaneCustomFieldDefinition).toHaveBeenCalled())
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete field?' })).not.toBeInTheDocument())
+      expect(screen.getByPlaceholderText(NAME)).toHaveValue('A 2')
+      expect(onFieldsUpdated).not.toHaveBeenCalled()
     })
 
     it('keeps Delete off the default focus and Save out of its neighbor slot', async () => {

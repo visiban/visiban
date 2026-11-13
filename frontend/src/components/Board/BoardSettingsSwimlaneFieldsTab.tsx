@@ -18,6 +18,7 @@ import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberForma
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
+import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
 
 interface Props {
@@ -372,11 +373,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       // a client-side derivation that can go stale if a value is written
       // between board load and save. The server is the real gate.
       const detail = (err as { response?: { data?: { field_type?: unknown } } })?.response?.data?.field_type;
-      setFormError(
-        detail
-          ? "Couldn't change this field's type — swimlanes already have values for it."
-          : "Couldn't save this field. Check the values and try again."
-      );
+      setFormError(detail ? typeLockedMessage("swimlanes") : "Couldn't save this field. Check the values and try again.");
     } finally {
       setSaving(false);
     }
@@ -385,11 +382,13 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
-    // Deleting from inside the editor: close it, or the editor would stay open on a removed field.
-    if (editingId === deleteTarget.id) cancelEdit();
+    // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
+    const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
       await deleteSwimlaneCustomFieldDefinition(board.id, deleteTarget.id);
+      // Close only once the DELETE succeeded, so a failure keeps unsaved edits.
+      if (wasEditing) cancelEdit();
       commit(fields.filter((f) => f.id !== deleteTarget.id));
     } catch {
       setFields(prev);
@@ -771,7 +770,7 @@ function FieldEditPanel({
       />
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Type</p>
-      <div className="flex gap-1.5 flex-wrap mb-2" aria-describedby={typeLocked ? "swimlane-field-type-lock" : undefined}>
+      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type" aria-describedby={typeLocked ? "swimlane-field-type-lock" : undefined}>
         {FIELD_TYPE_OPTIONS.map((opt) => {
           const selected = form.field_type === opt.value;
           // Diverges from the card tab's soft warning: here the constraint is
@@ -787,7 +786,6 @@ function FieldEditPanel({
               className={`border rounded px-2.5 py-1 text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
                 selected ? "border-primary-emphasis text-fg bg-primary/10 font-medium" : "border-line text-fg-secondary hover:border-line-strong"
               }`}
-              title={locked ? "This field's type is locked — swimlanes already have values for it." : undefined}
             >
               <span className="font-semibold">{opt.glyph}</span>{opt.label}
             </button>
@@ -795,14 +793,14 @@ function FieldEditPanel({
         })}
       </div>
 
-      {form.field_type === "multi_select" && (
-        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
-      )}
-
       {typeLocked && (
         <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3 max-w-prose">
-          The type can't be changed because swimlanes already have values for this field. To use a different type, add a new field of that type, then delete this one. Deleting a field permanently deletes all of its values, and they can't be recovered or found in history.
+          {typeLockedMessage("swimlanes")}
         </p>
+      )}
+
+      {form.field_type === "multi_select" && (
+        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
       )}
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Help text</p>
@@ -913,7 +911,7 @@ function FieldEditPanel({
         {formError && <span className="text-danger">{formError}</span>}
       </p>
 
-      <div className="flex items-center justify-end gap-3 mt-1">
+      <div className="flex flex-wrap items-center justify-end gap-3 mt-1">
         {/* #2194: Delete lives in the editor too, since the row's ✕ is easy to
             miss. DOM-first so it sits at the far left, apart from Save, and so
             Tab reaches Delete -> Cancel -> Save (Cancel always sits between
@@ -923,6 +921,7 @@ function FieldEditPanel({
           <button
             type="button"
             onClick={onDelete}
+            disabled={saving}
             className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             Delete field
