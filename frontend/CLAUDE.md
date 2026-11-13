@@ -939,6 +939,14 @@ The card detail sheet sits next to the card it describes instead of at the far r
 - **Long content (frame 5):** the header (title, breadcrumb, tabs) and the footer stay fixed while the body scrolls. A top and a bottom fade show only while there is more content on that side.
 - **Shared demo (frame 7):** the anchored sheet starts below the demo bar and app bar. A `DEMO_CARD_DETAIL_NOTE` line sits at the top of the body. Comments, Relations and the PR/MR link (`CardExternalRefSection`'s `demoReason`: Add `aria-disabled` with the reason, no Edit or Remove) are each refused in place with their own reason. The footer replaces Archive and Delete with a `DEMO_CARD_FOOTER_NOTE` line, so the sheet offers no destructive or removing action. This is a UI restriction: the demo fence would allow the archive itself.
 
+## Card detail sheet: Dock to edge toggle (#1915)
+
+- **A user pin that outranks an automatic placement goes into the pure placement function.** `computeCardSheetPlacement` takes `docked` and ranks it below full-screen (`<= 640px`, toggle hidden) and above the 1280px anchor rule, so the precedence is unit-tested without the DOM. Toggling re-places with `PlacementReason` `"dock-toggle"`, which `classifyTransition` maps to the swap `slide` (reduced motion: the 120ms fades), or `none` when the frame did not move.
+- **Storage:** `user:prefs:card-sheet-docked` (`useCardSheetDockedPref`, the `useCardLayoutPref` pattern; absent = `false`, no `User` field). It is read once per sheet mount, so a swap keeps the mode.
+- **Header order is DOM order = visual order: Dock, then Close** (A-Q8). Focus on open stays on Close; Shift+Tab reaches Dock. The labels are `Dock to edge` (off) / `Open next to card` (on) as both `aria-label` and `title`, with `aria-pressed`.
+- **The pressed state is more than a tint (WCAG 1.4.1):** the button renders `ActiveUnderline` (default `inset`, host is `relative`) while docked, per the #2188 icon-toggle rule, with the icon swap and border (`bg-surface-hover border-line-strong`) as reinforcement. `aria-pressed` stays the state.
+- **Test pins:** Playwright specs for placement pin a viewport per mode (1600 anchored, 1024 docked, 640 full-screen); the dock toggle is exercised at 1600 where it changes the mode.
+
 ## Externally-sourced URLs (#1087)
 
 - **Every externally-sourced URL is gated by `isSafeHttpUrl()` (`utils/safeUrl.ts`) before it reaches an `href` or `window.open`.** "Externally sourced" means anything a third party influenced: lens/provider JSON, imports, integration payloads, other API-sourced links. `href` is an XSS sink, so `javascript:`, `data:`, `vbscript:`, relative and garbage values must never be bound; the helper allows `http:`/`https:` only and rejects surrounding whitespace and control characters.
