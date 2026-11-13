@@ -464,8 +464,9 @@ AGENT_REVIEWED: dict[str, str] = {
 # The guard chain each AGENT_REVIEWED entry relies on (#2125). A link is
 # ``(module, function, callee)``: *function* in *module* (``Class.method`` for a
 # method, a bare name for a module-level function) must still contain a call
-# whose callee name ends in *callee*. Chained end to end, handler -> ... ->
-# guard, so removing ``_require_group_admin`` from
+# to, or a bare reference to (``importer = self._import_json``), a name that
+# ends in *callee*. Chained end to end, handler -> ... -> guard, with the first
+# link inside the handler itself, so removing ``_require_group_admin`` from
 # ``resolve_group_for_board_placement``, or no longer routing an importer through
 # ``_resolve_import_group``, fails the run even though the handler itself is
 # skipped. This proves reachability by name, not behavior; the backend tests the
@@ -479,6 +480,10 @@ _PLACEMENT_CHAIN: tuple[GuardLink, ...] = (
 )
 AGENT_REVIEWED_GUARDS: dict[str, tuple[GuardLink, ...]] = {
     f"{_IMPORT}::{_MIXIN}::@action import_board [post]": (
+        # import_board only binds the importers (``importer = self._import_json``)
+        # and calls them through the local, so these two are reference links.
+        (_IMPORT, f"{_MIXIN}.import_board", "_import_json"),
+        (_IMPORT, f"{_MIXIN}.import_board", "_import_csv"),
         (_IMPORT, f"{_MIXIN}._import_json", "_resolve_import_group"),
         (_IMPORT, f"{_MIXIN}._import_json", "_lock_import_group"),
         (_IMPORT, f"{_MIXIN}._import_csv", "_resolve_import_group"),
@@ -495,14 +500,35 @@ AGENT_REVIEWED_GUARDS: dict[str, tuple[GuardLink, ...]] = {
 }
 
 
-def _guard_findings(root: Path) -> list[str]:
-    """Findings for every AGENT_REVIEWED_GUARDS link that no longer holds."""
+def _refers_to(fn: ast.AST, name: str) -> bool:
+    """True when *fn*'s body calls or merely references a name ending in *name*."""
+    for sub in _body_nodes(fn):
+        if isinstance(sub, ast.Attribute) and sub.attr == name:
+            return True
+        if isinstance(sub, ast.Name) and sub.id == name:
+            return True
+    return False
+
+
+def _guard_findings(
+    root: Path,
+    guards: dict | None = None,
+    reviewed: dict | None = None,
+    table_name: str = "AGENT_REVIEWED_GUARDS",
+) -> list[str]:
+    """Findings for every guard-chain link that no longer holds.
+
+    Parameterized so check-broadcast-deferral.py reuses the same link walker
+    against its own tables (#2125).
+    """
+    guards = AGENT_REVIEWED_GUARDS if guards is None else guards
+    reviewed = AGENT_REVIEWED if reviewed is None else reviewed
     out: list[str] = []
     cache: dict[str, Module] = {}
-    for key, links in AGENT_REVIEWED_GUARDS.items():
-        if key not in AGENT_REVIEWED:
+    for key, links in guards.items():
+        if key not in reviewed:
             out.append(
-                f"AGENT_REVIEWED_GUARDS entry {key} has no AGENT_REVIEWED entry "
+                f"{table_name} entry {key} has no AGENT_REVIEWED entry "
                 f"- delete it."
             )
             continue
@@ -528,11 +554,7 @@ def _guard_findings(root: Path) -> list[str]:
                     f"no longer exists - re-review the handler and update "
                     f"AGENT_REVIEWED_GUARDS."
                 )
-            elif not any(
-                _dotted(c.func).rsplit(".", 1)[-1] == callee
-                for fn in fns
-                for c in _calls(fn)
-            ):
+            elif not any(_refers_to(fn, callee) for fn in fns):
                 out.append(
                     f"{key}: {rel}::{func} no longer calls {callee}, which the "
                     f"recorded review relies on as its guard - the handler is "

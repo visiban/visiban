@@ -405,6 +405,61 @@ class WebhookFuzzFixtureTests(TestCase):
         self.assertEqual(client.get(f"{base}{ids['webhook_id']}/").status_code, 200)
 
     @override_settings(WEBHOOKS_ENABLED=True)
+    def test_fuzz_token_user_is_the_hook_user_and_webhook_writes_succeed(self):
+        """#2078: the PAT the CI job mints and the user the hook seeds for agree,
+        and the writes the fuzzer sends actually succeed (not just reads)."""
+        import os
+        import tempfile
+
+        from django.core.management import call_command
+        from rest_framework.test import APIClient
+
+        from webhooks.models import WebhookSubscription
+        from webhooks.tests.base import resolving
+
+        _, member, _demo = self._demo()
+        hooks = _hooks()
+        ids = hooks._load_real_ids()
+        # The hook seeds for the first non-owner member of the demo board; the
+        # CI job mints for ``--username demo2``. Same user, or every write 403s.
+        self.assertEqual(ids["member_user_id"], member.id)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            token_file = os.path.join(tmp, "token_2125")
+            call_command("provision_fuzz_token", username=member.username, token_file=token_file)
+            with open(token_file) as fh:
+                raw = fh.read().strip()
+        from accounts.models import PersonalAccessToken
+
+        self.assertTrue(PersonalAccessToken.objects.filter(user=member).exists())
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Token {raw}")
+        base = f"/api/v1/boards/{ids['webhook_board_pk']}/webhooks/"
+        sub = f"{base}{ids['webhook_id']}/"
+
+        self.assertEqual(client.patch(sub, {"name": "renamed-2125"}, format="json").status_code, 200)
+        self.assertEqual(
+            client.patch(sub, {"event_types": ["card.created"]}, format="json").status_code, 200
+        )
+        self.assertEqual(client.post(f"{sub}disable/").status_code, 200)
+
+        # DELETE targets a freshly minted row, as the hook does, so the shared
+        # fixture subscription survives for the rest of the run.
+        disposable = hooks._mint_disposable_webhook()
+        self.assertIsNotNone(disposable)
+        self.assertEqual(client.delete(f"{base}{disposable}/").status_code, 204)
+        self.assertFalse(WebhookSubscription.objects.filter(pk=disposable).exists())
+
+        # A token never reaches an action that chooses where data goes, and
+        # nothing is sent out while it is refused.
+        with resolving(), mock.patch("visiban.egress.guarded_post") as outbound:
+            r = client.post(f"{sub}test/")
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.data["code"], "session_required")
+        outbound.assert_not_called()
+
+    @override_settings(WEBHOOKS_ENABLED=True)
     def test_reload_is_idempotent(self):
         self._demo()
         first = _hooks()._load_real_ids()

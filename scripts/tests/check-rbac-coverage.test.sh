@@ -271,6 +271,23 @@ guard_case guard_admin2125 backend/groups/views.py "def resolve_group_for_board_
   "    _require_group_admin(user, group)" "no longer calls _require_group_admin"
 guard_case guard_resolve2125 backend/boards/views/import_export.py "    def import_trello(self, request" \
   "        group = self._resolve_import_group(request)" "no longer calls _resolve_import_group"
+# #2125 audit round 2: the chain starts at the handler. import_board only binds
+# the importers, so stripping the binding must fail the run.
+# Replace (not delete) the binding so the copy still parses.
+copy_tree "$TMP/guard_dispatch2125"
+"$PY" - "$TMP/guard_dispatch2125/backend/boards/views/import_export.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+old = "importer, options_serializer = self._import_json, ImportOptionsSerializer"
+assert old in text, "fixture drift: import_board no longer binds _import_json"
+p.write_text(text.replace(old, "importer, options_serializer = self._noop, ImportOptionsSerializer", 1))
+PY
+run_gate --root "$TMP/guard_dispatch2125"
+check "guard_dispatch2125: dropping the handler's _import_json binding is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "guard_dispatch2125: the finding names the broken link" \
+  "$(echo "$OUT" | grep -q "no longer calls _import_json" && echo 0 || echo 1)"
 
 # --- defers exit 3, distinct from both 0 and 1 ---------------------------
 # A permission_classes value the checker cannot read must hand the view to the

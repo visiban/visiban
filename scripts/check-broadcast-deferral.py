@@ -101,6 +101,7 @@ _write_handlers = _shared._write_handlers
 _is_scoped = _shared._is_scoped
 _load_module = _shared._load_module
 CheckerError = _shared.CheckerError
+_guard_findings = _shared._guard_findings
 
 
 # ─── Scope ───────────────────────────────────────────────────────────────────
@@ -330,10 +331,27 @@ AGENT_REVIEWED: dict[str, str] = {
         "do broadcast: each builds a plain-data _broadcast_created closure "
         "(board id and payload only, no ORM capture) and defers it with "
         "transaction.on_commit before returning, announcing the new board. "
-        "Read by hand against import_export.py, not a broadcast-check agent "
-        "run. The other four mixin writes need no entry: invite_links, "
+        "Reviewed by hand, not by a broadcast-check agent run; "
+        "AGENT_REVIEWED_GUARDS below re-checks that the handler still reaches "
+        "both importers and that each still defers with on_commit. The other four mixin writes need no entry: invite_links, "
         "invite_link_send and revoke_invite_link reach record_board_event, and "
         "import_trello reaches _broadcast_imported_board (on_commit)."
+    ),
+}
+
+# The chain each AGENT_REVIEWED entry relies on, in the same
+# ``(module, function, callee)`` form as check-rbac-coverage.py (#2125): the
+# function must still call or reference ``callee``. Without it, deleting
+# ``transaction.on_commit(_broadcast_created)`` from an importer would still
+# exit 0 because the handler is skipped.
+_IMPORT = "backend/boards/views/import_export.py"
+_MIXIN = "BoardImportExportMixin"
+AGENT_REVIEWED_GUARDS: dict[str, tuple[tuple[str, str, str], ...]] = {
+    f"{_IMPORT}::{_MIXIN}::@action import_board [post]": (
+        (_IMPORT, f"{_MIXIN}.import_board", "_import_json"),
+        (_IMPORT, f"{_MIXIN}.import_board", "_import_csv"),
+        (_IMPORT, f"{_MIXIN}._import_json", "on_commit"),
+        (_IMPORT, f"{_MIXIN}._import_csv", "on_commit"),
     ),
 }
 
@@ -777,6 +795,12 @@ def run(root: Path, *, quiet: bool = False) -> Report:
                     f"(recorded reason: {reason.splitlines()[0]})"
                 )
 
+    rep.findings.extend(
+        _guard_findings(
+            root, AGENT_REVIEWED_GUARDS, AGENT_REVIEWED, "AGENT_REVIEWED_GUARDS"
+        )
+    )
+
     if not quiet:
         _print_report(rep)
     return rep
@@ -1072,7 +1096,8 @@ def self_test() -> int:
     ]
 
     global NO_BROADCAST_BY_DESIGN, LOOP_FANOUT_BY_DESIGN, AGENT_REVIEWED
-    real = (NO_BROADCAST_BY_DESIGN, LOOP_FANOUT_BY_DESIGN, AGENT_REVIEWED)
+    global AGENT_REVIEWED_GUARDS
+    real = (NO_BROADCAST_BY_DESIGN, LOOP_FANOUT_BY_DESIGN, AGENT_REVIEWED, AGENT_REVIEWED_GUARDS)
 
     print("=== check-broadcast-deferral.py --self-test ===")
     failures = 0
@@ -1080,6 +1105,7 @@ def self_test() -> int:
         NO_BROADCAST_BY_DESIGN = dict(tables.get("no_broadcast", {}))
         LOOP_FANOUT_BY_DESIGN = dict(tables.get("loop", {}))
         AGENT_REVIEWED = dict(tables.get("reviewed", {}))
+        AGENT_REVIEWED_GUARDS = {}  # fixture tree has no import_export.py
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
@@ -1090,7 +1116,7 @@ def self_test() -> int:
             failures += 1
             continue
         finally:
-            NO_BROADCAST_BY_DESIGN, LOOP_FANOUT_BY_DESIGN, AGENT_REVIEWED = real
+            NO_BROADCAST_BY_DESIGN, LOOP_FANOUT_BY_DESIGN, AGENT_REVIEWED, AGENT_REVIEWED_GUARDS = real
 
         if expect_finding is None and expect_defer is None:
             ok = not rep.findings and not rep.defers
