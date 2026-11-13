@@ -61,6 +61,9 @@ class ApiMadeCardReconcilesTests(TestCase):
         first = self._ok(self.client.post(f"{url}checklist/", {"text": "Write it"}, format="json"), 201)
         self._ok(self.client.post(f"{url}checklist/", {"text": "Ship it"}, format="json"), 201)
         self._ok(self.client.patch(f"{url}checklist/{first.data['id']}/", {"is_checked": True}, format="json"))
+        self._ok(self.client.patch(f"{url}checklist/{first.data['id']}/", {
+            "assignee_id": self.other.pk, "due_date": "2030-02-01",
+        }, format="json"))
         self._ok(self.client.post(f"{url}comments/", {"body": "Looks good"}, format="json"), 201)
         self._ok(self.client.post(f"{url}move/", {
             "column_id": self.doing.pk, "swimlane_id": self.lane.pk, "position": 0,
@@ -123,3 +126,12 @@ class ApiMadeCardReconcilesTests(TestCase):
         }, format="json"))
         problems = history_problems(Card.objects.get(pk=card.pk))
         self.assertIn("passed through outcome Won on the way to Lost", problems)
+
+    def test_a_checklist_assignee_or_due_date_without_history_is_reported(self):
+        card = self._make_card()
+        self.assertEqual(history_problems(card), [])
+        card.activities.filter(event_type="checklist_item_assigned").delete()
+        card.activities.filter(event_type="checklist_item_due_changed").delete()
+        problems = history_problems(Card.objects.get(pk=card.pk))
+        self.assertTrue(any("is assigned to helper but has no checklist_item_assigned" in p for p in problems), problems)
+        self.assertTrue(any("is due 2030-02-01 but has no checklist_item_due_changed" in p for p in problems), problems)

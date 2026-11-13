@@ -210,6 +210,23 @@ def history_problems(card, *, now=None, imported=False):
         elif checked.get(item.text, False) != item.is_checked:
             problems.append(f"checklist item {item.text!r} is checked={item.is_checked}, history says otherwise")
 
+    # The assign / due rows carry only the new username / ISO date, never the
+    # item (#2199), so match on to_value: every item that has an assignee or due
+    # date needs a row whose to_value is that value.
+    assigned_to = {a.to_value for a in by_type.get(ET.CHECKLIST_ITEM_ASSIGNED, [])}
+    due_to = {a.to_value for a in by_type.get(ET.CHECKLIST_ITEM_DUE_CHANGED, [])}
+    for item in card.checklist_items.select_related("assignee"):
+        if item.assignee is not None and item.assignee.username not in assigned_to:
+            problems.append(
+                f"checklist item {item.text!r} is assigned to {item.assignee.username} "
+                "but has no checklist_item_assigned to that user"
+            )
+        if item.due_date is not None and item.due_date.isoformat() not in due_to:
+            problems.append(
+                f"checklist item {item.text!r} is due {item.due_date.isoformat()} "
+                "but has no checklist_item_due_changed to that date"
+            )
+
     # ── Comments: one comment_added each, at its time, by its author ──────
     events = by_type.get(ET.COMMENT_ADDED, [])
     for act in events:
