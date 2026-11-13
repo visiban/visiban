@@ -22,8 +22,8 @@ docker compose exec backend python manage.py benchmark
 ```
 
 This measures query counts for:
-- `GET /api/boards/{id}/cards/` — budget ≤ 12
-- `GET /api/boards/{id}/full/` — budget ≤ 20
+- `GET /api/boards/{id}/cards/` — budget ≤ 14
+- `GET /api/boards/{id}/full/` — budget ≤ 19
 - `GET /api/boards/{id}/summary/` — budget ≤ 10
 - `GET /api/boards/{id}/analytics/` and the four `metrics/*` flow endpoints — budgets in `_HISTORY_ENDPOINTS` (the fixture has real movement history, #448)
 
@@ -134,7 +134,7 @@ All three benchmarks and every test in the module must pass before proceeding (t
 ### 6. Update query budgets if they legitimately change
 
 If a new relation is intentionally added to `CardSerializer` (e.g. a new prefetch that adds 1 query to the fixed cost), update the budgets in:
-- `benchmark.py` — the `budget=` arguments in `_bench_*` methods
+- `benchmark.py` — the module constants `CARD_LIST_BUDGET`, `FULL_BUDGET`, `SUMMARY_BUDGET` (shared with `test_query_counts.py`, which asserts they match)
 - `test_query_counts.py` — the `BUDGET` class constants
 
 Document the change in the commit message with the before/after counts.

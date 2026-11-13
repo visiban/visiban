@@ -3119,6 +3119,7 @@ rbac-coverage:
         - backend/boards/views/**/*
         - backend/boards/models.py
         - backend/boards/permissions.py
+        - backend/boards/serializers.py
         - backend/groups/views.py
         - backend/git_lens/views.py
         - backend/webhooks/views.py

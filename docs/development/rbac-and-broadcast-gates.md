@@ -69,7 +69,7 @@ Exit 2 and exit 3 exist so that *not looking* can never be mistaken for *looking
 
 ## Recorded exceptions
 
-Neither script carries a suppression comment in the source tree. Exceptions live in tables in the scripts themselves, the same convention `check-serializer-ts-parity.py`'s `SUPPRESSIONS` follows. Every table is **self-invalidating**: when the condition that made an entry necessary is gone, the entry itself becomes a finding and asks to be deleted. An exception can't outlive its reason.
+Neither script carries a suppression comment in the source tree. Exceptions live in tables in the scripts themselves, the same convention `check-serializer-ts-parity.py`'s `SUPPRESSIONS` follows. Each table is **self-invalidating** unless noted below: when the condition that made an entry necessary is gone, the entry itself becomes a finding and asks to be deleted. `AGENT_REVIEWED` is only partly so; see the guard chains after the table.
 
 ### `check-rbac-coverage.py`
 
@@ -84,6 +84,12 @@ Current entries:
 - **`PUBLIC_BY_DESIGN`:** the two container health probes and the public share link.
 - **`VIEWER_PERMITTED_WRITES`:** board and group starring and the two saved-filter actions, all per-user state.
 - **`AGENT_REVIEWED`:** the invite-link join flows, where the capability token is the authorization and no role ladder applies; site-admin lens usage telemetry; and board creation and the two board imports, which write only to a board they create and gate group placement on group admin.
+
+**`AGENT_REVIEWED_GUARDS`** records a call chain for an `AGENT_REVIEWED` entry whose safety rests on a guard living in another function. It has three guarded entries: `import_board`, `import_trello` and `BoardViewSet::create`. The script fails when a link in a chain stops calling the next function by name. The limits:
+
+- The chain proves each function still calls the next **by name**. It does not prove the call is unconditional, or that the callee still refuses.
+- `AGENT_REVIEWED` entries without a chain are trusted as recorded.
+- The handler body itself isn't re-scanned. For example, an unscoped lookup added to `import_board` (which dispatches through a local variable) wouldn't be flagged.
 
 ### `check-broadcast-deferral.py`
 
