@@ -236,6 +236,24 @@ describe('CardDetail', () => {
       data: { id: 7, from_column: 10, from_column_name: 'Doing', to_column: 11, to_column_name: 'Review' },
     }
 
+    it('switches tab when a new tabRequest arrives for the open card (#967)', () => {
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail {...props} />)
+      expect(screen.getByRole('tab', { name: /^Details/ })).toHaveAttribute('aria-selected', 'true')
+      rerender(<CardDetail {...props} tabRequest={{ tab: 'comments', n: 1 }} />)
+      expect(screen.getByRole('tab', { name: /^Comments/ })).toHaveAttribute('aria-selected', 'true')
+      fireEvent.click(screen.getByRole('tab', { name: /^Details/ }))
+      rerender(<CardDetail {...props} tabRequest={{ tab: 'history', n: 2 }} />)
+      expect(screen.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('pins the comment composer clear of the home indicator on narrow screens (#967)', () => {
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('tab', { name: /^Comments/ }))
+      const composer = document.querySelector('.sticky.border-t') as HTMLElement
+      expect(composer.className).toContain('max-[640px]:pb-[calc(1rem+env(safe-area-inset-bottom))]')
+    })
+
     it('roves focus and selection with Left/Right/Home/End, wrapping at the ends', async () => {
       render(<CardDetail {...defaultProps()} />)
       const tab = (name: RegExp) => screen.getByRole('tab', { name })

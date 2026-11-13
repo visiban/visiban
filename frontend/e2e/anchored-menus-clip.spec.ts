@@ -4,7 +4,7 @@ import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
 // #1482 — CheckboxDropdown and SavedFiltersDropdown
 // rendered `absolute top-full`, so a scroll region or `overflow-hidden`
-// ancestor (the card sheet's Activity tab) clipped them, and a long list ran
+// ancestor (the card sheet's History tab) clipped them, and a long list ran
 // off the viewport. jsdom does not clip, so this hit-tests in a real browser.
 
 const VIEWPORT_H = 480

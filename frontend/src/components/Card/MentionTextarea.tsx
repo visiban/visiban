@@ -122,6 +122,9 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
       sideRef.current = undefined;
       return;
     }
+    // A new query is a new list: start at its first option, not at the old scroll offset that
+    // place() restores (the scroll-into-view effect does not run when the selection is already 0).
+    if (dropdownRef.current) dropdownRef.current.scrollTop = 0;
     place();
   }, [open, suggestionKey]);
 

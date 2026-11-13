@@ -81,6 +81,8 @@ interface Props {
    * Ignored when this user cannot block the card or the card is already in
    * the requested state.
    */
+  /** A deep link asking an open card to switch tab; `n` changes on every request (#967). */
+  tabRequest?: { tab: CardDetailTab; n: number };
   blockFormRequest?: { mode: "block" | "unblock"; seq: number } | null;
 }
 
@@ -142,7 +144,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -167,6 +169,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setTab(t);
     rememberCardDetailTab(t);
   };
+  // The mount already honors the request (the remembered tab was set with it), so only later ones switch.
+  const handledTabRequest = useRef(tabRequest?.n);
+  useEffect(() => {
+    if (!tabRequest || handledTabRequest.current === tabRequest.n) return;
+    handledTabRequest.current = tabRequest.n;
+    setTab(tabRequest.tab);
+  }, [tabRequest]);
   const tabRefs = useRef<Partial<Record<CardDetailTab, HTMLButtonElement | null>>>({});
   // First unfiltered History page, fetched on open (#967, architect R1): it
   // gives the History tab its count and the Details tab its Last activity
@@ -2310,7 +2319,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {canComment && (
                   // Pinned to the bottom of the Comments tab (#967 design § 1.4),
                   // so a note can be written without scrolling the thread.
-                  <div className="sticky -bottom-4 -mb-4 pb-4 pt-2 bg-surface border-t border-line flex flex-col gap-2">
+                  <div className="sticky -bottom-4 -mb-4 pb-4 max-[640px]:pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 bg-surface border-t border-line flex flex-col gap-2">
                     <MentionTextarea
                       value={commentBody}
                       onChange={setCommentBody}

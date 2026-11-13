@@ -36,7 +36,7 @@ import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
-import { parseCardDetailTab, rememberCardDetailTab } from "../Card/cardDetailTabMemory";
+import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
@@ -1108,7 +1108,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // `&tab=comments|history|details` (#967) overrides the session's
       // remembered card tab; an unknown value keeps it, silently.
       const deepLinkTab = parseCardDetailTab(searchParams.get("tab"));
-      if (deepLinkTab) rememberCardDetailTab(deepLinkTab);
+      if (deepLinkTab) {
+        rememberCardDetailTab(deepLinkTab);
+        setTabRequest((r) => ({ tab: deepLinkTab, n: (r?.n ?? 0) + 1 }));
+      }
       setSelectedCard(card);
       setHighlightedCardId(cardId);
       if (highlightedCardTimerRef.current !== null) {
@@ -1455,6 +1458,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // CARD_ACTION_EVENT. Availability comes from cardActionEntries(), the same
   // role gating as the bulk toolbar and the card detail sheet.
   const [cardMenu, setCardMenu] = useState<{ cardIds: number[]; originId: number; anchor: CardMenuAnchor } | null>(null);
+  // Bumped by a ?card=&tab= deep link so an already-open card switches tab (#967).
+  const [tabRequest, setTabRequest] = useState<{ tab: CardDetailTab; n: number } | undefined>(undefined);
   const [blockFormRequest, setBlockFormRequest] = useState<{ mode: "block" | "unblock"; seq: number } | null>(null);
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[] | null>(null);
   // Outcome of a menu/palette action (#2059, #2107). A failure is a `danger`
@@ -2589,6 +2594,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
             blockFormRequest={blockFormRequest}
+            tabRequest={tabRequest}
           />
         )}
       </div>
@@ -3386,6 +3392,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
             blockFormRequest={blockFormRequest}
+            tabRequest={tabRequest}
           />
         </SectionErrorBoundary>
       )}
