@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { ToastContext } from '../contexts/useToast'
+import { visibleRowChipCount } from '../utils/swimlaneRowChips'
 import type { BoardFull, User } from '../types'
 
 const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
@@ -1614,6 +1615,23 @@ describe('BoardSettingsModal — Card density radio', () => {
     expect(comfortable).not.toBeChecked()
     expect(standard).toBeChecked()
     expect(dense).not.toBeChecked()
+  })
+
+  it('density descriptions state the per-density row-chip count (#1417)', () => {
+    render(
+      <BoardSettingsModal currentUserId={null}
+        board={{ ...fakeBoard, card_density: 'standard' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+    const group = within(screen.getByRole('group', { name: 'Card density' }))
+    for (const [density, count] of [['comfortable', 3], ['standard', 5], ['dense', 8]] as const) {
+      expect(visibleRowChipCount(density)).toBe(count)
+      expect(group.getByText(`${visibleRowChipCount(density)} values per swimlane row.`, { exact: false })).toBeInTheDocument()
+    }
   })
 
   it('clicking a density radio fires onUpdateBoardSettings({ card_density: ... })', async () => {

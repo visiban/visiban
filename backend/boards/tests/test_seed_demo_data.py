@@ -831,16 +831,16 @@ class SeedDemoSiteTests(TestCase):
             self.assertTrue(board.cards.filter(column__name=name).exists(), name)
 
     def test_overlay_coverage_model(self):
-        """#1416/#1447: AD, AE, SA, OAE, OSA and SVC lead the row; each AE has
+        """#1416/#1447/#1417: AD, Coverage, AE, SA, OAE, OSA and SVC lead the row; each AE has
         one AD, each overlay AE one overlay SA, each AD one services lead, and
         one account each is Partial and Gap."""
         _seed(demo_site=True)
         board = Board.objects.get(name="Sales Territory (Overlay)")
         defs = list(SwimlaneCustomFieldDefinition.objects.filter(board=board).order_by("position"))
         order = [d.name for d in defs]
-        self.assertEqual(order[:6], ["AD", "AE", "SA", "OAE", "OSA", "SVC"])
+        self.assertEqual(order[:7], ["AD", "Coverage", "AE", "SA", "OAE", "OSA", "SVC"])
         by_name = {d.name: d for d in defs}
-        for name in order[:6]:
+        for name in order[:7]:
             self.assertTrue(by_name[name].show_on_row and not by_name[name].is_admin_only, name)
         rows = {
             lane.name: dict(

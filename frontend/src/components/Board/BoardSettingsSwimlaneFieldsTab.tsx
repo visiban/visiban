@@ -20,6 +20,7 @@ import { isChoiceColorKey } from "../../constants/choiceColors";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
+import { visibleRowChipCount } from "../../utils/swimlaneRowChips";
 
 interface Props {
   board: BoardFull;
@@ -458,7 +459,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         </span>
       </div>
       <p className="text-xs text-fg-tertiary mb-2">
-        Rows show 3, 5 or 8 pinned values depending on card density; the rest fold into +N.
+        Rows show {visibleRowChipCount("comfortable")}, {visibleRowChipCount("standard")} or {visibleRowChipCount("dense")} pinned values depending on card density; the rest fold into +N.
       </p>
 
       {/* Surfaced once here rather than repeated per field: with the default

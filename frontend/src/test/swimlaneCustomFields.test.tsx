@@ -7,6 +7,7 @@ import SwimlaneFieldsPopover, { type SwimlaneFieldEntry } from '../components/Bo
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
 import SwimlaneFieldEditRow from '../components/Board/SwimlaneFieldEditRow'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
+import { visibleRowChipCount } from '../utils/swimlaneRowChips'
 import type { BoardFull, CardDensity, Card, Column, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
 
 const fakeUser: User = {
@@ -866,6 +867,19 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     )
     await user.click(screen.getByTitle('Delete Owner'))
     expect(screen.getByText(/any values stored on swimlanes for it/)).toBeInTheDocument()
+  })
+})
+
+describe('BoardSettingsSwimlaneFieldsTab — row-chip count hint (#1417)', () => {
+  it('states each density count from visibleRowChipCount', () => {
+    render(
+      <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
+    )
+    const c = visibleRowChipCount('comfortable')
+    const s = visibleRowChipCount('standard')
+    const d = visibleRowChipCount('dense')
+    expect(screen.getByText(`Rows show ${c}, ${s} or ${d} pinned values depending on card density; the rest fold into +N.`)).toBeInTheDocument()
+    expect([c, s, d]).toEqual([3, 5, 8])
   })
 })
 
