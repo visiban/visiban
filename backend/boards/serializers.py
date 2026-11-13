@@ -18,6 +18,7 @@ from visiban import field_enforcement
 from visiban.colors import ColorValidationMixin
 from visiban.invite_email import InviteEmailField
 from visiban.parsers import first_lone_surrogate
+from visiban.query_fallbacks import note_fallback
 from visiban.exceptions import CodedValidationError
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 # Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
@@ -3627,11 +3628,13 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # to avoid a subquery per board on the list endpoint.
         if hasattr(obj, "_member_count"):
             return obj._member_count
+        note_fallback(self, "get_member_count")
         return obj.memberships.count()
 
     def get_card_count(self, obj) -> int:
         if hasattr(obj, "_card_count"):
             return obj._card_count
+        note_fallback(self, "get_card_count")
         return obj.cards.count()
 
     def get_archived_card_count(self, obj) -> int:
@@ -3640,6 +3643,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # fires for a bare instance.
         if hasattr(obj, "_archived_card_count"):
             return obj._archived_card_count
+        note_fallback(self, "get_archived_card_count")
         return obj.cards.filter(archived_at__isnull=False).count()
 
     def get_group_name(self, obj) -> str | None:
@@ -3661,6 +3665,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # Footgun: this live EXISTS query fires when BoardSerializer is used with a bare
         # Board.objects.get() that carries neither annotation. Always fetch boards through
         # BoardViewSet.get_queryset() or get_board_for_user() to avoid the extra query.
+        note_fallback(self, "get_is_starred")
         return obj.favorites.filter(user=request.user).exists()
 
 
@@ -3814,6 +3819,7 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # with_archived_card_count=True); the fallback covers any other caller.
         if hasattr(obj, "_archived_card_count"):
             return obj._archived_card_count
+        note_fallback(self, "get_archived_card_count")
         return obj.cards.filter(archived_at__isnull=False).count()
 
     def get_group_name(self, obj) -> str | None:

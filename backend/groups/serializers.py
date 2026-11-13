@@ -7,6 +7,7 @@ from visiban import field_enforcement
 from visiban.colors import ColorValidationMixin
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 from visiban.invite_email import InviteEmailField
+from visiban.query_fallbacks import fk_chain_loaded, note_fallback
 from .models import (
     Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite,
     _GROUP_TRAVERSAL_MAX_DEPTH, user_has_group_access,
@@ -583,16 +584,19 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # an extra COUNT query per group in list responses.
         if hasattr(obj, "_member_count"):
             return obj._member_count
+        note_fallback(self, "get_member_count")
         return obj.memberships.count()
 
     def get_board_count(self, obj) -> int:
         if hasattr(obj, "_board_count"):
             return obj._board_count
+        note_fallback(self, "get_board_count")
         return obj.boards.count()
 
     def get_subgroup_count(self, obj) -> int:
         if hasattr(obj, "_subgroup_count"):
             return obj._subgroup_count
+        note_fallback(self, "get_subgroup_count")
         return obj.subgroups.count()
 
     def get_is_starred(self, obj) -> bool:
@@ -604,6 +608,7 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         # Footgun: live query fires when _is_starred annotation is absent (i.e. the group
         # was not fetched through GroupViewSet.get_queryset()). Always use get_queryset()
         # to ensure the annotation is present and avoid a per-group EXISTS query.
+        note_fallback(self, "get_is_starred")
         return GroupFavorite.objects.filter(user=request.user, group=obj).exists()
 
     def validate_allowed_priorities(self, value):
@@ -919,6 +924,11 @@ class GroupDetailSerializer(GroupSerializer):
     def get_ancestors(self, obj):
         # ancestors() returns [immediate_parent, grandparent, …, root].
         # Reverse so the breadcrumb renders root-first (left-to-right).
+        # GroupViewSet's ``_annotated_groups`` select_related()s the parent chain
+        # to the traversal cap, so ancestors() issues no query; a caller that
+        # skips it pays one query per level (#1731).
+        if not fk_chain_loaded(obj, "parent", _GROUP_TRAVERSAL_MAX_DEPTH):
+            note_fallback(self, "get_ancestors", per_row=False)
         return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
@@ -976,6 +986,10 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
     def get_created_by_username(self, obj) -> str | None:
         # created_by_id reads the loaded FK column (no query); created_by is
         # only dereferenced when set, so a null creator serializes as None.
+        # The list endpoint select_related()s it; a list without that pays a
+        # query per link (#1731).
+        if obj.created_by_id and not GroupInviteLink.created_by.field.is_cached(obj):
+            note_fallback(self, "get_created_by_username")
         return obj.created_by.username if obj.created_by_id else None
 
 

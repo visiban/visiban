@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
 from visiban.pagination import OffsetCountPagination
+from visiban.query_fallbacks import note_fallback
 from visiban.request_shape import query_text
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -578,6 +579,7 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
         # Deferred import to avoid circular dependency at module load time
         # (boards imports accounts for User; accounts must not import boards at top level).
         from boards.models import Board
+        note_fallback(self, "get_owned_boards")
         return list(Board.objects.filter(owner=obj).values("id", "uid", "name"))
 
     class Meta:
