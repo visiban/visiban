@@ -489,3 +489,18 @@ class SavedFilterCustomFieldStateTests(TestCase):
                 r = self._post({**EMPTY_FILTER_STATE, **extra})
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertIsInstance(r.data["detail"], str)
+
+    def test_nul_characters_are_400_not_500(self):
+        """Postgres jsonb rejects U+0000 (DataError -> 500); guard in the serializer."""
+        nul = "a\u0000b"
+        for label, extra in {
+            "search": {"search": nul},
+            "text query": {"customFields": {"1": {"kind": "text", "query": nul}}},
+            "equals": {"customFields": {"1": {"kind": "number", "equals": nul}}},
+            "choice value": {"customFields": {"1": {"kind": "choice", "values": ["ok", nul]}}},
+        }.items():
+            with self.subTest(label):
+                r = self._post({**EMPTY_FILTER_STATE, **extra})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIsInstance(r.data["detail"], str)
+                self.assertIn("NUL", r.data["detail"])
