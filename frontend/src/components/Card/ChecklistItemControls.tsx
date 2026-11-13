@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardUser, CardChecklistItem } from "../../types";
 import Avatar from "../Common/Avatar";
 import SelectedCheck from "../Common/SelectedCheck";
@@ -83,6 +84,19 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
     setPickerOpen(false);
     assigneeButtonRef.current?.focus();
   };
+  // Escape goes through the stack, never an onKeyDown: the document-level stack
+  // fires after React's handler, so without an entry the card panel closes too.
+  // 34.5 / 34.6 sit above the panel close (30) and clear every integer card tier
+  // (frontend/CLAUDE.md, Escape priority inside the card detail panel).
+  useEscapeStack(() => {
+    if (!pickerOpen) return false;
+    closePicker();
+  }, 34.5);
+  useEscapeStack(() => {
+    if (!dateOpen) return false;
+    dateCancelledRef.current = true;
+    setDateOpen(false);
+  }, 34.6);
   const choose = (id: number | null) => {
     closePicker();
     if (id !== (assignee?.id ?? null)) onSave({ assignee_id: id });
@@ -114,11 +128,16 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
     );
   }
 
+  // A former member stays selected by name, like the card's assignee picker
+  // (#1714), so "Unassigned" is never marked pressed for an assigned item.
   const options = [
     { id: null as number | null, name: "Unassigned" },
     ...members.map((m) => ({ id: m.id as number | null, name: userDisplayName(m) })),
+    ...(assignee && notAssignable
+      ? [{ id: assignee.id as number | null, name: `${userDisplayName(assignee)} (no longer a board member)` }]
+      : []),
   ];
-  const selectedIndex = Math.max(0, options.findIndex((o) => o.id === (assignee?.id ?? null)));
+  const selectedIndex = options.findIndex((o) => o.id === (assignee?.id ?? null));
 
   return (
     <>
@@ -150,11 +169,6 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
             aria-label={`Assignee for ${item.text}`}
             className="absolute right-0 z-20 mt-1 w-48 max-h-60 overflow-auto bg-surface border border-line rounded-md shadow-lg py-1"
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.stopPropagation();
-                closePicker();
-                return;
-              }
               if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
               e.preventDefault();
               const buttons = Array.from(listRef.current?.querySelectorAll("button") ?? []);
@@ -194,10 +208,6 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
             if (e.key === "Enter") {
               e.preventDefault();
               e.currentTarget.blur();
-            } else if (e.key === "Escape") {
-              e.stopPropagation();
-              dateCancelledRef.current = true;
-              setDateOpen(false);
             }
           }}
           onBlur={(e) => {

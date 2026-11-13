@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { chartTint } from "../../utils/chartScale";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, isBoardTreePointerEvent, useCardSheetPlacement } from "../../hooks/useCardSheetPlacement";
@@ -2058,8 +2059,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         className="flex-1 h-1 bg-surface-hover rounded-full overflow-hidden"
                       >
                         <div
-                          className="h-full bg-success-emphasis rounded-full transition-all"
-                          style={{ width: `${Math.round((checklistDoneCount / checklist.length) * 100)}%` }}
+                          className="h-full rounded-full transition-all"
+                          style={{ backgroundColor: chartTint(1), width: `${Math.round((checklistDoneCount / checklist.length) * 100)}%` }}
                         />
                       </div>
                       <button
