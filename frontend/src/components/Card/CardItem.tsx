@@ -1016,7 +1016,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       title={`${checklistSuffix.count} overdue checklist item${checklistSuffix.count === 1 ? "" : "s"}`}
                       data-testid="checklist-suffix"
                     >
-                      · ⚑ {checklistSuffix.count}
+                      <span aria-hidden="true">· ⚑ {checklistSuffix.count}</span>
+                      <span className="sr-only">{checklistSuffix.count} overdue checklist item{checklistSuffix.count === 1 ? "" : "s"}</span>
                     </span>
                   ) : (
                     <span
@@ -1024,7 +1025,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       title={`${checklistSuffix.count} checklist item${checklistSuffix.count === 1 ? "" : "s"} assigned to you`}
                       data-testid="checklist-suffix"
                     >
-                      · mine {checklistSuffix.count}
+                      <span aria-hidden="true">· mine {checklistSuffix.count}</span>
+                      <span className="sr-only">{checklistSuffix.count} checklist item{checklistSuffix.count === 1 ? "" : "s"} assigned to you</span>
                     </span>
                   )
                 )}

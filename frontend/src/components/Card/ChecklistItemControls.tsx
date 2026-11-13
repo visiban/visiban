@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardUser, CardChecklistItem } from "../../types";
 import Avatar from "../Common/Avatar";
+import SelectedCheck from "../Common/SelectedCheck";
 import { userDisplayName } from "../../types";
 
 /** The two always-visible trailing controls on a checklist row (#445, design § 5).
  *
  * Always visible rather than hover-revealed so an occasional user finds them
- * (the #371 logic). The assignee button opens a member picker limited to the
+ * (the #371 logic). A user who cannot edit the item sees only the values that
+ * are set, as plain text. The assignee button opens a member picker limited to the
  * board's assignable members (the server enforces the same set); the due
  * button opens today's native date input until #243 ships the styled picker.
  */
@@ -34,15 +36,24 @@ export function formatChecklistDue(iso: string, long = false): string {
   return `${(long ? MONTHS_LONG : MONTHS_SHORT)[m]} ${d}`;
 }
 
-const ICON_BUTTON =
-  "shrink-0 inline-flex items-center gap-1 rounded px-1 h-6 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover transition " +
-  "focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:cursor-default disabled:hover:bg-transparent";
+// Fixed 24px minimum target in both axes (frontend/CLAUDE.md "Checklist item
+// trailing controls"). Tone is passed separately so an element never carries
+// two competing text-* utilities.
+const CONTROL_BASE =
+  "shrink-0 inline-flex items-center justify-center gap-1 rounded px-1 h-6 min-w-6 text-xs transition " +
+  "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const NEUTRAL_TONE = "text-fg-tertiary hover:text-fg hover:bg-surface-hover";
+const DANGER_TONE = "text-danger hover:bg-surface-hover";
 
 export default function ChecklistItemControls({ item, members, canEdit, today, onSave }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const assigneeButtonRef = useRef<HTMLButtonElement>(null);
+  // Escape unmounts the date input, and some browsers fire blur on unmount;
+  // the flag keeps that blur from saving the value the user just abandoned.
+  const dateCancelledRef = useRef(false);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -58,14 +69,15 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
   // A former member keeps the assignment (same rule as a card's assignee);
   // the row says so instead of silently showing them as assignable.
   const notAssignable = assignee != null && !members.some((m) => m.id === assignee.id);
-  const assigneeLabel = assigneeName
-    ? `Assigned to ${assigneeName}${notAssignable ? " (no longer a board member)" : ""}. Change assignee for ${item.text}`
-    : `Assign ${item.text}`;
+  const assignedText = assigneeName
+    ? `Assigned to ${assigneeName}${notAssignable ? " (no longer a board member)" : ""}`
+    : null;
+  const assigneeLabel = assignedText ? `${assignedText}. Change assignee for ${item.text}` : `Assign ${item.text}`;
 
   const overdue = item.due_date != null && !item.is_checked && item.due_date < today;
-  const dueLabel = item.due_date
-    ? `Due ${formatChecklistDue(item.due_date, true)}${overdue ? ", overdue" : ""}. Change due date for ${item.text}`
-    : `Set due date for ${item.text}`;
+  const dueText = item.due_date ? `Due ${formatChecklistDue(item.due_date, true)}${overdue ? ", overdue" : ""}` : null;
+  const dueLabel = dueText ? `${dueText}. Change due date for ${item.text}` : `Set due date for ${item.text}`;
+  const dueTone = overdue ? DANGER_TONE : NEUTRAL_TONE;
 
   const closePicker = () => {
     setPickerOpen(false);
@@ -76,18 +88,49 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
     if (id !== (assignee?.id ?? null)) onSave({ assignee_id: id });
   };
 
+  const dueContent = item.due_date ? (
+    <span>{overdue && <span aria-hidden="true">⚑ </span>}{formatChecklistDue(item.due_date)}</span>
+  ) : null;
+
+  // Read-only users (viewers, or members on an item they did not create) never
+  // see a dimmed control they cannot use: an empty value renders nothing, a set
+  // value renders as plain text (frontend/CLAUDE.md, #445 ux-review).
+  if (!canEdit) {
+    return (
+      <>
+        {assignee && assignedText && (
+          <span className="shrink-0 inline-flex items-center justify-center h-6 min-w-6" title={assignedText}>
+            <Avatar user={assignee} size="xs" className={notAssignable ? "opacity-60" : ""} />
+            <span className="sr-only">{assignedText}</span>
+          </span>
+        )}
+        {dueContent && dueText && (
+          <span className={`shrink-0 inline-flex items-center h-6 px-1 text-xs ${overdue ? "text-danger" : "text-fg-tertiary"}`} title={dueText}>
+            <span aria-hidden="true">{dueContent}</span>
+            <span className="sr-only">{dueText}</span>
+          </span>
+        )}
+      </>
+    );
+  }
+
+  const options = [
+    { id: null as number | null, name: "Unassigned" },
+    ...members.map((m) => ({ id: m.id as number | null, name: userDisplayName(m) })),
+  ];
+  const selectedIndex = Math.max(0, options.findIndex((o) => o.id === (assignee?.id ?? null)));
+
   return (
     <>
       <div className="relative" ref={pickerRef}>
         <button
           ref={assigneeButtonRef}
           type="button"
-          className={ICON_BUTTON}
+          className={`${CONTROL_BASE} ${NEUTRAL_TONE}`}
           aria-label={assigneeLabel}
-          title={canEdit ? assigneeLabel : assigneeName ? `Assigned to ${assigneeName}` : undefined}
-          aria-haspopup="listbox"
+          title={assigneeLabel}
+          aria-haspopup="true"
           aria-expanded={pickerOpen}
-          disabled={!canEdit}
           onClick={() => setPickerOpen((o) => !o)}
         >
           {assignee ? (
@@ -100,33 +143,47 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
           )}
         </button>
         {pickerOpen && (
+          // A plain list of toggle buttons (aria-pressed), not a listbox: a
+          // listbox option may not contain a button (#445 ux-review).
           <ul
-            role="listbox"
+            ref={listRef}
             aria-label={`Assignee for ${item.text}`}
             className="absolute right-0 z-20 mt-1 w-48 max-h-60 overflow-auto bg-surface border border-line rounded-md shadow-lg py-1"
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 e.stopPropagation();
                 closePicker();
+                return;
               }
+              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+              e.preventDefault();
+              const buttons = Array.from(listRef.current?.querySelectorAll("button") ?? []);
+              const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+              const next = e.key === "ArrowDown" ? Math.min(buttons.length - 1, at + 1) : Math.max(0, at - 1);
+              buttons[next]?.focus();
             }}
           >
-            {[{ id: null as number | null, name: "Unassigned" }, ...members.map((m) => ({ id: m.id as number | null, name: userDisplayName(m) }))].map((opt, i) => (
-              <li key={opt.id ?? "none"} role="option" aria-selected={(assignee?.id ?? null) === opt.id}>
-                <button
-                  type="button"
-                  autoFocus={i === 0}
-                  className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  onClick={() => choose(opt.id)}
-                >
-                  {opt.name}
-                </button>
-              </li>
-            ))}
+            {options.map((opt, i) => {
+              const selected = i === selectedIndex;
+              return (
+                <li key={opt.id ?? "none"}>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    autoFocus={selected}
+                    className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+                    onClick={() => choose(opt.id)}
+                  >
+                    <SelectedCheck selected={selected} testId="checklist-assignee-check" slotClassName="w-3 shrink-0 inline-flex" />
+                    {opt.name}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
-      {dateOpen && canEdit ? (
+      {dateOpen ? (
         <input
           type="date"
           autoFocus
@@ -134,13 +191,21 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
           defaultValue={item.due_date ?? ""}
           className="shrink-0 text-xs bg-surface border border-line rounded px-1 h-6 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === "Escape") {
               e.stopPropagation();
+              dateCancelledRef.current = true;
               setDateOpen(false);
             }
           }}
           onBlur={(e) => {
             setDateOpen(false);
+            if (dateCancelledRef.current) {
+              dateCancelledRef.current = false;
+              return;
+            }
             const next = e.target.value || null;
             if (next !== item.due_date) onSave({ due_date: next });
           }}
@@ -148,15 +213,15 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
       ) : (
         <button
           type="button"
-          className={`${ICON_BUTTON} ${overdue ? "text-danger hover:text-danger" : ""}`}
+          className={`${CONTROL_BASE} ${dueTone}`}
           aria-label={dueLabel}
-          title={canEdit ? dueLabel : undefined}
-          disabled={!canEdit}
-          onClick={() => setDateOpen(true)}
+          title={dueLabel}
+          onClick={() => {
+            dateCancelledRef.current = false;
+            setDateOpen(true);
+          }}
         >
-          {item.due_date ? (
-            <span>{overdue && <span aria-hidden="true">⚑ </span>}{formatChecklistDue(item.due_date)}</span>
-          ) : (
+          {dueContent ?? (
             <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
               <rect x="3.5" y="4.5" width="13" height="12" rx="1.5" />
               <path d="M3.5 8.5h13M7 3v3M13 3v3" strokeLinecap="round" />

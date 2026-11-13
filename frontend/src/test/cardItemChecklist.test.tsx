@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
 import { checklistFaceSuffix } from '../utils/checklistFaceSuffix'
 import { classifyCardUrgency } from '../utils/cardUrgency'
@@ -64,6 +64,8 @@ describe('CardItem checklist suffix (#445)', () => {
     expect(suffix).toHaveTextContent('· ⚑ 1')
     expect(suffix).toHaveClass('text-danger')
     expect(suffix).toHaveAttribute('title', '1 overdue checklist item')
+    // The glyph is decorative; assistive tech reads the sr-only sentence.
+    expect(within(suffix).getByText('1 overdue checklist item')).toHaveClass('sr-only')
     expect(screen.getByText('✓3/7')).toBeInTheDocument()
   })
 
@@ -71,6 +73,7 @@ describe('CardItem checklist suffix (#445)', () => {
     render(<CardItem card={makeCard({ checklist_open_assignee_ids: [5, 5] })} density="comfortable" currentUserId={5} />)
     const suffix = screen.getByTestId('checklist-suffix')
     expect(suffix).toHaveTextContent('· mine 2')
+    expect(within(suffix).getByText('2 checklist items assigned to you')).toHaveClass('sr-only')
     expect(suffix).toHaveClass('text-fg-tertiary')
   })
 

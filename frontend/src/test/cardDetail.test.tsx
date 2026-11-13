@@ -1360,8 +1360,17 @@ describe('CardDetail', () => {
       const props = memberProps()
       render(<CardDetail {...props} currentUser={fakeUser} />)
       fireEvent.click(await screen.findByRole('button', { name: 'Assign Mine' }))
-      const listbox = screen.getByRole('listbox', { name: 'Assignee for Mine' })
-      fireEvent.click(within(listbox).getAllByRole('button')[1])
+      const list = screen.getByRole('list', { name: 'Assignee for Mine' })
+      const [unassigned, jane] = within(list).getAllByRole('button')
+      // The current value ("Unassigned") is pressed, checked and focused first.
+      expect(unassigned).toHaveAttribute('aria-pressed', 'true')
+      expect(unassigned).toHaveFocus()
+      expect(within(unassigned).getByTestId('checklist-assignee-check')).toBeInTheDocument()
+      fireEvent.keyDown(unassigned, { key: 'ArrowDown' })
+      expect(jane).toHaveFocus()
+      fireEvent.keyDown(jane, { key: 'ArrowUp' })
+      expect(unassigned).toHaveFocus()
+      fireEvent.click(jane)
       await waitFor(() => expect(mockUpdateChecklistItem).toHaveBeenCalledWith(props.board.id, props.card.id, 1, { assignee_id: fakeUser.id }))
       expect(await screen.findByRole('button', { name: /^Assigned to .+\. Change assignee for Mine$/ })).toBeInTheDocument()
       expect(props.onUpdated).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -1383,12 +1392,55 @@ describe('CardDetail', () => {
       expect(await screen.findByRole('button', { name: /^Due November 18(, overdue)?\. Change due date for Mine$/ })).toHaveTextContent('Nov 18')
     })
 
-    it('disables both controls on an item the member did not create (R2)', async () => {
+    it('omits both controls on an item the member did not create (R2)', async () => {
       ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([mine, theirs])
       render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
-      expect(await screen.findByRole('button', { name: 'Assign Theirs' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Set due date for Theirs' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Assign Mine' })).toBeEnabled()
+      expect(await screen.findByRole('button', { name: 'Assign Mine' })).toBeEnabled()
+      expect(screen.queryByRole('button', { name: 'Assign Theirs' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Set due date for Theirs' })).toBeNull()
+    })
+
+    it('shows set values on a read-only item as plain text, not dimmed buttons', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([mine, { ...theirs, is_checked: false, assignee: fakeUser, due_date: '2020-01-02' }])
+      render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
+      await screen.findByRole('button', { name: 'Assign Mine' })
+      expect(screen.queryByRole('button', { name: /Change assignee for Theirs/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Change due date for Theirs/ })).toBeNull()
+      expect(screen.getByText(/^Assigned to .+$/, { selector: '.sr-only' })).toBeInTheDocument()
+      const due = screen.getByText('Due January 2, overdue', { selector: '.sr-only' })
+      expect(due.parentElement).toHaveClass('text-danger')
+      expect(due.parentElement).toHaveAttribute('title', 'Due January 2, overdue')
+    })
+
+    it('commits a due date on Enter and abandons it on Escape', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([mine])
+      mockUpdateChecklistItem.mockResolvedValue({ ...mine, due_date: '2026-11-20' })
+      const props = memberProps()
+      render(<CardDetail {...props} currentUser={fakeUser} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Set due date for Mine' }))
+      let input = screen.getByLabelText('Set due date for Mine') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '2026-11-19' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+      fireEvent.blur(input)
+      expect(screen.queryByLabelText('Set due date for Mine', { selector: 'input' })).toBeNull()
+      expect(mockUpdateChecklistItem).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Set due date for Mine' }))
+      input = screen.getByLabelText('Set due date for Mine') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '2026-11-20' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => expect(mockUpdateChecklistItem).toHaveBeenCalledWith(props.board.id, props.card.id, 1, { due_date: '2026-11-20' }))
+    })
+
+    it('shows the empty state and an expandable header with aria-expanded', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
+      // An empty checklist loads collapsed; expanding shows the empty state.
+      const header = screen.getByRole('button', { name: /^Checklist/ })
+      await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'false'))
+      expect(screen.queryByText('No checklist items.')).toBeNull()
+      fireEvent.click(header)
+      expect(header).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByText('No checklist items.')).toBeInTheDocument()
     })
 
     it('shows the failure copy when the assign is refused', async () => {
@@ -1396,7 +1448,7 @@ describe('CardDetail', () => {
       mockUpdateChecklistItem.mockRejectedValue(new Error('400'))
       render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
       fireEvent.click(await screen.findByRole('button', { name: 'Assign Mine' }))
-      fireEvent.click(within(screen.getByRole('listbox')).getAllByRole('button')[1])
+      fireEvent.click(within(screen.getByRole('list', { name: 'Assignee for Mine' })).getAllByRole('button')[1])
       expect(await screen.findByText('Failed to assign checklist item. Please try again.')).toBeInTheDocument()
     })
 

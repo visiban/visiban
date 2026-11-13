@@ -2023,8 +2023,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Checklist */}
               <div>
-                <button type="button"
+                <button
+                  type="button"
                   className="flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  aria-expanded={checklistOpen}
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
@@ -2033,11 +2035,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <span className="ml-1.5 normal-case font-normal text-fg-muted">{checklistDoneCount}/{checklist.length}</span>
                     )}
                   </p>
-                  <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/cl:text-fg-tertiary transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                  <svg aria-hidden="true" className={`w-3.5 h-3.5 text-fg-faint group-hover/cl:text-fg-tertiary transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {pendingSections.checklist && <SectionSkeleton rows={2} testId="checklist-skeleton" />}
+                {checklistOpen && checklist.length === 0 && !pendingSections.checklist && (
+                  // Design § 5 empty state (#445).
+                  <p className="text-xs text-fg-faint italic px-1 mb-2">No checklist items.</p>
+                )}
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
                     <div className="flex items-center gap-3 mb-3">
