@@ -181,6 +181,36 @@ describe('CardKeyFacts overflow (#1916)', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(4)
   })
 
+  it('does not count a 1px-taller assignee chip as its own line (offsets 9,8,9,41,41 are two lines)', () => {
+    const tops = [9, 8, 9, 41, 41]
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) { return tops[Number(this.dataset.factIndex ?? 0)] },
+    })
+    render(<CardKeyFacts facts={facts} onJump={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /more fact/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(5)
+    expect(document.querySelectorAll('li[hidden]')).toHaveLength(0)
+  })
+
+  it('shrinks the visible count until +N sits on line two or earlier', async () => {
+    const tops = [0, 0, 20, 20, 40]
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (this.dataset.factMore !== undefined) {
+          // +N follows the last visible chip: with 3 visible it wraps to line 3.
+          const visible = [...(this.parentElement?.querySelectorAll<HTMLElement>('[data-fact-index]') ?? [])].filter((el) => !el.hidden).length
+          return visible >= 3 ? 40 : 20
+        }
+        return tops[Number(this.dataset.factIndex ?? 0)]
+      },
+    })
+    render(<CardKeyFacts facts={facts} onJump={vi.fn()} />)
+    expect(await screen.findByRole('button', { name: '+3 more facts' })).toBeInTheDocument()
+    expect(document.querySelectorAll('li[hidden]')).toHaveLength(3)
+  })
+
   it('renders nothing for an empty list', () => {
     const { container } = render(<CardKeyFacts facts={[]} onJump={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
@@ -267,6 +297,16 @@ describe('CardDetail key facts (#1916)', () => {
     const popover = document.querySelector('[data-move-popover]') as HTMLElement
     expect(popover).not.toBeNull()
     await waitFor(() => expect(popover.contains(document.activeElement)).toBe(true))
+  })
+
+  it('returns focus to the Column fact when Move, opened from it, closes with Escape', async () => {
+    render(<CardDetail {...{ ...baseProps(), card: richCard(), board: richBoard() }} onMoveCard={vi.fn()} />)
+    const fact = within(facts()).getByRole('button', { name: 'Review, column. Go to Move' })
+    await userEvent.click(fact)
+    await waitFor(() => expect(document.querySelector('[data-move-popover]')).not.toBeNull())
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(document.querySelector('[data-move-popover]')).toBeNull())
+    expect(fact).toHaveFocus()
   })
 
   it('keeps navigating for a read-only viewer; the Column fact is plain text with nothing to open', async () => {

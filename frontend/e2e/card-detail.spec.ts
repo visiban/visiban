@@ -219,6 +219,50 @@ test.describe('card detail', () => {
     await expect(page.locator('[data-move-popover] :focus')).toHaveCount(1)
   })
 
+  test.describe('key facts row on a phone (#1916)', () => {
+    test.use({ viewport: { width: 375, height: 667 } })
+
+    const pinned = (id: number, name: string, position: number) => ({
+      id, uid: `cfuid0000${id}`, name, field_type: 'text', choices: [], position, show_on_card: true,
+      is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      created_at: '2026-01-01T00:00:00Z',
+    })
+
+    async function openWith(page: Page, values: string[]) {
+      const defs = values.map((_, i) => pinned(900 + i, `Field${i}`, i))
+      const card = {
+        ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner,
+        custom_field_values: values.map((v, i) => ({ field_definition: 900 + i, value: v })),
+      }
+      await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.getByText(CARD.title).first().click()
+      const dialog = page.locator('[role="dialog"]')
+      await expect(dialog).toBeVisible({ timeout: 5_000 })
+      return dialog.getByRole('list', { name: 'Key facts' })
+    }
+
+    test('an assignee, a due date and two short pinned fields all stay visible, with no +N', async ({ page }) => {
+      const facts = await openWith(page, ['a', 'b'])
+      await expect(facts.getByRole('button', { name: /Go to Assignee/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Due date/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Field0/ })).toBeVisible()
+      await expect(facts.getByRole('button', { name: /Go to Field1/ })).toBeVisible()
+      await expect(facts.locator('[data-fact-more]')).toHaveCount(0)
+    })
+
+    test('long pinned values collapse into a +N that counts the hidden chips, keeping the due date', async ({ page }) => {
+      const long = 'x'.repeat(40)
+      const facts = await openWith(page, [long, long, long, long, long])
+      const more = facts.locator('[data-fact-more]')
+      await expect(more).toHaveCount(1)
+      await expect(facts.getByRole('button', { name: /Go to Due date/ })).toBeVisible()
+      const hidden = await facts.locator('li[data-fact-index][hidden]').count()
+      expect(hidden).toBeGreaterThan(0)
+      await expect(more).toContainText(`+${hidden}`)
+    })
+  })
+
   test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {
     const blockedAt = new Date(Date.now() - (3 * 86400 + 5 * 3600 + 60) * 1000).toISOString()
     const blocked = { ...CARD, is_blocked: true, blocked_at: blockedAt, blocked_reason: 'Waiting on vendor' }

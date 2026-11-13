@@ -5,17 +5,27 @@ import Avatar from "../Common/Avatar";
 interface Props {
   facts: KeyFact[];
   /** Jump to the fact's field. Never gated on edit rights: navigation is reading. */
-  onJump: (target: KeyFactTarget) => void;
+  onJump: (target: KeyFactTarget, opener?: HTMLElement) => void;
   /** Facts that do nothing when activated (a viewer cannot open Move) render as plain text. */
   inertTargets?: readonly KeyFactTarget[];
 }
 
 const MAX_LINES = 2;
+const LINE_GAP = 8;
 
 /** Distinct line index (0-based) of each element, from its offsetTop. */
 function lineIndexes(els: HTMLElement[]): number[] {
-  const tops = [...new Set(els.map((el) => el.offsetTop))].sort((a, b) => a - b);
-  return els.map((el) => tops.indexOf(el.offsetTop));
+  // Chips differ in height (the assignee's avatar makes it 1px taller), and
+  // items-center then offsets their tops by a pixel or two. Only a jump of at
+  // least half a chip is a new line.
+  const sorted = [...new Set(els.map((el) => el.offsetTop))].sort((a, b) => a - b);
+  const starts: number[] = [];
+  for (const top of sorted) if (starts.length === 0 || top - starts[starts.length - 1] >= LINE_GAP) starts.push(top);
+  return els.map((el) => {
+    let idx = 0;
+    starts.forEach((s, i) => { if (el.offsetTop >= s) idx = i; });
+    return idx;
+  });
 }
 
 /**
@@ -84,7 +94,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
       {facts.map((fact, i) => {
         const hidden = !expanded && visibleCount !== null && i >= visibleCount;
         const inert = inertTargets.includes(fact.target);
-        const toneClass = fact.tone === "danger" ? "text-danger-on-tint" : fact.tone === "warning" ? "text-warning-on-tint" : "text-fg-secondary";
+        const toneClass = fact.tone === "danger" ? "text-danger-on-tint" : "text-fg-secondary";
         const body = (
           <>
             {fact.avatarUser && <Avatar user={fact.avatarUser} size="xs" />}
@@ -100,7 +110,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
             ) : (
               <button
                 type="button"
-                onClick={() => onJump(fact.target)}
+                onClick={(e) => onJump(fact.target, e.currentTarget)}
                 aria-label={fact.label}
                 title={fact.title}
                 className={`${chip} hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
