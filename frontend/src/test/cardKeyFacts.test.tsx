@@ -144,7 +144,11 @@ describe('CardKeyFacts overflow (#1916)', () => {
     Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
       configurable: true,
       get(this: HTMLElement) {
-        if (this.dataset.factMore !== undefined) return 20 * 1
+        // +N follows the last visible chip, so it sits on the line after it.
+        if (this.dataset.factMore !== undefined) {
+          const visible = [...(this.parentElement?.querySelectorAll<HTMLElement>('[data-fact-index]') ?? [])].filter((el) => !el.hidden).length
+          return 20 * Math.floor(visible / 2)
+        }
         return 20 * Math.floor(Number(this.dataset.factIndex ?? 0) / 2)
       },
     })
@@ -209,6 +213,31 @@ describe('CardKeyFacts overflow (#1916)', () => {
     render(<CardKeyFacts facts={facts} onJump={vi.fn()} />)
     expect(await screen.findByRole('button', { name: '+3 more facts' })).toBeInTheDocument()
     expect(document.querySelectorAll('li[hidden]')).toHaveLength(3)
+  })
+
+  it('hides only as many facts as needed: one more fits when +N still lands on line two', async () => {
+    // Fact 0-2 on line 0-1, 3 and 4 on line 2; +N sits right after the last visible fact.
+    const tops = [0, 0, 0, 20, 40]
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (this.dataset.factMore !== undefined) {
+          const visible = [...(this.parentElement?.querySelectorAll<HTMLElement>('[data-fact-index]') ?? [])].filter((el) => !el.hidden).length
+          return visible >= 5 ? 40 : 20
+        }
+        return tops[Number(this.dataset.factIndex ?? 0)]
+      },
+    })
+    render(<CardKeyFacts facts={facts} onJump={vi.fn()} />)
+    // Four facts fit on two lines and +N shares line two with fact 3: only one hidden.
+    expect(await screen.findByRole('button', { name: '+1 more fact' })).toBeInTheDocument()
+    expect(document.querySelectorAll('li[hidden]')).toHaveLength(1)
+  })
+
+  it('collapses to one line plus +N when maxLines is 1', async () => {
+    render(<CardKeyFacts facts={facts} maxLines={1} onJump={vi.fn()} />)
+    expect(await screen.findByRole('button', { name: '+4 more facts' })).toBeInTheDocument()
+    expect(document.querySelectorAll('li[hidden]')).toHaveLength(4)
   })
 
   it('renders nothing for an empty list', () => {
@@ -317,6 +346,25 @@ describe('CardDetail key facts (#1916)', () => {
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
     const section = document.querySelector('[data-fact-section="due"]') as HTMLElement
     expect(section.contains(document.activeElement)).toBe(true)
+  })
+
+  describe('as a viewer (read-only sections)', () => {
+    const viewerBoard = () => richBoard({ current_user_role: 'viewer' })
+
+    it('jumping via Assignee leaves focus inside the section even though its control is disabled', async () => {
+      render(<CardDetail {...baseProps()} card={richCard()} board={viewerBoard()} />)
+      await userEvent.click(within(facts()).getByRole('button', { name: 'Assignee: Alex Brown. Go to Assignee' }))
+      const section = document.querySelector<HTMLElement>('[data-fact-section="assignee"]')!
+      await waitFor(() => expect(section.contains(document.activeElement)).toBe(true))
+      expect(document.activeElement).not.toBe(document.body)
+    })
+
+    it('jumping via a pinned field (no control for a viewer) focuses the section', async () => {
+      render(<CardDetail {...baseProps()} card={richCard()} board={viewerBoard()} />)
+      await userEvent.click(within(facts()).getByRole('button', { name: /Go to Deal value/ }))
+      const section = document.querySelector<HTMLElement>('[data-fact-section="field:55"]')!
+      await waitFor(() => expect(section.contains(document.activeElement)).toBe(true))
+    })
   })
 })
 

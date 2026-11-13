@@ -8,9 +8,10 @@ interface Props {
   onJump: (target: KeyFactTarget, opener?: HTMLElement) => void;
   /** Facts that do nothing when activated (a viewer cannot open Move) render as plain text. */
   inertTargets?: readonly KeyFactTarget[];
+  /** Lines the row may use before collapsing into +N. Default 2; 1 on a short window (design 1.2). */
+  maxLines?: number;
 }
 
-const MAX_LINES = 2;
 const LINE_GAP = 8;
 
 /** Distinct line index (0-based) of each element, from its offsetTop. */
@@ -30,12 +31,12 @@ function lineIndexes(els: HTMLElement[]): number[] {
 
 /**
  * The key-facts row (#1916): one `<ul aria-label="Key facts">` of buttons under
- * the title. It wraps to at most two lines; whatever does not fit collapses
+ * the title. It wraps to at most `maxLines` (two) lines; whatever does not fit collapses
  * into a trailing `+N` button that expands the row in place. The overflow is
  * measured, not guessed: all facts render once, the first two lines' worth stay
  * visible, and the +N button is checked to sit on line two or earlier.
  */
-export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props) {
+export default function CardKeyFacts({ facts, onJump, inertTargets = [], maxLines = 2 }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
   const [expanded, setExpanded] = useState(false);
   // null = unconstrained (measuring); a number = how many facts stay visible.
@@ -51,6 +52,15 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
     setExpanded(false);
     setVisibleCount(null);
   }, [signature]);
+
+  // A changed line budget (the window got short or tall) re-measures too.
+  const lastMaxLines = useRef(maxLines);
+  useLayoutEffect(() => {
+    if (lastMaxLines.current === maxLines) return;
+    lastMaxLines.current = maxLines;
+    setExpanded(false);
+    setVisibleCount(null);
+  }, [maxLines]);
 
   // Re-measure when the width changes (dock toggle, window resize).
   useLayoutEffect(() => {
@@ -73,16 +83,17 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
     const items = [...ul.querySelectorAll<HTMLElement>("[data-fact-index]")];
     if (visibleCount === null) {
       const lines = lineIndexes(items);
-      const fit = lines.filter((l) => l < MAX_LINES).length;
-      // Everything fits on two lines: no +N. Otherwise leave room for it.
-      if (fit < items.length) setVisibleCount(Math.max(1, fit - 1));
+      const fit = lines.filter((l) => l < maxLines).length;
+      // Everything fits: no +N. Otherwise start from what fits and let the
+      // decrement pass below make room for +N only when it does not fit.
+      if (fit < items.length) setVisibleCount(Math.max(1, fit));
       return;
     }
     const more = ul.querySelector<HTMLElement>("[data-fact-more]");
     if (!more) return;
     const lines = lineIndexes([...items.filter((el) => !el.hidden), more]);
-    if (lines[lines.length - 1] >= MAX_LINES && visibleCount > 1) setVisibleCount(visibleCount - 1);
-  }, [visibleCount, expanded, signature]);
+    if (lines[lines.length - 1] >= maxLines && visibleCount > 1) setVisibleCount(visibleCount - 1);
+  }, [visibleCount, expanded, signature, maxLines]);
 
   if (facts.length === 0) return null;
 

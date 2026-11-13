@@ -219,6 +219,39 @@ test.describe('card detail', () => {
     await expect(page.locator('[data-move-popover] :focus')).toHaveCount(1)
   })
 
+  test.describe('key facts row on a short window (#1916)', () => {
+    test.use({ viewport: { width: 1366, height: 600 } })
+
+    test('collapses to one line plus +N and leaves the body at least half the sheet', async ({ page }) => {
+      const defs = [0, 1, 2, 3, 4].map((i) => ({
+        id: 900 + i, uid: `cfuid0000${900 + i}`, name: `Field${i}`, field_type: 'text', choices: [], position: i, show_on_card: true,
+        is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+        created_at: '2026-01-01T00:00:00Z',
+      }))
+      const long = 'x'.repeat(40)
+      const card = {
+        ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner,
+        custom_field_values: defs.map((d) => ({ field_definition: d.id, value: long })),
+      }
+      await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.getByText(CARD.title).first().click()
+      const dialog = page.locator('[role="dialog"]')
+      await expect(dialog).toBeVisible({ timeout: 5_000 })
+      const facts = dialog.getByRole('list', { name: 'Key facts' })
+      await expect(facts.locator('[data-fact-more]')).toHaveCount(1)
+
+      // One line: every visible chip (and +N) shares one top.
+      const tops = await facts.locator('li:not([hidden])').evaluateAll((els) => els.map((el) => (el as HTMLElement).offsetTop))
+      // Chips differ by a pixel or two in height; a new line is a jump of a chip.
+      expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(8)
+
+      const dialogBox = (await dialog.boundingBox())!
+      const bodyBox = (await dialog.getByRole('tabpanel').boundingBox())!
+      expect(bodyBox.height).toBeGreaterThanOrEqual(dialogBox.height * 0.5)
+    })
+  })
+
   test.describe('key facts row on a phone (#1916)', () => {
     test.use({ viewport: { width: 375, height: 667 } })
 
