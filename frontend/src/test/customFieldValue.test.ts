@@ -6,6 +6,7 @@ import {
   formatCustomFieldValue,
   isValidForType,
   normalizeUrl,
+  pastedChoicesToAdd,
   urlDisplayHostname,
   urlErrorFromServer,
   withCustomFieldValue,
@@ -207,5 +208,23 @@ describe("urlDisplayHostname / urlErrorFromServer (#1390)", () => {
     expect(urlErrorFromServer(err400("'Docs': Enter a valid URL."))).toBe(URL_ERROR_COPY.invalid);
     expect(urlErrorFromServer({ response: { status: 500, data: {} } })).toBeNull();
     expect(urlErrorFromServer(new Error("network"))).toBeNull();
+  });
+});
+
+describe("pastedChoicesToAdd (#2192)", () => {
+  it("splits on LF, CRLF, bare CR, and tab", () => {
+    expect(pastedChoicesToAdd("a\nb\r\nc\rd\te", [])).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("trims, drops blanks, and keeps commas inside a choice", () => {
+    expect(pastedChoicesToAdd("  a  \n\n\t \nSmith, J\n", [])).toEqual(["a", "Smith, J"]);
+  });
+
+  it("skips choices already present (compared trimmed) and repeats within the paste", () => {
+    expect(pastedChoicesToAdd("a\nb\nb\nc", [" a ", ""])).toEqual(["b", "c"]);
+  });
+
+  it("returns nothing for blank text", () => {
+    expect(pastedChoicesToAdd(" \r\n\t", ["a"])).toEqual([]);
   });
 });

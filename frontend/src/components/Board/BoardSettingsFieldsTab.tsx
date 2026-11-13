@@ -14,7 +14,7 @@ import {
   reorderCustomFields,
 } from "../../api/boards";
 import NumberFormatFields from "./NumberFormatFields";
-import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
+import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -225,21 +225,30 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const moveChoice = (from: number, to: number) =>
     setForm((f) => ({ ...f, choices: arrayMove(f.choices, from, to) }));
 
-  const applyPastedChoices = () => {
-    const lines = pasteListText.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-    const existing = new Set(form.choices.map((c) => c.trim()));
-    const toAdd = lines.filter((l) => !existing.has(l));
-    setForm((f) => ({ ...f, choices: [...f.choices, ...toAdd] }));
+  /**
+   * Move whatever is in the "Paste a list" box into the choices and close it,
+   * returning the resulting choice list (#2192). Save calls this too: before
+   * #2192 text still sitting in the box was ignored on Save, so removing the
+   * original choices and saving straight after a paste failed with "needs at
+   * least one choice" (or, with choices left, silently dropped the paste).
+   */
+  const takePastedChoices = (): string[] => {
+    if (!pasteListOpen || !pasteListText.trim()) return form.choices;
+    const added = pastedChoicesToAdd(pasteListText, form.choices);
+    setForm((f) => ({ ...f, choices: [...f.choices, ...added] }));
     setPasteListText("");
     setPasteListOpen(false);
+    return [...form.choices, ...added];
   };
+  const applyPastedChoices = () => { takePastedChoices(); };
 
   const handleSave = async () => {
+    const choices = takePastedChoices();
     const name = form.name.trim();
     if (!name) { setFormError("Name is required."); return; }
     const dupe = fields.some((f) => f.id !== editingId && f.name.trim().toLowerCase() === name.toLowerCase());
     if (dupe) { setFormError("A field with this name already exists."); return; }
-    const cleanedChoices = form.choices.map((c) => c.trim()).filter((c) => c !== "");
+    const cleanedChoices = choices.map((c) => c.trim()).filter((c) => c !== "");
     if (form.field_type === "dropdown" && cleanedChoices.length === 0) {
       setFormError("A dropdown field needs at least one choice.");
       return;
@@ -261,7 +270,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           name,
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
-          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(form.choices, form.choice_colors) : undefined,
+          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
         });
@@ -275,7 +284,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           name,
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
-          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(form.choices, form.choice_colors) : undefined,
+          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
         });
@@ -641,6 +650,7 @@ function FieldEditPanel({
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
   pinnedCount, isNew, formError, saving, onSave, onCancel,
 }: FieldEditPanelProps) {
+  const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
   const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card;
   // The type button that raised the "Change type" prompt is the trigger focus returns to (#1367).
@@ -751,11 +761,16 @@ function FieldEditPanel({
                 rows={4}
                 className="bg-surface border border-line rounded px-2 py-1.5 text-xs text-fg-secondary w-full focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               />
-              {pasteListText.trim() && (
+              {/* The count is what Add will actually add (#2192): before, it counted
+                  raw lines, so a paste of already-listed choices said "Add 3" and
+                  added nothing. */}
+              {pasteListText.trim() && (pastedCount > 0 ? (
                 <button onClick={applyPastedChoices} className="mt-1.5 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
-                  Add {pasteListText.split("\n").map((l) => l.trim()).filter(Boolean).length} choices
+                  Add {pastedCount} {pastedCount === 1 ? "choice" : "choices"}
                 </button>
-              )}
+              ) : (
+                <p className="mt-1.5 text-xs text-fg-muted">Every pasted choice is already in the list.</p>
+              ))}
             </div>
           )}
         </div>

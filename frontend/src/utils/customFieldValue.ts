@@ -80,6 +80,30 @@ export function withChoiceColor(draft: Record<string, string>, choice: string, k
   return Object.fromEntries([...Object.entries(draft).filter(([k]) => k !== choice), [choice, key]]);
 }
 
+/**
+ * The choices a "Paste a list" block would add to an editor's `existing`
+ * choices (#2192). Shared by the card and swimlane field editors so the
+ * "Add N choices" count, the Add button, and Save all agree on one answer.
+ *
+ * Splits on every clipboard row/cell separator: LF, CRLF, bare CR (classic
+ * Mac/Excel), and tab (a row of spreadsheet cells). Commas are deliberately
+ * not separators — a choice may contain one. Entries are trimmed, blanks
+ * dropped, and anything already present (or repeated within the paste) is
+ * skipped: the server 400s a duplicate choice, so adding one would only turn
+ * into a failed save later.
+ */
+export function pastedChoicesToAdd(text: string, existing: string[]): string[] {
+  const seen = new Set(existing.map((c) => c.trim()));
+  const added: string[] = [];
+  for (const raw of text.split(/\r\n|[\r\n\t]/)) {
+    const choice = raw.trim();
+    if (choice === "" || seen.has(choice)) continue;
+    seen.add(choice);
+    added.push(choice);
+  }
+  return added;
+}
+
 /** The draft's color for `choice`, reading own properties only. */
 export function draftChoiceColor(draft: Record<string, string>, choice: string): string | undefined {
   return Object.hasOwn(draft, choice) ? draft[choice] : undefined;

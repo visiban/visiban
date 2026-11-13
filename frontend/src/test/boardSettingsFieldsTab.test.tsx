@@ -487,3 +487,73 @@ describe("BoardSettingsFieldsTab — number format (#1391)", () => {
     });
   });
 });
+
+describe("BoardSettingsFieldsTab — Paste a list (#2192)", () => {
+  const stage = makeDefinition({ id: 5, name: "Stage", field_type: "dropdown", choices: ["Old A", "Old B"] });
+  const choiceLabels = () =>
+    screen.queryAllByRole("button", { name: /^Remove choice / }).map((b) => b.getAttribute("aria-label"));
+
+  async function openStage(user: ReturnType<typeof userEvent.setup>, { removeOriginals = true } = {}) {
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockImplementation(async (_b, id, p) => ({ ...stage, id, ...p }) as CustomFieldDefinition);
+    render(<BoardSettingsFieldsTab board={makeBoard([stage])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit Stage" }));
+    if (removeOriginals) {
+      await user.click(screen.getByRole("button", { name: "Remove choice Old A" }));
+      await user.click(screen.getByRole("button", { name: "Remove choice Old B" }));
+      expect(choiceLabels()).toEqual([]);
+    }
+    await user.click(screen.getByRole("button", { name: "Paste a list" }));
+    await user.click(screen.getByPlaceholderText("One choice per line"));
+  }
+
+  it("Add moves the pasted choices into the list after the originals were removed, and Save sends them", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    await user.paste("New 1\nNew 2");
+    await user.click(screen.getByRole("button", { name: "Add 2 choices" }));
+    expect(choiceLabels()).toEqual(["Remove choice New 1", "Remove choice New 2"]);
+    expect(screen.queryByPlaceholderText("One choice per line")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 5, expect.objectContaining({ choices: ["New 1", "New 2"] }),
+    ));
+  });
+
+  it("Save with the text still in the paste box saves the pasted choices (CRLF and CR line breaks)", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    await user.paste("New 1\r\nNew 2\rNew 3");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 5, expect.objectContaining({ choices: ["New 1", "New 2", "New 3"] }),
+    ));
+    expect(screen.queryByText("A dropdown field needs at least one choice.")).not.toBeInTheDocument();
+  });
+
+  it("a pending paste is kept in the list when Save stops on another validation error", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    await user.paste("New 1");
+    await user.clear(screen.getByDisplayValue("Stage"));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    expect(await screen.findByText("Name is required.")).toBeInTheDocument();
+    expect(choiceLabels()).toEqual(["Remove choice New 1"]);
+    expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
+  });
+
+  it("splits spreadsheet cells on tabs and counts only what Add will add", async () => {
+    const user = userEvent.setup();
+    await openStage(user, { removeOriginals: false });
+    await user.paste("Old A\tNew 1\tNew 1\n");
+    await user.click(screen.getByRole("button", { name: "Add 1 choice" }));
+    expect(choiceLabels()).toEqual(["Remove choice Old A", "Remove choice Old B", "Remove choice New 1"]);
+  });
+
+  it("says so instead of offering Add when every pasted choice is already listed", async () => {
+    const user = userEvent.setup();
+    await openStage(user, { removeOriginals: false });
+    await user.paste("Old A\nOld B");
+    expect(screen.queryByRole("button", { name: /^Add \d/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Every pasted choice is already in the list.")).toBeInTheDocument();
+  });
+});
