@@ -1736,7 +1736,7 @@ Column objects returned by all endpoints include the following fields:
 > Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/` / `PATCH /api/v1/boards/{id}/columns/{col_id}/`
-Update a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them.
+Update a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean), `policy` (object or `null`, since 1.3)
 
@@ -1820,7 +1820,7 @@ Swimlane response objects include the following fields:
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/` / `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
-Update a swimlane. Requires board admin.
+Update a swimlane. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2), `wip_limit`, `weight_limit`, `limit_enforcement`, `limit_column_ids` (since 1.3)
 
@@ -1916,7 +1916,7 @@ Create a label. Requires board admin.
 **Request** `{ "name": "Bug", "color": "#EF4444" }`
 
 ### `PUT /api/v1/boards/{id}/labels/{label_id}/` / `PATCH /api/v1/boards/{id}/labels/{label_id}/`
-Update a label. Requires board admin.
+Update a label. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color` (hex, see [Color values](#color-values))
 
@@ -2154,7 +2154,7 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   third field is pinned with `show_on_card`.
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/custom-fields/{field_id}/`
-Update a definition. Requires board admin.
+Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 
@@ -2267,7 +2267,7 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   swimlane field definitions, or a ninth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
-Update a definition. Requires board admin.
+Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 

@@ -253,6 +253,20 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 {"name": "A swimlane with this name already exists on this board."}
             ) from None
 
+    def update(self, request, *args, **kwargs):
+        """PUT/PATCH: the admin check runs before the body is validated (#2009).
+
+        DRF validates the serializer before ``perform_update``, so a caller below
+        admin sending an invalid body got a ``400`` instead of the ``403`` a valid
+        one gets. The role is cached per request, so ``perform_update``'s own
+        check costs nothing; an access-less caller still gets the ``404`` from
+        ``_board_and_role``.
+        """
+        _, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):

@@ -126,6 +126,18 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 actor_id=self.request.user.id,
             )
 
+    def update(self, request, *args, **kwargs):
+        """PUT/PATCH: the admin check runs before the body is validated (#2009).
+
+        DRF validates the serializer before ``perform_update``, so a caller below
+        admin sending an invalid body got a ``400`` instead of the ``403`` a valid
+        one gets. The role is cached per request, so ``perform_update``'s own
+        check costs nothing; an access-less caller still gets the ``404`` from
+        ``_board_and_role``.
+        """
+        self._require_admin()
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
         board = self._require_admin()
         with transaction.atomic():

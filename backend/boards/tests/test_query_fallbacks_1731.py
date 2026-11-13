@@ -9,11 +9,13 @@ and one fallback per serializer family.
 import logging
 
 from django.test import TestCase, override_settings
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from accounts.admin_views import AdminUserSerializer
 from accounts.models import User
 from boards.models import Board, BoardMembership
-from boards.serializers import BoardSerializer
+from boards.serializers import BoardFullSerializer, BoardSerializer
 from boards.views._helpers import annotate_board_counts
 from groups.models import Group, GroupInviteLink, GroupMembership
 from groups.serializers import (
@@ -98,6 +100,44 @@ class FallbackCoverageTests(TestCase):
         out = self._warned(lambda: GroupSerializer(Group.objects.all(), many=True).data)
         for field in ("get_member_count", "get_board_count", "get_subgroup_count"):
             self.assertIn(f"GroupSerializer.{field}", out)
+
+    def _request(self):
+        # is_starred fallbacks only run for an authenticated request in context.
+        raw = APIRequestFactory().get("/")
+        force_authenticate(raw, user=self.user)
+        return Request(raw)
+
+    def test_board_list_counts_and_star(self):
+        Board.objects.create(name="FbBoard", owner=self.user)
+        out = self._warned(
+            lambda: BoardSerializer(
+                Board.objects.all(), many=True, context={"request": self._request()}
+            ).data
+        )
+        for field in (
+            "get_member_count",
+            "get_card_count",
+            "get_archived_card_count",
+            "get_is_starred",
+        ):
+            self.assertIn(f"BoardSerializer.{field}", out)
+
+    def test_board_full_list_archived_card_count(self):
+        Board.objects.create(name="FbFull", owner=self.user)
+        out = self._warned(
+            lambda: BoardFullSerializer(
+                Board.objects.all(), many=True, context={"request": self._request()}
+            ).data
+        )
+        self.assertIn("BoardFullSerializer.get_archived_card_count", out)
+
+    def test_group_list_is_starred(self):
+        out = self._warned(
+            lambda: GroupSerializer(
+                Group.objects.all(), many=True, context={"request": self._request()}
+            ).data
+        )
+        self.assertIn("GroupSerializer.get_is_starred", out)
 
     def test_admin_user_list_owned_boards(self):
         out = self._warned(

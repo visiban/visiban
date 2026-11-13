@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column
+from boards.models import Board, BoardMembership, Column, CustomFieldDefinition, Label, Swimlane, SwimlaneCustomFieldDefinition
 
 
 class RoleBeforeValidationTests(TestCase):
@@ -80,3 +80,61 @@ class RoleBeforeValidationTests(TestCase):
         c = self._client(outsider)
         self.assertEqual(c.patch(self.board_url, {"name": ""}, format="json").status_code, 404)
         self.assertEqual(c.patch(self.column_url, {"name": ""}, format="json").status_code, 404)
+
+
+class RoleBeforeValidationSubResourceTests(TestCase):
+    """Labels, swimlanes and both custom-field viewsets follow the same order (#2009)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="rbv2_owner", password="pass")
+        self.board = Board.objects.create(name="RBV2", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        self.users = {}
+        for role in (
+            BoardMembership.Role.VIEWER,
+            BoardMembership.Role.COLLABORATOR,
+            BoardMembership.Role.MEMBER,
+        ):
+            user = User.objects.create_user(username=f"rbv2_{role}", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            self.users[role] = user
+        base = f"/api/v1/boards/{self.board.pk}"
+        label = Label.objects.create(board=self.board, name="L", color="#112233")
+        lane = Swimlane.objects.create(board=self.board, name="S", position=0)
+        cf = CustomFieldDefinition.objects.create(board=self.board, name="CF", field_type="text", position=0)
+        scf = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="SCF", field_type="text", position=0
+        )
+        self.cases = {
+            "label": (f"{base}/labels/{label.pk}/", {"name": ""}),
+            "swimlane": (f"{base}/swimlanes/{lane.pk}/", {"name": ""}),
+            "custom_field": (f"{base}/custom-fields/{cf.pk}/", {"name": ""}),
+            "swimlane_custom_field": (f"{base}/swimlane-custom-fields/{scf.pk}/", {"name": ""}),
+        }
+
+    def _client(self, user):
+        c = APIClient()
+        c.force_authenticate(user)
+        return c
+
+    def test_below_admin_invalid_body_is_403(self):
+        for name, (url, bad) in self.cases.items():
+            for role, user in self.users.items():
+                for method in ("patch", "put"):
+                    with self.subTest(resource=name, role=role, method=method):
+                        r = getattr(self._client(user), method)(url, bad, format="json")
+                        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.content)
+
+    def test_admin_invalid_body_is_still_400(self):
+        admin = self._client(self.owner)
+        for name, (url, bad) in self.cases.items():
+            for method in ("patch", "put"):
+                with self.subTest(resource=name, method=method):
+                    r = getattr(admin, method)(url, bad, format="json")
+                    self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_non_member_still_gets_404(self):
+        outsider = self._client(User.objects.create_user(username="rbv2_out", password="pass"))
+        for name, (url, bad) in self.cases.items():
+            with self.subTest(resource=name):
+                self.assertEqual(outsider.patch(url, bad, format="json").status_code, 404)
