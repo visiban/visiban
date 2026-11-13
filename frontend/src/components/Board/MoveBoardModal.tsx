@@ -6,6 +6,7 @@ import { moveBoardToGroup } from "../../api/boards";
 import { buildGroupTree } from "../Group/GroupTree";
 import type { Board, Group } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
+import SelectedCheck from "../Common/SelectedCheck";
 
 interface TreeNode {
   group: Group;
@@ -312,13 +313,7 @@ function PickerRow({
       }`}
     >
       {/* Non-color selection cue (#2171), the same check slot as SingleSelectDropdown. Reserves its width on every row. */}
-      <span aria-hidden="true" className="shrink-0 w-3.5 h-3.5 flex items-center justify-center">
-        {selected && (
-          <svg data-testid="move-board-selected-mark" className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 8.5l3.5 3.5L13 4.5" />
-                  </svg>
-        )}
-      </span>
+      <SelectedCheck selected={selected} testId="move-board-selected-mark" slotClassName="shrink-0 w-3.5 h-3.5 flex items-center justify-center" />
       <span>{icon}</span>
       <span className="flex-1 truncate font-medium" title={label}>{label}</span>
       {note && (

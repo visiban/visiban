@@ -2731,6 +2731,65 @@ gate-selftest-parity:
     - bash scripts/check-gate-selftest-parity.sh --self-test
     - bash scripts/check-gate-selftest-parity.sh
 
+# ─── Remaining scripts/tests/*.test.sh (#2117) ────────────────────────────────
+#
+# check-rbac-coverage.test.sh stayed red for weeks (#2069) because no CI job ran
+# it. Every test under scripts/tests/ now runs in a job: most in their own gate's
+# job above, the rest here. `check-script-tests-wired.sh` fails when a new test
+# file is added without wiring it (or an entry in
+# scripts/tests/unwired-allowlist.txt with a reason). wt-list/wt-prune are
+# allowlisted: #1648 owns wiring them; wt-forge-timeout is allowlisted because it fails
+# under Alpine/busybox (perl alarm + process-group semantics) and needs a Debian-based job image (follow-up #2189).
+#
+# rules fire on any change under scripts/ (the scripts and their tests), the
+# backend/frontend trees some tests read as fixtures, and this file.
+script-tests:
+  stage: test
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &script-tests-paths
+        - .gitlab-ci.yml
+        - .trivyignore.yaml
+        - scripts/**/*
+        - .claude/kaizen-yield-state.json
+        - backend/boards/**/*
+        - backend/groups/**/*
+        - backend/git_lens/**/*
+        - backend/webhooks/**/*
+        - frontend/src/hooks/**/*
+        - frontend/src/components/Board/BoardView.tsx
+        - frontend/src/pages/GroupDetail.tsx
+        - frontend/package.json
+        - docs/**/*
+        - README.md
+        - VISIBAN_FEATURES.md
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *script-tests-paths
+  before_script:
+    - apk add --no-cache bash git python3 jq nodejs npm perl perl-utils coreutils grep gawk patch
+    - git config --global --add safe.directory '*'
+    - git config --global user.email ci@example.invalid
+    - git config --global user.name ci
+  script:
+    - bash scripts/check-script-tests-wired.sh --self-test
+    - bash scripts/check-script-tests-wired.sh
+    - bash scripts/tests/check-broadcast-deferral.test.sh
+    - bash scripts/tests/check-docs-version-accuracy.test.sh
+    - bash scripts/tests/check-gate-selftest-parity.test.sh
+    - bash scripts/tests/check-serializer-ts-parity.test.sh
+    - bash scripts/tests/check-trivyignore-expiry.test.sh
+    - bash scripts/tests/check-ws-event-reachability.test.sh
+    - bash scripts/tests/close-milestone-issues.test.sh
+    - bash scripts/tests/kaizen_fastpath_proposal.test.sh
+    - bash scripts/tests/kaizen_yield_watch.test.sh
+    - bash scripts/tests/npm-audit-gate.test.sh
+    - bash scripts/tests/osv-severity-gate.test.sh
+    - bash scripts/tests/resolve-docs-version.test.sh
+    - bash scripts/tests/wt-doctor-drift.test.sh
+  allow_failure: false
+
 # Stale version claims in the docs are silent misinformation (#1083): a
 # "Coming in 1.1" line after 1.1 shipped, or an RC banner surviving a GA tag.
 # Scans README.md, VISIBAN_FEATURES.md and docs/**, reads the current version

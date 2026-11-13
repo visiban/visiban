@@ -4,6 +4,7 @@ import type { BoardTemplate, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import Spinner from "../Common/Spinner";
 import { isImeComposing } from "../../utils/imeComposition";
+import SelectedCheck from "../Common/SelectedCheck";
 
 // ---------------------------------------------------------------------------
 // Static icon map — SVG paths kept inline to avoid adding a dependency.
@@ -253,13 +254,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             <span className="text-fg text-sm font-medium leading-tight">{t.name}</span>
                             {/* Non-color selection cue (#2171): the card's border and tint alone fail WCAG 1.4.1. */}
                             {/* Reserved slot so selecting never rewraps a long name. */}
-                            <span aria-hidden="true" className="ml-auto w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info">
-                              {isSelected && (
-                                <svg data-testid="template-selected-mark" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 8.5l3.5 3.5L13 4.5" />
-                                </svg>
-                              )}
-                            </span>
+                            <SelectedCheck selected={isSelected} testId="template-selected-mark" slotClassName="ml-auto w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info" iconClassName="w-3.5 h-3.5" />
                           </div>
 
                           {/* Description */}
@@ -312,13 +307,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                           </div>
                           <span className="text-fg-muted text-xs flex-shrink-0">No preset columns</span>
                           {/* Reserved slot so selecting the row does not shift its text. */}
-                          <span aria-hidden="true" className="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info">
-                            {isSelected && (
-                              <svg data-testid="template-selected-mark" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 8.5l3.5 3.5L13 4.5" />
-                              </svg>
-                            )}
-                          </span>
+                          <SelectedCheck selected={isSelected} testId="template-selected-mark" slotClassName="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-info" iconClassName="w-3.5 h-3.5" />
                         </label>
                       </div>
                     );
