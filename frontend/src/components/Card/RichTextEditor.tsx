@@ -263,7 +263,21 @@ function ColorPicker({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      // Tab out of the open popover discards it silently (a null relatedTarget is a
+      // window blur or a removed node, not a Tab, and must not close it).
+      onBlur={(e) => {
+        if (!open || !e.relatedTarget) return;
+        // Settle first: a pointer press inside the panel moves focus through
+        // transient targets, so judge where focus actually landed.
+        setTimeout(() => {
+          const now = document.activeElement;
+          if (now && now !== document.body && !ref.current?.contains(now)) close();
+        }, 0);
+      }}
+    >
       <button
         type="button"
         onMouseDown={(e) => { e.preventDefault(); toggle(); }}
@@ -339,6 +353,7 @@ function ColorPicker({
                 onClick={(e) => { if (e.detail === 0) openCustom(); }}
                 title="Custom"
                 aria-label="Text color Custom"
+                aria-haspopup="dialog"
                 aria-pressed={customSelected}
                 className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   customSelected
