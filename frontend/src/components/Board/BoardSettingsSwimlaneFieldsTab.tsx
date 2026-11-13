@@ -100,6 +100,7 @@ function hasChoices(t: CustomFieldType): boolean {
 // Deliberately different from the card tab's 30/2 — see the derivation on the
 // model. Keep these in step with the backend; the server is authoritative and
 // will 400 regardless, these only drive the local affordances.
+const PIN_ERROR = "Couldn't change that pin. The list now shows what is pinned.";
 const FIELD_CAP = 15;
 const PIN_CAP = 8;
 
@@ -198,6 +199,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   };
 
   const handlePin = (def: SwimlaneCustomFieldDefinition) => {
+    setSwapError(null);
     if (def.show_on_row) { void savePin(def, false); return; }
     if (pinnedCount >= PIN_CAP) { setSwapPromptId(def.id); return; }
     void savePin(def, true);
@@ -210,7 +212,14 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       const updated = await updateSwimlaneCustomFieldDefinition(board.id, def.id, { show_on_row: pinned });
       commit(fields.map((f) => (f.id === def.id ? updated : f)));
     } catch {
-      setFields(prev);
+      // The server may have refused on a stale count (#2193): say so and
+      // re-sync, keeping the pre-click list only if the re-sync fails too.
+      setSwapError(PIN_ERROR);
+      try {
+        commit(await listSwimlaneCustomFieldDefinitions(board.id));
+      } catch {
+        setFields(prev);
+      }
     }
   };
 
@@ -227,7 +236,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       const pinned = await updateSwimlaneCustomFieldDefinition(board.id, newId, { show_on_row: true });
       commit(fields.map((f) => (f.id === replaceId ? unpinned! : f.id === newId ? pinned : f)));
     } catch {
-      setSwapError("Couldn't replace the pinned field. Nothing else was changed; try again.");
+      setSwapError("Couldn't finish replacing the pinned field. The list now shows what is pinned; try again.");
       try {
         commit(await listSwimlaneCustomFieldDefinitions(board.id));
       } catch {
@@ -302,6 +311,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
 
     setSaving(true);
     setFormError(null);
+    setSwapError(null);
     try {
       if (editingId === "new") {
         const created = await createSwimlaneCustomFieldDefinition(board.id, {
@@ -313,15 +323,28 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           ...numberFormat,
           is_admin_only: form.is_admin_only,
         });
-        let finalDef = created;
+        // Commit the created field first: if the follow-up pin is refused the
+        // field still exists server-side, and a second Save would re-create it.
+        commit([...fields, created]);
         // At the cap the pin goes through the swap prompt (the editor's "you'll
         // pick a swap" hint), never a PATCH the server refuses (#2193).
         let swapFor: number | null = null;
         if (form.show_on_row) {
           if (pinnedCount >= PIN_CAP) swapFor = created.id;
-          else finalDef = await updateSwimlaneCustomFieldDefinition(board.id, created.id, { show_on_row: true });
+          else {
+            try {
+              const pinned = await updateSwimlaneCustomFieldDefinition(board.id, created.id, { show_on_row: true });
+              commit([...fields, pinned]);
+            } catch {
+              setSwapError(PIN_ERROR);
+              try {
+                commit(await listSwimlaneCustomFieldDefinitions(board.id));
+              } catch {
+                // Re-sync failed: the created field is already in the list.
+              }
+            }
+          }
         }
-        commit([...fields, finalDef]);
         setSwapPromptId(swapFor);
       } else if (editingId !== null) {
         // #2193: the editor's pin toggle used to be read on create only, so

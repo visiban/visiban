@@ -263,11 +263,81 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
       await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't replace/);
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't finish replacing the pinned field/);
       expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
       expect(onFieldsUpdated).toHaveBeenCalledWith(serverState);
       expect(screen.getByRole("button", { name: /Pin Sprint/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Pin Cost/ })).toBeInTheDocument();
+    });
+
+    it("keeps only the confirmed unpin when the re-sync itself fails", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      const unpinned = { ...d[0], show_on_card: false };
+      vi.mocked(boardsApi.updateCustomFieldDefinition)
+        .mockResolvedValueOnce(unpinned)
+        .mockRejectedValueOnce(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockRejectedValue(new Error("offline"));
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledTimes(1));
+      expect(onFieldsUpdated).toHaveBeenCalledWith([unpinned, d[1], d[2]]);
+    });
+
+    it("never sends the pin and shows an alert when the unpin itself fails", async () => {
+      const user = userEvent.setup();
+      const d = defs();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValueOnce(new Error("500"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue(d);
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /Pin Cost/ }));
+      await user.click(screen.getAllByRole("button", { name: /Replace/ })[0]);
+
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1);
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_card: false });
+    });
+  });
+
+  describe("refused pins on the other paths (#2193)", () => {
+    it("the row Pin button shows an alert and re-syncs when the server refuses", async () => {
+      const user = userEvent.setup();
+      const d = [makeDefinition({ id: 1, name: "Sprint" }), makeDefinition({ id: 2, name: "Cost", position: 1 })];
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue(d);
+      render(<BoardSettingsFieldsTab board={makeBoard(d)} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /Pin Sprint/ }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't change that pin/);
+      expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
+      expect(screen.getByRole("button", { name: /Pin Sprint/ })).toBeInTheDocument();
+    });
+
+    it("a created field stays in the list, is not re-created, and an alert shows when its follow-up pin is refused", async () => {
+      const user = userEvent.setup();
+      const defs = [makeDefinition({ id: 1, name: "Sprint", show_on_card: true })];
+      const created = makeDefinition({ id: 9, name: "Region", position: 1 });
+      vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("400"));
+      vi.mocked(boardsApi.listCustomFieldDefinitions).mockResolvedValue([...defs, created]);
+      const onFieldsUpdated = vi.fn();
+      render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={onFieldsUpdated} />);
+
+      await user.click(screen.getByRole("button", { name: "+ Add field" }));
+      await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Region");
+      await user.click(screen.getByRole("switch", { name: "Pin to card face" }));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't change that pin/);
+      expect(boardsApi.listCustomFieldDefinitions).toHaveBeenCalledWith(1);
+      expect(onFieldsUpdated).toHaveBeenLastCalledWith([...defs, created]);
+      expect(screen.getByRole("button", { name: /Pin Region/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save field" })).not.toBeInTheDocument();
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledTimes(1);
     });
   });
 
