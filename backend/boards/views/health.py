@@ -73,5 +73,10 @@ class ReadinessView(APIView):
             errors["redis"] = _UNAVAILABLE
 
         if errors:
+            # ``errors`` is deprecated (1.3, #1728): it names the backing
+            # services to anonymous callers. It stays in every 1.x response
+            # because docs/api/health.md published its keys as a contract;
+            # removal is a 2.0 change (#1902). Consumers should read the
+            # status code.
             return Response({"status": "error", "errors": errors}, status=503)
         return Response({"status": "ok"})
