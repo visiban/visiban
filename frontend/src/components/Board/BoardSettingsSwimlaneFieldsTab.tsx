@@ -301,11 +301,22 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           is_admin_only: form.is_admin_only,
         });
         let finalDef = created;
+        // At the cap the pin goes through the swap prompt (the editor's "you'll
+        // pick a swap" hint), never a PATCH the server refuses (#2193).
+        let swapFor: number | null = null;
         if (form.show_on_row) {
-          finalDef = await updateSwimlaneCustomFieldDefinition(board.id, created.id, { show_on_row: true });
+          if (pinnedCount >= PIN_CAP) swapFor = created.id;
+          else finalDef = await updateSwimlaneCustomFieldDefinition(board.id, created.id, { show_on_row: true });
         }
         commit([...fields, finalDef]);
+        setSwapPromptId(swapFor);
       } else if (editingId !== null) {
+        // #2193: the editor's pin toggle used to be read on create only, so
+        // saving an existing field could not unpin, re-pin or pin it. Sent only
+        // when it changed, so a plain rename never touches the pin.
+        const current = fields.find((f) => f.id === editingId);
+        const pinChanged = current !== undefined && form.show_on_row !== current.show_on_row;
+        const needsSwap = pinChanged && form.show_on_row && pinnedCount >= PIN_CAP;
         const updated = await updateSwimlaneCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
@@ -314,8 +325,10 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
           is_admin_only: form.is_admin_only,
+          ...(pinChanged && !needsSwap ? { show_on_row: form.show_on_row } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
+        setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
     } catch (err: unknown) {

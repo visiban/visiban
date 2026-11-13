@@ -285,11 +285,22 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           ...numberFormat,
         });
         let finalDef = created;
+        // At the cap the pin goes through the swap prompt (the editor's "you'll
+        // pick a swap" hint), never a PATCH the server refuses (#2193).
+        let swapFor: number | null = null;
         if (form.show_on_card) {
-          finalDef = await updateCustomFieldDefinition(board.id, created.id, { show_on_card: true });
+          if (pinnedCount >= PIN_CAP) swapFor = created.id;
+          else finalDef = await updateCustomFieldDefinition(board.id, created.id, { show_on_card: true });
         }
         commit([...fields, finalDef]);
+        setSwapPromptId(swapFor);
       } else if (editingId !== null) {
+        // #2193: the editor's pin toggle used to be read on create only, so
+        // saving an existing field could not unpin, re-pin or pin it. Sent only
+        // when it changed, so a plain rename never touches the pin.
+        const current = fields.find((f) => f.id === editingId);
+        const pinChanged = current !== undefined && form.show_on_card !== current.show_on_card;
+        const needsSwap = pinChanged && form.show_on_card && pinnedCount >= PIN_CAP;
         const updated = await updateCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
@@ -297,8 +308,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
+          ...(pinChanged && !needsSwap ? { show_on_card: form.show_on_card } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
+        setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
     } catch {
