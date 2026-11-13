@@ -446,7 +446,11 @@ class WebhookFuzzFixtureTests(TestCase):
 
         # DELETE targets a freshly minted row, as the hook does, so the shared
         # fixture subscription survives for the rest of the run.
-        disposable = hooks._mint_disposable_webhook()
+        # _mint_disposable_webhook reads the module-level _IDS (computed at
+        # import), so install this test's ids for the call instead of relying
+        # on whatever an earlier test left behind.
+        with mock.patch.dict(hooks._IDS, ids):
+            disposable = hooks._mint_disposable_webhook()
         self.assertIsNotNone(disposable)
         self.assertEqual(client.delete(f"{base}{disposable}/").status_code, 204)
         self.assertFalse(WebhookSubscription.objects.filter(pk=disposable).exists())
