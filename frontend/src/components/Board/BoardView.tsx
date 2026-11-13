@@ -1479,6 +1479,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // status below. One key, so a later result replaces an earlier one.
   const [cardActionAnnouncement, setCardActionAnnouncement] = useState("");
   const cardActionStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The bulk toolbar's status slot (#2173), controlled here so a context-menu
+  // or palette result over this same selection reports where the user is
+  // already looking instead of in a toast above the toolbar.
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  useEffect(() => { if (selectedCardIds.size === 0) setBulkMessage(null); }, [selectedCardIds.size]);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);
@@ -1488,7 +1493,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     dismissToast(CARD_ACTION_TOAST_KEY);
     dismissToast(CARD_NOT_FOUND_TOAST_KEY);
   }, [dismissToast]);
-  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced") => {
+  // The toolbar is up exactly while a selection exists and the user can edit
+  // (the render condition below); mirrored in a ref for the stable callbacks.
+  const toolbarUpRef = useRef(false);
+  toolbarUpRef.current = selectedCardIds.size > 0 && canEdit;
+  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced", selectionResult = false) => {
+    // A failure or partial result of an action whose target set is the whole
+    // selection goes to the toolbar's slot while it is up. A full success
+    // clears the selection (unmounting the toolbar), so success still goes to
+    // the toast or the announcer; a single card outside the selection keeps
+    // the toast.
+    if (selectionResult && requested === "failed" && toolbarUpRef.current) {
+      dismissToast(CARD_ACTION_TOAST_KEY);
+      setBulkMessage(text);
+      return;
+    }
     // Announce-only is for a change visible on the board grid; from Summary,
     // History, Analytics or Lens the grid is not in view, so show it too.
     const kind = requested === "announced" && viewRef.current !== "board" ? "shown" : requested;
@@ -1549,7 +1568,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const selected = cardActionStateRef.current.selectedCardIds;
     const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
     const finish = (failure: string | null, success: string, alreadyShown = false) => {
-      if (failure) { reportCardAction(failure, "failed"); return; }
+      if (failure) { reportCardAction(failure, "failed", isWholeSelection); return; }
       // Skip the result when another toast already reported and announced the same
       // outcome ("Card archived"), on the board view (a second live announcement) and
       // off it (a second toast).
@@ -1580,7 +1599,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "move": {
         const column = current.columns.find((c) => c.id === Number(value));
         if (!column) return;
-        const r = await moveCardsToColumn(current.id, cards, column);
+        const r = await moveCardsToColumn(current.id, cards, column, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("move", cards, column.name));
         return;
@@ -1588,20 +1607,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "assign": {
         const userId = value == null ? null : Number(value);
         const member = current.members.find((m) => m.user.id === userId);
-        const r = await assignCards(current.id, cards, userId);
+        const r = await assignCards(current.id, cards, userId, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("assign", cards, member ? userDisplayName(member.user) : undefined));
         return;
       }
       case "priority": {
         const priority = String(value) as Card["priority"];
-        const r = await setCardsPriority(current.id, cards, priority);
+        const r = await setCardsPriority(current.id, cards, priority, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("priority", cards, priority));
         return;
       }
       case "archive": {
-        const r = await archiveCards(current.id, cards);
+        const r = await archiveCards(current.id, cards, cardActionStateRef.current.cardActionContext);
         r.done.forEach((id) => onCardArchived(id));
         if (r.done.length > 0) {
           showArchiveToast();
@@ -3427,7 +3446,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onClose={(failure, canceled) => {
               const firstId = deleteTargetIds[0];
               setDeleteTargetIds(null);
-              if (failure) reportCardAction(failure, "failed");
+              const sel = cardActionStateRef.current.selectedCardIds;
+              const wholeSelection = delCards.length === sel.size && delCards.every((c) => sel.has(c.id));
+              if (failure) reportCardAction(failure, "failed", wholeSelection);
               else if (!canceled && delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
               setTimeout(() => focusCardOrBoard(firstId), 0);
             }}
@@ -3448,6 +3469,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onCardsArchived={(ids) => { ids.forEach(onCardArchived); if (ids.length > 0) showArchiveToast(); }}
           onClearSelection={clearSelection}
           currentUser={currentUser}
+          cardActionCtx={cardActionContext}
+          message={bulkMessage}
+          onMessageChange={setBulkMessage}
         />
       )}
 

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import BulkActionToolbar from '../components/Board/BulkActionToolbar'
+import { useState, type ComponentProps } from 'react'
+import RealBulkActionToolbar from '../components/Board/BulkActionToolbar'
+import type { CardActionContext } from '../utils/cardActions'
 import type { BoardFull, Card } from '../types'
 
 vi.mock('../api/cards', () => ({
@@ -18,6 +20,22 @@ const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
 const mockArchiveCard = archiveCard as ReturnType<typeof vi.fn>
+
+// BoardView owns the availability context and the status slot's text (#2173);
+// this host stands in for it, deriving the context from the board as BoardView does.
+type ToolbarProps = Omit<ComponentProps<typeof RealBulkActionToolbar>, 'cardActionCtx' | 'message' | 'onMessageChange'> & { cardActionCtx?: CardActionContext }
+function BulkActionToolbar({ cardActionCtx, ...props }: ToolbarProps) {
+  const [message, setMessage] = useState<string | null>(null)
+  const { board, currentUser } = props
+  const ctx: CardActionContext = cardActionCtx ?? {
+    role: board.current_user_role,
+    currentUserId: currentUser?.id ?? null,
+    isModerator: board.members.some((m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator),
+    demoMode: false,
+    maintenanceBlocked: false,
+  }
+  return <RealBulkActionToolbar {...props} cardActionCtx={ctx} message={message} onMessageChange={setMessage} />
+}
 
 function makeBoard(): BoardFull {
   return {
@@ -742,9 +760,12 @@ describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
   })
 
   it('still shows bulk Delete outside demo mode', () => {
+    // Visitor-created cards: this asserts the demo carve-out only, not ownership refusal.
+    const own = memberBoard()
+    own.cards = own.cards.map((c) => ({ ...c, created_by: { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' } }))
     render(
       <BulkActionToolbar
-        board={memberBoard()}
+        board={own}
         selectedCardIds={new Set([100, 101])}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
@@ -791,7 +812,7 @@ describe('BulkActionToolbar — partial failure reporting (#1733)', () => {
     const { onCardsUpdated, onClearSelection } = renderToolbar()
     await user.click(screen.getByText('Assign to...'))
     await user.click(screen.getByText('Jane Doe'))
-    expect(await screen.findByText(/1 of 2 cards could not be assigned — you do not have permission/)).toBeInTheDocument()
+    expect(await screen.findByText(/1 of 2 cards could not be assigned — you can only assign cards you created/)).toBeInTheDocument()
     expect(onCardsUpdated).toHaveBeenCalledWith([ok])
     expect(onClearSelection).not.toHaveBeenCalled()
   })
@@ -930,3 +951,129 @@ describe('BulkActionToolbar — partial failure reporting (#1733)', () => {
   })
 })
 
+
+
+describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () => {
+  const visitor = {
+    id: 99, username: 'visitor', email: '', first_name: '', last_name: '', avatar_url: '',
+    display_name: 'Visitor', is_site_admin: false, must_change_password: false, must_change_username: false,
+  }
+  const mine = { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' }
+  const theirs = { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' }
+  const memberBoard = (creators: Array<typeof mine>): BoardFull => {
+    const b = makeBoard()
+    return {
+      ...b,
+      current_user_role: 'member',
+      members: [{ id: 2, user: visitor, role: 'member', is_moderator: false, joined_at: '' }, ...b.members],
+      cards: b.cards.map((c, i) => ({ ...c, created_by: creators[i] })),
+    }
+  }
+  const renderMember = (creators: Array<typeof mine>, over: object = {}) => {
+    const props = { onCardsUpdated: vi.fn(), onClearSelection: vi.fn(), onCardsArchived: vi.fn(), ...over }
+    render(
+      <BulkActionToolbar
+        board={memberBoard(creators)}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={props.onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={props.onCardsArchived}
+        onClearSelection={props.onClearSelection}
+        currentUser={visitor}
+      />
+    )
+    return props
+  }
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('all selected cards refused: Assign is aria-disabled, focusable, reason in title and description', () => {
+    renderMember([theirs, theirs])
+    const assign = screen.getByRole('button', { name: 'Assign to...' })
+    expect(assign).toHaveAttribute('aria-disabled', 'true')
+    expect(assign).not.toBeDisabled()
+    expect(assign).toHaveAttribute('title', "Only the card's creator or a board admin")
+    const describedBy = assign.getAttribute('aria-describedby')!
+    expect(document.getElementById(describedBy)).toHaveTextContent("Only the card's creator or a board admin")
+    for (const name of ['Priority...', 'Archive']) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true')
+    }
+  })
+
+  it('activating a refused button makes no request, opens no menu and writes the reason to the slot', async () => {
+    const user = userEvent.setup()
+    renderMember([theirs, theirs])
+    await user.click(screen.getByRole('button', { name: 'Assign to...' }))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(mockUpdateCard).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be assigned — you can only assign cards you created.')
+    await user.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(mockArchiveCard).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be archived — you can only archive cards you created.')
+  })
+
+  it('keyboard activation of a refused trigger also writes the reason', async () => {
+    const user = userEvent.setup()
+    renderMember([theirs, theirs])
+    screen.getByRole('button', { name: 'Priority...' }).focus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('could not be updated — you can only edit cards you created.')
+  })
+
+  it('mixed selection: skips known-refused cards, counts them failed with the ownership reason and keeps the selection', async () => {
+    const user = userEvent.setup()
+    const updated = { ...makeBoard().cards[0], priority: 'high' as const }
+    mockUpdateCard.mockResolvedValueOnce(updated)
+    const { onCardsUpdated, onClearSelection } = renderMember([mine, theirs])
+    const priority = screen.getByRole('button', { name: 'Priority...' })
+    expect(priority).not.toHaveAttribute('aria-disabled')
+    await user.click(priority)
+    await user.click(screen.getByText('high'))
+    expect(mockUpdateCard).toHaveBeenCalledTimes(1)
+    expect(mockUpdateCard.mock.calls[0][1]).toBe(100)
+    expect(onCardsUpdated).toHaveBeenCalledWith([updated])
+    expect(await screen.findByText(/1 of 2 cards could not be updated — you can only edit cards you created\./)).toBeInTheDocument()
+    expect(onClearSelection).not.toHaveBeenCalled()
+  })
+
+  it('mixed Move: a card assigned to someone else is skipped, the rest are moved serially', async () => {
+    const user = userEvent.setup()
+    const b = memberBoard([theirs, theirs])
+    b.cards = [{ ...b.cards[0], assignee: theirs as never }, { ...b.cards[1], assignee: visitor as never }]
+    mockMoveCard.mockResolvedValue({ card: b.cards[1] })
+    render(
+      <BulkActionToolbar board={b} selectedCardIds={new Set([100, 101])} onCardsUpdated={vi.fn()} onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()} onClearSelection={vi.fn()} currentUser={visitor} />
+    )
+    await user.click(screen.getByRole('button', { name: 'Move to...' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Done' }))
+    expect(mockMoveCard).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText(/1 of 2 cards could not be moved — a card assigned to someone else can only be moved by its creator, its assignee or a board admin\./)).toBeInTheDocument()
+  })
+
+  it('an unknown creator stays enabled (lenient rule) and the server decides', () => {
+    const b = memberBoard([theirs, theirs])
+    b.cards = b.cards.map((c) => ({ ...c, created_by: null }))
+    render(
+      <BulkActionToolbar board={b} selectedCardIds={new Set([100, 101])} onCardsUpdated={vi.fn()} onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()} onClearSelection={vi.fn()} currentUser={visitor} />
+    )
+    expect(screen.getByRole('button', { name: 'Assign to...' })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('an admin is never refused, and maintenance mode names itself', () => {
+    render(
+      <BulkActionToolbar board={makeBoard()} selectedCardIds={new Set([100])} onCardsUpdated={vi.fn()} onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()} onClearSelection={vi.fn()} />
+    )
+    expect(screen.getByRole('button', { name: 'Assign to...' })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('busy keeps native disabled', async () => {
+    const user = userEvent.setup()
+    mockArchiveCard.mockReturnValue(new Promise(() => {}))
+    renderMember([mine, mine])
+    await user.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeDisabled()
+  })
+})
