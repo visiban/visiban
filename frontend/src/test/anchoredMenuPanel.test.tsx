@@ -5,7 +5,6 @@ import { fireEvent, render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CheckboxDropdown from "../components/Common/CheckboxDropdown";
 import SavedFiltersDropdown from "../components/Board/SavedFiltersDropdown";
-import { useEscapeStack } from "../hooks/useEscapeStack";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
