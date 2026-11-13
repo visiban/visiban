@@ -36,6 +36,7 @@ import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
+import { parseCardDetailTab, rememberCardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
@@ -1104,6 +1105,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (!cardId) return;
     const card = board.cards.find((c) => c.id === cardId);
     if (card) {
+      // `&tab=comments|history|details` (#967) overrides the session's
+      // remembered card tab; an unknown value keeps it, silently.
+      const deepLinkTab = parseCardDetailTab(searchParams.get("tab"));
+      if (deepLinkTab) rememberCardDetailTab(deepLinkTab);
       setSelectedCard(card);
       setHighlightedCardId(cardId);
       if (highlightedCardTimerRef.current !== null) {
@@ -1113,9 +1118,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setHighlightedCardId(null);
         highlightedCardTimerRef.current = null;
       }, 1500);
-      setSearchParams((prev) => { prev.delete("card"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
     } else {
-      setSearchParams((prev) => { prev.delete("card"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
       // Check whether the card is archived so we can show a contextual message.
       getCardStatus(board.id, cardId)
         .then((status) => {

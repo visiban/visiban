@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ActivityTabPanel from "../components/Card/ActivityTabPanel";
 
@@ -134,58 +134,116 @@ describe("ActivityTabPanel", () => {
     });
   });
 
-  it("defaults to Column moves filter — initial fetch includes event_types=move", async () => {
-    mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry({ id: 1 })]));
-    render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => {
-      const firstCall = mockGetTimeline.mock.calls[0];
-      expect(firstCall[2]).toMatchObject({ event_types: "move" });
+  describe("type filter toggles (#967)", () => {
+    const COUNTS = { move: 4, comment: 3, field: 2, checklist: 1, attachment: 0, system: 0 };
+    const group = () => screen.getByRole("group", { name: "Show" });
+    const toggle = (name: RegExp) => within(group()).getByRole("button", { name });
+    const lastParams = () => mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1][2];
+
+    it("shows six aria-pressed toggles, all on, and fetches unfiltered with counts", async () => {
+      mockGetTimeline.mockResolvedValue({ ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS });
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("To Do → In Progress"));
+      const params = mockGetTimeline.mock.calls[0][2];
+      expect(params).not.toHaveProperty("event_types");
+      expect(params).toMatchObject({ include_counts: true });
+      const buttons = within(group()).getAllByRole("button");
+      expect(buttons.map((b) => b.textContent)).toEqual([
+        "Column moves4", "Comments3", "Field changes2", "Checklist1", "Attachments0", "System events0",
+      ]);
+      buttons.forEach((b) => expect(b).toHaveAttribute("aria-pressed", "true"));
+      // The dropdown is gone.
+      expect(screen.queryByRole("button", { name: /^filter/i })).not.toBeInTheDocument();
     });
-    // Filter trigger label reflects the default selection
-    expect(screen.getByRole("button", { name: /filter: column moves/i })).toBeInTheDocument();
+
+    it("shows no count while counts are unknown, never 0", async () => {
+      mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry({ id: 1 })]));
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("To Do → In Progress"));
+      expect(toggle(/Comments/).textContent).toBe("Comments");
+    });
+
+    it("turning a type off re-fetches with the remaining groups, keeping each count", async () => {
+      mockGetTimeline.mockResolvedValue({ ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS });
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("To Do → In Progress"));
+      await userEvent.setup().click(toggle(/Comments/));
+      await waitFor(() =>
+        expect(lastParams()).toMatchObject({ event_types: "move,field,checklist,attachment,system", include_counts: true }));
+      expect(toggle(/Comments/)).toHaveAttribute("aria-pressed", "false");
+      expect(toggle(/Comments/).textContent).toBe("Comments3");
+      // Turning it back on restores the unfiltered request, in group order.
+      await userEvent.setup().click(toggle(/Comments/));
+      await waitFor(() => expect(lastParams()).not.toHaveProperty("event_types"));
+    });
+
+    it("keeps the last type on: it is aria-disabled with the reason and ignores clicks", async () => {
+      mockGetTimeline.mockResolvedValue({ ...makeTimelinePage([]), counts: COUNTS });
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => group());
+      const user = userEvent.setup();
+      for (const name of [/Comments/, /Field changes/, /Checklist/, /Attachments/, /System events/]) {
+        await user.click(toggle(name));
+      }
+      await waitFor(() => expect(lastParams()).toMatchObject({ event_types: "move" }));
+      const moves = toggle(/Column moves/);
+      expect(moves).toHaveAttribute("aria-pressed", "true");
+      expect(moves).toHaveAttribute("aria-disabled", "true");
+      expect(moves).toHaveAttribute("title", "At least one type stays shown");
+      expect(moves).toHaveAccessibleDescription("At least one type stays shown");
+      const calls = mockGetTimeline.mock.calls.length;
+      await user.click(moves);
+      expect(moves).toHaveAttribute("aria-pressed", "true");
+      expect(mockGetTimeline.mock.calls.length).toBe(calls);
+      // Another type on again: Column moves is no longer the last one.
+      await user.click(toggle(/Comments/));
+      expect(toggle(/Column moves/)).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("a filtered empty result offers Show all types, which turns every type back on", async () => {
+      mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("No activity yet"));
+      await userEvent.setup().click(toggle(/Column moves/));
+      await waitFor(() => screen.getByText("No events match the current filter"));
+      await userEvent.setup().click(screen.getByRole("button", { name: "Show all types" }));
+      await waitFor(() => expect(lastParams()).not.toHaveProperty("event_types"));
+      expect(toggle(/Column moves/)).toHaveAttribute("aria-pressed", "true");
+    });
   });
 
-  it("shows filter-active empty state when default filter yields no results", async () => {
-    // Card has no move events at all — default ["move"] filter returns empty
-    mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
-    render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => {
-      expect(screen.getByText("No events match the current filter")).toBeInTheDocument();
+  describe("first page from CardDetail (#967)", () => {
+    const COUNTS = { move: 1, comment: 0, field: 0, checklist: 0, attachment: 0, system: 0 };
+
+    it("uses initialPage instead of fetching, and adopts a refetched one", async () => {
+      const page = { ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS };
+      const { rerender } = render(<ActivityTabPanel boardId={1} cardId={1} initialPage={page} />);
+      expect(screen.getByText("To Do → In Progress")).toBeInTheDocument();
+      expect(mockGetTimeline).not.toHaveBeenCalled();
+      const next = { ...makeTimelinePage([makeEntry({ id: 9 })]), counts: { ...COUNTS, field: 1 } };
+      rerender(<ActivityTabPanel boardId={1} cardId={1} initialPage={next} />);
+      await waitFor(() => screen.getByText("Priority: low → high"));
+      expect(mockGetTimeline).not.toHaveBeenCalled();
     });
-    expect(screen.getByText("Clear filter")).toBeInTheDocument();
-  });
 
-  it('"Clear filter" button empties the selection and re-fetches without event_types', async () => {
-    mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
-    render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => screen.getByText("Clear filter"));
-
-    await userEvent.setup().click(screen.getByText("Clear filter"));
-    await waitFor(() => {
-      const lastCall = mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1];
-      expect(lastCall[2]).not.toHaveProperty("event_types");
+    it("a filtered view re-fetches on refreshSignal and reports its first page", async () => {
+      const page = { ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS };
+      mockGetTimeline.mockResolvedValue(page);
+      const onFirstPage = vi.fn();
+      const { rerender } = render(<ActivityTabPanel boardId={1} cardId={1} initialPage={page} onFirstPage={onFirstPage} />);
+      await userEvent.setup().click(screen.getByRole("button", { name: /Comments/ }));
+      await waitFor(() => expect(mockGetTimeline).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onFirstPage).toHaveBeenCalledWith(page));
+      rerender(<ActivityTabPanel boardId={1} cardId={1} initialPage={page} onFirstPage={onFirstPage} refreshSignal={1} />);
+      await waitFor(() => expect(mockGetTimeline).toHaveBeenCalledTimes(2));
     });
-    // With selection now empty and no results, the generic empty-state message shows.
-    expect(screen.getByText("No activity yet")).toBeInTheDocument();
-  });
 
-  it("unchecking Column moves from the default selection triggers an unfiltered re-fetch", async () => {
-    mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry({ id: 1 })]));
-    render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => screen.getByText("To Do → In Progress"));
-
-    // Initial call includes event_types=move
-    expect(mockGetTimeline.mock.calls[0][2]).toMatchObject({ event_types: "move" });
-
-    // Open dropdown; Column moves is pre-checked. Click to uncheck it.
-    await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
-    const moveCheckbox = screen.getByLabelText("Column moves");
-    expect(moveCheckbox).toBeChecked();
-    await userEvent.setup().click(moveCheckbox);
-
-    await waitFor(() => {
-      const lastCall = mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1];
-      expect(lastCall[2]).not.toHaveProperty("event_types");
+    it("focuses the newest entry when asked, once", async () => {
+      const page = { ...makeTimelinePage([makeMoveEntry({ id: 1 }), makeEntry({ id: 2 })]), counts: COUNTS };
+      const onFocused = vi.fn();
+      render(<ActivityTabPanel boardId={1} cardId={1} initialPage={page} focusFirstEntry onFirstEntryFocused={onFocused} />);
+      await waitFor(() => expect(onFocused).toHaveBeenCalledTimes(1));
+      expect(document.activeElement).toBe(screen.getAllByRole("listitem")[0]);
     });
   });
 

@@ -153,7 +153,7 @@ test.describe('hosted demo visitor loop', () => {
     await addRelation.click({ force: true })
     await expect(dialog.getByRole('radio', { name: 'Blocked by' })).toHaveCount(0)
 
-    await dialog.getByRole('tab', { name: 'activity' }).click()
+    await dialog.getByRole('tab', { name: /^History/ }).click()
     await expect(dialog.getByText('To Do → Done')).toBeVisible({ timeout: 5_000 })
     await page.keyboard.press('Escape')
 

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -15,17 +15,19 @@ import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
-import { deleteCard, archiveCard, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
-import type { CardPatch } from "../../api/cards";
+import { deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
+import type { CardPatch, TimelineCounts, TimelinePage } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 import ActivityTabPanel from "./ActivityTabPanel";
+import { CARD_DETAIL_TABS, HISTORY_PAGE_LIMIT, getRememberedCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "./cardDetailTabMemory";
+import { lastActivitySummary } from "../../utils/cardTimelineLabels";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
-import { formatDateStr, formatDueDate, formatDateTimeUser } from "../../utils/date";
+import { formatDateStr, formatDueDate, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
@@ -138,6 +140,8 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
   );
 }
 
+const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
+
 export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
@@ -156,7 +160,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
   const [commentDeleteError, setCommentDeleteError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
-  const [tab, setTab] = useState<"details" | "activity">("details");
+  // Opens on the tab chosen last this session, or a deep link's (#967).
+  const [tab, setTab] = useState<CardDetailTab>(getRememberedCardDetailTab);
+  const selectTab = (t: CardDetailTab) => {
+    setTab(t);
+    rememberCardDetailTab(t);
+  };
+  const tabRefs = useRef<Partial<Record<CardDetailTab, HTMLButtonElement | null>>>({});
+  // First unfiltered History page, fetched on open (#967, architect R1): it
+  // gives the History tab its count and the Details tab its Last activity
+  // line without opening History, and the tab then shows it with no wait.
+  const [historyPage, setHistoryPage] = useState<TimelinePage | null>(null);
+  const [historyCounts, setHistoryCounts] = useState<TimelineCounts | null>(null);
+  const [historyReload, setHistoryReload] = useState(0);
+  const [focusFirstHistoryEntry, setFocusFirstHistoryEntry] = useState(false);
+  const clearHistoryFocusRequest = useCallback(() => setFocusFirstHistoryEntry(false), []);
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(PALETTE_COLORS[0]);
@@ -482,6 +500,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     getChecklist(board.id, card.id).then(setChecklist).catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; board.id/card.id are stable for this instance's lifetime (BoardView remounts CardDetail via `key={selectedCard.id}` on card change)
   }, [refreshSignal]);
+  // Refetched on another session's change, on any saved edit (card.version),
+  // and after this session posts a comment, so the count and line stay true.
+  // A failure leaves the count unknown (no number, never 0); the History tab
+  // reports its own load error.
+  useEffect(() => {
+    let live = true;
+    getCardTimeline(board.id, card.id, { limit: HISTORY_PAGE_LIMIT, offset: 0, include_counts: true })
+      .then((page) => {
+        if (!live) return;
+        setHistoryPage(page);
+        if (page.counts) setHistoryCounts(page.counts);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [board.id, card.id, card.version, refreshSignal, historyReload]);
 
   // Dismiss confirm overlay before closing the panel so Escape has two stages:
   // first press dismisses the confirm, second press closes the panel.
@@ -920,6 +953,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       const c = await addCardComment(board.id, card.id, commentBody.trim());
       setComments((prev) => [...prev, c]);
       setCommentBody("");
+      setHistoryReload((n) => n + 1);
     } catch {
       // Typed text is kept so the user can retry without retyping.
       setCommentError("Could not post comment.");
@@ -1245,6 +1279,27 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const anchored = placement.mode === "anchored";
   const fullscreen = placement.mode === "fullscreen";
+  const commentCount = pendingSections.comments ? undefined : comments.length;
+  const historyCount = historyCounts ? Object.values(historyCounts).reduce((a, b) => a + b, 0) : undefined;
+  const lastHistoryEntry = historyPage?.results[0] ?? null;
+  const goToLatestHistory = () => {
+    selectTab("history");
+    setFocusFirstHistoryEntry(true);
+  };
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const i = CARD_DETAIL_TABS.indexOf(tab);
+    const last = CARD_DETAIL_TABS.length - 1;
+    const next =
+      e.key === "ArrowRight" ? CARD_DETAIL_TABS[i === last ? 0 : i + 1]
+      : e.key === "ArrowLeft" ? CARD_DETAIL_TABS[i === 0 ? last : i - 1]
+      : e.key === "Home" ? CARD_DETAIL_TABS[0]
+      : e.key === "End" ? CARD_DETAIL_TABS[last]
+      : null;
+    if (!next) return;
+    e.preventDefault();
+    selectTab(next);
+    tabRefs.current[next]?.focus();
+  };
   // Geometry per mode (#1914). Anchored: 540px beside the column, below the
   // board toolbar, rounded and elevated. Docked: full height at the right
   // edge, square with a left border. Full-screen: the whole viewport.
@@ -1460,21 +1515,38 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           >×</button>
         </div>
 
-        {/* Tabs */}
-        <div role="tablist" className="flex border-b border-line text-sm">
-          {(["details", "activity"] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`px-5 py-2.5 font-medium capitalize transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded ${
-                tab === t ? "border-b-2 border-info text-info" : "text-fg-muted hover:text-fg-secondary"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        {/* Tabs (#967): full tablist pattern with roving tabIndex. A count
+            is part of the tab's name ("Comments, 4") and is left out while
+            unknown, never shown as 0. */}
+        <div role="tablist" aria-label="Card sections" className="flex border-b border-line text-sm">
+          {CARD_DETAIL_TABS.map((t) => {
+            const count = t === "comments" ? commentCount : t === "history" ? historyCount : undefined;
+            return (
+              <button
+                key={t}
+                ref={(el) => { tabRefs.current[t] = el; }}
+                type="button"
+                role="tab"
+                id={`card-tab-${t}-${card.id}`}
+                aria-selected={tab === t}
+                // "Comments, 4": an explicit name, because a visually hidden
+                // comma span gets padded with spaces by name computation.
+                aria-label={count !== undefined ? `${TAB_LABELS[t]}, ${count}` : undefined}
+                aria-controls={`card-tabpanel-${card.id}`}
+                tabIndex={tab === t ? 0 : -1}
+                onClick={() => selectTab(t)}
+                onKeyDown={handleTabKeyDown}
+                className={`${fullscreen ? "px-3" : "px-5"} py-2.5 font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded ${
+                  tab === t ? "border-b-2 border-info text-info" : "text-fg-muted hover:text-fg-secondary"
+                }`}
+              >
+                {TAB_LABELS[t]}
+                {count !== undefined && (
+                  <span className="ml-1 font-normal text-fg-tertiary" data-testid={`card-tab-count-${t}`}>{count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {loadError && (
@@ -1487,7 +1559,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{loadingAnnouncement}</p>
 
         <div className="relative flex-1 overflow-hidden">
-          <div ref={bodyScrollRef} onScroll={updateBodyShadows} aria-busy={loading} className="h-full overflow-y-auto px-5 py-4 scroll-pb-10 scroll-pt-6">
+          <div ref={bodyScrollRef} onScroll={updateBodyShadows} aria-busy={loading} role="tabpanel" id={`card-tabpanel-${card.id}`} aria-labelledby={`card-tab-${tab}-${card.id}`} className="h-full overflow-y-auto px-5 py-4 scroll-pb-10 scroll-pt-6">
           {tab === "details" ? (
             <div className="flex flex-col gap-6">
 
@@ -2119,14 +2191,29 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </>))}
               </div>
 
-              <div className="border-t border-line" />
+              {/* Last activity (#967): one line, newest entry of any type. */}
+              {lastHistoryEntry && (
+                <button
+                  type="button"
+                  onClick={goToLatestHistory}
+                  data-testid="card-last-activity"
+                  className="self-start max-w-full text-left text-xs text-fg-tertiary hover:text-fg truncate rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Last activity: {lastActivitySummary(lastHistoryEntry, userDateFormat)} ·{" "}
+                  <time dateTime={lastHistoryEntry.ts} title={formatDateTimeUser(lastHistoryEntry.ts, currentUser)}>
+                    {formatRelativeTime(lastHistoryEntry.ts)}
+                  </time>
+                  <span className="sr-only">. Go to History</span>
+                </button>
+              )}
 
-              {/* Comments */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-3">
-                  Comments {comments.length > 0 && <span className="normal-case font-normal text-fg-muted">({comments.length})</span>}
-                </p>
+            </div>
+          ) : tab === "comments" ? (
+            <div>
                 {pendingSections.comments && <SectionSkeleton rows={2} testId="comments-skeleton" />}
+                {!pendingSections.comments && comments.length === 0 && (
+                  <p className="text-sm text-fg-tertiary mb-3">No comments yet</p>
+                )}
                 <div className="flex flex-col gap-3 mb-3">
                   {comments.map((c) => {
                     const authorName = c.author ? userDisplayName(c.author) : "Unknown";
@@ -2210,7 +2297,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   })}
                 </div>
                 {canComment && (
-                  <div className="flex flex-col gap-2">
+                  // Pinned to the bottom of the Comments tab (#967 design § 1.4),
+                  // so a note can be written without scrolling the thread.
+                  <div className="sticky -bottom-4 -mb-4 pb-4 pt-2 bg-surface flex flex-col gap-2">
                     <MentionTextarea
                       value={commentBody}
                       onChange={setCommentBody}
@@ -2244,10 +2333,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </div>
                 )}
               </div>
-
-            </div>
           ) : (
-            <ActivityTabPanel boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} user={currentUser} />
+            <ActivityTabPanel
+              boardId={board.id}
+              cardId={card.id}
+              userDateFormat={userDateFormat}
+              user={currentUser}
+              initialPage={historyPage}
+              refreshSignal={refreshSignal}
+              onFirstPage={(page) => { if (page.counts) setHistoryCounts(page.counts); }}
+              focusFirstEntry={focusFirstHistoryEntry}
+              onFirstEntryFocused={clearHistoryFocusRequest}
+            />
           )}
           </div>
           {/* Scroll shadows (frame 5): the header and footer stay put while

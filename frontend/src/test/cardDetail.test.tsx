@@ -14,6 +14,7 @@ vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
+  getCardTimeline: vi.fn().mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
   addCardComment: vi.fn(),
   deleteComment: vi.fn(),
   updateCard: vi.fn(),
@@ -35,7 +36,9 @@ vi.mock('../api/boards', () => ({
 }))
 
 vi.mock('../components/Card/ActivityTabPanel', () => ({
-  default: () => <div data-testid="activity-tab-panel">Activity</div>,
+  default: ({ focusFirstEntry }: { focusFirstEntry?: boolean }) => (
+    <div data-testid="activity-tab-panel" data-focus-first={String(!!focusFirstEntry)}>Activity</div>
+  ),
 }))
 
 vi.mock('../components/Card/MentionTextarea', () => ({
@@ -74,8 +77,11 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem, getCardTimeline } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
+import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+// #967: the card tab is session memory at module level; start every test on Details.
+beforeEach(() => rememberCardDetailTab('details'))
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockGetCardRelations = getCardRelations as ReturnType<typeof vi.fn>
@@ -206,16 +212,106 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
   })
 
-  it('renders details and activity tabs', () => {
+  it('renders Details, Comments and History tabs (#967)', () => {
     render(<CardDetail {...defaultProps()} />)
-    expect(screen.getByText('details')).toBeInTheDocument()
-    expect(screen.getByText('activity')).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Details', 'Comments', 'History'])
+    expect(screen.getByRole('tablist', { name: 'Card sections' })).toBeInTheDocument()
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', tabs[0].id)
   })
 
-  it('switches to activity tab and shows activity panel', async () => {
+  it('switches to the History tab and shows the activity panel', async () => {
     render(<CardDetail {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('activity'))
+    await userEvent.setup().click(screen.getByRole('tab', { name: /^History/ }))
     expect(screen.getByTestId('activity-tab-panel')).toBeInTheDocument()
+  })
+
+  describe('tabs (#967)', () => {
+    const timeline = () => getCardTimeline as ReturnType<typeof vi.fn>
+    const COUNTS = { move: 2, comment: 1, field: 1, checklist: 0, attachment: 0, system: 0 }
+    const movedEntry = {
+      id: 7, kind: 'move', ts: new Date(Date.now() - 2 * 3600_000).toISOString(),
+      actor: { id: 2, username: 'jordan', display_name: 'Jordan', avatar_url: '' },
+      event_type: 'move', imported_from_username: null,
+      data: { id: 7, from_column: 10, from_column_name: 'Doing', to_column: 11, to_column_name: 'Review' },
+    }
+
+    it('roves focus and selection with Left/Right/Home/End, wrapping at the ends', async () => {
+      render(<CardDetail {...defaultProps()} />)
+      const tab = (name: RegExp) => screen.getByRole('tab', { name })
+      expect(tab(/^Details/)).toHaveAttribute('tabindex', '0')
+      expect(tab(/^Comments/)).toHaveAttribute('tabindex', '-1')
+      tab(/^Details/).focus()
+      fireEvent.keyDown(tab(/^Details/), { key: 'ArrowRight' })
+      expect(tab(/^Comments/)).toHaveFocus()
+      expect(tab(/^Comments/)).toHaveAttribute('aria-selected', 'true')
+      expect(tab(/^Comments/)).toHaveAttribute('tabindex', '0')
+      fireEvent.keyDown(tab(/^Comments/), { key: 'End' })
+      expect(tab(/^History/)).toHaveFocus()
+      fireEvent.keyDown(tab(/^History/), { key: 'ArrowRight' })
+      expect(tab(/^Details/)).toHaveFocus()
+      fireEvent.keyDown(tab(/^Details/), { key: 'ArrowLeft' })
+      expect(tab(/^History/)).toHaveAttribute('aria-selected', 'true')
+      fireEvent.keyDown(tab(/^History/), { key: 'Home' })
+      expect(tab(/^Details/)).toHaveAttribute('aria-selected', 'true')
+      fireEvent.keyDown(tab(/^Details/), { key: 'a' })
+      expect(tab(/^Details/)).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('fetches the first History page with counts on open; the History tab shows their sum', async () => {
+      timeline().mockResolvedValue({ count: 4, next: null, previous: null, results: [movedEntry], counts: COUNTS })
+      render(<CardDetail {...defaultProps()} />)
+      expect(screen.queryByTestId('card-tab-count-history')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('card-tab-count-history')).toHaveTextContent('4'))
+      expect(timeline()).toHaveBeenCalledWith(1, 1, { limit: 50, offset: 0, include_counts: true })
+      expect(screen.queryByTestId('card-tab-count-details')).not.toBeInTheDocument()
+    })
+
+    it('leaves the History count unknown when the fetch fails or has no counts', async () => {
+      timeline().mockResolvedValue({ count: 4, next: null, previous: null, results: [] })
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(timeline()).toHaveBeenCalled())
+      expect(screen.getByRole('tab', { name: 'History' })).toBeInTheDocument()
+    })
+
+    it('ends Details with a Last activity line that selects History and asks it to focus the newest entry', async () => {
+      timeline().mockResolvedValue({ count: 4, next: null, previous: null, results: [movedEntry], counts: COUNTS })
+      render(<CardDetail {...defaultProps()} />)
+      const line = await screen.findByTestId('card-last-activity')
+      expect(line).toHaveTextContent('Last activity: Jordan moved to Review · 2h ago')
+      expect(line).toHaveAccessibleName(/Go to History$/)
+      await userEvent.setup().click(line)
+      expect(screen.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('activity-tab-panel')).toHaveAttribute('data-focus-first', 'true')
+    })
+
+    it('shows no Last activity line when the card has no history', async () => {
+      timeline().mockResolvedValue({ count: 0, next: null, previous: null, results: [], counts: { ...COUNTS, move: 0, comment: 0, field: 0 } })
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(screen.getByTestId('card-tab-count-history')).toHaveTextContent('0'))
+      expect(screen.queryByTestId('card-last-activity')).not.toBeInTheDocument()
+    })
+
+    it('opens on the tab chosen last, across remounts (session memory)', async () => {
+      const { unmount } = render(<CardDetail {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByRole('tab', { name: /^History/ }))
+      unmount()
+      render(<CardDetail {...defaultProps()} card={makeCard({ id: 2 })} />)
+      expect(screen.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('activity-tab-panel')).toBeInTheDocument()
+    })
+
+    it('Comments shows an empty state, and posting re-fetches History for its count', async () => {
+      rememberCardDetailTab('comments')
+      ;(addCardComment as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 5, author: fakeUser, body: 'hi', created_at: new Date().toISOString(), updated_at: '' })
+      render(<CardDetail {...defaultProps()} />)
+      expect(await screen.findByText('No comments yet')).toBeInTheDocument()
+      await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(1))
+      fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hi' } })
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Comment' }))
+      await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(2))
+      expect(screen.queryByText('No comments yet')).not.toBeInTheDocument()
+    })
   })
 
   it('renders the rich text editor for description', () => {
@@ -574,6 +670,7 @@ describe('CardDetail', () => {
     })
 
     it('comment submit is aria-disabled, keyboard-reachable, explains why, and keeps typed text', async () => {
+    rememberCardDetailTab('comments')
       const user = userEvent.setup()
       render(<CardDetail {...defaultProps()} currentUser={demoUser} />, { wrapper: flagsWrapper({ demo_mode: true }) })
       const textarea = screen.getByTestId('mention-textarea')
@@ -591,6 +688,7 @@ describe('CardDetail', () => {
     })
 
     it('#1193: comment delete is aria-disabled, keyboard-reachable, explains why, and never opens the inline confirm', async () => {
+    rememberCardDetailTab('comments')
       const { getCardComments, deleteComment } = await import('../api/cards')
       const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
       mockGetComments.mockResolvedValue([
@@ -649,6 +747,7 @@ describe('CardDetail', () => {
   })
 
   it('renders comment input for admin', () => {
+    rememberCardDetailTab('comments')
     render(<CardDetail {...defaultProps()} />)
     expect(screen.getByTestId('mention-textarea')).toBeInTheDocument()
     expect(screen.getByText('Comment')).toBeInTheDocument()
@@ -785,6 +884,7 @@ describe('CardDetail', () => {
   })
 
   it('shows comment input for collaborator', () => {
+    rememberCardDetailTab('comments')
     const props = defaultProps()
     props.board = makeBoard({ current_user_role: 'collaborator' })
     render(<CardDetail {...props} />)
@@ -882,6 +982,7 @@ describe('CardDetail', () => {
   })
 
   it('renders comments with author initials', async () => {
+    rememberCardDetailTab('comments')
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([
       { id: 1, author: fakeUser, body: 'Hello world', created_at: new Date().toISOString(), updated_at: '' },
@@ -894,6 +995,7 @@ describe('CardDetail', () => {
   })
 
   it('notes an imported comment as imported with the source name, never as a user (#1702)', async () => {
+    rememberCardDetailTab('comments')
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([
       { id: 1, author: fakeUser, body: 'From Trello', created_at: new Date().toISOString(), updated_at: '', imported_from_username: 'Ada Lovelace' },
@@ -1242,6 +1344,7 @@ describe('CardDetail', () => {
   })
 
   it('renders mention highlights in comments', async () => {
+    rememberCardDetailTab('comments')
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([
       { id: 1, author: fakeUser, body: 'Hey @jdoe check this', created_at: new Date().toISOString(), updated_at: '' },
@@ -1502,6 +1605,7 @@ describe('CardDetail', () => {
       ])
       rerender(<CardDetail {...props} refreshSignal={1} />)
 
+      fireEvent.click(screen.getByRole('tab', { name: /^Comments/ }))
       await waitFor(() => expect(screen.getByText('From another session')).toBeInTheDocument())
       expect(mockGetComments).toHaveBeenCalledTimes(2)
       expect(mockGetChecklist).toHaveBeenCalledTimes(2)
@@ -1569,6 +1673,7 @@ describe('CardDetail', () => {
   })
 
   describe('comment delete inline confirm (#1365)', () => {
+    beforeEach(() => rememberCardDetailTab('comments'))
     async function renderWithComment() {
       const { getCardComments } = await import('../api/cards')
       ;(getCardComments as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -1673,6 +1778,7 @@ describe('CardDetail', () => {
   })
 
   describe('comment delete prompt with a stale comment id (#1365)', () => {
+    beforeEach(() => rememberCardDetailTab('comments'))
     it('a refetch that removes the comment does not let the stale prompt id swallow Escape', async () => {
       const { getCardComments } = await import('../api/cards')
       const mockGet = getCardComments as ReturnType<typeof vi.fn>
@@ -3052,6 +3158,7 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
     const item = { id: 1, text: 'Item 1', is_checked: false, position: 0 }
 
     it('comment submit: double-click posts once', async () => {
+    rememberCardDetailTab('comments')
       const d = deferred<unknown>()
       ;(addCardComment as ReturnType<typeof vi.fn>).mockImplementationOnce(() => d.promise)
       render(<CardDetail {...defaultProps()} />)
@@ -3065,6 +3172,7 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
     })
 
     it('comment submit: a rejection shows an error in a live region, keeps the text, and allows retry', async () => {
+    rememberCardDetailTab('comments')
       ;(addCardComment as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'))
       render(<CardDetail {...defaultProps()} />)
       fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hello' } })

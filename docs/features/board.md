@@ -679,7 +679,7 @@ The table is keyboard-friendly:
 
 #### Archive and restore events
 
-Archive and restore events **are included** in the board History view by default, alongside column-to-column moves. The API supports narrowing this with `exclude_type=archived,unarchived`, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's **Activity** tab, if you want moves only.
+Archive and restore events **are included** in the board History view by default, alongside column-to-column moves. The API supports narrowing this with `exclude_type=archived,unarchived`, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's **History** tab, if you want moves only.
 
 ## Export & import
 
@@ -687,7 +687,7 @@ Archive and restore events **are included** in the board History view by default
 
 Click **Export** in the board toolbar to download the board data:
 
-- **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (Activity tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
+- **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
 > **Added in 1.1** — export permission threshold and audit history (#842, #843)
@@ -712,9 +712,9 @@ Click **Import** on the dashboard to create a new board from a previously export
 **JSON import** restores full card history:
 
 - Assignee (matched by username; cards whose assignee username is not found in this instance are imported unassigned)
-- Movement history — every column transition appears in the card's **Activity** tab
+- Movement history — every column transition appears in the card's **History** tab
 - Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed
-- Imported history keeps its original times and is recorded under your name, the person who ran the import. The username the file gave for each movement and activity entry is kept as text, and the card's **Activity** tab and the board's **History** view show it next to your name, for example "by Kelly · imported, originally alice" — so imported entries can always be told apart from history recorded on this board. The name is not matched to an account on this instance. See [Imported history](card-history.md#imported-history).
+- Imported history keeps its original times and is recorded under your name, the person who ran the import. The username the file gave for each movement and activity entry is kept as text, and the card's **History** tab and the board's **History** view show it next to your name, for example "by Kelly · imported, originally alice" — so imported entries can always be told apart from history recorded on this board. The name is not matched to an account on this instance. See [Imported history](card-history.md#imported-history).
 - Card creation date (since 1.2, #1906) — each card keeps the `created_at` from the file, so it is dated before its own history. If the file has none, or the date is in the future or later than the card's first movement, activity, or comment, the card is dated to the import instead. Files without the field import as before.
 - Comments — posted under your name with their original times. Since 1.2 the comment's `author` from the file is kept as text the same way and shown after the time in the card's comment list ("imported, originally alice").
 - Custom fields (since 1.2) — the board's card and swimlane custom field definitions, with their number formatting and choice colors, and every card's and swimlane's values. A value the field's type would refuse is skipped; the rest of the import goes ahead
@@ -815,7 +815,7 @@ The drawer has two filter rows:
 - **Kind**: *All*, *Moves* (includes creations), *Members*
 - **Window**: *1h*, *24h*, *7d*. It defaults to **24h** so the drawer stays focused on today's activity rather than all history. Widen to **7d** to scan back through the week, or narrow to **1h** for what's happened in the last hour.
 
-The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **Activity** tab — see [Card History](card-history.md)).
+The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
 
 ## Board sharing
 

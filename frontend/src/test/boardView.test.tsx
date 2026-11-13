@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, act, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { getRememberedCardDetailTab, rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import BoardView from '../components/Board/BoardView'
 import { ToastProvider } from '../contexts/ToastContext'
 import CustomFieldQuickEditPopover from '../components/Card/CustomFieldQuickEditPopover'
@@ -1213,6 +1214,39 @@ describe('BoardView', () => {
     expect(screen.getByTestId('card-detail')).toBeInTheDocument()
     expect(screen.getByText('Deep Link Card')).toBeInTheDocument()
     expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  describe('?card=&tab= deep link (#967)', () => {
+    const deepCard = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Deep Link Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+    beforeEach(() => rememberCardDetailTab('details'))
+
+    it('a known tab overrides the remembered card tab and is removed from the URL', () => {
+      mockSearchParams = new URLSearchParams('card=1&tab=comments')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+      expect(getRememberedCardDetailTab()).toBe('comments')
+      const next = mockSetSearchParams.mock.calls.map(([arg]) => (typeof arg === 'function' ? arg(new URLSearchParams('card=1&tab=comments')) : arg)).pop() as URLSearchParams
+      expect(next.has('tab')).toBe(false)
+      expect(next.has('card')).toBe(false)
+    })
+
+    it('an unknown tab keeps the remembered card tab', () => {
+      rememberCardDetailTab('history')
+      mockSearchParams = new URLSearchParams('card=1&tab=bogus')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(getRememberedCardDetailTab()).toBe('history')
+    })
   })
 
   it('?card= param shows "Card not found" toast when card is deleted', async () => {

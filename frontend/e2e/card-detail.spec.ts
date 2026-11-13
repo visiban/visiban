@@ -21,6 +21,11 @@ test.describe('card detail', () => {
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/comments/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
+    // #967: the sheet fetches the first History page (with counts) on open.
+    // A test that needs entries registers its own timeline route, which wins.
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/timeline/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, next: null, previous: null, results: [] }) }),
+    )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/activity/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
@@ -99,7 +104,7 @@ test.describe('card detail', () => {
   })
 
   test('unified activity timeline renders a move entry', async ({ page }) => {
-    // Feed a canned timeline response so the Activity tab has something to render.
+    // Feed a canned timeline response so the History tab has something to render.
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/timeline/**`, (route) =>
       route.fulfill({
         status: 200,
@@ -133,13 +138,59 @@ test.describe('card detail', () => {
     await page.getByText(CARD.title).first().click()
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
-    await page.getByRole('tab', { name: 'activity' }).click()
+    await page.getByRole('tab', { name: /^History/ }).click()
 
     // The timeline dot/label pair should render the move as "From → To"; scope
     // to the dialog so we don't collide with the "Done" column header on the
     // board behind the open card detail.
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog.getByText('To Do → Done')).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('three tabs: counts in the name, arrow keys, and Last activity jumps to History (#967)', async ({ page }) => {
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/timeline/**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          count: 3, next: null, previous: null,
+          counts: { move: 2, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 },
+          results: [{
+            id: 501, kind: 'move', ts: new Date(Date.now() - 2 * 3600_000).toISOString(), event_type: 'move',
+            imported_from_username: null,
+            actor: { id: 1, username: 'jordan', display_name: 'Jordan', avatar_url: '' },
+            data: { id: 501, from_column: 1, from_column_name: 'To Do', to_column: 2, to_column_name: 'Review' },
+          }],
+        }),
+      }),
+    )
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByText(CARD.title).first().click()
+    const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 5_000 })
+
+    // The browser's accessible name keeps the count, separated by a comma.
+    await expect(dialog.getByRole('tab', { name: 'Comments, 0', exact: true })).toBeVisible()
+    await expect(dialog.getByRole('tab', { name: 'History, 3', exact: true })).toBeVisible()
+    await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute('aria-selected', 'true')
+
+    await dialog.getByRole('tab', { name: 'Details', exact: true }).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(dialog.getByRole('tab', { name: /^Comments/ })).toBeFocused()
+    await expect(dialog.getByRole('tab', { name: /^Comments/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByText('No comments yet')).toBeVisible()
+    await page.keyboard.press('Home')
+    await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toBeFocused()
+
+    const line = dialog.getByRole('button', { name: /^Last activity: Jordan moved to Review/ })
+    await line.click()
+    await expect(dialog.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByRole('listitem').first()).toBeFocused()
+    // Six type toggles, all on, each with its count.
+    const show = dialog.getByRole('group', { name: 'Show' })
+    await expect(show.getByRole('button')).toHaveCount(6)
+    await expect(show.getByRole('button', { name: /Column moves/ })).toHaveAttribute('aria-pressed', 'true')
+    await expect(show.getByRole('button', { name: /Column moves/ })).toContainText('2')
   })
 
   test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {

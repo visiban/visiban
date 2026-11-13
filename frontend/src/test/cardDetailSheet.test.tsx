@@ -18,6 +18,7 @@ vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
+  getCardTimeline: vi.fn().mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
   addCardComment: vi.fn(),
   deleteComment: vi.fn(),
   updateCard: vi.fn(),
@@ -43,6 +44,9 @@ vi.mock('../components/Card/RichTextEditor', () => ({
 
 import { getCardComments, getCardAttachments, getChecklist } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
+import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+// #967: the card tab is session memory at module level; start every test on Details.
+beforeEach(() => rememberCardDetailTab('details'))
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -801,10 +805,12 @@ describe('CardDetail sheet — loading (#1914, frame 6)', () => {
     render(<CardDetail {...defaultProps()} />)
     // Title, breadcrumb and tabs come from the board card.
     expect(screen.getByDisplayValue('Test Card')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'details' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Details' })).toBeInTheDocument()
     const body = dialog().querySelector('[aria-busy]') as HTMLElement
     expect(body).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByTestId('comments-skeleton')).toHaveAttribute('aria-hidden', 'true')
+    // #967: comments live on their own tab; while loading, its count is unknown: no number, never 0.
+    expect(screen.getByRole('tab', { name: 'Comments' })).toBeInTheDocument()
+    expect(screen.queryByTestId('card-tab-count-comments')).not.toBeInTheDocument()
     expect(screen.getByTestId('checklist-skeleton')).toBeInTheDocument()
     expect(await screen.findByText('Loading card details')).toBeInTheDocument()
 
@@ -816,7 +822,7 @@ describe('CardDetail sheet — loading (#1914, frame 6)', () => {
 
     await act(async () => { resolveComments([]) })
     await waitFor(() => expect(body).toHaveAttribute('aria-busy', 'false'))
-    expect(screen.queryByTestId('comments-skeleton')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Comments, 0' })).toBeInTheDocument()
     expect(screen.queryByText('Loading card details')).not.toBeInTheDocument()
     expect(archive).not.toHaveAttribute('aria-disabled')
     fireEvent.click(archive)
