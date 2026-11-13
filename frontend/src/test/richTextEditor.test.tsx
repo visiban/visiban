@@ -524,6 +524,50 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
     }
   })
 
+  it('Tab-out: focus moving to an element outside the open color popover closes it (#2097)', async () => {
+    const { editor } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      const trigger = screen.getByTitle('Text color')
+      fireEvent.mouseDown(trigger)
+      expect(screen.getByTitle('Default')).toBeInTheDocument()
+
+      // Real focus moves so jsdom sets relatedTarget and document.activeElement.
+      await act(async () => {
+        trigger.focus()
+        outside.focus()
+        await new Promise((r) => setTimeout(r, 5))
+      })
+      expect(screen.queryByTitle('Default')).not.toBeInTheDocument()
+    } finally {
+      outside.remove()
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('a blur with a null relatedTarget (window blur) keeps the color popover open (#2097)', async () => {
+    const { editor } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      const trigger = screen.getByTitle('Text color')
+      fireEvent.mouseDown(trigger)
+
+      await act(async () => {
+        fireEvent.blur(trigger, { relatedTarget: null })
+        await new Promise((r) => setTimeout(r, 5))
+      })
+      expect(screen.getByTitle('Default')).toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
   it('Save button commits the markdown via onSave and exits edit mode', () => {
     const { editor } = makeFakeEditor('saved markdown')
     vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)

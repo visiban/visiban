@@ -108,7 +108,9 @@ interface Props {
 }
 
 // A small set of text color presets (dark-theme values; view mode adjusts them per theme, #2097).
-// Stored as inline HTML spans in markdown: <span style="color: #hex">text</span>
+// Stored as inline HTML spans in markdown. ProseMirror serializes the style from
+// dom.style.cssText, so it is written as <span style="color: rgb(r, g, b);">text</span>
+// even though the presets below are hex (the sanitizer accepts both forms).
 const TEXT_COLORS: { label: string; value: string }[] = [
   { label: "Default",  value: ""        },
   { label: "White",    value: "#f1f5f9" },

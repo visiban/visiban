@@ -44,7 +44,7 @@ The **A** button opens a picker with nine preset colors (Default reset, White, R
 - **Custom color:** click **Custom** to open a color square and hue slider with hex and R/G/B fields. The color is applied to the text you had selected when you opened it, only when you click **Apply**. **Cancel** or Escape closes the panel and puts your selection back. Pressing outside the editor discards the unapplied color. A color you chose that is not one of the presets shows as the filled, ringed **Custom** swatch.
 - **Keyboard:** the **A** button, the swatches and the panel's controls are all reachable with Tab and activated with Enter or Space.
 - **Remove:** select the colored text and click the **Default** swatch.
-- **Legibility:** the color you pick is stored as chosen, but the read-only view adjusts it per theme to stay readable. A pale color is darkened on the light theme, and a dark color is lightened on the dark theme, so existing colors such as White are now legible on the light theme. The editing view shows the color as chosen.
+- **Legibility:** the color you pick is stored as chosen, but the read-only view adjusts it per theme to stay readable. A pale color is darkened on the light theme, and a dark color is lightened on the dark theme, so colors applied in the editor now show in the read-only view (they were previously dropped) and stay legible, for example White on the light theme. The editing view shows the color as chosen.
 - **Storage:** colors are inline HTML spans inside the markdown. They render in both the editor and the read-only view.
 
 ## Supported markdown syntax
