@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Priority, User } from "../../types";
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
@@ -43,6 +43,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   // The shared toast region floats above the toolbar (frontend/CLAUDE.md § Toasts).
   const rootRef = useRef<HTMLDivElement>(null);
+  // Pending clear-then-set tick of a refusal message; cleared on unmount.
+  const refuseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (refuseTimerRef.current !== null) clearTimeout(refuseTimerRef.current);
+  }, []);
   usePublishedHeight(rootRef, "--bulk-toolbar-h");
 
   const moveRef = useRef<HTMLButtonElement>(null);
@@ -100,7 +105,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     // Clear first, then set on the next tick: an identical repeat message
     // would change nothing in the live region and so not be announced again.
     setPartialError(null);
-    setTimeout(() => setPartialError(text), 0);
+    if (refuseTimerRef.current !== null) clearTimeout(refuseTimerRef.current);
+    refuseTimerRef.current = setTimeout(() => {
+      refuseTimerRef.current = null;
+      setPartialError(text);
+    }, 0);
   };
   const refusalProps = (key: string, entry: { enabled: boolean; reason?: string }) =>
     entry.enabled ? {} : {

@@ -487,4 +487,37 @@ describe('BoardView selection results (#2173)', () => {
     await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('1'))
     await waitFor(() => expect(screen.getByTestId('bulk-message')).toHaveTextContent('1 of 2 cards could not be deleted'))
   })
+
+  it('the context-menu delete passes the action context: a mixed selection deletes only the permitted cards', async () => {
+    vi.mocked(deleteCard).mockResolvedValue(undefined as never)
+    const theirs = { ...card2, created_by: { id: 9, username: 'o', display_name: 'O', avatar_url: '' } }
+    const memberUser = { ...fakeUser, id: 1 }
+    mockBoardContextValue = defaultContext({
+      board: makeBoard({
+        current_user_role: 'member',
+        members: [{ id: 1, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }],
+        cards: [card1, theirs],
+      }),
+    })
+    render(<ToastProvider><BoardView currentUser={memberUser} /></ToastProvider>)
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1, 2], action: 'delete' } })) })
+    expect(await screen.findByText('1 card created by others will be skipped.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleteCard).toHaveBeenCalledTimes(1))
+    expect(deleteCard).toHaveBeenCalledWith(1, 1)
+  })
+
+  it('unmounting with the clear-then-set tick pending never sets the message', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(forbidden())
+    const { unmount } = render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    archiveVia([1])
+    await waitFor(() => expect(archiveCard).toHaveBeenCalled())
+    // Let the rejection settle, then unmount in the same task as a fresh failure schedules the tick.
+    unmount()
+    expect(clear).toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 10))
+    clear.mockRestore()
+  })
 })

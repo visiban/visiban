@@ -37,6 +37,17 @@ describe('CardDeleteConfirm', () => {
     expect(onDeleted).toHaveBeenCalledWith([1])
   })
 
+  it('with an action context, the note counts only cards that will be withheld: an unknown creator is sent, not skipped', async () => {
+    vi.mocked(deleteCard).mockResolvedValue(undefined as never)
+    const ctx = { role: 'member' as const, currentUserId: 1, isModerator: false, demoMode: false, maintenanceBlocked: false }
+    render(<CardDeleteConfirm boardId={3} cards={[makeCard(1, 1), makeCard(2, null), makeCard(3, 9)]} canModifyAll={false} currentUserId={1} actionContext={ctx} onDeleted={vi.fn()} onClose={vi.fn()} />)
+    // Card 2 (unknown creator) is sent; only card 3 is skipped.
+    expect(screen.getByText('1 card created by others will be skipped.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleteCard).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(deleteCard).mock.calls.map((c) => c[1])).toEqual([1, 2])
+  })
+
   it('names one card, deletes on confirm, and closes with no failure', async () => {
     vi.mocked(deleteCard).mockResolvedValue(undefined as never)
     const onDeleted = vi.fn()

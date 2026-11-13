@@ -1515,6 +1515,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The toolbar is up exactly while a selection exists and the user can edit
   // (the render condition below); mirrored in a ref for the stable callbacks.
   const toolbarUpRef = useRef(false);
+  // The clear-then-set tick of the toolbar message; cleared on unmount so a
+  // pending set never lands on an unmounted board.
+  const bulkMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (bulkMessageTimerRef.current !== null) clearTimeout(bulkMessageTimerRef.current);
+  }, []);
   toolbarUpRef.current = selectedCardIds.size > 0 && canEdit;
   const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced", selectionResult = false) => {
     // A failure or partial result of an action whose target set is the whole
@@ -1527,7 +1533,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Clear first, then set on the next tick: an identical repeat message
       // would change nothing in the live region and so not be announced again.
       setBulkMessage(null);
-      setTimeout(() => setBulkMessage(text), 0);
+      if (bulkMessageTimerRef.current !== null) clearTimeout(bulkMessageTimerRef.current);
+      bulkMessageTimerRef.current = setTimeout(() => {
+        bulkMessageTimerRef.current = null;
+        setBulkMessage(text);
+      }, 0);
       return;
     }
     // Announce-only is for a change visible on the board grid; from Summary,

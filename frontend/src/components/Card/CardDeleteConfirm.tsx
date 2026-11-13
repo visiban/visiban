@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { deleteCard } from "../../api/cards";
 import { failureReason } from "../../utils/moveFailure";
-import { partitionRefused, REFUSAL_CLAUSE, type CardActionContext } from "../../utils/cardActions";
+import { cardRefusal, partitionRefused, REFUSAL_CLAUSE, type CardActionContext } from "../../utils/cardActions";
 import type { Card } from "../../types";
 
 interface Props {
@@ -40,7 +40,12 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const count = cards.length;
-  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
+  // With an action context the note counts exactly the cards `handleDelete` will
+  // withhold (cardRefusal is lenient about an unknown creator, so those ARE sent);
+  // without one every card is sent and the old creator-based count stands.
+  const othersCards = actionContext
+    ? cards.filter((c) => cardRefusal(c, "delete", actionContext) !== undefined)
+    : currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
 
   const handleDelete = async () => {
     if (inFlight.current) return;

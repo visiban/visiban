@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState, type ComponentProps } from 'react'
 import RealBulkActionToolbar from '../components/Board/BulkActionToolbar'
@@ -1012,6 +1012,30 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
     await user.click(screen.getByRole('button', { name: 'Archive' }))
     expect(mockArchiveCard).not.toHaveBeenCalled()
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be archived — you can only archive cards you created.'))
+  })
+
+  it('unmounting with the refusal tick pending never calls the message setter', async () => {
+    const setMessage = vi.fn()
+    const { unmount } = render(
+      <RealBulkActionToolbar
+        board={memberBoard([theirs, theirs])}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+        currentUser={visitor}
+        cardActionCtx={{ role: 'member', currentUserId: visitor.id, isModerator: false, demoMode: false, maintenanceBlocked: false }}
+        message={null}
+        onMessageChange={setMessage}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(setMessage).toHaveBeenCalledTimes(1)
+    expect(setMessage).toHaveBeenLastCalledWith(null)
+    unmount()
+    await new Promise((r) => setTimeout(r, 10))
+    expect(setMessage).toHaveBeenCalledTimes(1)
   })
 
   it('keyboard activation of a refused trigger also writes the reason', async () => {
