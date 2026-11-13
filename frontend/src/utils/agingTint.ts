@@ -183,7 +183,7 @@ export type UrgencyTone = "danger" | "warning" | "info";
  * a tint the on-tint token of the badge's hue applies (#1550), except that on
  * the red 2x/3x stages amber `warning-on-tint` drops to 4.38:1 / 3.94:1 in
  * light mode, so a warning-toned badge (due-soon) takes `danger-on-tint`
- * there; its ⏱ glyph and date text still tell it apart from an overdue ⚑.
+ * there; its stopwatch glyph and date text still tell it apart from an overdue flag.
  * Literal class names so Tailwind's JIT sees them.
  */
 export function urgencyBadgeToneClass(tone: UrgencyTone, stage: AgingStage): string {

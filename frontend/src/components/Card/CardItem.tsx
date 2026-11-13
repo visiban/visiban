@@ -450,6 +450,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // badge is already carrying that information (overdue / due-soon). At dense
   // the urgency badge is null so this is always false.
   const dueAlreadyInUrgency = urgency?.kind === "overdue" || urgency?.kind === "due-soon";
+  // Known divergence (overdue-boundary unification is a pending owner ruling, #871 MR-B):
+  // overdue here uses the user's timezone, due-soon the classifier's UTC-midnight clock.
   // Standalone due pill (dense, and standard outside the urgency window): a
   // late or due-soon date carries the same glyph as the badge so urgency is
   // never hue-only (#871). Overdue follows the user's-timezone verdict that
