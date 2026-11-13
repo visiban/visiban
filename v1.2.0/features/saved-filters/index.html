@@ -4308,7 +4308,7 @@
 <p><strong>By the numbers:</strong> only version <code>1</code> exists today. The server accepts any <code>state_version</code> number ≥ 1, including one higher than it recognizes, so a mixed-version deploy where a newer frontend tags its write <code>state_version: 2</code> isn't rejected on the version number alone.</p>
 <p><strong>Yes, but:</strong> that check is separate from the <code>state_json</code> key allow-list.</p>
 <ul>
-<li>The server still accepts only the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>), whatever version is declared.</li>
+<li>The server still accepts only the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>, <code>blockedOnly</code>, <code>customFields</code>, <code>visibleCustomFieldFilterIds</code>), whatever version is declared.</li>
 <li>A genuinely new v2-only key is rejected with <code>400</code> until the backend's allow-list is updated.</li>
 <li>On read, older clients fall back to a defensive v1 reader for any shared fields.</li>
 </ul>
