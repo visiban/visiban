@@ -477,3 +477,15 @@ class SavedFilterCustomFieldStateTests(TestCase):
         fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
         keys = json.loads(fixture.read_text())["keys"]
         self.assertEqual(set(keys), SavedFilterSerializer._STATE_V1_KEYS)
+
+    def test_unhashable_values_are_400_not_500(self):
+        for label, extra in {
+            "kind list": {"customFields": {"1": {"kind": []}}},
+            "kind dict": {"customFields": {"1": {"kind": {}}}},
+            "priority list": {"priorities": [[]]},
+            "dueDate list": {"dueDate": []},
+        }.items():
+            with self.subTest(label):
+                r = self._post({**EMPTY_FILTER_STATE, **extra})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIsInstance(r.data["detail"], str)
