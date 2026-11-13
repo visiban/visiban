@@ -94,6 +94,17 @@ describe('Blocked only filter (#1149)', () => {
     expect(screen.getByRole('button', { name: 'Blocked only, 2 blocked cards' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('shows the active mark only while active (#2185)', () => {
+    const { rerender } = render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const name = 'Blocked only, 2 blocked cards'
+    expect(within(screen.getByRole('button', { name })).queryByTestId('active-mark')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false')
+    rerender(<FilterBar board={makeBoard()} filters={{ ...EMPTY_FILTER, blockedOnly: true }} onChange={vi.fn()} />)
+    const btn = screen.getByRole('button', { name })
+    expect(within(btn).getByTestId('active-mark')).toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('uses the singular for one blocked card', () => {
     render(<FilterBar board={makeBoard([CARDS[0], CARDS[2]])} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Blocked only, 1 blocked card' })).toBeInTheDocument()

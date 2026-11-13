@@ -969,12 +969,21 @@ describe('RichTextEditor exits keep focus in the enclosing dialog (#2182)', () =
     expect(document.activeElement).toBe(dialog)
   })
 
-  it('a mouse click acts on mousedown only, never twice', () => {
+  it('a mouse-detail click on Save never saves (mousedown owns it)', () => {
     setup()
-    const save = screen.getByText('Save')
-    fireEvent.mouseDown(save)
-    expect(onSave).toHaveBeenCalledTimes(1)
-    fireEvent.click(save, { detail: 1 })
+    fireEvent.click(screen.getByText('Save'), { detail: 1 })
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('a mouse-detail click on Cancel never runs the cancel path', () => {
+    setup()
+    fireEvent.click(screen.getByText('Cancel'), { detail: 1 })
+    expect(screen.getByText('Save')).toBeInTheDocument()
+  })
+
+  it('a mouse press on Save saves exactly once', () => {
+    setup()
+    fireEvent.mouseDown(screen.getByText('Save'))
     expect(onSave).toHaveBeenCalledTimes(1)
   })
 
@@ -985,5 +994,22 @@ describe('RichTextEditor exits keep focus in the enclosing dialog (#2182)', () =
     expect(screen.queryByText('Save')).not.toBeInTheDocument()
     expect(document.activeElement).toBe(dialog)
     expect(onSave).not.toHaveBeenCalled()
+  })
+
+  type BlurOpts = { onBlur: (args: { event: { relatedTarget: Node | null } }) => void }
+  const lastBlur = () =>
+    (vi.mocked(useEditor).mock.calls.at(-1)?.[0] as unknown as BlurOpts).onBlur
+
+  it('Escape without actions does not blur-save (exiting guard)', () => {
+    setup(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    act(() => lastBlur()({ event: { relatedTarget: document.body } }))
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('without actions, click-away blur saves', () => {
+    setup(false)
+    act(() => lastBlur()({ event: { relatedTarget: document.body } }))
+    expect(onSave).toHaveBeenCalledTimes(1)
   })
 })

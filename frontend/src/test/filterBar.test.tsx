@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER } from '../components/Board/FilterBar'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
@@ -615,6 +615,16 @@ describe('FilterBar — MyCardsButton', () => {
     const activeFilters: FilterState = { ...EMPTY_FILTER, assigneeIds: [fakeUser.id] }
     render(<FilterBar board={makeBoard()} filters={activeFilters} onChange={vi.fn()} currentUser={fakeUser} />)
     const btn = screen.getByText('My cards').closest('button')
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('My cards shows the active mark only while active (#2185)', () => {
+    const { rerender } = render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={fakeUser} />)
+    const btn = screen.getByText('My cards').closest('button') as HTMLElement
+    expect(within(btn).queryByTestId('active-mark')).not.toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+    rerender(<FilterBar board={makeBoard()} filters={{ ...EMPTY_FILTER, assigneeIds: [fakeUser.id] }} onChange={vi.fn()} currentUser={fakeUser} />)
+    expect(within(btn).getByTestId('active-mark')).toBeInTheDocument()
     expect(btn).toHaveAttribute('aria-pressed', 'true')
   })
 
