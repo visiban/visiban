@@ -6716,9 +6716,14 @@
 <td>integer[]</td>
 <td>IDs of custom-field filters shown in the filter bar, at most 50</td>
 </tr>
+<tr>
+<td><code>laneFilter</code></td>
+<td>object</td>
+<td><em>Added in 1.3</em> (#2205). Rules that hide swimlanes by swimlane field values: <code>{items: [...]}</code>, at most 20 items and 50 rules in all. A rule is <code>{kind: "rule", id, join, field, op, value?, min?, max?}</code>: <code>id</code> a non-negative integer, <code>join</code> <code>"and"</code> or <code>"or"</code> (ignored on the first), <code>field</code> a swimlane field id or <code>null</code> (not chosen yet), <code>op</code> one of <code>is</code>, <code>is_not</code>, <code>between</code>, and <code>value</code> / <code>min</code> / <code>max</code> strings of at most 500 characters. A group is <code>{kind: "group", id, join, rules: [rule, ...]}</code>; groups do not nest. Unknown keys are rejected. Absent means no lane filter</td>
+</tr>
 </tbody>
 </table>
-<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code> and custom-field <code>query</code>, <code>equals</code>, and <code>values</code> entries) must not contain NUL (0x00) characters; they return <code>400</code>.</p>
+<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code>, custom-field <code>query</code>, <code>equals</code>, and <code>values</code> entries, and lane-rule <code>value</code>, <code>min</code>, and <code>max</code>) must not contain NUL (0x00) characters; they return <code>400</code>.</p>
 <p><strong>Errors:</strong> <code>400 Bad Request</code> if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, <code>state_json</code> contains unknown keys or wrong-typed values, or <code>state_version</code> is not an integer between 1 and 32767.</p>
 <h3 id="delete-apiv1boardsidsaved-filtersfilter_id"><code>DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/</code><a class="headerlink" href="#delete-apiv1boardsidsaved-filtersfilter_id" title="Permanent link">&para;</a></h3>
 <p>Delete a saved filter preset. Only its owner can delete it; deleting another user's filter returns <code>404 Not Found</code>.</p>

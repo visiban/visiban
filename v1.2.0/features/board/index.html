@@ -1357,6 +1357,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#lane-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lane filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#url-serialized-filter-state" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5118,6 +5129,7 @@
 <li>All other swimlane rows are collapsed and their cards are hidden.</li>
 <li>A blue banner appears between the board toolbar and the scroll area: "Focused on: <em>[swimlane name]</em>".</li>
 <li>The URL updates to include <code>?focus=&lt;swimlane_id&gt;</code>, so focus mode can be bookmarked and shared.</li>
+<li><a href="#lane-filters">Lane filters</a> pause while a lane is focused: the focused lane shows even if it doesn't match them, and the banner adds "Lane filters paused". They apply again when you exit focus.</li>
 </ul>
 <p><strong>Exiting focus mode:</strong></p>
 <ul>
@@ -5623,6 +5635,31 @@
 </blockquote>
 <p>An active filter count badge appears on the Filters button when filters are in use. Click <strong>Clear</strong> to reset all filters at once.</p>
 <p>When filters are active and no cards match, a <strong>"No cards match"</strong> banner appears across the board area, so it is clear the board has cards but none satisfy the current criteria.</p>
+<p>The filter row is a search landmark named <strong>Board filters</strong> (it was "Card filters" before 1.3, when it gained lane filters). Next to the chips, a status line reads, for example, "2 lanes hidden · 5 cards hidden"; screen readers announce it as it changes.</p>
+<h4 id="lane-filters">Lane filters<a class="headerlink" href="#lane-filters" title="Permanent link">&para;</a></h4>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>On a board with many swimlanes (one per account, say), <strong>Lanes</strong> in the filter bar hides the lanes whose own <a href="../custom-fields/#swimlane-row-custom-fields">swimlane field</a> values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.</p>
+<ol>
+<li>Click <strong>Lanes</strong> to open the rule builder, then <strong>+ Add filter</strong>.</li>
+<li>Pick a field, then a value or range:<ul>
+<li><strong>Dropdown</strong> fields: <strong>is</strong> or <strong>is not</strong> a choice.</li>
+<li><strong>Number</strong> and <strong>Date</strong> fields: <strong>between</strong> two values. Leave either end as <strong>Any</strong> for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.</li>
+</ul>
+</li>
+<li>Add more filters, or <strong>+ Add group</strong> to bracket several together. Between every two filters or groups, an <strong>And / Or</strong> toggle sets how they combine. <strong>And</strong> binds tighter than <strong>Or</strong>, the way it does in arithmetic, and groups go one level deep.</li>
+<li>The <strong>Reads as</strong> line spells out the result in words, for example: <em>Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo</em>.</li>
+</ol>
+<p>Rules apply as soon as they are complete; <strong>Done</strong> just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.</p>
+<ul>
+<li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong> and <strong>between</strong> and passes <strong>is not</strong>.</li>
+<li><strong>Admin-only fields</strong> are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.</li>
+<li><strong>Text, URL, checkbox, and multi-select</strong> swimlane fields can't be filtered on yet. If a board has no dropdown, number, or date swimlane field you can see, <strong>Lanes</strong> is hidden.</li>
+<li><strong>Chips:</strong> each complete filter or group shows as a chip tagged <strong>Lanes</strong>, joined by "and" / "or". Dismissing a chip removes that filter or group. The <strong>Lanes</strong> button shows how many rules are active; the Filters badge and <strong>Clear all</strong> count all lane rules together as one filter.</li>
+<li><strong>Lanes with no matching cards</strong> stay visible, as they do with card filters alone.</li>
+<li><strong>When every lane is hidden,</strong> the board says "No lanes match your lane filters." with a <strong>Clear lane filters</strong> button.</li>
+<li><strong>When a lane stops matching</strong> because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with <strong>Edit lane filters</strong> and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.</li>
+</ul>
+<p>Lane filters are saved with the rest of the filter state in your browser, in the URL (<code>f_lanes</code>), and in <a href="../saved-filters/">saved filters</a>.</p>
 <h4 id="url-serialized-filter-state">URL-serialized filter state<a class="headerlink" href="#url-serialized-filter-state" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>Active filters are serialized into the page URL as query parameters, so filter combinations can be bookmarked and shared:</p>
@@ -5653,6 +5690,10 @@
 <tr>
 <td><code>?f_due=</code></td>
 <td>Due-date filter value (<code>overdue</code>, <code>today</code>, <code>this_week</code>, <code>none</code>)</td>
+</tr>
+<tr>
+<td><code>?f_lanes=</code></td>
+<td><a href="#lane-filters">Lane filters</a> (1.3+): <code>1.</code> followed by compact JSON. A malformed value is ignored</td>
 </tr>
 </tbody>
 </table>
