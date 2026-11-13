@@ -8,7 +8,7 @@ drops concurrently) is asserted on every backend. The SQLite branch is run for
 real through the migration executor.
 """
 import importlib
-from unittest import mock
+from unittest import mock, skipUnless
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -102,3 +102,33 @@ class ExecutorRoundTripTests(TransactionTestCase):
         self.assertNotIn(NAME, self._unique_index_names())
         MigrationExecutor(connection).migrate(self.AFTER)
         self.assertIn(NAME, self._unique_index_names())
+
+
+@skipUnless(connection.vendor == "postgresql", "the CONCURRENTLY/pg_index branch only exists on PostgreSQL")
+class PostgresInvalidIndexRetryTests(TransactionTestCase):
+    """Real PostgreSQL: a leftover INVALID index is dropped and rebuilt valid (#1987).
+
+    The fake-editor tests prove the SQL ordering; this proves PostgreSQL accepts it
+    and that the rebuilt index is actually valid. TransactionTestCase because
+    CREATE/DROP INDEX CONCURRENTLY cannot run inside a transaction.
+    """
+
+    def _indisvalid(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT i.indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
+                "WHERE c.relname = %s AND i.indrelid = 'boards'::regclass",
+                [NAME],
+            )
+            row = cursor.fetchone()
+        return None if row is None else row[0]
+
+    def test_forward_rebuilds_an_invalid_index_as_valid(self):
+        self.assertIs(self._indisvalid(), True)
+        with connection.cursor() as cursor:
+            # Simulate the leftover of a failed CREATE INDEX CONCURRENTLY.
+            cursor.execute("UPDATE pg_index SET indisvalid = false WHERE indexrelid = %s::regclass", [NAME])
+        self.assertIs(self._indisvalid(), False)
+        with connection.schema_editor(atomic=False) as editor:
+            M0089.forward(None, editor)
+        self.assertIs(self._indisvalid(), True)

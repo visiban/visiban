@@ -2739,7 +2739,7 @@ gate-selftest-parity:
 # file is added without wiring it (or an entry in
 # scripts/tests/unwired-allowlist.txt with a reason). wt-list/wt-prune are
 # allowlisted: #1648 owns wiring them; wt-forge-timeout is allowlisted because it fails
-# under Alpine/busybox (perl alarm + process-group semantics) and needs a glibc image.
+# under Alpine/busybox (perl alarm + process-group semantics) and needs a Debian-based job image (follow-up #2189).
 #
 # rules fire on any change under scripts/ (the scripts and their tests), the
 # backend/frontend trees some tests read as fixtures, and this file.
@@ -2754,12 +2754,17 @@ script-tests:
         - .trivyignore.yaml
         - scripts/**/*
         - .claude/kaizen-yield-state.json
-        - backend/boards/*.py
-        - backend/groups/*.py
+        - backend/boards/**/*
+        - backend/groups/**/*
         - backend/git_lens/**/*
         - backend/webhooks/**/*
         - frontend/src/hooks/**/*
         - frontend/src/components/Board/BoardView.tsx
+        - frontend/src/pages/GroupDetail.tsx
+        - frontend/package.json
+        - docs/**/*
+        - README.md
+        - VISIBAN_FEATURES.md
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *script-tests-paths
   before_script:
