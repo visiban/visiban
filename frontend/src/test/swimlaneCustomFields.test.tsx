@@ -1009,6 +1009,35 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
         expect(screen.queryByText('A dropdown field needs at least one choice.')).not.toBeInTheDocument()
       })
 
+      it('closing the paste box with text in it applies the text, and opening it changes nothing', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'New 1\nNew 2')
+        await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+        expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
+        expect(choiceLabels()).toEqual(['Remove choice New 1', 'Remove choice New 2'])
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 3, expect.objectContaining({ choices: ['New 1', 'New 2'] }),
+        ))
+      })
+
+      it('editing another field does not carry the paste box or its text over', async () => {
+        const user = userEvent.setup()
+        const other = makeDef({ id: 4, name: 'Other', field_type: 'dropdown', choices: ['X'], show_on_row: false })
+        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(async (_b: number, id: number, p: object) => ({ ...other, id, ...p }))
+        renderTab([stage, other])
+        await user.click(screen.getByRole('button', { name: 'Edit Stage' }))
+        await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+        await user.click(screen.getByPlaceholderText('One choice per line'))
+        await user.paste('Leaked')
+        await user.click(screen.getByRole('button', { name: 'Edit Other' }))
+        expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 4, expect.objectContaining({ choices: ['X'] }),
+        ))
+      })
+
       it('splits a row of spreadsheet cells on tabs, and the count matches what is added', async () => {
         const user = userEvent.setup()
         await removeOriginalsAndPaste(user, 'North\tSouth\tNorth\n')

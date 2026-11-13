@@ -519,7 +519,7 @@ describe("BoardSettingsFieldsTab — Paste a list (#2192)", () => {
     ));
   });
 
-  it("Save with the text still in the paste box saves the pasted choices (CRLF and CR line breaks)", async () => {
+  it("Save with the text still in the paste box saves the pasted choices", async () => {
     const user = userEvent.setup();
     await openStage(user);
     await user.paste("New 1\r\nNew 2\rNew 3");
@@ -528,6 +528,37 @@ describe("BoardSettingsFieldsTab — Paste a list (#2192)", () => {
       1, 5, expect.objectContaining({ choices: ["New 1", "New 2", "New 3"] }),
     ));
     expect(screen.queryByText("A dropdown field needs at least one choice.")).not.toBeInTheDocument();
+  });
+
+  it("closing the paste box with text in it applies the text, and opening it changes nothing", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    expect(choiceLabels()).toEqual([]);
+    await user.paste("New 1\nNew 2");
+    await user.click(screen.getByRole("button", { name: "Paste a list" }));
+    expect(screen.queryByPlaceholderText("One choice per line")).not.toBeInTheDocument();
+    expect(choiceLabels()).toEqual(["Remove choice New 1", "Remove choice New 2"]);
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 5, expect.objectContaining({ choices: ["New 1", "New 2"] }),
+    ));
+  });
+
+  it("editing another field does not carry the paste box or its text over", async () => {
+    const user = userEvent.setup();
+    const other = makeDefinition({ id: 6, name: "Other", field_type: "dropdown", choices: ["X"] });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockImplementation(async (_b, id, p) => ({ ...other, id, ...p }) as CustomFieldDefinition);
+    render(<BoardSettingsFieldsTab board={makeBoard([stage, other])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit Stage" }));
+    await user.click(screen.getByRole("button", { name: "Paste a list" }));
+    await user.click(screen.getByPlaceholderText("One choice per line"));
+    await user.paste("Leaked");
+    await user.click(screen.getByRole("button", { name: "Edit Other" }));
+    expect(screen.queryByPlaceholderText("One choice per line")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 6, expect.objectContaining({ choices: ["X"] }),
+    ));
   });
 
   it("a pending paste is kept in the list when Save stops on another validation error", async () => {

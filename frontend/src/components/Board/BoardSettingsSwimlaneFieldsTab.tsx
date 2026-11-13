@@ -186,9 +186,10 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     onFieldsUpdated(sorted);
   };
 
-  const startAdd = () => { setEditingId("new"); setForm(emptyForm()); setFormError(null); };
+  const startAdd = () => { setEditingId("new"); setForm(emptyForm()); setFormError(null); setPasteListOpen(false); setPasteListText(""); };
   const startEdit = (def: SwimlaneCustomFieldDefinition) => {
     setEditingId(def.id); setForm(formFromDefinition(def)); setFormError(null);
+    setPasteListOpen(false); setPasteListText("");
   };
   const cancelEdit = () => {
     setEditingId(null); setPasteListOpen(false); setPasteListText("");
@@ -795,7 +796,7 @@ function FieldEditPanel({
           )}
           <div className="flex items-center gap-3">
             <button onClick={addChoice} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">+ Add choice</button>
-            <button onClick={() => setPasteListOpen(!pasteListOpen)} className="text-xs text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Paste a list</button>
+            <button onClick={() => { if (pasteListOpen) { applyPastedChoices(); setPasteListOpen(false); setPasteListText(""); } else { setPasteListOpen(true); } }} className="text-xs text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Paste a list</button>
             {pasteListOpen && <span className="text-xs text-fg-muted">newline-separated</span>}
           </div>
           {pasteListOpen && (
