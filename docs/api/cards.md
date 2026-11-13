@@ -976,6 +976,23 @@ complete card payload. See [WebSockets](websockets.md).
 
 ## Checklist
 
+!!! info "New in 1.3 (#445)"
+    Checklist items carry an optional `assignee` and `due_date`. Responses add
+    `assignee` (a nested user object, or `null`) and `due_date` (`YYYY-MM-DD`, or
+    `null`). Write the assignee with `assignee_id` (a user id, or `null` to
+    unassign) on `POST` and `PATCH`; it must be an assignable member of the board
+    (admin, member or collaborator; never a viewer), otherwise the request answers
+    `400`. Assigning and dating are edits, so the creator-only rule below applies:
+    a collaborator or member may change them only on items they created.
+    An assignee who later leaves the board stays assigned, as on cards.
+    Each change records a History event: `checklist_item_assigned` (from/to are
+    usernames, blank for none) and `checklist_item_due_changed` (from/to are ISO
+    dates), both in the timeline's `checklist` group. Cards add two read-only
+    fields for the card-face suffix: `checklist_open_due_dates` (sorted due dates
+    of unchecked items) and `checklist_open_assignee_ids` (one entry per unchecked
+    assigned item). The public share link omits both. A checklist due date never
+    affects the card's own due date, urgency or staleness.
+
 ### `GET /api/v1/boards/{board_id}/cards/{id}/checklist/`
 List checklist items.
 

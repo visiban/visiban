@@ -645,7 +645,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
 
         The user delete sets those references to NULL (``Card.assignee`` and
         ``created_by``, and the author, actor, uploader or creator on a card's
-        movements, comments, activity, checklists, attachments, relations,
+        movements, comments, activity, checklists (creator and assignee), attachments, relations,
         notifications and manual blocks, #1149), which updates the card's rows. Locking the cards
         first keeps the order card, then user, the order a card writer uses.
         """
@@ -666,7 +666,8 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             | Q(pk__in=CardMovement.objects.filter(moved_by__in=pks).values("card_id"))
             | Q(pk__in=CardComment.objects.filter(author__in=pks).values("card_id"))
             | Q(pk__in=CardActivity.objects.filter(actor__in=pks).values("card_id"))
-            | Q(pk__in=CardChecklist.objects.filter(created_by__in=pks).values("card_id"))
+            # Checklist creator and, since #445, checklist assignee (SET_NULL).
+            | Q(pk__in=CardChecklist.objects.filter(Q(created_by__in=pks) | Q(assignee__in=pks)).values("card_id"))
             | Q(pk__in=CardAttachment.objects.filter(uploaded_by__in=pks).values("card_id"))
             | Q(pk__in=CardRelation.objects.filter(created_by__in=pks).values("from_card_id"))
             | Q(pk__in=CardRelation.objects.filter(created_by__in=pks).values("to_card_id"))
@@ -779,7 +780,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         are read here, after the locks and the refusal re-check:
 
         - ``cards``: board id -> pks of every card carrying a reference to a
-          target (creator, assignee, comment author, checklist creator,
+          target (creator, assignee, comment author, checklist creator or assignee,
           attachment uploader, relation creator, block actor, ...; the set
           ``_cards_to_lock`` computes, so a card is in it once), rendered
           again after the delete for ``card.updated``. An open card detail

@@ -53,7 +53,8 @@ from boards.permissions import (
     GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
 )
 from boards.serializers import (
-    BlockCardSerializer, CardMovementSerializer, CardSerializer, UnblockCardSerializer,
+    BlockCardSerializer, CardChecklistSerializer, CardMovementSerializer, CardSerializer,
+    UnblockCardSerializer,
     _card_checklist_items, _card_queryset,
 )
 from boards.services import cards as card_services
@@ -659,12 +660,11 @@ def _serialize_comment(comment):
 
 
 def _serialize_checklist_item(item):
-    return {
-        "id": item.id,
-        "text": item.text,
-        "is_checked": item.is_checked,
-        "position": item.position,
-    }
+    # The REST serializer, not a hand-written shape (#445, security-invariants
+    # Rule 10): MCP serves the same fields REST serves to the same roles, so a
+    # field added to CardChecklistSerializer cannot be forgotten here. No
+    # board context: assignee_id is write-only and absent from .data.
+    return dict(CardChecklistSerializer(item).data)
 
 
 # ---------------------------------------------------------------------------

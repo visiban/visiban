@@ -33,6 +33,14 @@ export function activityLabel(
       const fmt = (iso: string) => (iso ? formatDateStr(iso, userDateFormat) : "(none)");
       return `Due date: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
     }
+    // #445: per-item assignee and due date. Not grouped like the other
+    // checklist events, whose to_value is the item text.
+    case "checklist_item_assigned":
+      return `Checklist item assignee: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
+    case "checklist_item_due_changed": {
+      const fmt = (iso: string) => (iso ? formatDateStr(iso, userDateFormat) : "(none)");
+      return `Checklist item due: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
+    }
     // Manual block state (#1149): blocked carries the reason; unblocked the
     // reason it cleared (from_value) and the optional resolution (to_value).
     case "blocked":

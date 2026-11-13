@@ -1155,6 +1155,10 @@ class CardActivity(models.Model):
         CHECKLIST_ITEM_CHECKED = "checklist_item_checked", "Checklist item checked"
         CHECKLIST_ITEM_UNCHECKED = "checklist_item_unchecked", "Checklist item unchecked"
         CHECKLIST_ITEM_DELETED = "checklist_item_deleted", "Checklist item deleted"
+        # #445: from/to are the assignee's username (blank = unassigned).
+        CHECKLIST_ITEM_ASSIGNED = "checklist_item_assigned", "Checklist item assigned"
+        # #445: from/to are ISO dates (blank = no due date).
+        CHECKLIST_ITEM_DUE_CHANGED = "checklist_item_due_changed", "Checklist item due date changed"
         DUE_DATE_CHANGE = "due_date_change", "Due date changed"
         # Manual block state (#1149). ``blocked``: to_value is the reason.
         # ``unblocked``: from_value is the reason the block carried, to_value
@@ -1336,6 +1340,23 @@ class CardChecklist(models.Model):
         blank=True,
         related_name="created_checklist_items",
     )
+    # #445: optional per-item assignee and due date. The assignee is limited to
+    # the board's assignable members at write time (CardChecklistSerializer);
+    # like Card.assignee it is NOT cleared when the member leaves the board.
+    # db_index=False on the AddField so the FK index can be built concurrently
+    # in its own non-atomic migration (0100) instead of locking the table.
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_checklist_items",
+        db_index=False,
+    )
+    # A checklist item's due date feeds only the card-face checklist suffix;
+    # it never feeds the card's urgency badge, border, staleness or due-soon
+    # notifications (design A-Q9).
+    due_date = models.DateField(null=True, blank=True)
 
     class Meta:
         db_table = "card_checklist_items"
@@ -1344,6 +1365,9 @@ class CardChecklist(models.Model):
             # Covers the default ORDER BY position for a given card without a
             # filesort on cards with many checklist items.
             models.Index(fields=["card", "position"], name="checklist_card_pos_idx"),
+            # #445: the FK index, built concurrently (migration 0100). Serves the
+            # user-delete SET NULL and "items assigned to me" lookups.
+            models.Index(fields=["assignee"], name="checklist_assignee_idx"),
         ]
 
     def __str__(self):

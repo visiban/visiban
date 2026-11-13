@@ -623,6 +623,12 @@ export interface CardChecklistItem {
   is_checked: boolean;
   position: number;
   created_by: BoardUser | null;
+  /** #445: the item's assignee (nested read); write with `assignee_id`. */
+  assignee: BoardUser | null;
+  /** #445: write-only; limited server-side to the board's assignable members. */
+  assignee_id?: number | null;
+  /** #445: `YYYY-MM-DD`, or null. Feeds only the checklist face suffix, never card urgency. */
+  due_date: string | null;
 }
 
 export interface CardAttachment {
@@ -678,6 +684,13 @@ export interface Card {
   attachment_count: number;
   checklist_total: number;
   checklist_done: number;
+  /** #445: sorted `YYYY-MM-DD` due dates of unchecked checklist items. The face
+   *  derives "overdue" in the viewer's timezone. Optional: absent in payloads
+   *  that predate the field (cached boards, older servers); treat as []. */
+  checklist_open_due_dates?: string[];
+  /** #445: assignee ids of unchecked checklist items, one per item. The face
+   *  derives "mine" for the viewer. Optional for the same reason; treat as []. */
+  checklist_open_assignee_ids?: number[];
   is_stale: boolean;
   archived_at: string | null;
   version: number;
@@ -885,6 +898,9 @@ export type CardActivityEventType =
   | "checklist_item_checked"
   | "checklist_item_unchecked"
   | "checklist_item_deleted"
+  // #445: from/to are usernames (assigned) and ISO dates (due changed).
+  | "checklist_item_assigned"
+  | "checklist_item_due_changed"
   | "due_date_change"
   // Manual block state (#1149): `blocked` carries the reason in to_value;
   // `unblocked` the reason in from_value and the resolution in to_value.
