@@ -159,7 +159,7 @@ interface StagedInvite {
 const ADD_FALLBACK_ERROR = "Couldn't add this member.";
 
 /** The server refuses to demote or remove the board owner's membership (#1828). */
-const OWNER_MEMBERSHIP_NOTE = "The board owner is always an admin. Transfer ownership to change this.";
+const OWNER_MEMBERSHIP_NOTE = "The board owner is always an admin and cannot be removed.";
 const OWNER_PROTECTED_CODE = "board_owner_protected";
 
 /** True for the 400 the member endpoints send when the owner's membership is targeted. */
