@@ -2,7 +2,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
-// #1482 — CheckboxDropdown, ActivityFilterDropdown and SavedFiltersDropdown
+// #1482 — CheckboxDropdown and SavedFiltersDropdown
 // rendered `absolute top-full`, so a scroll region or `overflow-hidden`
 // ancestor (the card sheet's Activity tab) clipped them, and a long list ran
 // off the viewport. jsdom does not clip, so this hit-tests in a real browser.

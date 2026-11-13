@@ -73,7 +73,7 @@ type DisplayEntry = CardTimelineEntry | ChecklistGroup;
 const DEFAULT_LIMIT = HISTORY_PAGE_LIMIT;
 
 // Collapse consecutive same-type checklist entries into a single group,
-// matching the behaviour in CardMovementTimeline.
+// so a run of checklist events reads as one entry.
 function collapseChecklistGroups(entries: CardTimelineEntry[]): DisplayEntry[] {
   const result: DisplayEntry[] = [];
   for (const entry of entries) {

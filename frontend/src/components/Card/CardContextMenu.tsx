@@ -12,9 +12,7 @@ import { CARD_MENU_GROUPS, assignChoices, moveChoices, priorityChoices, type Car
  * 59 sits above every board-page surface that can be open beside the menu
  * (dropdowns 25, the card-face quick-edit popover 32) and below the command
  * palette (60). The menu is never open over the card sheet, so nothing in the
- * card-panel tiers (30-44) is open beside it. 59 is a shared slot with the
- * card sheet's ActivityFilterDropdown (#1482): the two are never open
- * together. One entry serves both levels: an open submenu closes first, the
+ * card-panel tiers (30-44) is open beside it.  One entry serves both levels: an open submenu closes first, the
  * same way the palette backs out of its drill-in levels from its single 60.
  * Recorded in frontend/CLAUDE.md (modal Escape list, § Card context menu).
  */

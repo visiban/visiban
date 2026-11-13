@@ -452,7 +452,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
     setBodyShadows((p) => (p.above === above && p.below === below ? p : { above, below }));
   };
-  // Content height changes (a section loads, the Activity tab fills in)
+  // Content height changes (a section loads, the History tab fills in)
   // without a scroll event; observe it rather than measuring every render.
   useLayoutEffect(() => {
     updateBodyShadows();
