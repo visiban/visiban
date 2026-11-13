@@ -31,6 +31,8 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   await page.getByText(CARD.title).first().click()
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
+  // #967: the comment composer lives on the Comments tab, not the default one.
+  await page.getByRole('tab', { name: /^Comments/ }).click()
   const box = page.getByPlaceholder(/add a comment/i)
   await box.scrollIntoViewIfNeeded()
   await box.click()
