@@ -383,3 +383,96 @@ class SavedFilterViewerRbacTests(TestCase):
         )
         r = self.client.delete(f"/api/v1/boards/{self.board.id}/saved-filters/{sf.pk}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+
+
+# Shaped exactly like the frontend's EMPTY_FILTER (FilterBar.tsx) — the payload
+# useSavedFilters always posts. #2213: every save was a 400 because the
+# serializer did not know customFields / visibleCustomFieldFilterIds.
+EMPTY_FILTER_STATE = {
+    "search": "",
+    "assigneeIds": [],
+    "labelIds": [],
+    "priorities": [],
+    "dueDate": None,
+    "customFields": {},
+    "visibleCustomFieldFilterIds": [],
+}
+
+
+class SavedFilterCustomFieldStateTests(TestCase):
+    """#2213 — customFields / visibleCustomFieldFilterIds accepted and bounded."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="alice", password="pass")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
+
+    def _post(self, state):
+        return self.client.post(self.url, {"name": "F", "state_json": state}, format="json")
+
+    def test_empty_filter_payload_saves(self):
+        r = self._post(EMPTY_FILTER_STATE)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], EMPTY_FILTER_STATE)
+
+    def test_populated_custom_fields_round_trip(self):
+        state = {
+            **EMPTY_FILTER_STATE,
+            "customFields": {
+                "12": {"kind": "text", "query": "acme"},
+                "13": {"kind": "number", "equals": "5"},
+                "14": {"kind": "date", "equals": "2026-11-13"},
+                "15": {"kind": "choice", "values": ["a", "b"]},
+                "16": {"kind": "multi_choice", "values": ["x"]},
+            },
+            "visibleCustomFieldFilterIds": [12, 13],
+        }
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        listed = self.client.get(self.url).data
+        self.assertEqual(listed[0]["state_json"], state)
+
+    def test_invalid_custom_field_payloads_rejected_with_string_detail(self):
+        long_str = "x" * 501
+        cases = {
+            "customFields not a dict": {"customFields": []},
+            "non-digit key": {"customFields": {"abc": {"kind": "text", "query": ""}}},
+            "unicode digit key": {"customFields": {"٣": {"kind": "text", "query": ""}}},
+            "entry not a dict": {"customFields": {"1": "text"}},
+            "unknown kind": {"customFields": {"1": {"kind": "bogus"}}},
+            "missing kind": {"customFields": {"1": {"query": "a"}}},
+            "text query not str": {"customFields": {"1": {"kind": "text", "query": 5}}},
+            "text query too long": {"customFields": {"1": {"kind": "text", "query": long_str}}},
+            "equals not str": {"customFields": {"1": {"kind": "number", "equals": 5}}},
+            "choice values not list": {"customFields": {"1": {"kind": "choice", "values": "a"}}},
+            "choice value not str": {"customFields": {"1": {"kind": "choice", "values": [1]}}},
+            "choice value too long": {"customFields": {"1": {"kind": "multi_choice", "values": [long_str]}}},
+            "too many values": {"customFields": {"1": {"kind": "choice", "values": ["a"] * 51}}},
+            "too many entries": {
+                "customFields": {str(i): {"kind": "text", "query": ""} for i in range(51)}
+            },
+            "ids not list": {"visibleCustomFieldFilterIds": "1"},
+            "ids bool": {"visibleCustomFieldFilterIds": [True]},
+            "ids str": {"visibleCustomFieldFilterIds": ["1"]},
+            "too many ids": {"visibleCustomFieldFilterIds": list(range(51))},
+        }
+        for label, extra in cases.items():
+            with self.subTest(label):
+                r = self._post({**EMPTY_FILTER_STATE, **extra})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIsInstance(r.data["detail"], str)
+
+    def test_frontend_filter_state_keys_match_serializer(self):
+        """Parity pin: the shared fixture lists FilterState's keys; the Vitest
+        in src/test/savedFilterKeysParity.test.ts asserts the same list
+        against EMPTY_FILTER. Drift on either side fails CI."""
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        keys = json.loads(fixture.read_text())["keys"]
+        self.assertEqual(set(keys), SavedFilterSerializer._STATE_V1_KEYS)

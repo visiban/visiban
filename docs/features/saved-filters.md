@@ -50,4 +50,8 @@ Today only version `1` exists. The server accepts any `state_version` number ≥
 
 That check is separate from the `state_json` key allow-list: the server still only accepts the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`) regardless of the declared version, so a genuinely new v2-only key is rejected with `400` until the backend's allow-list is updated to match. On read, older clients fall back to a defensive v1 reader for any shared fields.
 
-Additive changes (adding a new optional key to `state_json`) do **not** require a version bump — update the key allow-list in the serializer's `validate_state_json` validator and the frontend `FilterState` type in the same release.
+- The server still accepts only the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`, `customFields`, `visibleCustomFieldFilterIds`), whatever version is declared.
+- A genuinely new v2-only key is rejected with `400` until the backend's allow-list is updated.
+- On read, older clients fall back to a defensive v1 reader for any shared fields.
+
+Additive changes (a new optional key in `state_json`) need **no** version bump. Update the allow-list in the serializer's `validate_state_json` validator and the frontend `FilterState` type in the same release.
