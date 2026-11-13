@@ -281,6 +281,25 @@ describe('BoardView — board presets (#1146)', () => {
       expect(gridHtml()).not.toBe(baseline)
     })
 
+    // #871 gate: the redesigned urgency face follows the active preset. Card 2 is due
+    // tomorrow, so at Standard (Default's density, and Classic on a standard board) its
+    // due-soon urgency badge renders; only the face differs.
+    it('the #871 urgency face reaches Default and stays out of Classic and no-preset boards', () => {
+      const badge = () => screen.getAllByTitle('Due 2026-06-16')[0]
+      for (const search of ['', 'preset=classic']) {
+        const { unmount } = renderBoard(makeBoard({ card_density: 'standard' }), search)
+        expect(badge().textContent, search || 'no preset').toBe('⏱ Due tomorrow')
+        expect(badge().className).toMatch(/\btext-warning$/)
+        expect(badge().querySelector('svg')).toBeNull()
+        unmount()
+        localStorage.clear()
+      }
+      renderBoard(makeBoard({ card_density: 'standard' }), 'preset=default')
+      expect(badge().textContent).toBe('Due tomorrow')
+      expect(badge().className).toContain('text-warning-on-tint')
+      expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon"]')).not.toBeNull()
+    })
+
     it('a board with no default and no link writes nothing and shows the trigger at rest', () => {
       renderBoard()
       expect(presetTrigger()).toHaveAccessibleName('Preset')
@@ -676,7 +695,10 @@ describe('BoardView — board presets (#1146)', () => {
 
     it("a member's own density beats the board default, which then reads as modified", () => {
       localStorage.setItem(DENSITY_KEY, 'dense')
-      const { unmount } = renderBoard(makeBoard({ card_density: 'dense' }))
+      // The baseline carries the same board default preset: since #871 the card face
+      // follows the active preset (Classic and no preset keep the legacy face), so
+      // only the density is compared here, not the face.
+      const { unmount } = renderBoard(makeBoard({ card_density: 'dense', default_preset: 'default' }))
       const dense = gridHtml()
       unmount()
       renderBoard(makeBoard({ card_density: 'comfortable', default_preset: 'default' }))

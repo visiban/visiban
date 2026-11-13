@@ -277,8 +277,17 @@ describe("staleBadgeToneClass", () => {
 describe("urgencyBadgeToneClass", () => {
   it("uses plain tokens on an untinted card", () => {
     expect(urgencyBadgeToneClass("danger", "none")).toBe("text-danger");
-    expect(urgencyBadgeToneClass("warning", "none")).toBe("text-warning");
+    // Warning is the exception: plain `text-warning` is 3.56:1 on white (#2029, #871).
+    expect(urgencyBadgeToneClass("warning", "none")).toBe("text-warning-on-tint");
     expect(urgencyBadgeToneClass("info", "none")).toBe("text-info");
+  });
+
+  it("keeps plain text-warning on an untinted card under the Classic face only (#871 gate)", () => {
+    expect(urgencyBadgeToneClass("warning", "none", true)).toBe("text-warning");
+    expect(urgencyBadgeToneClass("danger", "none", true)).toBe("text-danger");
+    expect(urgencyBadgeToneClass("info", "none", true)).toBe("text-info");
+    expect(urgencyBadgeToneClass("warning", "stale", true)).toBe("text-warning-on-tint");
+    expect(urgencyBadgeToneClass("warning", "stale2x", true)).toBe("text-danger-on-tint");
   });
 
   it("uses the badge hue's on-tint token on the yellow and orange stages", () => {

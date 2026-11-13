@@ -25,8 +25,8 @@ export interface CardUrgency {
   /**
    * Default human-readable label. Date-based kinds (overdue / due-soon) are
    * rendered with the formatted ``dueInfo.label`` at the call site so the
-   * badge carries the actual date — e.g. ``⚑ 2d late`` rather than
-   * ``⚑ Overdue``. This default is used for ``stale`` and ``recent`` and as
+   * badge carries the actual date — e.g. ``Due 10/30/2026`` (after a flag
+   * glyph) rather than ``Overdue``. This default is used for ``stale`` and ``recent`` and as
    * a fallback when ``dueInfo`` is not yet computed.
    */
   label: string;

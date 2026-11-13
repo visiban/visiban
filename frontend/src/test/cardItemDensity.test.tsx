@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
+import { publishActivePreset } from '../boardPresets/activePresetStore'
 import type { Card } from '../types'
 
 vi.mock('@dnd-kit/core', () => ({
@@ -41,7 +42,18 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   }
 }
 
+// #871 gate: the redesigned urgency face renders only under a non-Classic preset, which
+// the app tells CardItem through the store `useBoardPreset` publishes. These tests cover
+// the redesigned face, so they publish the Default preset exactly as BoardView would;
+// the Classic / no-preset face is covered in its own describe below.
+function publishPreset(activePresetId: 'classic' | 'default' | null, boardId = 7) {
+  act(() => publishActivePreset({ boardId, activePresetId, modified: false }))
+}
+
 describe('CardItem — card_density (#961)', () => {
+  beforeEach(() => publishPreset('default'))
+  afterEach(() => act(() => publishActivePreset(null)))
+
   // ---- comfortable: minimal layout ----
 
   describe('density="comfortable"', () => {
@@ -86,18 +98,33 @@ describe('CardItem — card_density (#961)', () => {
       // generic word "Overdue", so the date isn't lost when the standalone
       // date pill is suppressed at lower densities.
       const { container } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" />)
-      const badge = container.querySelector('.text-danger')
-      expect(badge?.textContent).toMatch(/^⚑/)
-      expect(badge?.textContent).not.toBe('⚑ Overdue')
-      expect(badge?.textContent).toMatch(/late|d ago|^⚑\s\S/)
+      const badge = container.querySelector('.text-danger') as HTMLElement
+      // #871: an SVG flag, not the ⚑ text character; the text keeps the date.
+      expect(badge.textContent).not.toMatch(/⚑/)
+      expect(badge.textContent).toMatch(/^Overdue: Due \S/)
+      expect(badge.textContent).not.toBe('Overdue')
+      const glyph = badge.querySelector('svg[data-testid="urgency-glyph-overdue"]')
+      expect(glyph).not.toBeNull()
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+      expect(glyph?.getAttribute('fill')).toBe('none')
+      expect(glyph?.getAttribute('stroke')).toBe('currentColor')
+      expect(glyph?.getAttribute('class')).toContain('w-3 h-3')
+      // The screen-reader word is visually hidden, so sighted copy is unchanged.
+      expect(badge.querySelector('.sr-only')?.textContent).toBe('Overdue: ')
     })
 
     it('renders the urgency badge with the formatted date for due-soon cards', () => {
       const { container } = render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" />)
-      const badge = container.querySelector('.text-warning')
-      expect(badge?.textContent).toMatch(/^⏱/)
+      const badge = container.querySelector('.text-warning-on-tint') as HTMLElement
+      // #871: plain text-warning is 3.56:1 on a white card, so the untinted badge uses warning-on-tint.
+      expect(container.querySelector('.text-warning')).toBeNull()
+      expect(badge.textContent).not.toMatch(/⏱/)
+      expect(badge.textContent).toMatch(/^Due /)
       // Should not be the generic "Due soon" — must include date label
-      expect(badge?.textContent).not.toBe('⏱ Due soon')
+      expect(badge.textContent).not.toBe('Due soon')
+      const glyph = badge.querySelector('svg[data-testid="urgency-glyph-due-soon"]')
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+      expect(badge.querySelector('.sr-only')).toBeNull()
     })
 
     it('renders the urgency badge "Stale" with the full warning on-tint tone (not text-fg-secondary)', () => {
@@ -170,7 +197,75 @@ describe('CardItem — card_density (#961)', () => {
       render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
       // The dense layout still uses the standalone overdue-styled due date pill,
       // not the new badge — no "Overdue" text label.
-      expect(screen.queryByText(/^Overdue$|^⚑ Overdue/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Overdue$/)).not.toBeInTheDocument()
+    })
+
+    it('puts the SVG flag + word on an overdue due pill, with the on-tint danger tone (#871)', () => {
+      render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
+      const pill = screen.getByTitle(`Due ${FIVE_DAYS_AGO}`)
+      expect(pill.className).toContain('text-danger')
+      expect(pill.textContent).toMatch(/^Overdue: Due /)
+      expect(pill.textContent).not.toMatch(/⚑/)
+      const glyph = pill.querySelector('svg[data-testid="urgency-glyph-overdue"]')
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+    })
+
+    it('puts the SVG stopwatch + word on a due-soon due pill, in the warning on-tint tone (#871)', () => {
+      render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="dense" />)
+      const pill = screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
+      expect(pill.className).toContain('text-warning-on-tint')
+      expect(pill.className).not.toMatch(/text-warning(?!-on-tint)/)
+      expect(pill.textContent).toMatch(/^Due /)
+      expect(pill.querySelector('svg[data-testid="urgency-glyph-due-soon"]')?.getAttribute('aria-hidden')).toBe('true')
+    })
+
+    describe('due-today pill (user-timezone vs UTC-midnight classifier divergence, #871)', () => {
+      afterEach(() => { vi.useRealTimers() })
+
+      it('renders a due-today pill as due soon, not overdue, when the classifier already calls it overdue', () => {
+        // 15:00 UTC on 2026-06-15: in the user's (UTC) timezone the date is today,
+        // so formatDueDate says not overdue, while the classifier parses the date as
+        // UTC midnight, which is already past, so it says overdue.
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
+        render(
+          <CardItem
+            card={makeCard({ due_date: '2026-06-15', created_at: '2026-06-14T00:00:00Z' })}
+            density="dense"
+            userTimezone="UTC"
+          />,
+        )
+        const pill = screen.getByTitle('Due 2026-06-15')
+        expect(pill.textContent).toMatch(/^Due today/)
+        expect(pill.textContent).not.toMatch(/Overdue/)
+        expect(pill.querySelector('svg[data-testid="urgency-glyph-due-soon"]')).not.toBeNull()
+        expect(pill.querySelector('svg[data-testid="urgency-glyph-overdue"]')).toBeNull()
+        expect(pill.className).toContain('text-warning-on-tint')
+      })
+
+      it('applies the on-tint tone class to the pill on a tinted card', () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
+        // Never moved, created 30 days ago against the 14-day default: stale 2x tint.
+        render(
+          <CardItem
+            card={makeCard({ due_date: '2026-06-15', created_at: '2026-05-16T00:00:00Z' })}
+            density="dense"
+            userTimezone="UTC"
+          />,
+        )
+        const pill = screen.getByTitle('Due 2026-06-15')
+        expect(pill.className).toContain('text-danger-on-tint')
+        expect(pill.className).not.toMatch(/text-(danger|warning)(?!-on-tint)/)
+      })
+    })
+
+    it('leaves a far-out due pill plain: no glyph, fg-tertiary', () => {
+      const FAR = new Date(TODAY.getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+      render(<CardItem card={makeCard({ due_date: FAR })} density="dense" />)
+      const pill = screen.getByTitle(`Due ${FAR}`)
+      expect(pill.className).toContain('text-fg-tertiary')
+      expect(pill.querySelector('svg')).toBeNull()
     })
 
     it('renders all three labels + overflow', () => {
@@ -266,5 +361,62 @@ describe('CardItem — card_density (#961)', () => {
       expect(screen.queryByText('security')).not.toBeInTheDocument()
       expect(screen.getByText('+2')).toBeInTheDocument()
     })
+  })
+})
+
+// #871 gate (#1146): Classic keeps the pre-#871 face byte for byte, and so does a board
+// with no preset (Classic equals it) and a card rendered outside any board view.
+describe('CardItem — Classic keeps the pre-#871 urgency face (#871 gate)', () => {
+  afterEach(() => act(() => publishActivePreset(null)))
+
+  const cases: Array<[string, () => void]> = [
+    ['Classic preset', () => publishPreset('classic')],
+    ['no preset active', () => publishPreset(null)],
+    ['no board view (nothing published)', () => {}],
+    ['a non-Classic preset on another board', () => publishPreset('default', 99)],
+  ]
+
+  it.each(cases)('%s: the overdue badge is "⚑ <date>" in text-danger, with no SVG', (_name, setup) => {
+    setup()
+    render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" boardId={7} />)
+    const badge = screen.getByTitle(`Due ${FIVE_DAYS_AGO}`)
+    expect(badge.className).toBe('text-xs font-semibold shrink-0 text-danger')
+    expect(badge.textContent).toMatch(/^⚑ Due \S/)
+    expect(badge.children).toHaveLength(0)
+  })
+
+  it.each(cases)('%s: the due-soon badge is "⏱ <date>" in plain text-warning, with no SVG', (_name, setup) => {
+    setup()
+    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" boardId={7} />)
+    const badge = screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
+    expect(badge.className).toBe('text-xs font-semibold shrink-0 text-warning')
+    expect(badge.textContent).toMatch(/^⏱ Due /)
+    expect(badge.children).toHaveLength(0)
+  })
+
+  it.each(cases)('%s: the dense due pill keeps its hue-only tone and plain label', (_name, setup) => {
+    setup()
+    const { unmount } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" boardId={7} />)
+    const overdue = screen.getByTitle(`Due ${FIVE_DAYS_AGO}`)
+    expect(overdue.className).toBe('text-xs font-medium shrink-0 text-danger')
+    expect(overdue.children).toHaveLength(0)
+    expect(overdue.textContent).toMatch(/^Due /)
+    unmount()
+    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="dense" boardId={7} />)
+    const soon = screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
+    expect(soon.className).toBe('text-xs font-medium shrink-0 text-fg-tertiary')
+    expect(soon.children).toHaveLength(0)
+  })
+
+  it('switches to the redesigned face when the Default preset becomes active on its board, and back', () => {
+    publishPreset('classic')
+    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" boardId={7} />)
+    const badge = () => screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
+    expect(badge().querySelector('svg')).toBeNull()
+    publishPreset('default')
+    expect(badge().className).toContain('text-warning-on-tint')
+    expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon"]')).not.toBeNull()
+    publishPreset('classic')
+    expect(badge().textContent).toMatch(/^⏱ /)
   })
 })
