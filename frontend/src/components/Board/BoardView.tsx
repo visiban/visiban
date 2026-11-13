@@ -1483,10 +1483,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // or palette result over this same selection reports where the user is
   // already looking instead of in a toast above the toolbar.
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
-  // A refusal describes the selection it was written for: any change to the
-  // selected ids (or emptying it) retires the message.
-  const selectionKey = [...selectedCardIds].sort((a, b) => a - b).join(",");
-  useEffect(() => { setBulkMessage(null); }, [selectionKey]);
+  // A refusal describes the selection it was written for, so it is retired when
+  // the selection gains a card it was not written for. A selection that only
+  // SHRINKS keeps it: after a partial archive/delete the succeeded cards leave
+  // the board, the prune effect drops them from the selection, and clearing
+  // here would wipe the very failure text the user needs to read. (Deselecting
+  // a card by hand also keeps it; emptying the selection unmounts the toolbar,
+  // and a fresh selection starts from an empty slot because the ref is empty.)
+  const prevSelectedIdsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const prev = prevSelectedIdsRef.current;
+    prevSelectedIdsRef.current = selectedCardIds;
+    if (selectedCardIds.size === 0 || [...selectedCardIds].some((id) => !prev.has(id))) {
+      setBulkMessage(null);
+    }
+  }, [selectedCardIds]);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);

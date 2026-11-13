@@ -1579,7 +1579,7 @@ Established by the `url` custom field type. `components/Card/CustomFieldLink.tsx
    | Delete | created by someone else (the confirm already skips them) | you can only delete cards you created |
 
    Moderators and admins are never refused; the hosted demo visitor is widened for everything but Delete.
-6. **The status slot's text is controlled by BoardView.** The toolbar takes `message` / `onMessageChange`; BoardView clears it whenever the selected ids change (a refusal describes the selection it was written for) and routes a context-menu or palette failure into it when the action's target set is the whole selection and the toolbar is up (`reportCardAction(…, selectionResult)`). No new context or store.
+6. **The status slot's text is controlled by BoardView.** The toolbar takes `message` / `onMessageChange`; BoardView clears it when the selection gains a card it was not written for, or empties, and keeps it when the selection only shrinks (a refusal describes the selection it was written for, but after a partial archive or delete the succeeded cards leave the board and are pruned from the selection, and clearing then would wipe the failure the user needs to read) and routes a context-menu or palette failure into it when the action's target set is the whole selection and the toolbar is up (`reportCardAction(…, selectionResult)`). No new context or store.
 
 ## Card context menu (#2059)
 

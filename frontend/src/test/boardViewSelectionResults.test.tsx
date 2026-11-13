@@ -113,6 +113,7 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
         {onEditFieldOrder && <button data-testid={`edit-order-${swimlane.id}`} onClick={onEditFieldOrder}>EditOrderMock</button>}
         {onToggleCardSelection && <button data-testid={`select-card-1-${swimlane.id}`} onClick={() => onToggleCardSelection(1)}>SelectCardMock</button>}
+        {onToggleCardSelection && <button data-testid={`select-card-2-${swimlane.id}`} onClick={() => onToggleCardSelection(2)}>SelectCardTwoMock</button>}
         {onOpenCardMenu && (cards ?? []).map((c) => (
           <button key={c.id} data-testid={`open-menu-${c.id}`} onClick={() => onOpenCardMenu(c as never, { top: 10, bottom: 10, left: 10 })}>OpenMenuMock</button>
         ))}
@@ -181,8 +182,8 @@ vi.mock('../components/Common/Tooltip', () => ({
 // The real toolbar has its own suite; here it only shows the slot text BoardView
 // controls, so the routing of context-menu / palette results can be asserted (#2173).
 vi.mock('../components/Board/BulkActionToolbar', () => ({
-  default: ({ message }: { message: string | null }) => (
-    <div data-testid="bulk-toolbar"><span data-testid="bulk-message">{message}</span></div>
+  default: ({ message, selectedCardIds }: { message: string | null; selectedCardIds: Set<number> }) => (
+    <div data-testid="bulk-toolbar"><span data-testid="bulk-count">{selectedCardIds.size}</span><span data-testid="bulk-message">{message}</span></div>
   ),
 }))
 const archivedPanelCalls: string[] = []
@@ -222,7 +223,7 @@ vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
 }))
 
-import { archiveCard, getCardStatus } from '../api/cards'
+import { archiveCard, deleteCard, getCardStatus } from '../api/cards'
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -394,5 +395,42 @@ describe('BoardView selection results (#2173)', () => {
     fireEvent.click(screen.getByTestId('select-card-1-20'))
     fireEvent.click(screen.getByTestId('select-card-1-20'))
     expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
+  })
+  // After a partial archive/delete the succeeded card leaves board.cards, the
+  // prune effect drops it from the selection, and the failure text for the
+  // card that stayed must survive that shrink (#2173).
+  const dropCardFromBoard = (id: number) => {
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2].filter((c) => c.id !== id) }) })
+  }
+
+  it('a partial archive keeps its message when the succeeded card is pruned from the selection', async () => {
+    vi.mocked(archiveCard).mockImplementation((_b, id) => (id === 1 ? Promise.resolve(undefined as never) : Promise.reject(forbidden())))
+    const ui = () => <ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>
+    const { rerender } = render(ui())
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    fireEvent.click(screen.getByTestId('select-card-2-20'))
+    archiveVia([1, 2])
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).toHaveTextContent('1 of 2 cards could not be archived'))
+    dropCardFromBoard(1)
+    rerender(ui()) // a fresh element: the same one would bail out of the re-render
+    // The selection shrank to card 2 only; the message must still be there.
+    await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('1'))
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).toHaveTextContent('1 of 2 cards could not be archived'))
+    expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+  })
+
+  it('a partial delete keeps its message when the deleted card is pruned from the selection', async () => {
+    vi.mocked(deleteCard).mockImplementation((_b, id) => (id === 1 ? Promise.resolve(undefined as never) : Promise.reject(forbidden())))
+    const ui = () => <ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>
+    const { rerender } = render(ui())
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    fireEvent.click(screen.getByTestId('select-card-2-20'))
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1, 2], action: 'delete' } })) })
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).toHaveTextContent('1 of 2 cards could not be deleted'))
+    dropCardFromBoard(1)
+    rerender(ui()) // a fresh element: the same one would bail out of the re-render
+    await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('1'))
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).toHaveTextContent('1 of 2 cards could not be deleted'))
   })
 })
