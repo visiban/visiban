@@ -10,6 +10,7 @@ import { Toggle } from "../Common/Toggle";
 import {
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
+  listCustomFieldDefinitions,
   deleteCustomFieldDefinition,
   reorderCustomFields,
 } from "../../api/boards";
@@ -112,6 +113,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [formError, setFormError] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
   const [pasteListOpen, setPasteListOpen] = useState(false);
   const [pasteListText, setPasteListText] = useState("");
   const [pendingTypeChange, setPendingTypeChange] = useState<CustomFieldType | null>(null);
@@ -197,18 +199,29 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     }
   };
 
+  // The unpin must commit before the pin is sent: the server checks the cap
+  // before taking any lock, so a parallel pin can be refused while the unpin
+  // still succeeds (#2193). On any failure we re-sync from the server rather
+  // than roll back to a stale snapshot, since the unpin may have landed.
   const swapPin = async (replaceId: number, newId: number) => {
-    const prev = fields;
     setSwapPromptId(null);
+    setSwapError(null);
+    let unpinned: typeof fields[number] | null = null;
     try {
-      const [unpinned, pinned] = await Promise.all([
-        updateCustomFieldDefinition(board.id, replaceId, { show_on_card: false }),
-        updateCustomFieldDefinition(board.id, newId, { show_on_card: true }),
-      ]);
-      commit(fields.map((f) => (f.id === replaceId ? unpinned : f.id === newId ? pinned : f)));
+      unpinned = await updateCustomFieldDefinition(board.id, replaceId, { show_on_card: false });
+      const pinned = await updateCustomFieldDefinition(board.id, newId, { show_on_card: true });
+      commit(fields.map((f) => (f.id === replaceId ? unpinned! : f.id === newId ? pinned : f)));
     } catch {
-      // Treat the pair as one logical operation — either failing rolls back both.
-      setFields(prev);
+      setSwapError("Couldn't replace the pinned field. Nothing else was changed; try again.");
+      try {
+        commit(await listCustomFieldDefinitions(board.id));
+      } catch {
+        // Re-sync failed too: keep only what the server actually confirmed.
+        if (unpinned) {
+          const confirmed = unpinned;
+          commit(fields.map((f) => (f.id === replaceId ? confirmed : f)));
+        }
+      }
     }
   };
 
@@ -388,6 +401,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
       </div>
+
+      {swapError && <p role="alert" className="text-xs text-danger mb-2">{swapError}</p>}
 
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />

@@ -9,6 +9,7 @@ import { Toggle, ToggleField } from "../Common/Toggle";
 import {
   createSwimlaneCustomFieldDefinition,
   updateSwimlaneCustomFieldDefinition,
+  listSwimlaneCustomFieldDefinitions,
   deleteSwimlaneCustomFieldDefinition,
   reorderSwimlaneCustomFields,
 } from "../../api/boards";
@@ -145,6 +146,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [formError, setFormError] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
   const [pasteListOpen, setPasteListOpen] = useState(false);
   const [pasteListText, setPasteListText] = useState("");
   const [swapPromptId, setSwapPromptId] = useState<number | null>(null);
@@ -212,18 +214,29 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     }
   };
 
+  // The unpin must commit before the pin is sent: the server checks the cap
+  // before taking any lock, so a parallel pin can be refused while the unpin
+  // still succeeds (#2193). On any failure we re-sync from the server rather
+  // than roll back to a stale snapshot, since the unpin may have landed.
   const swapPin = async (replaceId: number, newId: number) => {
-    const prev = fields;
     setSwapPromptId(null);
+    setSwapError(null);
+    let unpinned: typeof fields[number] | null = null;
     try {
-      const [unpinned, pinned] = await Promise.all([
-        updateSwimlaneCustomFieldDefinition(board.id, replaceId, { show_on_row: false }),
-        updateSwimlaneCustomFieldDefinition(board.id, newId, { show_on_row: true }),
-      ]);
-      commit(fields.map((f) => (f.id === replaceId ? unpinned : f.id === newId ? pinned : f)));
+      unpinned = await updateSwimlaneCustomFieldDefinition(board.id, replaceId, { show_on_row: false });
+      const pinned = await updateSwimlaneCustomFieldDefinition(board.id, newId, { show_on_row: true });
+      commit(fields.map((f) => (f.id === replaceId ? unpinned! : f.id === newId ? pinned : f)));
     } catch {
-      // One logical operation — either half failing rolls back both.
-      setFields(prev);
+      setSwapError("Couldn't replace the pinned field. Nothing else was changed; try again.");
+      try {
+        commit(await listSwimlaneCustomFieldDefinitions(board.id));
+      } catch {
+        // Re-sync failed too: keep only what the server actually confirmed.
+        if (unpinned) {
+          const confirmed = unpinned;
+          commit(fields.map((f) => (f.id === replaceId ? confirmed : f)));
+        }
+      }
     }
   };
 
@@ -429,6 +442,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           Every field here is admin only — members and viewers see none of these on the board.
         </p>
       )}
+
+      {swapError && <p role="alert" className="text-xs text-danger mb-2">{swapError}</p>}
 
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
