@@ -604,7 +604,7 @@ describe("BoardSettingsFieldsTab — choice colors (#1391)", () => {
   it("removing a choice drops its color from the payload", async () => {
     const user = await openEditor(makeDefinition({ choice_colors: { Low: "green", High: "red" } }));
     const row = screen.getByDisplayValue("Low").parentElement!;
-    await user.click(within(row).getByRole("button", { name: "✕" }));
+    await user.click(within(row).getByRole("button", { name: "Remove choice Low" }));
     await user.click(screen.getByRole("button", { name: "Save field" }));
     await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, expect.objectContaining({
       choices: ["High"], choice_colors: { High: "red" },
