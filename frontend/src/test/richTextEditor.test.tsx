@@ -74,6 +74,8 @@ describe('RichTextEditor', () => {
     it('shows pencil icon button when editable', () => {
       render(<RichTextEditor value="some text" onSave={onSave} />)
       expect(screen.getByTitle('Edit description')).toBeInTheDocument()
+      // title alone is not a reliable accessible name (#1737)
+      expect(screen.getByTitle('Edit description')).toHaveAttribute('aria-label', 'Edit description')
     })
 
     it('does not show pencil icon when readOnly', () => {

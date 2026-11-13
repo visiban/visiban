@@ -654,6 +654,16 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.queryByText(/members and viewers see none of these/i)).not.toBeInTheDocument()
   })
 
+  it("names each choice's remove button (#1737)", async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.click(screen.getByRole('button', { name: /Dropdown/ }))
+    await user.click(screen.getByRole('button', { name: '+ Add choice' }))
+    const remove = screen.getByRole('button', { name: 'Remove choice 1' })
+    expect(remove).toHaveAttribute('type', 'button')
+  })
+
   it('defaults a new field to admin-only', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)

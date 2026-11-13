@@ -551,6 +551,7 @@ export default function RichTextEditor({
             onClick={enterEdit}
             className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Edit description"
+            aria-label="Edit description"
             tabIndex={0}
             onFocus={enterEdit}
           >

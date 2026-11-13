@@ -39,6 +39,13 @@ describe('AddSwimlaneModal', () => {
     expect(screen.getByRole('button', { name: 'Add Swimlane' })).toBeInTheDocument()
   })
 
+  it('gives Cancel a focus ring and type="button" (#1737)', () => {
+    render(<AddSwimlaneModal boardId={1} onAdded={onAdded} onClose={onClose} />)
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(cancel).toHaveAttribute('type', 'button')
+    expect(cancel).toHaveClass('focus:ring-2', 'focus:ring-primary-emphasis', 'rounded')
+  })
+
   it('offers a custom color after the presets (#2095)', () => {
     render(<AddSwimlaneModal boardId={1} onAdded={onAdded} onClose={onClose} />)
     expect(screen.getByRole('button', { name: 'Choose custom color' })).toBeInTheDocument()

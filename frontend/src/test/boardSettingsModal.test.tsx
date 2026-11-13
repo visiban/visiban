@@ -261,6 +261,10 @@ describe('BoardSettingsModal — Members tab', () => {
 
     // Find the ✕ button next to Bob
     const removeButtons = screen.getAllByTitle('Remove direct board role')
+    // Named per member, not by title alone, with a danger focus ring (#1737)
+    const bobRemove = screen.getByRole('button', { name: 'Remove direct board role for Bob Smith' })
+    expect(bobRemove).toHaveAttribute('type', 'button')
+    expect(bobRemove).toHaveClass('focus:ring-2', 'focus:ring-danger-emphasis')
     await user.click(removeButtons[removeButtons.length - 1])
 
     expect(screen.getByText('Bob Smith', { selector: 'span.text-fg' })).toBeInTheDocument()
@@ -1057,6 +1061,10 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await stageAlice()
 
     const removeBtn = screen.getByTitle('Remove from invite list')
+    // Named per person, so several staged rows are distinguishable (#1737)
+    expect(removeBtn.getAttribute('aria-label')).toMatch(/^Remove .+ from invite list$/)
+    expect(removeBtn).toHaveAttribute('type', 'button')
+    expect(removeBtn).toHaveClass('focus:ring-2', 'focus:ring-danger-emphasis')
     await act(async () => { removeBtn.click() })
 
     await waitFor(() => { expect(screen.queryByText(/to be added/i)).toBeNull() })

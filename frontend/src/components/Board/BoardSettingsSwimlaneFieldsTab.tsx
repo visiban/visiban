@@ -616,8 +616,8 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
           {def.show_on_row ? "Pinned" : `Pin (${pinnedFields.length} of ${PIN_CAP})`}
         </button>
         <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
-          <button onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
-          <button onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
+          <button type="button" onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
+          <button type="button" onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
         </span>
       </div>
       {swapPromptOpen && (
@@ -769,7 +769,7 @@ function FieldEditPanel({
                   onChange={(e) => updateChoice(i, e.target.value)}
                   className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg-secondary flex-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 />
-                <button onClick={() => removeChoice(i)} className="text-fg-faint hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
+                <button type="button" onClick={() => removeChoice(i)} aria-label={choice.trim() ? `Remove choice ${choice.trim()}` : `Remove choice ${i + 1}`} className="text-fg-faint hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
               </div>
             ))}
           </div>

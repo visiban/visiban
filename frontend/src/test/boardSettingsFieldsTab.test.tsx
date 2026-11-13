@@ -93,6 +93,18 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(boardsApi.createCustomFieldDefinition).not.toHaveBeenCalled();
   });
 
+  it("names each choice's remove button (#1737)", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.click(screen.getByRole("button", { name: /Dropdown/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    const remove = screen.getByRole("button", { name: "Remove choice 1" });
+    expect(remove).toHaveAttribute("type", "button");
+    await user.type(screen.getAllByRole("textbox").at(-1)!, "Alpha");
+    expect(screen.getByRole("button", { name: "Remove choice Alpha" })).toBe(remove);
+  });
+
   it("a dropdown field requires at least one choice before it can be saved", async () => {
     const user = userEvent.setup();
     render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
