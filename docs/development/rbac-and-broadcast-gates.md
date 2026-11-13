@@ -69,7 +69,7 @@ Exit 2 and exit 3 exist so that *not looking* can never be mistaken for *looking
 
 ## Recorded exceptions
 
-Neither script carries a suppression comment in the source tree. Exceptions live in tables in the scripts themselves, the same convention `check-serializer-ts-parity.py`'s `SUPPRESSIONS` follows. Every table is **self-invalidating**: when the condition that made an entry necessary is gone, the entry itself becomes a finding and asks to be deleted. An exception can't outlive its reason.
+Neither script carries a suppression comment in the source tree. Exceptions live in tables in the scripts themselves, the same convention `check-serializer-ts-parity.py`'s `SUPPRESSIONS` follows. Each table is **self-invalidating** unless noted below: when the condition that made an entry necessary is gone, the entry itself becomes a finding and asks to be deleted. `AGENT_REVIEWED` is only partly so; see the guard chains after the table.
 
 ### `check-rbac-coverage.py`
 
@@ -85,18 +85,25 @@ Current entries:
 - **`VIEWER_PERMITTED_WRITES`:** board and group starring and the two saved-filter actions, all per-user state.
 - **`AGENT_REVIEWED`:** the invite-link join flows, where the capability token is the authorization and no role ladder applies; site-admin lens usage telemetry; and board creation and the two board imports, which write only to a board they create and gate group placement on group admin.
 
+**`AGENT_REVIEWED_GUARDS`** records a call chain for an `AGENT_REVIEWED` entry whose safety rests on a guard living in another function. It has three guarded entries: `import_board`, `import_trello` and `BoardViewSet::create`. Each chain starts inside the handler itself and ends at the guard. A link passes when its function still calls, or merely references, the next name (`import_board` only binds `self._import_json` to a local and never calls it, so that link is a reference). The script fails when a link stops doing so. `BoardViewSet::create` has no handler link: it is DRF's inherited `create`, and its serializer is a class attribute, so its chain starts at `BoardSerializer.validate_group`. The limits:
+
+- The chain proves each function still calls or references the next **by name**. It does not prove the call is unconditional, or that the callee still refuses.
+- `AGENT_REVIEWED` entries without a chain are trusted as recorded.
+- The handler body itself isn't re-scanned for new unguarded access. For example, an unscoped lookup added to `import_board` wouldn't be flagged.
+
 ### `check-broadcast-deferral.py`
 
 | Table | Records | The reason must say |
 |---|---|---|
 | `NO_BROADCAST_BY_DESIGN` | Writes that deliberately broadcast nothing | Why no other connected client needs to know |
 | `LOOP_FANOUT_BY_DESIGN` | Emit calls inside a loop | What the loop iterates — channels, or rows on one channel |
-| `AGENT_REVIEWED` | Emit sites the script can't classify | What the `broadcast-check` agent found |
+| `AGENT_REVIEWED` | Emit sites the script can't classify | Who reviewed it (the `broadcast-check` agent, or a human) and what they found |
 
 Current entries:
 
 - **`NO_BROADCAST_BY_DESIGN`:** invite-link creation, which has no event type because a group-channel frame reaches every subscriber and the payload carries the raw token.
 - **`LOOP_FANOUT_BY_DESIGN`:** loops that iterate channels or distinct rows, each frame carrying that row's own payload: admin bulk delete, the blocked-peer fan-out, relation changes, the post-commit membership eviction, the invite-link and share-link revocations, and the column-delete swimlane prune (one `swimlane.updated` per swimlane whose counted columns lost the column, #1150).
+- **`AGENT_REVIEWED`:** `import_board`, whose dispatch through a local variable the call graph can't follow. It was reviewed by hand, not by an agent run. `AGENT_REVIEWED_GUARDS` in this script (same link format and walker as the rbac script's) re-checks that the handler still references `_import_json` and `_import_csv` and that each still calls `transaction.on_commit`, so deleting the deferral fails the run.
 
 ## What `rbac-coverage` checks
 
@@ -129,7 +136,7 @@ Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/vie
 
 Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, `backend/webhooks`, excluding tests, migrations and seed data. The call graph is built over all of it, so a view handler that delegates to the services layer is resolved rather than guessed at.
 
-1. **Every write broadcasts.** A write handler on a board/group-scoped view reaches `broadcast_board_event` / `broadcast_group_event` / `record_board_event` on some path.
+1. **Every write broadcasts.** A write handler on a board/group-scoped view, or on a mixin that contributes handlers to one, reaches `broadcast_board_event` / `broadcast_group_event` / `record_board_event` on some path.
 2. **Every broadcast is deferred.** A raw `broadcast_*_event()` sits inside a callable registered with `transaction.on_commit()`. The check is transitive, so `on_commit(lambda: _broadcast_star(starred=True))` defers everything `_broadcast_star` does. `record_board_event` satisfies this by construction: it persists the feed row in the caller's transaction and registers the deferred publish itself, which is why it's the preferred form.
 3. **No ORM instance in a commit hook.** A hook that reads a live row out of the enclosing scope carries an object that may be stale by the time the hook fires. Build the payload inside the atomic block and capture it through default arguments (`def _send(bid=board_id, pl=payload):`). The script only reports a free variable it can *show* holds an ORM row (assigned from a manager call, or a handler parameter named `board`/`card`/`instance`/…), so a plain int read from the enclosing scope is untidy but not a finding.
 4. **No broadcast storm.** An emit inside a `for`/`while` is a finding unless the loop is recorded in `LOOP_FANOUT_BY_DESIGN` with the channels it iterates.

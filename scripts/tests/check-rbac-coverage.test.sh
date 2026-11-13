@@ -54,7 +54,7 @@ run_gate() {
 copy_tree() {
   mkdir -p "$1"
   ( cd "$REPO_ROOT" && tar cf - \
-      backend/boards/views backend/boards/models.py \
+      backend/boards/views backend/boards/models.py backend/boards/serializers.py \
       backend/groups/views.py backend/git_lens/views.py backend/webhooks/views.py \
   ) | ( cd "$1" && tar xf - )
 }
@@ -253,6 +253,41 @@ for h in comments attachments; do
     "        if denied is not None:" \
     "            return denied"
 done
+
+# --- #2125: an AGENT_REVIEWED handler's guard chain is still checked -------
+# import_board is skipped by the checker, so removing the guard it relies on used
+# to exit 0. AGENT_REVIEWED_GUARDS names the chain; each case below breaks one
+# link in a copy and must exit 1 naming the handler.
+guard_case() { # guard_case <tag> <file> <anchor> <line-to-strip> <expected-text>
+  copy_tree "$TMP/$1"
+  strip_gate "$TMP/$1/$2" "$3" "$4"
+  run_gate --root "$TMP/$1"
+  check "$1: breaking a reviewed handler's guard chain is a finding (exit 1)" \
+    "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+  check "$1: the finding names the broken link" \
+    "$(echo "$OUT" | grep -q -- "$5" && echo 0 || echo 1)"
+}
+guard_case guard_admin2125 backend/groups/views.py "def resolve_group_for_board_placement" \
+  "    _require_group_admin(user, group)" "no longer calls _require_group_admin"
+guard_case guard_resolve2125 backend/boards/views/import_export.py "    def import_trello(self, request" \
+  "        group = self._resolve_import_group(request)" "no longer calls _resolve_import_group"
+# #2125 audit round 2: the chain starts at the handler. import_board only binds
+# the importers, so stripping the binding must fail the run.
+# Replace (not delete) the binding so the copy still parses.
+copy_tree "$TMP/guard_dispatch2125"
+"$PY" - "$TMP/guard_dispatch2125/backend/boards/views/import_export.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+old = "importer, options_serializer = self._import_json, ImportOptionsSerializer"
+assert old in text, "fixture drift: import_board no longer binds _import_json"
+p.write_text(text.replace(old, "importer, options_serializer = self._noop, ImportOptionsSerializer", 1))
+PY
+run_gate --root "$TMP/guard_dispatch2125"
+check "guard_dispatch2125: dropping the handler's _import_json binding is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "guard_dispatch2125: the finding names the broken link" \
+  "$(echo "$OUT" | grep -q "no longer calls _import_json" && echo 0 || echo 1)"
 
 # --- defers exit 3, distinct from both 0 and 1 ---------------------------
 # A permission_classes value the checker cannot read must hand the view to the

@@ -93,7 +93,7 @@ A good starting point: `(2 × vCPU) + 1` workers.
 
 PostgreSQL holds all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.
 
-**What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
+**What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 19 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
 
 **Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once. WebSocket consumers add little: Channels runs their database work on one thread per process, so it is serialized. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
 

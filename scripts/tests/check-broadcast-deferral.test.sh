@@ -139,6 +139,25 @@ check "the defer names the agent to run" \
 check "the defer says it is not a pass" \
   "$(echo "$OUT" | grep -q "not a pass" && echo 0 || echo 1)"
 
+# --- #2125: a mixin's write is held to "every write broadcasts" ------------
+# revoke_invite_link lives on BoardInviteLinksMixin, not on a view class. Drop its
+# emit and the run must fail; before #2125 the mixin was never scanned.
+copy_tree "$TMP/mixin"
+"$PY" - "$TMP/mixin/backend/boards/views/invites.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+at = text.index("def revoke_invite_link")
+call = "_broadcast.record_board_event("
+i = text.index(call, at)
+p.write_text(text[:i] + "_broadcast.nothing(" + text[i + len(call):])
+PY
+run_gate --root "$TMP/mixin"
+check "a mixin write that stops broadcasting is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the mixin action" \
+  "$(echo "$OUT" | grep -q "BoardInviteLinksMixin::@action revoke_invite_link" && echo 0 || echo 1)"
+
 # --- unknown flag is a usage error, not a pass ----------------------------
 run_gate --no-such-flag
 check "unknown flag does not exit 0" "$([ "$RC" -ne 0 ] && echo 0 || echo 1)"
@@ -154,6 +173,32 @@ run_gate --root "$TMP/escape"
 check "symlink escaping --root fails closed (exit 2)" "$([ "$RC" -eq 2 ] && echo 0 || echo 1)"
 check "symlink escape says cannot run" \
   "$(echo "$OUT" | grep -q "cannot run" && echo 0 || echo 1)"
+
+# --- #2125: AGENT_REVIEWED import_board keeps its on_commit chain ---------
+# Deleting the deferral from an importer used to exit 0 because the handler is
+# skipped. Each case strips every on_commit(_broadcast_created) in one importer
+# on a tree copy and must exit 1 naming the broken link.
+strip_importer_on_commit() { # <tag> <anchor-def>
+  copy_tree "$TMP/$1"
+  "$PY" - "$TMP/$1/backend/boards/views/import_export.py" "$2" <<'PY'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+start = text.index(sys.argv[2])
+nxt = re.search(r"\n    def ", text[start + 1:])
+end = start + 1 + nxt.start() if nxt else len(text)
+body, n = re.subn(r"^ *transaction\.on_commit\(_broadcast_created\)\n", "", text[start:end], flags=re.M)
+assert n >= 1, "fixture drift: no on_commit(_broadcast_created) in " + sys.argv[2]
+p.write_text(text[:start] + body + text[end:])
+PY
+  run_gate --root "$TMP/$1"
+  check "$1: stripping the importer's on_commit is a finding (exit 1)" \
+    "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+  check "$1: the finding names the broken link" \
+    "$(echo "$OUT" | grep -q "no longer calls on_commit" && echo 0 || echo 1)"
+}
+strip_importer_on_commit ondeferjson2125 "    def _import_json(self"
+strip_importer_on_commit ondefercsv2125 "    def _import_csv(self"
 
 echo ""
 if [ "$fail" -eq 0 ]; then
