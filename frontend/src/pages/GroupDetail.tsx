@@ -39,6 +39,7 @@ import ColorSwatchPicker from "../components/Common/ColorSwatchPicker";
 import { PALETTE_COLORS } from "../constants/colors";
 import { isImeComposing } from "../utils/imeComposition";
 import { LOCKED_MEMBERSHIP_NOTE } from "../constants/membership";
+import ActiveMark from "../components/Common/ActiveMark";
 
 interface Props {
   user: User;
@@ -1149,7 +1150,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   </div>
                 )}
                 <p className="text-xs h-4 mt-0.5 -mx-1 px-1">
-                  {renameError && <span className="text-danger">{renameError}</span>}
+                  {renameError && <span role="alert" className="text-danger">{renameError}</span>}
                 </p>
               </div>
             ) : (
@@ -1498,7 +1499,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           options={GROUP_ROLE_OPTIONS.filter(
                             (o) => m.has_all_content_access !== true || m.role === "admin" || o.value === "admin" || o.value === m.role,
                           )}
-                          ariaLabel={m.has_all_content_access === true ? `Group role for ${m.user.display_name || m.user.username}` : undefined}
+                          ariaLabel={`Group role for ${m.user.display_name || m.user.username}`}
                           size="xs"
                         />
                         )}
@@ -1608,13 +1609,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         key={p}
                         onClick={() => { void handleTogglePriority(p); }}
                         aria-pressed={active}
-                        className={`px-3 py-1 rounded border text-xs font-medium transition capitalize focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded border text-xs font-medium transition capitalize focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           active
                             ? colorMap[p]
                             : "bg-surface border-line-strong text-fg-muted hover:border-line-emphasis hover:text-fg-tertiary"
                         }`}
                         title={active ? `Disable ${p} priority` : `Enable ${p} priority`}
                       >
+                        <ActiveMark active={active} />
                         {p}
                       </button>
                     );

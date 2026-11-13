@@ -102,3 +102,19 @@ describe('AnalyticsView keeps one flow dashboard mounted', () => {
     expect(requests()).toBe(flowEndpoints.length)
   })
 })
+
+describe('AnalyticsView toggles mark the active state without color (#2185)', () => {
+  it('checks the active mode and period buttons', async () => {
+    render(<AnalyticsView {...props} />)
+    const age = await screen.findByRole('button', { name: 'Age' })
+    const throughput = screen.getByRole('button', { name: 'Throughput' })
+    expect(age).toHaveAttribute('aria-pressed', 'true')
+    expect(age.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    expect(throughput.querySelector('[data-testid="active-mark"]')).toBeNull()
+    await userEvent.click(throughput)
+    expect(throughput.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    const thirty = await screen.findByRole('button', { name: '30d' })
+    expect(thirty.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    expect(screen.getByRole('button', { name: '7d' }).querySelector('[data-testid="active-mark"]')).toBeNull()
+  })
+})

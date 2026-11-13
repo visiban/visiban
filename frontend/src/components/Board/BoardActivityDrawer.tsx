@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatRelativeTime } from "../../utils/date";
 import { formatShortcut } from "../../utils/platform";
+import ActiveMark from "../Common/ActiveMark";
 
 export type ActivityEntry = {
   id: string;
@@ -82,12 +83,13 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
             key={t.id}
             onClick={() => setTab(t.id)}
             aria-pressed={tab === t.id}
-            className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               tab === t.id
                 ? "bg-surface-hover text-fg font-medium"
                 : "text-fg-tertiary hover:text-fg"
             }`}
           >
+            <ActiveMark active={tab === t.id} />
             {t.label}
           </button>
         ))}
@@ -106,12 +108,13 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
               key={w.id}
               onClick={() => setTimeWindow(w.id)}
               aria-pressed={timeWindow === w.id}
-              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 timeWindow === w.id
                   ? "bg-surface-hover text-fg font-medium"
                   : "text-fg-tertiary hover:text-fg"
               }`}
             >
+              <ActiveMark active={timeWindow === w.id} />
               {w.label}
             </button>
           ))}

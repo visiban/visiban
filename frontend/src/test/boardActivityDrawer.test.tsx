@@ -138,4 +138,19 @@ describe("BoardActivityDrawer", () => {
       expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "false");
     });
   });
+
+  it("marks the active kind tab and time window with a check as well as the tint (#2185)", () => {
+    render(<BoardActivityDrawer {...defaultProps} />);
+    const all = screen.getByRole("button", { name: /^all$/i });
+    const moves = screen.getByRole("button", { name: /^moves$/i });
+    expect(all).toHaveAttribute("aria-pressed", "true");
+    expect(all.querySelector('[data-testid="active-mark"]')).not.toBeNull();
+    expect(moves.querySelector('[data-testid="active-mark"]')).toBeNull();
+    fireEvent.click(moves);
+    expect(moves.querySelector('[data-testid="active-mark"]')).not.toBeNull();
+    expect(all.querySelector('[data-testid="active-mark"]')).toBeNull();
+    const windowGroup = screen.getByRole("group", { name: "Activity time window" });
+    expect(windowGroup.querySelectorAll('[data-testid="active-mark"]')).toHaveLength(1);
+    expect(windowGroup.querySelector('[aria-pressed="true"] [data-testid="active-mark"]')).not.toBeNull();
+  });
 });

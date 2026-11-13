@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { CHART_HUE, spreadLabels } from "../../utils/chartScale";
+import ActiveMark from "./ActiveMark";
 
 /**
  * The shared chart primitive (#2028): one hand-rolled SVG frame, its direct
@@ -348,7 +349,7 @@ export function ChartPanel({
               type="button"
               onClick={() => setView(option)}
               aria-pressed={view === option}
-              className={`px-3 py-1 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${
+              className={`inline-flex items-center gap-1 px-3 py-1 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${
                 index === 0 ? "border-r border-line-strong" : ""
               } ${
                 view === option
@@ -356,6 +357,7 @@ export function ChartPanel({
                   : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
               }`}
             >
+              <ActiveMark active={view === option} />
               {option}
             </button>
           ))}
