@@ -564,6 +564,43 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       await waitFor(() => expect(boardsApi.deleteCustomFieldDefinition).toHaveBeenCalledWith(1, 1));
       await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([]));
       expect(screen.queryByPlaceholderText("e.g. Sprint")).not.toBeInTheDocument();
+      // A stale editingId would hide both the empty state and "+ Add field".
+      expect(screen.getByRole("button", { name: "+ Add field" })).toBeInTheDocument();
+    });
+
+    it("disables Delete field while a save is in flight", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockReturnValue(new Promise(() => {}));
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      expect(screen.getByRole("button", { name: "Delete field" })).toBeDisabled();
+    });
+
+    it("announces a save error in a polite status region", async () => {
+      const user = userEvent.setup();
+      vi.mocked(boardsApi.updateCustomFieldDefinition).mockRejectedValue(new Error("boom"));
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: "Save field" }));
+      const msg = "Couldn't save this field. Check the values and try again.";
+      await screen.findByText(msg);
+      // Other role=status regions exist (dnd live region); pick ours by text.
+      const status = screen.getAllByRole("status").find((el) => el.textContent === msg);
+      expect(status).toBeDefined();
+      expect(status).toHaveAttribute("aria-live", "polite");
+    });
+
+    it("does not prompt when the type is changed back to the saved type", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition()])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await user.click(screen.getByRole("button", { name: /# Number/ }));
+      await user.click(screen.getByRole("button", { name: "Change type" }));
+      await user.click(screen.getByRole("button", { name: /Aa\s*Text/ }));
+      expect(screen.queryByRole("button", { name: "Change type" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Aa\s*Text/ }).className).toContain("bg-primary/10");
+      expect(screen.getByRole("button", { name: /# Number/ }).className).not.toContain("bg-primary/10");
     });
 
     it("keeps the editor and its edits open when the DELETE fails", async () => {

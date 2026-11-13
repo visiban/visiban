@@ -167,7 +167,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     // client-side value count to lock up front (see #2202), so it warns first
     // and the refusal is explained on save. A brand-new unsaved field ("new")
     // has nothing to protect yet, so it commits the selection directly.
-    if (editingId !== "new" && nextType !== form.field_type) {
+    // Returning to the *saved* type needs no prompt: the server accepts a save
+    // whose type equals the stored one.
+    const savedType = fields.find((f) => f.id === editingId)?.field_type;
+    if (editingId !== "new" && nextType !== form.field_type && nextType !== savedType) {
       setPendingTypeChange(nextType);
       return;
     }
@@ -369,6 +372,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     if (!deleteTarget) return;
     const prev = fields;
     // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
+    // (Focus handling after the delete is tracked in #2204.)
     const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {

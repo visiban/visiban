@@ -1471,6 +1471,27 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       expect(onFieldsUpdated).not.toHaveBeenCalled()
     })
 
+    it('disables Delete field while a save is in flight', async () => {
+      const user = userEvent.setup()
+      mockApi.updateSwimlaneCustomFieldDefinition.mockReturnValue(new Promise(() => {}))
+      renderTab([defA])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(screen.getByRole('button', { name: 'Delete field' })).toBeDisabled()
+    })
+
+    it('announces a save error in a polite status region', async () => {
+      const user = userEvent.setup()
+      mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
+      renderTab([defA])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      const err = await screen.findByText(/Couldn't save this field/)
+      const status = screen.getAllByRole('status').find((el) => el.contains(err))
+      expect(status).toBeDefined()
+      expect(status).toHaveAttribute('aria-live', 'polite')
+    })
+
     it('keeps Delete off the default focus and Save out of its neighbor slot', async () => {
       const user = userEvent.setup()
       renderTab([defA])

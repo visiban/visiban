@@ -75,7 +75,7 @@ Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which
 
 ### Deleting a field
 
-Click **✕** on a field's row. Deleting is permanent: it removes the field definition **and every card's stored value for it**. To confirm, type the field's exact name into the dialog.
+Click **✕** on a field's row, or open the field's editor and click **Delete field**. Deleting is permanent: it removes the field definition **and every card's stored value for it**. To confirm, type the field's exact name into the dialog.
 
 !!! danger "This cannot be undone"
     There is no way to recover a deleted field's values. If you only want to stop showing a field on the card face, unpin it instead of deleting it.
