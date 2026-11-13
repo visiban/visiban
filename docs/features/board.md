@@ -298,7 +298,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border (except overdue/due-soon cards at Comfortable, which take the urgency hue) and a filled badge on the card face (low is unmarked) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
-| Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red |
+| Due date | Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |

@@ -35,7 +35,8 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-function getSnapshot(): ActivePresetSnapshot | null {
+/** Synchronous read of the published snapshot (tests probe publish timing with it). */
+export function getSnapshot(): ActivePresetSnapshot | null {
   return snapshot;
 }
 

@@ -1063,7 +1063,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       title={`${checklistSuffix.count} overdue checklist item${checklistSuffix.count === 1 ? "" : "s"}`}
                       data-testid="checklist-suffix"
                     >
-                      <span aria-hidden="true">· ⚑ {checklistSuffix.count}</span>
+                      {classicFace ? (
+                        <span aria-hidden="true">· ⚑ {checklistSuffix.count}</span>
+                      ) : (
+                        <span aria-hidden="true">· <UrgencyGlyph kind="overdue" className="inline-block w-3 h-3 align-[-0.125em]" /> {checklistSuffix.count}</span>
+                      )}
                       <span className="sr-only">{checklistSuffix.count} overdue checklist item{checklistSuffix.count === 1 ? "" : "s"}</span>
                     </span>
                   ) : (

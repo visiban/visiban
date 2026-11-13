@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
 import { checklistFaceSuffix } from '../utils/checklistFaceSuffix'
 import { classifyCardUrgency } from '../utils/cardUrgency'
+import { publishActivePreset } from '../boardPresets/activePresetStore'
 import type { Card } from '../types'
 
 vi.mock('@dnd-kit/core', () => ({
@@ -67,6 +68,27 @@ describe('CardItem checklist suffix (#445)', () => {
     // The glyph is decorative; assistive tech reads the sr-only sentence.
     expect(within(suffix).getByText('1 overdue checklist item')).toHaveClass('sr-only')
     expect(screen.getByText('✓3/7')).toBeInTheDocument()
+  })
+
+  it('draws the overdue flag as an SVG outside Classic and keeps the text flag under Classic (#871)', () => {
+    const card = makeCard({ checklist_open_due_dates: ['2026-11-10'] })
+    const { unmount } = render(<CardItem card={card} density="standard" currentUserId={5} />)
+    // No preset published: Classic face, byte for byte.
+    expect(screen.getByTestId('checklist-suffix')).toHaveTextContent('· ⚑ 1')
+    expect(screen.queryByTestId('urgency-glyph-overdue')).toBeNull()
+    unmount()
+
+    act(() => publishActivePreset({ boardId: 7, activePresetId: 'default', modified: false }))
+    try {
+      render(<CardItem card={card} density="standard" currentUserId={5} boardId={7} />)
+      const suffix = screen.getByTestId('checklist-suffix')
+      expect(within(suffix).getByTestId('urgency-glyph-overdue')).toHaveAttribute('aria-hidden', 'true')
+      expect(suffix.textContent).not.toMatch(/⚑/)
+      expect(suffix).toHaveTextContent('· 1')
+      expect(within(suffix).getByText('1 overdue checklist item')).toHaveClass('sr-only')
+    } finally {
+      act(() => publishActivePreset(null))
+    }
   })
 
   it('renders the mine suffix when nothing is overdue', () => {
