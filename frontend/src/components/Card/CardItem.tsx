@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from 
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
-import { PRIORITY_COLORS } from "../../constants/colors";
+import { colorForPriority } from "../../constants/colors";
 import {
   blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
 } from "../../utils/blockedState";
@@ -405,7 +405,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // A manually blocked card takes the danger border (§ Cards: "High /
   // blocked: border-danger-emphasis", #1149); a relation-only block keeps the
   // priority border it has always had, so #449's card face is unchanged.
-  const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
+  const priorityColor = colorForPriority(card.priority);
   const borderColor = isManuallyBlocked(card) ? "rgb(var(--danger-emphasis))" : priorityColor;
   const blockedLabel = isCardBlocked(card) ? blockedIndicatorLabel(card) : "";
 

@@ -197,7 +197,7 @@ function ColorPicker({
           active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
-        <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
+        <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "rgb(var(--fg-tertiary))"}` }}>A</span>
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-2.5 w-40">
@@ -218,7 +218,7 @@ function ColorPicker({
                   ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
                   : "border-line-strong"
               }`}
-              style={{ backgroundColor: c.value || "#94a3b8" }}
+              style={{ backgroundColor: c.value || "rgb(var(--fg-tertiary))" }}
             />
           ))}
         </div>

@@ -2,17 +2,13 @@ import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, PublicColumn, PublicSwimlane, Label } from "../types";
-import { PRIORITY_COLORS } from "../constants/colors";
+import { colorForPriority } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
 import { colorChipStyle } from "../utils/colorContrast";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function priorityColor(priority: string): string {
-  return PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS] ?? "#6B7280";
-}
 
 // ---------------------------------------------------------------------------
 // StaticCardItem — read-only card tile (no DnD, no onClick)
@@ -25,7 +21,7 @@ interface StaticCardItemProps {
 
 function StaticCardItem({ card, labels }: StaticCardItemProps) {
   const cardLabels = labels.filter((l) => card.labels.some((cl) => cl.id === l.id));
-  const color = priorityColor(card.priority);
+  const color = colorForPriority(card.priority);
 
   return (
     <div

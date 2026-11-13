@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { Card, CustomFieldDefinition } from "../../types";
-import { PRIORITY_COLORS } from "../../constants/colors";
+import { colorForPriority } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
 import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
 import { PROVIDER_LABELS } from "../../utils/externalRef";
@@ -60,7 +60,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
       : { left: anchorRect.right + POPOVER_GAP }),
   };
 
-  const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
+  const priorityColor = colorForPriority(card.priority);
 
   // Build checklist items from checklist_total / checklist_done counts.
   // The card summary only carries counts, not the individual item list, so we

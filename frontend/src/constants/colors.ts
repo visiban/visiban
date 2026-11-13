@@ -20,6 +20,15 @@ export const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#B91C1C",
 };
 
+/** Color for a priority with no entry in PRIORITY_COLORS: the palette Gray (#1892).
+ *  One definition, so the card face, card peek and share page cannot drift apart. */
+export const PRIORITY_FALLBACK_COLOR = COLUMN_COLORS[0];
+
+/** The priority's color, or PRIORITY_FALLBACK_COLOR for an unknown priority. */
+export function colorForPriority(priority: string): string {
+  return PRIORITY_COLORS[priority] ?? PRIORITY_FALLBACK_COLOR;
+}
+
 /** Human-readable names for the swatch colors in COLUMN_COLORS / PALETTE_COLORS.
  *  Swatch pickers use these as the accessible name ("Select color Blue"); a raw hex
  *  tells a screen-reader user nothing. Keys are uppercase hex. */
