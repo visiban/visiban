@@ -3,6 +3,7 @@ import type { SavedFilter } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
+import { sanitizeLaneFilter } from "../utils/laneFilter";
 import {
   listSavedFilters,
   createSavedFilter,
@@ -79,6 +80,8 @@ export function useSavedFilters(boardId: number) {
    */
   const hydrateFilter = useCallback((saved: SavedFilter): FilterState => {
     const s = saved.state_json;
+    // #2205 — absent in a filter saved before lane filters existed.
+    const laneFilter = sanitizeLaneFilter(s["laneFilter"]);
     // v1 reader — tolerant of missing/wrong-typed fields so state saved before
     // a filter shape change still loads without throwing.
     return {
@@ -110,6 +113,7 @@ export function useSavedFilters(boardId: number) {
       visibleCustomFieldFilterIds: Object.keys(loadCustomFields(s["customFields"])).map(Number),
       // #1149 — absent in a filter saved before the toggle existed.
       blockedOnly: s["blockedOnly"] === true,
+      ...(laneFilter ? { laneFilter } : {}),
     };
   }, []);
 

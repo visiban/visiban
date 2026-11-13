@@ -228,6 +228,8 @@ Board admins can also define typed fields on **swimlanes** (rows) instead of car
 
 **By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel.
 
+Dropdown, number, and date swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
+
 ### Managing swimlane fields (Board Settings → Swimlane fields)
 
 Open **Board Settings** and select **Swimlane fields**, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields. Reorder by dragging the `⋮⋮` handle, or with the keyboard: Tab to the handle, Space to pick up, arrow keys to move, Space to drop.

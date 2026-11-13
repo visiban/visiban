@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { CustomFieldFilterValue, FilterState } from "../components/Board/FilterBar";
+import { sanitizeLaneFilter } from "../utils/laneFilter";
 
 function storageKey(boardId: number): string {
   return `board:${boardId}:filters`;
@@ -49,7 +50,10 @@ function load(boardId: number, pinnedFieldIds: number[]): FilterState {
         // saved doesn't show a toolbar seeded from a field that's no longer
         // pinned (or an empty toolbar from a board that had none pinned then).
         : pinnedFieldIds;
+    // #2205 — absent in state persisted before lane filters existed.
+    const laneFilter = sanitizeLaneFilter(parsed.laneFilter);
     return {
+      ...(laneFilter ? { laneFilter } : {}),
       search: typeof parsed.search === "string" ? parsed.search : "",
       assigneeIds: Array.isArray(parsed.assigneeIds) ? (parsed.assigneeIds as number[]) : [],
       labelIds: Array.isArray(parsed.labelIds) ? (parsed.labelIds as number[]) : [],

@@ -1,4 +1,20 @@
 {
-  "_comment": "Top-level keys of the frontend FilterState (EMPTY_FILTER in frontend/src/components/Board/FilterBar.tsx). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213).",
-  "keys": ["assigneeIds", "blockedOnly", "customFields", "dueDate", "labelIds", "priorities", "search", "visibleCustomFieldFilterIds"]
+  "_comment": "Top-level keys of the frontend FilterState (frontend/src/components/Board/FilterBar.tsx; EMPTY_FILTER plus the optional laneFilter, #2205). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213). laneFilterLimits (#2205) pins the lane-filter bounds on both sides.",
+  "keys": [
+    "assigneeIds",
+    "blockedOnly",
+    "customFields",
+    "dueDate",
+    "labelIds",
+    "laneFilter",
+    "priorities",
+    "search",
+    "visibleCustomFieldFilterIds"
+  ],
+  "laneFilterLimits": {
+    "maxItems": 20,
+    "maxRules": 50,
+    "maxString": 500,
+    "maxId": 2147483647
+  }
 }

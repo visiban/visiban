@@ -365,7 +365,8 @@ describe('FilterBar — chip row', () => {
   it('does not show hidden count when hiddenCount is 0', () => {
     const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
     render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} hiddenCount={0} />)
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    // #2205 — the status region is always mounted so changes are announced; it is empty here.
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
   it('clicking × on an assignee chip removes that filter value', async () => {

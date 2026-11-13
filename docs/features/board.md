@@ -121,6 +121,7 @@ Focus mode collapses all other swimlane rows so you can work with a single swiml
 - All other swimlane rows are collapsed and their cards are hidden.
 - A blue banner appears between the board toolbar and the scroll area: "Focused on: *[swimlane name]*".
 - The URL updates to include `?focus=<swimlane_id>`, so focus mode can be bookmarked and shared.
+- [Lane filters](#lane-filters) pause while a lane is focused: the focused lane shows even if it doesn't match them, and the banner adds "Lane filters paused". They apply again when you exit focus.
 
 **Exiting focus mode:**
 
@@ -471,6 +472,33 @@ An active filter count badge appears on the Filters button when filters are in u
 
 When filters are active and no cards match, a **"No cards match"** banner appears across the board area, so it is clear the board has cards but none satisfy the current criteria.
 
+The filter row is a search landmark named **Board filters** (it was "Card filters" before 1.3, when it gained lane filters). Next to the chips, a status line reads, for example, "2 lanes hidden · 5 cards hidden"; screen readers announce it as it changes.
+
+#### Lane filters
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+On a board with many swimlanes (one per account, say), **Lanes** in the filter bar hides the lanes whose own [swimlane field](custom-fields.md#swimlane-row-custom-fields) values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.
+
+1. Click **Lanes** to open the rule builder, then **+ Add filter**.
+2. Pick a field, then a value or range:
+    - **Dropdown** fields: **is** or **is not** a choice.
+    - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
+3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
+4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
+
+Rules apply as soon as they are complete; **Done** just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.
+
+- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is** and **between** and passes **is not**.
+- **Admin-only fields** are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.
+- **Text, URL, checkbox, and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, or date swimlane field you can see, **Lanes** is hidden.
+- **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
+- **Lanes with no matching cards** stay visible, as they do with card filters alone.
+- **When every lane is hidden,** the board says "No lanes match your lane filters." with a **Clear lane filters** button.
+- **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
+
+Lane filters are saved with the rest of the filter state in your browser, in the URL (`f_lanes`), and in [saved filters](saved-filters.md).
+
 #### URL-serialized filter state
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
@@ -484,6 +512,7 @@ Active filters are serialized into the page URL as query parameters, so filter c
 | `?f_labels=` | Comma-separated label IDs |
 | `?f_priorities=` | Comma-separated priority values (e.g. `high,urgent`) |
 | `?f_due=` | Due-date filter value (`overdue`, `today`, `this_week`, `none`) |
+| `?f_lanes=` | [Lane filters](#lane-filters) (1.3+): `1.` followed by compact JSON. A malformed value is ignored |
 
 The filter state is restored from the URL on page load and persists across reloads. Share the URL with any board member to hand off a pre-filtered view.
 

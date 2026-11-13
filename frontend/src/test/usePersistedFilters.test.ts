@@ -200,4 +200,13 @@ describe('usePersistedFilters', () => {
       expect(result.current.filters.dueDate).toBe(dueDate)
     }
   })
+
+  // #2205
+  it('restores a persisted laneFilter and drops a malformed one', () => {
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'or', field: 3, op: 'between', min: '5' }] }
+    localStorage.setItem('board:1:filters', JSON.stringify({ ...EMPTY_FILTER, laneFilter }))
+    expect(renderHook(() => usePersistedFilters(1)).result.current.filters.laneFilter).toEqual(laneFilter)
+    localStorage.setItem('board:2:filters', JSON.stringify({ ...EMPTY_FILTER, laneFilter: 'nope' }))
+    expect(renderHook(() => usePersistedFilters(2)).result.current.filters).not.toHaveProperty('laneFilter')
+  })
 })
