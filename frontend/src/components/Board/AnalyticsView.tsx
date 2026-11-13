@@ -3,6 +3,7 @@ import { getBoardAnalytics } from "../../api/boards";
 import { agingStage } from "../../utils/agingTint";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import FlowMetricsDashboard from "./flowMetrics/FlowMetricsDashboard";
+import ActiveMark from "../Common/ActiveMark";
 
 interface StalledCard {
   id: number;
@@ -232,7 +233,7 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
           key={m}
           onClick={() => onChange(m)}
           aria-pressed={mode === m}
-          className={`px-3 py-1 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${
+          className={`inline-flex items-center gap-1 px-3 py-1 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${
             i === 0 ? "border-r border-line-strong" : ""
           } ${
             mode === m
@@ -240,6 +241,7 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
               : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
           }`}
         >
+          <ActiveMark active={mode === m} />
           {m === "age" ? "Age" : "Throughput"}
         </button>
       ))}
@@ -297,12 +299,13 @@ function HeatmapSection({ data, days, onDaysChange, mode, onModeChange, currentU
                   key={d}
                   onClick={() => onDaysChange(d)}
                   aria-pressed={days === d}
-                  className={`text-xs px-3 py-1 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                     days === d
                       ? "bg-primary text-on-primary border-primary"
                       : "border-line-strong text-fg-tertiary hover:border-line-emphasis"
                   }`}
                 >
+                  <ActiveMark active={days === d} />
                   {d}d
                 </button>
               )))}

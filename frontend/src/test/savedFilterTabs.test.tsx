@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SavedFilterTabs from '../components/Board/SavedFilterTabs'
 import type { SavedFilter } from '../types'
@@ -145,5 +145,12 @@ describe('SavedFilterTabs', () => {
     )
     await user.click(screen.getByText('+ Save current'))
     expect(onSaveCurrentClick).toHaveBeenCalledOnce()
+  })
+
+  it('marks the active pill with a check as well as the fill (#2185)', () => {
+    render(<SavedFilterTabs {...defaultProps({ activeFilterId: filterA.id })} />)
+    expect(within(screen.getByRole('button', { name: filterA.name })).getByTestId('active-mark')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: filterB.name })).queryByTestId('active-mark')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'All' })).queryByTestId('active-mark')).not.toBeInTheDocument()
   })
 })

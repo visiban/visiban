@@ -502,6 +502,39 @@ describe('GroupDetail', () => {
     expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
   })
 
+  it('names every group member role picker with the member (#2187)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    const plainUser: User = { ...fakeUser, id: 4, username: 'bob', display_name: 'Bob Jones' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'viewer', joined_at: '', has_all_content_access: true },
+      { id: 4, user: plainUser, role: 'member', joined_at: '', has_all_content_access: false },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Bob Jones')
+    expect(screen.getByRole('combobox', { name: /^Group role for Alice Smith/ })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^Group role for Bob Jones/ })).toBeInTheDocument()
+  })
+
+  it('announces a failed group rename through a live region (#2187)', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroup.mockRejectedValue(new Error('boom'))
+    renderGroupDetail()
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    fireEvent.click(within(heading).getByRole('button'))
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Platform' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to rename group. Please try again.')
+  })
+
   it('offers an all-content member below admin only their stored role and Admin, and promotes (#2165)', async () => {
     const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
     const adminAc: User = { ...fakeUser, id: 5, username: 'ada', display_name: 'Ada Admin' }
@@ -1581,6 +1614,17 @@ describe('GroupDetail', () => {
       expect(urgent).toHaveClass('bg-urgent/20', 'border-urgent/60', 'text-urgent-on-tint')
       expect(urgent).not.toHaveClass('font-semibold')
       expect(urgent.className).not.toMatch(/danger/)
+    })
+
+    it('priority toggles mark the active state with a check, not color alone (#2185)', async () => {
+      mockUpdateGroupBoardDefaults.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['medium', 'high', 'urgent'] })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+      const low = screen.getByRole('button', { name: 'low' })
+      expect(within(low).getByTestId('active-mark')).toBeInTheDocument()
+      fireEvent.click(low)
+      await waitFor(() => expect(low).toHaveAttribute('aria-pressed', 'false'))
+      expect(within(low).queryByTestId('active-mark')).not.toBeInTheDocument()
     })
 
     it('a disabled priority toggle reports aria-pressed=false (#1592)', async () => {

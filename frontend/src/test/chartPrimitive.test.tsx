@@ -105,6 +105,18 @@ describe('ChartPanel', () => {
     expect(screen.getByRole('button', { name: 'table' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('marks the active view with a check as well as the fill (#2185)', () => {
+    render(panel())
+    const chart = screen.getByRole('button', { name: 'chart' })
+    const table = screen.getByRole('button', { name: 'table' })
+    expect(chart).toHaveAttribute('aria-pressed', 'true')
+    expect(chart.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    expect(table.querySelector('[data-testid="active-mark"]')).toBeNull()
+    fireEvent.click(table)
+    expect(table.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    expect(chart.querySelector('[data-testid="active-mark"]')).toBeNull()
+  })
+
   it('follows a parent that controls it, and reports the choice', () => {
     const onViewChange = vi.fn()
     render(panel({ view: 'table', onViewChange }))

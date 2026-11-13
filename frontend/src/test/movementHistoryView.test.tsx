@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import MovementHistoryView from '../components/Board/MovementHistoryView'
 import { useEscapeStack } from '../hooks/useEscapeStack'
@@ -253,6 +253,15 @@ describe('MovementHistoryView — slide-in panel', () => {
       expect(screen.getByRole('complementary', { name: 'Movement detail' })).toBeInTheDocument()
     )
     expect(screen.getByRole('heading', { name: 'Fix login bug' })).toBeInTheDocument()
+  })
+
+  it('marks the selected row with a check as well as the tint (#2185)', async () => {
+    renderView()
+    const row = await waitFor(() => screen.getByTestId('history-row'))
+    expect(within(row).queryByTestId('history-selected-mark')).not.toBeInTheDocument()
+    fireEvent.click(row)
+    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(within(row).getByTestId('history-selected-mark')).toBeInTheDocument()
   })
 
   it('closes slide-in panel when close button is clicked', async () => {

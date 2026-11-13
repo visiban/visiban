@@ -9,6 +9,7 @@ import { shouldIgnoreShortcut } from "../../utils/keyboard";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { importedNote } from "../../utils/importedHistory";
 import type { UserDatePrefs } from "../../utils/date";
+import ActiveMark from "../Common/ActiveMark";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -453,7 +454,10 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                         }`}
                       >
                         <td className="px-4 py-2 text-xs text-fg-muted tabular-nums whitespace-nowrap align-top">
-                          {formatDateTimeUser(m.moved_at, currentUser)}
+                          <span className="inline-flex items-center gap-1.5">
+                            <ActiveMark active={isSelected} testId="history-selected-mark" />
+                            {formatDateTimeUser(m.moved_at, currentUser)}
+                          </span>
                         </td>
                         <td className="px-4 py-2 text-xs text-fg-tertiary align-top truncate max-w-[7rem]">
                           {m.moved_by

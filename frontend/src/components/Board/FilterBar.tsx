@@ -4,6 +4,7 @@ import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
+import ActiveMark from "../Common/ActiveMark";
 import FilterChip from "./FilterChip";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
@@ -158,6 +159,7 @@ function BlockedOnlyButton({ filters, onChange, blockedCount }: BlockedOnlyButto
           : "border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
+      <ActiveMark active={isActive} />
       <svg className="w-3 h-3 shrink-0 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
       </svg>
@@ -182,6 +184,7 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
           : "border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
+      <ActiveMark active={isActive} />
       <Avatar user={currentUser} size="xs" />
       My cards
     </button>

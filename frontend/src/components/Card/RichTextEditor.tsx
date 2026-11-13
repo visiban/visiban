@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isImeComposing } from "../../utils/imeComposition";
+import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -276,6 +277,9 @@ export default function RichTextEditor({
   // Captures the committed value at the moment the user clicks to edit,
   // so Cancel can restore it without calling onSave.
   const originalValueRef = useRef(value);
+  // Set by every deliberate exit (Escape, Cancel, Save) so the focus move to the
+  // enclosing dialog does not fire the blur-save with stale content (#2182).
+  const exitingRef = useRef(false);
   // Keep the latest members list accessible in the suggestion closure without
   // recreating the Tiptap editor whenever the members prop changes.
   const membersRef = useRef<EffectiveBoardMember[] | undefined>(members);
@@ -472,6 +476,7 @@ export default function RichTextEditor({
       if (containerRef.current?.contains(event.relatedTarget as Node)) return;
       // When showActions is true the Save button is the only save trigger — blur does nothing
       if (showActions) return;
+      if (exitingRef.current) return;
       const md = editor?.storage.markdown?.getMarkdown() ?? "";
       onSave(md);
       setIsEditing(false);
@@ -490,20 +495,30 @@ export default function RichTextEditor({
   const enterEdit = useCallback(() => {
     if (readOnly) return;
     originalValueRef.current = value;
+    exitingRef.current = false;
     setIsEditing(true);
     setTimeout(() => editor?.commands.focus("end"), 0);
   }, [readOnly, editor, value]);
 
+  // Leaving edit mode unmounts the focused control, which would drop focus to
+  // <body> (#2182, same class as #2087/#2170). Hand it to the enclosing dialog
+  // first; the pencil cannot take it because its onFocus re-enters edit mode.
+  const exitEdit = useCallback(() => {
+    exitingRef.current = true;
+    if (containerRef.current) focusEnclosingDialog(containerRef.current);
+    setIsEditing(false);
+  }, []);
+
   const handleSave = useCallback(() => {
     const md = editor?.storage.markdown?.getMarkdown() ?? "";
     onSave(md);
-    setIsEditing(false);
-  }, [editor, onSave]);
+    exitEdit();
+  }, [editor, onSave, exitEdit]);
 
   const handleCancel = useCallback(() => {
     editor?.commands.setContent(originalValueRef.current);
-    setIsEditing(false);
-  }, [editor]);
+    exitEdit();
+  }, [editor, exitEdit]);
 
   // Priority 31 — fires after ColorPicker (33) but before CardDetail panel-close (30).
   // First Escape while editing cancels the edit; second Escape then closes the panel.
@@ -692,13 +707,17 @@ export default function RichTextEditor({
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
-            className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition rounded"
+            // Keyboard activation fires click with detail 0; a mouse click already
+            // acted on mousedown, so detail > 0 must not run it a second time.
+            onClick={(e) => { if (e.detail === 0) handleCancel(); }}
+            className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
+            onClick={(e) => { if (e.detail === 0) handleSave(); }}
             className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Save

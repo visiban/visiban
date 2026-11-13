@@ -1,4 +1,5 @@
 import type { SavedFilter } from "../../types";
+import ActiveMark from "../Common/ActiveMark";
 
 interface Props {
   savedFilters: SavedFilter[];
@@ -14,8 +15,8 @@ interface Props {
 }
 
 const focusClass = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
-const activeClass = `bg-primary text-on-primary font-medium px-2.5 py-1 rounded ${focusClass}`;
-const inactiveClass = `text-fg-tertiary hover:text-fg px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
+const activeClass = `inline-flex items-center gap-1 bg-primary text-on-primary font-medium px-2.5 py-1 rounded ${focusClass}`;
+const inactiveClass = `inline-flex items-center gap-1 text-fg-tertiary hover:text-fg px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
 
 /**
  * A compact row of tab pills that gives one-click access to saved filter presets,
@@ -60,6 +61,7 @@ export default function SavedFilterTabs({
         onClick={onClearAll}
         className={allIsActive ? activeClass : inactiveClass}
       >
+        <ActiveMark active={allIsActive} />
         All
       </button>
 
@@ -73,9 +75,10 @@ export default function SavedFilterTabs({
             aria-pressed={isActive}
             onClick={() => onLoad(f)}
             title={f.name}
-            className={`${isActive ? activeClass : inactiveClass} max-w-[10rem] truncate`}
+            className={`${isActive ? activeClass : inactiveClass} max-w-[10rem]`}
           >
-            {f.name}
+            <ActiveMark active={isActive} />
+            <span className="truncate">{f.name}</span>
           </button>
         );
       })}

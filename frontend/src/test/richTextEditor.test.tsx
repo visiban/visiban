@@ -930,3 +930,86 @@ describe('RichTextEditor text color swatches (#1893)', () => {
     }
   })
 })
+
+describe('RichTextEditor exits keep focus in the enclosing dialog (#2182)', () => {
+  const onSave = vi.fn()
+  function setup(showActions = true) {
+    onSave.mockClear()
+    const utils = render(
+      <div role="dialog" tabIndex={-1} aria-label="Card">
+        <RichTextEditor value="text" onSave={onSave} showActions={showActions} />
+      </div>,
+    )
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(utils.container.querySelector('[role="presentation"]') as Element)
+    return dialog
+  }
+
+  it('Escape leaves focus on the dialog, not the body', () => {
+    const dialog = setup()
+    expect(screen.getByText('Save')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('Save')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(dialog)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('Cancel from the keyboard (click with detail 0) leaves focus on the dialog', () => {
+    const dialog = setup()
+    fireEvent.click(screen.getByText('Cancel'), { detail: 0 })
+    expect(screen.queryByText('Save')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(dialog)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('Save from the keyboard saves once and leaves focus on the dialog', () => {
+    const dialog = setup()
+    fireEvent.click(screen.getByText('Save'), { detail: 0 })
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(dialog)
+  })
+
+  it('a mouse-detail click on Save never saves (mousedown owns it)', () => {
+    setup()
+    fireEvent.click(screen.getByText('Save'), { detail: 1 })
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('a mouse-detail click on Cancel never runs the cancel path', () => {
+    setup()
+    fireEvent.click(screen.getByText('Cancel'), { detail: 1 })
+    expect(screen.getByText('Save')).toBeInTheDocument()
+  })
+
+  it('a mouse press on Save saves exactly once', () => {
+    setup()
+    fireEvent.mouseDown(screen.getByText('Save'))
+    expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('a mouse click on Cancel acts on mousedown only', () => {
+    const dialog = setup()
+    const cancel = screen.getByText('Cancel')
+    fireEvent.mouseDown(cancel)
+    expect(screen.queryByText('Save')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(dialog)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  type BlurOpts = { onBlur: (args: { event: { relatedTarget: Node | null } }) => void }
+  const lastBlur = () =>
+    (vi.mocked(useEditor).mock.calls.at(-1)?.[0] as unknown as BlurOpts).onBlur
+
+  it('Escape without actions does not blur-save (exiting guard)', () => {
+    setup(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    act(() => lastBlur()({ event: { relatedTarget: document.body } }))
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('without actions, click-away blur saves', () => {
+    setup(false)
+    act(() => lastBlur()({ event: { relatedTarget: document.body } }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+  })
+})
