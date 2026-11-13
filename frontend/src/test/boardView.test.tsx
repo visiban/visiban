@@ -125,12 +125,13 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId }: { swimlane: { id: number; name: string }; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
+  default: ({ swimlane, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
       <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
+        {onSwimlaneUpdated && <button data-testid={`lane-updated-${swimlane.id}`} onClick={() => onSwimlaneUpdated(swimlane)}>LaneUpdatedMock</button>}
         {onEditFieldOrder && <button data-testid={`edit-order-${swimlane.id}`} onClick={onEditFieldOrder}>EditOrderMock</button>}
         {onToggleCardSelection && <button data-testid={`select-card-1-${swimlane.id}`} onClick={() => onToggleCardSelection(1)}>SelectCardMock</button>}
         {onOpenCardMenu && (cards ?? []).map((c) => (
@@ -155,8 +156,19 @@ vi.mock('../components/Board/AddColumnModal', () => ({
     </div>
   ),
 }))
+// Exposes the separator's insert action so a test can open the add-lane modal (#2205).
+vi.mock('../components/Board/RowSeparator', () => ({
+  default: ({ onInsert }: { onInsert: () => void }) => <button data-testid="row-sep-insert" onClick={onInsert}>InsertLaneMock</button>,
+}))
+// Lane the mock modal reports as just created (#2205 new-lane notice test).
+let mockCreatedLane: { id: number; name: string } | null = null
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
-  default: () => <div data-testid="add-swimlane-modal">Add Swimlane Modal</div>,
+  default: ({ onAdded }: { onAdded?: (s: never) => void }) => (
+    <div data-testid="add-swimlane-modal">
+      Add Swimlane Modal
+      <button data-testid="confirm-add-swimlane" onClick={() => onAdded?.(mockCreatedLane as never)}>ConfirmAddLane</button>
+    </div>
+  ),
 }))
 // Captures the props BoardView hands the settings modal (#1290).
 let capturedSettingsProps: {
@@ -3237,5 +3249,67 @@ describe('BoardView lane filters (#2205)', () => {
     rerender(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
     expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
+  })
+
+  it('shows the notice when this client edited the lane that stopped matching', () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    act(() => { screen.getByTestId('lane-updated-20').click() })
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  it('shows the notice when the open card panel belongs to the lane that stopped matching', () => {
+    mockSearchParams = new URLSearchParams(`${priyaParam}&card=1`)
+    const card = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Open Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')], { cards: [card] }) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')], { cards: [card] }) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  it('shows the new-lane message for a lane this client just created that does not match', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    const created = lane(30, 'Fresh Lane')
+    mockCreatedLane = created
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getAllByTestId('row-sep-insert').at(-1)!)
+    await user.click(screen.getByTestId('confirm-add-swimlane'))
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), created]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-30')).not.toBeInTheDocument()
+    expect(screen.getAllByText('New lane “Fresh Lane” is hidden because it doesn\'t match your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  it('stays silent when focus left the lane for a non-focusable area before a remote edit hides it', () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    const btn = screen.getByTestId('focus-btn-20')
+    act(() => { btn.focus() })
+    act(() => { btn.blur() })
+    expect(document.activeElement).toBe(document.body)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(document.body)
   })
 })

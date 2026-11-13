@@ -478,6 +478,26 @@ class SavedFilterCustomFieldStateTests(TestCase):
         keys = json.loads(fixture.read_text())["keys"]
         self.assertEqual(set(keys), SavedFilterSerializer._STATE_V1_KEYS)
 
+    def test_lane_filter_limits_match_shared_fixture(self):
+        """The lane-filter bounds are duplicated in laneFilter.ts; the shared
+        fixture pins both copies (the Vitest parity test reads the same file)."""
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        limits = json.loads(fixture.read_text())["laneFilterLimits"]
+        self.assertEqual(
+            limits,
+            {
+                "maxItems": S._LANE_MAX_ITEMS,
+                "maxRules": S._LANE_MAX_RULES,
+                "maxString": S._CF_MAX_STRING,
+                "maxId": S._LANE_MAX_ID,
+            },
+        )
+
     def test_unhashable_values_are_400_not_500(self):
         for label, extra in {
             "kind list": {"customFields": {"1": {"kind": []}}},

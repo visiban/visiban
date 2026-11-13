@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { LANE_FILTER_MAX_ID, LANE_FILTER_MAX_ITEMS, LANE_FILTER_MAX_RULES, LANE_FILTER_MAX_STRING } from '../utils/laneFilter'
 import { EMPTY_FILTER, type FilterState } from '../components/Board/FilterBar'
 
 // #2213 — the backend pins the same fixture against
@@ -26,7 +27,7 @@ const FILTER_STATE_KEYS: Record<keyof FilterState, true> = {
 describe('FilterState keys parity with backend', () => {
   const fixture = JSON.parse(
     readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8'),
-  ) as { keys: string[] }
+  ) as { keys: string[]; laneFilterLimits: { maxItems: number; maxRules: number; maxString: number; maxId: number } }
 
   it('every FilterState key matches the shared fixture', () => {
     expect(Object.keys(FILTER_STATE_KEYS).sort()).toEqual([...fixture.keys].sort())
@@ -35,5 +36,14 @@ describe('FilterState keys parity with backend', () => {
   it('EMPTY_FILTER carries every required key and nothing outside FilterState', () => {
     for (const k of Object.keys(EMPTY_FILTER)) expect(fixture.keys).toContain(k)
     expect(Object.keys(EMPTY_FILTER)).not.toContain('laneFilter')
+  })
+
+  it('lane filter limits match the shared fixture (#2205)', () => {
+    expect({
+      maxItems: LANE_FILTER_MAX_ITEMS,
+      maxRules: LANE_FILTER_MAX_RULES,
+      maxString: LANE_FILTER_MAX_STRING,
+      maxId: LANE_FILTER_MAX_ID,
+    }).toEqual(fixture.laneFilterLimits)
   })
 })

@@ -52,7 +52,7 @@ export interface LaneFilter {
 export const LANE_FILTER_MAX_ITEMS = 20;
 export const LANE_FILTER_MAX_RULES = 50;
 export const LANE_FILTER_MAX_STRING = 500;
-const MAX_ID = 2 ** 31 - 1;
+export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 
 const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between"];
 
@@ -78,7 +78,7 @@ function str(v: unknown): string | undefined {
 }
 
 function validId(v: unknown): v is number {
-  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= MAX_ID;
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= LANE_FILTER_MAX_ID;
 }
 
 /**

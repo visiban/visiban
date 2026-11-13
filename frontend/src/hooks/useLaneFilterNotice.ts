@@ -36,8 +36,10 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
   const [notice, setNotice] = useState<string | null>(null);
   // Lanes this client edited or created since the last evaluation.
   const localEditsRef = useRef(new Set<number>());
-  // Closest [data-swimlane-id] of the last focused element. Deliberately not
-  // cleared when focus drops to <body>: that drop is what recovery detects.
+  // Closest [data-swimlane-id] of the last focused element. Not cleared when
+  // the focused element is removed with its lane (that drop is what recovery
+  // detects), but cleared when the user moves focus out themselves (focusout
+  // with no new target while the element is still connected).
   const focusedLaneIdRef = useRef<number | null>(null);
   // The lane focus was recovered from in this commit. Layout effects run
   // before the notice effect, and the recovery focus() itself fires focusin,
@@ -50,8 +52,20 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
       const el = e.target instanceof Element ? e.target.closest("[data-swimlane-id]") : null;
       focusedLaneIdRef.current = el ? Number(el.getAttribute("data-swimlane-id")) : null;
     };
+    // Focus that leaves the page content for a non-focusable area (relatedTarget
+    // null) fires focusout but no focusin, so without this the ref would keep
+    // naming a lane the user is no longer in. The one case that must survive is
+    // the lane unmounting under focus: browsers fire no focusout for a removed
+    // element (jsdom may), so the recovery layout effect also guards on it.
+    const onFocusOut = (e: FocusEvent) => {
+      if (e.relatedTarget === null && e.target instanceof Element && e.target.isConnected) focusedLaneIdRef.current = null;
+    };
     document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
   }, []);
 
   const markLocalEdit = useCallback((id: number) => {
