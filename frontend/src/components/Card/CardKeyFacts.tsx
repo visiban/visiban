@@ -38,6 +38,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
   useLayoutEffect(() => {
     if (lastSignature.current === signature) return;
     lastSignature.current = signature;
+    setExpanded(false);
     setVisibleCount(null);
   }, [signature]);
 
@@ -49,6 +50,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
     const observer = new ResizeObserver(() => {
       if (ul.clientWidth === width) return;
       width = ul.clientWidth;
+      setExpanded(false);
       setVisibleCount(null);
     });
     observer.observe(ul);
@@ -94,12 +96,13 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [] }: Props
         return (
           <li key={fact.key} data-fact-index={i} data-fact-key={fact.key} hidden={hidden}>
             {inert ? (
-              <span className={chip} aria-label={fact.label.replace(/\. Go to .*$/, "")}>{body}</span>
+              <span role="group" aria-label={fact.staticLabel} title={fact.title} className={chip}>{body}</span>
             ) : (
               <button
                 type="button"
                 onClick={() => onJump(fact.target)}
                 aria-label={fact.label}
+                title={fact.title}
                 className={`${chip} hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
               >
                 {body}

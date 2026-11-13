@@ -99,7 +99,7 @@ describe('buildKeyFacts (#1916)', () => {
   it('always has the column, and nothing else when the card has no assignee, due date or pinned value', () => {
     const facts = buildKeyFacts(input(makeCard(), makeBoard()))
     expect(facts.map((f) => f.key)).toEqual(['column'])
-    expect(facts[0].label).toBe('Column: Review. Go to Move')
+    expect(facts[0].label).toBe('Review, column. Go to Move')
   })
 
   it('appends the swimlane only when the board has more than one', () => {
@@ -107,7 +107,7 @@ describe('buildKeyFacts (#1916)', () => {
     board.swimlanes = [...board.swimlanes, { ...board.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Growth' }]
     const [column] = buildKeyFacts(input(makeCard(), board))
     expect(column.text).toBe('Review · Platform')
-    expect(column.label).toBe('Column: Review, swimlane Platform. Go to Move')
+    expect(column.label).toBe('Review · Platform, column and swimlane. Go to Move')
   })
 
   it('orders assignee, due date, then pinned fields, and uses the first name', () => {
@@ -120,9 +120,9 @@ describe('buildKeyFacts (#1916)', () => {
     expect(facts.map((f) => f.key)).toEqual(['column', 'assignee', 'due', 'field-55'])
     expect(facts[1].text).toBe('Alex')
     expect(facts[1].label).toBe('Assignee: Alex Brown. Go to Assignee')
-    expect(facts[2].label).toBe('Due November 20, 2020, overdue. Go to Due date')
+    expect(facts[2].label).toBe('Due 11/20/2020, overdue, November 20, 2020. Go to Due date')
     expect(facts[2].tone).toBe('danger')
-    expect(facts[3].label).toBe('Deal value: $40k. Go to Deal value')
+    expect(facts[3].label).toBe('Deal value $40k. Go to Deal value')
   })
 
   it('omits a pinned field with no value and an unpinned field with one', () => {
@@ -135,7 +135,7 @@ describe('buildKeyFacts (#1916)', () => {
 
 describe('CardKeyFacts overflow (#1916)', () => {
   const facts = Array.from({ length: 5 }, (_, i) => ({
-    key: `f${i}`, target: 'assignee' as const, text: `Fact ${i}`, label: `Fact ${i}. Go to X`,
+    key: `f${i}`, target: 'assignee' as const, text: `Fact ${i}`, label: `Fact ${i}. Go to X`, staticLabel: `Fact ${i}`,
   }))
   const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetTop')
 
@@ -165,6 +165,14 @@ describe('CardKeyFacts overflow (#1916)', () => {
     const less = screen.getByRole('button', { name: 'Show fewer' })
     expect(less).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'Fact 4. Go to X' })).toBeInTheDocument()
+  })
+
+  it('collapses again when the fact list changes (a card swap)', async () => {
+    const { rerender } = render(<CardKeyFacts facts={facts} onJump={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: '+2 more facts' }))
+    expect(screen.getByRole('button', { name: 'Show fewer' })).toBeInTheDocument()
+    rerender(<CardKeyFacts facts={facts.map((f) => ({ ...f, text: `${f.text}!` }))} onJump={vi.fn()} />)
+    expect(await screen.findByRole('button', { name: '+2 more facts' })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('shows no +N when everything fits', () => {
@@ -199,7 +207,7 @@ describe('CardDetail key facts (#1916)', () => {
   it('renders only the column fact for a bare card', () => {
     render(<CardDetail {...baseProps()} onMoveCard={vi.fn()} />)
     expect(within(facts()).getAllByRole('listitem')).toHaveLength(1)
-    expect(within(facts()).getByRole('button', { name: 'Column: Review. Go to Move' })).toBeInTheDocument()
+    expect(within(facts()).getByRole('button', { name: 'Review, column. Go to Move' })).toBeInTheDocument()
   })
 
   it('jumps to Assignee: scrolls to the top of the section and focuses its first control', async () => {
@@ -243,7 +251,7 @@ describe('CardDetail key facts (#1916)', () => {
     render(<CardDetail {...{ ...baseProps(), card: richCard(), board: richBoard() }} />)
     await userEvent.click(screen.getByRole('button', { name: /Custom fields/ }))
     expect(document.querySelector('[data-fact-section="field:55"]')).toBeNull()
-    await userEvent.click(within(facts()).getByRole('button', { name: 'Deal value: $40k. Go to Deal value' }))
+    await userEvent.click(within(facts()).getByRole('button', { name: 'Deal value $40k. Go to Deal value' }))
     const section = await waitFor(() => {
       const el = document.querySelector('[data-fact-section="field:55"]') as HTMLElement
       expect(el).not.toBeNull()
@@ -255,7 +263,7 @@ describe('CardDetail key facts (#1916)', () => {
   it('opens the Move popover from the Column fact, with focus inside it', async () => {
     const onMoveCard = vi.fn()
     render(<CardDetail {...{ ...baseProps(), card: richCard(), board: richBoard() }} onMoveCard={onMoveCard} />)
-    await userEvent.click(within(facts()).getByRole('button', { name: 'Column: Review. Go to Move' }))
+    await userEvent.click(within(facts()).getByRole('button', { name: 'Review, column. Go to Move' }))
     const popover = document.querySelector('[data-move-popover]') as HTMLElement
     expect(popover).not.toBeNull()
     await waitFor(() => expect(popover.contains(document.activeElement)).toBe(true))
@@ -264,7 +272,7 @@ describe('CardDetail key facts (#1916)', () => {
   it('keeps navigating for a read-only viewer; the Column fact is plain text with nothing to open', async () => {
     render(<CardDetail {...{ ...baseProps(), card: richCard(), board: richBoard({ current_user_role: 'viewer' }) }} onMoveCard={vi.fn()} />)
     expect(within(facts()).queryByRole('button', { name: /Column/ })).not.toBeInTheDocument()
-    expect(within(facts()).getByLabelText('Column: Review')).toBeInTheDocument()
+    expect(within(facts()).getByLabelText('Review, column')).toBeInTheDocument()
     await userEvent.click(within(facts()).getByRole('button', { name: /Go to Due date/ }))
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
     const section = document.querySelector('[data-fact-section="due"]') as HTMLElement

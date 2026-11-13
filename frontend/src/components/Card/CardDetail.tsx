@@ -227,6 +227,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [bulkText, setBulkText] = useState("");
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
+  // The Attachments count is unknown, not 0, until a fetch has succeeded (#1916).
+  const [attachmentsLoaded, setAttachmentsLoaded] = useState(false);
   // Surfaces a failure in the comments/checklist/attachments load effects
   // below — previously silent (#1375): the panel just stayed on whatever it
   // had before (empty on first mount), with nothing telling the user a
@@ -489,6 +491,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true)).finally(settle("comments"));
     getCardAttachments(board.id, card.id).then((data) => {
       setAttachments(data);
+      setAttachmentsLoaded(true);
       setAttachmentsOpen(data.length > 0);
     }).catch(() => setLoadError(true)).finally(settle("attachments"));
     getChecklist(board.id, card.id).then((data) => {
@@ -509,7 +512,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (lastSignalRef.current === refreshSignal) return;
     lastSignalRef.current = refreshSignal;
     getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true));
-    getCardAttachments(board.id, card.id).then(setAttachments).catch(() => setLoadError(true));
+    getCardAttachments(board.id, card.id).then((data) => { setAttachments(data); setAttachmentsLoaded(true); }).catch(() => setLoadError(true));
     getChecklist(board.id, card.id).then(setChecklist).catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; board.id/card.id are stable for this instance's lifetime (BoardView remounts CardDetail via `key={selectedCard.id}` on card change)
   }, [refreshSignal]);
@@ -2167,7 +2170,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                      Attachments{!pendingSections.attachments && <span className="ml-1.5 normal-case font-normal text-fg-muted" data-testid="card-section-count-attachments">{attachments.length}</span>}
+                      Attachments{attachmentsLoaded && <span className="ml-1.5 normal-case font-normal text-fg-muted" data-testid="card-section-count-attachments">{attachments.length}</span>}
                     </p>
                     <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/att:text-fg-tertiary transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />

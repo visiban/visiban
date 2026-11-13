@@ -25,8 +25,12 @@ export interface KeyFact {
   glyph?: string;
   /** Visible value text. */
   text: string;
-  /** Accessible name, ending in "Go to <field>". */
+  /** Accessible name: starts with the visible text (label-in-name), ends "Go to <field>". */
   label: string;
+  /** The name without the "Go to" tail, for a chip that cannot be activated. */
+  staticLabel: string;
+  /** Full value for a tooltip when the visible text is truncated. */
+  title?: string;
   /** Text tone for urgency (on-tint tokens); default neutral. */
   tone?: "danger" | "warning";
   /** Assignee facts show a small avatar. */
@@ -67,7 +71,8 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: Key
       target: "move",
       glyph: "▸",
       text: withLane ? `${column.name} · ${swimlane.name}` : column.name,
-      label: `Column: ${column.name}${withLane ? `, swimlane ${swimlane.name}` : ""}. Go to Move`,
+      label: `${withLane ? `${column.name} · ${swimlane.name}, column and swimlane` : `${column.name}, column`}. Go to Move`,
+      staticLabel: withLane ? `${column.name} · ${swimlane.name}, column and swimlane` : `${column.name}, column`,
     });
   }
 
@@ -77,6 +82,8 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: Key
       target: "assignee",
       text: firstName(card.assignee),
       label: `Assignee: ${userDisplayName(card.assignee)}. Go to Assignee`,
+      staticLabel: `Assignee: ${userDisplayName(card.assignee)}`,
+      title: userDisplayName(card.assignee),
       avatarUser: card.assignee,
     });
   }
@@ -88,7 +95,8 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: Key
       target: "due",
       glyph: info.overdue ? "⚑" : undefined,
       text: info.label,
-      label: `Due ${longDate(card.due_date)}${info.overdue ? ", overdue" : ""}. Go to Due date`,
+      label: `${info.label}${info.overdue ? ", overdue" : ""}, ${longDate(card.due_date)}. Go to Due date`,
+      staticLabel: `${info.label}${info.overdue ? ", overdue" : ""}, ${longDate(card.due_date)}`,
       tone: info.overdue ? "danger" : undefined,
     });
   }
@@ -102,11 +110,15 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: Key
     const entry = card.custom_field_values.find((v) => v.field_definition === def.id);
     if (!entry || entry.value === "") continue;
     const shown = isValidForType(def, entry.value) ? formatCustomFieldValue(def, entry.value, userDateFormat) : entry.value;
+    const shortValue = chipValueText(def, shown, 16);
+    const visible = `${def.name} ${shortValue}`;
     facts.push({
       key: `field-${def.id}`,
       target: `field:${def.id}`,
-      text: `${def.name} ${chipValueText(def, shown, 16)}`,
-      label: `${def.name}: ${shown}. Go to ${def.name}`,
+      text: visible,
+      label: `${visible}${shown === shortValue ? "" : `, full value ${shown}`}. Go to ${def.name}`,
+      staticLabel: `${def.name}: ${shown}`,
+      title: `${def.name}: ${shown}`,
     });
   }
 
