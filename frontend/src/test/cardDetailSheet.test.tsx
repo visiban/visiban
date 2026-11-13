@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createPortal } from 'react-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
@@ -179,8 +179,23 @@ describe('CardDetail sheet — Dock to edge toggle (#1915)', () => {
     expect(toggle().className).toContain('bg-surface-hover')
     expect(toggle().className).toContain('border-line-strong')
     expect(toggle().innerHTML).not.toBe(before)
+    expect(within(toggle()).getByTestId('active-underline')).toBeInTheDocument()
     expect(screen.getByTestId('card-detail-backdrop')).toBeInTheDocument()
     expect(screen.queryByTestId('card-sheet-notch')).not.toBeInTheDocument()
+  })
+
+  it('ActiveUnderline and aria-pressed move together (#2188)', async () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false')
+    expect(within(toggle()).queryByTestId('active-underline')).not.toBeInTheDocument()
+    await userEvent.click(toggle())
+    await waitFor(() => expect(toggle()).toHaveAttribute('aria-pressed', 'true'))
+    expect(within(toggle()).getByTestId('active-underline')).toBeInTheDocument()
+    expect(toggle().className).toContain('relative')
+    await userEvent.click(toggle())
+    await waitFor(() => expect(toggle()).toHaveAttribute('aria-pressed', 'false'))
+    expect(within(toggle()).queryByTestId('active-underline')).not.toBeInTheDocument()
   })
 
   it('toggles back to anchored and clears the stored preference', async () => {

@@ -44,6 +44,7 @@ import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { colorChipStyle } from "../../utils/colorContrast";
 import { isImeComposing } from "../../utils/imeComposition";
 import { isAssignableMember } from "../../utils/assignableMembers";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 interface Props {
   card: Card;
@@ -1420,7 +1421,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           {!fullscreen && (
             // Dock toggle (#1915): DOM order equals visual order (Dock, then Close) and focus
             // opens on Close, so Shift+Tab reaches it. The pressed state is not tint alone:
-            // the icon swaps between the two modes and the border appears.
+            // ActiveUnderline (#2188) plus the icon swap and border as reinforcement.
             <button
               type="button"
               onClick={() => setDockedPref(!dockedPref)}
@@ -1428,7 +1429,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               aria-label={dockedPref ? "Open next to card" : "Dock to edge"}
               title={dockedPref ? "Open next to card" : "Dock to edge"}
               data-testid="card-sheet-dock-toggle"
-              className={`w-7 h-7 flex items-center justify-center rounded border transition shrink-0 hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              className={`relative w-7 h-7 flex items-center justify-center rounded border transition shrink-0 hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 dockedPref ? "bg-surface-hover border-line-strong text-fg" : "border-transparent text-fg-tertiary"
               }`}
             >
@@ -1447,6 +1448,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </>
                 )}
               </svg>
+              <ActiveUnderline active={dockedPref} />
             </button>
           )}
           <button type="button"

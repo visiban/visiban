@@ -944,7 +944,7 @@ The card detail sheet sits next to the card it describes instead of at the far r
 - **A user pin that outranks an automatic placement goes into the pure placement function.** `computeCardSheetPlacement` takes `docked` and ranks it below full-screen (`<= 640px`, toggle hidden) and above the 1280px anchor rule, so the precedence is unit-tested without the DOM. Toggling re-places with `PlacementReason` `"dock-toggle"`, which `classifyTransition` maps to the swap `slide` (reduced motion: the 120ms fades), or `none` when the frame did not move.
 - **Storage:** `user:prefs:card-sheet-docked` (`useCardSheetDockedPref`, the `useCardLayoutPref` pattern; absent = `false`, no `User` field). It is read once per sheet mount, so a swap keeps the mode.
 - **Header order is DOM order = visual order: Dock, then Close** (A-Q8). Focus on open stays on Close; Shift+Tab reaches Dock. The labels are `Dock to edge` (off) / `Open next to card` (on) as both `aria-label` and `title`, with `aria-pressed`.
-- **The pressed state is more than a tint (WCAG 1.4.1):** the icon swaps between the two modes and the border appears (`bg-surface-hover border-line-strong`). Adopt `ActiveUnderline` once it is on main (#2188).
+- **The pressed state is more than a tint (WCAG 1.4.1):** the button renders `ActiveUnderline` (default `inset`, host is `relative`) while docked, per the #2188 icon-toggle rule, with the icon swap and border (`bg-surface-hover border-line-strong`) as reinforcement. `aria-pressed` stays the state.
 - **Test pins:** Playwright specs for placement pin a viewport per mode (1600 anchored, 1024 docked, 640 full-screen); the dock toggle is exercised at 1600 where it changes the mode.
 
 ## Externally-sourced URLs (#1087)
