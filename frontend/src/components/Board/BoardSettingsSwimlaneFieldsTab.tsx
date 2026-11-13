@@ -152,7 +152,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [deleteInput, setDeleteInput] = useState("");
   const [saving, setSaving] = useState(false);
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
-  const dragSensors = useDragSensors({ keyboard: true });
+  const dragSensors = useDragSensors({ keyboard: true, sortable: true });
 
   // Re-sync from the parent when the board's definitions change for a reason
   // other than this component's own edits (another admin, over the WS

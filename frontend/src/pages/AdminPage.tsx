@@ -797,7 +797,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
       savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
     } catch {
       setSettings((s) => s ? { ...s, maintenance_mode: prev } : s);
-      setError("Failed to save settings.");
+      setError(`Failed to turn ${next ? "on" : "off"} maintenance mode. Please try again.`);
     } finally {
       setSaving(false);
     }

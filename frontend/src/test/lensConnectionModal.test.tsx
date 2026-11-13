@@ -148,6 +148,25 @@ describe('LensConnectionModal', () => {
     expect(screen.getByRole('button', { name: 'Remove lens' })).toBeInTheDocument()
   })
 
+  it('keeps the confirm prompt closed and shows the failure copy when removal fails', async () => {
+    const user = userEvent.setup()
+    const onRemoved = vi.fn()
+    mockDelete.mockRejectedValue(new Error('boom'))
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={savedConnection}
+        onSaved={vi.fn()}
+        onRemoved={onRemoved}
+        onClose={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Remove lens' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByText('Failed to remove lens connection. Please try again.')).toBeInTheDocument()
+    expect(onRemoved).not.toHaveBeenCalled()
+  })
+
   it('cancels the remove confirmation without deleting', async () => {
     const user = userEvent.setup()
     const onRemoved = vi.fn()

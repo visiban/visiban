@@ -92,7 +92,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
       await deleteLensConnection(boardId);
       onRemoved();
     } catch {
-      setError("Could not remove the lens connection.");
+      setError("Failed to remove lens connection. Please try again.");
       setRemoving(false);
       setConfirmingRemove(false);
     }

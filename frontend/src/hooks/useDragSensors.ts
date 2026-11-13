@@ -1,3 +1,4 @@
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 /**
@@ -42,11 +43,19 @@ export const TOUCH_ACTIVATION = { delay: 250, tolerance: 5 } as const;
  * grid has never had keyboard dragging (cards move from the keyboard through
  * the card-detail Move popover), while the Board Settings field lists relied
  * on DndContext's default sensors, which include it.
+ *
+ * `sortable` (only meaningful with `keyboard`) swaps the sensor's default
+ * coordinate getter, which moves the dragged item a fixed ~25px per arrow
+ * press, for dnd-kit's `sortableKeyboardCoordinates`, which moves it to the
+ * neighboring item (#1739). Off by default so no other caller changes.
  */
-export function useDragSensors({ keyboard = false }: { keyboard?: boolean } = {}) {
+export function useDragSensors({ keyboard = false, sortable = false }: { keyboard?: boolean; sortable?: boolean } = {}) {
   const mouse = useSensor(PrimaryButtonMouseSensor, { activationConstraint: MOUSE_ACTIVATION });
   const touch = useSensor(TouchSensor, { activationConstraint: TOUCH_ACTIVATION });
-  const keys = useSensor(KeyboardSensor);
+  const keys = useSensor(
+    KeyboardSensor,
+    sortable ? { coordinateGetter: sortableKeyboardCoordinates } : undefined,
+  );
   // useSensors drops null entries, so this is safe to vary per call site.
   return useSensors(mouse, touch, keyboard ? keys : null);
 }

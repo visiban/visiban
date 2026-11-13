@@ -120,7 +120,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const [deleteInput, setDeleteInput] = useState("");
   const [saving, setSaving] = useState(false);
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
-  const dragSensors = useDragSensors({ keyboard: true });
+  const dragSensors = useDragSensors({ keyboard: true, sortable: true });
 
   const pinnedCount = fields.filter((f) => f.show_on_card).length;
 

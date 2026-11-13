@@ -1507,7 +1507,7 @@ describe('AdminPage — maintenance mode', () => {
     await waitFor(() => screen.getByText('Confirm'))
     fireEvent.click(screen.getByText('Confirm'))
 
-    await waitFor(() => screen.getByText('Failed to save settings.'))
+    await waitFor(() => screen.getByText('Failed to turn on maintenance mode. Please try again.'))
     expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
   })
 })
