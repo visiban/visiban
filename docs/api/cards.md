@@ -186,6 +186,8 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
 | `attachment_count` | integer | yes | no | Number of attachments on this card |
 | `checklist_total` | integer | yes | no | Total number of checklist items |
 | `checklist_done` | integer | yes | no | Number of checked checklist items |
+| `checklist_open_due_dates` | array of strings | yes | no | Since 1.3 (#445). Sorted `YYYY-MM-DD` due dates of the unchecked checklist items that have one. Not on the anonymous share-link payload. |
+| `checklist_open_assignee_ids` | array of integers | yes | no | Since 1.3 (#445). One user id per unchecked checklist item that has an assignee (a user repeats once per item). Not on the anonymous share-link payload. |
 | `is_stale` | boolean | yes | no | `true` when the card has not moved within the board's `staleness_threshold_days` window; `false` otherwise. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards. |
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
 | `version` | integer | yes | no | Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the `version` read before an admin save gets `409 version_conflict`. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose `version` is lower than the one it holds. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
@@ -221,6 +223,8 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
   "attachment_count": 2,
   "checklist_total": 3,
   "checklist_done": 1,
+  "checklist_open_due_dates": ["2026-04-02"],
+  "checklist_open_assignee_ids": [7],
   "is_stale": false,
   "archived_at": null,
   "version": 4,
@@ -1030,6 +1034,9 @@ All checklist endpoints (`GET`, `POST`, `PATCH`, `POST .../reorder/`) return che
 | `text` | string | Item text |
 | `is_checked` | boolean | Whether the item is checked |
 | `position` | integer | Sort order within the checklist (0-based); update via `reorder/` only — a `PATCH` that changes `position` returns `400 Bad Request` (since 1.2, #1292). Echoing the current value back is accepted. |
+| `assignee` | object / null | Since 1.3 (#445). The assigned user, `{ id, username, display_name, avatar_url }`, or `null`. |
+| `assignee_id` | integer / null | Since 1.3 (#445). Write-only. User id to assign, or `null` to unassign; must be an assignable board member (never a viewer), otherwise `400`. |
+| `due_date` | string / null | Since 1.3 (#445). `YYYY-MM-DD`, or `null`. |
 | `created_by` | object / null | User who added the item — `{ id, username, display_name, avatar_url }`. `null` for items created before this field was added (migration 0044) and for items whose creator's account was deleted. Only admins and moderators can edit or delete `null`-creator items. |
 
 **Example response**
@@ -1040,6 +1047,8 @@ All checklist endpoints (`GET`, `POST`, `PATCH`, `POST .../reorder/`) return che
   "text": "Write tests",
   "is_checked": false,
   "position": 0,
+  "assignee": { "id": 8, "username": "bob", "display_name": "Bob Jones", "avatar_url": null },
+  "due_date": "2026-04-02",
   "created_by": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }
 }
 ```

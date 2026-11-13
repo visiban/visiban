@@ -295,7 +295,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
 | Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red |
 | Weight | Numeric effort estimate (default 1) |
-| Checklist | Sub-tasks with checked/unchecked state |
+| Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |
 | Comments | Threaded, visible to all board members; type `@` to mention a member; timestamps show relative time ("5m ago", "3h ago") for recent comments and full date + time for older ones |
 
