@@ -163,6 +163,10 @@ def _query_real_ids():
         "group_join_token": None,
         "share_token": None,
         "media_path": None,
+        # #2078 — a second board the fuzz user ADMINISTERS, plus one webhook
+        # subscription on it; see _seed_webhook_fixture.
+        "webhook_board_pk": None,
+        "webhook_id": None,
     }
 
     board = Board.objects.filter(name="Visiban Demo Board").first()
@@ -249,6 +253,7 @@ def _query_real_ids():
 
     _mint_public_tokens(board, ids)
     _seed_lens_connection(board)
+    _seed_webhook_fixture(board, member.user_id if member is not None else None, ids)
 
     # The fuzz job's own PAT (provisioned by provision_fuzz_token for the same
     # user this run authenticates as) — gives GET/DELETE
@@ -390,6 +395,73 @@ def _seed_lens_connection(board):
     )
 
 
+_WEBHOOK_BOARD_NAME = "Schemathesis Webhook Board"
+# Never contacted: the fuzz PAT cannot reach test/create/url-PATCH/reenable/rotate
+# (403 session_required), nothing else dials a subscription's URL, and
+# example.com is reserved. Stored through set_url exactly as the API would.
+_WEBHOOK_FIXTURE_URL = "https://hooks.example.com/schemathesis-fixture"
+
+
+def _make_webhook_subscription(board, user):
+    """One enabled subscription on *board*, built the way the API builds it."""
+    from django.utils import timezone
+
+    from visiban import egress
+    from webhooks.models import WebhookSubscription, generate_secret
+
+    sub = WebhookSubscription(
+        board=board, created_by=user, configured_by=user, configured_at=timezone.now(),
+        name="schemathesis fixture",
+    )
+    sub.set_url(_WEBHOOK_FIXTURE_URL, egress.parse_url(_WEBHOOK_FIXTURE_URL).host)
+    sub.set_secret(generate_secret())
+    sub.save()
+    return sub
+
+
+def _seed_webhook_fixture(demo_board, fuzz_user_id, ids):
+    """A board the fuzz user administers, with one webhook subscription (#2078).
+
+    Every webhook route answers the role 403 for a plain board member before any
+    webhook logic runs, and the fuzz user is a MEMBER of the demo board, so the
+    2xx webhook schemas were never exercised. Making that user an admin of the
+    demo board itself is not an option: it would turn the fuzzed board writes
+    (PATCH/DELETE /boards/{id}/ and the rest of the admin-only surface) from
+    declared 403s into real, destructive calls against the board every other
+    route depends on. So the elevated role lives on a separate board that only
+    the webhook routes are mapped to.
+
+    No-op unless webhooks are enabled and installed. Seeded here rather than in
+    seed_demo_data for the reason _seed_lens_connection gives: that command also
+    seeds real demo installs.
+    """
+    from django.apps import apps
+    from django.conf import settings
+
+    if fuzz_user_id is None or not apps.is_installed("webhooks") or not settings.WEBHOOKS_ENABLED:
+        return
+    from boards.models import Board, BoardMembership
+    from accounts.models import User
+
+    fuzz_user = User.objects.filter(pk=fuzz_user_id).first()
+    if fuzz_user is None:
+        return
+    board, _ = Board.objects.get_or_create(
+        name=_WEBHOOK_BOARD_NAME, defaults={"owner": demo_board.owner}
+    )
+    BoardMembership.objects.get_or_create(
+        board=board, user=board.owner, defaults={"role": BoardMembership.Role.ADMIN}
+    )
+    BoardMembership.objects.update_or_create(
+        board=board, user=fuzz_user, defaults={"role": BoardMembership.Role.ADMIN}
+    )
+    sub = board.webhook_subscriptions.order_by("id").first() or _make_webhook_subscription(
+        board, fuzz_user
+    )
+    ids["webhook_board_pk"] = board.id
+    ids["webhook_id"] = sub.id
+
+
 _DISPOSABLE_TITLE = "schemathesis fuzz disposable"
 
 
@@ -449,6 +521,10 @@ def _mint_disposable(kind):
         Card, CardAttachment, CardChecklist, CardComment, CardRelation, SavedFilter,
     )
 
+    if kind == "webhook":
+        # Not part of the demo-board fixture: it lives on the webhook board the
+        # fuzz user administers (#2078), so it is minted before the _DISPOSABLE gate.
+        return _mint_disposable_webhook()
     fixture = _DISPOSABLE
     if fixture is None:
         return None
@@ -491,6 +567,22 @@ def _mint_disposable(kind):
     return None
 
 
+def _mint_disposable_webhook():
+    """A throwaway subscription for a DELETE to remove; None on any failure."""
+    from accounts.models import User
+    from boards.models import Board
+
+    if _IDS.get("webhook_board_pk") is None or _IDS.get("member_user_id") is None:
+        return None
+    try:
+        return _make_webhook_subscription(
+            Board.objects.get(pk=_IDS["webhook_board_pk"]),
+            User.objects.get(pk=_IDS["member_user_id"]),
+        ).id
+    except Exception:  # noqa: BLE001 -- a fixture hiccup must not abort the fuzz run
+        return None
+
+
 def _first_sample_id():
     """A real sample-board slug for ``/boards/samples/{sample_id}/``."""
     from boards.services import sample_boards
@@ -514,6 +606,7 @@ _DELETE_POOL_OVERRIDES = {
     "/api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/": {"item_pk": "checklist_item"},
     "/api/v1/boards/{board_pk}/cards/{id}/relations/{relation_pk}/": {"relation_pk": "relation"},
     "/api/v1/boards/{id}/saved-filters/{filter_pk}/": {"filter_pk": "saved_filter"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/": {"id": "webhook"},
 }
 
 # Exact OpenAPI path template -> {path parameter name: key into _IDS}.
@@ -582,11 +675,19 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/analytics/": {"id": "board_pk"},
     "/api/v1/boards/{id}/events/": {"id": "board_pk"},
-    # Webhooks (#863). Only the board is seeded: the fuzz user is a board
-    # MEMBER, so every webhook route answers its declared 403 (admin required)
-    # before any subscription lookup; there is no subscription id to map.
-    "/api/v1/boards/{board_pk}/webhooks/": {"board_pk": "board_pk"},
-    "/api/v1/boards/{board_pk}/webhooks/status/": {"board_pk": "board_pk"},
+    # Webhooks (#863, #2078). Mapped to a separate board the fuzz user
+    # ADMINISTERS (see _seed_webhook_fixture), so the read routes and the
+    # token-allowed writes (name/event_types PATCH, disable, DELETE) answer real
+    # responses. The routes a PAT cannot reach (create, url PATCH, reenable,
+    # rotate, test: 403 session_required) are mapped too so they hit that 403 on a
+    # real subscription rather than a 404 on a fuzzed id.
+    "/api/v1/boards/{board_pk}/webhooks/": {"board_pk": "webhook_board_pk"},
+    "/api/v1/boards/{board_pk}/webhooks/status/": {"board_pk": "webhook_board_pk"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/disable/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/reenable/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/rotate/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/test/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
     "/api/v1/boards/{id}/export/": {"id": "board_pk"},
     "/api/v1/boards/{id}/export-history/": {"id": "board_pk"},
     "/api/v1/boards/{id}/full/": {"id": "board_pk"},

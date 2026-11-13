@@ -11,7 +11,7 @@ import importlib
 from unittest import mock
 from types import SimpleNamespace
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from django.core.files.base import ContentFile
 
@@ -74,6 +74,8 @@ class LoadRealIdsTests(TestCase):
                 "group_join_token": None,
                 "share_token": None,
                 "media_path": None,
+                "webhook_board_pk": None,
+                "webhook_id": None,
             },
         )
 
@@ -363,6 +365,95 @@ class PublicTokenAndOwnershipFixtureTests(TestCase):
         # not be offered — the view 404s an attachment on a different card.
         self.assertEqual(ids["card_id"], second.id)
         self.assertIsNone(ids["attachment_id"])
+
+
+class WebhookFuzzFixtureTests(TestCase):
+    """#2078: the fuzz user administers a webhook board, and only that one."""
+
+    def _demo(self):
+        owner = _make_user()
+        member = _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        BoardMembership.objects.create(board=board, user=member, role=BoardMembership.Role.MEMBER)
+        return owner, member, board
+
+    @override_settings(WEBHOOKS_ENABLED=True)
+    def test_fuzz_user_administers_a_separate_board_with_one_subscription(self):
+        from boards.models import Board
+        from rest_framework.test import APIClient
+
+        _, member, demo = self._demo()
+        ids = _hooks()._load_real_ids()
+
+        self.assertIsNotNone(ids["webhook_board_pk"])
+        self.assertNotEqual(ids["webhook_board_pk"], demo.id)
+        self.assertEqual(
+            BoardMembership.objects.get(board_id=ids["webhook_board_pk"], user=member).role,
+            BoardMembership.Role.ADMIN,
+        )
+        # The demo board must keep the member role, or every admin-only write the
+        # fuzzer reaches there (PATCH/DELETE /boards/{id}/ ...) becomes real.
+        self.assertEqual(
+            BoardMembership.objects.get(board=demo, user=member).role, BoardMembership.Role.MEMBER
+        )
+        self.assertEqual(Board.objects.get(pk=ids["webhook_board_pk"]).webhook_subscriptions.count(), 1)
+
+        client = APIClient()
+        client.force_authenticate(member)
+        base = f"/api/v1/boards/{ids['webhook_board_pk']}/webhooks/"
+        self.assertEqual(client.get(base).status_code, 200)
+        self.assertEqual(client.get(f"{base}{ids['webhook_id']}/").status_code, 200)
+
+    @override_settings(WEBHOOKS_ENABLED=True)
+    def test_reload_is_idempotent(self):
+        self._demo()
+        first = _hooks()._load_real_ids()
+        second = _hooks()._load_real_ids()
+        self.assertEqual(first["webhook_board_pk"], second["webhook_board_pk"])
+        self.assertEqual(first["webhook_id"], second["webhook_id"])
+
+    @override_settings(WEBHOOKS_ENABLED=False)
+    def test_no_webhook_fixture_when_webhooks_are_disabled(self):
+        from boards.models import Board
+
+        self._demo()
+        ids = _hooks()._load_real_ids()
+        self.assertIsNone(ids["webhook_board_pk"])
+        self.assertFalse(Board.objects.filter(name="Schemathesis Webhook Board").exists())
+
+    def test_webhook_routes_map_to_the_webhook_board_and_delete_gets_a_fresh_row(self):
+        hooks = _hooks()
+        original = hooks._IDS
+        hooks._IDS = {"board_pk": 7, "webhook_board_pk": 70, "webhook_id": 71}
+        self.addCleanup(setattr, hooks, "_IDS", original)
+        path = "/api/v1/boards/{board_pk}/webhooks/{id}/"
+        params = {"board_pk": "x", "id": "y"}
+
+        self.assertEqual(
+            hooks.map_path_parameters(_fake_context(path, "GET"), params), {"board_pk": 70, "id": 71}
+        )
+        disable = "/api/v1/boards/{board_pk}/webhooks/{id}/disable/"
+        self.assertEqual(
+            hooks.map_path_parameters(_fake_context(disable, "POST"), params), {"board_pk": 70, "id": 71}
+        )
+        with mock.patch.object(hooks, "_mint_disposable", return_value=99):
+            self.assertEqual(
+                hooks.map_path_parameters(_fake_context(path, "DELETE"), params),
+                {"board_pk": 70, "id": 99},
+            )
+
+    @override_settings(WEBHOOKS_ENABLED=True)
+    def test_minted_disposable_subscription_is_distinct_from_the_shared_one(self):
+        self._demo()
+        hooks = _hooks()
+        original = hooks._IDS
+        hooks._IDS = hooks._load_real_ids()
+        self.addCleanup(setattr, hooks, "_IDS", original)
+
+        minted = hooks._mint_disposable("webhook")
+
+        self.assertIsNotNone(minted)
+        self.assertNotEqual(minted, hooks._IDS["webhook_id"])
 
 
 class DisposableRowTests(TestCase):

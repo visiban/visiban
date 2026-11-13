@@ -1322,11 +1322,15 @@ backend-schema-fuzz:
     # unless DEBUG=True and production defaults are untouched.
     VISIBAN_DISABLE_THROTTLING: "True"
     # Outbound webhooks (#863): on, so the routes exist in the fuzzed schema.
-    # The fuzz user is a board member, not an admin, so they answer the role
-    # 403 before any webhook logic: 2xx webhook schemas are not fuzzed here
-    # (#2078). A PAT could not reach create, url PATCH, reenable, rotate
-    # or test in any case (403 session_required): the job opens no
-    # outbound connection.
+    # The fuzz user is a plain MEMBER of the demo board, which would answer every
+    # webhook route with the role 403, so schemathesis_hooks.py seeds a separate
+    # "Schemathesis Webhook Board" where that user is ADMIN, with one subscription,
+    # and maps only the webhook routes to it (#2078). The read routes and the
+    # token-allowed writes (GET, name/event_types PATCH, disable, DELETE) therefore
+    # return real responses checked against the schema; DELETE gets a freshly
+    # minted subscription per call. A PAT still cannot reach create, url PATCH,
+    # reenable, rotate or test (403 session_required), so the job opens no
+    # outbound connection; the fixture URL is never dialed.
     WEBHOOKS_ENABLED: "True"
     # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
     # never to job output — see the command's docstring.
