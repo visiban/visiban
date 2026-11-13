@@ -46,6 +46,12 @@ interface Props {
    * same refetch nudge.
    */
   refreshSignal?: number;
+  /**
+   * Reports the number of relations once it is known (#1916), and `null` while
+   * it is not (still loading, or the fetch failed). CardDetail owns no copy of
+   * the list, so this is how a count reaches anything outside the section.
+   */
+  onCountChange?: (count: number | null) => void;
 }
 
 /** Rendered top to bottom: what blocks me, what I block, loose associations. */
@@ -87,10 +93,14 @@ export default function CardRelationsSection({
   onBlockerCountChange,
   demoMode = false,
   refreshSignal = 0,
+  onCountChange,
 }: Props) {
   const [relations, setRelations] = useState<CardRelation[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // True once a fetch has succeeded. A refetch keeps the last known count on
+  // screen instead of flickering the label; a failed first fetch never shows 0.
+  const [loaded, setLoaded] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -109,6 +119,7 @@ export default function CardRelationsSection({
     getCardRelations(board.id, card.id)
       .then((data) => {
         setRelations(data);
+        setLoaded(true);
         setOpen(data.length > 0);
         setLoading(false);
       })
@@ -119,6 +130,15 @@ export default function CardRelationsSection({
   }, [board.id, card.id]);
 
   useEffect(load, [load]);
+
+  // A refetch that fails after a success leaves the (possibly stale) list in
+  // place, so the count stays known; only "never loaded" is unknown.
+  const count = loaded ? relations.length : null;
+  const onCountChangeRef = useRef(onCountChange);
+  onCountChangeRef.current = onCountChange;
+  useEffect(() => {
+    onCountChangeRef.current?.(count);
+  }, [count]);
 
   // Refetch when another session adds/removes a relation on this card while
   // the panel is open (#1310). Keyed on whether the signal CHANGED rather than
@@ -203,9 +223,9 @@ export default function CardRelationsSection({
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Relations
-            {relations.length > 0 && (
-              <span className="ml-1.5 normal-case font-normal text-fg-muted">
-                ({relations.length})
+            {count !== null && (
+              <span className="ml-1.5 normal-case font-normal text-fg-muted" data-testid="card-section-count-relations">
+                {count}
               </span>
             )}
           </p>

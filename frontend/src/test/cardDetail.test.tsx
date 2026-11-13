@@ -180,8 +180,9 @@ describe('CardDetail', () => {
   it('renders swimlane and column names', () => {
     render(<CardDetail {...defaultProps()} />)
     // Swimlane and column names are in the same <p> split by a span
-    expect(screen.getByText(/Customer A/)).toBeInTheDocument()
-    expect(screen.getByText(/To Do/)).toBeInTheDocument()
+    // The column also appears in the key-facts row (#1916), so scope to the breadcrumb buttons.
+    expect(screen.getByTitle('Customer A')).toBeInTheDocument()
+    expect(screen.getByTitle('To Do')).toBeInTheDocument()
   })
 
   it('renders close button', () => {

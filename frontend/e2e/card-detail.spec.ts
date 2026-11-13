@@ -185,12 +185,38 @@ test.describe('card detail', () => {
     const line = dialog.getByRole('button', { name: /^Last activity: Jordan moved to Review/ })
     await line.click()
     await expect(dialog.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
-    await expect(dialog.getByRole('listitem').first()).toBeFocused()
+    await expect(dialog.getByRole('tabpanel').getByRole('listitem').first()).toBeFocused()
     // Six type toggles, all on, each with its count.
     const show = dialog.getByRole('group', { name: 'Show' })
     await expect(show.getByRole('button')).toHaveCount(6)
     await expect(show.getByRole('button', { name: /Column moves/ })).toHaveAttribute('aria-pressed', 'true')
     await expect(show.getByRole('button', { name: /Column moves/ })).toContainText('2')
+  })
+
+  test('key facts: each fact jumps to its field and moves focus there (#1916)', async ({ page }) => {
+    const card = { ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner }
+    await routeBoard(page, { ...BOARD_FULL, cards: [card] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByText(CARD.title).first().click()
+    const dialog = page.locator('[role="dialog"]')
+    await expect(dialog).toBeVisible({ timeout: 5_000 })
+
+    const facts = dialog.getByRole('list', { name: 'Key facts' })
+    await expect(facts.getByRole('button')).toHaveCount(3)
+
+    // From another tab, a fact returns to Details and lands focus on the field.
+    await dialog.getByRole('tab', { name: /^Comments/ }).click()
+    await facts.getByRole('button', { name: /Go to Due date/ }).click()
+    await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(dialog.getByLabel('Due date', { exact: true }).first()).toBeFocused()
+
+    await facts.getByRole('button', { name: /Go to Assignee/ }).click()
+    await expect(dialog.locator('[data-fact-section="assignee"] button').first()).toBeFocused()
+
+    // The Column fact opens the same Move popover as the Move button.
+    await facts.getByRole('button', { name: /Go to Move/ }).click()
+    await expect(page.locator('[data-move-popover]')).toBeVisible()
+    await expect(page.locator('[data-move-popover] :focus')).toHaveCount(1)
   })
 
   test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {
