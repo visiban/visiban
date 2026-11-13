@@ -145,19 +145,39 @@ class SignalExtensionPointTests(TestCase):
         self.assertEqual(self.received, [])
 
 
-@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
-class CardLinkTabTests(SignalExtensionPointTests):
-    """#967: only mention links deep-link to the Comments tab."""
+class CardLinkTabTests(TestCase):
+    """#967: only mention links deep-link to the Comments tab.
+
+    ``card_link`` only builds a URL (no delivery), so this needs no
+    NOTIFICATION_EMAIL_ASYNC override and no signal receiver.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="link_owner", password="pass")
+        self.recipient = User.objects.create_user(username="link_recipient", password="pass")
+        self.board, self.col_a, _, self.swim = make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Link card", created_by=self.owner, position=0,
+        )
+
+    def _notification(self, action_type):
+        return Notification(
+            recipient=self.recipient, actor=self.owner, action_type=action_type,
+            verb="Link card", card=self.card, board=self.board,
+        )
 
     def test_mention_link_opens_comments_tab(self):
         link = card_link(self._notification(Notification.ActionType.MENTIONED))
         self.assertTrue(link.endswith(f"/boards/{self.board.pk}?card={self.card.pk}&tab=comments"))
 
     def test_other_links_have_no_tab(self):
-        link = card_link(self._notification(Notification.ActionType.ASSIGNED))
-        self.assertNotIn("tab=", link)
+        for action_type in (Notification.ActionType.ASSIGNED, Notification.ActionType.CARD_MOVED):
+            link = card_link(self._notification(action_type))
+            self.assertNotIn("tab=", link, action_type)
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class EmailDeliveryPerEventTests(TestCase):
     """Each in-scope event sends mail when the user opted in."""
 
