@@ -3,7 +3,7 @@ interface SelectedCheckProps {
   selected: boolean;
   /** data-testid placed on the svg (only present while selected). */
   testId: string;
-  /** Classes for the reserved slot; callers differ in size/alignment/color. */
+  /** Classes for the reserved slot; callers differ in size/alignment/color. Must fix the width (`w-*`) and `shrink-0`: that is the reserved-width guarantee. */
   slotClassName: string;
   /** Classes for the svg itself. */
   iconClassName?: string;
