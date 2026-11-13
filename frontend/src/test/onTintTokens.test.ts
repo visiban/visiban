@@ -186,7 +186,7 @@ describe('card aging ramp contrast (#1841)', () => {
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
-const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue']
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph']
 // `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
 const NOT_COLOR = new Set([
   'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
@@ -372,7 +372,6 @@ describe('untinted card face text (#1862)', () => {
   const EXEMPT: Record<string, string> = {
     'on-primary': 'selection checkbox tick on its solid bg-primary-emphasis fill, not on bg-surface',
     success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
-    warning: '#2029: light orange-600 is 3.56:1 on white (the due-soon urgency badge)',
   }
   // Exact non-text elements cut out of a file before it is scanned, each with its reason. Only the
   // matched element is exempt; every other class in the file is still checked.
@@ -449,11 +448,21 @@ describe('untinted card face text (#1862)', () => {
 
   // When this fails, #2029 has fixed the light success/warning tokens: drop the exemptions above and
   // the matching note in frontend/CLAUDE.md.
-  it('the success and warning exemptions are still needed: both are sub-AA on white in light mode', () => {
+  it('the success exemption is still needed: it is sub-AA on white in light mode', () => {
     expect(allUsed.has('success')).toBe(true)
-    expect(allUsed.has('warning')).toBe(true)
     expect(onBg(lightBlock, 'success')).toBeCloseTo(3.30, 2)
-    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2)
+  })
+
+  // #871: the untinted due-soon badge and the due pill moved off plain `warning` (orange-600, 3.56:1
+  // on white in light mode, #2029) onto `warning-on-tint`, so the exemption is gone. No card-face file
+  // may use plain `text-warning` again, and the replacement holds 8.67:1 dark / 7.31:1 light on surface
+  //, with the surface and surface-sunken floors pinned by the #2046 describe above.
+  it('plain warning is no longer used on the card face, and its on-tint replacement clears AA', () => {
+    expect(allUsed.has('warning')).toBe(false)
+    expect(urgencyBadgeToneClass('warning', 'none')).toBe('text-warning-on-tint')
+    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2) // why the swap was needed
+    expect(onBg(darkBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(8.6)
+    expect(onBg(lightBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(7.3)
   })
 })
 

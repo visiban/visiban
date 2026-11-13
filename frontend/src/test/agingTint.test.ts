@@ -277,7 +277,8 @@ describe("staleBadgeToneClass", () => {
 describe("urgencyBadgeToneClass", () => {
   it("uses plain tokens on an untinted card", () => {
     expect(urgencyBadgeToneClass("danger", "none")).toBe("text-danger");
-    expect(urgencyBadgeToneClass("warning", "none")).toBe("text-warning");
+    // Warning is the exception: plain `text-warning` is 3.56:1 on white (#2029, #871).
+    expect(urgencyBadgeToneClass("warning", "none")).toBe("text-warning-on-tint");
     expect(urgencyBadgeToneClass("info", "none")).toBe("text-info");
   });
 

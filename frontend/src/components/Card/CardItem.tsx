@@ -11,6 +11,7 @@ import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
 import AgingCue from "./AgingCue";
+import UrgencyGlyph, { type UrgencyGlyphKind } from "./UrgencyGlyph";
 import { classifyCardBorder, classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
@@ -449,6 +450,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // badge is already carrying that information (overdue / due-soon). At dense
   // the urgency badge is null so this is always false.
   const dueAlreadyInUrgency = urgency?.kind === "overdue" || urgency?.kind === "due-soon";
+  // Standalone due pill (dense, and standard outside the urgency window): a
+  // late or due-soon date carries the same glyph as the badge so urgency is
+  // never hue-only (#871). Overdue follows the user's-timezone verdict that
+  // `formatDueDate` already gives the pill's red text.
+  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo
+    ? null
+    : dueInfo.overdue
+    ? "overdue"
+    : ["overdue", "due-soon"].includes(classifyCardUrgency({ due_date: card.due_date, is_stale: false, last_moved_at: null })?.kind ?? "")
+    ? // Due today parses as UTC midnight, already "overdue" to the classifier,
+      // while formatDueDate (user's timezone) still calls it today: due soon.
+      "due-soon"
+    : null;
   // Suppress the recently-moved dot when urgency is already showing "Just moved".
   const recentAlreadyInUrgency = urgency?.kind === "recent";
   // The badge sits on the card's aging tint whenever one is shown, so its text
@@ -827,8 +841,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     overdue / due-soon / stale / moved-recently signals at lower
                     densities. Tint matches the design system's danger / warning /
                     info tones — no filled background. For date-based kinds the
-                    badge carries the formatted date (e.g. ``⚑ 2d late``,
-                    ``⏱ Tomorrow``) instead of the generic ``Overdue`` label,
+                    badge carries the formatted date (flag or stopwatch SVG
+                    glyph, #871, then e.g. ``Due 10/30/2026``, ``Due tomorrow``) instead of the generic ``Overdue`` label,
                     so the date isn't lost when the standalone date pill is
                     suppressed. */}
                 {urgency && (
@@ -842,13 +856,26 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         : urgency.label
                     }
                   >
-                    {urgency.kind === "overdue" && dueInfo
-                      ? `⚑ ${dueInfo.label}`
-                      : urgency.kind === "due-soon" && dueInfo
-                      ? `⏱ ${dueInfo.label}`
-                      : urgency.kind === "stale"
-                      ? staleLabel
-                      : urgency.label}
+                    {urgency.kind === "overdue" && dueInfo ? (
+                      // The SVG is aria-hidden, so the word the flag stood for
+                      // goes to screen readers as text; "Due 10/30/2026" alone
+                      // would not say the date has passed.
+                      <span className="inline-flex items-center gap-1">
+                        <UrgencyGlyph kind="overdue" />
+                        <span className="sr-only">Overdue: </span>
+                        {dueInfo.label}
+                      </span>
+                    ) : urgency.kind === "due-soon" && dueInfo ? (
+                      // "Due tomorrow" / "Due in 2 days" already says it all.
+                      <span className="inline-flex items-center gap-1">
+                        <UrgencyGlyph kind="due-soon" />
+                        {dueInfo.label}
+                      </span>
+                    ) : urgency.kind === "stale" ? (
+                      staleLabel
+                    ) : (
+                      urgency.label
+                    )}
                   </span>
                 )}
 
@@ -1043,10 +1070,18 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     urgency badge is the single date signal. */}
                 {showDueDatePill && dueInfo && !dueAlreadyInUrgency && (
                   <span
-                    className={`text-xs font-medium shrink-0 ${dueInfo.overdue ? "text-danger" : "text-fg-tertiary"}`}
+                    className={`text-xs font-medium shrink-0 ${duePillGlyph ? urgencyBadgeToneClass(duePillGlyph === "overdue" ? "danger" : "warning", aging.stage) : "text-fg-tertiary"}`}
                     title={`Due ${card.due_date}`}
                   >
-                    {dueInfo.label}
+                    {duePillGlyph ? (
+                      <span className="inline-flex items-center gap-1">
+                        <UrgencyGlyph kind={duePillGlyph} />
+                        {duePillGlyph === "overdue" && <span className="sr-only">Overdue: </span>}
+                        {dueInfo.label}
+                      </span>
+                    ) : (
+                      dueInfo.label
+                    )}
                   </span>
                 )}
 

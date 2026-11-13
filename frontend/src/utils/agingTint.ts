@@ -178,7 +178,8 @@ export type UrgencyTone = "danger" | "warning" | "info";
 
 /**
  * Text tone for a non-stale urgency badge (overdue, due-soon, recent) given
- * the card's aging stage. On an untinted card the plain text tokens apply. On
+ * the card's aging stage. On an untinted card danger and info use their plain
+ * tokens and warning uses `warning-on-tint` (plain amber is 3.56:1, #2029). On
  * a tint the on-tint token of the badge's hue applies (#1550), except that on
  * the red 2x/3x stages amber `warning-on-tint` drops to 4.38:1 / 3.94:1 in
  * light mode, so a warning-toned badge (due-soon) takes `danger-on-tint`
@@ -186,7 +187,9 @@ export type UrgencyTone = "danger" | "warning" | "info";
  * Literal class names so Tailwind's JIT sees them.
  */
 export function urgencyBadgeToneClass(tone: UrgencyTone, stage: AgingStage): string {
-  if (stage === "none") return tone === "danger" ? "text-danger" : tone === "warning" ? "text-warning" : "text-info";
+  // Untinted warning is `warning-on-tint`, not plain `text-warning`: orange-600 is
+  // 3.56:1 on a white card (#2029), `warning-on-tint` 7.31:1 (#871, § System signals).
+  if (stage === "none") return tone === "danger" ? "text-danger" : tone === "warning" ? "text-warning-on-tint" : "text-info";
   if (tone === "info") return "text-info-on-tint";
   if (tone === "danger" || stage === "stale2x" || stage === "stale3x") return "text-danger-on-tint";
   return "text-warning-on-tint";
