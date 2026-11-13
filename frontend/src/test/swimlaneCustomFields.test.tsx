@@ -6,7 +6,7 @@ import SwimlaneRow from '../components/Board/SwimlaneRow'
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
 import SwimlaneFieldEditRow from '../components/Board/SwimlaneFieldEditRow'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
-import type { BoardFull, Card, Column, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
+import type { BoardFull, CardDensity, Card, Column, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
 
 const fakeUser: User = {
   id: 1, username: 'admin', display_name: 'Admin', avatar_url: '',
@@ -92,7 +92,7 @@ function renderRow(
   swimlane: Swimlane,
   defs: SwimlaneCustomFieldDefinition[],
   collapsed = false,
-  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean } = {},
+  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; density?: CardDensity } = {},
 ) {
   return render(
     <SwimlaneRow
@@ -119,6 +119,7 @@ function renderRow(
       swimlaneFieldDefinitions={defs}
       onEditFieldOrder={extra.onEditFieldOrder}
       hideRowChipFieldNames={extra.hideRowChipFieldNames}
+      density={extra.density}
     />
   )
 }
@@ -367,6 +368,67 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
   it('renders nothing at all when the swimlane carries no values', () => {
     renderRow(makeSwimlane(), [makeDef()])
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('SwimlaneRow — pinned chips follow card density (#1417)', () => {
+  // 8 pinned (the cap) + 2 unpinned, every one holding a value.
+  const defs = Array.from({ length: 10 }, (_, i) => makeDef({
+    id: i + 1, uid: `sfuid00000${i + 1}`, name: `Pin${String(i + 1).padStart(2, '0')}`, position: i, show_on_row: i < 8,
+  }))
+  const lane = (n = 10) => makeSwimlane({
+    custom_field_values: defs.slice(0, n).map((d) => ({ field_definition: d.id, value: `v${d.id}` })),
+  })
+  const chips = () => screen.queryAllByText(/^v\d+$/)
+
+  it.each([
+    ['comfortable', 3, '+7'],
+    ['standard', 5, '+5'],
+    ['dense', 8, '+2'],
+  ] as const)('%s shows %i pinned chips and %s counts folded pinned plus unpinned', (density, shown, label) => {
+    renderRow(lane(), defs, false, { density })
+    expect(chips()).toHaveLength(shown)
+    expect(screen.getByRole('button', { name: `${label}: Show all 10 field values for Acme Corp` })).toBeInTheDocument()
+  })
+
+  it('treats an undefined density as standard', () => {
+    renderRow(lane(), defs)
+    expect(chips()).toHaveLength(5)
+  })
+
+  it('keeps a +N trigger when only folded pinned fields exist (no unpinned values)', () => {
+    renderRow(lane(8), defs, false, { density: 'comfortable' })
+    expect(chips()).toHaveLength(3)
+    expect(screen.getByRole('button', { name: /^\+5: Show all 8 field values/ })).toBeInTheDocument()
+  })
+
+  it('shows no trigger when every pinned chip is visible and names are shown', () => {
+    renderRow(lane(3), defs, false, { density: 'comfortable' })
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+
+  it('lists folded pinned (pin order), then unpinned, then "On row" over only the visible chips', async () => {
+    const user = userEvent.setup()
+    renderRow(lane(), defs, false, { density: 'comfortable' })
+    await user.click(screen.getByRole('button', { name: /Show all 10 field values/ }))
+    const text = (screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? '')
+    const order = ['Pin04', 'Pin05', 'Pin06', 'Pin07', 'Pin08', 'Pin09', 'Pin10', 'On row', 'Pin01', 'Pin02', 'Pin03'].map((n) => text.indexOf(n))
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+    // Only one "On row" heading, and no sub-heading between folded and unpinned.
+    expect(text.match(/On row/g)).toHaveLength(1)
+  })
+
+  it('hides every chip and the trigger on a collapsed row', () => {
+    renderRow(lane(), defs, true, { density: 'dense' })
+    expect(chips()).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps the all-hidden-names trigger working with folded pins (#1509)', () => {
+    renderRow(lane(8), defs, false, { density: 'dense', hideRowChipFieldNames: true })
+    expect(chips()).toHaveLength(8)
+    expect(screen.getByRole('button', { name: /^All fields: Show all 8 field values/ })).toBeInTheDocument()
   })
 })
 

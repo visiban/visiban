@@ -628,7 +628,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the number of pinned swimlane chips shown per row, which follows card density as everywhere else (#1417, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.

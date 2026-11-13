@@ -16,6 +16,10 @@ interface Props {
   /** Already filtered to what this viewer may see, and sorted by position.
    *  The popover regroups them: off-row fields first, then the pinned ones. */
   entries: SwimlaneFieldEntry[];
+  /** Pinned fields the row folded behind `+N` because of the density cap
+   *  (#1417). They are not on the row, so they lead the list with the unpinned
+   *  ones rather than sitting under "On row". Omit when nothing is folded. */
+  foldedPinnedIds?: ReadonlySet<number>;
   anchorRect: DOMRect;
   userDateFormat?: string;
   /** Admin only — omit entirely for members and viewers. */
@@ -41,7 +45,7 @@ interface Props {
  * only by an admin opening the edit modal — invisible to everyone else.
  */
 export default function SwimlaneFieldsPopover({
-  swimlaneName, entries, anchorRect, userDateFormat, onEdit, onEditOrder, onDismiss, triggerRef,
+  swimlaneName, entries, foldedPinnedIds, anchorRect, userDateFormat, onEdit, onEditOrder, onDismiss, triggerRef,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -105,8 +109,15 @@ export default function SwimlaneFieldsPopover({
   // (#1455). Pinned fields still follow under a divider — this stays the one
   // place a member can read every value — but they no longer push the fields
   // the user asked for below the fold. Each group keeps position order.
-  const offRow = entries.filter((e) => !e.def.show_on_row);
-  const onRow = entries.filter((e) => e.def.show_on_row);
+  // Pinned fields folded by the density cap (#1417) were counted by `+N` too,
+  // so they lead (in pin order), then the unpinned ones, with no sub-heading
+  // between them. "On row" then labels only the chips actually on the row.
+  const isFolded = (e: SwimlaneFieldEntry) => !!e.def.show_on_row && !!foldedPinnedIds?.has(e.def.id);
+  const offRow = [
+    ...entries.filter(isFolded),
+    ...entries.filter((e) => !e.def.show_on_row),
+  ];
+  const onRow = entries.filter((e) => e.def.show_on_row && !isFolded(e));
 
   // Fixed positioning, same technique as CardPeekPopover: the row panel is
   // inside a scroll container, so an absolutely-positioned panel would be

@@ -273,6 +273,36 @@ describe('BoardView — board presets (#1146)', () => {
       })
     }
 
+    // Named Classic exception (#1417, owner decision 2026-11-13): the pinned
+    // swimlane chip cap follows card density in Classic too. The snapshots above
+    // use no swimlane fields, so they cannot see it; this fixture pins it.
+    describe('pinned swimlane chips follow the board density (#1417 named exception)', () => {
+      const defs = Array.from({ length: 6 }, (_, i) => ({
+        id: i + 1, uid: `sfuid00000${i + 1}`, name: `Pin${i + 1}`, field_type: 'text' as const, choices: [], position: i,
+        show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
+        number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01',
+      }))
+      const pinnedBoard = (card_density: 'comfortable' | 'standard' | 'dense') => {
+        const base = makeBoard({ card_density })
+        return makeBoard({
+          card_density,
+          swimlane_custom_field_definitions: defs,
+          swimlanes: [{ ...base.swimlanes[0], custom_field_values: defs.map((d) => ({ field_definition: d.id, value: `val${d.id}` })) }],
+        })
+      }
+      it.each([
+        ['comfortable', 3],
+        ['standard', 5],
+        ['dense', 6],
+      ] as const)('Classic %s shows %i of 6 pinned chips', (card_density, shown) => {
+        renderBoard(pinnedBoard(card_density), 'preset=classic')
+        expect(screen.queryAllByText(/^val\d$/)).toHaveLength(shown)
+        if (shown < 6) {
+          expect(screen.getByRole('button', { name: `+${6 - shown}: Show all 6 field values for ${'Customer A'}` })).toBeInTheDocument()
+        }
+      })
+    })
+
     it('is sensitive: Default renders a different grid on a comfortable board', () => {
       const { unmount } = renderBoard()
       const baseline = gridHtml()
