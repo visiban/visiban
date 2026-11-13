@@ -166,7 +166,15 @@ export default function ActivityTabPanel({
   onFirstPageRef.current = onFirstPage;
   const listRef = useRef<HTMLOListElement>(null);
 
+  // Request sequence: every first-page fetch, adopt and filter change bumps it,
+  // and a response whose sequence is no longer current is dropped. Without it a
+  // late filtered response overwrote the unfiltered list adopted after the user
+  // toggled a type off and back on (#967).
+  const requestSeqRef = useRef(0);
+
   const adoptFirstPage = (data: TimelinePage) => {
+    requestSeqRef.current += 1;
+    setLoadingMore(false);
     setTotalCount(data.count);
     setHasMore(data.next !== null);
     setEntries(data.results);
@@ -186,6 +194,11 @@ export default function ActivityTabPanel({
       params.event_types = selectedTypes.join(",");
     }
     if (reset) {
+      requestSeqRef.current += 1;
+      setLoadingMore(false);
+    }
+    const seq = requestSeqRef.current;
+    if (reset) {
       params.include_counts = true;
       setLoading(true);
     } else {
@@ -195,6 +208,7 @@ export default function ActivityTabPanel({
 
     getCardTimeline(boardId, cardId, params)
       .then((data) => {
+        if (seq !== requestSeqRef.current) return;
         if (reset) {
           adoptFirstPage(data);
           onFirstPageRef.current?.(data);
@@ -205,8 +219,11 @@ export default function ActivityTabPanel({
         setEntries((prev) => [...prev, ...data.results]);
         setOffset(pageOffset + DEFAULT_LIMIT);
       })
-      .catch(() => setError(true))
+      .catch(() => {
+        if (seq === requestSeqRef.current) setError(true);
+      })
       .finally(() => {
+        if (seq !== requestSeqRef.current) return;
         setLoading(false);
         setLoadingMore(false);
       });

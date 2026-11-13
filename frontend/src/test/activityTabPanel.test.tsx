@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ActivityTabPanel from "../components/Card/ActivityTabPanel";
 
@@ -211,6 +211,56 @@ describe("ActivityTabPanel", () => {
       await userEvent.setup().click(screen.getByRole("button", { name: "Show all types" }));
       await waitFor(() => expect(lastParams()).not.toHaveProperty("event_types"));
       expect(toggle(/Column moves/)).toHaveAttribute("aria-pressed", "true");
+    });
+  });
+
+  describe("stale responses are dropped (#967)", () => {
+    const COUNTS = { move: 1, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 };
+    const deferred = <T,>() => {
+      let resolve!: (v: T) => void;
+      const promise = new Promise<T>((r) => { resolve = r; });
+      return { promise, resolve };
+    };
+
+    it("a late filtered response cannot overwrite the unfiltered list after toggling off then on", async () => {
+      const page = {
+        ...makeTimelinePage([makeMoveEntry({ id: 1 }), makeEntry({ id: 2 })], { count: 2 }),
+        counts: COUNTS,
+      };
+      const filtered = deferred<typeof page>();
+      mockGetTimeline.mockReturnValue(filtered.promise);
+      render(<ActivityTabPanel boardId={1} cardId={1} initialPage={page} />);
+      const user = userEvent.setup();
+      const comments = () => within(screen.getByRole("group", { name: "Show" })).getByRole("button", { name: /Comments/ });
+      await user.click(comments());
+      await user.click(comments());
+      expect(mockGetTimeline).toHaveBeenCalledTimes(1);
+      filtered.resolve({ ...makeTimelinePage([makeEntry({ id: 2 })], { count: 1 }), counts: COUNTS });
+      await act(async () => { await filtered.promise; });
+      expect(screen.getByRole("status")).toHaveTextContent("2 events");
+      expect(screen.getByText("To Do → In Progress")).toBeInTheDocument();
+      expect(screen.getByText("Priority: low → high")).toBeInTheDocument();
+      within(screen.getByRole("group", { name: "Show" })).getAllByRole("button")
+        .forEach((b) => expect(b).toHaveAttribute("aria-pressed", "true"));
+    });
+
+    it("a late load-more response is dropped after the filter changes", async () => {
+      const page1 = makeTimelinePage([makeMoveEntry({ id: 1 })], { count: 2, next: "/timeline/?offset=50" });
+      const more = deferred<typeof page1>();
+      mockGetTimeline
+        .mockResolvedValueOnce({ ...page1, counts: COUNTS })
+        .mockReturnValueOnce(more.promise)
+        .mockResolvedValueOnce({ ...makeTimelinePage([makeMoveEntry({ id: 1 })], { count: 1 }), counts: COUNTS });
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("Load more"));
+      const user = userEvent.setup();
+      await user.click(screen.getByText("Load more"));
+      await user.click(within(screen.getByRole("group", { name: "Show" })).getByRole("button", { name: /Comments/ }));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 event"));
+      more.resolve({ ...makeTimelinePage([makeEntry({ id: 2 })], { count: 2 }) });
+      await act(async () => { await more.promise; });
+      expect(screen.queryByText("Priority: low → high")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("1 event");
     });
   });
 
