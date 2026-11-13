@@ -717,7 +717,7 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([def], [makeSwimlane()])} isAdmin onFieldsUpdated={vi.fn()} />
     )
     await user.click(screen.getByTitle('Edit Owner'))
-    expect(screen.queryByText(/Type is locked/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/The type can't be changed because swimlanes already have values/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /# Number/ })).not.toBeDisabled()
   })
 
@@ -729,7 +729,7 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([def], [lane])} isAdmin onFieldsUpdated={vi.fn()} />
     )
     await user.click(screen.getByTitle('Edit Owner'))
-    expect(screen.queryByText(/Type is locked/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/The type can't be changed because swimlanes already have values/)).not.toBeInTheDocument()
   })
 
   it('disables Add field at the cap', () => {
