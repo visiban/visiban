@@ -268,8 +268,16 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     },
     [swimlaneDefs, userDateFormat],
   );
-  const laneChips = laneFilterChipItems(filters.laneFilter, laneFields, laneFmt);
-  const laneRuleCount = summarizeLaneFilter(filters.laneFilter, laneFields, laneFmt).completeCount;
+  // Memoized: chips and the summary are pure in these inputs, and the filter
+  // strip re-renders on every keystroke in the search box (#2205 perf-check).
+  const laneChips = useMemo(
+    () => laneFilterChipItems(filters.laneFilter, laneFields, laneFmt),
+    [filters.laneFilter, laneFields, laneFmt],
+  );
+  const laneRuleCount = useMemo(
+    () => summarizeLaneFilter(filters.laneFilter, laneFields, laneFmt).completeCount,
+    [filters.laneFilter, laneFields, laneFmt],
+  );
   const ownLanesTriggerRef = useRef<HTMLButtonElement>(null);
   const lanesTrigger = lanesTriggerRef ?? ownLanesTriggerRef;
   const chipGroupRef = useRef<HTMLDivElement>(null);
