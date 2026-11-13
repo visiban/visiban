@@ -643,6 +643,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. `count` is the real total even when the page is empty (`limit=0`). |
 | `offset` | integer | `0` | Zero-based page offset. A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
 | `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
+| `include_counts` | boolean | `false` | *Added in 1.3* (#967). `true` adds a [`counts`](#timeline-counts) object to the response. Any other value, or omitting it, leaves `counts` out and skips its two aggregate queries. |
 
 `event_types` group mapping:
 
@@ -711,6 +712,21 @@ An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1
   ]
 }
 ```
+
+<a id="timeline-counts"></a>
+**`counts`** (*added in 1.3*, #967; present only with `include_counts=true`)
+
+```json
+{
+  "count": 12,
+  "next": null,
+  "previous": null,
+  "results": [],
+  "counts": { "move": 4, "comment": 3, "field": 2, "checklist": 2, "attachment": 1, "system": 0 }
+}
+```
+
+One integer per `event_types` group, always all six keys. The totals ignore `event_types`, so a filtered request still reports every group (the card sheet's History filter shows a count on each type, including the ones switched off). Their sum equals the unfiltered `count`. Clients must treat `counts` as optional: a request without `include_counts=true`, or a server older than 1.3, omits it.
 
 **`CardTimelineEntry` fields**
 

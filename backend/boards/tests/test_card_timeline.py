@@ -284,3 +284,87 @@ class CardTimelinePaginationTests(TestCase):
         # Movements + activities are both included by default: exactly one
         # standalone COUNT each, in place of their page queries.
         self.assertEqual(len(self._timeline_count_queries({"limit": 0})), 2)
+
+
+class CardTimelineCountsTests(TestCase):
+    """``?include_counts=true`` adds per-group totals for the History filter (#967)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.card = _make_card(self.board, self.col, self.swim, self.user)
+        _make_movement(self.card, self.user, to_col=self.col)
+        _make_movement(self.card, self.user, from_col=self.col, to_col=self.col)
+        for event_type in (
+            CardActivity.EventType.COMMENT_ADDED,
+            CardActivity.EventType.PRIORITY_CHANGE,
+            CardActivity.EventType.TITLE_CHANGE,
+            CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+            CardActivity.EventType.ATTACHMENT_ADDED,
+            "archived",  # system group; written as a raw value (no EventType member)
+        ):
+            _make_activity(self.card, self.user, event_type)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/timeline/"
+
+    EXPECTED = {"move": 2, "comment": 1, "field": 2, "checklist": 1, "attachment": 1, "system": 1}
+
+    def test_counts_absent_by_default(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertNotIn("counts", r.json())
+
+    def test_counts_absent_when_not_true(self):
+        self.assertNotIn("counts", self.client.get(self.url, {"include_counts": "1"}).json())
+
+    def test_counts_per_group_and_sum_equals_unfiltered_count(self):
+        data = self.client.get(self.url, {"include_counts": "true"}).json()
+        self.assertEqual(data["counts"], self.EXPECTED)
+        self.assertEqual(sum(data["counts"].values()), data["count"])
+
+    def test_counts_ignore_event_types_filter(self):
+        # A toggled-off group keeps its count, so the filter can show it.
+        for groups in ("comment", "move", "field,system"):
+            data = self.client.get(self.url, {"include_counts": "TRUE", "event_types": groups}).json()
+            self.assertEqual(data["counts"], self.EXPECTED, groups)
+
+    def test_counts_present_on_limit_zero(self):
+        data = self.client.get(self.url, {"include_counts": "true", "limit": 0}).json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["counts"], self.EXPECTED)
+
+    def test_counts_on_empty_card_are_all_zero(self):
+        other = _make_card(self.board, self.col, self.swim, self.user, title="Empty")
+        url = f"/api/v1/boards/{self.board.id}/cards/{other.id}/timeline/"
+        data = self.client.get(url, {"include_counts": "true"}).json()
+        self.assertEqual(data["counts"], dict.fromkeys(self.EXPECTED, 0))
+
+    def test_counts_are_scoped_to_the_card(self):
+        other = _make_card(self.board, self.col, self.swim, self.user, title="Other")
+        _make_activity(other, self.user, CardActivity.EventType.COMMENT_ADDED)
+        data = self.client.get(self.url, {"include_counts": "true"}).json()
+        self.assertEqual(data["counts"]["comment"], 1)
+
+    def test_counts_add_at_most_two_queries(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as base:
+            self.client.get(self.url, {"event_types": "comment"})
+        with CaptureQueriesContext(connection) as counted:
+            self.client.get(self.url, {"event_types": "comment", "include_counts": "true"})
+        self.assertEqual(len(counted.captured_queries) - len(base.captured_queries), 2)
+        # Moves already counted by the page reuse that total: one extra query.
+        with CaptureQueriesContext(connection) as base_all:
+            self.client.get(self.url)
+        with CaptureQueriesContext(connection) as counted_all:
+            self.client.get(self.url, {"include_counts": "true"})
+        self.assertEqual(len(counted_all.captured_queries) - len(base_all.captured_queries), 1)
+
+    def test_non_member_gets_404_with_counts(self):
+        outsider = User.objects.create_user(username="o", password="pass")
+        c = APIClient()
+        c.force_authenticate(outsider)
+        r = c.get(self.url, {"include_counts": "true"})
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)

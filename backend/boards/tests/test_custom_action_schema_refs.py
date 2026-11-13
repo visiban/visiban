@@ -43,6 +43,13 @@ class CustomActionSchemaRefTests(SimpleTestCase):
         self.assertEqual(
             props["results"]["items"]["$ref"], "#/components/schemas/CardTimelineEntry"
         )
+        # #967: additive, optional per-group counts (only with ?include_counts=true).
+        self.assertNotIn("counts", page.get("required", []))
+        counts = self.schema["components"]["schemas"]["CardTimelineCounts"]
+        self.assertEqual(
+            set(counts["properties"]),
+            {"move", "comment", "field", "checklist", "attachment", "system"},
+        )
 
     def test_board_movements_returns_the_documented_page_shape(self):
         """Was `$ref: Board` — BoardViewSet has no serializer_class override for this action."""
