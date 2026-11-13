@@ -2087,7 +2087,7 @@ Three optional, **display-only** settings on a `"number"` definition, on card an
 
 > **Added in 1.3**
 
-Optional, **display-only** thresholds on a card custom field of type `"number"` or `"date"`. A client marks a card's value once it reaches a threshold; the value itself never changes. Swimlane (row) custom fields have no thresholds. These are new fields on an existing endpoint: they are **stable and additive**, and a client that ignores them is unaffected.
+Optional, **display-only** thresholds on a card custom field of type `"number"` or `"date"`. A client marks a card's value once it reaches a threshold; the value itself never changes. Swimlane (row) custom fields have no thresholds (#2217). These are new fields on an existing endpoint: they are **stable and additive**, and a client that ignores them is unaffected.
 
 ```json
 { "name": "Spend", "field_type": "number", "threshold_direction": "above", "threshold_warn": 5000, "threshold_alert": 6000 }

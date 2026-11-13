@@ -1571,7 +1571,7 @@ Established by the `url` custom field type. `components/Card/CustomFieldLink.tsx
 - **A quick-edit `aria-label` must carry the phrase.** An `aria-label` replaces the chip's text, sr-only suffix included, so an editable chip spells `{name}: {value}, {phrase}. Press Enter to …`. Number and date are not quick-edit types today, so this guards a future change.
 - **A marked chip gains no `cursor-pointer` or other affordance.** The chevron is not navigation; only the existing quick-edit types are clickable.
 - **One evaluation rule.** `thresholdLevel(def, raw, now, timeZone)` in `utils/customFieldValue.ts` is the only place that decides the level: inclusive, alert beats warning, numbers by the server's finite rule, dates by day offset from today in the viewer's timezone (blank = the browser's), non-canonical server dates parsed defensively, anything unparseable unmarked. Never re-implement it in a component.
-- **Card fields only (1.3).** Swimlane row chips, filter chips and the Summary view show no marks; swimlane-field thresholds need their own decision on admin-only disclosure.
+- **Card fields only (1.3).** Swimlane row chips, filter chips and the Summary view show no marks; swimlane-field thresholds need their own decision on admin-only disclosure (#2217).
 - **The settings block shows the legend** (`› warning, » alert, shown in bold on cards`) in its reserved help slot, replaced by the error when the draft is invalid; an invalid draft blocks Save.
 
 ## Bulk operations (#1733)

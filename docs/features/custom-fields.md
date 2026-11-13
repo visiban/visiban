@@ -154,7 +154,7 @@ A number or date card field can mark values that cross a threshold, so a card wh
 - **Boundaries count.** A value exactly at a threshold is marked: **Above** `5000` marks `5000`.
 - **On the card face** a marked value gets a chevron and bold text: one chevron (`›`) at warning, two (`»`) at alert, pointing left for a **Below** threshold. There is no red or amber: those colors already mean priority and urgency on a card, so a threshold never borrows them. Screen readers hear the words, for example "Spend: $6,100, Alert: at or above $6,000". The settings block shows the same legend.
 - **In words** in the [hover peek](#hover-peek) and the card detail panel, for example `Alert: at or above $6,000` or `Warning: 3 days from today or earlier`. On a touch screen, tap the card to see them.
-- **Card fields only.** Swimlane (row) fields, filter chips and the Summary view do not show threshold marks in this release. A value that is not a valid number or date is never marked.
+- **Card fields only.** Swimlane (row) fields, filter chips and the Summary view do not show threshold marks in this release (swimlane fields: #2217). A value that is not a valid number or date is never marked.
 - **Changing the type clears them**, as it does the number format.
 
 ### URL fields
