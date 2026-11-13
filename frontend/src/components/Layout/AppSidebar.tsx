@@ -335,7 +335,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
             </svg>
           </button>
         )}
-        <button
+        <button type="button"
           onClick={() => setCollapsed((v) => !v)}
           className={`relative text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}

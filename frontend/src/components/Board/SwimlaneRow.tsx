@@ -404,7 +404,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {!collapsed && isAdmin && (
-              <button
+              <button type="button"
                 onClick={() => setEditing(true)}
                 className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                 title="Edit swimlane"
@@ -414,7 +414,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </button>
             )}
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
-            <button
+            <button type="button"
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
               className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
@@ -430,7 +430,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </svg>
               <ActiveUnderline active={isFocused} placement="below" />
             </button>
-            <button
+            <button type="button"
               data-tour-step="swimlane-collapse"
               onClick={onToggleCollapse}
               className="relative text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"

@@ -13,13 +13,13 @@ describe('ActiveUnderline', () => {
     render(<ActiveUnderline active />)
     const bar = screen.getByTestId('active-underline')
     expect(bar).toHaveAttribute('aria-hidden', 'true')
-    expect(bar).toHaveClass('absolute', 'bg-fg', 'h-0.5', 'w-3', 'bottom-0.5')
+    expect(bar).toHaveClass('absolute', 'bg-fg', 'h-0.5', 'w-3', 'bottom-px')
   })
 
   it('hangs below a bare glyph button with placement="below"', () => {
     render(<ActiveUnderline active placement="below" testId="bar" />)
     const bar = screen.getByTestId('bar')
     expect(bar).toHaveClass('-bottom-1')
-    expect(bar).not.toHaveClass('bottom-0.5')
+    expect(bar).not.toHaveClass('bottom-px')
   })
 })

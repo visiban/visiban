@@ -1,7 +1,8 @@
 interface Props {
   active: boolean;
   /**
-   * `inset` (default) sits inside the host's bottom padding, for padded buttons
+   * `inset` (default) sits 1px above the host's bottom edge, inside its padding with a gap
+   * below the line box (so descenders and count badges never touch it), for padded buttons
    * (`p-1.5`, `px-2 py-1`). `below` hangs just under a host with no padding (a bare
    * glyph button such as the swimlane focus toggle), so the bar never covers the icon.
    */
@@ -10,7 +11,7 @@ interface Props {
 }
 
 const PLACEMENT = {
-  inset: "bottom-0.5",
+  inset: "bottom-px",
   below: "-bottom-1",
 } as const;
 

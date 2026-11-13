@@ -2744,7 +2744,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             }}
           />
           <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
-            <button
+            <button type="button"
               data-tour-step="filter"
               onClick={() => setShowFilters((v) => !v)}
               className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
@@ -2787,7 +2787,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               ? `Switch to expanded card layout (${layoutShortcutLabel})`
               : `Switch to compact card layout (${layoutShortcutLabel})`
           }>
-            <button
+            <button type="button"
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
               aria-pressed={cardLayout === "compact"}
               aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
@@ -2804,7 +2804,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           )}
           {!foldToolbarControls && (
           <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
-            <button
+            <button type="button"
               onClick={() => setShowArchived((v) => !v)}
               className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning-on-tint bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showArchived}
@@ -2829,7 +2829,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         {/* Zone 3: Utilities (direct at lg; folded into overflow at md/sm) */}
         <div className="flex items-center gap-1">
           <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
-            <button
+            <button type="button"
               onClick={() => setDrawerOpen((v) => !v)}
               aria-pressed={drawerOpen}
               aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
@@ -2842,7 +2842,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </button>
           </Tooltip>
           <Tooltip content="Keyboard shortcuts (?)">
-            <button
+            <button type="button"
               onClick={() => { markShortcutsSeen(); setShowShortcuts((v) => !v); }}
               className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label={showShortcuts ? "Close keyboard shortcuts" : "Keyboard shortcuts"}
@@ -2857,7 +2857,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </Tooltip>
           {canExport && (
           <Tooltip content={`Export board (${formatShortcut({ mod: true, shift: true, key: "E" })})`}>
-            <button
+            <button type="button"
               onClick={() => { markExportSeen(); setShowExport(true); }}
               className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label="Export board"
