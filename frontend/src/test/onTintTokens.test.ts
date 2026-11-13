@@ -186,7 +186,7 @@ describe('card aging ramp contrast (#1841)', () => {
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
-const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph']
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark']
 // `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
 const NOT_COLOR = new Set([
   'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',

@@ -10,6 +10,11 @@ import {
   urlDisplayHostname,
   urlErrorFromServer,
   withCustomFieldValue,
+  thresholdLevel,
+  thresholdPhrase,
+  thresholdDraftError,
+  thresholdPayload,
+  thresholdDraftFrom,
 } from "../utils/customFieldValue";
 import type { CustomFieldDefinition } from "../types";
 
@@ -226,5 +231,101 @@ describe("pastedChoicesToAdd (#2192)", () => {
 
   it("returns nothing for blank text", () => {
     expect(pastedChoicesToAdd(" \r\n\t", ["a"])).toEqual([]);
+  });
+});
+
+
+describe("thresholdLevel / thresholdPhrase (#1122)", () => {
+  // 2026-03-10 12:00 UTC: still 2026-03-10 in New York, already 2026-03-11 in Auckland.
+  const NOW = new Date("2026-03-10T12:00:00Z");
+  const num = (o: Partial<CustomFieldDefinition> = {}) =>
+    makeDefinition({ field_type: "number", threshold_direction: "above", threshold_warn: 10, threshold_alert: 20, ...o });
+  const date = (o: Partial<CustomFieldDefinition> = {}) =>
+    makeDefinition({ field_type: "date", threshold_direction: "below", threshold_warn_days: 3, threshold_alert_days: 0, ...o });
+
+  it("is inclusive at both boundaries, alert winning over warning", () => {
+    expect(thresholdLevel(num(), "9.99", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num(), "10", NOW, "UTC")).toBe("warn");
+    expect(thresholdLevel(num(), "20", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(num(), "1e3", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(num(), "+15", NOW, "UTC")).toBe("warn");
+    expect(thresholdLevel(num(), "1.50", NOW, "UTC")).toBe("none");
+  });
+
+  it("handles below, a single threshold, off, unparseable values and other types", () => {
+    const below = num({ threshold_direction: "below", threshold_warn: 5, threshold_alert: 0 });
+    expect(thresholdLevel(below, "5", NOW, "UTC")).toBe("warn");
+    expect(thresholdLevel(below, "-1", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(below, "6", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num({ threshold_warn: null }), "15", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num({ threshold_alert: null }), "99", NOW, "UTC")).toBe("warn");
+    expect(thresholdLevel(num({ threshold_direction: "" }), "99", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num(), "lots", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num(), "", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(num({ field_type: "text" }), "99", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(makeDefinition({ field_type: "number" }), "99", NOW, "UTC")).toBe("none");
+  });
+
+  it("measures dates in days from today in the viewer's timezone", () => {
+    expect(thresholdLevel(date(), "2026-03-14", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "2026-03-13", NOW, "UTC")).toBe("warn");
+    expect(thresholdLevel(date(), "2026-03-10", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(date(), "2026-01-01", NOW, "UTC")).toBe("alert");
+    // The same instant is a day later in Auckland: the 13th is only 2 days out there.
+    expect(thresholdLevel(date({ threshold_warn_days: 2, threshold_alert_days: 1 }), "2026-03-12", NOW, "America/New_York")).toBe("warn");
+    expect(thresholdLevel(date({ threshold_warn_days: 2, threshold_alert_days: 1 }), "2026-03-12", NOW, "Pacific/Auckland")).toBe("alert");
+    const above = date({ threshold_direction: "above", threshold_warn_days: 30, threshold_alert_days: 60 });
+    expect(thresholdLevel(above, "2026-05-09", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(above, "2026-04-09", NOW, "UTC")).toBe("warn");
+  });
+
+  it("parses the non-canonical date forms the server accepts, and ignores garbage", () => {
+    expect(thresholdLevel(date(), "20260310", NOW, "UTC")).toBe("alert");
+    // ISO week 2026-W11-2 is Tuesday 2026-03-10.
+    expect(thresholdLevel(date(), "2026-W11-2", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(date(), "2026W112", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(date(), "2026-W99-1", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "2026-02-30", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "next week", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "2026-03-10", NOW, "Not/AZone")).toBe("alert");
+  });
+
+  it("phrases the crossed threshold in words, with the field's number format", () => {
+    const money = num({ number_prefix: "$", number_decimals: 0, threshold_warn: 5000, threshold_alert: 6000 });
+    expect(thresholdPhrase(money, "alert")).toBe("Alert: at or above $6,000");
+    expect(thresholdPhrase(money, "warn")).toBe("Warning: at or above $5,000");
+    expect(thresholdPhrase(money, "none")).toBe("");
+    expect(thresholdPhrase(num({ threshold_direction: "below", threshold_warn: 5, threshold_alert: 1 }), "warn")).toBe("Warning: at or below 5");
+    expect(thresholdPhrase(date(), "alert")).toBe("Alert: today or earlier");
+    expect(thresholdPhrase(date(), "warn")).toBe("Warning: 3 days from today or earlier");
+    expect(thresholdPhrase(date({ threshold_direction: "above", threshold_warn_days: -1, threshold_alert_days: 1 }), "warn")).toBe("Warning: 1 day ago or later");
+    expect(thresholdPhrase(num({ threshold_alert: null }), "alert")).toBe("");
+  });
+
+  it("validates a settings draft with the server's rules and builds the payload", () => {
+    expect(thresholdDraftError(false, { direction: "", warn: "x", alert: "" })).toBeNull();
+    expect(thresholdDraftError(false, { direction: "above", warn: "", alert: "" })).toBe("Enter a warning or an alert threshold.");
+    expect(thresholdDraftError(false, { direction: "above", warn: "abc", alert: "" })).toBe("Enter a number.");
+    expect(thresholdDraftError(false, { direction: "above", warn: "1e16", alert: "" })).toBe("Enter a number.");
+    expect(thresholdDraftError(false, { direction: "above", warn: "5", alert: "5" })).toBe("The alert threshold must be above the warning threshold.");
+    expect(thresholdDraftError(false, { direction: "below", warn: "5", alert: "6" })).toBe("The alert threshold must be below the warning threshold.");
+    expect(thresholdDraftError(true, { direction: "below", warn: "1.5", alert: "" })).toMatch(/whole days/);
+    expect(thresholdDraftError(true, { direction: "below", warn: "3651", alert: "" })).toMatch(/whole days/);
+    expect(thresholdDraftError(true, { direction: "below", warn: "3", alert: "-1" })).toBeNull();
+
+    expect(thresholdPayload("text", { direction: "above", warn: "1", alert: "" })).toEqual({});
+    expect(thresholdPayload("number", { direction: "above", warn: "", alert: "" })).toBeNull();
+    expect(thresholdPayload("number", { direction: "above", warn: " 5000 ", alert: "6000.5" })).toEqual({
+      threshold_direction: "above", threshold_warn: 5000, threshold_alert: 6000.5, threshold_warn_days: null, threshold_alert_days: null,
+    });
+    expect(thresholdPayload("date", { direction: "below", warn: "3", alert: "0" })).toEqual({
+      threshold_direction: "below", threshold_warn: null, threshold_alert: null, threshold_warn_days: 3, threshold_alert_days: 0,
+    });
+    // Off clears every stored value, whatever is still typed.
+    expect(thresholdPayload("number", { direction: "", warn: "5", alert: "" })).toEqual({
+      threshold_direction: "", threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null,
+    });
+    expect(thresholdDraftFrom(date())).toEqual({ direction: "below", warn: "3", alert: "0" });
+    expect(thresholdDraftFrom(makeDefinition({ field_type: "number" }))).toEqual({ direction: "", warn: "", alert: "" });
   });
 });

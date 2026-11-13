@@ -2006,6 +2006,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   value={existing?.value}
                                   disabled={!canEdit}
                                   userDateFormat={userDateFormat}
+                                  userTimezone={userTimezone}
                                   onSave={(v) => save({
                                     custom_field_values: withCustomFieldValue(localCard.custom_field_values, definition.id, v),
                                   })}

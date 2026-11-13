@@ -164,3 +164,24 @@ describe('CustomFieldEditRow — date format forwarding (#1993)', () => {
     expect(screen.getByText('26/11/2026')).toBeInTheDocument()
   })
 })
+
+
+describe('CustomFieldEditRow — threshold words (#1122)', () => {
+  const spend = makeDefinition({
+    name: 'Spend', field_type: 'number', threshold_direction: 'below', threshold_warn: 10, threshold_alert: 5,
+  })
+
+  it('shows the words beside the editable input and the read-only display', () => {
+    const { rerender } = render(<CustomFieldEditRow definition={spend} value="4" disabled={false} onSave={noop} />)
+    expect(screen.getByTestId('custom-field-threshold')).toHaveTextContent('Alert: at or below 5')
+    rerender(<CustomFieldEditRow definition={spend} value="8" disabled onSave={noop} />)
+    expect(screen.getByTestId('custom-field-threshold')).toHaveTextContent('Warning: at or below 10')
+  })
+
+  it('shows nothing for an unmarked or empty value', () => {
+    const { rerender } = render(<CustomFieldEditRow definition={spend} value="11" disabled={false} onSave={noop} />)
+    expect(screen.queryByTestId('custom-field-threshold')).toBeNull()
+    rerender(<CustomFieldEditRow definition={spend} value={undefined} disabled={false} onSave={noop} />)
+    expect(screen.queryByTestId('custom-field-threshold')).toBeNull()
+  })
+})

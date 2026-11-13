@@ -13,7 +13,7 @@ import React from 'react'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
-import type { BoardFull, Card, User } from '../types'
+import type { BoardFull, Card, User, CustomFieldDefinition } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 import type { CollisionDetection } from '@dnd-kit/core'
 
@@ -301,6 +301,23 @@ describe('BoardView — board presets (#1146)', () => {
           expect(screen.getByRole('button', { name: `+${6 - shown}: Show all 6 field values for ${'Customer A'}` })).toBeInTheDocument()
         }
       })
+    })
+
+    // #1122 named exception (frontend/CLAUDE.md § Board presets): threshold
+    // marks render under Classic. A separate case from the byte-for-byte
+    // snapshots above, which carry no custom fields.
+    it('renders custom-field threshold marks under Classic (#1122 exception)', () => {
+      const spend: CustomFieldDefinition = {
+        id: 77, uid: 'cfuid077', name: 'Spend', field_type: 'number', choices: [], position: 0,
+        show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '',
+        number_decimals: null, choice_colors: {}, threshold_direction: 'above', threshold_warn: 5,
+        threshold_alert: 8, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
+      }
+      const marked = makeCard(901, { custom_field_values: [{ field_definition: 77, value: '9' }] })
+      renderBoard(makeBoard({ custom_field_definitions: [spend], cards: [marked] }), 'preset=classic')
+      const chip = document.querySelector('[data-threshold-level="alert"]')
+      expect(chip).not.toBeNull()
+      expect(chip!.querySelector('svg[data-threshold-mark="alert"]')).not.toBeNull()
     })
 
     it('is sensitive: Default renders a different grid on a comfortable board', () => {

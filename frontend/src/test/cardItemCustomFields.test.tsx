@@ -632,3 +632,60 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(row).not.toHaveClass("pr-7");
   });
 });
+
+
+describe("CardItem — threshold marks (#1122)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("marks a crossed number threshold with a chevron, bold weight and words, never a hue", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "6100" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number", number_prefix: "$", number_decimals: 0,
+          threshold_direction: "above", threshold_warn: 5000, threshold_alert: 6000,
+        })]}
+      />
+    );
+    const chip = screen.getByTitle("Spend: $6,100 (Alert: at or above $6,000)");
+    expect(chip).toHaveAttribute("data-threshold-level", "alert");
+    const mark = chip.querySelector("svg[data-threshold-mark]");
+    expect(mark).toHaveAttribute("aria-hidden", "true");
+    expect(mark).toHaveAttribute("data-threshold-mark", "alert");
+    expect(screen.getByText("$6,100")).toHaveClass("font-semibold", "text-fg");
+    expect(screen.getByText(", Alert: at or above $6,000")).toHaveClass("sr-only");
+    expect(chip.className).not.toMatch(/text-(danger|warning)|bg-(danger|warning)|cursor-pointer/);
+  });
+
+  it("marks a date at warning level relative to the viewer's today", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-10T12:00:00Z"));
+    render(
+      <CardItem
+        userTimezone="UTC"
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "2026-03-12" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Renewal", field_type: "date",
+          threshold_direction: "below", threshold_warn_days: 3, threshold_alert_days: 0,
+        })]}
+      />
+    );
+    const chip = document.querySelector("[data-threshold-level]");
+    expect(chip).toHaveAttribute("data-threshold-level", "warn");
+    expect(screen.getByText(", Warning: 3 days from today or earlier")).toHaveClass("sr-only");
+  });
+
+  it("leaves a value below its threshold, or a field without thresholds, exactly as before", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "10" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number", threshold_direction: "above", threshold_warn: 50,
+        })]}
+      />
+    );
+    expect(screen.getByTitle("Spend: 10")).not.toHaveAttribute("data-threshold-level");
+    expect(document.querySelector("svg[data-threshold-mark]")).toBeNull();
+    expect(screen.getByText("10")).toHaveClass("text-fg-secondary");
+  });
+});
