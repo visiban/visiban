@@ -60,15 +60,16 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
     // still connected), which is the lane being hidden under focus; and a window
     // or tab blur fires it while the element stays activeElement. So decide in a
     // microtask, after React's commit (and the recovery layout effect) has run:
-    // clear only if the target is still in the document, the document has focus,
-    // and focus truly landed on <body>.
+    // clear only if the document has focus and focus truly landed on <body>.
+    // The target may be detached by then (a card removed under focus while its
+    // lane stays visible); that case must clear too, and the recovery layout
+    // effect has already consumed the ref when a lane itself was hidden.
     let disposed = false;
     const onFocusOut = (e: FocusEvent) => {
       if (e.relatedTarget !== null || !(e.target instanceof Element)) return;
-      const target = e.target;
       queueMicrotask(() => {
         if (disposed) return;
-        if (target.isConnected && document.hasFocus() && document.activeElement === document.body) focusedLaneIdRef.current = null;
+        if (document.hasFocus() && document.activeElement === document.body) focusedLaneIdRef.current = null;
       });
     };
     document.addEventListener("focusin", onFocusIn);

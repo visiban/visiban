@@ -3316,6 +3316,23 @@ describe('BoardView lane filters (#2205)', () => {
     expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
     expect(document.activeElement).toBe(document.body)
   })
+  it('stays silent when the focused element was removed while its lane stayed visible, before a remote edit hides the lane', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    const btn = screen.getByTestId('focus-btn-20')
+    act(() => { btn.focus() })
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    // Chromium: focusout fires with the target still connected, then the node (a card) goes away; the lane stays.
+    act(() => { btn.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null })); btn.remove() })
+    await act(async () => { await Promise.resolve() })
+    hasFocus.mockRestore()
+    expect(document.activeElement).toBe(document.body)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
+  })
   it('keeps the notice and recovers focus when the browser fires focusout during removal of the focused lane (Chromium)', async () => {
     mockSearchParams = new URLSearchParams(priyaParam)
     mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
