@@ -623,10 +623,9 @@ export interface CardChecklistItem {
   is_checked: boolean;
   position: number;
   created_by: BoardUser | null;
-  /** #445: the item's assignee (nested read); write with `assignee_id`. */
+  /** #445: the item's assignee (nested read). Writes send `assignee_id`, a write-only
+   *  serializer field limited server-side to assignable members; it is never in a response. */
   assignee: BoardUser | null;
-  /** #445: write-only; limited server-side to the board's assignable members. */
-  assignee_id?: number | null;
   /** #445: `YYYY-MM-DD`, or null. Feeds only the checklist face suffix, never card urgency. */
   due_date: string | null;
 }
