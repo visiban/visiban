@@ -1149,7 +1149,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </button>
                   </div>
                 )}
-                <p className="text-xs h-4 mt-0.5 -mx-1 px-1">
+                <p className="text-xs min-h-4 mt-0.5 -mx-1 px-1">
                   {renameError && <span role="alert" className="text-danger">{renameError}</span>}
                 </p>
               </div>

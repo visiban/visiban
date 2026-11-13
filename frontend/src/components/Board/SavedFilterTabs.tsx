@@ -75,7 +75,7 @@ export default function SavedFilterTabs({
             aria-pressed={isActive}
             onClick={() => onLoad(f)}
             title={f.name}
-            className={`${isActive ? activeClass : inactiveClass} max-w-[10rem] truncate`}
+            className={`${isActive ? activeClass : inactiveClass} max-w-[10rem]`}
           >
             <ActiveMark active={isActive} />
             <span className="truncate">{f.name}</span>

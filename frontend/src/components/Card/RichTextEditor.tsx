@@ -710,7 +710,7 @@ export default function RichTextEditor({
             // Keyboard activation fires click with detail 0; a mouse click already
             // acted on mousedown, so detail > 0 must not run it a second time.
             onClick={(e) => { if (e.detail === 0) handleCancel(); }}
-            className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition rounded"
+            className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
