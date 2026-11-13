@@ -3,8 +3,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Priority, User } from "../../types";
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import {
-  allRefusedMessage, archiveCards, assignCards, assignChoices, cardActionEntries, cardRefusal, moveCardsToColumn,
-  moveChoices, priorityChoices, setCardsPriority, type CardActionContext, type OwnershipAction,
+  allRefusedMessage, archiveCards, assignCards, assignChoices, cardActionEntries, moveCardsToColumn,
+  MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, moveChoices, priorityChoices, setCardsPriority, type CardActionContext, type OwnershipAction,
 } from "../../utils/cardActions";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
@@ -87,14 +87,19 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   // into the status slot (§ Bulk operations). `aria-disabled` stops nothing,
   // so every handler guards (§ aria-disabled needs a handler guard).
   const refuseMessage = (action: OwnershipAction, verb: string, reason: string | undefined) =>
-    // Ownership refusals read in the rule-2 wording; role, maintenance and
-    // demo gates already read as a sentence of their own.
-    selectedCards.every((c) => cardRefusal(c, action, cardActionCtx) !== undefined)
+    // Name the gate that actually applies. cardActionEntries checks maintenance
+    // and role first, so only an ownership reason reads in the rule-2 wording;
+    // any other gate (maintenance, role, demo) already reads as a sentence.
+    (reason === OWNER_ONLY_REASON || reason === MOVE_ASSIGNED_REASON)
       ? allRefusedMessage(selectedCards, action, verb)
       : reason ?? "";
   const refuse = (action: OwnershipAction, verb: string, reason: string | undefined) => {
     setDropdown(null);
-    setPartialError(refuseMessage(action, verb, reason));
+    const text = refuseMessage(action, verb, reason);
+    // Clear first, then set on the next tick: an identical repeat message
+    // would change nothing in the live region and so not be announced again.
+    setPartialError(null);
+    setTimeout(() => setPartialError(text), 0);
   };
   const refusalProps = (key: string, entry: { enabled: boolean; reason?: string }) =>
     entry.enabled ? {} : {

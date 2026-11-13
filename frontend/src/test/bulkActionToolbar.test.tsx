@@ -1005,10 +1005,10 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
     await user.click(screen.getByRole('button', { name: 'Assign to...' }))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(mockUpdateCard).not.toHaveBeenCalled()
-    expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be assigned — you can only assign cards you created.')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be assigned — you can only assign cards you created.'))
     await user.click(screen.getByRole('button', { name: 'Archive' }))
     expect(mockArchiveCard).not.toHaveBeenCalled()
-    expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be archived — you can only archive cards you created.')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be archived — you can only archive cards you created.'))
   })
 
   it('keyboard activation of a refused trigger also writes the reason', async () => {
@@ -1017,7 +1017,7 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
     screen.getByRole('button', { name: 'Priority...' }).focus()
     await user.keyboard('{Enter}')
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('could not be updated — you can only edit cards you created.')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('could not be updated — you can only edit cards you created.'))
   })
 
   it('mixed selection: skips known-refused cards, counts them failed with the ownership reason and keeps the selection', async () => {
@@ -1067,6 +1067,31 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
         onCardsArchived={vi.fn()} onClearSelection={vi.fn()} />
     )
     expect(screen.getByRole('button', { name: 'Assign to...' })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('maintenance mode wins over ownership: the slot names the same gate as the title', async () => {
+    const user = userEvent.setup()
+    const b = memberBoard([theirs, theirs])
+    render(
+      <BulkActionToolbar board={b} selectedCardIds={new Set([100, 101])} onCardsUpdated={vi.fn()} onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()} onClearSelection={vi.fn()} currentUser={visitor}
+        cardActionCtx={{ role: 'member', currentUserId: 99, isModerator: false, demoMode: false, maintenanceBlocked: true }} />
+    )
+    const assign = screen.getByRole('button', { name: 'Assign to...' })
+    expect(assign).toHaveAttribute('title', expect.stringMatching(/Maintenance mode/))
+    await user.click(assign)
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Maintenance mode/))
+    expect(screen.getByRole('status')).not.toHaveTextContent(/you can only assign/)
+  })
+
+  it('a repeat activation shows the reason again', async () => {
+    const user = userEvent.setup()
+    renderMember([theirs, theirs])
+    const assign = screen.getByRole('button', { name: 'Assign to...' })
+    await user.click(assign)
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('could not be assigned'))
+    await user.click(assign) // the clear-then-set swap is a tick; the text must be back
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('could not be assigned'))
   })
 
   it('busy keeps native disabled', async () => {

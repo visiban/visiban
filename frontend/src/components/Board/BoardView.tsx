@@ -1483,7 +1483,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // or palette result over this same selection reports where the user is
   // already looking instead of in a toast above the toolbar.
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
-  useEffect(() => { if (selectedCardIds.size === 0) setBulkMessage(null); }, [selectedCardIds.size]);
+  // A refusal describes the selection it was written for: any change to the
+  // selected ids (or emptying it) retires the message.
+  const selectionKey = [...selectedCardIds].sort((a, b) => a - b).join(",");
+  useEffect(() => { setBulkMessage(null); }, [selectionKey]);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);

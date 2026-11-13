@@ -382,4 +382,17 @@ describe('BoardView selection results (#2173)', () => {
     fireEvent.click(screen.getByTestId('select-card-1-20'))
     expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
   })
+
+  it('changing the selection retires the message', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(forbidden())
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    archiveVia([1])
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).not.toHaveTextContent(/^$/))
+    // Selection changes via the same mock toggle only for card 1; a context-menu
+    // action that selects nothing new cannot change it, so deselect and reselect.
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
+  })
 })
