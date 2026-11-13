@@ -131,6 +131,33 @@ describe('buildKeyFacts (#1916)', () => {
     const facts = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [dealField, unpinned] })))
     expect(facts.map((f) => f.key)).toEqual(['column'])
   })
+
+  it('carries a crossed threshold as the chip does: mark data plus the words in name and title (#1122)', () => {
+    const spend = {
+      ...dealField, name: 'Spend', field_type: 'number' as const, number_prefix: '$', number_decimals: 0,
+      threshold_direction: 'above' as const, threshold_warn: 5000, threshold_alert: 6000,
+    }
+    const card = makeCard({ custom_field_values: [{ field_definition: 55, value: '6100' }] })
+    const [, fact] = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [spend] })))
+    expect(fact.threshold).toEqual({ level: 'alert', direction: 'above' })
+    expect(fact.label).toBe('Spend $6,100, Alert: at or above $6,000. Go to Spend')
+    expect(fact.staticLabel).toBe('Spend: $6,100, Alert: at or above $6,000')
+    expect(fact.title).toBe('Spend: $6,100 (Alert: at or above $6,000)')
+
+    render(<CardKeyFacts facts={[fact]} onJump={vi.fn()} />)
+    const button = screen.getByRole('button', { name: /Alert: at or above \$6,000/ })
+    expect(button.querySelector('svg[data-threshold-mark="alert"]')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('leaves a pinned value short of its threshold unmarked (#1122)', () => {
+    const spend = { ...dealField, field_type: 'number' as const, threshold_direction: 'above' as const, threshold_warn: 50 }
+    const card = makeCard({ custom_field_values: [{ field_definition: 55, value: '10' }] })
+    const [, fact] = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [spend] })))
+    expect(fact.threshold).toBeUndefined()
+    expect(fact.label).toBe('Deal value 10. Go to Deal value')
+    render(<CardKeyFacts facts={[fact]} onJump={vi.fn()} />)
+    expect(document.querySelector('svg[data-threshold-mark]')).toBeNull()
+  })
 })
 
 describe('CardKeyFacts overflow (#1916)', () => {

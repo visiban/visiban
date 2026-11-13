@@ -675,6 +675,27 @@ describe("CardItem — threshold marks (#1122)", () => {
     expect(screen.getByText(", Warning: 3 days from today or earlier")).toHaveClass("sr-only");
   });
 
+  it("keeps the threshold words in the accessible text when quick edit is enabled", () => {
+    // Quick edit puts an aria-label on editable chips, which would hide the
+    // sr-only phrase. A number chip is not quick-editable, so it must carry no
+    // aria-label and keep the phrase as part of its readable text.
+    render(
+      <CardItem
+        boardId={7}
+        onCardUpdated={vi.fn()}
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "6100" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number",
+          threshold_direction: "above", threshold_warn: 5000, threshold_alert: 6000,
+        })]}
+      />
+    );
+    const chip = document.querySelector("[data-threshold-level]") as HTMLElement;
+    expect(chip).not.toHaveAttribute("aria-label");
+    expect(screen.queryByRole("button", { name: /Spend/ })).toBeNull();
+    expect(chip).toHaveTextContent("Alert: at or above 6000");
+  });
+
   it("leaves a value below its threshold, or a field without thresholds, exactly as before", () => {
     render(
       <CardItem

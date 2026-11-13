@@ -1007,7 +1007,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
                         }
                       } : undefined}
-                      aria-label={interactive ? `${def.name}: ${displayText}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                      // An aria-label replaces the subtree's text, so the
+                      // sr-only threshold phrase below would not be read on
+                      // an editable chip; carry it in the label too (#1122).
+                      // Today only checkbox/dropdown are editable and only
+                      // number/date carry thresholds, so `phrase` is empty
+                      // here; this keeps the words if number/date ever gain
+                      // quick edit.
+                      aria-label={interactive ? `${def.name}: ${displayText}${phrase ? `, ${phrase}` : ""}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
                       data-threshold-level={level === "none" ? undefined : level}
                       className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-[4rem]" : "max-w-[10rem] min-w-[3.5rem]"} ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                       title={phrase ? `${def.name}: ${displayText} (${phrase})` : `${def.name}: ${displayText}`}
