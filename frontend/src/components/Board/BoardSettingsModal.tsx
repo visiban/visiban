@@ -1998,9 +1998,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   >
                     <legend className="sr-only">Card density</legend>
                     {([
-                      { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
-                      { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
-                      { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
+                      { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards. 3 values per swimlane row." },
+                      { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face. 5 values per swimlane row." },
+                      { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required. 8 values per swimlane row." },
                     ] as const).map(({ value, label, description }) => {
                       const checked = board.card_density === value;
                       return (
@@ -2092,9 +2092,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       >
                         <legend className="sr-only">Your personal density override</legend>
                         {([
-                          { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
-                          { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
-                          { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
+                          { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards. 3 values per swimlane row." },
+                          { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face. 5 values per swimlane row." },
+                          { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required. 8 values per swimlane row." },
                         ] as const).map(({ value, label, description }) => {
                           const checked = cardDensityOverride === value;
                           return (

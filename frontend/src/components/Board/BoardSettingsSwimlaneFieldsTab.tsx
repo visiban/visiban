@@ -457,6 +457,9 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
       </div>
+      <p className="text-xs text-fg-tertiary mb-2">
+        Rows show 3, 5 or 8 pinned values depending on card density; the rest fold into +N.
+      </p>
 
       {/* Surfaced once here rather than repeated per field: with the default
           being admin-only, a board can quietly end up with nothing visible to

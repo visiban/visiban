@@ -226,7 +226,7 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.
 
-**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel.
+**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's [card density](board.md#card-density) (Comfortable, Standard, Dense); the rest fold into a `+N` chip.
 
 Dropdown, number, and date swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
 

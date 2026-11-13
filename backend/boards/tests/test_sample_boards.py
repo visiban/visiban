@@ -303,7 +303,8 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
         self.assertEqual(
             sum(f["show_on_row"] for f in lane_fields), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD,
         )
-        self.assertEqual([f["name"] for f in lane_fields][:2], ["AD", "AE"])
+        # AD first (#1416); Coverage second so it survives the Comfortable 3-chip row cap (#1417).
+        self.assertEqual([f["name"] for f in lane_fields][:3], ["AD", "Coverage", "AE"])
         coverage = {s["name"]: s["custom_field_values"]["Coverage"] for s in data["swimlanes"]}
         self.assertEqual(collections.Counter(coverage.values()), {"Full": 8, "Partial": 1, "Gap": 1})
 
