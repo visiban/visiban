@@ -131,7 +131,7 @@ A card's tint shows how long it has been idle, in multiples of the board's thres
 Color is never the only signal:
 
 - Card text fades slightly as the card ages.
-- The darkest step adds an outline inside the card's priority-colored border, so the priority color stays visible.
+- The darkest step adds an outline inside the card's border, so the border color stays visible (the priority color, or the urgency hue on overdue/due-soon cards at Comfortable).
 - At Comfortable and Standard density, a stale card's badge states its idle days, for example `Stale · 41d`.
 - Wherever that badge is not shown, a small bar meter appears at the start of an aging card's title. This covers the Compact card layout at every density, Dense density, and cards whose badge shows an overdue or due-soon date instead. One solid bar means 1× the threshold, two mean 2×, and three mean 3× or more, so the steps differ by shape as well as color. Screen readers announce the meter with the idle days, for example "Idle 41 days, at least 2 times the stale threshold". The meter sits inside the title line, so it never makes a card taller, though a long title is shortened a little sooner.
 - The yellow warning step never shows the badge, so its meter appears on every warning card, in every layout and density. It has no solid bar: the shortest bar is drawn as an outline, the step before one solid bar. Screen readers announce it as, for example, "Idle 9 days, approaching the stale threshold".

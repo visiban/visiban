@@ -83,3 +83,31 @@ export function classifyCardUrgency(card: ClassifyInput, now: number = Date.now(
 
   return null;
 }
+
+export type CardBorderTone = "blocked" | "overdue" | "due-soon" | "priority";
+
+interface BorderInput extends ClassifyInput {
+  /** Manual block (see ``isManuallyBlocked``): a relation-only block keeps the priority border. */
+  manuallyBlocked: boolean;
+}
+
+/**
+ * Which signal owns the card border (#977). At Comfortable density only, in
+ * precedence order: manual blocked > overdue > due soon > priority. Stale and
+ * "just moved" never change the border. Standard, Dense and the compact layout
+ * (which shows no urgency badge) always keep the priority border, except that
+ * a manual block takes the danger border at every density (#1149).
+ *
+ * Kept separate from ``classifyCardUrgency`` (which only drives the badge) but
+ * reuses its overdue / due-soon classification so the two never disagree.
+ */
+export function classifyCardBorder(
+  card: BorderInput,
+  opts: { density: "comfortable" | "standard" | "dense"; compact?: boolean },
+  now: number = Date.now(),
+): CardBorderTone {
+  if (card.manuallyBlocked) return "blocked";
+  if (opts.density !== "comfortable" || opts.compact) return "priority";
+  const kind = classifyCardUrgency(card, now)?.kind;
+  return kind === "overdue" || kind === "due-soon" ? kind : "priority";
+}

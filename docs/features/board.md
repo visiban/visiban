@@ -233,7 +233,7 @@ Columns, swimlanes, new card labels and a [group's shared labels](groups.md#grou
 
 ## Cards
 
-Cards are compact tiles with a full colored border indicating priority. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense — see [Card density](#card-density) below). At every density the colored border carries priority, the assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.
+Cards are compact tiles with a full colored border indicating priority. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense — see [Card density](#card-density) below). The colored border carries priority, except at Comfortable density, where an overdue card takes the red (danger) border and a due-soon card the amber (warning) border; a manual block is red at every density. The Compact card layout is never tinted. When urgency owns the border, priority is read from the card's accessible name and the peek. The assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.
 
 ### Card density
 
@@ -247,7 +247,7 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 | **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count |
 | **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge |
 
-**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date (`⚑ 2d late` for overdue, `⏱ Tomorrow` for due-soon), so the date is never lost when the standalone date pill is suppressed. Dense intentionally keeps the per-field cues; the badge is a *replacement* at lower densities, not an addition.
+**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date (`⚑ 2d late` for overdue, `⏱ Tomorrow` for due-soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues; the badge is a *replacement* at lower densities, not an addition.
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -290,7 +290,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Rich text with a toolbar (bold, italic, code, lists, heading, blockquote); stored as markdown. See [Card Descriptions](card-descriptions.md). |
-| Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border and a filled badge on the card face (low is unmarked) |
+| Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border (except overdue/due-soon cards at Comfortable, which take the urgency hue) and a filled badge on the card face (low is unmarked) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
 | Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red |
@@ -594,7 +594,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed: the board's own [card density](#card-density), no overlay. |
+| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. |
 | **Default** | Standard density, no overlay. |
 
 Presets are built in; you cannot create or edit your own yet.

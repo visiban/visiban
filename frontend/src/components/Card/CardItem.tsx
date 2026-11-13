@@ -10,7 +10,7 @@ import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
 import AgingCue from "./AgingCue";
-import { classifyCardUrgency } from "../../utils/cardUrgency";
+import { classifyCardBorder, classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
@@ -406,7 +406,23 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // blocked: border-danger-emphasis", #1149); a relation-only block keeps the
   // priority border it has always had, so #449's card face is unchanged.
   const priorityColor = colorForPriority(card.priority);
-  const borderColor = isManuallyBlocked(card) ? "rgb(var(--danger-emphasis))" : priorityColor;
+  // Comfortable density only (#977, A-Q4): overdue / due-soon also take the
+  // border, since that density has no priority badge and its urgency badge is
+  // the only other cue. Precedence lives in classifyCardBorder.
+  const borderTone = classifyCardBorder(
+    { due_date: card.due_date, is_stale: card.is_stale, last_moved_at: card.last_moved_at, manuallyBlocked: isManuallyBlocked(card) },
+    { density, compact },
+  );
+  const borderColor = borderTone === "blocked" || borderTone === "overdue"
+    ? "rgb(var(--danger-emphasis))"
+    : borderTone === "due-soon"
+    ? "rgb(var(--warning-emphasis))"
+    : priorityColor;
+  // Urgency now owns the border, so priority (otherwise read from its hue) goes
+  // into the card's accessible name instead; the peek already states it.
+  const prioritySuffix = (borderTone === "overdue" || borderTone === "due-soon") && card.priority !== "low"
+    ? `, Priority: ${card.priority}`
+    : "";
   const blockedLabel = isCardBlocked(card) ? blockedIndicatorLabel(card) : "";
 
   // Worst-offender urgency badge (#961). Drives a single high-signal cue at
@@ -654,6 +670,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         }`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
           {card.title}
+          {prioritySuffix && <span className="sr-only" data-testid="card-priority-sr">{prioritySuffix}</span>}
         </p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
