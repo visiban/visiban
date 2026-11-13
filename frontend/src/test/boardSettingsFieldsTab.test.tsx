@@ -1048,8 +1048,10 @@ describe("BoardSettingsFieldsTab — thresholds (#1122)", () => {
     const field = makeDefinition({ id: 4, name: "Renewal", field_type: "date", threshold_direction: "below", threshold_warn_days: 14, threshold_alert_days: 0 });
     render(<BoardSettingsFieldsTab board={makeBoard([field])} isAdmin onFieldsUpdated={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Edit Renewal" }));
-    expect(screen.getByRole("radio", { name: "Below" })).toBeChecked();
-    expect(screen.getByLabelText("Warn at")).toHaveValue(14);
+    expect(screen.getByRole("radio", { name: "On or before" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "Below" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Warn at (days from today)")).toHaveValue(14);
+    expect(screen.getByLabelText("Alert at (days from today)")).toHaveValue(0);
     expect(screen.getByTestId("threshold-legend")).toHaveTextContent("Negative days are in the past.");
   });
 });

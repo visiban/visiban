@@ -8,10 +8,12 @@ interface Props {
   onChange: (next: ThresholdDraft) => void;
 }
 
-const DIRECTIONS: { value: ThresholdDraft["direction"]; label: string }[] = [
+// Dates read as "on or after / on or before" (inclusive, calendar wording);
+// the API values stay `above` / `below` for both field types.
+const directions = (isDate: boolean): { value: ThresholdDraft["direction"]; label: string }[] => [
   { value: "", label: "Off" },
-  { value: "above", label: "Above" },
-  { value: "below", label: "Below" },
+  { value: "above", label: isDate ? "On or after" : "Above" },
+  { value: "below", label: isDate ? "On or before" : "Below" },
 ];
 
 /**
@@ -30,12 +32,13 @@ export default function ThresholdFields({ isDate, draft, onChange }: Props) {
   const okInput = "border-line focus:ring-primary-emphasis focus:border-transparent";
   const badInput = "border-danger focus:ring-danger-emphasis";
   const unit = isDate ? "Days from today" : "Value";
+  const unitSuffix = isDate ? " (days from today)" : "";
 
   return (
-    <fieldset className="mb-3" aria-describedby={`${id}-help`}>
+    <fieldset className="mb-3">
       <legend className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Thresholds</legend>
       <div role="radiogroup" aria-label="Mark values" className="flex flex-wrap gap-3 mb-2">
-        {DIRECTIONS.map((d) => (
+        {directions(isDate).map((d) => (
           <label key={d.value || "off"} className="inline-flex items-center gap-1.5 text-sm text-fg-secondary">
             <input
               type="radio"
@@ -50,7 +53,7 @@ export default function ThresholdFields({ isDate, draft, onChange }: Props) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-fg-secondary">Warn at</span>
+          <span className="text-xs text-fg-secondary">Warn at{unitSuffix}</span>
           <input
             type="number"
             step={isDate ? 1 : "any"}
@@ -65,7 +68,7 @@ export default function ThresholdFields({ isDate, draft, onChange }: Props) {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-fg-secondary">Alert at</span>
+          <span className="text-xs text-fg-secondary">Alert at{unitSuffix}</span>
           <input
             type="number"
             step={isDate ? 1 : "any"}
