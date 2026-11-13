@@ -10,9 +10,9 @@ import CustomColorPanel from "./CustomColorPanel";
 
 /**
  * Escape priority of the open custom color popover. It renders inside modals (40) and
- * inside `CardDetail`, so it must clear both. Not an integer on purpose: 59 is the card
- * panel's Activity filter, equal priorities resolve by registration order rather than by
- * what is on top, and the command palette at 60 must stay above this. See the allocation
+ * inside `CardDetail`, so it must clear both. Not an integer on purpose: it sits
+ * just above the card context menu's 59 and must stay below the command palette at 60,
+ * so 61 would be wrong. See the allocation
  * list in frontend/CLAUDE.md.
  */
 export const CUSTOM_COLOR_ESCAPE_PRIORITY = 59.5;

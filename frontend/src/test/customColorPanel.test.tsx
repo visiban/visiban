@@ -6,7 +6,6 @@ import ColorSwatchPicker, { CUSTOM_COLOR_ESCAPE_PRIORITY } from '../components/C
 import CustomColorPanel from '../components/Common/CustomColorPanel'
 import ModalWrapper from '../components/shared/ModalWrapper'
 import { COLUMN_COLORS } from '../constants/colors'
-import ActivityFilterDropdown from '../components/Card/ActivityFilterDropdown'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import { shouldIgnoreShortcut } from '../utils/keyboard'
 
@@ -508,32 +507,9 @@ describe('ColorSwatchPicker allowCustom', () => {
       return null
     }
 
-    it('sits between the Activity filter at 59 and the command palette at 60', () => {
+    it('sits between the card context menu at 59 and the command palette at 60', () => {
       expect(CUSTOM_COLOR_ESCAPE_PRIORITY).toBeGreaterThan(59)
       expect(CUSTOM_COLOR_ESCAPE_PRIORITY).toBeLessThan(60)
-    })
-
-    // The filter opened first registers first, so an equal priority would close it instead.
-    // The other order cannot happen: opening the filter takes focus and closes the picker.
-    it('Escape closes the picker, not an open Activity filter', () => {
-      render(
-        <>
-          <ActivityFilterDropdown label="Filter" options={[{ value: 'a', label: 'A' }]} selected={[]} onChange={vi.fn()} />
-          <Host />
-        </>
-      )
-      const filter = () => screen.getByRole('button', { name: /Filter/ })
-      fireEvent.click(filter())
-      fireEvent.click(emptyTrigger())
-      expect(filter()).toHaveAttribute('aria-expanded', 'true')
-      expect(dialog()).toBeInTheDocument()
-
-      fireEvent.keyDown(document.body, { key: 'Escape' })
-      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
-      expect(filter()).toHaveAttribute('aria-expanded', 'true')
-
-      fireEvent.keyDown(document.body, { key: 'Escape' })
-      expect(filter()).toHaveAttribute('aria-expanded', 'false')
     })
 
     it('leaves the command palette at 60 on top', () => {

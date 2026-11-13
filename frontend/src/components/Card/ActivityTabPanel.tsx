@@ -1,34 +1,50 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCardTimeline } from "../../api/cards";
+import type { TimelineCounts, TimelineEventGroup, TimelinePage } from "../../api/cards";
 import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
-import { formatBlockedDuration } from "../../utils/blockedState";
-import { formatRelativeTime, formatDateStr, formatDateTimeUser } from "../../utils/date";
+import { formatRelativeTime, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
-import ActivityFilterDropdown from "./ActivityFilterDropdown";
 import { historyAttribution } from "../../utils/importedHistory";
+import { activityLabel } from "../../utils/cardTimelineLabels";
+import ActiveMark from "../Common/ActiveMark";
+import { HISTORY_PAGE_LIMIT } from "./cardDetailTabMemory";
 
 interface ActivityTabPanelProps {
   boardId: number;
   cardId: number;
   userDateFormat?: string;
   user?: UserDatePrefs | null;
+  /**
+   * The first unfiltered page (with `counts`) that CardDetail fetched on
+   * open (#967). Used instead of a request while every type is shown, and
+   * adopted again whenever CardDetail refetches it.
+   */
+  initialPage?: TimelinePage | null;
+  /** Bumps when another session changed this card; a filtered view refetches. */
+  refreshSignal?: number;
+  /** Every first page this panel fetches, so the History tab count stays current. */
+  onFirstPage?: (page: TimelinePage) => void;
+  /** Set by the Details tab's Last activity line: focus the newest entry once shown. */
+  focusFirstEntry?: boolean;
+  /** Called once that focus has moved, so a later visit to the tab does not move it again. */
+  onFirstEntryFocused?: () => void;
 }
 
-const EVENT_TYPE_OPTIONS = [
-  { value: "move",       label: "Column moves",  color: "rgb(var(--primary-emphasis))" },
-  { value: "comment",    label: "Comments",       color: "rgb(var(--activity-date))" },
-  { value: "field",      label: "Field changes",  color: "rgb(var(--fg-muted))" },
-  { value: "checklist",  label: "Checklist",      color: "rgb(var(--fg-muted))" },
-  { value: "attachment", label: "Attachments",    color: "rgb(var(--activity-assign))" },
-  { value: "system",     label: "System events",  color: "rgb(var(--fg-muted))" },
-] as const;
+const EVENT_TYPE_OPTIONS: readonly { value: TimelineEventGroup; label: string }[] = [
+  { value: "move",       label: "Column moves" },
+  { value: "comment",    label: "Comments" },
+  { value: "field",      label: "Field changes" },
+  { value: "checklist",  label: "Checklist" },
+  { value: "attachment", label: "Attachments" },
+  { value: "system",     label: "System events" },
+];
 
-// Default filter lens — Column moves is the canonical "what happened to this
-// card" signal, so the drawer opens with a focused view of moves only. Users
-// can click "All" to see every event type, toggle individually, or use the
-// "Reset to default" footer to return to this state.
-const DEFAULT_SELECTED: string[] = ["move"];
+// #967: every type starts shown, so History answers "what changed and when"
+// without a filter step, and the unfiltered first page CardDetail already
+// fetched on open (for the tab count and the Last activity line) is reused.
+const ALL_GROUPS: TimelineEventGroup[] = EVENT_TYPE_OPTIONS.map((o) => o.value);
+const LAST_ON_REASON = "At least one type stays shown";
 
 type ChecklistEventType =
   | "checklist_item_added"
@@ -54,10 +70,10 @@ type ChecklistGroup = {
 
 type DisplayEntry = CardTimelineEntry | ChecklistGroup;
 
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = HISTORY_PAGE_LIMIT;
 
 // Collapse consecutive same-type checklist entries into a single group,
-// matching the behaviour in CardMovementTimeline.
+// so a run of checklist events reads as one entry.
 function collapseChecklistGroups(entries: CardTimelineEntry[]): DisplayEntry[] {
   const result: DisplayEntry[] = [];
   for (const entry of entries) {
@@ -121,55 +137,6 @@ function dotColor(entry: CardTimelineEntry | ChecklistGroup): string {
   }
 }
 
-function activityLabel(
-  event_type: string,
-  data: Record<string, unknown>,
-  userDateFormat = "MM/DD/YYYY"
-): string {
-  const d = data as unknown as CardActivity;
-  switch (event_type) {
-    case "priority_change":
-      return `Priority: ${d.from_value} → ${d.to_value}`;
-    case "weight_change":
-      return `Weight: ${d.from_value} → ${d.to_value}`;
-    case "assignee_change":
-      return `Assignee: ${d.from_value} → ${d.to_value}`;
-    case "label_change":
-      return `Labels: ${d.to_value}`;
-    case "title_change":
-      return `Renamed: "${d.from_value}" → "${d.to_value}"`;
-    case "description_change":
-      return "Description updated";
-    case "comment_added":
-      return "Comment added";
-    case "attachment_added":
-      return `Attached: ${d.to_value || "file"}`;
-    case "attachment_deleted":
-      return `Removed: ${d.from_value || "file"}`;
-    case "due_date_change": {
-      const fmt = (iso: string) => (iso ? formatDateStr(iso, userDateFormat) : "(none)");
-      return `Due date: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
-    }
-    // Manual block state (#1149): blocked carries the reason; unblocked the
-    // reason it cleared (from_value) and the optional resolution (to_value).
-    case "blocked":
-      return d.to_value ? `Blocked: ${d.to_value}` : "Blocked";
-    case "unblocked": {
-      // The timeline adds the closed block's duration (#1149); null or
-      // absent when it has no matching block (e.g. imported history).
-      const seconds = (data as { block_duration_seconds?: number | null }).block_duration_seconds;
-      const head = typeof seconds === "number" ? `Unblocked after ${formatBlockedDuration(seconds * 1000, 2)}` : "Unblocked";
-      return d.to_value ? `${head}: ${d.to_value}` : d.from_value ? `${head} (was: ${d.from_value})` : head;
-    }
-    case "archived":
-      return "Card archived";
-    case "reactivated":
-      return "Card reactivated";
-    default:
-      return event_type.replace(/_/g, " ");
-  }
-}
-
 function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   if (minutes < 60) return `${minutes}m`;
@@ -179,27 +146,60 @@ function formatDuration(ms: number): string {
   return `${days}d`;
 }
 
-export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM/DD/YYYY", user }: ActivityTabPanelProps) {
+export default function ActivityTabPanel({
+  boardId, cardId, userDateFormat = "MM/DD/YYYY", user,
+  initialPage = null, refreshSignal = 0, onFirstPage, focusFirstEntry = false, onFirstEntryFocused,
+}: ActivityTabPanelProps) {
   const [entries, setEntries] = useState<CardTimelineEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [counts, setCounts] = useState<TimelineCounts | null>(initialPage?.counts ?? null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(DEFAULT_SELECTED);
+  const [selectedTypes, setSelectedTypes] = useState<TimelineEventGroup[]>(ALL_GROUPS);
+  const allShown = selectedTypes.length === ALL_GROUPS.length;
+  const allShownRef = useRef(allShown);
+  allShownRef.current = allShown;
+  const onFirstPageRef = useRef(onFirstPage);
+  onFirstPageRef.current = onFirstPage;
+  const listRef = useRef<HTMLOListElement>(null);
 
-  // Fetch a page of timeline entries and append to state.
+  // Request sequence: every first-page fetch, adopt and filter change bumps it,
+  // and a response whose sequence is no longer current is dropped. Without it a
+  // late filtered response overwrote the unfiltered list adopted after the user
+  // toggled a type off and back on (#967).
+  const requestSeqRef = useRef(0);
+
+  const adoptFirstPage = (data: TimelinePage) => {
+    requestSeqRef.current += 1;
+    setLoadingMore(false);
+    setTotalCount(data.count);
+    setHasMore(data.next !== null);
+    setEntries(data.results);
+    setOffset(DEFAULT_LIMIT);
+    if (data.counts) setCounts(data.counts);
+    setError(false);
+    setLoading(false);
+  };
+
+  // Fetch a page of timeline entries; the first page also asks for counts.
   const fetchPage = (pageOffset: number, reset: boolean) => {
-    const params: { limit: number; offset: number; event_types?: string } = {
+    const params: { limit: number; offset: number; event_types?: string; include_counts?: boolean } = {
       limit: DEFAULT_LIMIT,
       offset: pageOffset,
     };
-    if (selectedTypes.length > 0) {
+    if (!allShownRef.current) {
       params.event_types = selectedTypes.join(",");
     }
-
     if (reset) {
+      requestSeqRef.current += 1;
+      setLoadingMore(false);
+    }
+    const seq = requestSeqRef.current;
+    if (reset) {
+      params.include_counts = true;
       setLoading(true);
     } else {
       setLoadingMore(true);
@@ -208,37 +208,81 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
 
     getCardTimeline(boardId, cardId, params)
       .then((data) => {
+        if (seq !== requestSeqRef.current) return;
+        if (reset) {
+          adoptFirstPage(data);
+          onFirstPageRef.current?.(data);
+          return;
+        }
         setTotalCount(data.count);
         setHasMore(data.next !== null);
-        setEntries((prev) => (reset ? data.results : [...prev, ...data.results]));
+        setEntries((prev) => [...prev, ...data.results]);
         setOffset(pageOffset + DEFAULT_LIMIT);
       })
-      .catch(() => setError(true))
+      .catch(() => {
+        if (seq === requestSeqRef.current) setError(true);
+      })
       .finally(() => {
+        if (seq !== requestSeqRef.current) return;
         setLoading(false);
         setLoadingMore(false);
       });
   };
 
-  // Re-fetch when card, board, or filter changes.
+  // Re-fetch when card, board, or filter changes. With every type shown, the
+  // page CardDetail already fetched is used instead of a second request.
   useEffect(() => {
+    if (allShownRef.current && initialPage) {
+      adoptFirstPage(initialPage);
+      return;
+    }
     setEntries([]);
     setOffset(0);
     setHasMore(false);
     setTotalCount(0);
     fetchPage(0, true);
-    // fetchPage is stable across renders; selectedTypes is captured in closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchPage intentionally excluded, see comment above
+    // fetchPage/adoptFirstPage only set state; initialPage is adopted by the next effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only on card or filter change; see comment above
   }, [boardId, cardId, selectedTypes.join(",")]);
+
+  // CardDetail refetched its first page (open, or another session's change).
+  const adoptedPageRef = useRef(initialPage);
+  useEffect(() => {
+    if (!initialPage || adoptedPageRef.current === initialPage) return;
+    adoptedPageRef.current = initialPage;
+    if (initialPage.counts) setCounts(initialPage.counts);
+    if (allShownRef.current) adoptFirstPage(initialPage);
+  }, [initialPage]);
+
+  // A filtered view is not covered by CardDetail's refetch: fetch it again.
+  const lastSignalRef = useRef(refreshSignal);
+  useEffect(() => {
+    if (lastSignalRef.current === refreshSignal) return;
+    lastSignalRef.current = refreshSignal;
+    if (!allShownRef.current) fetchPage(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only in response to refreshSignal
+  }, [refreshSignal]);
+
+  // The Last activity jump: focus the newest entry once it has rendered.
+  useEffect(() => {
+    if (!focusFirstEntry || loading) return;
+    listRef.current?.querySelector<HTMLElement>("li")?.focus();
+    onFirstEntryFocused?.();
+  }, [focusFirstEntry, loading, entries, onFirstEntryFocused]);
 
   const handleLoadMore = () => {
     if (loadingMore || !hasMore) return;
     fetchPage(offset, false);
   };
 
-  const handleFilterChange = (types: string[]) => {
-    setSelectedTypes(types);
-    // Reset pagination — the useEffect above will re-fetch.
+  const toggleType = (group: TimelineEventGroup) => {
+    const on = selectedTypes.includes(group);
+    // aria-disabled does not stop activation: guard the last type shown.
+    if (on && selectedTypes.length === 1) return;
+    setSelectedTypes(on
+      ? selectedTypes.filter((g) => g !== group)
+      : ALL_GROUPS.filter((g) => g === group || selectedTypes.includes(g)));
+    // Pagination resets: the first effect above re-fetches.
   };
 
   // Build the timeline: collapse checklist groups for cleaner display.
@@ -247,20 +291,42 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
 
   return (
     <div>
-      {/* Filter row */}
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-fg-muted">
+      {/* Type filter (#967): independent toggles, not a tablist. Each shows
+          the card's total for that type; at least one stays on. */}
+      <div className="flex flex-col gap-2 mb-4">
+        <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5 text-xs">
+          {EVENT_TYPE_OPTIONS.map((o) => {
+            const on = selectedTypes.includes(o.value);
+            const lastOn = on && selectedTypes.length === 1;
+            const count = counts?.[o.value];
+            return (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={on}
+                aria-label={count !== undefined ? `${o.label}, ${count}` : undefined}
+                aria-disabled={lastOn || undefined}
+                aria-describedby={lastOn ? `history-filter-reason-${cardId}` : undefined}
+                title={lastOn ? LAST_ON_REASON : undefined}
+                onClick={() => toggleType(o.value)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  on ? "bg-surface-hover border-line-strong text-fg font-medium" : "border-line text-fg-tertiary hover:text-fg"
+                } ${lastOn ? "cursor-not-allowed" : ""}`}
+              >
+                <ActiveMark active={on} />
+                <span>{o.label}</span>
+                {count !== undefined && <span className="text-fg-tertiary font-normal">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p id={`history-filter-reason-${cardId}`} className="sr-only">{LAST_ON_REASON}</p>
+        {/* Always mounted: a filter change announces the new total. */}
+        <span role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg-muted">
           {loading
             ? "Loading…"
             : `${totalCount} event${totalCount !== 1 ? "s" : ""}`}
         </span>
-        <ActivityFilterDropdown
-          label="Filter"
-          options={EVENT_TYPE_OPTIONS as unknown as { value: string; label: string; color: string }[]}
-          selected={selectedTypes}
-          onChange={handleFilterChange}
-          defaultSelected={DEFAULT_SELECTED}
-        />
       </div>
 
       {/* Loading state (initial load) */}
@@ -277,7 +343,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
       )}
 
       {/* Empty state — no events at all */}
-      {!loading && !error && entries.length === 0 && selectedTypes.length === 0 && (
+      {!loading && !error && entries.length === 0 && allShown && (
         <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
@@ -288,7 +354,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
       )}
 
       {/* Filter-active empty state */}
-      {!loading && !error && entries.length === 0 && selectedTypes.length > 0 && (
+      {!loading && !error && entries.length === 0 && !allShown && (
         <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
@@ -296,17 +362,18 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           </svg>
           <p className="text-sm text-fg-tertiary">No events match the current filter</p>
           <button
-            onClick={() => setSelectedTypes([])}
-            className="text-xs text-info hover:text-info transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            type="button"
+            onClick={() => setSelectedTypes(ALL_GROUPS)}
+            className="py-1 text-xs text-info hover:underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
-            Clear filter
+            Show all types
           </button>
         </div>
       )}
 
       {/* Timeline */}
       {!loading && !error && entries.length > 0 && (
-        <ol className="relative border-l border-line ml-2">
+        <ol ref={listRef} className="relative border-l border-line ml-2">
           {displayEntries.map((entry) => {
             // Checklist group
             if (entry.kind === "checklist-group") {
@@ -323,7 +390,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
               const label = plural ? pluralLabel : singular;
               const itemList = cg.items.map((i) => `"${i}"`).join(", ");
               return (
-                <li key={`cg-${cg.ts}-${cg.event_type}`} className="relative mb-3 ml-4">
+                <li key={`cg-${cg.ts}-${cg.event_type}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                   <div className="absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow bg-fg-muted" />
                   <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -377,7 +444,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
                   : null;
 
               return (
-                <li key={`${timelineEntry.kind}-${timelineEntry.id}`} className="relative mb-3 ml-4">
+                <li key={`${timelineEntry.kind}-${timelineEntry.id}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                   <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
                   <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -413,7 +480,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
             // Activity entry
             const description = activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
             return (
-              <li key={`${timelineEntry.kind}-${timelineEntry.id}`} className="relative mb-3 ml-4">
+              <li key={`${timelineEntry.kind}-${timelineEntry.id}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
                 <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -442,6 +509,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
       {hasMore && !loading && (
         <div className="flex justify-center pt-2 pb-1">
           <button
+            type="button"
             onClick={handleLoadMore}
             disabled={loadingMore}
             className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

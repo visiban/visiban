@@ -101,7 +101,7 @@ Click any card to open a side panel with full context:
 - **Blocked state** *(1.3+)* — block a card with a reason; the card shows how long it has been blocked, and Analytics sums blocked time per column and by reason
 - **Pull / merge request** — link a GitHub or GitLab PR/MR to the card
 - **Comments** — threaded discussion visible to collaborators and above
-- **Activity tab** — full movement timeline and activity log
+- **Details · Comments · History tabs** *(1.3+)* — the History tab holds the full movement timeline and activity log, filtered by event type; Details ends with a last-activity line
 
 → [Card History](card-history.md) · [Card Descriptions](card-descriptions.md) · [Card Relations](card-relations.md) · [Blocked Cards](blocked-cards.md) · [Pull & Merge Request Links](card-links.md)
 
@@ -412,7 +412,7 @@ The card detail panel now includes a **Move to** button in the breadcrumb row. C
 
 The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a `?view=` search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.
 
-Within the card detail Activity tab, the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time.
+Within the card detail Activity tab (now **History**), the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time. *(Removed in 1.3: the History tab's event-type filter replaces the toggle, and the stored choice is ignored.)*
 
 → [Board & Cards](board.md) · [Card History](card-history.md)
 

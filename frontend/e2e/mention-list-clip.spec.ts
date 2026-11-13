@@ -31,6 +31,8 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   await page.getByText(CARD.title).first().click()
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
+  // #967: the comment composer lives on the Comments tab, not the default one.
+  await page.getByRole('tab', { name: /^Comments/ }).click()
   const box = page.getByPlaceholder(/add a comment/i)
   await box.scrollIntoViewIfNeeded()
   await box.click()
@@ -45,6 +47,11 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   expect(bb!.y + bb!.height).toBeLessThanOrEqual(VIEWPORT_H)
   // The list is capped to the larger free side and scrolls, so the last option is reached by scrolling.
   await page.getByText('@member5', { exact: true }).scrollIntoViewIfNeeded()
+  // #967: when capped, the list must actually stay scrolled (its own scroll used to re-place it,
+  // which cleared the cap and snapped scrollTop back to 0).
+  if (await list.evaluate((n) => n.scrollHeight > n.clientHeight)) {
+    expect(await list.evaluate((n) => n.scrollTop)).toBeGreaterThan(0)
+  }
   // It must never cover the textarea the user is typing in (an element hit-test cannot catch this).
   const overlap = async () => {
     const l = (await list.boundingBox())!

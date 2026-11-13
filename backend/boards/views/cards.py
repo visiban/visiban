@@ -1298,6 +1298,16 @@ class CardViewSet(viewsets.ModelViewSet):
                     "An unknown group is a 400."
                 ),
             ),
+            OpenApiParameter(
+                name="include_counts",
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Since 1.3. `true` adds `counts`: the card's total per filter group, "
+                    "ignoring `event_types`. Omit it to skip the two aggregate queries."
+                ),
+            ),
         ],
         responses={
             200: inline_serializer(
@@ -1307,6 +1317,13 @@ class CardViewSet(viewsets.ModelViewSet):
                     "next": serializers.CharField(allow_null=True),
                     "previous": serializers.CharField(allow_null=True),
                     "results": CardTimelineEntrySerializer(many=True),
+                    # Additive and optional (#967): present only with
+                    # ?include_counts=true, so clients must treat it as absent.
+                    "counts": inline_serializer(
+                        name="CardTimelineCounts",
+                        fields={g: serializers.IntegerField() for g in _TIMELINE_EVENT_GROUPS},
+                        required=False,
+                    ),
                 },
             ),
             400: OpenApiResponse(
@@ -1327,9 +1344,10 @@ class CardViewSet(viewsets.ModelViewSet):
                        attachment, system. Omit to include all events.
           limit        Page size (default 50, max 200).
           offset       Page offset (default 0).
+          include_counts  "true" adds ``counts`` (per-group totals, #967).
 
         Response shape:
-          { count, next, previous, results: [CardTimelineEntry, ...] }
+          { count, next, previous, results: [CardTimelineEntry, ...], counts? }
 
         Entries are sorted newest-first. Movements and activities are merged at the
         Python level because QuerySet.union() does not preserve per-model fields.
@@ -1524,12 +1542,44 @@ class CardViewSet(viewsets.ModelViewSet):
         previous_url = _page_url(offset - limit) if offset > 0 else None
 
         serializer = CardTimelineEntrySerializer(page, many=True)
-        return Response({
+        body = {
             "count": total_count,
             "next": next_url,
             "previous": previous_url,
             "results": serializer.data,
-        })
+        }
+        if request.query_params.get("include_counts", "").lower() == "true":
+            body["counts"] = self._timeline_group_counts(card, move_count if include_moves else None)
+        return Response(body)
+
+    def _timeline_group_counts(self, card, move_count):
+        """Per-group totals for the card sheet's History filter (#967).
+
+        Independent of ``event_types`` on purpose: a toggled-off group still
+        shows its count, and the History tab label is the sum. Activities
+        whose type is in no group are left out, as the timeline leaves them
+        out, so the sum equals the unfiltered ``count``. ``move_count`` is
+        reused when the page already computed it (moves were included).
+        """
+        group_of = {
+            event_type: group
+            for group, event_types in self._TIMELINE_ACTIVITY_GROUPS.items()
+            for event_type in event_types
+        }
+        counts = dict.fromkeys(self._TIMELINE_EVENT_GROUPS, 0)
+        counts["move"] = (
+            move_count if move_count is not None
+            else CardMovement.objects.filter(card=card).count()
+        )
+        rows = (
+            CardActivity.objects.filter(card=card, event_type__in=group_of)
+            .values("event_type")
+            .annotate(n=Count("id"))
+            .order_by()
+        )
+        for row in rows:
+            counts[group_of[row["event_type"]]] += row["n"]
+        return counts
 
     @extend_schema(
         summary="List comments on a card",

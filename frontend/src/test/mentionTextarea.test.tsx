@@ -209,14 +209,19 @@ describe('MentionTextarea re-measure on same-length list (#2092)', () => {
   })
 })
 
+function ControlledMention() {
+  const [v, setV] = useState('')
+  return <MentionTextarea value={v} onChange={setV} members={members} />
+}
+
 describe('MentionTextarea placement hardening (#2092)', () => {
   const R = (top: number, bottom: number, left = 20) =>
     ({ top, bottom, left, right: left + 300, width: 300, height: bottom - top, x: left, y: top, toJSON: () => ({}) }) as DOMRect
 
-  async function open(rect: DOMRect, height: number, wrap?: (c: React.ReactNode) => React.ReactNode) {
+  async function open(rect: DOMRect, height: number, wrap?: (c: React.ReactNode) => React.ReactNode, controlled = false) {
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
     const user = userEvent.setup()
-    const ui = <MentionTextarea value="" onChange={vi.fn()} members={members} />
+    const ui = controlled ? <ControlledMention /> : <MentionTextarea value="" onChange={vi.fn()} members={members} />
     render(<>{wrap ? wrap(ui) : ui}</>)
     const ta = screen.getByRole('combobox')
     vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect)
@@ -277,6 +282,45 @@ describe('MentionTextarea placement hardening (#2092)', () => {
     vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(R(150, 190, 300))
     await waitFor(() => expect(list.style.top).toBe('194px'))
     expect(list.style.left).toBe('300px')
+  })
+
+  it('a capped list keeps its scroll position: its own scroll does not re-place it, and a re-place restores it (#967)', async () => {
+    // Textarea 301-355 in a 480px viewport: a 314px list is capped to 289px above and must scroll.
+    const { list } = await open(R(301, 355), 314)
+    window.dispatchEvent(new Event('resize'))
+    expect(parseFloat(list.style.maxHeight)).toBe(289)
+    // Browser model: laying the list out without its cap (to measure the natural height) clamps scrollTop to 0.
+    let st = 0
+    Object.defineProperty(list, 'scrollTop', { configurable: true, get: () => st, set: (v: number) => { st = v } })
+    const measure = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this !== list) return 0
+      if (!this.style.maxHeight) { st = 0; return 314 }
+      return Math.min(314, parseFloat(this.style.maxHeight))
+    })
+    list.scrollTop = 25
+    const before = measure.mock.calls.length
+    fireEvent.scroll(list) // ArrowDown's scrollIntoView, or the wheel
+    expect(measure.mock.calls.length).toBe(before) // not re-placed
+    expect(list.scrollTop).toBe(25)
+    window.dispatchEvent(new Event('scroll')) // an outside scroll still re-places...
+    expect(measure.mock.calls.length).toBeGreaterThan(before)
+    expect(parseFloat(list.style.maxHeight)).toBe(289)
+    expect(list.scrollTop).toBe(25) // ...without snapping the list back to its first option
+  })
+
+  it('a changed query resets the list to its first option instead of restoring the old scroll (#967)', async () => {
+    const { list, user } = await open(R(301, 355), 314, undefined, true)
+    window.dispatchEvent(new Event('resize'))
+    let st = 0
+    Object.defineProperty(list, 'scrollTop', { configurable: true, get: () => st, set: (v: number) => { st = v } })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this !== list) return 0
+      if (!this.style.maxHeight) { st = 0; return 314 }
+      return Math.min(314, parseFloat(this.style.maxHeight))
+    })
+    list.scrollTop = 25
+    await user.keyboard('j') // narrows the list: a new suggestionKey
+    expect(list.scrollTop).toBe(0)
   })
 
   it('clamps the list inside the viewport horizontally', async () => {

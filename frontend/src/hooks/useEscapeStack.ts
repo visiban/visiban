@@ -36,9 +36,8 @@ function dispatch(e: KeyboardEvent): void {
  * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
  *   61 — focused toast in the shared toast region (ToastProvider, #2060); false unless focus is inside it
  *   60 — command palette
- *   59.5 — custom color popover (ColorSwatchPicker, #2095); between the Activity filter's 59 and the palette's 60
- *   59 — shared: card context menu, menu and submenu in one entry (CardContextMenu, #2059), and the
- *        card-panel Activity filter menu (ActivityFilterDropdown, #1482); never open together
+ *   59.5 — custom color popover (ColorSwatchPicker, #2095); between the card context menu's 59 and the palette's 60
+ *   59 — card context menu, menu and submenu in one entry (CardContextMenu, #2059)
  *   58 — Board Settings member search (BoardSettingsModal, #2036)
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)

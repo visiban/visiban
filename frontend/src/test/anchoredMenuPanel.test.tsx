@@ -4,9 +4,7 @@ import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CheckboxDropdown from "../components/Common/CheckboxDropdown";
-import ActivityFilterDropdown from "../components/Card/ActivityFilterDropdown";
 import SavedFiltersDropdown from "../components/Board/SavedFiltersDropdown";
-import { useEscapeStack } from "../hooks/useEscapeStack";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { stubVisualViewport, clearVisualViewport } from "./visualViewportStub"
 
@@ -176,44 +174,6 @@ describe("AnchoredMenuPanel inputAnchored (#2163)", () => {
     render(<Panel />);
     expect(panel().style.top).toBe("60px");
     expect(panel().style.maxHeight).toBe(`${window.innerHeight - 16}px`);
-  });
-});
-
-describe("ActivityFilterDropdown menu (#1482)", () => {
-  it("stays in the trigger's DOM subtree (inside the card sheet's focus trap) but fixed", async () => {
-    render(
-      <ScrollRegion>
-        <ActivityFilterDropdown label="Filter" options={[{ value: "a", label: "A" }]} selected={[]} onChange={() => {}} />
-      </ScrollRegion>,
-    );
-    await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
-    const menu = screen.getByRole("group", { name: "Filter" });
-    expect(menu.style.position).toBe("fixed");
-    expect(screen.getByTestId("region").contains(menu)).toBe(true);
-  });
-
-  it("Escape closes the menu without reaching the card panel's close handler (priority 30)", async () => {
-    const closePanel = vi.fn();
-    function Host() {
-      useEscapeStack(() => { closePanel() }, 30);
-      return <ActivityFilterDropdown label="Filter" options={[{ value: "a", label: "A" }]} selected={[]} onChange={() => {}} />;
-    }
-    render(<Host />);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /filter/i }));
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "Filter" })).not.toBeInTheDocument();
-    expect(closePanel).not.toHaveBeenCalled();
-    await user.keyboard("{Escape}");
-    expect(closePanel).toHaveBeenCalledTimes(1);
-  });
-
-  it("dismisses on an outside scroll and focuses the All checkbox once placed", async () => {
-    render(<ActivityFilterDropdown label="Filter" options={[{ value: "a", label: "A" }]} selected={[]} onChange={() => {}} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
-    expect(screen.getByRole("checkbox", { name: /select all event types/i })).toHaveFocus();
-    fireEvent.scroll(document.body);
-    expect(screen.queryByRole("group", { name: "Filter" })).not.toBeInTheDocument();
   });
 });
 

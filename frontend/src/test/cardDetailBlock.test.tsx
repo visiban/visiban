@@ -11,6 +11,7 @@ vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
+  getCardTimeline: vi.fn().mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
   addCardComment: vi.fn(),
   deleteComment: vi.fn(),
   updateCard: vi.fn(),
@@ -73,6 +74,9 @@ vi.mock('../components/Card/RichTextEditor', () => ({
 
 import { blockCard, unblockCard } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
+import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+// #967: the card tab is session memory at module level; start every test on Details.
+beforeEach(() => rememberCardDetailTab('details'))
 
 const mockBlockCard = blockCard as ReturnType<typeof vi.fn>
 const mockUnblockCard = unblockCard as ReturnType<typeof vi.fn>
@@ -224,7 +228,7 @@ describe('CardDetail — manual block (#1149)', () => {
 
   it('Block… switches to the Details tab', () => {
     render(<CardDetail {...props()} />)
-    fireEvent.click(screen.getByRole('tab', { name: /activity/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /history/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Block…' }))
     expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('card-block-form')).toBeInTheDocument()

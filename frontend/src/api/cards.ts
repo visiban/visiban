@@ -212,20 +212,29 @@ export async function searchAllCards(
   return { cards, truncated: true, total: Math.max(total, cards.length) };
 }
 
+/** The timeline's `event_types` filter groups (`views/cards.py` `_TIMELINE_EVENT_GROUPS`). */
+export type TimelineEventGroup = "move" | "comment" | "field" | "checklist" | "attachment" | "system";
+
+/** Per-group totals, independent of `event_types`; their sum is the unfiltered `count` (#967). */
+export type TimelineCounts = Record<TimelineEventGroup, number>;
+
 export interface TimelinePage {
   count: number;
   next: string | null;
   previous: string | null;
   results: CardTimelineEntry[];
+  /** Since 1.3 (#967). Present only when the request sent `include_counts: true`. */
+  counts?: TimelineCounts;
 }
 
 export const getCardTimeline = (
   boardId: number,
   cardId: number,
-  params?: { limit?: number; offset?: number; event_types?: string }
+  params?: { limit?: number; offset?: number; event_types?: string; include_counts?: boolean },
+  signal?: AbortSignal
 ): Promise<TimelinePage> =>
   client
-    .get<TimelinePage>(`/api/v1/boards/${boardId}/cards/${cardId}/timeline/`, { params })
+    .get<TimelinePage>(`/api/v1/boards/${boardId}/cards/${cardId}/timeline/`, { params, signal })
     .then((r) => r.data);
 
 export interface CardStatus {

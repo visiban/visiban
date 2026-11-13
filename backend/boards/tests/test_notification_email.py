@@ -34,6 +34,7 @@ from boards.models import (
     Swimlane,
 )
 from boards.notifications_email import (
+    card_link,
     deliver_notification_emails,
     suppress_notification_email,
 )
@@ -142,6 +143,39 @@ class SignalExtensionPointTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(create_notifications([]), [])
         self.assertEqual(self.received, [])
+
+
+class CardLinkTabTests(TestCase):
+    """#967: no notification link names a tab (mention links included, until #2203).
+
+    ``card_link`` only builds a URL (no delivery), so this needs no
+    NOTIFICATION_EMAIL_ASYNC override and no signal receiver.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="link_owner", password="pass")
+        self.recipient = User.objects.create_user(username="link_recipient", password="pass")
+        self.board, self.col_a, _, self.swim = make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Link card", created_by=self.owner, position=0,
+        )
+
+    def _notification(self, action_type):
+        return Notification(
+            recipient=self.recipient, actor=self.owner, action_type=action_type,
+            verb="Link card", card=self.card, board=self.board,
+        )
+
+    def test_mention_link_has_no_tab(self):
+        link = card_link(self._notification(Notification.ActionType.MENTIONED))
+        self.assertTrue(link.endswith(f"/boards/{self.board.pk}?card={self.card.pk}"))
+        self.assertNotIn("tab=", link)
+
+    def test_other_links_have_no_tab(self):
+        for action_type in (Notification.ActionType.ASSIGNED, Notification.ActionType.CARD_MOVED):
+            link = card_link(self._notification(action_type))
+            self.assertNotIn("tab=", link, action_type)
 
 
 @override_settings(NOTIFICATION_EMAIL_ASYNC=False)

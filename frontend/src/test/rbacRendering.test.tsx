@@ -17,6 +17,7 @@ vi.mock('../api/cards', () => ({
   unblockCard: vi.fn(),
   getCardBlocks: vi.fn().mockResolvedValue([]),
   getCardComments: vi.fn().mockResolvedValue([]),
+  getCardTimeline: vi.fn().mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
   addCardComment: vi.fn(),
   updateCard: vi.fn(),
   deleteCard: vi.fn(),
@@ -32,6 +33,9 @@ vi.mock('../api/cards', () => ({
 
 import { getBoardAnalytics } from '../api/boards'
 import AnalyticsView from '../components/Board/AnalyticsView'
+import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+// #967: the card tab is session memory at module level; start every test on Details.
+beforeEach(() => rememberCardDetailTab('details'))
 
 const mockGetBoardAnalytics = vi.mocked(getBoardAnalytics)
 

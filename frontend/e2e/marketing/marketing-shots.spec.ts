@@ -235,8 +235,8 @@ test.describe('Marketing snapshots', () => {
   test('03 — Card detail with activity', async ({ page }) => {
     // ?card=<id> is the notification deep link: BoardView opens the drawer for it.
     await page.goto(`/boards/${BOARD_ID}?card=${DETAIL_CARD.id}`)
-    await expect(page.getByRole('tab', { name: /activity/i })).toBeVisible({ timeout: 15_000 })
-    await page.getByRole('tab', { name: /activity/i }).click()
+    await expect(page.getByRole('tab', { name: /^history/i })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('tab', { name: /^history/i }).click()
     await expect(page.getByText('Created in Intake')).toBeVisible({ timeout: 10_000 })
     await shoot(page, '03-card-detail')
   })

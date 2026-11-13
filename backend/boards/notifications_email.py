@@ -146,7 +146,9 @@ def card_link(notification):
     Mirrors the deep link the in-app notification dropdown builds
     (``Navbar.tsx``): ``/boards/<id>?card=<id>``, which ``BoardView`` reads and
     uses to open the card detail panel. Keeping the two identical means an email
-    and the bell take the reader to the same place.
+    and the bell take the reader to the same place. No link names a tab: a
+    description mention and a comment mention create identical notifications,
+    so mention links stay on the default tab until #2203 records the mention source.
     """
     base = _frontend_url()
     if notification.board_id is None:

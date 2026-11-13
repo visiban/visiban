@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, act, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { getRememberedCardDetailTab, rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import BoardView from '../components/Board/BoardView'
 import { ToastProvider } from '../contexts/ToastContext'
 import CustomFieldQuickEditPopover from '../components/Card/CustomFieldQuickEditPopover'
@@ -14,6 +15,7 @@ import * as dndCore from '@dnd-kit/core'
 // Controllable search params — initial params can be set before render; the stateful mock
 // updates them on setSearchParams calls so the component re-renders with the new params.
 let mockSearchParams = new URLSearchParams()
+let mockLiveSetParams: ((p: URLSearchParams) => void) | undefined
 // Spy on setSearchParams calls so tests can assert the arguments passed (e.g. replace:true).
 const mockSetSearchParams = vi.fn()
 
@@ -68,6 +70,7 @@ vi.mock('react-router-dom', () => ({
           : new URLSearchParams(next as Record<string, string>)
       setParams(new URLSearchParams(resolved))
     }
+    mockLiveSetParams = (p) => setter(p)
     return [params, setter] as const
   },
   useNavigate: () => vi.fn(),
@@ -141,7 +144,7 @@ vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, compact, overlay, inDoneColumn }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean }) => <div data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
+  default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
 }))
 vi.mock('../components/Board/AddColumnModal', () => ({
   default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => (
@@ -1213,6 +1216,48 @@ describe('BoardView', () => {
     expect(screen.getByTestId('card-detail')).toBeInTheDocument()
     expect(screen.getByText('Deep Link Card')).toBeInTheDocument()
     expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  describe('?card=&tab= deep link (#967)', () => {
+    const deepCard = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Deep Link Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+    beforeEach(() => rememberCardDetailTab('details'))
+
+    it('a known tab overrides the remembered card tab and is removed from the URL', () => {
+      mockSearchParams = new URLSearchParams('card=1&tab=comments')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+      expect(getRememberedCardDetailTab()).toBe('comments')
+      const next = mockSetSearchParams.mock.calls.map(([arg]) => (typeof arg === 'function' ? arg(new URLSearchParams('card=1&tab=comments')) : arg)).pop() as URLSearchParams
+      expect(next.has('tab')).toBe(false)
+      expect(next.has('card')).toBe(false)
+    })
+
+    it('a deep link for the already-open card hands CardDetail a new tab request', () => {
+      mockSearchParams = new URLSearchParams('card=1&tab=comments')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('card-detail')).toHaveAttribute('data-tab-request', 'comments:1')
+      act(() => { mockLiveSetParams?.(new URLSearchParams('card=1&tab=history')) })
+      expect(screen.getByTestId('card-detail')).toHaveAttribute('data-tab-request', 'history:2')
+    })
+
+    it('an unknown tab keeps the remembered card tab', () => {
+      rememberCardDetailTab('history')
+      mockSearchParams = new URLSearchParams('card=1&tab=bogus')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(getRememberedCardDetailTab()).toBe('history')
+    })
   })
 
   it('?card= param shows "Card not found" toast when card is deleted', async () => {

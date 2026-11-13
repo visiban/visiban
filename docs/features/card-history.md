@@ -2,7 +2,7 @@
 
 <a id="card-history"></a>
 
-Open a card's **Activity** tab to see every movement and field change, newest first.
+Open a card's **History** tab to see every movement and field change, newest first. (Before 1.3 this tab was called **Activity**.)
 
 **Why it matters:** You can see who moved a card and when. It is the record incident retros and audits need.
 
@@ -12,13 +12,29 @@ Open a card's **Activity** tab to see every movement and field change, newest fi
 
 ## Viewing history
 
-Open a card and click **Activity** in its detail panel. The timeline lists movements and field changes in reverse chronological order. Each entry shows:
+Open a card and click **History** in its detail panel. The timeline lists movements and field changes in reverse chronological order. Each entry shows:
 
 - what changed (from → to)
 - who made the change
 - when it happened (relative time, for example "3 days ago")
 
 Movement entries keep the full column and swimlane names even after those are renamed or deleted. A deleted column's name shows in italic red with a **Deleted —** prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.
+
+### Tabs, counts and the last-activity line
+
+*Since 1.3 (#967).* The card detail panel has three tabs: **Details**, **Comments** and **History**. **Comments** and **History** show how many entries they hold, for example "Comments 4" and "History 23". While a count is still loading, the tab shows its name only, never a 0.
+
+The panel opens on the tab you chose last. That choice lasts until you reload the page, and moving between cards keeps it, so you can step through cards on the History tab. A link that names a tab, such as `?card=42&tab=comments`, opens that tab instead.
+
+The **Details** tab ends with a **Last activity** line, for example "Last activity: Jordan moved to Review · 2h ago". Click it to open **History** at the newest entry.
+
+You can also move between tabs from the keyboard: with a tab focused, the Left and Right arrows move to the previous or next tab, and Home and End go to the first and last one.
+
+### Filter by event type
+
+*Since 1.3 (#967).* Above the timeline, six toggle buttons choose what the timeline shows: **Column moves**, **Comments**, **Field changes**, **Checklist**, **Attachments** and **System events**. Each one shows how many entries of that type the card has. They all start on. Click one to hide that type, and click it again to show it. At least one type always stays shown, so the last button that is on can't be switched off.
+
+This replaces the filter menu and the **Show full history** setting of earlier versions. A **Show full history** choice saved before 1.3 is ignored.
 
 ### Duration between entries
 
@@ -44,7 +60,7 @@ A `CardMovement` record captures every column or swimlane change. Pure position 
 - Optional notes
 - **Movement type** (`movement_type`): one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `unarchived` (card was unarchived from the Archived panel)
 
-`archived` and `unarchived` events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's **Activity** tab.
+`archived` and `unarchived` events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's **History** tab.
 
 ## Activity log
 
@@ -90,7 +106,7 @@ A board created by a [JSON import](board.md#import) with **Card history** includ
 
 - keeps the time the file gives it, so the timeline reads in its original order;
 - is recorded under the user who ran the import (`moved_by` / `actor`);
-- keeps the username the file named as plain text in `imported_from_username`. It is shown next to the importer's name: "by Kelly · imported, originally alice" in the card's **Activity** tab, and "imported, originally alice" under the mover in the board's **History** view. When the file named nobody, the entry just says "imported".
+- keeps the username the file named as plain text in `imported_from_username`. It is shown next to the importer's name: "by Kelly · imported, originally alice" in the card's **History** tab, and "imported, originally alice" under the mover in the board's **History** view. When the file named nobody, the entry just says "imported".
 
 The source name is never matched to an account here: imported entries are shown under the importer's name. Entries recorded on the board after the import have `imported_from_username: null` and show no note. History imported by earlier versions also carries `null`, since the original name was not kept.
 

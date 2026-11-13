@@ -80,7 +80,11 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
       // The link names no subscription; the tab focuses the first Stopped row.
       const url = n.action_type === "webhook_disabled"
         ? `/boards/${n.board_id}?settings=webhooks`
-        : n.card_id ? `/boards/${n.board_id}?card=${n.card_id}` : `/boards/${n.board_id}`;
+        : n.card_id
+          // Mention links carry no tab: a description mention and a comment mention make identical
+          // notifications, so the Comments tab would be wrong for one of them (#2203 records the source).
+          ? `/boards/${n.board_id}?card=${n.card_id}`
+          : `/boards/${n.board_id}`;
       // Fire-and-forget: the declarative router resolves navigate() synchronously,
       // and any failure is handled by its own error boundary.
       void navigate(url);
