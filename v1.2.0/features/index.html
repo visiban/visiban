@@ -4242,7 +4242,7 @@
 <li><strong>Blocked state</strong> <em>(1.3+)</em> — block a card with a reason; the card shows how long it has been blocked, and Analytics sums blocked time per column and by reason</li>
 <li><strong>Pull / merge request</strong> — link a GitHub or GitLab PR/MR to the card</li>
 <li><strong>Comments</strong> — threaded discussion visible to collaborators and above</li>
-<li><strong>Activity tab</strong> — full movement timeline and activity log</li>
+<li><strong>Details · Comments · History tabs</strong> <em>(1.3+)</em> — the History tab holds the full movement timeline and activity log, filtered by event type; Details ends with a last-activity line</li>
 </ul>
 <p>→ <a href="card-history/">Card History</a> · <a href="card-descriptions/">Card Descriptions</a> · <a href="card-relations/">Card Relations</a> · <a href="blocked-cards/">Blocked Cards</a> · <a href="card-links/">Pull &amp; Merge Request Links</a></p>
 <hr />
@@ -4502,7 +4502,7 @@
 <hr />
 <h2 id="url-addressable-board-tabs-and-card-history-preference">URL-addressable board tabs and card history preference<a class="headerlink" href="#url-addressable-board-tabs-and-card-history-preference" title="Permanent link">&para;</a></h2>
 <p>The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a <code>?view=</code> search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.</p>
-<p>Within the card detail Activity tab, the <strong>Show full history</strong> toggle now persists across card opens, page refreshes, and sessions via <code>localStorage</code>. Users who prefer the expanded view no longer need to re-enable it each time.</p>
+<p>Within the card detail Activity tab (now <strong>History</strong>), the <strong>Show full history</strong> toggle now persists across card opens, page refreshes, and sessions via <code>localStorage</code>. Users who prefer the expanded view no longer need to re-enable it each time. <em>(Removed in 1.3: the History tab's event-type filter replaces the toggle, and the stored choice is ignored.)</em></p>
 <p>→ <a href="board/">Board &amp; Cards</a> · <a href="card-history/">Card History</a></p>
 <hr />
 <h2 id="analytics-heatmap-absolute-threshold-coloring">Analytics heatmap — absolute threshold coloring<a class="headerlink" href="#analytics-heatmap-absolute-threshold-coloring" title="Permanent link">&para;</a></h2>

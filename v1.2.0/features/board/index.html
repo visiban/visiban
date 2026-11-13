@@ -5914,12 +5914,12 @@
 <li><kbd>Esc</kbd> closes an open filter menu first, then the detail panel (focus returns to its row), and only then leaves the History view for the board.</li>
 </ul>
 <h4 id="archive-and-restore-events">Archive and restore events<a class="headerlink" href="#archive-and-restore-events" title="Permanent link">&para;</a></h4>
-<p>Archive and restore events <strong>are included</strong> in the board History view by default, alongside column-to-column moves. The API supports narrowing this with <code>exclude_type=archived,unarchived</code>, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's <strong>Activity</strong> tab, if you want moves only.</p>
+<p>Archive and restore events <strong>are included</strong> in the board History view by default, alongside column-to-column moves. The API supports narrowing this with <code>exclude_type=archived,unarchived</code>, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's <strong>History</strong> tab, if you want moves only.</p>
 <h2 id="export-import">Export &amp; import<a class="headerlink" href="#export-import" title="Permanent link">&para;</a></h2>
 <h3 id="export">Export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Export</strong> in the board toolbar to download the board data:</p>
 <ul>
-<li><strong>JSON</strong> (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (Activity tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.</li>
+<li><strong>JSON</strong> (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.</li>
 <li><strong>CSV</strong> — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.</li>
 </ul>
 <blockquote>
@@ -5939,9 +5939,9 @@
 <p><strong>JSON import</strong> restores full card history:</p>
 <ul>
 <li>Assignee (matched by username; cards whose assignee username is not found in this instance are imported unassigned)</li>
-<li>Movement history — every column transition appears in the card's <strong>Activity</strong> tab</li>
+<li>Movement history — every column transition appears in the card's <strong>History</strong> tab</li>
 <li>Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed</li>
-<li>Imported history keeps its original times and is recorded under your name, the person who ran the import. The username the file gave for each movement and activity entry is kept as text, and the card's <strong>Activity</strong> tab and the board's <strong>History</strong> view show it next to your name, for example "by Kelly · imported, originally alice" — so imported entries can always be told apart from history recorded on this board. The name is not matched to an account on this instance. See <a href="../card-history/#imported-history">Imported history</a>.</li>
+<li>Imported history keeps its original times and is recorded under your name, the person who ran the import. The username the file gave for each movement and activity entry is kept as text, and the card's <strong>History</strong> tab and the board's <strong>History</strong> view show it next to your name, for example "by Kelly · imported, originally alice" — so imported entries can always be told apart from history recorded on this board. The name is not matched to an account on this instance. See <a href="../card-history/#imported-history">Imported history</a>.</li>
 <li>Card creation date (since 1.2, #1906) — each card keeps the <code>created_at</code> from the file, so it is dated before its own history. If the file has none, or the date is in the future or later than the card's first movement, activity, or comment, the card is dated to the import instead. Files without the field import as before.</li>
 <li>Comments — posted under your name with their original times. Since 1.2 the comment's <code>author</code> from the file is kept as text the same way and shown after the time in the card's comment list ("imported, originally alice").</li>
 <li>Custom fields (since 1.2) — the board's card and swimlane custom field definitions, with their number formatting and choice colors, and every card's and swimlane's values. A value the field's type would refuse is skipped; the rest of the import goes ahead</li>
@@ -6079,7 +6079,7 @@
 <li><strong>Kind</strong>: <em>All</em>, <em>Moves</em> (includes creations), <em>Members</em></li>
 <li><strong>Window</strong>: <em>1h</em>, <em>24h</em>, <em>7d</em>. It defaults to <strong>24h</strong> so the drawer stays focused on today's activity rather than all history. Widen to <strong>7d</strong> to scan back through the week, or narrow to <strong>1h</strong> for what's happened in the last hour.</li>
 </ul>
-<p>The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click <strong>Open full history →</strong> at the bottom of the drawer (also reachable from any card's <strong>Activity</strong> tab — see <a href="../card-history/">Card History</a>).</p>
+<p>The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click <strong>Open full history →</strong> at the bottom of the drawer (also reachable from any card's <strong>History</strong> tab — see <a href="../card-history/">Card History</a>).</p>
 <h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>

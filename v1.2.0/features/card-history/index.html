@@ -1354,6 +1354,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tabs-counts-and-the-last-activity-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tabs, counts and the last-activity line
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filter-by-event-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter by event type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#duration-between-entries" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4345,18 +4367,26 @@
 
 <h1 id="see-who-moved-a-card-and-when">See who moved a card, and when<a class="headerlink" href="#see-who-moved-a-card-and-when" title="Permanent link">&para;</a></h1>
 <p><a id="card-history"></a></p>
-<p>Open a card's <strong>Activity</strong> tab to see every movement and field change, newest first.</p>
+<p>Open a card's <strong>History</strong> tab to see every movement and field change, newest first. (Before 1.3 this tab was called <strong>Activity</strong>.)</p>
 <p><strong>Why it matters:</strong> You can see who moved a card and when. It is the record incident retros and audits need.</p>
 <p><strong>The big picture:</strong> every card keeps a full audit trail of movements and field changes. Movement records are append-only, and deleting a card keeps them.</p>
 <p><strong>Go deeper:</strong> the board-level <strong>History</strong> tab shows movements across every card; see <a href="#board-level-movement-history">Board-level movement history</a>.</p>
 <h2 id="viewing-history">Viewing history<a class="headerlink" href="#viewing-history" title="Permanent link">&para;</a></h2>
-<p>Open a card and click <strong>Activity</strong> in its detail panel. The timeline lists movements and field changes in reverse chronological order. Each entry shows:</p>
+<p>Open a card and click <strong>History</strong> in its detail panel. The timeline lists movements and field changes in reverse chronological order. Each entry shows:</p>
 <ul>
 <li>what changed (from → to)</li>
 <li>who made the change</li>
 <li>when it happened (relative time, for example "3 days ago")</li>
 </ul>
 <p>Movement entries keep the full column and swimlane names even after those are renamed or deleted. A deleted column's name shows in italic red with a <strong>Deleted —</strong> prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.</p>
+<h3 id="tabs-counts-and-the-last-activity-line">Tabs, counts and the last-activity line<a class="headerlink" href="#tabs-counts-and-the-last-activity-line" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3 (#967).</em> The card detail panel has three tabs: <strong>Details</strong>, <strong>Comments</strong> and <strong>History</strong>. <strong>Comments</strong> and <strong>History</strong> show how many entries they hold, for example "Comments 4" and "History 23". While a count is still loading, the tab shows its name only, never a 0.</p>
+<p>The panel opens on the tab you chose last. That choice lasts until you reload the page, and moving between cards keeps it, so you can step through cards on the History tab. A link that names a tab, such as <code>?card=42&amp;tab=comments</code>, opens that tab instead.</p>
+<p>The <strong>Details</strong> tab ends with a <strong>Last activity</strong> line, for example "Last activity: Jordan moved to Review · 2h ago". Click it to open <strong>History</strong> at the newest entry.</p>
+<p>You can also move between tabs from the keyboard: with a tab focused, the Left and Right arrows move to the previous or next tab, and Home and End go to the first and last one.</p>
+<h3 id="filter-by-event-type">Filter by event type<a class="headerlink" href="#filter-by-event-type" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3 (#967).</em> Above the timeline, six toggle buttons choose what the timeline shows: <strong>Column moves</strong>, <strong>Comments</strong>, <strong>Field changes</strong>, <strong>Checklist</strong>, <strong>Attachments</strong> and <strong>System events</strong>. Each one shows how many entries of that type the card has. They all start on. Click one to hide that type, and click it again to show it. At least one type always stays shown, so the last button that is on can't be switched off.</p>
+<p>This replaces the filter menu and the <strong>Show full history</strong> setting of earlier versions. A <strong>Show full history</strong> choice saved before 1.3 is ignored.</p>
 <h3 id="duration-between-entries">Duration between entries<a class="headerlink" href="#duration-between-entries" title="Permanent link">&para;</a></h3>
 <p>Each movement entry shows how long the card stayed in that column before the next move, such as "Spent 3h here" or "Spent 2d here", on the right. Durations come from the gap between consecutive movement timestamps, in the most readable unit (minutes, hours, or days). The last entry has no duration, because the card is still there.</p>
 <h3 id="checklist-event-grouping">Checklist event grouping<a class="headerlink" href="#checklist-event-grouping" title="Permanent link">&para;</a></h3>
@@ -4375,7 +4405,7 @@
 <li>Optional notes</li>
 <li><strong>Movement type</strong> (<code>movement_type</code>): one of <code>move</code> (standard drag-and-drop or API move), <code>archived</code> (card was archived), or <code>unarchived</code> (card was unarchived from the Archived panel)</li>
 </ul>
-<p><code>archived</code> and <code>unarchived</code> events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's <strong>Activity</strong> tab.</p>
+<p><code>archived</code> and <code>unarchived</code> events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's <strong>History</strong> tab.</p>
 <h2 id="activity-log">Activity log<a class="headerlink" href="#activity-log" title="Permanent link">&para;</a></h2>
 <p>The activity log also tracks field changes:</p>
 <table>
@@ -4454,7 +4484,7 @@
 <ul>
 <li>keeps the time the file gives it, so the timeline reads in its original order;</li>
 <li>is recorded under the user who ran the import (<code>moved_by</code> / <code>actor</code>);</li>
-<li>keeps the username the file named as plain text in <code>imported_from_username</code>. It is shown next to the importer's name: "by Kelly · imported, originally alice" in the card's <strong>Activity</strong> tab, and "imported, originally alice" under the mover in the board's <strong>History</strong> view. When the file named nobody, the entry just says "imported".</li>
+<li>keeps the username the file named as plain text in <code>imported_from_username</code>. It is shown next to the importer's name: "by Kelly · imported, originally alice" in the card's <strong>History</strong> tab, and "imported, originally alice" under the mover in the board's <strong>History</strong> view. When the file named nobody, the entry just says "imported".</li>
 </ul>
 <p>The source name is never matched to an account here: imported entries are shown under the importer's name. Entries recorded on the board after the import have <code>imported_from_username: null</code> and show no note. History imported by earlier versions also carries <code>null</code>, since the original name was not kept.</p>
 <p>Imported comments work the same way (since 1.2, #1702): a comment created by a JSON or <a href="../trello-import/#comment-authors">Trello import</a> is posted under the importer, keeps its original time, and keeps the source's author name in <code>imported_from_username</code>, shown after the time in the card's comment list ("imported, originally alice"). Comments posted on the board carry <code>null</code>.</p>
