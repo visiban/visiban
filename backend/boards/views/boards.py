@@ -1336,7 +1336,9 @@ class BoardViewSet(
         # The owner's row may not be written below admin (#1828). A request
         # that names no role on an existing row keeps the stored role, so it
         # is not a demotion and passes. ``Board.owner`` is not writable through
-        # the API, so this pre-lock read cannot go stale under the lock below.
+        # the REST API, so this pre-lock read goes stale only if a superuser changes
+        # the owner in the Django admin meanwhile; that race is accepted (worst case:
+        # the former owner's demotion is not refused).
         if (
             target_user.pk == board.owner_id
             and member_role != BoardMembership.Role.ADMIN
