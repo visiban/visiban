@@ -5428,7 +5428,7 @@
 <tr>
 <td><code>checklist_items</code></td>
 <td>array</td>
-<td><code>{id, text, is_checked, position}</code> objects.</td>
+<td><code>{id, text, is_checked, position, created_by, assignee, due_date}</code> objects (<code>assignee</code> is a nested user or <code>null</code>; <code>due_date</code> is <code>YYYY-MM-DD</code> or <code>null</code>; the three fields after <code>position</code> since 1.3).</td>
 </tr>
 <tr>
 <td><code>activities</code></td>

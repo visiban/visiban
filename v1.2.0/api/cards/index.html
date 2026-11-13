@@ -5179,6 +5179,20 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>Number of checked checklist items</td>
 </tr>
 <tr>
+<td><code>checklist_open_due_dates</code></td>
+<td>array of strings</td>
+<td>yes</td>
+<td>no</td>
+<td>Since 1.3 (#445). Sorted <code>YYYY-MM-DD</code> due dates of the unchecked checklist items that have one. Not on the anonymous share-link payload.</td>
+</tr>
+<tr>
+<td><code>checklist_open_assignee_ids</code></td>
+<td>array of integers</td>
+<td>yes</td>
+<td>no</td>
+<td>Since 1.3 (#445). One user id per unchecked checklist item that has an assignee (a user repeats once per item). Not on the anonymous share-link payload.</td>
+</tr>
+<tr>
 <td><code>is_stale</code></td>
 <td>boolean</td>
 <td>yes</td>
@@ -5266,23 +5280,25 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">  </span><span class="nt">"attachment_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
 <a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">  </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
 <a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">  </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">  </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">  </span><span class="nt">"archived_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">  </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raid10"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"4"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">  </span><span class="nt">"external_ref"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">    </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gitlab"</span><span class="p">,</span>
-<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="w">    </span><span class="nt">"ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme/webapp!45"</span><span class="p">,</span>
-<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="w">    </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://gitlab.com/acme/webapp/-/merge_requests/45"</span>
-<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="w">  </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="w">  </span><span class="nt">"is_blocked"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="w">  </span><span class="nt">"blocked_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="w">  </span><span class="nt">"blocked_reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="p">}</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">  </span><span class="nt">"checklist_open_due_dates"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"2026-04-02"</span><span class="p">],</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">  </span><span class="nt">"checklist_open_assignee_ids"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">  </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">  </span><span class="nt">"archived_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">  </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raid10"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"4"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="w">  </span><span class="nt">"external_ref"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="w">    </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gitlab"</span><span class="p">,</span>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="w">    </span><span class="nt">"ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme/webapp!45"</span><span class="p">,</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="w">    </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://gitlab.com/acme/webapp/-/merge_requests/45"</span>
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="w">  </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="w">  </span><span class="nt">"is_blocked"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="w">  </span><span class="nt">"blocked_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a><span class="w">  </span><span class="nt">"blocked_reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="patch-apiv1boardsboard_idcardsid"><code>PATCH /api/v1/boards/{board_id}/cards/{id}/</code><a class="headerlink" href="#patch-apiv1boardsboard_idcardsid" title="Permanent link">&para;</a></h3>
 <p>Update card fields. Requires member or above. Returns <code>404 Not Found</code> if the card was deleted concurrently; nothing is saved. A PATCH/PUT racing an archive or move is evaluated against the card's state when written, not when the request began: it returns <code>404 Not Found</code> if the card was archived concurrently (as for any archived card), and a concurrent move is kept. Only the submitted fields change, and echoing the pre-move <code>column</code>/<code>swimlane</code>/<code>position</code> is rejected with <code>use_move_endpoint</code> (see below).</p>
@@ -6348,6 +6364,24 @@ and the blocked card's <code>blocker_count</code>, change together. Each event c
 complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <hr />
 <h2 id="checklist">Checklist<a class="headerlink" href="#checklist" title="Permanent link">&para;</a></h2>
+<div class="admonition info">
+<p class="admonition-title">New in 1.3 (#445)</p>
+<p>Checklist items carry an optional <code>assignee</code> and <code>due_date</code>. Responses add
+<code>assignee</code> (a nested user object, or <code>null</code>) and <code>due_date</code> (<code>YYYY-MM-DD</code>, or
+<code>null</code>). Write the assignee with <code>assignee_id</code> (a user id, or <code>null</code> to
+unassign) on <code>POST</code> and <code>PATCH</code>; it must be an assignable member of the board
+(admin, member or collaborator; never a viewer), otherwise the request answers
+<code>400</code>. Assigning and dating are edits, so the creator-only rule below applies:
+a collaborator or member may change them only on items they created.
+An assignee who later leaves the board stays assigned, as on cards.
+Each change records a History event: <code>checklist_item_assigned</code> (from/to are
+usernames, blank for none) and <code>checklist_item_due_changed</code> (from/to are ISO
+dates), both in the timeline's <code>checklist</code> group. Cards add two read-only
+fields for the card-face suffix: <code>checklist_open_due_dates</code> (sorted due dates
+of unchecked items) and <code>checklist_open_assignee_ids</code> (one entry per unchecked
+assigned item). The public share link omits both. A checklist due date never
+affects the card's own due date, urgency or staleness.</p>
+</div>
 <h3 id="get-apiv1boardsboard_idcardsidchecklist"><code>GET /api/v1/boards/{board_id}/cards/{id}/checklist/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidchecklist" title="Permanent link">&para;</a></h3>
 <p>List checklist items.</p>
 <h3 id="post-apiv1boardsboard_idcardsidchecklist"><code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchecklist" title="Permanent link">&para;</a></h3>
@@ -6398,6 +6432,21 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <td>Sort order within the checklist (0-based); update via <code>reorder/</code> only — a <code>PATCH</code> that changes <code>position</code> returns <code>400 Bad Request</code> (since 1.2, #1292). Echoing the current value back is accepted.</td>
 </tr>
 <tr>
+<td><code>assignee</code></td>
+<td>object / null</td>
+<td>Since 1.3 (#445). The assigned user, <code>{ id, username, display_name, avatar_url }</code>, or <code>null</code>.</td>
+</tr>
+<tr>
+<td><code>assignee_id</code></td>
+<td>integer / null</td>
+<td>Since 1.3 (#445). Write-only. User id to assign, or <code>null</code> to unassign; must be an assignable board member (never a viewer), otherwise <code>400</code>.</td>
+</tr>
+<tr>
+<td><code>due_date</code></td>
+<td>string / null</td>
+<td>Since 1.3 (#445). <code>YYYY-MM-DD</code>, or <code>null</code>.</td>
+</tr>
+<tr>
 <td><code>created_by</code></td>
 <td>object / null</td>
 <td>User who added the item — <code>{ id, username, display_name, avatar_url }</code>. <code>null</code> for items created before this field was added (migration 0044) and for items whose creator's account was deleted. Only admins and moderators can edit or delete <code>null</code>-creator items.</td>
@@ -6410,8 +6459,10 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">  </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span>
 <a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">  </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="p">}</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="w">  </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bob Jones"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="w">  </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-02"</span><span class="p">,</span>
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="p">}</span>
 </code></pre></div>
 
 

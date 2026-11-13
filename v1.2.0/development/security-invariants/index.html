@@ -5050,7 +5050,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>JSON import</td>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin._import_json</code></td>
-<td><code>_resolve_import_users</code> (assignee); history rows and comments use the importer plus <code>_imported_from_username</code></td>
+<td><code>_resolve_import_users</code> (assignee, checklist assignee); history rows and comments use the importer plus <code>_imported_from_username</code></td>
 </tr>
 <tr>
 <td>CSV import</td>
@@ -5086,6 +5086,11 @@ the status filter and the uniform response, not scope.</p>
 <td>Card assignee (REST)</td>
 <td><code>boards/serializers.py</code> <code>CardSerializer.__init__</code> (<code>assignee_id</code> queryset), <code>boards/views/cards.py</code>, <code>boards/views/_helpers.py</code></td>
 <td><code>boards/utils.py</code> <code>_get_assignable_member_ids</code>: owner, <code>can_access_all_content</code> users, and members whose role resolves through the <code>get_board_role</code> ladder to a non-viewer role (#1716, #1866). Pinned by <code>boards/tests/test_viewer_assignee.py</code> (<code>MemberSetLadderTests</code>, which also compares both sets with <code>get_board_role</code>)</td>
+</tr>
+<tr>
+<td>Checklist item assignee (REST)</td>
+<td><code>boards/serializers.py</code> <code>CardChecklistSerializer.__init__</code> (<code>assignee_id</code> queryset), <code>boards/views/cards.py</code></td>
+<td>Same <code>_get_assignable_member_ids</code> pool as the card assignee, and fails closed (empty queryset) when the serializer has no board in context. Pinned by <code>boards/tests/test_checklist_assign_due_445.py</code></td>
 </tr>
 <tr>
 <td>Card assignee (MCP)</td>

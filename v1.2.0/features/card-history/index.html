@@ -1387,6 +1387,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#checklist-assignees-and-due-dates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checklist assignees and due dates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#checklist-event-grouping" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4389,6 +4400,15 @@
 <p>This replaces the filter menu and the <strong>Show full history</strong> setting of earlier versions. A <strong>Show full history</strong> choice saved before 1.3 is ignored.</p>
 <h3 id="duration-between-entries">Duration between entries<a class="headerlink" href="#duration-between-entries" title="Permanent link">&para;</a></h3>
 <p>Each movement entry shows how long the card stayed in that column before the next move, such as "Spent 3h here" or "Spent 2d here", on the right. Durations come from the gap between consecutive movement timestamps, in the most readable unit (minutes, hours, or days). The last entry has no duration, because the card is still there.</p>
+<h3 id="checklist-assignees-and-due-dates">Checklist assignees and due dates<a class="headerlink" href="#checklist-assignees-and-due-dates" title="Permanent link">&para;</a></h3>
+<p>New in 1.3. Each checklist row has an assignee button and a due-date button,
+always visible. Assigning someone records "Checklist item assignee: old → new" and
+changing the date records "Checklist item due: old → new" in History, under the
+Checklist filter. On the card face, the <code>✓ 3/7</code> count gains one suffix: <code>· ⚑ 1</code>
+(in red) when unchecked items are past due in your timezone, otherwise <code>· mine 2</code>
+when unchecked items are assigned to you. Overdue checklist items do not change
+the card's own urgency badge or border. <strong>Hide completed</strong> in the checklist
+header hides checked items until the sheet is closed.</p>
 <h3 id="checklist-event-grouping">Checklist event grouping<a class="headerlink" href="#checklist-event-grouping" title="Permanent link">&para;</a></h3>
 <p>Sequential checklist events of the same type collapse into one entry, for example "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact during bulk checklist edits.</p>
 <p>The UID fields on each movement record (<code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>) are also preserved permanently. Use them, not the name or ID fields, to correlate movement history in an external system. See <a href="../stable-uids/">Stable UIDs</a>.</p>
