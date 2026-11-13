@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } f
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
+import ActiveMark from "../Common/ActiveMark";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
@@ -392,7 +393,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
 /**
  * Segmented And/Or connector (#2205). Two real buttons with `aria-pressed`;
- * the pressed one is bold as well as tinted, so the state is not color-only.
+ * the pressed one carries the ActiveMark check (#2185) and is bold as well as
+ * tinted, so the state is never conveyed by color alone.
  */
 export function JoinToggle({ label, join, onChange }: { label: string; join: FieldRuleJoin; onChange: (j: FieldRuleJoin) => void }) {
   const btn = (j: FieldRuleJoin, text: string, extra = "") => (
@@ -400,10 +402,11 @@ export function JoinToggle({ label, join, onChange }: { label: string; join: Fie
       type="button"
       aria-pressed={join === j}
       onClick={() => onChange(j)}
-      className={`min-h-6 px-2 text-xs transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${extra} ${
+      className={`inline-flex items-center gap-1 min-h-6 px-2 text-xs transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${extra} ${
         join === j ? "bg-primary-emphasis/20 text-info font-semibold" : "text-fg-tertiary font-normal hover:text-fg-secondary hover:bg-surface-hover"
       }`}
     >
+      <ActiveMark active={join === j} />
       {text}
     </button>
   );

@@ -737,8 +737,9 @@ The server rejects unknown top-level keys and type-checks each known key, but do
 | `blockedOnly` | boolean | *Added in 1.3* (#1149). `true` shows only blocked cards (manual or relation). Absent means `false` |
 | `customFields` | object | Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is `{kind: "text", query}`, `{kind: "number" \| "date", equals}` (strings), or `{kind: "choice" \| "multi_choice", values}` (at most 50 strings). Strings are capped at 500 characters. |
 | `visibleCustomFieldFilterIds` | integer[] | IDs of custom-field filters shown in the filter bar, at most 50 |
+| `laneFilter` | object | *Added in 1.3* (#2205). Rules that hide swimlanes by swimlane field values: `{items: [...]}`, at most 20 items and 50 rules in all. A rule is `{kind: "rule", id, join, field, op, value?, min?, max?}`: `id` a non-negative integer, `join` `"and"` or `"or"` (ignored on the first), `field` a swimlane field id or `null` (not chosen yet), `op` one of `is`, `is_not`, `between`, and `value` / `min` / `max` strings of at most 500 characters. A group is `{kind: "group", id, join, rules: [rule, ...]}`; groups do not nest. Unknown keys are rejected. Absent means no lane filter |
 
-All keys are optional. The total serialized size of `state_json` must not exceed 64 KB. String values (`search` and custom-field `query`, `equals`, and `values` entries) must not contain NUL (0x00) characters; they return `400`.
+All keys are optional. The total serialized size of `state_json` must not exceed 64 KB. String values (`search`, custom-field `query`, `equals`, and `values` entries, and lane-rule `value`, `min`, and `max`) must not contain NUL (0x00) characters; they return `400`.
 
 **Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, `state_json` contains unknown keys or wrong-typed values, or `state_version` is not an integer between 1 and 32767.
 
