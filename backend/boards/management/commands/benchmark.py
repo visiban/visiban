@@ -55,6 +55,14 @@ User = get_user_model()
 # email backend and template rendering for the whole process (#1330).
 _BENCH_HOST = "testserver"
 
+# Budgets shared with boards/tests/test_query_counts.py, which asserts it still
+# holds the same numbers (#1886). They are the measured count plus headroom for
+# middleware, not two separate judgments: when they disagreed (cards 12 vs 14,
+# full 20 vs 19) a regression could pass one guard and fail the other.
+CARD_LIST_BUDGET = 14  # 9 measured here on Postgres (#1341)
+FULL_BUDGET = 19  # 17 measured on Postgres (#1341)
+SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
+
 # ── fixture dimensions ────────────────────────────────────────────────────────
 COLUMNS   = 5
 SWIMLANES = 10
@@ -135,13 +143,11 @@ class Command(BaseCommand):
     def _bench_cards(self, factory, user, board):
         name = "GET /api/boards/{id}/cards/"
         # NOTE: this serializes ``_card_queryset`` directly and never goes
-        # through the viewset, so it measures LESS than
-        # test_query_counts.py (CardListQueryCountTests.BUDGET = 14, which
-        # drives the real endpoint on Postgres). Its budget of 12 is
-        # intentionally different. It is a coarse smoke check, not a
-        # duplicate guard.
-        # Measured on Postgres 2026-10-14 (#1341): 9 queries.
-        budget = 12
+        # through the viewset, so it measures LESS than the endpoint-driven
+        # CardListQueryCountTests (9 here on Postgres, 2026-10-14, #1341). It
+        # still shares that test's budget, so the two cannot disagree (#1886):
+        # a coarse smoke check with the same ceiling, not a tighter one.
+        budget = CARD_LIST_BUDGET
 
         request = factory.get("/")
         request.user = user
@@ -158,7 +164,7 @@ class Command(BaseCommand):
 
     def _bench_full(self, factory, user, board):
         name = "GET /api/boards/{id}/full/"
-        budget = 20  # 17 measured on Postgres (#1341); deliberately 1 looser than BoardFullQueryCountTests.BUDGET (19) in test_query_counts.py
+        budget = FULL_BUDGET  # same value as BoardFullQueryCountTests.BUDGET (#1886)
 
         # Drive the endpoint through APIClient instead of constructing a raw
         # WSGIRequest and calling the serializer directly (#996).  The
@@ -188,10 +194,11 @@ class Command(BaseCommand):
 
     def _bench_summary(self, factory, user, board):
         name = "GET /api/boards/{id}/summary/"
-        # Budget equals SummaryQueryCountTests.BUDGET (10) in test_query_counts.py.
-        # The real endpoint runs ~6 queries (board load, columns, swimlanes,
-        # card counts, velocity, cycle-time × 2); 10 gives auth-middleware headroom.
-        budget = 10  # 4 measured on Postgres (#1341)
+        # Equals SummaryQueryCountTests.BUDGET in test_query_counts.py (asserted
+        # there). The real endpoint runs ~6 queries (board load, columns,
+        # swimlanes, card counts, velocity, cycle-time x 2); the budget leaves
+        # auth-middleware headroom.
+        budget = SUMMARY_BUDGET
 
         from rest_framework.test import APIClient
         client = APIClient()

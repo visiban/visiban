@@ -118,6 +118,25 @@ def _query_count_and_response(fn):
     return len(ctx), response
 
 
+def _assert_flat(testcase, fetch, grow, label, check=None):
+    """Grow one axis of a board and assert the endpoint's query count is flat (#1886).
+
+    Both reads must be 200s: a 403/404 issues the same few queries every time
+    and would make the equality vacuous. ``check(before, after)`` receives the
+    two response payloads so a test can prove the axis really grew in the output.
+    """
+    before, r1 = _query_count_and_response(fetch)
+    grow()
+    after, r2 = _query_count_and_response(fetch)
+    testcase.assertEqual((r1.status_code, r2.status_code), (200, 200))
+    if check is not None:
+        check(r1.data, r2.data)
+    testcase.assertEqual(
+        before, after,
+        f"{label}: query count grew from {before} to {after} - per-row query regression (#1886).",
+    )
+
+
 # ── tests ─────────────────────────────────────────────────────────────────────
 
 class CardListQueryCountTests(TestCase):
@@ -292,6 +311,59 @@ class BoardFullQueryCountTests(TestCase):
             f"full/ query count grew from {baseline} to {doubled} when cards "
             "were added — N+1 regression detected.",
         )
+
+    def test_full_budget_scales_with_columns(self):
+        def grow():
+            for i in range(10, 16):
+                Column.objects.create(board=self.board, name=f"C{i}", position=i)
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (columns)",
+            lambda a, b: self.assertEqual(len(b["columns"]), len(a["columns"]) + 6),
+        )
+
+    def test_full_budget_scales_with_board_labels(self):
+        def grow():
+            for i in range(6):
+                Label.objects.create(board=self.board, name=f"extra{i}", color="#111")
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (labels)",
+            lambda a, b: self.assertEqual(len(b["labels"]), len(a["labels"]) + 6),
+        )
+
+    def test_full_budget_scales_with_direct_members(self):
+        def grow():
+            for i in range(6):
+                u = User.objects.create_user(username=f"dm{i}", password="x")
+                BoardMembership.objects.create(board=self.board, user=u, role="member")
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (direct members)",
+            lambda a, b: self.assertEqual(len(b["members"]), len(a["members"]) + 6),
+        )
+
+    def test_full_budget_scales_with_custom_field_definitions(self):
+        """Board-level and swimlane-level definitions are separate relations."""
+        def grow():
+            for i in range(6):
+                CustomFieldDefinition.objects.create(
+                    board=self.board, name=f"Extra{i}", field_type="text", position=200 + i,
+                )
+                SwimlaneCustomFieldDefinition.objects.create(
+                    board=self.board, name=f"LaneExtra{i}", field_type="text", position=200 + i,
+                )
+
+        def check(a, b):
+            self.assertEqual(
+                len(b["custom_field_definitions"]), len(a["custom_field_definitions"]) + 6
+            )
+            self.assertEqual(
+                len(b["swimlane_custom_field_definitions"]),
+                len(a["swimlane_custom_field_definitions"]) + 6,
+            )
+
+        _assert_flat(self, self._get_full, grow, "full/ (custom field definitions)", check)
 
     def test_full_budget_scales_with_swimlanes(self):
         """Adding more swimlanes must not increase the query count (#1335).
@@ -493,6 +565,44 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
                 position=1, is_admin_only=False,
             ),
         ]
+
+    def test_full_with_group_budget_scales_with_group_inherited_members(self):
+        """Members inherited from the group and its ancestor must not add queries."""
+        from groups.models import GroupMembership
+
+        def grow():
+            for i in range(4):
+                u = User.objects.create_user(username=f"inh_c{i}", password="x")
+                GroupMembership.objects.create(group=self.child_group, user=u, role="member")
+                v = User.objects.create_user(username=f"inh_p{i}", password="x")
+                GroupMembership.objects.create(group=self.parent_group, user=v, role="member")
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (group-inherited members)",
+            lambda a, b: self.assertEqual(len(b["members"]), len(a["members"]) + 8),
+        )
+
+    def test_full_with_group_budget_scales_with_direct_members(self):
+        def grow():
+            for i in range(4):
+                u = User.objects.create_user(username=f"gdm{i}", password="x")
+                BoardMembership.objects.create(board=self.board, user=u, role="member")
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (group board, direct members)",
+            lambda a, b: self.assertEqual(len(b["members"]), len(a["members"]) + 4),
+        )
+
+    def test_full_with_group_budget_scales_with_columns_and_labels(self):
+        def grow():
+            for i in range(10, 14):
+                Column.objects.create(board=self.board, name=f"C{i}", position=i)
+                Label.objects.create(board=self.board, name=f"extra{i}", color="#111")
+
+        _assert_flat(
+            self, self._get_full, grow, "full/ (group board, columns and labels)",
+            lambda a, b: self.assertEqual(len(b["columns"]), len(a["columns"]) + 4),
+        )
 
     def test_full_with_group_budget_scales_with_swimlanes(self):
         """Adding more swimlanes must not increase the query count (#1335).
@@ -795,6 +905,19 @@ class ParkedPrefetchQueryCountTests(TestCase):
             lambda: anon.get(f"/api/share/{self.share_token}/"), "public share",
         )
 
+    def _get_public(self):
+        return APIClient().get(f"/api/share/{self.share_token}/")
+
+    def test_public_board_flat_across_columns_labels_and_swimlanes(self):
+        """The anonymous endpoint must not grow with board structure (#1886)."""
+        def grow():
+            for i in range(10, 14):
+                Column.objects.create(board=self.board, name=f"PC{i}", position=i)
+                Label.objects.create(board=self.board, name=f"pl{i}", color="#222")
+                Swimlane.objects.create(board=self.board, name=f"PL{i}", position=i)
+
+        _assert_flat(self, self._get_public, grow, "public share (columns/labels/swimlanes)")
+
     # The constant-count tests above prove the conversion did not *regress*
     # anything, but they stay green if the to_attr= kwargs are removed: the
     # accessors' manager fallback still reads a plain prefetch cache, correctly
@@ -1020,6 +1143,33 @@ class SummaryQueryCountTests(TestCase):
             f"summary/ query count grew from {baseline} to {more} when swimlanes "
             "were added — the per-swimlane loop regression was reintroduced.",
         )
+
+    def test_summary_budget_scales_with_columns(self):
+        """Columns are an axis too: the summary reports per-column counts (#1886)."""
+        def grow():
+            for i in range(10, 16):
+                Column.objects.create(board=self.board, name=f"C{i}", position=i)
+
+        _assert_flat(self, self._get_summary, grow, "summary/ (columns)")
+
+    def test_summary_budget_scales_with_cards(self):
+        def grow():
+            lane, col = self.lanes[0], Column.objects.filter(board=self.board).first()
+            for i in range(30):
+                Card.objects.create(
+                    board=self.board, column=col, swimlane=lane,
+                    title=f"extra{i}", created_by=self.user, position=100 + i,
+                )
+
+        _assert_flat(self, self._get_summary, grow, "summary/ (cards)")
+
+    def test_benchmark_command_shares_these_budgets(self):
+        """benchmark.py and this file once held different numbers for one guard (#1886)."""
+        from boards.management.commands import benchmark
+
+        self.assertEqual(benchmark.SUMMARY_BUDGET, self.BUDGET)
+        self.assertEqual(benchmark.CARD_LIST_BUDGET, CardListQueryCountTests.BUDGET)
+        self.assertEqual(benchmark.FULL_BUDGET, BoardFullQueryCountTests.BUDGET)
 
 
 class IsStaleAnnotationQueryCountTests(TestCase):
@@ -1262,6 +1412,14 @@ class AnalyticsQueryCountTests(TestCase):
             f"analytics/ query count grew from {baseline} to {scaled} when "
             "swimlanes were added — per-swimlane N+1 regression detected.",
         )
+
+    def test_analytics_query_count_does_not_grow_with_columns(self):
+        """Columns are the per-column dwell/throughput axis (#1886)."""
+        def grow():
+            for i in range(10, 16):
+                Column.objects.create(board=self.board, name=f"Extra{i}", position=i)
+
+        _assert_flat(self, self._get_analytics, grow, "analytics/ (columns)")
 
     def test_analytics_query_count_does_not_grow_with_cards(self):
         """Adding more cards must not change the query count (#930).

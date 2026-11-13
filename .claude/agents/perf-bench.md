@@ -127,7 +127,7 @@ docker compose exec backend python manage.py benchmark
 docker compose exec backend python manage.py test boards.tests.test_query_counts --verbosity=2 --keepdb
 ```
 
-All three benchmarks and all 6 tests must pass before proceeding.
+All three benchmarks and every test in the module must pass before proceeding (the module has dozens; do not cite a count, it goes stale).
 
 ---
 
