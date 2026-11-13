@@ -983,6 +983,8 @@ The permitted focus-ring form is `focus:ring-2 focus:ring-primary-emphasis` (or 
 
 When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`), it **must** also include `focus:opacity-100` and a focus ring so keyboard users can reach and activate it. Without `focus:opacity-100`, the button is unreachable by keyboard. This applies to all hover-reveal controls (comment delete, swimlane edit, RTE pencil icon, etc.).
 
+**A sortable list's drag handle is a real `<button type="button">` (#1739).** Spread dnd-kit's `attributes` and `listeners` onto the button, name it `Drag to reorder <name>`, give it the standard focus ring plus `focus:opacity-100` when hover-revealed, and wrap the glyph (`⋮⋮`) in an `aria-hidden` span. A `<span>` with `focus:opacity-100` and no ring is not a keyboard control. The keyboard reorder path is dnd-kit's `KeyboardSensor` (`useDragSensors({ keyboard: true })`: Space or Enter lifts, arrows move, Space drops, Escape cancels), so the handle must be a named, visible tab stop. Reference: the Board Settings card-field and swimlane-field lists. The board grid's column and swimlane handles are a different pattern (the grid has no keyboard dragging; cards move through the card-detail Move popover) and are not covered by this rule.
+
 ## Card-face quick-edit chip affordance (custom fields, #371)
 
 Pinned custom-field chips on the card face (`CardItem`, checkbox/dropdown types only) are a deliberate exception to the hover-reveal-by-default convention above and to § Inline description fields' hover-only pencil-icon pattern: the dotted-underline edit affordance (`border-b border-dotted border-fg-tertiary` on the value text) is **always visible at rest**, not gated behind `group-hover:opacity-100`.

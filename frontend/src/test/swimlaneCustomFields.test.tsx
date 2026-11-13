@@ -654,6 +654,19 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.queryByText(/members and viewers see none of these/i)).not.toBeInTheDocument()
   })
 
+  it('the drag handle is a named, ringed, focusable button (#1739)', async () => {
+    // dnd-kit is mocked in this file; the keyboard pick-up itself is covered with the
+    // real sensors in boardSettingsFieldsTab.test.tsx (same handle markup).
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} />)
+    const handle = screen.getAllByRole('button', { name: /^Drag to reorder / })[0]
+    expect(handle.tagName).toBe('BUTTON')
+    expect(handle).toHaveAttribute('type', 'button')
+    expect(handle).toHaveClass('focus:opacity-100', 'focus:ring-2', 'focus:ring-primary-emphasis')
+    await user.tab()
+    expect(handle).toHaveFocus()
+  })
+
   it("names each choice's remove button (#1737)", async () => {
     const user = userEvent.setup()
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)

@@ -62,6 +62,26 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(screen.queryByRole("button", { name: /add field/i })).not.toBeInTheDocument();
   });
 
+  it("the drag handle is a named, ringed button with a working keyboard pick-up (#1739)", async () => {
+    const user = userEvent.setup();
+    const board = makeBoard([
+      makeDefinition({ id: 1, name: "Sprint", field_type: "text" }),
+      makeDefinition({ id: 2, name: "Cost", field_type: "number" }),
+    ]);
+    render(<BoardSettingsFieldsTab board={board} isAdmin onFieldsUpdated={vi.fn()} />);
+    const handle = screen.getByRole("button", { name: "Drag to reorder Sprint" });
+    expect(handle.tagName).toBe("BUTTON");
+    expect(handle).toHaveAttribute("type", "button");
+    expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+    expect(handle).toHaveClass("focus:opacity-100", "focus:ring-2", "focus:ring-primary-emphasis");
+    // Reachable by Tab, and the KeyboardSensor picks it up on Space.
+    await user.tab();
+    expect(handle).toHaveFocus();
+    await user.keyboard(" ");
+    expect(await screen.findByText(/Picked up draggable item 1/)).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+  });
+
   it("lists existing fields with name, type, and pin state", () => {
     const board = makeBoard([
       makeDefinition({ id: 1, name: "Sprint", field_type: "text", show_on_card: true }),

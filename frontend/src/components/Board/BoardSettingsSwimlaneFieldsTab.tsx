@@ -586,14 +586,19 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
   return (
     <div ref={setNodeRef} style={style} className="group">
       <div className="flex items-center gap-3 py-2.5 border-b border-line/60 last:border-0">
-        <span
+        {/* A real button (#1739): dnd-kit's KeyboardSensor (Space/Enter to lift, arrows to
+            move, Space to drop, Escape to cancel) is the keyboard reorder path, so the
+            handle must be a named, ringed tab stop. `attributes` adds the sortable
+            role description and the instructions via aria-describedby. */}
+        <button
+          type="button"
           {...attributes}
           {...listeners}
-          className="w-4 text-fg-faint hover:text-fg-tertiary cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100 transition shrink-0"
+          className="w-4 text-fg-tertiary hover:text-fg cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100 transition shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           aria-label={`Drag to reorder ${def.name}`}
         >
-          ⋮⋮
-        </span>
+          <span aria-hidden="true">⋮⋮</span>
+        </button>
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
         <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
