@@ -3815,6 +3815,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
 
         if "search" in value and not isinstance(value["search"], str):
             raise serializers.ValidationError("state_json.search must be a string.")
+        if "search" in value:
+            self._reject_nul(value["search"], "state_json.search")
         for list_key in ("assigneeIds", "labelIds"):
             if list_key in value:
                 items = value[list_key]
@@ -3851,6 +3853,13 @@ class SavedFilterSerializer(serializers.ModelSerializer):
 
         return value
 
+    @staticmethod
+    def _reject_nul(value, label):
+        """Postgres jsonb refuses NUL (\\u0000) with a DataError (500), so reject
+        it as a 400. Reuses ``reject_nul_byte``; its ValidationError carries a
+        plain string message, which the view flattens to the string ``detail``."""
+        reject_nul_byte(value, field_label=label)
+
     def _validate_custom_fields(self, cf):
         """Shape check for ``customFields``: {"<field id>": {kind, ...}}.
 
@@ -3875,9 +3884,11 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             if kind == "text":
                 if not isinstance(entry.get("query"), str) or len(entry["query"]) > cap:
                     raise err(f"state_json.customFields text query must be a string of at most {cap} characters.")
+                self._reject_nul(entry["query"], "state_json.customFields text query")
             elif kind in self._CF_KINDS_EQUALS:
                 if not isinstance(entry.get("equals"), str) or len(entry["equals"]) > cap:
                     raise err(f"state_json.customFields {kind} equals must be a string of at most {cap} characters.")
+                self._reject_nul(entry["equals"], f"state_json.customFields {kind} equals")
             elif kind in self._CF_KINDS_VALUES:
                 vals = entry.get("values")
                 if (
@@ -3889,6 +3900,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                         f"state_json.customFields {kind} values must be a list of at most "
                         f"{self._CF_MAX_VALUES} strings of at most {cap} characters."
                     )
+                for v in vals:
+                    self._reject_nul(v, f"state_json.customFields {kind} values")
             else:
                 raise err(
                     "state_json.customFields kind must be one of "
