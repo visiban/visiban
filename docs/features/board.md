@@ -247,7 +247,7 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 | **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count |
 | **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge |
 
-**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a *replacement* at lower densities, not an addition.
+**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a *replacement* at lower densities, not an addition. The flag and stopwatch icons appear under the **Default** [board preset](#board-presets); with **Classic** or no preset the badge keeps its earlier ⚑ / ⏱ text symbols and the dense due date stays plain colored text.
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -599,8 +599,8 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. |
-| **Default** | Standard density, no overlay. |
+| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.
 

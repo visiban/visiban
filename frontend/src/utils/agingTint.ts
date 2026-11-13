@@ -185,11 +185,19 @@ export type UrgencyTone = "danger" | "warning" | "info";
  * light mode, so a warning-toned badge (due-soon) takes `danger-on-tint`
  * there; its stopwatch glyph and date text still tell it apart from an overdue flag.
  * Literal class names so Tailwind's JIT sees them.
+ *
+ * `classicFace` (#871 gate, `useClassicCardFace`): the Classic preset keeps the
+ * pre-#871 card face byte for byte (#1146), so its untinted warning stays plain
+ * `text-warning` (3.56:1 on white in light mode, the tracked #2029 exception)
+ * until Classic retires. Every other tone and stage is the same either way.
  */
-export function urgencyBadgeToneClass(tone: UrgencyTone, stage: AgingStage): string {
+export function urgencyBadgeToneClass(tone: UrgencyTone, stage: AgingStage, classicFace = false): string {
   // Untinted warning is `warning-on-tint`, not plain `text-warning`: orange-600 is
   // 3.56:1 on a white card (#2029), `warning-on-tint` 7.31:1 (#871, § System signals).
-  if (stage === "none") return tone === "danger" ? "text-danger" : tone === "warning" ? "text-warning-on-tint" : "text-info";
+  if (stage === "none") {
+    if (tone === "warning") return classicFace ? "text-warning" : "text-warning-on-tint";
+    return tone === "danger" ? "text-danger" : "text-info";
+  }
   if (tone === "info") return "text-info-on-tint";
   if (tone === "danger" || stage === "stale2x" || stage === "stale3x") return "text-danger-on-tint";
   return "text-warning-on-tint";

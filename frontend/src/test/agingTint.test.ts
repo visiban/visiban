@@ -282,6 +282,14 @@ describe("urgencyBadgeToneClass", () => {
     expect(urgencyBadgeToneClass("info", "none")).toBe("text-info");
   });
 
+  it("keeps plain text-warning on an untinted card under the Classic face only (#871 gate)", () => {
+    expect(urgencyBadgeToneClass("warning", "none", true)).toBe("text-warning");
+    expect(urgencyBadgeToneClass("danger", "none", true)).toBe("text-danger");
+    expect(urgencyBadgeToneClass("info", "none", true)).toBe("text-info");
+    expect(urgencyBadgeToneClass("warning", "stale", true)).toBe("text-warning-on-tint");
+    expect(urgencyBadgeToneClass("warning", "stale2x", true)).toBe("text-danger-on-tint");
+  });
+
   it("uses the badge hue's on-tint token on the yellow and orange stages", () => {
     for (const stage of ["warning", "stale"] as const) {
       expect(urgencyBadgeToneClass("danger", stage)).toBe("text-danger-on-tint");

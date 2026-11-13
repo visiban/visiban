@@ -464,6 +464,27 @@ describe('untinted card face text (#1862)', () => {
     expect(onBg(darkBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(8.6)
     expect(onBg(lightBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(7.3)
   })
+
+  // Narrow, dated exemption (2026-11-13, #871 / #1146): the Classic preset keeps the pre-#871 card
+  // face byte for byte, so its untinted due-soon badge is still plain `text-warning` (3.56:1 on white
+  // in light mode, #2029). It is NOT added to `used` above, because it is reachable only through
+  // `urgencyBadgeToneClass(…, 'none', classicFace = true)`, never a class literal in a card-face file
+  // (the test above proves that). Every other tone and stage is identical under Classic. When Classic
+  // retires, or #2029 fixes the light warning token, drop the `classicFace` branch, this test and the
+  // matching note in frontend/CLAUDE.md § Board presets.
+  it('the one gated exception: Classic keeps plain warning on the untinted due-soon badge only', () => {
+    expect(urgencyBadgeToneClass('warning', 'none', true)).toBe('text-warning')
+    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2)
+    for (const tone of ['danger', 'warning', 'info'] as const) {
+      for (const stage of ['warning', 'stale', 'stale2x', 'stale3x'] as const) {
+        expect(urgencyBadgeToneClass(tone, stage, true), `${tone} on ${stage}`).toBe(urgencyBadgeToneClass(tone, stage))
+      }
+      if (tone !== 'warning') expect(urgencyBadgeToneClass(tone, 'none', true)).toBe(urgencyBadgeToneClass(tone, 'none'))
+    }
+    // CardItem reaches the Classic tone only through the gate, never by a literal.
+    const cardItem = readFileSync('src/components/Card/CardItem.tsx', 'utf8')
+    expect(cardItem).toMatch(/urgencyBadgeToneClass\(urgency\.tone, aging\.stage, classicFace\)/)
+  })
 })
 
 // #1857: leftovers missed by the #1550 / #1237 / #831 sweeps. Source-level guards so they stay fixed.
