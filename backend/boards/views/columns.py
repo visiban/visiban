@@ -98,6 +98,19 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 {"name": "A column with this name already exists on this board."}
             ) from None
 
+    def update(self, request, *args, **kwargs):
+        """PUT/PATCH: the admin check runs before the body is validated (#2009).
+
+        DRF validates the serializer before ``perform_update``, so a caller below
+        admin sending an invalid body got a ``400`` instead of the ``403`` a valid
+        one gets; ``CardViewSet.update`` already checks first. The role is cached
+        per request, so ``perform_update``'s own check below costs nothing.
+        """
+        _, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):

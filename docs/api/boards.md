@@ -89,7 +89,7 @@ Get board summary. Response includes:
 The three health fields are on every board payload: list, retrieve, create and update responses, `/full/`, [`GET /api/v1/groups/{id}/boards/`](groups.md#get-apiv1groupsidboards), `descendant-boards/` and its paged form, and the `board.created` / `board.updated` [WebSocket events](websockets.md). A list resolves every row's inherited value from one ancestor lookup for the whole page.
 
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
-Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin.
+Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`, `show_row_chip_field_names`, `health_status` (1.3+), `default_preset` (1.3+), `group` (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field `description` PATCH from a non-admin gets `403 Forbidden`.
 
@@ -1736,7 +1736,7 @@ Column objects returned by all endpoints include the following fields:
 > Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/` / `PATCH /api/v1/boards/{id}/columns/{col_id}/`
-Update a column. Requires board admin.
+Update a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them.
 
 **Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean), `policy` (object or `null`, since 1.3)
 

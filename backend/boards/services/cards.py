@@ -200,15 +200,18 @@ def _fire_hooks(event, card_id, board_id, actor_id):
     (#820): enterprise code appends to the list in place, so this must read the
     module attribute — never a copy taken at import time, and never a rebind.
     The list is re-read inside the callback so a handler registered between the
-    request starting and the transaction committing is still called, matching
-    the behavior of the original call sites.
+    write and the transaction committing is still called.
+
+    The callback is registered whether or not the list is empty at write time
+    (#2009). An emptiness check here made the re-read above dead: a handler
+    appended after the write but before the commit was skipped. An empty list
+    costs one no-op callback and no query.
 
     Arguments reach handlers as plain integers, not ORM instances, so a handler
     can safely issue its own queries after the commit without holding a stale
     Python object.
     """
-    if hooks.CARD_MUTATION_HOOKS:
-        transaction.on_commit(lambda: _run_hooks(event, card_id, board_id, actor_id))
+    transaction.on_commit(lambda: _run_hooks(event, card_id, board_id, actor_id))
 
 
 def _run_hooks(event, card_id, board_id, actor_id):

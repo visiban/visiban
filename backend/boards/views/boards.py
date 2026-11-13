@@ -404,6 +404,34 @@ class BoardViewSet(
                     _broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd, actor_id=aid)
             transaction.on_commit(_broadcast_created)
 
+    _update_role = None
+
+    def _require_board_settings_admin(self, board):
+        role = get_board_role(self.request.user, board)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can edit board settings.")
+        return role
+
+    def update(self, request, *args, **kwargs):
+        """PUT/PATCH: the admin check runs before the body is validated (#2009).
+
+        DRF's ``UpdateModelMixin.update`` validates the serializer before it calls
+        ``perform_update``, so a member below admin sending an invalid body got a
+        ``400`` naming the fields instead of the ``403`` they get for a valid one.
+        This is that method with the role check moved ahead of validation, the
+        order ``CardViewSet.update`` already uses. ``perform_update`` keeps the
+        check for any other caller and reuses the role resolved here.
+        """
+        partial = kwargs.pop("partial", False)
+        board = self.get_object()
+        self._update_role = self._require_board_settings_admin(board)
+        serializer = self.get_serializer(board, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(board, "_prefetched_objects_cache", None):
+            board._prefetched_objects_cache = {}
+        return Response(serializer.data)
+
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.
 
@@ -413,9 +441,8 @@ class BoardViewSet(
         allowed viewers and members to rename boards via PATCH.
         """
         board = serializer.instance
-        role = get_board_role(self.request.user, board)
-        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("Only board admins can edit board settings.")
+        if self._update_role is None:
+            self._require_board_settings_admin(board)
         with transaction.atomic():
             # A PATCH/PUT that names a group takes that group row before the
             # board row (#1638, lock_group_for_board_placement): group ->
