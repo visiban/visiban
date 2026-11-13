@@ -89,8 +89,9 @@ ANALYTICS_EXTENSIONS: list = []
 # A handler that raises is logged (name, ids, event, exception class — no payload)
 # and swallowed: the write is already committed, so it must not 500 the request,
 # and it never prevents later handlers from running (#1476).
-# OSS behaviour is unchanged when this list is empty (the check is guarded by
-# ``if hooks.CARD_MUTATION_HOOKS:`` at each call site).
+# OSS behavior is unchanged when this list is empty: the on_commit callback is
+# always registered and re-reads the list when it runs, so it calls nothing
+# (#2009). A handler appended after the write but before the commit is called.
 CARD_MUTATION_HOOKS: list = []
 
 # Board template registration hook (#1115) — lets an installed package (e.g. an

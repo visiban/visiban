@@ -1455,6 +1455,12 @@ LOGGING = {
     },
 }
 
+# Serializer live-query fallbacks (#1731, visiban/query_fallbacks.py): raise in
+# the test suite so a test that drives a new unannotated list caller fails, warn
+# under DEBUG, and do nothing in production. Not an env var: it changes no
+# production behavior and operators have no reason to set it.
+SERIALIZER_FALLBACK_GUARD = "raise" if _TESTING else ("warn" if DEBUG else "off")
+
 # Enterprise settings include — the enterprise package may override or extend
 # any setting defined above (e.g. INSTALLED_APPS, MIDDLEWARE, REST_FRAMEWORK,
 # AUTHENTICATION_BACKENDS). If the enterprise package is not installed, this

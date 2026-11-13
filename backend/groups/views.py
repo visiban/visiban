@@ -1530,8 +1530,14 @@ class GroupViewSet(viewsets.ModelViewSet):
         from .services import GroupGone, GroupTransferError, transfer_group_ownership
         with transaction.atomic():
             try:
+                # ``require_active``: a deactivated admin cannot act for the
+                # group, so handing it to one would leave it owned by an
+                # unusable account, repairable only by a superuser (#1828).
+                # Judged under the new owner's account row lock, the same
+                # check the Django admin transfer applies.
                 group = transfer_group_ownership(
                     group.pk, new_owner_id, expected_owner_id=request.user.id,
+                    require_active=True,
                 )
             except GroupGone:
                 # Queued on the row lock behind a delete of the group (#1719).
@@ -2124,9 +2130,10 @@ class JoinGroupView(APIView):
         # holder of the raw token is by design so invitees can confirm what
         # they are joining before authenticating. Treat the group name as
         # public-via-this-path (#801).
-        # Truncate token in log to avoid leaking the full value into log files
-        # while still making it possible to correlate with an audit trail.
-        token_hint = str(token)[:8]
+        # Logs name the link by its stored ``prefix`` (the token's first 8
+        # characters, also shown in the invite list), never by text sliced from
+        # the request path, as the board invite views do (#2009). Every log
+        # line below runs after the link is found.
         ip = get_client_ip(request)
         link = GroupInviteLink.lookup_by_token(str(token))
         if link is None:
@@ -2140,7 +2147,7 @@ class JoinGroupView(APIView):
         # A used single-use link stays visible to its own members (#1445).
         is_member_of_used = link.used_at is not None and _is_member(request.user, link.group_id)
         if not is_member_of_used and not invite_creator_is_valid(link):
-            logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
+            logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", link.prefix, ip)
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         # A shareable admin link no longer redeems (#1727, #1940), so the
         # preview answers like a revoked link rather than offering a join that
@@ -2151,7 +2158,7 @@ class JoinGroupView(APIView):
             logger.info(
                 "Invite token lookup failed: %s. token=%s ip=%s",
                 "admin invite" if link.role_refusal == "admin" else "invalid role",
-                token_hint,
+                link.prefix,
                 ip,
             )
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -2163,7 +2170,7 @@ class JoinGroupView(APIView):
         if link.single_use and link.used_at is not None and not is_member_of_used:
             logger.info(
                 "Invite token lookup failed: already used. token=%s ip=%s",
-                token_hint,
+                link.prefix,
                 ip,
             )
             return Response(
@@ -2173,7 +2180,7 @@ class JoinGroupView(APIView):
         if link.is_expired:
             logger.info(
                 "Invite token lookup failed: expired. token=%s ip=%s",
-                token_hint,
+                link.prefix,
                 ip,
             )
             return Response(
@@ -2182,7 +2189,7 @@ class JoinGroupView(APIView):
             )
         logger.info(
             "Invite token preview. token=%s group_id=%s ip=%s",
-            token_hint,
+            link.prefix,
             link.group_id,
             ip,
         )
@@ -2220,7 +2227,7 @@ class JoinGroupView(APIView):
         },
     )
     def post(self, request, token):
-        token_hint = str(token)[:8]
+        # Logs name the link by its stored ``prefix``, as in ``get`` (#2009).
         ip = get_client_ip(request)
 
         # Always lock the row regardless of single_use so the join path is
@@ -2272,7 +2279,7 @@ class JoinGroupView(APIView):
             if not (link.used_at is not None and already_member) and not invite_creator_is_valid(link):
                 logger.info(
                     "Invite token redemption failed: creator not admin. token=%s user_id=%s ip=%s outcome=failure",
-                    token_hint,
+                    link.prefix,
                     request.user.pk,
                     ip,
                 )
@@ -2281,7 +2288,7 @@ class JoinGroupView(APIView):
             if link.single_use and link.used_at is not None and not already_member:
                 logger.info(
                     "Invite token redemption failed: already used. token=%s user_id=%s ip=%s outcome=failure",
-                    token_hint,
+                    link.prefix,
                     request.user.pk,
                     ip,
                 )
@@ -2304,7 +2311,7 @@ class JoinGroupView(APIView):
                 logger.info(
                     "Invite token redemption failed: %s. token=%s user_id=%s ip=%s outcome=failure",
                     "admin invite" if link.role_refusal == "admin" else "invalid role",
-                    token_hint,
+                    link.prefix,
                     request.user.pk,
                     ip,
                 )
@@ -2313,7 +2320,7 @@ class JoinGroupView(APIView):
             if link.is_expired:
                 logger.info(
                     "Invite token redemption failed: expired. token=%s user_id=%s ip=%s outcome=failure",
-                    token_hint,
+                    link.prefix,
                     request.user.pk,
                     ip,
                 )
@@ -2331,7 +2338,7 @@ class JoinGroupView(APIView):
             if link.used_at is None and not recipient_admits(link, request.user):
                 logger.info(
                     "Invite token redemption failed: recipient mismatch. token=%s user_id=%s ip=%s outcome=failure",
-                    token_hint,
+                    link.prefix,
                     request.user.pk,
                     ip,
                 )
@@ -2379,7 +2386,7 @@ class JoinGroupView(APIView):
 
         logger.info(
             "Invite token redeemed. token=%s group_id=%s user_id=%s new_member=%s ip=%s outcome=success",
-            token_hint,
+            link.prefix,
             link.group_id,
             request.user.pk,
             created,

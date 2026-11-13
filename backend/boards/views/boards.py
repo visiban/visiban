@@ -61,6 +61,30 @@ from .invites import BoardInviteLinksMixin
 
 logger = logging.getLogger(__name__)
 
+# The board owner's membership is refused removal and demotion (#1828), as a
+# group owner's is (#1722, #1787; ``groups/services.py``
+# ``OWNER_MEMBERSHIP_CODE``). Why: ``get_board_role`` and ``board_access_q``
+# grant the owner admin through ``Board.owner`` whatever their membership row
+# says, so deleting or lowering that row changed nothing the owner can do while
+# the roster stopped showing it. ``code`` is part of the public ``{detail,
+# code}`` 400 contract; ``detail`` is prose and may be reworded.
+BOARD_OWNER_PROTECTED_CODE = "board_owner_protected"
+BOARD_OWNER_PROTECTED_MESSAGE = (
+    "The board owner's membership cannot be removed or demoted. "
+    "The owner keeps admin access to the board while they own it."
+)
+_BOARD_OWNER_REFUSED_CODE_HELP = (
+    "`board_owner_protected`: the target is the board owner, whose membership "
+    "cannot be removed or demoted."
+)
+
+
+def _board_owner_refusal():
+    return Response(
+        {"detail": BOARD_OWNER_PROTECTED_MESSAGE, "code": BOARD_OWNER_PROTECTED_CODE},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
 
 def _broadcast_board_group_change(board_id, board_data, old_group_id, new_group_id, *, actor_id=None):
     """Group-channel half of a board write that may have changed its group.
@@ -380,6 +404,34 @@ class BoardViewSet(
                     _broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd, actor_id=aid)
             transaction.on_commit(_broadcast_created)
 
+    _update_role = None
+
+    def _require_board_settings_admin(self, board):
+        role = get_board_role(self.request.user, board)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can edit board settings.")
+        return role
+
+    def update(self, request, *args, **kwargs):
+        """PUT/PATCH: the admin check runs before the body is validated (#2009).
+
+        DRF's ``UpdateModelMixin.update`` validates the serializer before it calls
+        ``perform_update``, so a member below admin sending an invalid body got a
+        ``400`` naming the fields instead of the ``403`` they get for a valid one.
+        This is that method with the role check moved ahead of validation, the
+        order ``CardViewSet.update`` already uses. ``perform_update`` keeps the
+        check for any other caller and reuses the role resolved here.
+        """
+        partial = kwargs.pop("partial", False)
+        board = self.get_object()
+        self._update_role = self._require_board_settings_admin(board)
+        serializer = self.get_serializer(board, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(board, "_prefetched_objects_cache", None):
+            board._prefetched_objects_cache = {}
+        return Response(serializer.data)
+
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.
 
@@ -389,9 +441,8 @@ class BoardViewSet(
         allowed viewers and members to rename boards via PATCH.
         """
         board = serializer.instance
-        role = get_board_role(self.request.user, board)
-        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("Only board admins can edit board settings.")
+        if self._update_role is None:
+            self._require_board_settings_admin(board)
         with transaction.atomic():
             # A PATCH/PUT that names a group takes that group row before the
             # board row (#1638, lock_group_for_board_placement): group ->
@@ -1208,8 +1259,21 @@ class BoardViewSet(
             200: BoardMembershipSerializer,
             201: BoardMembershipSerializer,
             400: OpenApiResponse(
-                description="`role` is not a string within the allowed role set, or moderator entitlement was requested for a collaborator or viewer role.",
-                response=inline_serializer(name="AddMemberBadRequest", fields={"detail": serializers.CharField()}),
+                description=(
+                    "`role` is not a string within the allowed role set, moderator entitlement was requested "
+                    "for a collaborator or viewer role, or the change would give the board owner a role "
+                    "below `admin` (this one carries `code`). Nothing is written."
+                ),
+                response=inline_serializer(
+                    name="AddMemberBadRequest",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(
+                            required=False,
+                            help_text="Present only on a refused owner demotion. " + _BOARD_OWNER_REFUSED_CODE_HELP,
+                        ),
+                    },
+                ),
             ),
             403: OpenApiResponse(
                 description="Requester is not a board admin, or attempted to modify a site admin's membership.",
@@ -1269,6 +1333,21 @@ class BoardViewSet(
             # Keep the stored role so a request that only touches the
             # moderator flag cannot change what the member can do.
             member_role = existing.role
+        # The owner's row may not be written below admin (#1828). A request
+        # that names no role on an existing row keeps the stored role, so it
+        # is not a demotion and passes. The board endpoints never write
+        # ``Board.owner``, but ``AdminUserDeactivateView._apply_transfers`` (#1741)
+        # rewrites ``owner_id`` on a REST deactivation (and a superuser can in the
+        # Django admin), so this pre-lock read, like the unlocked one in
+        # ``remove_member``, can go stale. That race is accepted: ownership itself
+        # grants admin, so the harm is limited to the roster (worst case: the
+        # former owner's demotion or removal is not refused).
+        if (
+            target_user.pk == board.owner_id
+            and member_role != BoardMembership.Role.ADMIN
+            and (role_supplied or existing is None)
+        ):
+            return _board_owner_refusal()
         raw_mod = body.get("is_moderator")
         # Normalize: None means "not provided", else coerce to bool.
         # Multipart forms send "false"/"true" as strings.
@@ -1406,6 +1485,21 @@ class BoardViewSet(
         # 201 for a new membership, 200 for a role update on an existing one.
         return Response(membership_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            400: OpenApiResponse(
+                description="The target is the board owner, whose membership cannot be removed. Nothing is written.",
+                response=inline_serializer(
+                    name="BoardMemberRemoveRefused",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(help_text=_BOARD_OWNER_REFUSED_CODE_HELP),
+                    },
+                ),
+            ),
+        },
+    )
     @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[0-9]+)")
     def remove_member(self, request, pk=None, user_id=None):
         """Remove a member from the board (admin only)."""
@@ -1430,6 +1524,12 @@ class BoardViewSet(
         # it follows the membership lookup (#1706).
         if membership.user.is_site_admin and not request.user.is_site_admin:
             raise PermissionDenied("Cannot remove a site admin from a board.")
+        # The owner keeps admin through ``Board.owner`` whatever happens to this
+        # row, so removing it only hid them from the roster (#1828). Refused for
+        # every caller, site admins included, as groups refuse it; the owner
+        # leaves by deleting the board.
+        if membership.user_id == board.owner_id:
+            return _board_owner_refusal()
         target_user = membership.user
         board_id = board.id
         removed_user_id = target_user.id

@@ -113,7 +113,9 @@ const fakeBoard: BoardFull = {
   current_user_role: 'admin',
   custom_field_definitions: [],
   swimlane_custom_field_definitions: [],
-  owner: fakeUser,
+  // Not a listed member: the owner's own row is locked (#1828), so fixtures that
+  // exercise the editable member rows keep a distinct owner.
+  owner: { ...fakeUser, id: 99, username: 'boardowner', display_name: 'Board Owner' },
   capabilities: { movement_export: false },
   share_token: null,
   share_token_expires_at: null,
@@ -283,28 +285,44 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(region).toHaveAttribute('aria-atomic', 'true')
   })
 
-  // #1905 — the owner is an implicit admin whatever their stored row says.
-  it('keeps the owner shown as admin after their explicit row is set to viewer (#1905)', async () => {
-    const user = userEvent.setup()
-    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
-    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, owner: fakeMember2 }} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getAllByRole('combobox')[1])
-    await user.click(screen.getByRole('option', { name: 'Viewer' }))
-    await waitFor(() => expect(mockSetBoardMember).toHaveBeenCalled())
-    await waitFor(() => expect(screen.getAllByRole('combobox')[1]).toHaveTextContent(/Admin/))
-    expect(screen.getAllByRole('combobox')[1]).not.toHaveTextContent(/Viewer/)
-  })
+  // #1828 — the server refuses to demote or remove the owner's membership, so
+  // the owner's row is read-only and says why.
+  describe('owner row (#1828)', () => {
+    const ownerBoard = { ...fakeBoard, owner: fakeMember2 }
 
-  it('keeps the owner listed when their explicit row is removed (#1905)', async () => {
-    const user = userEvent.setup()
-    mockRemoveBoardMember.mockResolvedValue(undefined)
-    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, owner: fakeMember2 }} isAdmin={true} onClose={vi.fn()} />)
-    const removeButtons = screen.getAllByTitle('Remove direct board role')
-    await user.click(removeButtons[removeButtons.length - 1])
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    await waitFor(() => expect(mockRemoveBoardMember).toHaveBeenCalledWith(1, 2))
-    await waitFor(() => expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1))
-    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+    it('shows the owner as admin with no role picker and no Remove button', () => {
+      render(<BoardSettingsModal currentUserId={null} board={ownerBoard} isAdmin={true} onClose={vi.fn()} />)
+      // Only the non-owner admin row (Admin User) keeps a picker and a Remove button.
+      expect(screen.getAllByRole('combobox')).toHaveLength(1)
+      expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+      expect(screen.getByText(/board owner is always an admin/i)).toBeInTheDocument()
+    })
+
+    it('leaves a non-owner row unchanged: picker and Remove button', () => {
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      expect(screen.getAllByRole('combobox')).toHaveLength(2)
+      expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(2)
+      expect(screen.queryByText(/board owner is always an admin/i)).toBeNull()
+    })
+
+    it('shows a specific message when a stale client still gets board_owner_protected on remove', async () => {
+      const user = userEvent.setup()
+      mockRemoveBoardMember.mockRejectedValueOnce({ response: { status: 400, data: { detail: 'x', code: 'board_owner_protected' } } })
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      const removeButtons = screen.getAllByTitle('Remove direct board role')
+      await user.click(removeButtons[removeButtons.length - 1])
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(await screen.findByText(/Failed to remove member\. The board owner is always an admin/)).toBeInTheDocument()
+    })
+
+    it('shows a specific message when a stale client still gets board_owner_protected on role change', async () => {
+      const user = userEvent.setup()
+      mockSetBoardMember.mockRejectedValueOnce({ response: { status: 400, data: { detail: 'x', code: 'board_owner_protected' } } })
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      await user.click(screen.getAllByRole('combobox')[1])
+      await user.click(screen.getByRole('option', { name: 'Viewer' }))
+      expect(await screen.findByText(/Failed to update role\. The board owner is always an admin/)).toBeInTheDocument()
+    })
   })
 
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {
@@ -2875,7 +2893,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
 
   function renderDangerZone(board: BoardFull) {
     return render(
-      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="data" />
+      <BoardSettingsModal board={{ ...board, owner: fakeUser }} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="data" />
     )
   }
 
@@ -2890,12 +2908,12 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
   })
 
   it('uses the singular for one archived card', () => {
-    renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 1 })
+    renderDangerZone({ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 1 })
     expect(screen.getByText('This board has 1 archived card, which will also be permanently deleted.')).toBeInTheDocument()
   })
 
   it('mentions archived cards and allows single-click delete for an empty board', () => {
-    renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 0 })
+    renderDangerZone({ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 })
     expect(screen.getByText(/all its cards \(including archived cards\), columns, and history/)).toBeInTheDocument()
     expect(screen.queryByText(/archived cards?, which will also be permanently deleted/)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Sprint Board')).not.toBeInTheDocument()
@@ -2915,7 +2933,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleting = vi.fn(() => { order.push('deleting') })
     const onBoardDeleted = vi.fn(() => { order.push('deleted') })
     render(
-      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
+      <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
         currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
@@ -2932,7 +2950,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleteFailed = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
+      <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
         currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
@@ -2945,7 +2963,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     vi.mocked(deleteBoard).mockRejectedValueOnce(new Error('boom'))
     onBoardDeleted.mockClear()
     render(
-      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()} currentUserId={fakeUser.id}
+      <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()} currentUserId={fakeUser.id}
         onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
@@ -2960,7 +2978,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleteFailed = vi.fn()
     const onBoardDeleted = vi.fn()
     render(
-      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
+      <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
         currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
@@ -2972,7 +2990,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
 describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  const owned = { ...fakeBoard, cards: [], archived_card_count: 0 } as BoardFull
+  const owned = { ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 } as BoardFull
   const renderDz = (board: BoardFull, extra: Partial<React.ComponentProps<typeof BoardSettingsModal>> = {}) =>
     render(<BoardSettingsModal currentUserId={null} board={board} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" {...extra} />)
 

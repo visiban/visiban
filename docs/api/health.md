@@ -52,7 +52,12 @@ Returns `200 OK` if both the database and Valkey cache are reachable. No authent
 }
 ```
 
-Only the failing subsystems appear in `errors`, each with the fixed value `unavailable`. Failure details are written to the server log, not the response. The `errors` values are fixed strings; only the component keys (`db`, `redis`) are a stable contract. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
+Only the failing subsystems appear in `errors`, each with the fixed value `unavailable`. Failure details are written to the server log, not the response. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
+
+!!! warning "Deprecated *(1.3+)*: the `errors` object"
+    The `errors` object, and its component keys `db` and `redis`, are deprecated. They are still returned unchanged on every `503` for all of 1.x, but they name the backing services to anonymous callers, so they are planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)). After that the degraded body is `{"status": "error"}` only.
+
+    Decide readiness from the HTTP status code (`200` or `503`), or from `status`. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses `errors`, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (`Readiness check failed: database` or `Readiness check failed: cache`).
 
 ---
 

@@ -158,6 +158,16 @@ interface StagedInvite {
 
 const ADD_FALLBACK_ERROR = "Couldn't add this member.";
 
+/** The server refuses to demote or remove the board owner's membership (#1828). */
+const OWNER_MEMBERSHIP_NOTE = "The board owner is always an admin and cannot be removed.";
+const OWNER_PROTECTED_CODE = "board_owner_protected";
+
+/** True for the 400 the member endpoints send when the owner's membership is targeted. */
+function isOwnerProtectedError(err: unknown): boolean {
+  const data = (err as { response?: { data?: { code?: unknown } } })?.response?.data;
+  return data?.code === OWNER_PROTECTED_CODE;
+}
+
 /** One line of copy for a refused add: the server's `detail` when it sent one. */
 function addMemberErrorMessage(err: unknown): string {
   const data = (err as { response?: { data?: { detail?: unknown } } })?.response?.data;
@@ -668,16 +678,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setMemberActionError(null);
     try {
       const updated = await setBoardMember(board.id, userId, role);
-      // The owner is an implicit admin whatever their stored row says (#1905),
-      // as in useBoard's mergeMemberRow: keep showing admin for the owner.
-      const shown = board.owner?.id === userId && updated.role !== "admin" ? "admin" as const : updated.role;
       setMembers((prev) => {
-        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: shown, is_moderator: updated.is_moderator } : m);
-        if (!next.find((m) => m.user.id === userId)) next.push({ ...updated, role: shown });
+        const next = prev.map((m) => m.user.id === userId ? { ...m, id: updated.id ?? m.id, role: updated.role, is_moderator: updated.is_moderator } : m);
+        if (!next.find((m) => m.user.id === userId)) next.push(updated);
         return next;
       });
-    } catch {
-      setMemberActionError("Failed to update role. Please try again.");
+    } catch (err) {
+      // Defensive: the owner row is locked, so this is a stale client or a race (#1828).
+      setMemberActionError(isOwnerProtectedError(err) ? `Failed to update role. ${OWNER_MEMBERSHIP_NOTE}` : "Failed to update role. Please try again.");
     } finally {
       setSaving(null);
     }
@@ -798,9 +806,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       setMembers((prev) =>
         prev.flatMap((m) => {
           if (m.user.id !== userId) return [m];
-          // The owner stays an implicit admin without a row (#1905), as in
-          // useBoard's removeMember.
-          if (board.owner?.id === userId) return [{ ...m, id: null, role: "admin" as const }];
           // Removing the explicit membership of an all-content user does not
           // remove their access (#1301), so keep the row, now with no
           // membership. This is the local view only: a later re-read lists
@@ -811,7 +816,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         }),
       );
       if (members.some((m) => m.user.id === userId && m.has_all_content_access)) setChipFocusUser(userId);
-    } catch {
+    } catch (err) {
+      if (isOwnerProtectedError(err)) {
+        setMemberActionError(`Failed to remove member. ${OWNER_MEMBERSHIP_NOTE}`);
+        return;
+      }
       setMemberActionError(roleOnly ? "Failed to remove the board role. Please try again." : "Failed to remove member. Please try again.");
     } finally {
       setSaving(null);
@@ -1072,7 +1081,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 const allContent = m.role === "site_admin" || m.has_all_content_access === true;
                 const fullAccessDescId = `member-fullaccess-desc-${m.user.id}`;
                 const storedRoleLabel = ROLES.find((r) => r.value === m.role)?.label;
-                const canManage = isAdmin && !isLocked;
+                // The server refuses to demote or remove the owner's membership
+                // (#1828), so the owner's row is read-only like a locked one.
+                const isOwnerRow = board.owner?.id === m.user.id;
+                const canManage = isAdmin && !isLocked && !isOwnerRow;
                 const canRemove = canManage && m.id !== null;
 
                 return (
@@ -1086,6 +1098,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             <p className="text-xs text-fg-tertiary">
                               Board role: {storedRoleLabel} — not in effect while this account has all-content access.
                             </p>
+                          )}
+                          {isOwnerRow && !isLocked && (
+                            <p className="text-xs text-fg-tertiary">{OWNER_MEMBERSHIP_NOTE}</p>
                           )}
                           {allContent && isLocked && (
                             <p className="text-xs text-fg-tertiary">
@@ -1125,9 +1140,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             </span>
                             <span id={fullAccessDescId} className="sr-only">{isLocked ? `${FULL_ACCESS_DESCRIPTION} ${LOCKED_MEMBERSHIP_NOTE}` : FULL_ACCESS_DESCRIPTION}</span>
                           </>
-                        ) : isLocked ? (
-                          <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
-                            {m.role}
+                        ) : isLocked || isOwnerRow ? (
+                          <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title={isLocked ? "Site administrator — role managed at the instance level" : OWNER_MEMBERSHIP_NOTE}>
+                            {isOwnerRow && !isLocked ? "admin" : m.role}
                           </span>
                         ) : canManage ? (
                           <SelectDropdown

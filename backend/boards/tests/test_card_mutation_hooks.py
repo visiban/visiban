@@ -301,3 +301,59 @@ class RaisingHookIsolationTests(TestCase):
         self.card.refresh_from_db()
         self.assertEqual(self.card.description, "hello @someone")
         self.assertTrue(any("notify_new_mentions failed" in o for o in logs.output))
+
+
+class HandlerRegisteredBeforeCommitTests(TestCase):
+    """A handler appended after the write but before the commit is called (#2009).
+
+    ``_fire_hooks`` documents that the list is re-read when the commit runs.
+    It used to register the callback only when the list was non-empty at write
+    time, so with no handler at the write, a handler appended before the commit
+    was silently skipped.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
+        self._broadcast_patcher.start()
+        self.user = _make_user("latehook")
+        self.board = _make_board(self.user)
+        self.col = _make_column(self.board, "A", 0)
+        self.lane = _make_swimlane(self.board, "L", 0)
+        self.card = _make_card(self.col, self.lane, title="Late")
+        self.calls = []
+
+    def tearDown(self):
+        if self._late in hooks.CARD_MUTATION_HOOKS:
+            hooks.CARD_MUTATION_HOOKS.remove(self._late)
+        self._broadcast_patcher.stop()
+
+    def _late(self, event, card_id, board_id, actor_id):
+        self.calls.append((event, card_id, board_id, actor_id))
+
+    def test_handler_appended_between_write_and_commit_is_called(self):
+        from boards.services.cards import _fire_hooks
+
+        self.assertNotIn(self._late, hooks.CARD_MUTATION_HOOKS)
+        saved = list(hooks.CARD_MUTATION_HOOKS)
+        hooks.CARD_MUTATION_HOOKS.clear()
+        try:
+            with self.captureOnCommitCallbacks(execute=True):
+                _fire_hooks("card.updated", self.card.pk, self.board.pk, self.user.pk)
+                # Registered after the write, before the commit.
+                hooks.CARD_MUTATION_HOOKS.append(self._late)
+        finally:
+            hooks.CARD_MUTATION_HOOKS[:0] = saved
+        self.assertEqual(self.calls, [("card.updated", self.card.pk, self.board.pk, self.user.pk)])
+
+    def test_empty_list_registers_a_callback_that_calls_nothing(self):
+        from boards.services.cards import _fire_hooks
+
+        saved = list(hooks.CARD_MUTATION_HOOKS)
+        hooks.CARD_MUTATION_HOOKS.clear()
+        try:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                _fire_hooks("card.updated", self.card.pk, self.board.pk, self.user.pk)
+        finally:
+            hooks.CARD_MUTATION_HOOKS[:0] = saved
+        self.assertEqual(len(callbacks), 1)
+        self.assertEqual(self.calls, [])

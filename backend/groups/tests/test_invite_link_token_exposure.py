@@ -65,3 +65,43 @@ class GroupInviteLinkTokenExposureTests(TestCase):
         self.assertNotIn("token", fields)
         self.assertNotIn("raw_token", fields)
         self.assertNotIn("token_hash", fields)
+
+
+class GroupInvitePreviewLogsPrefixTests(TestCase):
+    """The join preview and redemption log the link's stored ``prefix`` (#2009).
+
+    They used to log the first 8 characters sliced from the request path; the
+    board invite views log ``link.prefix``. The stored prefix is made to differ
+    here so the test tells the two apart, and the rest of the token must never
+    reach the log.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="padmin", password="pass")
+        self.joiner = User.objects.create_user(username="pjoiner", password="pass")
+        self.group = _make_group(self.admin, "Prefix Group")
+        self.link, self.raw = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, role="member"
+        )
+        GroupInviteLink.objects.filter(pk=self.link.pk).update(prefix="STOREDPX")
+        self.url = f"/api/v1/groups/join/{self.raw}/"
+
+    def _assert_logged_prefix_only(self, logs):
+        text = "\n".join(logs.output)
+        self.assertIn("token=STOREDPX", text)
+        self.assertNotIn(self.raw[:8], text)
+        self.assertNotIn(self.raw, text)
+
+    def test_preview_logs_stored_prefix(self):
+        with self.assertLogs("groups.views", level="INFO") as logs:
+            r = APIClient().get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self._assert_logged_prefix_only(logs)
+
+    def test_redemption_logs_stored_prefix(self):
+        client = APIClient()
+        client.force_authenticate(self.joiner)
+        with self.assertLogs("groups.views", level="INFO") as logs:
+            r = client.post(self.url)
+        self.assertIn(r.status_code, (status.HTTP_200_OK, status.HTTP_201_CREATED))
+        self._assert_logged_prefix_only(logs)

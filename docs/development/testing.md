@@ -26,6 +26,10 @@ pytest -q boards/tests/test_views_extra.py::CardAttachmentTests::test_list_attac
 
 Use Django's `TestCase` for anything that touches the database. If a test spawns threads that hit the ORM, close per-thread connections before the thread exits — see [`CLAUDE.md`](https://gitlab.com/visiban/visiban/-/blob/main/CLAUDE.md#threaded-tests--always-close-db-connections) for the pattern.
 
+### Serializer fallback guard *(1.3+, #1731)*
+
+Several serializer method fields (`BoardSerializer` and `GroupSerializer` counts and `is_starred`, `BoardFullSerializer.archived_card_count`, `AdminUserSerializer.owned_boards`, `GroupInviteLinkSerializer.created_by_username`, `GroupDetailSerializer.ancestors`) read an annotation or prefetch from the endpoint's queryset and fall back to a live query without it. On a list that fallback is one query per row. The test suite runs with `SERIALIZER_FALLBACK_GUARD = "raise"` (`visiban/settings.py`), so rendering such a list from an unannotated queryset raises `visiban.query_fallbacks.UnannotatedFallback`, naming the field. Fix the caller: fetch through the annotated queryset the field's comment names (for example `annotate_board_counts`, or `GroupViewSet.get_queryset()`). A single-object response is not reported, since one fallback query is what the fallback is for. The one exception is `GroupDetailSerializer.ancestors`: it also raises on a single object whose parent chain is not loaded, because its only caller (`retrieve`) uses the annotated queryset and a bare instance costs up to 6 queries. Under `DEBUG` the guard logs a warning instead, and in production it is off and changes nothing.
+
 ## Frontend unit tests
 
 ```bash

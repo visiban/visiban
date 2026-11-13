@@ -791,9 +791,11 @@ class BoardInviteNotificationTests(TestCase):
         """An admin adding themselves must not create a self-notification."""
         # The admin is already a member from make_board — re-adding should not
         # fire a self-notification regardless of the notif_board_invite pref.
+        # ``admin``: the admin is the board owner here, whose row cannot be
+        # demoted (#1828).
         resp = self.client.post(
             f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": self.admin.pk, "role": "member"},
+            {"user_id": self.admin.pk, "role": "admin"},
         )
 
         # 201 (upsert) or 200 both acceptable; key assertion is no notification

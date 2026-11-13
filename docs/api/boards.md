@@ -89,7 +89,7 @@ Get board summary. Response includes:
 The three health fields are on every board payload: list, retrieve, create and update responses, `/full/`, [`GET /api/v1/groups/{id}/boards/`](groups.md#get-apiv1groupsidboards), `descendant-boards/` and its paged form, and the `board.created` / `board.updated` [WebSocket events](websockets.md). A list resolves every row's inherited value from one ancestor lookup for the whole page.
 
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
-Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin.
+Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`, `show_row_chip_field_names`, `health_status` (1.3+), `default_preset` (1.3+), `group` (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field `description` PATCH from a non-admin gets `403 Forbidden`.
 
@@ -1400,6 +1400,14 @@ Add or update a board member. Requires board admin: a caller with no access gets
 
 For a caller who is not a site admin, the response (and the `member.added` / `member.updated` event) omits `is_site_admin` for every target. When the target is a site admin with no direct membership, the stored role is the higher of the requested role and the role the user already holds through a group, so the new membership never lowers it (any other user's new direct membership keeps its ordinary precedence over a group-inherited role). `is_site_admin` is therefore optional here (not in the OpenAPI `required` list): a site-admin caller gets it, others do not.
 
+*(1.3+, #1828)* A request that would give the board owner a stored role below `admin` returns `400 Bad Request` and writes nothing, for every caller including site admins:
+
+```json
+{"detail": "The board owner's membership cannot be removed or demoted. The owner keeps admin access to the board while they own it.", "code": "board_owner_protected"}
+```
+
+Branch on `code`, not on `detail`, which may be reworded. That covers naming a lower `role` for the owner, and adding an owner who has no membership row without `role` (a new row defaults to `member`). Setting the owner to `admin` is accepted, and so is a request that names no `role` for an owner who already has a row (it keeps the stored role, so it is not a demotion). Before 1.3 these requests succeeded, but changed nothing the owner could do: the owner holds `admin` through board ownership whatever the row says. The other `400`s from this endpoint carry `detail` only.
+
 Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Since 1.2 a `user_id` that is present but not an integer, or is beyond the 64-bit integer range, is a `400` too: a non-integer value used to answer `404` and an out-of-range one `500`. An omitted `user_id` still answers `404`.
 
 **Request** `{ "user_id": 42, "role": "member", "is_moderator": true }`
@@ -1412,14 +1420,14 @@ Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (i
 
 **Visibility of `is_moderator` in board responses (since 1.1; self-row exception since 1.2):** the `is_moderator` field is included in the `members` array of `GET /api/v1/boards/{id}/full/` for `admin` and `site_admin` requesters, on every row. A lower-role requester (`member`, `collaborator`, `viewer`) receives the field only on the row belonging to themselves — so a member promoted to moderator can see their own entitlement — and every other row omits it. This endpoint's own response always carries the field, since it requires board admin. The `member.added` / `member.updated` WebSocket broadcast and the [change feed](events.md) apply the identical self-row rule per recipient (#1191): the subscriber's/reader's own row always carries the field, every other non-admin-visible row omits it.
 
-**Member row `role` and assignability (since 1.3, #1905):** in the `members` array of `GET /api/v1/boards/{id}/full/`, the board owner's row has `role: "admin"`, the role the board grants them, even when they hold an explicit membership with a lower stored role; that row keeps its membership `id`, so an admin can still remove it. Before 1.3 such a row showed the stored role. A row whose stored role is not one of `admin`, `member`, `collaborator` or `viewer` is listed as stored, so an admin can find and remove it; it grants no access, and the server refuses that user as a card assignee. A client building an assignee picker should offer only rows with `role` `admin`, `member`, `collaborator` or `site_admin`, plus any row with `has_all_content_access: true`; the Visiban web app does this in every assignee picker since 1.3. What the server enforces is unchanged.
+**Member row `role` and assignability (since 1.3, #1905):** in the `members` array of `GET /api/v1/boards/{id}/full/`, the board owner's row has `role: "admin"`, the role the board grants them, even when they hold an explicit membership with a lower stored role; that row keeps its membership `id`. *(1.3+, #1828)* The members endpoints refuse to remove or demote the owner's membership (see below), so such a row can only be raised back to `admin`. Before 1.3 such a row showed the stored role. A row whose stored role is not one of `admin`, `member`, `collaborator` or `viewer` is listed as stored, so an admin can find and remove it; it grants no access, and the server refuses that user as a card assignee. A client building an assignee picker should offer only rows with `role` `admin`, `member`, `collaborator` or `site_admin`, plus any row with `has_all_content_access: true`; the Visiban web app does this in every assignee picker since 1.3. What the server enforces is unchanged.
 
 **`has_all_content_access` on member rows (since 1.3, #1301):** for a board `admin` or `site_admin` requester (board role `site_admin`, or an instance site admin on any board role), each row in the `members` array of `GET /api/v1/boards/{id}/full/` carries a boolean `has_all_content_access`: `true` when the member has `can_access_all_content`, which always resolves to full access ahead of any explicit membership. A row can therefore carry a stored `role` such as `viewer` while the member still has full access; use this field, not `role`, to tell. It is present on every row the requester receives (direct, group-inherited and owner rows), and rows with `role: "site_admin"` are always `true`. Requesters below `admin` omit the key. It does not widen who is listed: the all-content users with no role on the board still appear only for a site-admin requester (#1714). It is never added to the nested `user` object.
 
 **`is_site_admin` on member rows (since 1.2):** each row in the `members` array of `GET /api/v1/boards/{id}/full/` carries a boolean `is_site_admin`; the response of this endpoint and the `member.added` / `member.updated` events this endpoint produces (WebSocket broadcast and [change feed](events.md)) carry it only when the caller who made the change is a site admin (the payload is built once, so subscribers of any role do not receive it otherwise; a client re-reads the board to get the flag). A `member.added` event from invite redemption keeps its documented payload, which subscribers receive according to their role — the member's instance-level site-admin flag, the same flag this endpoint and `DELETE` below check. Use it, not `role`, to decide whether a row can be edited: `role: "site_admin"` means the member has `can_access_all_content`, which is a separate flag. The field is present only for `admin` and `site_admin` requesters, subscribers and readers, and there is no self-row exception (read your own flag from `/api/v1/auth/me/`). On `/full/`, a board admin who is not a site admin receives it only on rows backed by a membership on this board (`id` not `null`), which are the only rows this endpoint refuses to change for them; group-inherited and owner rows omit it for that requester (since 1.2, #1714). A site-admin requester (board role `site_admin`, or an instance site admin) receives it on every row. It is never added to the nested `user` object.
 
 ### `DELETE /api/v1/boards/{id}/members/{user_id}/`
-Remove a member. Requires board admin. Cannot remove a site admin who is a member of the board. Returns `204` when the membership is removed. If the user has no membership on the board, the response is the same `404 Not Found` (status and body) whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member; an inactive user who has a membership can be removed.
+Remove a member. Requires board admin. Cannot remove a site admin who is a member of the board. Returns `204` when the membership is removed. *(1.3+, #1828)* Removing the board owner's membership returns `400 Bad Request` with the same `{detail, code}` body as `POST` above (`code` `board_owner_protected`) and writes nothing, for every caller including the owner and site admins; before 1.3 it answered `204` but the owner kept admin access through board ownership and only disappeared from the roster. The owner leaves a board by deleting it. If the user has no membership on the board, the response is the same `404 Not Found` (status and body) whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member; an inactive user who has a membership can be removed.
 
 ---
 
@@ -1703,7 +1711,7 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single column. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/columns/`
-Create a column. Requires board admin.
+Create a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false, "is_done": false }`
 
@@ -1728,7 +1736,7 @@ Column objects returned by all endpoints include the following fields:
 > Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/` / `PATCH /api/v1/boards/{id}/columns/{col_id}/`
-Update a column. Requires board admin.
+Update a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean), `policy` (object or `null`, since 1.3)
 
@@ -1785,7 +1793,7 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single swimlane. Same role-gated field rules as the list endpoint.
 
 ### `POST /api/v1/boards/{id}/swimlanes/`
-Create a swimlane. Requires board admin.
+Create a swimlane. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Acme Corp", "contact_email": "", "color": "#3B82F6" }`
 
@@ -1812,7 +1820,7 @@ Swimlane response objects include the following fields:
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/` / `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
-Update a swimlane. Requires board admin.
+Update a swimlane. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2), `wip_limit`, `weight_limit`, `limit_enforcement`, `limit_column_ids` (since 1.3)
 
@@ -1903,12 +1911,12 @@ Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "p
 Get a single label. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/labels/`
-Create a label. Requires board admin.
+Create a label. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Bug", "color": "#EF4444" }`
 
 ### `PUT /api/v1/boards/{id}/labels/{label_id}/` / `PATCH /api/v1/boards/{id}/labels/{label_id}/`
-Update a label. Requires board admin.
+Update a label. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `color` (hex, see [Color values](#color-values))
 
@@ -2125,7 +2133,7 @@ List the board's custom field definitions in `position` order. Available to **al
 Get a single definition. Available to all board members.
 
 ### `POST /api/v1/boards/{id}/custom-fields/`
-Create a definition. Requires board admin.
+Create a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "show_on_card": true }`
 
@@ -2146,7 +2154,7 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   third field is pinned with `show_on_card`.
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/custom-fields/{field_id}/`
-Update a definition. Requires board admin.
+Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 
@@ -2238,7 +2246,7 @@ Get a single definition. Available to all board members. A definition `id` belon
 another board returns `404 Not Found`.
 
 ### `POST /api/v1/boards/{id}/swimlane-custom-fields/`
-Create a definition. Requires board admin.
+Create a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Request** `{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "show_on_row": true, "is_admin_only": true }`
 
@@ -2259,7 +2267,7 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   swimlane field definitions, or a ninth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
-Update a definition. Requires board admin.
+Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 

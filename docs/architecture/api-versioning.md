@@ -83,6 +83,7 @@ For endpoints being retired, return `410 Gone` with a JSON body explaining what 
 | `CurrentUser.maintenance_message` (`GET /auth/user/`, `/auth/me/`) | 1.2 | Same as `maintenance_mode`: read it from `site-config`. Removal needs a major version ([#1872](https://gitlab.com/visiban/visiban/-/issues/1872)). |
 | `CurrentUser.demo_mode` (`GET /auth/user/`, `/auth/me/`) | 1.2 | Same as `maintenance_mode`: read it from `site-config`. Removal needs a major version ([#1872](https://gitlab.com/visiban/visiban/-/issues/1872)). |
 | `CurrentUser.demo_next_reset_at` (`GET /auth/user/`, `/auth/me/`) | 1.2 | Same as `maintenance_mode`: read it from `site-config`. Removal needs a major version ([#1872](https://gitlab.com/visiban/visiban/-/issues/1872)). |
+| `errors` (and its `db` / `redis` keys) on the degraded `503` body of `GET /api/health/readiness/` | 1.3 | Names the backing services to anonymous callers. Still returned unchanged for all of 1.x; read the status code or `status` instead. Planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)), tracked in [#1728](https://gitlab.com/visiban/visiban/-/issues/1728). See [Health API](../api/health.md#get-apihealthreadiness). |
 
 ## Future versioning
 

@@ -50,6 +50,25 @@ class TransferOwnershipTests(TestCase):
             ).exists()
         )
 
+    def test_transfer_to_deactivated_admin_fails(self):
+        """A deactivated admin cannot be made owner over REST (#1828).
+
+        The Django admin transfer already required an active account; the REST
+        route did not, so the owner could hand the group to an account that
+        cannot sign in, leaving it repairable only by a superuser.
+        """
+        self.admin_member.is_active = False
+        self.admin_member.save(update_fields=["is_active"])
+        self.client.force_authenticate(self.owner)
+        r = self.client.post(self.url, {
+            "new_owner_id": self.admin_member.id,
+            "confirmation": self.group.name,
+        })
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json(), {"detail": "New owner must be an active user."})
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.owner_id, self.owner.id)
+
     def test_transfer_to_non_member_fails(self):
         """Transferring to a user who is not a group member must fail."""
         self.client.force_authenticate(self.owner)
