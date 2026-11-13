@@ -34,6 +34,7 @@ from boards.models import (
     Swimlane,
 )
 from boards.notifications_email import (
+    card_link,
     deliver_notification_emails,
     suppress_notification_email,
 )
@@ -145,6 +146,18 @@ class SignalExtensionPointTests(TestCase):
 
 
 @override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+class CardLinkTabTests(SignalExtensionPointTests):
+    """#967: only mention links deep-link to the Comments tab."""
+
+    def test_mention_link_opens_comments_tab(self):
+        link = card_link(self._notification(Notification.ActionType.MENTIONED))
+        self.assertTrue(link.endswith(f"/boards/{self.board.pk}?card={self.card.pk}&tab=comments"))
+
+    def test_other_links_have_no_tab(self):
+        link = card_link(self._notification(Notification.ActionType.ASSIGNED))
+        self.assertNotIn("tab=", link)
+
+
 class EmailDeliveryPerEventTests(TestCase):
     """Each in-scope event sends mail when the user opted in."""
 

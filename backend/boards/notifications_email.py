@@ -156,7 +156,11 @@ def card_link(notification):
         return f"{base}/boards/{notification.board_id}?settings=webhooks"
     if notification.card_id is None:
         return f"{base}/boards/{notification.board_id}"
-    return f"{base}/boards/{notification.board_id}?card={notification.card_id}"
+    link = f"{base}/boards/{notification.board_id}?card={notification.card_id}"
+    if notification.action_type == Notification.ActionType.MENTIONED:
+        # #967: a mention is a comment addressed to the reader; open the Comments tab.
+        link += "&tab=comments"
+    return link
 
 
 def _build_webhook_disabled_body(notification, context):

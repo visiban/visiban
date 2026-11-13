@@ -87,6 +87,21 @@ describe('Notification dropdown', () => {
     mockedMarkRead.mockResolvedValue(undefined)
   })
 
+  it('clicking a mention notification opens the Comments tab (#967)', async () => {
+    const user = userEvent.setup({ delay: null })
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([mockNotifications[1]])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle(/Notifications/))
+    await waitFor(() => screen.getByText(mockNotifications[1].verb))
+    await user.click(screen.getByText(mockNotifications[1].verb))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/boards/1?card=11&tab=comments')
+  })
+
   it('clicking a card notification navigates to /boards/:id?card=:card_id', async () => {
     const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(1)
