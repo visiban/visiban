@@ -89,7 +89,7 @@ Board admins can bring people onto a board without knowing their username. **Inv
 
 Click any card to open a side panel with full context:
 
-- **Priority** — low / medium / high / urgent, shown as a color-coded left border
+- **Priority** — low / medium / high / urgent, shown as a color-coded card border (at Comfortable density, overdue and due-soon cards take a red or amber border instead)
 - **Assignee** — any board member; triggers a notification on assignment
 - **Labels** — board-scoped tags for filtering and grouping
 - **Due date** — optional deadline
@@ -379,7 +379,7 @@ Admins can also turn off **Show field names on row chips** (Board Settings → S
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Each board has an admin-controlled **Card density** setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in **Board Settings → Display**.
+Each board has an admin-controlled **Card density** setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. At Comfortable, an overdue or due-soon card also gets a red or amber border. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in **Board Settings → Display**.
 
 The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and `localStorage` values for the old keys are silently ignored.
 

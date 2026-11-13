@@ -83,4 +83,17 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(face().style.borderColor).not.toContain('--')
     expect(screen.queryByTestId('card-priority-sr')).toBeNull()
   })
+
+  it('current card keeps its primary ring while the priority suffix is still emitted', () => {
+    render(<CardItem card={makeCard({ due_date: OVERDUE, priority: 'medium' })} density="comfortable" current />)
+    expect(face()).toHaveAttribute('aria-current', 'true')
+    expect(face().className).toContain('border-primary-emphasis')
+    expect(face().style.borderColor).toBe('')
+    expect(screen.getByTestId('card-priority-sr')).toHaveTextContent('Priority: medium')
+  })
+
+  it('drag overlay copy of an overdue card keeps the danger border', () => {
+    render(<CardItem card={makeCard({ due_date: OVERDUE })} density="comfortable" overlay />)
+    expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
+  })
 })

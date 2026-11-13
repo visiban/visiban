@@ -614,7 +614,7 @@ Since 1.2 an admin can color any dropdown or multi-select choice, danger red inc
 ## Cards
 
 - Container: `bg-surface rounded-lg border p-2.5 cursor-grab`
-- **Border color = priority/status indicator** — full border on all sides (not just left accent):
+- **Border color = priority/status indicator** — full border on all sides (not just left accent); at Comfortable, overdue/due-soon override it; see § Card border urgency tint at Comfortable density (#977):
   - Default / low: `border-primary-emphasis`
   - Medium: `border-warning-emphasis`
   - High / blocked: `border-danger-emphasis`
