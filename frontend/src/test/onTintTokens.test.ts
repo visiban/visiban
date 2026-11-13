@@ -446,7 +446,7 @@ describe('untinted card face text (#1862)', () => {
     expect(onBg(lightBlock, 'fg-tertiary', 'surface-sunken')).toBeCloseTo(7.24, 2)
   })
 
-  // When this fails, #2029 has fixed the light success/warning tokens: drop the exemptions above and
+  // When this fails, #2029 has fixed the light success token: drop the exemption above and
   // the matching note in frontend/CLAUDE.md.
   it('the success exemption is still needed: it is sub-AA on white in light mode', () => {
     expect(allUsed.has('success')).toBe(true)

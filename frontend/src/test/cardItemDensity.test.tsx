@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
 import type { Card } from '../types'
@@ -205,6 +205,47 @@ describe('CardItem — card_density (#961)', () => {
       expect(pill.className).not.toMatch(/text-warning(?!-on-tint)/)
       expect(pill.textContent).toMatch(/^Due /)
       expect(pill.querySelector('svg[data-testid="urgency-glyph-due-soon"]')?.getAttribute('aria-hidden')).toBe('true')
+    })
+
+    describe('due-today pill (user-timezone vs UTC-midnight classifier divergence, #871)', () => {
+      afterEach(() => { vi.useRealTimers() })
+
+      it('renders a due-today pill as due soon, not overdue, when the classifier already calls it overdue', () => {
+        // 15:00 UTC on 2026-06-15: in the user's (UTC) timezone the date is today,
+        // so formatDueDate says not overdue, while the classifier parses the date as
+        // UTC midnight, which is already past, so it says overdue.
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
+        render(
+          <CardItem
+            card={makeCard({ due_date: '2026-06-15', created_at: '2026-06-14T00:00:00Z' })}
+            density="dense"
+            userTimezone="UTC"
+          />,
+        )
+        const pill = screen.getByTitle('Due 2026-06-15')
+        expect(pill.textContent).toMatch(/^Due today/)
+        expect(pill.textContent).not.toMatch(/Overdue/)
+        expect(pill.querySelector('svg[data-testid="urgency-glyph-due-soon"]')).not.toBeNull()
+        expect(pill.querySelector('svg[data-testid="urgency-glyph-overdue"]')).toBeNull()
+        expect(pill.className).toContain('text-warning-on-tint')
+      })
+
+      it('applies the on-tint tone class to the pill on a tinted card', () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
+        // Never moved, created 30 days ago against the 14-day default: stale 2x tint.
+        render(
+          <CardItem
+            card={makeCard({ due_date: '2026-06-15', created_at: '2026-05-16T00:00:00Z' })}
+            density="dense"
+            userTimezone="UTC"
+          />,
+        )
+        const pill = screen.getByTitle('Due 2026-06-15')
+        expect(pill.className).toContain('text-danger-on-tint')
+        expect(pill.className).not.toMatch(/text-(danger|warning)(?!-on-tint)/)
+      })
     })
 
     it('leaves a far-out due pill plain: no glyph, fg-tertiary', () => {
