@@ -14,8 +14,27 @@ const geometry = (overrides: Partial<SheetGeometry> = {}): SheetGeometry => ({
   cardCenterY: 300,
   ...overrides,
 })
-const place = (viewportWidth: number, g: SheetGeometry | null = geometry()) =>
-  computeCardSheetPlacement({ viewportWidth, viewportHeight: VH, geometry: g })
+const place = (viewportWidth: number, g: SheetGeometry | null = geometry(), docked = false) =>
+  computeCardSheetPlacement({ viewportWidth, viewportHeight: VH, geometry: g, docked })
+
+// #1915 — "Dock to edge" ranks below full-screen and above the anchor rule.
+describe('computeCardSheetPlacement docked input (#1915)', () => {
+  it('stays full-screen at <= 640px even when docked', () => {
+    expect(place(640, geometry(), true).mode).toBe('fullscreen')
+    expect(place(375, null, true).mode).toBe('fullscreen')
+  })
+
+  it('docks at every width above 640px, including >= 1280px where it would anchor', () => {
+    expect(place(1600).mode).toBe('anchored')
+    for (const vw of [641, 1024, 1279, 1280, 1600, 2560]) {
+      expect(place(vw, geometry(), true)).toMatchObject({ mode: 'docked', side: null, left: null, top: 0, bottom: 0, notch: null })
+    }
+  })
+
+  it('defaults to the anchor rule when the input is omitted', () => {
+    expect(computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: geometry() }).mode).toBe('anchored')
+  })
+})
 
 describe('computeCardSheetPlacement (#1914)', () => {
   it('is full-screen at <= 640px, whatever the geometry', () => {
@@ -148,6 +167,13 @@ describe('classifyTransition (#1914)', () => {
     expect(classifyTransition(anchoredRight, anchoredLeft, 'scroll')).toBe('fade')
     expect(classifyTransition(docked, anchoredRight, 'appear')).toBe('fade')
     expect(classifyTransition(anchoredRight, docked, 'resize')).toBe('fade')
+  })
+
+  it('slides when the dock toggle moves the sheet, either way (#1915), and plays nothing if it did not move', () => {
+    expect(classifyTransition(anchoredRight, docked, 'dock-toggle')).toBe('slide')
+    expect(classifyTransition(docked, anchoredRight, 'dock-toggle')).toBe('slide')
+    expect(classifyTransition(anchoredLeft, docked, 'dock-toggle')).toBe('slide')
+    expect(classifyTransition(docked, docked, 'dock-toggle')).toBe('none')
   })
 
   it('always fades after an in-sheet Move, even on the same side', () => {

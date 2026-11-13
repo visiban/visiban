@@ -269,6 +269,8 @@ Click a card to open its **detail panel**. Where it opens depends on the window 
 - **641 to 1279 px:** the panel opens at the right edge of the window, over a lightly dimmed board.
 - **640 px and narrower:** the panel fills the screen, with a **‹ Board** button to go back.
 
+**Dock to edge** *(new in 1.3, #1915)*: above 640 px, the panel header has a **Dock to edge** button just left of **×**. Click it to keep the panel at the right edge of the window at any width instead of next to the card's column; the button then reads **Open next to card** and shows a bordered, pressed look with a different icon. Your choice is remembered in this browser and applies to every card you open afterward, including when you switch cards. The button is not shown at 640 px and narrower, where the panel fills the screen.
+
 While the panel is open, click another card to switch the panel to it, or click an empty part of the board to close it. Escape and the **×** button also close it, and focus returns to the card you opened. Cards can't be dragged while the panel is open. The panel stays put when you scroll the board: the tail follows the card, and the panel moves to the card's column again when you stop scrolling or resize the window.
 
 The panel contains all editable fields plus two tabs:

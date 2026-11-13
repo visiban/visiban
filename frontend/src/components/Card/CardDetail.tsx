@@ -4,6 +4,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, isBoardTreePointerEvent, useCardSheetPlacement } from "../../hooks/useCardSheetPlacement";
 import type { SheetPlacement } from "../../hooks/useCardSheetPlacement";
+import { useCardSheetDockedPref } from "../../hooks/useCardSheetDockedPref";
 import { claimDeparture, departSheet, dropOwnDeparture, playTransition } from "./cardSheetMotion";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
@@ -214,7 +215,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // Placement (#1914): anchored beside the card's column at >= 1280px, docked
   // to the right edge below that (or when there is no room or no card element
   // to anchor to), full-screen at <= 640px. Re-placed when the card moves.
-  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}`);
+  // "Dock to edge" (#1915) pins the sheet to the right edge at any width above 640px.
+  const [dockedPref, setDockedPref] = useCardSheetDockedPref();
+  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}`, dockedPref);
   const { placement } = sheet;
 
   // Focus moves to the close button on open (#1914); the dialog is announced
@@ -1412,6 +1415,38 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               className="px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Block…
+            </button>
+          )}
+          {!fullscreen && (
+            // Dock toggle (#1915): DOM order equals visual order (Dock, then Close) and focus
+            // opens on Close, so Shift+Tab reaches it. The pressed state is not tint alone:
+            // the icon swaps between the two modes and the border appears.
+            <button
+              type="button"
+              onClick={() => setDockedPref(!dockedPref)}
+              aria-pressed={dockedPref}
+              aria-label={dockedPref ? "Open next to card" : "Dock to edge"}
+              title={dockedPref ? "Open next to card" : "Dock to edge"}
+              data-testid="card-sheet-dock-toggle"
+              className={`w-7 h-7 flex items-center justify-center rounded border transition shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                dockedPref ? "bg-surface-hover border-line-strong text-fg" : "border-transparent"
+              }`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                {dockedPref ? (
+                  <>
+                    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
+                    <path d="M9.5 2.75v10.5" />
+                    <path d="M9.5 8H4.5M6.5 6l-2 2 2 2" />
+                  </>
+                ) : (
+                  <>
+                    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
+                    <path d="M10 2.75v10.5" />
+                    <path d="M10 8h2.5M11.25 6.75L12.5 8l-1.25 1.25" />
+                  </>
+                )}
+              </svg>
             </button>
           )}
           <button type="button"

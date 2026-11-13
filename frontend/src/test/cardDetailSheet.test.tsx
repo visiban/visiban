@@ -139,6 +139,7 @@ const dialog = () => screen.getByRole('dialog', { name: /./ })
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   setViewport(1600)
 })
 
@@ -146,6 +147,95 @@ afterEach(() => {
   document.querySelectorAll('nav[aria-label="Board toolbar"], [data-board-scroll], [data-keeps-card-sheet-open]').forEach((el) => el.remove())
   setViewport(1024, 768)
   vi.unstubAllGlobals()
+})
+
+describe('CardDetail sheet — Dock to edge toggle (#1915)', () => {
+  const toggle = () => screen.getByTestId('card-sheet-dock-toggle')
+
+  it('renders before Close in DOM order, unpressed, with the Dock label; focus still opens on Close', () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    const t = toggle()
+    expect(t).toHaveAttribute('type', 'button')
+    expect(t).toHaveAttribute('aria-pressed', 'false')
+    expect(t).toHaveAttribute('aria-label', 'Dock to edge')
+    expect(t).toHaveAttribute('title', 'Dock to edge')
+    const close = screen.getByRole('button', { name: 'Close' })
+    expect(t.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(close).toHaveFocus()
+    expect(dialog()).toHaveAttribute('data-sheet-mode', 'anchored')
+  })
+
+  it('docks on click, persists, relabels, and does not rely on tint alone (border plus icon swap)', async () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    const before = toggle().innerHTML
+    await userEvent.click(toggle())
+    await waitFor(() => expect(dialog()).toHaveAttribute('data-sheet-mode', 'docked'))
+    expect(localStorage.getItem('user:prefs:card-sheet-docked')).toBe('true')
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle()).toHaveAttribute('aria-label', 'Open next to card')
+    expect(toggle()).toHaveAttribute('title', 'Open next to card')
+    expect(toggle().className).toContain('bg-surface-hover')
+    expect(toggle().className).toContain('border-line-strong')
+    expect(toggle().innerHTML).not.toBe(before)
+    expect(screen.getByTestId('card-detail-backdrop')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-sheet-notch')).not.toBeInTheDocument()
+  })
+
+  it('toggles back to anchored and clears the stored preference', async () => {
+    localStorage.setItem('user:prefs:card-sheet-docked', 'true')
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(dialog()).toHaveAttribute('data-sheet-mode', 'docked')
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(toggle())
+    await waitFor(() => expect(dialog()).toHaveAttribute('data-sheet-mode', 'anchored'))
+    expect(localStorage.getItem('user:prefs:card-sheet-docked')).toBe('false')
+  })
+
+  it('activates with Enter and Space', async () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    toggle().focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(toggle()).toHaveAttribute('aria-pressed', 'true'))
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(toggle()).toHaveAttribute('aria-pressed', 'false'))
+  })
+
+  it('Shift+Tab from Close reaches the toggle', async () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+    await userEvent.tab({ shift: true })
+    expect(toggle()).toHaveFocus()
+  })
+
+  it('a fresh mount (a card swap, a reload) keeps the chosen mode at >= 1280px', async () => {
+    mountBoard()
+    const first = render(<CardDetail {...defaultProps()} />)
+    await userEvent.click(toggle())
+    first.unmount()
+    render(<CardDetail {...defaultProps()} />)
+    expect(dialog()).toHaveAttribute('data-sheet-mode', 'docked')
+  })
+
+  it('is hidden at <= 640px (full-screen), even when docked is stored', () => {
+    localStorage.setItem('user:prefs:card-sheet-docked', 'true')
+    setViewport(640)
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(dialog()).toHaveAttribute('data-sheet-mode', 'fullscreen')
+    expect(screen.queryByTestId('card-sheet-dock-toggle')).not.toBeInTheDocument()
+  })
+
+  it('is shown at 641px', () => {
+    setViewport(641)
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(toggle()).toBeInTheDocument()
+  })
 })
 
 describe('CardDetail sheet — anchor rule (#1914)', () => {

@@ -417,6 +417,72 @@ test.describe('card detail sheet — docked (641-1279px)', () => {
   })
 })
 
+test.describe('card detail sheet — Dock to edge (#1915)', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+  test.beforeEach(async ({ page }) => { await routeTwoCardBoard(page) })
+
+  test('docks on toggle, persists across a reload, keeps the mode on a card swap, and toggles back', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const first = page.locator(`[data-card-id="${CARD.id}"]`)
+    const second = page.locator(`[data-card-id="${CARD_TWO.id}"]`)
+    await first.click()
+    const dialog = page.getByRole('dialog', { name: /./ })
+    await expect(dialog).toHaveAttribute('data-sheet-mode', 'anchored')
+    const toggle = dialog.getByRole('button', { name: 'Dock to edge' })
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await toggle.click()
+    await expect(dialog).toHaveAttribute('data-sheet-mode', 'docked')
+    const box = await settled(dialog)
+    expect(box.x + box.width).toBe(1600)
+    await expect(dialog.getByRole('button', { name: 'Open next to card' })).toHaveAttribute('aria-pressed', 'true')
+
+    // A card swap keeps the chosen mode.
+    await second.click()
+    await expect(dialog).toHaveAttribute('data-sheet-mode', 'docked')
+
+    // Persists across a reload.
+    await page.reload()
+    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    await expect(page.getByRole('dialog', { name: /./ })).toHaveAttribute('data-sheet-mode', 'docked')
+
+    await page.getByRole('dialog', { name: /./ }).getByRole('button', { name: 'Open next to card' }).click()
+    await expect(page.getByRole('dialog', { name: /./ })).toHaveAttribute('data-sheet-mode', 'anchored')
+  })
+
+  test('focus opens on Close and Shift+Tab reaches the toggle', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    const dialog = page.getByRole('dialog', { name: /./ })
+    await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(dialog.getByRole('button', { name: 'Dock to edge' })).toBeFocused()
+  })
+
+  test.describe('reduced motion', () => {
+    test('toggling still docks the sheet', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.locator(`[data-card-id="${CARD.id}"]`).click()
+      const dialog = page.getByRole('dialog', { name: /./ })
+      await dialog.getByRole('button', { name: 'Dock to edge' }).click()
+      await expect(dialog).toHaveAttribute('data-sheet-mode', 'docked')
+    })
+  })
+})
+
+test.describe('card detail sheet — Dock to edge hidden at <= 640px (#1915)', () => {
+  test.use({ viewport: { width: 640, height: 900 } })
+  test.beforeEach(async ({ page }) => { await routeTwoCardBoard(page) })
+
+  test('has no toggle in full-screen', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    const dialog = page.getByRole('dialog', { name: /./ })
+    await expect(dialog).toHaveAttribute('data-sheet-mode', 'fullscreen')
+    await expect(dialog.getByRole('button', { name: /Dock to edge|Open next to card/ })).toHaveCount(0)
+  })
+})
+
 test.describe('card detail sheet — full-screen (<= 640px)', () => {
   test.use({ viewport: { width: 600, height: 900 } })
   test.beforeEach(async ({ page }) => { await routeTwoCardBoard(page) })

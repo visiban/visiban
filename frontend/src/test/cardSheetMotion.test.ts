@@ -141,6 +141,20 @@ describe('cardSheetMotion (#1914)', () => {
     expect(calls.some((c) => c.keyframes.some((k) => 'transform' in k))).toBe(false)
   })
 
+  it('a dock toggle (a slide) turns into a 120ms fade out and in under reduced motion, with no transform (#1915)', () => {
+    reduced = true
+    const panel = makePanel(1060)
+    playTransition('slide', panel, { placement: right, from: rect(466) })
+    expect(calls.find((c) => c.el === panel)!.options).toMatchObject({ duration: 120, delay: 120 })
+    expect(calls.some((c) => c.keyframes.some((k) => 'transform' in k))).toBe(false)
+  })
+
+  it('a dock toggle slides the sheet from its old position with the swap timing (#1915)', () => {
+    const panel = makePanel(1060)
+    playTransition('slide', panel, { placement: right, from: rect(466) })
+    expect(calls.find((c) => c.el === panel)!.options).toMatchObject({ duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' })
+  })
+
   it('plays nothing for "none" and drops a handed-over ghost', () => {
     const panel = makePanel()
     const ghost = makeGhost(panel)!

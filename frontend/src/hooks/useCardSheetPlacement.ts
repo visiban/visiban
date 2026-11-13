@@ -35,7 +35,7 @@ export type SheetMode = "fullscreen" | "docked" | "anchored";
 /** Which side of the card's column an anchored sheet sits on. */
 export type SheetSide = "right" | "left";
 /** Why the sheet was placed again; the Move re-anchor always fades (#1914). */
-export type PlacementReason = "open" | "move" | "resize" | "scroll" | "appear";
+export type PlacementReason = "open" | "move" | "resize" | "scroll" | "appear" | "dock-toggle";
 
 export interface SheetGeometry {
   /** Viewport x of the card's column (its board cell). */
@@ -106,12 +106,15 @@ export function computeNotch(cardCenterY: number, top: number, bottom: number, v
  * partly under the sticky labels (or past the right edge) docks instead of
  * covering them or running off screen.
  */
-export function computeCardSheetPlacement({ viewportWidth, viewportHeight, geometry }: {
+export function computeCardSheetPlacement({ viewportWidth, viewportHeight, geometry, docked = false }: {
   viewportWidth: number;
   viewportHeight: number;
   geometry: SheetGeometry | null;
+  /** The user's "Dock to edge" preference (#1915): ranks below full-screen, above the anchor rule. */
+  docked?: boolean;
 }): SheetPlacement {
   if (viewportWidth <= FULLSCREEN_MAX_VIEWPORT) return FULLSCREEN;
+  if (docked) return DOCKED;
   if (viewportWidth < ANCHOR_MIN_VIEWPORT || !geometry) return DOCKED;
   const { column, lanesRight, toolbarBottom, cardCenterY } = geometry;
   const maxLeft = viewportWidth - SHEET_EDGE - SHEET_WIDTH;
@@ -155,6 +158,8 @@ export type SheetTransition = "none" | "open" | "slide" | "fade";
 export function classifyTransition(prev: SheetPlacement | null, next: SheetPlacement, reason: PlacementReason | "swap"): SheetTransition {
   if (!prev) return "open";
   if (reason === "move" && !sameFrame(prev, next)) return "fade";
+  // Toggling Dock to edge moves the same card's sheet with the swap timing (#1915).
+  if (reason === "dock-toggle") return sameFrame(prev, next) ? "none" : "slide";
   if (sameFrame(prev, next)) return reason === "swap" ? "slide" : "none";
   if (prev.mode !== next.mode || prev.side !== next.side) return "fade";
   return "slide";
@@ -225,9 +230,9 @@ export interface CardSheetPlacementState {
   measured: boolean;
 }
 
-function initialState(): CardSheetPlacementState {
+function initialState(docked: boolean): CardSheetPlacementState {
   return {
-    placement: computeCardSheetPlacement({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, geometry: null }),
+    placement: computeCardSheetPlacement({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, geometry: null, docked }),
     cardEl: null,
     reason: "open",
     measured: false,
@@ -248,8 +253,8 @@ function initialState(): CardSheetPlacementState {
  * Scroll inside the sheet (its long body, a dropdown list) is ignored: only a
  * scroll of the board container or the document counts.
  */
-export function useCardSheetPlacement(cardId: number, locationKey: string): CardSheetPlacementState {
-  const [state, setState] = useState<CardSheetPlacementState>(initialState);
+export function useCardSheetPlacement(cardId: number, locationKey: string, docked = false): CardSheetPlacementState {
+  const [state, setState] = useState<CardSheetPlacementState>(() => initialState(docked));
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -259,6 +264,7 @@ export function useCardSheetPlacement(cardId: number, locationKey: string): Card
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
       geometry: el ? measureCardSheetGeometry(el) : null,
+      docked,
     });
     setState((prev) => (
       prev.measured && prev.cardEl === el && samePlacement(prev.placement, placement)
@@ -266,13 +272,17 @@ export function useCardSheetPlacement(cardId: number, locationKey: string): Card
         : { placement, cardEl: el, reason, measured: true }
     ));
     return el;
-  }, [cardId]);
+  }, [cardId, docked]);
 
   // Open and Move re-anchor. A card that is not rendered yet gets a few
   // frames to appear (a deep link that lands before the board renders).
   const lastLocationRef = useRef<string | null>(null);
+  const lastDockedRef = useRef(docked);
   useLayoutEffect(() => {
-    const reason: PlacementReason = lastLocationRef.current === null || lastLocationRef.current === locationKey ? "open" : "move";
+    const dockToggled = lastDockedRef.current !== docked;
+    lastDockedRef.current = docked;
+    const reason: PlacementReason = dockToggled ? "dock-toggle"
+      : lastLocationRef.current === null || lastLocationRef.current === locationKey ? "open" : "move";
     lastLocationRef.current = locationKey;
     if (place(reason)) return;
     let frames = 0;
@@ -283,7 +293,7 @@ export function useCardSheetPlacement(cardId: number, locationKey: string): Card
     };
     raf = requestAnimationFrame(retry);
     return () => cancelAnimationFrame(raf);
-  }, [place, locationKey]);
+  }, [place, locationKey, docked]);
 
   useEffect(() => {
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
