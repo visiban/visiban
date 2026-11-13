@@ -945,10 +945,11 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       await user.type(screen.getAllByRole('textbox')[2], 'EMEA')
 
       await user.click(screen.getByRole('button', { name: 'Paste a list' }))
-      expect(screen.getByText('newline-separated')).toBeInTheDocument()
+      expect(screen.getByText('one per line or cell')).toBeInTheDocument()
       await user.type(screen.getByPlaceholderText('One choice per line'), 'EMEA{Enter}APAC{Enter}{Enter}AMER')
-      await user.click(screen.getByRole('button', { name: 'Add 3 choices' }))
-      // EMEA was already present, so pasting it again adds nothing.
+      // EMEA was already present, so pasting it again adds nothing — and the
+      // count says so (#2192: it used to read "Add 3" and add two).
+      await user.click(screen.getByRole('button', { name: 'Add 2 choices' }))
       expect(screen.getAllByRole('textbox').slice(2).map((i) => (i as HTMLInputElement).value)).toEqual(['EMEA', 'APAC', 'AMER'])
       expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
 
@@ -967,6 +968,101 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       })
       // Pinning is a second call: the create endpoint does not take show_on_row.
       expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_row: true })
+    })
+
+    describe('pasting a list after removing every original choice (#2192)', () => {
+      const stage = makeDef({ id: 3, name: 'Stage', field_type: 'dropdown', choices: ['Old A', 'Old B'], show_on_row: false })
+      const choiceLabels = () =>
+        screen.queryAllByRole('button', { name: /^Remove choice / }).map((b) => b.getAttribute('aria-label'))
+
+      async function removeOriginalsAndPaste(user: ReturnType<typeof userEvent.setup>, text: string) {
+        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(async (_b: number, id: number, p: object) => ({ ...stage, id, ...p }))
+        renderTab([stage])
+        await user.click(screen.getByRole('button', { name: 'Edit Stage' }))
+        await user.click(screen.getByRole('button', { name: 'Remove choice Old A' }))
+        await user.click(screen.getByRole('button', { name: 'Remove choice Old B' }))
+        expect(choiceLabels()).toEqual([])
+        await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+        await user.click(screen.getByPlaceholderText('One choice per line'))
+        await user.paste(text)
+      }
+
+      it('Add moves the pasted choices into the list, and Save sends them', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'New 1\nNew 2')
+        await user.click(screen.getByRole('button', { name: 'Add 2 choices' }))
+        expect(choiceLabels()).toEqual(['Remove choice New 1', 'Remove choice New 2'])
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 3, expect.objectContaining({ choices: ['New 1', 'New 2'] }),
+        ))
+        expect(screen.queryByText('A dropdown field needs at least one choice.')).not.toBeInTheDocument()
+      })
+
+      it('Add drops duplicates within one paste, and Save sends each choice once', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'New 1\nNew 1\nNew 2')
+        await user.click(screen.getByRole('button', { name: 'Add 2 choices' }))
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 3, expect.objectContaining({ choices: ['New 1', 'New 2'] }),
+        ))
+      })
+
+      it('Save refuses more than 100 choices with a specific error and sends nothing', async () => {
+        const user = userEvent.setup()
+        const lines = Array.from({ length: 101 }, (_, i) => `Opt ${i}`).join('\n')
+        await removeOriginalsAndPaste(user, lines)
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        expect(await screen.findByText('A dropdown field may have at most 100 choices.')).toBeInTheDocument()
+        expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+      })
+
+      it('Save with the text still in the paste box saves the pasted choices', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'New 1\r\nNew 2\rNew 3')
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 3, expect.objectContaining({ choices: ['New 1', 'New 2', 'New 3'] }),
+        ))
+        expect(screen.queryByText('A dropdown field needs at least one choice.')).not.toBeInTheDocument()
+      })
+
+      it('closing the paste box with text in it applies the text, and opening it changes nothing', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'New 1\nNew 2')
+        await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+        expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
+        expect(choiceLabels()).toEqual(['Remove choice New 1', 'Remove choice New 2'])
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 3, expect.objectContaining({ choices: ['New 1', 'New 2'] }),
+        ))
+      })
+
+      it('editing another field does not carry the paste box or its text over', async () => {
+        const user = userEvent.setup()
+        const other = makeDef({ id: 4, name: 'Other', field_type: 'dropdown', choices: ['X'], show_on_row: false })
+        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(async (_b: number, id: number, p: object) => ({ ...other, id, ...p }))
+        renderTab([stage, other])
+        await user.click(screen.getByRole('button', { name: 'Edit Stage' }))
+        await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+        await user.click(screen.getByPlaceholderText('One choice per line'))
+        await user.paste('Leaked')
+        await user.click(screen.getByRole('button', { name: 'Edit Other' }))
+        expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Save field' }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
+          1, 4, expect.objectContaining({ choices: ['X'] }),
+        ))
+      })
+
+      it('splits a row of spreadsheet cells on tabs, and the count matches what is added', async () => {
+        const user = userEvent.setup()
+        await removeOriginalsAndPaste(user, 'North\tSouth\tNorth\n')
+        await user.click(screen.getByRole('button', { name: 'Add 2 choices' }))
+        expect(choiceLabels()).toEqual(['Remove choice North', 'Remove choice South'])
+      })
     })
 
     it('reports a generic error when the save fails', async () => {
