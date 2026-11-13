@@ -1491,10 +1491,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // a card by hand also keeps it; emptying the selection unmounts the toolbar,
   // and a fresh selection starts from an empty slot because the ref is empty.)
   const prevSelectedIdsRef = useRef<Set<number>>(new Set());
+  // Bumped whenever the selection gains a card or empties: an action that
+  // started over an earlier selection compares it after its await and falls
+  // back to the toast instead of writing its result under a different selection.
+  const selectionGenRef = useRef(0);
   useEffect(() => {
     const prev = prevSelectedIdsRef.current;
     prevSelectedIdsRef.current = selectedCardIds;
     if (selectedCardIds.size === 0 || [...selectedCardIds].some((id) => !prev.has(id))) {
+      selectionGenRef.current += 1;
       setBulkMessage(null);
     }
   }, [selectedCardIds]);
@@ -1519,7 +1524,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // the toast.
     if (selectionResult && requested === "failed" && toolbarUpRef.current) {
       dismissToast(CARD_ACTION_TOAST_KEY);
-      setBulkMessage(text);
+      // Clear first, then set on the next tick: an identical repeat message
+      // would change nothing in the live region and so not be announced again.
+      setBulkMessage(null);
+      setTimeout(() => setBulkMessage(text), 0);
       return;
     }
     // Announce-only is for a change visible on the board grid; from Summary,
@@ -1580,15 +1588,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const entry = cardActionEntries(cards, cardActionStateRef.current.cardActionContext).find((e) => e.id === action);
     if (!entry?.enabled) return;
     const selected = cardActionStateRef.current.selectedCardIds;
-    const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
+    const startedGen = selectionGenRef.current;
+    const wasWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
+    // Evaluated when the result lands: a card added to the selection while the
+    // request ran makes the selection a different one, so the result must not
+    // be written under it (nor clear it).
+    const isWholeSelection = () => wasWholeSelection && selectionGenRef.current === startedGen;
     const finish = (failure: string | null, success: string, alreadyShown = false) => {
-      if (failure) { reportCardAction(failure, "failed", isWholeSelection); return; }
+      if (failure) { reportCardAction(failure, "failed", isWholeSelection()); return; }
       // Skip the result when another toast already reported and announced the same
       // outcome ("Card archived"), on the board view (a second live announcement) and
       // off it (a second toast).
       if (!alreadyShown) reportCardAction(success, "announced");
       // § Bulk operations rule 1: a selection clears only on full success.
-      if (isWholeSelection) clearSelection();
+      if (isWholeSelection()) clearSelection();
     };
     switch (action) {
       case "open":
@@ -3452,6 +3465,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             cards={delCards}
             canModifyAll={isAdmin || isBoardModerator}
             currentUserId={currentUser?.id ?? null}
+            actionContext={cardActionContext}
             onDeleted={(ids) => {
               ids.forEach((id) => onCardDeleted(id));
               const sel = cardActionStateRef.current.selectedCardIds;

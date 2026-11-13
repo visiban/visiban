@@ -185,6 +185,21 @@ describe('writes over a target set (§ Bulk operations wording)', () => {
     expect(r.failureMessage).toBe('1 of 2 cards could not be moved — a column limit was reached.')
   })
 
+  it('a server 403 on move names the move clause, and mixed with a client skip stays one reason', async () => {
+    vi.mocked(moveCard).mockRejectedValue(httpError(403))
+    expect((await moveCardsToColumn(1, [makeCard()], column)).failureMessage)
+      .toBe('1 of 1 card could not be moved — a card assigned to someone else can only be moved by its creator, its assignee or a board admin.')
+    const mine = makeCard({ id: 1, created_by: { id: 1, username: 'u', display_name: 'U', avatar_url: '' } })
+    const theirs = makeCard({
+      id: 2, created_by: { id: 9, username: 'o', display_name: 'O', avatar_url: '' },
+      assignee: { id: 8, username: 'a', display_name: 'A', avatar_url: '' } as never,
+    })
+    const r = await moveCardsToColumn(1, [mine, theirs], column, member)
+    expect(moveCard).toHaveBeenCalledTimes(2)
+    expect(r.failureMessage)
+      .toBe('2 of 2 cards could not be moved — a card assigned to someone else can only be moved by its creator, its assignee or a board admin.')
+  })
+
   it('assigns and sets priority with Promise.allSettled', async () => {
     vi.mocked(updateCard).mockResolvedValue(makeCard() as never)
     expect((await assignCards(1, [makeCard()], null)).failureMessage).toBeNull()

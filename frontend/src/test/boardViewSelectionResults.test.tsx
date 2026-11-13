@@ -396,6 +396,60 @@ describe('BoardView selection results (#2173)', () => {
     fireEvent.click(screen.getByTestId('select-card-1-20'))
     expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
   })
+  it('a selection that gains a card retires the message', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(forbidden())
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    archiveVia([1])
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).not.toHaveTextContent(/^$/))
+    fireEvent.click(screen.getByTestId('select-card-2-20'))
+    await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('2'))
+    expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
+  })
+
+  it('a repeated identical failure is cleared and set again so the live region re-announces it', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(forbidden())
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    archiveVia([1])
+    await waitFor(() => expect(screen.getByTestId('bulk-message')).not.toHaveTextContent(/^$/))
+    const slot = screen.getByTestId('bulk-message')
+    const seen: string[] = []
+    const observer = new MutationObserver(() => { seen.push(slot.textContent ?? '') })
+    observer.observe(slot, { childList: true, subtree: true, characterData: true })
+    archiveVia([1])
+    await waitFor(() => expect(seen.length).toBeGreaterThanOrEqual(2))
+    observer.disconnect()
+    expect(seen[0]).toBe('')
+    expect(seen[seen.length - 1]).toContain('1 of 1 card could not be archived')
+  })
+
+  it('a card added to the selection while the request runs sends the result to the toast, not the new selection', async () => {
+    let rejectArchive: (e: unknown) => void = () => {}
+    vi.mocked(archiveCard).mockImplementation(() => new Promise((_res, rej) => { rejectArchive = rej }))
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    archiveVia([1])
+    // The user adds a second card while the archive is still in flight.
+    fireEvent.click(screen.getByTestId('select-card-2-20'))
+    await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('2'))
+    await act(async () => { rejectArchive(forbidden()) })
+    expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('1 of 1 card could not be archived')
+    expect(screen.getByTestId('bulk-message')).toHaveTextContent('')
+  })
+
+  it('a card added while a full success is in flight keeps the selection', async () => {
+    let resolveArchive: () => void = () => {}
+    vi.mocked(archiveCard).mockImplementation(() => new Promise((res) => { resolveArchive = () => res(undefined as never) }))
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    archiveVia([1])
+    fireEvent.click(screen.getByTestId('select-card-2-20'))
+    await waitFor(() => expect(screen.getByTestId('bulk-count')).toHaveTextContent('2'))
+    await act(async () => { resolveArchive() })
+    expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+  })
+
   // After a partial archive/delete the succeeded card leaves board.cards, the
   // prune effect drops it from the selection, and the failure text for the
   // card that stayed must survive that shrink (#2173).

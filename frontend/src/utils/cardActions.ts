@@ -371,8 +371,9 @@ function summarize<T>(done: T[], total: number, verb: string, reasons: Set<strin
 /**
  * The executors below take the user's `CardActionContext` so a mixed set skips
  * the cards the client already knows the server refuses (`cardRefusal`): they
- * are not sent, count as failed, and carry the ownership reason, the way
- * `CardDeleteConfirm` skips others' cards. Without a context nothing is
+ * are not sent, count as failed, and carry the ownership reason. Delete does
+ * the same through `CardDeleteConfirm`, which takes the same context and
+ * `partitionRefused`. Without a context nothing is
  * skipped and the server decides. The server stays the enforcement point.
  */
 
@@ -389,7 +390,7 @@ export async function moveCardsToColumn(boardId: number, cards: Card[], column: 
       const result = await moveCard(boardId, card.id, { column_id: column.id, swimlane_id: card.swimlane, position: 9999 });
       done.push(result.card);
     } catch (err) {
-      reasons.add(failureReason(err));
+      reasons.add(failureReason(err, REFUSAL_CLAUSE.move));
     }
   }
   return summarize(done, cards.length, "moved", reasons);

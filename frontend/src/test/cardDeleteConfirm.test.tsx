@@ -24,6 +24,19 @@ const forbidden = () => new AxiosError('x', 'ERR', undefined, undefined, { statu
 describe('CardDeleteConfirm', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
+  it('with an action context, known-refused cards are not sent and count as failed with the delete clause', async () => {
+    vi.mocked(deleteCard).mockResolvedValue(undefined as never)
+    const onDeleted = vi.fn()
+    const onClose = vi.fn()
+    const ctx = { role: 'member' as const, currentUserId: 1, isModerator: false, demoMode: false, maintenanceBlocked: false }
+    render(<CardDeleteConfirm boardId={3} cards={[makeCard(1, 1), makeCard(2, 9)]} canModifyAll={false} currentUserId={1} actionContext={ctx} onDeleted={onDeleted} onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('1 of 2 cards could not be deleted — you can only delete cards you created.'))
+    expect(deleteCard).toHaveBeenCalledTimes(1)
+    expect(deleteCard).toHaveBeenCalledWith(3, 1)
+    expect(onDeleted).toHaveBeenCalledWith([1])
+  })
+
   it('names one card, deletes on confirm, and closes with no failure', async () => {
     vi.mocked(deleteCard).mockResolvedValue(undefined as never)
     const onDeleted = vi.fn()

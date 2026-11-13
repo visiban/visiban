@@ -629,7 +629,10 @@ describe('BulkActionToolbar', () => {
     const board = makeBoard()
     board.current_user_role = 'member'
     board.members = [{ id: 2, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }]
-    // cards have created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, current user is 99
+    // Card 100 is the member's own, card 101 was created by user 1 (current user is 99). An
+    // all-refused selection never opens the confirm (Delete is aria-disabled, #2173), so the
+    // note is only reachable for a mixed selection.
+    board.cards = [{ ...board.cards[0], created_by: { id: 99, username: 'member', display_name: 'Member', avatar_url: '' } }, board.cards[1]]
 
     render(
       <BulkActionToolbar
@@ -644,7 +647,7 @@ describe('BulkActionToolbar', () => {
     )
     await user.click(screen.getByText('Delete'))
 
-    expect(screen.getByText(/None of these cards will be deleted/)).toBeInTheDocument()
+    expect(screen.getByText(/1 card created by others will be skipped/)).toBeInTheDocument()
   })
 
   it('dropdown triggers have aria-expanded reflecting open/closed state', async () => {
@@ -1033,6 +1036,34 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
     expect(mockUpdateCard.mock.calls[0][1]).toBe(100)
     expect(onCardsUpdated).toHaveBeenCalledWith([updated])
     expect(await screen.findByText(/1 of 2 cards could not be updated — you can only edit cards you created\./)).toBeInTheDocument()
+    expect(onClearSelection).not.toHaveBeenCalled()
+  })
+
+  it('all selected cards refused: Delete is aria-disabled, opens no confirm and writes the reason to the slot', async () => {
+    const user = userEvent.setup()
+    renderMember([theirs, theirs])
+    const del = screen.getByRole('button', { name: 'Delete' })
+    expect(del).toHaveAttribute('aria-disabled', 'true')
+    expect(del).not.toBeDisabled()
+    expect(document.getElementById(del.getAttribute('aria-describedby')!)).toHaveTextContent("Only the card's creator or a board admin")
+    await user.click(del)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mockDeleteCard).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 2 cards could not be deleted — you can only delete cards you created.'))
+  })
+
+  it('mixed Delete: only the permitted card is deleted, the other counts as failed and the selection is kept', async () => {
+    const user = userEvent.setup()
+    mockDeleteCard.mockResolvedValue(undefined)
+    const { onClearSelection } = renderMember([mine, theirs])
+    const del = screen.getByRole('button', { name: 'Delete' })
+    expect(del).not.toHaveAttribute('aria-disabled')
+    await user.click(del)
+    const buttons = screen.getAllByRole('button', { name: 'Delete' })
+    await user.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(mockDeleteCard).toHaveBeenCalledTimes(1))
+    expect(mockDeleteCard.mock.calls[0][1]).toBe(100)
+    expect(await screen.findByText(/1 of 2 cards could not be deleted — you can only delete cards you created\./)).toBeInTheDocument()
     expect(onClearSelection).not.toHaveBeenCalled()
   })
 

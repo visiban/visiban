@@ -76,7 +76,8 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   // refused when the client knows every selected card is (role, maintenance,
   // ownership); one card that may go keeps it enabled (#2173).
   const entries = cardActionEntries(selectedCards, cardActionCtx);
-  const entryFor = (id: "move" | "assign" | "priority" | "archive") => entries.find((e) => e.id === id)!;
+  const entryFor = (id: "move" | "assign" | "priority" | "archive" | "delete") => entries.find((e) => e.id === id)!;
+  const deleteEntry = entryFor("delete");
   const moveEntry = entryFor("move");
   const assignEntry = entryFor("assign");
   const priorityEntry = entryFor("priority");
@@ -157,6 +158,12 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     const r = await archiveCards(board.id, selectedCards, cardActionCtx);
     if (r.done.length > 0) onCardsArchived(r.done);
     finish(r.failureMessage);
+  };
+
+  const handleDeleteClick = () => {
+    if (demoMode) return; // #2105: withheld on the demo with the shared reason
+    if (!deleteEntry.enabled) { refuse("delete", "deleted", deleteEntry.reason); return; }
+    setConfirmDelete(true);
   };
 
   // The same Move / Assign / Priority lists the card context menu and ⌘K
@@ -375,17 +382,19 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         {!demoMode && !archiveEntry.enabled && <span id={`${refusalIdPrefix}-archive`} className="sr-only">{archiveEntry.reason}</span>}
 
         <button
-          onClick={() => { if (!demoMode) setConfirmDelete(true); }}
+          onClick={handleDeleteClick}
           disabled={busy}
-          aria-disabled={demoMode ? true : undefined}
-          title={demoMode ? DEMO_CARD_FOOTER_NOTE : undefined}
+          aria-disabled={demoMode || !deleteEntry.enabled ? true : undefined}
+          title={demoMode ? DEMO_CARD_FOOTER_NOTE : deleteEntry.reason}
           aria-label={demoMode ? `Delete. ${DEMO_CARD_FOOTER_NOTE}` : undefined}
+          aria-describedby={!demoMode && !deleteEntry.enabled ? `${refusalIdPrefix}-delete` : undefined}
           className={`text-xs px-2.5 py-1.5 rounded text-danger transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-danger/20 hover:text-danger-on-tint"
+            demoMode || !deleteEntry.enabled ? "opacity-40 cursor-not-allowed" : "hover:bg-danger/20 hover:text-danger-on-tint"
           }`}
         >
           Delete
         </button>
+        {!demoMode && !deleteEntry.enabled && <span id={`${refusalIdPrefix}-delete`} className="sr-only">{deleteEntry.reason}</span>}
 
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
@@ -420,6 +429,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           cards={selectedCards}
           canModifyAll={canModifyAll}
           currentUserId={currentUser?.id ?? null}
+          actionContext={cardActionCtx}
           onStart={() => { setDropdown(null); setBusy(true); setPartialError(null); }}
           onDeleted={onCardsDeleted}
           onClose={(failure, canceled) => {
