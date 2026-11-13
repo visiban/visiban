@@ -325,7 +325,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
       const updated = await revokeAdminInviteLink(id);
       setLinks((prev) => prev.map((l) => (l.id === id ? updated : l)));
     } catch {
-      setError("Failed to revoke invite link.");
+      setError("Failed to revoke invite link. Please try again.");
     } finally {
       setRevokeConfirm(null);
       setRevokingId(null);

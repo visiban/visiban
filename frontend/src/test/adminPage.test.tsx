@@ -1244,7 +1244,7 @@ describe('AdminPage — Escape key', () => {
     fireEvent.click(screen.getByText('Invite Links'))
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByText('Failed to revoke invite link.')).toBeInTheDocument()
+    expect(await screen.findByText('Failed to revoke invite link. Please try again.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
   })
 

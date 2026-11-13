@@ -1629,7 +1629,7 @@ describe('CardDetail', () => {
       mockDelete.mockRejectedValueOnce(new Error('boom'))
       const { user } = await renderWithComment()
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
-      const err = await screen.findByText('Could not delete comment.')
+      const err = await screen.findByText('Failed to delete comment. Please try again.')
       expect(err.closest('[role="status"]')).not.toBeNull()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()

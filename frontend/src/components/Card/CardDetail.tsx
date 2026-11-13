@@ -1223,7 +1223,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setConfirmDeleteCommentId(null);
     } catch {
       // Keep the prompt open so the user can retry or Cancel; never leave it stuck.
-      setCommentDeleteError("Could not delete comment.");
+      setCommentDeleteError("Failed to delete comment. Please try again.");
     } finally {
       setDeletingCommentId(null);
     }
