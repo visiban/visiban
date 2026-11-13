@@ -112,7 +112,7 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'Priya' }))
     expect(screen.getByText('Reads as: AE is Priya')).toBeInTheDocument()
-    expect(onState.mock.calls.at(-1)[0].laneFilter.items[0]).toMatchObject({ field: 1, op: 'is', value: 'Priya' })
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 1, op: 'is', value: 'Priya' })
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'is not' }))
     expect(screen.getByText('Reads as: AE is not Priya')).toBeInTheDocument()
@@ -212,7 +212,7 @@ describe('LaneFilterPopover', () => {
     const dialog = await openPopover(user)
     expect(within(dialog).getByText('Paused while a lane is focused. Changes apply when you exit focus.')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Clear lane filters' }))
-    expect(onState.mock.calls.at(-1)[0]).not.toHaveProperty('laneFilter')
+    expect(onState.mock.calls.at(-1)![0]).not.toHaveProperty('laneFilter')
   })
 
   it('an outside click closes without moving focus to the trigger', async () => {
