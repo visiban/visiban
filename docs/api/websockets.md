@@ -224,7 +224,7 @@ payload carries the card's `custom_field_values`.
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `custom_field.created` | New custom field definition created | Full `CustomFieldDefinitionSerializer` object |
-| `custom_field.updated` | Definition renamed, retyped, or its choices/pinning/number format/choice colors changed | Full `CustomFieldDefinitionSerializer` object |
+| `custom_field.updated` | Any change to the definition: name, type, choices, pinning, help text, number format, choice colors, or thresholds (since 1.3). The payload is the full definition after the change, with no previous values | Full `CustomFieldDefinitionSerializer` object |
 | `custom_field.deleted` | Definition deleted (and every card value with it) | `{ "custom_field_uid": <string> }` |
 | `custom_field.reordered` | Definition order changed | `{ "custom_fields": [<CustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
 

@@ -314,6 +314,12 @@ Both definition models also carry three display-only number-format columns (#139
 - They live on the *definition*, not the value. The value stays the plain number string, so exports, filtering and the value index are unaffected.
 - They mean something only when `field_type` is `number`. The serializer rejects them on any other type and resets them when a definition is retyped away from `number` (migration `0065`).
 
+`custom_field_definitions` (card fields only) also carries five display-only threshold columns (#1122, migration `0101`): `threshold_direction` (`varchar(5)`, database default `""` = off, else `above` / `below`), `threshold_warn` and `threshold_alert` (`double precision`, nullable; number fields), and `threshold_warn_days` and `threshold_alert_days` (`smallint`, nullable; date fields, a signed day offset from today).
+
+- Like the number format, they live on the definition and never touch a value. The card face marks a value that reaches a threshold with a shape and bold weight, never a color.
+- Every rule (direction and values together, strict warn/alert ordering, bounds, the wrong-type 400 and the reset on retype) is enforced in the serializer, not by a database constraint, like the rest of this table. Typed day columns rather than reusing the number pair keep each column's meaning independent of `field_type`.
+- `swimlane_custom_field_definitions` has no threshold columns.
+
 Both definition models also carry `choice_colors` (`jsonb`, `NOT NULL`, default `'{}'`, #1391, migration `0066`): a `{choice text: palette key}` map giving dropdown and multi-select choices an optional display color.
 
 - It is a separate column rather than objects inside `choices_json`, so `choices` stays the plain string list every client, export and template already reads.

@@ -467,8 +467,22 @@ export interface CustomFieldDefinition {
    * when none is set; a choice with no entry renders with its automatic dot.
    */
   choice_colors: Record<string, string>;
+  /**
+   * Threshold marking (#1122): `""` = off. `"above"` marks a value at or over
+   * a threshold, `"below"` one at or under it. Card fields only; display-only.
+   */
+  threshold_direction: ThresholdDirection;
+  /** Number fields: warning / alert threshold (finite), `null` = unset. */
+  threshold_warn: number | null;
+  threshold_alert: number | null;
+  /** Date fields: signed day offset from today in the viewer's timezone (`-3` = 3 days ago), `null` = unset. */
+  threshold_warn_days: number | null;
+  threshold_alert_days: number | null;
   created_at: string;
 }
+
+/** `CustomFieldDefinition.threshold_direction` (#1122). `""` = thresholds off. */
+export type ThresholdDirection = "" | "above" | "below";
 
 /**
  * One card's value for one definition (#371). Every type is carried as a
@@ -506,6 +520,15 @@ export interface FieldDefinitionShape {
   number_decimals?: number | null;
   /** #1391 per-choice colors; optional here for the same reason as the number options. */
   choice_colors?: Record<string, string>;
+  /**
+   * #1122 threshold marking. Optional here — only card-field definitions
+   * declare them (swimlane fields have no thresholds) — and absent means off.
+   */
+  threshold_direction?: ThresholdDirection;
+  threshold_warn?: number | null;
+  threshold_alert?: number | null;
+  threshold_warn_days?: number | null;
+  threshold_alert_days?: number | null;
 }
 
 /**

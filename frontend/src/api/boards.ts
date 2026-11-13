@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
+import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -198,13 +198,18 @@ export const createCustomFieldDefinition = (boardId: number, data: {
   number_suffix?: string;
   number_decimals?: number | null;
   choice_colors?: Record<string, string>;
+  threshold_direction?: ThresholdDirection;
+  threshold_warn?: number | null;
+  threshold_alert?: number | null;
+  threshold_warn_days?: number | null;
+  threshold_alert_days?: number | null;
 }) =>
   client.post<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/`, data).then((r) => r.data);
 
 export const updateCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors">>
+  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "threshold_direction" | "threshold_warn" | "threshold_alert" | "threshold_warn_days" | "threshold_alert_days">>
 ) =>
   client.patch<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`, data).then((r) => r.data);
 

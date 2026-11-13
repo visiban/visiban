@@ -36,7 +36,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
     id: 5, uid: "cfuid005", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: true, is_required: false, help_text: "",
     number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
-    created_at: "2026-01-01T00:00:00Z",
+    threshold_direction: "", threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }

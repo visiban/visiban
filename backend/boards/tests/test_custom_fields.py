@@ -2369,3 +2369,190 @@ class ChoiceColorKeyParityTests(TestCase):
         self.assertIsNotNone(match, "CHOICE_COLOR_KEYS not found in choiceColors.ts")
         frontend_keys = tuple(re.findall(r'"([a-z]+)"', match.group(1)))
         self.assertEqual(frontend_keys, CHOICE_COLOR_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# Threshold marking (#1122)
+# ---------------------------------------------------------------------------
+
+class CustomFieldThresholdTests(CustomFieldTestBase):
+    """``threshold_direction`` and the number / day-offset pairs (#1122).
+
+    Display-only config on number and date card fields. The validation
+    matrix mirrors number formatting: read-through on partial PATCH, a 400
+    for a value on the wrong type, and a reset on retype.
+    """
+
+    _KEYS = (
+        "threshold_direction", "threshold_warn", "threshold_alert",
+        "threshold_warn_days", "threshold_alert_days",
+    )
+
+    def _create(self, field_type="number", **extra):
+        body = {"name": "Spend", "field_type": field_type, **extra}
+        return self.client.post(self._fields_url(), body, format="json")
+
+    def _patch(self, definition_id, body):
+        return self.client.patch(f"{self._fields_url()}{definition_id}/", body, format="json")
+
+    def test_defaults_are_off(self):
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(
+            {k: r.data[k] for k in self._KEYS},
+            {"threshold_direction": "", "threshold_warn": None, "threshold_alert": None,
+             "threshold_warn_days": None, "threshold_alert_days": None},
+        )
+
+    def test_number_thresholds_round_trip(self):
+        r = self._create(threshold_direction="above", threshold_warn=5000, threshold_alert=6000.5)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["threshold_warn"], 5000.0)
+        self.assertEqual(r.data["threshold_alert"], 6000.5)
+        definition = CustomFieldDefinition.objects.get(pk=r.data["id"])
+        self.assertEqual(definition.threshold_direction, "above")
+
+    def test_one_of_the_pair_is_enough(self):
+        for body in ({"threshold_warn": 1}, {"threshold_alert": 1}):
+            with self.subTest(body=body):
+                r = self.client.post(
+                    self._fields_url(),
+                    {"name": f"N{len(body)}{list(body)[0]}", "field_type": "number",
+                     "threshold_direction": "below", **body},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
+    def test_date_thresholds_use_signed_day_offsets(self):
+        r = self._create(
+            field_type="date", threshold_direction="below",
+            threshold_warn_days=3, threshold_alert_days=-1,
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual((r.data["threshold_warn_days"], r.data["threshold_alert_days"]), (3, -1))
+
+    def test_direction_without_values_is_refused(self):
+        r = self._create(threshold_direction="above")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_warn", r.data)
+
+    def test_values_without_direction_are_refused(self):
+        r = self._create(threshold_warn=5)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_direction", r.data)
+
+    def test_alert_must_be_strictly_beyond_warn(self):
+        cases = [
+            ("above", 10, 10), ("above", 10, 9), ("below", 10, 10), ("below", 10, 11),
+        ]
+        for direction, warn, alert in cases:
+            with self.subTest(direction=direction, warn=warn, alert=alert):
+                r = self._create(threshold_direction=direction, threshold_warn=warn, threshold_alert=alert)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("threshold_alert", r.data)
+        r = self._create(
+            field_type="date", threshold_direction="below",
+            threshold_warn_days=0, threshold_alert_days=0,
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_alert_days", r.data)
+
+    def test_non_finite_and_out_of_range_values_are_refused(self):
+        for bad in ("nan", "NaN", "inf", "-Infinity", 1e16, -1e16, "lots"):
+            with self.subTest(bad=bad):
+                r = self._create(threshold_direction="above", threshold_warn=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("threshold_warn", r.data)
+        for bad in (3651, -3651, 1.5, "x"):
+            with self.subTest(bad=bad):
+                r = self._create(field_type="date", threshold_direction="above", threshold_warn_days=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("threshold_warn_days", r.data)
+        r = self._create(threshold_direction="sideways", threshold_warn=1)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_direction", r.data)
+
+    def test_wrong_type_values_are_refused(self):
+        r = self._create(threshold_direction="above", threshold_warn_days=3)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_warn_days", r.data)
+        r = self._create(field_type="date", threshold_direction="above", threshold_warn=3)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_warn", r.data)
+        for key, value in (("threshold_direction", "above"), ("threshold_warn", 1),
+                           ("threshold_alert_days", 1)):
+            with self.subTest(key=key):
+                r = self._create(field_type="text", **{key: value})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(key, r.data)
+
+    def test_defaults_are_accepted_on_any_type(self):
+        r = self._create(
+            field_type="text", threshold_direction="", threshold_warn=None,
+            threshold_alert=None, threshold_warn_days=None, threshold_alert_days=None,
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
+    def test_partial_patch_reads_through_stored_values(self):
+        r = self._create(threshold_direction="above", threshold_warn=10, threshold_alert=20)
+        fid = r.data["id"]
+        # Alert below the stored warn: refused even though warn was not sent.
+        r = self._patch(fid, {"threshold_alert": 5})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_alert", r.data)
+        # Flipping the direction alone re-checks the stored pair.
+        r = self._patch(fid, {"threshold_direction": "below"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_alert", r.data)
+        # Turning it off while values remain is refused; clearing all is fine.
+        r = self._patch(fid, {"threshold_direction": ""})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("threshold_direction", r.data)
+        r = self._patch(fid, {"threshold_direction": "", "threshold_warn": None, "threshold_alert": None})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        # An unrelated PATCH on a field with thresholds leaves them alone.
+        r = self._patch(fid, {"threshold_direction": "below", "threshold_warn": 3})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        r = self._patch(fid, {"name": "Renamed"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual((r.data["threshold_direction"], r.data["threshold_warn"]), ("below", 3.0))
+
+    def test_retype_clears_thresholds(self):
+        r = self._create(threshold_direction="above", threshold_warn=10)
+        fid = r.data["id"]
+        r = self._patch(fid, {"field_type": "date"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["threshold_direction"], "")
+        self.assertIsNone(r.data["threshold_warn"])
+        r = self._patch(fid, {"field_type": "date", "threshold_direction": "below", "threshold_warn_days": 2})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        r = self._patch(fid, {"field_type": "text"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition = CustomFieldDefinition.objects.get(pk=fid)
+        self.assertEqual(
+            [getattr(definition, k) for k in self._KEYS], ["", None, None, None, None]
+        )
+
+    def test_viewer_cannot_set_thresholds(self):
+        r = self._create()
+        self.client.force_authenticate(self.member)
+        r = self._patch(r.data["id"], {"threshold_direction": "above", "threshold_warn": 1})
+        self.assertIn(r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+    def test_update_broadcast_payload_carries_thresholds(self):
+        r = self._create()
+        with self.captureOnCommitCallbacks(execute=True):
+            self._patch(r.data["id"], {"threshold_direction": "above", "threshold_alert": 9})
+        payload = None
+        for call in self.broadcast.call_args_list:
+            if call.args[1] == "custom_field.updated":
+                payload = call.args[2]
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["threshold_direction"], "above")
+        self.assertEqual(payload["threshold_alert"], 9.0)
+        self.assertIsNone(payload["threshold_warn_days"])
+
+    def test_swimlane_field_serializer_has_no_thresholds(self):
+        from boards.serializers import SwimlaneCustomFieldDefinitionSerializer
+        fields = SwimlaneCustomFieldDefinitionSerializer.Meta.fields
+        self.assertFalse([f for f in fields if f.startswith("threshold_")])

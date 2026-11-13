@@ -3285,6 +3285,14 @@ class BoardImportExportMixin:
                         # {choice: palette_key} map; "choices" stays the
                         # plain string list and values are unchanged.
                         "choice_colors": cf.choice_colors,
+                        # Threshold marking (#1122): additive display-only
+                        # config; the values in "cards" are unchanged. An
+                        # older server ignores these keys on import.
+                        "threshold_direction": cf.threshold_direction,
+                        "threshold_warn": cf.threshold_warn,
+                        "threshold_alert": cf.threshold_alert,
+                        "threshold_warn_days": cf.threshold_warn_days,
+                        "threshold_alert_days": cf.threshold_alert_days,
                     }
                     for cf in custom_field_definitions
                 ],

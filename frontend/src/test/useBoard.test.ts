@@ -1278,7 +1278,7 @@ describe('useBoard', () => {
         {
           id: 1, uid: 'cfduid0001', name: 'Points', field_type: 'number', choices: [], choice_colors: {}, position: 0,
           show_on_card: false, is_required: false, help_text: '',
-          number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+          number_prefix: '', number_suffix: '', number_decimals: null, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01',
         },
       ])
     })
@@ -1311,7 +1311,7 @@ describe('useBoard', () => {
     const def = (id: number, name: string) => ({
       id, uid: `cfduid${id}`, name, field_type: 'number', choices: [], choice_colors: {}, position: id,
       show_on_card: false, is_required: false, help_text: '',
-      number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+      number_prefix: '', number_suffix: '', number_decimals: null, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01',
     }) as never
     act(() => {
       result.current.applyCustomFieldDefinitions((prev) => [...prev, def(1, 'A')])

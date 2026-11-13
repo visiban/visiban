@@ -63,7 +63,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 const dealField: CustomFieldDefinition = {
   id: 55, uid: 'cfuid000055', name: 'Deal value', field_type: 'text', choices: [], position: 0, show_on_card: true,
   is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
-  created_at: '2026-01-01T00:00:00Z',
+  threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
 }
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
