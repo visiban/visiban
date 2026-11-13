@@ -276,6 +276,12 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       setFormError("A multi-select field needs at least one choice.");
       return;
     }
+    // The server caps choices at 100 and its message would be swallowed by the
+    // generic save error; a pasted spreadsheet range can easily exceed it.
+    if (hasChoices(form.field_type) && cleanedChoices.length > 100) {
+      setFormError(`A ${form.field_type === "multi_select" ? "multi-select" : "dropdown"} field may have at most 100 choices.`);
+      return;
+    }
     // #1391: an invalid decimals entry is already flagged inline under the
     // Format block; refuse to save rather than send something the server 400s.
     const numberFormat = numberFormatPayload(form.field_type === "number", form.number_format);
@@ -797,7 +803,7 @@ function FieldEditPanel({
           <div className="flex items-center gap-3">
             <button onClick={addChoice} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">+ Add choice</button>
             <button onClick={() => { if (pasteListOpen) { applyPastedChoices(); setPasteListOpen(false); setPasteListText(""); } else { setPasteListOpen(true); } }} className="text-xs text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Paste a list</button>
-            {pasteListOpen && <span className="text-xs text-fg-muted">newline-separated</span>}
+            {pasteListOpen && <span className="text-xs text-fg-muted">one per line or cell</span>}
           </div>
           {pasteListOpen && (
             <div className="mt-2">

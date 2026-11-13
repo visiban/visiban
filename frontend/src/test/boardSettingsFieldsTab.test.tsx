@@ -519,6 +519,26 @@ describe("BoardSettingsFieldsTab — Paste a list (#2192)", () => {
     ));
   });
 
+  it("Add drops duplicates within one paste, and Save sends each choice once", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    await user.paste("New 1\nNew 1\nNew 2");
+    await user.click(screen.getByRole("button", { name: "Add 2 choices" }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 5, expect.objectContaining({ choices: ["New 1", "New 2"] }),
+    ));
+  });
+
+  it("Save refuses more than 100 choices with a specific error and sends nothing", async () => {
+    const user = userEvent.setup();
+    await openStage(user);
+    await user.paste(Array.from({ length: 101 }, (_, i) => `Opt ${i}`).join("\n"));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    expect(await screen.findByText("A dropdown field may have at most 100 choices.")).toBeInTheDocument();
+    expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
+  });
+
   it("Save with the text still in the paste box saves the pasted choices", async () => {
     const user = userEvent.setup();
     await openStage(user);
