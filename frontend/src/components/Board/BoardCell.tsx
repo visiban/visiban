@@ -29,6 +29,8 @@ interface Props {
   onCardAdded: (card: Card) => void;
   density?: CardDensity;
   userTimezone?: string;
+  /** #445: the viewer, for the checklist mine suffix on the card face. */
+  currentUserId?: number;
   userDateFormat?: string;
   width?: number;
   compact?: boolean;
@@ -58,7 +60,7 @@ interface Props {
   contextTargetCardId?: number | null;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, currentUserId, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -247,6 +249,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               onSelect={canEdit && currentCardId == null ? () => onToggleCardSelection(card.id) : undefined}
               density={density}
               userTimezone={userTimezone}
+              currentUserId={currentUserId}
               userDateFormat={userDateFormat}
               compact={compact}
               staleness_threshold_days={staleness_threshold_days}

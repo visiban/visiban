@@ -586,7 +586,7 @@ Card detail plus full audit history. Requires board membership — any role, inc
 |---|---|---|
 | `archived_at` | string or `null` | ISO 8601 timestamp, or `null` if the card is not archived. |
 | `movements` | array | `{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}` objects — same shape as `move_card`'s `movement` above (the `*_uid` keys since 1.3). |
-| `checklist_items` | array | `{id, text, is_checked, position}` objects. |
+| `checklist_items` | array | `{id, text, is_checked, position, created_by, assignee, due_date}` objects (`assignee` is a nested user or `null`; `due_date` is `YYYY-MM-DD` or `null`; the three fields after `position` since 1.3). |
 | `activities` | array | `{id, event_type, from_value, to_value, actor, created_at, imported_from_username}` objects, newest first. `imported_from_username` works as on `movements`. |
 | `comments` | array | `{id, body, author, created_at, updated_at, imported_from_username}` objects, oldest first. `imported_from_username` is `null` except on a comment created by a board import (since 1.2), where it holds the author name the source named and `author` is the user who imported it. |
 

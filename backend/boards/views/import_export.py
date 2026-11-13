@@ -949,6 +949,8 @@ def _validate_json_import_values(data):
         "checklist": ("checklist item", (
             ("text", _text(_field_max_length(CardChecklist, "text"))),
             ("is_checked", _bool_error),
+            # #445: the assignee's username, resolved like card ``assignee``.
+            ("assignee", lambda v: None if v is None or isinstance(v, str) else "must be a string"),
         )),
         "movements": ("movement", (
             ("from_column", movement_name), ("to_column", movement_name),
@@ -1081,6 +1083,8 @@ def _card_usernames(card):
     if isinstance(card.get("assignee"), str) and card["assignee"]:
         yield "assignee", card["assignee"]
     for child, key in (
+        # #445: checklist assignees are resolved to accounts, like card assignee.
+        ("checklist", "assignee"),
         ("movements", "moved_by"), ("activities", "actor"),
         ("blocks", "blocked_by"), ("blocks", "unblocked_by"),
     ):
@@ -1609,6 +1613,7 @@ class BoardImportExportMixin:
                         # Only the new key: a comment's ``author`` was never
                         # read, and a non-string one is still ignored (#1702).
                         "comments": ("imported_from_username",),
+                        "checklist": ("assignee",),
                     }.get(_child, ())
                     for _k in _str_keys:
                         if _is_truthy_non_string(_entry.get(_k)):
@@ -1665,6 +1670,17 @@ class BoardImportExportMixin:
                     {"detail": f"Card at index {_ci}: invalid due_date: {_bounded_repr(_due)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # #445: a checklist item's due date, same rule as the card's.
+            for _ji, _entry in enumerate(_card.get("checklist", [])):
+                _v = _entry.get("due_date")
+                if _timestamp_error(_v, _parse_date):
+                    return Response(
+                        {"detail": (
+                            f"Card at index {_ci}, checklist item at index {_ji}: "
+                            f"invalid due_date: {_bounded_repr(_v)}"
+                        )},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             for _child, _child_label, _key in (
                 ("comments", "comment", "created_at"),
                 ("movements", "movement", "moved_at"),
@@ -1848,6 +1864,16 @@ class BoardImportExportMixin:
                 for card_data in data.get("cards", [])
                 if card_data.get("assignee")
             }
+            # #445: checklist assignees go through the same resolver (Rule 5):
+            # the importer's visible pool only; an unmatched name imports the
+            # item unassigned.
+            if options["checklist"]:
+                all_usernames |= {
+                    ci["assignee"]
+                    for card_data in data.get("cards", [])
+                    for ci in card_data.get("checklist", [])
+                    if ci.get("assignee")
+                }
             user_map = _resolve_import_users(all_usernames, request.user, group)
 
             # ---------- Phase 1: build Card instances (no DB writes yet) ----------
@@ -2041,6 +2067,11 @@ class BoardImportExportMixin:
                         text=checklist_data.get("text", ""),
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
+                        assignee=(
+                            user_map.get(checklist_data["assignee"].lower())
+                            if checklist_data.get("assignee") else None
+                        ),
+                        due_date=checklist_data.get("due_date") or None,
                         # The importer is the actor; a NULL creator would make
                         # every imported item moderator-only (#1943).
                         created_by=request.user,
@@ -2967,7 +2998,7 @@ class BoardImportExportMixin:
                 "movements__to_swimlane",
                 "movements__moved_by",
                 "comments__author",
-                "checklist_items",
+                "checklist_items__assignee",
                 "activities__actor",
                 # Custom field values (#371) — one query for the whole export,
                 # with the definition joined so neither branch below resolves a
@@ -3129,6 +3160,9 @@ class BoardImportExportMixin:
                         {
                             "text": item.text,
                             "is_checked": item.is_checked,
+                            # Additive (#445); null when unset.
+                            "assignee": item.assignee.username if item.assignee else None,
+                            "due_date": item.due_date.isoformat() if item.due_date else None,
                         }
                         for item in sorted(card.checklist_items.all(), key=lambda i: i.position)
                     ],

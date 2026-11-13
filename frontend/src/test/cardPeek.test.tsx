@@ -24,6 +24,8 @@ vi.mock('../components/Common/Avatar', () => ({
 }))
 
 vi.mock('../utils/date', () => ({
+  // Used by checklistToday (#445) to compare checklist due dates against today.
+  todayInTimezone: (_tz: string) => '2026-01-10',
   formatDueDate: (_date: string, _tz: string, _fmt: string) => ({ label: 'Jan 15', overdue: false }),
   formatRelativeMovedAt: (date: string | null, _fmt: string) => date === null ? null : 'moved 3 days ago',
   // Used by CardPeekPopover to render the footer timestamp.

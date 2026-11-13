@@ -464,6 +464,30 @@ _CARD_UPDATE_SCHEMA = extend_schema(
 # CardViewSet
 # ---------------------------------------------------------------------------
 
+def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
+    """Record History rows for a checklist item's assignee and due-date changes (#445).
+
+    Called inside the write's transaction, after the card row lock, like the
+    other checklist activity rows (#1587). from/to carry the username and the
+    ISO date so the row stays readable after the user or the item is gone.
+    """
+    new_assignee = item.assignee
+    if (old_assignee.pk if old_assignee else None) != (new_assignee.pk if new_assignee else None):
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+            from_value=old_assignee.username if old_assignee else "",
+            to_value=new_assignee.username if new_assignee else "",
+            actor=actor,
+        )
+    if old_due != item.due_date:
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
+            from_value=old_due.isoformat() if old_due else "",
+            to_value=item.due_date.isoformat() if item.due_date else "",
+            actor=actor,
+        )
+
+
 @extend_schema_view(
     list=_CARD_LIST_SCHEMA,
     create=extend_schema(
@@ -1263,6 +1287,8 @@ class CardViewSet(viewsets.ModelViewSet):
         "checklist": [
             "checklist_item_added", "checklist_item_checked",
             "checklist_item_unchecked", "checklist_item_deleted",
+            # #445 (architect R3b): per-item assignee and due-date changes.
+            "checklist_item_assigned", "checklist_item_due_changed",
         ],
         "attachment": ["attachment_added", "attachment_deleted"],
         "system": ["archived", "reactivated"],
@@ -1887,7 +1913,7 @@ class CardViewSet(viewsets.ModelViewSet):
             Card.objects.prefetch_related(
                 Prefetch(
                     "checklist_items",
-                    queryset=CardChecklist.objects.select_related("created_by"),
+                    queryset=CardChecklist.objects.select_related("created_by", "assignee"),
                 )
             ),
             pk=pk,
@@ -1903,7 +1929,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # SITE_ADMIN access is handled upstream by can_access_all_content.
         if role not in card_services.ANNOTATION_ROLES:
             raise PermissionDenied(_PERM_DENIED)
-        serializer = CardChecklistSerializer(data=request.data)
+        # context["board"] scopes assignee_id to the board's assignable members
+        # (#445, IDOR); without it the serializer rejects every assignee id.
+        serializer = CardChecklistSerializer(data=request.data, context={"board": board})
         serializer.is_valid(raise_exception=True)
         # Read from the prefetch cache populated by the get_object_or_404
         # call above (#995).  ``.count()`` always issues a fresh COUNT(*)
@@ -1917,10 +1945,13 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
                 from_value="", to_value=item.text, actor=request.user,
             )
+            # An item created already assigned or dated records those too, so
+            # History never shows an assignee or due date with no event (#445).
+            _record_checklist_assign_due(card, item, request.user, old_assignee=None, old_due=None)
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
-        return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
+        return Response(CardChecklistSerializer(item, context={"board": board}).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         summary="Update a checklist item",
@@ -1941,8 +1972,9 @@ class CardViewSet(viewsets.ModelViewSet):
         if role not in card_services.ANNOTATION_ROLES:
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
-        item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
-        # Ownership gate: collaborators and members may only edit/delete items
+        item = get_object_or_404(CardChecklist.objects.select_related("assignee"), pk=item_pk, card=card)
+        # Ownership gate (unchanged by #445, architect R2): assigning and dating
+        # an item are edits, so they follow the same creator-only rule. collaborators and members may only edit/delete items
         # they created. Admins and moderators may edit any item. Null created_by
         # (pre-migration rows or a deleted account, FK is SET_NULL) fails closed
         # to moderator-only, like comments and attachments (#1943).
@@ -1964,7 +1996,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
-        serializer = CardChecklistSerializer(item, data=request.data, partial=True)
+        old_assignee = item.assignee
+        old_due = item.due_date
+        serializer = CardChecklistSerializer(item, data=request.data, partial=True, context={"board": board})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             # May insert a card-FK activity row below (#1587).
@@ -1980,6 +2014,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     card=card, event_type=checklist_event_type,
                     from_value="", to_value=item.text, actor=request.user,
                 )
+            _record_checklist_assign_due(card, item, request.user, old_assignee=old_assignee, old_due=old_due)
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
@@ -2049,7 +2084,7 @@ class CardViewSet(viewsets.ModelViewSet):
             # nests a user serializer per item (#995 follow-up), same as the GET
             # path above in the `checklist` action.
             items_data = CardChecklistSerializer(
-                card.checklist_items.select_related("created_by").order_by("position"), many=True
+                card.checklist_items.select_related("created_by", "assignee").order_by("position"), many=True
             ).data
             card_data = self._refetch_card_data(card)
             board_id = board.id

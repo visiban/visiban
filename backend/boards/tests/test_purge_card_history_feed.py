@@ -900,6 +900,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "column_entered_at",
         "attachment_count", "checklist_total", "checklist_done", "is_stale",
         "archived_at", "version", "blocker_count", "is_blocked", "blocked_at",
+        # #445: dates and user ids of open checklist items — structure, not user text.
+        "checklist_open_due_dates", "checklist_open_assignee_ids",
     }
     MOVEMENT_STRUCTURE = {
         "id", "card_uid",

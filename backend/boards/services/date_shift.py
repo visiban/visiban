@@ -7,9 +7,9 @@ checks as an unshifted one, and a malformed date is left as it was for the
 existing validators to report.
 
 Shifted: card ``due_date``, ``archived_at``, ``created_at`` and
-``blocked_at``; comment, movement and activity timestamps; each block's
+``blocked_at``; checklist item ``due_date`` (#445); comment, movement and activity timestamps; each block's
 ``blocked_at`` and ``unblocked_at`` (#1149); the ``from_value`` / ``to_value`` of
-``due_date_change`` activities (so history agrees with the shifted card); and
+``due_date_change`` and ``checklist_item_due_changed`` activities (so history agrees with the shifted card); and
 values of ``date`` custom fields on cards and swimlanes. Relative spacing between all of them is preserved.
 """
 
@@ -97,12 +97,19 @@ def shift_board_dates(data, days):
                 for key in ("blocked_at", "unblocked_at"):
                     if block.get(key):
                         block[key] = _shift_datetime(block[key], delta)
+        # Checklist item due dates (#445) are plain dates like the card's.
+        checklist = card.get("checklist")
+        for entry in checklist if isinstance(checklist, list) else []:
+            if isinstance(entry, dict) and entry.get("due_date"):
+                entry["due_date"] = _shift_date(entry["due_date"], delta)
         for child, key in (("comments", "created_at"), ("movements", "moved_at"), ("activities", "created_at")):
             items = card.get(child)
             for item in items if isinstance(items, list) else []:
                 if isinstance(item, dict) and item.get(key):
                     item[key] = _shift_datetime(item[key], delta)
-                if child == "activities" and isinstance(item, dict) and item.get("event_type") == "due_date_change":
+                if child == "activities" and isinstance(item, dict) and item.get("event_type") in (
+                    "due_date_change", "checklist_item_due_changed",
+                ):
                     # Only keys the file set: writing None for an absent one
                     # would turn an importable file into a 400 (#1507).
                     for value_key in ("from_value", "to_value"):

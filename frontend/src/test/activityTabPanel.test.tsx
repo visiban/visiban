@@ -385,3 +385,25 @@ describe("ActivityTabPanel — manual block entries", () => {
     expect(screen.getByText("Blocked")).toBeInTheDocument();
   });
 });
+
+describe("ActivityTabPanel checklist assignee and due labels (#445)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders checklist_item_assigned and checklist_item_due_changed rows", async () => {
+    (getCardTimeline as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({ id: 1, event_type: "checklist_item_assigned", data: { from_value: "", to_value: "alex", event_type: "checklist_item_assigned" } }),
+        makeEntry({ id: 2, event_type: "checklist_item_assigned", data: { from_value: "alex", to_value: "", event_type: "checklist_item_assigned" } }),
+        makeEntry({ id: 3, event_type: "checklist_item_due_changed", data: { from_value: "", to_value: "2026-11-18", event_type: "checklist_item_due_changed" } }),
+        makeEntry({ id: 4, event_type: "checklist_item_due_changed", data: { from_value: "2026-11-18", to_value: "", event_type: "checklist_item_due_changed" } }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(await screen.findByText(/Checklist item assignee: \(none\) → alex/)).toBeInTheDocument();
+    expect(screen.getByText(/Checklist item assignee: alex → \(none\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Checklist item due: \(none\) → \S*2026\S*/)).toBeInTheDocument();
+    expect(screen.getByText(/Checklist item due: \S*2026\S* → \(none\)/)).toBeInTheDocument();
+  });
+});
