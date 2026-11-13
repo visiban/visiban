@@ -292,6 +292,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
         className="relative flex border-b border-line bg-surface"
+        // #2205 — lets the lane-filter notice know which lane holds keyboard focus.
+        data-swimlane-id={swimlane.id}
         onMouseEnter={onHoverEnter}
         onMouseLeave={onHoverLeave}
       >

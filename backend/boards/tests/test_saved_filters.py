@@ -504,3 +504,114 @@ class SavedFilterCustomFieldStateTests(TestCase):
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertIsInstance(r.data["detail"], str)
                 self.assertIn("NUL", r.data["detail"])
+
+
+def _lane_rule(rid=1, **kw):
+    return {"kind": "rule", "id": rid, "join": "and", "field": 7, "op": "is", "value": "Priya", **kw}
+
+
+class SavedFilterLaneFilterStateTests(TestCase):
+    """#2205 — laneFilter accepted, bounded, and never a 500."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="lane", password="pass")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
+
+    def _post(self, state):
+        return self.client.post(self.url, {"name": "Lanes", "state_json": state}, format="json")
+
+    def _assert_400(self, lane_filter):
+        r = self._post({**EMPTY_FILTER_STATE, "laneFilter": lane_filter})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsInstance(r.data["detail"], str)
+        return r
+
+    def test_valid_lane_filter_round_trips(self):
+        lane_filter = {
+            "items": [
+                _lane_rule(1),
+                {"kind": "rule", "id": 2, "join": "and", "field": 8, "op": "between", "min": "50000", "max": ""},
+                {
+                    "kind": "group", "id": 3, "join": "or",
+                    "rules": [
+                        _lane_rule(4, field=9, value="Jo"),
+                        _lane_rule(5, join="or", op="is_not", value="Sam"),
+                    ],
+                },
+                # Incomplete rules (no field yet) are kept; the client ignores them.
+                {"kind": "rule", "id": 6, "join": "and", "field": None, "op": "is"},
+            ]
+        }
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+
+    def test_filter_without_lane_filter_still_saves(self):
+        r = self._post(EMPTY_FILTER_STATE)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertNotIn("laneFilter", r.data["state_json"])
+
+    def test_invalid_shapes_rejected_with_string_detail(self):
+        long_str = "x" * 501
+        cases = {
+            "not an object": [],
+            "missing items": {},
+            "extra top-level key": {"items": [], "x": 1},
+            "items not list": {"items": {}},
+            "rule not dict": {"items": ["a"]},
+            "unknown rule key": {"items": [_lane_rule(extra=1)]},
+            "bad op": {"items": [_lane_rule(op="contains")]},
+            "bad join": {"items": [_lane_rule(join="xor")]},
+            "id negative": {"items": [_lane_rule(-1)]},
+            "id bool": {"items": [_lane_rule(True)]},
+            "id str": {"items": [_lane_rule("1")]},
+            "id too big": {"items": [_lane_rule(2**31)]},
+            "field str": {"items": [_lane_rule(field="7")]},
+            "field bool": {"items": [_lane_rule(field=False)]},
+            "value not str": {"items": [_lane_rule(value=5)]},
+            "value too long": {"items": [_lane_rule(value=long_str)]},
+            "min not str": {"items": [_lane_rule(op="between", min=1)]},
+            "nested group": {
+                "items": [{"kind": "group", "id": 1, "join": "and", "rules": [
+                    {"kind": "group", "id": 2, "join": "and", "rules": []}]}]
+            },
+            "group rules not list": {"items": [{"kind": "group", "id": 1, "join": "and", "rules": {}}]},
+            "unknown group key": {"items": [{"kind": "group", "id": 1, "join": "and", "rules": [], "x": 1}]},
+            "group id missing": {"items": [{"kind": "group", "join": "and", "rules": []}]},
+        }
+        for label, lane_filter in cases.items():
+            with self.subTest(label):
+                self._assert_400(lane_filter)
+
+    def test_oversized_lane_filter_rejected(self):
+        with self.subTest("too many items"):
+            self._assert_400({"items": [_lane_rule(i) for i in range(21)]})
+        with self.subTest("too many rules across groups"):
+            groups = [
+                {"kind": "group", "id": 100 + g, "join": "and", "rules": [_lane_rule(g * 20 + i) for i in range(20)]}
+                for g in range(3)
+            ]
+            self._assert_400({"items": groups})
+
+    def test_unhashable_lane_values_are_400_not_500(self):
+        for label, rule in {
+            "op list": _lane_rule(op=[]),
+            "op dict": _lane_rule(op={}),
+            "join list": _lane_rule(join=[]),
+            "kind list": _lane_rule(kind=[]),
+        }.items():
+            with self.subTest(label):
+                self._assert_400({"items": [rule]})
+        with self.subTest("group join dict"):
+            self._assert_400({"items": [{"kind": "group", "id": 1, "join": {}, "rules": []}]})
+
+    def test_lane_nul_characters_are_400_not_500(self):
+        nul = "a\u0000b"
+        for key in ("value", "min", "max"):
+            with self.subTest(key):
+                r = self._assert_400({"items": [_lane_rule(**{key: nul})]})
+                self.assertIn("NUL", r.data["detail"])

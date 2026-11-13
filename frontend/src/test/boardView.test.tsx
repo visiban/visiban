@@ -2129,10 +2129,10 @@ describe('BoardView', () => {
       expect(nav.className).toMatch(/bg-surface/)
     })
 
-    it('filter row exposes role="search" labeled "Card filters" when filters are open', async () => {
+    it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {
       render(<BoardView {...defaultProps()} />)
       await userEvent.setup().click(screen.getByText('Filters'))
-      const search = screen.getByRole('search', { name: 'Card filters' })
+      const search = screen.getByRole('search', { name: 'Board filters' })
       expect(search).toBeInTheDocument()
     })
   })

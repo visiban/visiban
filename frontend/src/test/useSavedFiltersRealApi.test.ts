@@ -38,7 +38,9 @@ describe('useSavedFilters posts the real FilterState shape', () => {
     const fixture = JSON.parse(
       readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8'),
     ) as { keys: string[] }
-    expect(Object.keys(body.state_json).sort()).toEqual([...fixture.keys].sort())
+    // #2205 — laneFilter is optional and absent from EMPTY_FILTER; every other
+    // fixture key is always posted, and nothing outside the fixture ever is.
+    expect(Object.keys(body.state_json).sort()).toEqual(fixture.keys.filter((k) => k !== 'laneFilter').sort())
     expect(result.current.savedFilters).toHaveLength(1)
   })
 

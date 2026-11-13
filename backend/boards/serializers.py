@@ -4415,9 +4415,11 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # always posts both (EMPTY_FILTER carries them), so omitting them here made
     # every save a 400. Pinned against FilterState by the shared fixture
     # boards/tests/fixtures/filter_state_keys.json.
+    # laneFilter (#2205) is additive and optional: rules that hide swimlanes by
+    # their own custom field values. A filter saved without it still loads.
     _STATE_V1_KEYS = {
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
-        "customFields", "visibleCustomFieldFilterIds",
+        "customFields", "visibleCustomFieldFilterIds", "laneFilter",
     }
     # Bounds keep a user-controlled JSON blob small; checked before any
     # per-item work so an oversized payload fails fast.
@@ -4427,6 +4429,15 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _CF_KINDS_EQUALS = {"number", "date"}
     _CF_KINDS_VALUES = {"choice", "multi_choice"}
     _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
+    # laneFilter bounds, mirrored in frontend/src/utils/laneFilter.ts. The op
+    # enum is additive-only: a new operator is added here and in the client.
+    _LANE_MAX_ITEMS = 20
+    _LANE_MAX_RULES = 50
+    _LANE_MAX_ID = 2**31 - 1
+    _LANE_OPS = {"is", "is_not", "between"}
+    _LANE_JOINS = {"and", "or"}
+    _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
+    _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
     # Declared explicitly, rather than left to the auto-generated JSONField,
@@ -4438,7 +4449,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter}."
         ),
     )
 
@@ -4494,6 +4505,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("state_json.blockedOnly must be true or false.")
         if "customFields" in value:
             self._validate_custom_fields(value["customFields"])
+        if "laneFilter" in value:
+            self._validate_lane_filter(value["laneFilter"])
         if "visibleCustomFieldFilterIds" in value:
             ids = value["visibleCustomFieldFilterIds"]
             if (
@@ -4562,6 +4575,72 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                     "state_json.customFields kind must be one of "
                     "['choice', 'date', 'multi_choice', 'number', 'text']."
                 )
+
+    def _is_lane_id(self, v):
+        return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= self._LANE_MAX_ID
+
+    def _validate_lane_rule(self, rule):
+        """One leaf rule of ``laneFilter``. Type checks run before any set
+        lookup so an unhashable value is a 400, never a 500."""
+        err = serializers.ValidationError
+        cap = self._CF_MAX_STRING
+        if not isinstance(rule, dict) or rule.get("kind", "rule") != "rule":
+            raise err("state_json.laneFilter rules must be rule objects; groups cannot be nested.")
+        if not set(rule.keys()) <= self._LANE_RULE_KEYS:
+            raise err("state_json.laneFilter rule has unknown keys.")
+        if not self._is_lane_id(rule.get("id")):
+            raise err("state_json.laneFilter rule id must be a non-negative integer.")
+        join = rule.get("join", "and")
+        if not (isinstance(join, str) and join in self._LANE_JOINS):
+            raise err("state_json.laneFilter join must be 'and' or 'or'.")
+        field = rule.get("field")
+        if field is not None and not self._is_lane_id(field):
+            raise err("state_json.laneFilter rule field must be a field id or null.")
+        op = rule.get("op")
+        if not (isinstance(op, str) and op in self._LANE_OPS):
+            raise err(f"state_json.laneFilter rule op must be one of {sorted(self._LANE_OPS)}.")
+        for key in ("value", "min", "max"):
+            if key in rule:
+                v = rule[key]
+                if not isinstance(v, str) or len(v) > cap:
+                    raise err(f"state_json.laneFilter rule {key} must be a string of at most {cap} characters.")
+                self._reject_nul(v, f"state_json.laneFilter rule {key}")
+
+    def _validate_lane_filter(self, lf):
+        """Shape check for ``laneFilter`` (#2205): {"items": [rule | group]},
+        groups one level deep, bounded counts. Messages are plain strings
+        because the view flattens errors into the string ``detail``."""
+        err = serializers.ValidationError
+        if not isinstance(lf, dict) or set(lf.keys()) != {"items"}:
+            raise err("state_json.laneFilter must be an object with an items list.")
+        items = lf["items"]
+        if not isinstance(items, list) or len(items) > self._LANE_MAX_ITEMS:
+            raise err(f"state_json.laneFilter items must be a list of at most {self._LANE_MAX_ITEMS} entries.")
+        total = 0
+        for item in items:
+            if isinstance(item, dict) and item.get("kind") == "group":
+                if not set(item.keys()) <= self._LANE_GROUP_KEYS:
+                    raise err("state_json.laneFilter group has unknown keys.")
+                if not self._is_lane_id(item.get("id")):
+                    raise err("state_json.laneFilter group id must be a non-negative integer.")
+                join = item.get("join", "and")
+                if not (isinstance(join, str) and join in self._LANE_JOINS):
+                    raise err("state_json.laneFilter join must be 'and' or 'or'.")
+                rules = item.get("rules")
+                if not isinstance(rules, list):
+                    raise err("state_json.laneFilter group rules must be a list.")
+                total += len(rules)
+                if total > self._LANE_MAX_RULES:
+                    break
+                for rule in rules:
+                    self._validate_lane_rule(rule)
+            else:
+                total += 1
+                if total > self._LANE_MAX_RULES:
+                    break
+                self._validate_lane_rule(item)
+        if total > self._LANE_MAX_RULES:
+            raise err(f"state_json.laneFilter may hold at most {self._LANE_MAX_RULES} rules.")
 
 
 # ---------------------------------------------------------------------------

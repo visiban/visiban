@@ -14,7 +14,12 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * (`text-xs text-fg-tertiary`), e.g. a board preset's summary. It is part of
    * the menu item's text, so it is read with the label.
    */
-  options: { value: T; label: string; description?: string }[];
+  /**
+   * `icon` (#2205) is an optional trailing glyph after the label (e.g. the
+   * admin-only padlock on a lane-filter field option). It carries its own
+   * accessible name, if any, and is read after the label.
+   */
+  options: { value: T; label: string; description?: string; icon?: ReactNode }[];
   selected: T | null;
   onChange: (selected: T | null) => void;
   /**
@@ -348,6 +353,7 @@ export default function SingleSelectDropdown<T extends string | number>({
               ) : (
                 <span className="min-w-0">{opt.label}</span>
               )}
+              {opt.icon && <span className="ml-auto self-center shrink-0">{opt.icon}</span>}
             </span>
           </button>
         </div>

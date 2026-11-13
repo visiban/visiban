@@ -108,6 +108,8 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
+import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
+import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -1208,9 +1210,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const fSearch = searchParams.get("f_search");
     // #1149 — "Blocked only" travels in a shared filter link as f_blocked=1.
     const fBlocked = searchParams.get("f_blocked");
-    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null;
+    // #2205 — lane rules travel as f_lanes=1.<compact JSON>, parsed defensively.
+    const fLanes = searchParams.get("f_lanes");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null;
     if (!hasUrlFilters) return persistedFilters;
+    const laneFilter = parseLaneFilterParam(fLanes);
     return {
+      ...(laneFilter ? { laneFilter } : {}),
       search: fSearch ?? "",
       assigneeIds: fAssignees ? fAssignees.split(",").map(Number).filter((n) => !isNaN(n)) : [],
       labelIds: fLabels ? fLabels.split(",").map(Number).filter((n) => !isNaN(n)) : [],
@@ -1273,6 +1279,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         if (next.blockedOnly) prev.set("f_blocked", "1");
         else prev.delete("f_blocked");
       }
+      const lanes = serializeLaneFilterParam(next.laneFilter);
+      if (lanes) prev.set("f_lanes", lanes);
+      else prev.delete("f_lanes");
       return prev;
     }, { replace: true });
   }, [setPersistedFilters, setSearchParams]);
@@ -1940,10 +1949,48 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // previous board's filters, so a write-back would copy them to the new board).
   const boardLabels = board.labels;
   const boardCustomFieldDefs = board.custom_field_definitions;
-  const effectiveFilters = useMemo(
-    () => pruneStaleFilters(filters, { labels: boardLabels, custom_field_definitions: boardCustomFieldDefs }),
-    [filters, boardLabels, boardCustomFieldDefs],
+  // #2205 — the swimlane fields this viewer may rule on; a lane rule on any
+  // other field (deleted, or admin-only for a non-admin) is pruned the same way.
+  const swimlaneFieldDefs = board.swimlane_custom_field_definitions;
+  const laneFields = useMemo(() => laneFilterFields(swimlaneFieldDefs ?? [], isAdmin), [swimlaneFieldDefs, isAdmin]);
+  const effectiveFilters = useMemo(() => {
+    const pruned = pruneStaleFilters(filters, { labels: boardLabels, custom_field_definitions: boardCustomFieldDefs });
+    const laneFilter = pruneLaneFilter(pruned.laneFilter, laneFields);
+    if (laneFilter === pruned.laneFilter) return pruned;
+    const next = { ...pruned, laneFilter };
+    if (!laneFilter) delete next.laneFilter;
+    return next;
+  }, [filters, boardLabels, boardCustomFieldDefs, laneFields]);
+
+  // #2205 — lanes hidden by lane rules. Focus mode pauses them: the focused
+  // lane always shows, and so does every other lane, collapsed as before.
+  const laneFilterHiddenIds = useMemo(
+    () => (focusedSwimlaneId !== null ? new Set<number>() : laneIdsHiddenByFilter(board.swimlanes, effectiveFilters.laneFilter, laneFields)),
+    [focusedSwimlaneId, board.swimlanes, effectiveFilters.laneFilter, laneFields],
   );
+  const renderHiddenSwimlaneIds = useMemo(
+    () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
+    [hiddenSwimlaneIds, laneFilterHiddenIds],
+  );
+  const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
+  const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
+  const lanesTriggerRef = useRef<HTMLButtonElement>(null);
+  const { notice: laneNotice, dismiss: dismissLaneNotice, markLocalEdit: markLaneLocalEdit } = useLaneFilterNotice({
+    swimlanes: board.swimlanes,
+    hiddenIds: laneFilterHiddenIds,
+    filterKey: laneFilterKey,
+    focusedSwimlaneId,
+    openCardSwimlaneId: selectedCard?.swimlane ?? null,
+  });
+  // A lane edited from this client (row rename, field values) is "mine" for the notice.
+  const handleLocalSwimlaneUpdated = useCallback((s: Swimlane) => {
+    markLaneLocalEdit(s.id);
+    onSwimlaneUpdated(s);
+  }, [markLaneLocalEdit, onSwimlaneUpdated]);
+  const openLaneFilters = useCallback(() => {
+    setShowFilters(true);
+    setTimeout(() => lanesTriggerRef.current?.click(), 0);
+  }, []);
 
   effectiveFiltersRef.current = effectiveFilters;
 
@@ -1978,12 +2025,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     () =>
       buildGridOverlayState(gridOverlay, {
         columns: board.columns.filter((c) => !hiddenColumnIds.has(c.id)),
-        swimlanes: board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id)),
+        swimlanes: board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id)),
         cards: filteredCardIds ? board.cards.filter((c) => filteredCardIds.has(c.id)) : board.cards,
         isFiltered: filteredCardIds !== null,
         now: gridOverlayNow,
       }),
-    [gridOverlay, gridOverlayNow, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
+    [gridOverlay, gridOverlayNow, board.columns, board.swimlanes, board.cards, hiddenColumnIds, renderHiddenSwimlaneIds, filteredCardIds],
   );
 
   const handleColumnAdded = useCallback((col: Column) => {
@@ -2002,6 +2049,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
+    markLaneLocalEdit(swimlane.id);
     onSwimlaneAdded(swimlane);
     if (insertSwimlanePosition !== null) {
       // Filter the new swimlane's ID out of currentIds before splicing it in.
@@ -2018,7 +2066,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // update + rollback on failure and never rejects.
       void onSwimlanesReordered(newOrder);
     }
-  }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
+  }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered, markLaneLocalEdit]);
 
 
   // Mouse drags start after 5px; touch drags on press-and-hold (#1287).
@@ -2944,7 +2992,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          <div role="search" aria-label="Card filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
+          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}
@@ -2971,6 +3019,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               isSearching={isSearching}
               currentUser={currentUser}
               hiddenCount={hiddenCount}
+              hiddenLaneCount={laneFilterHiddenIds.size}
+              laneFiltersPaused={focusedSwimlaneId !== null}
+              lanesTriggerRef={lanesTriggerRef}
               scope={scope}
               onScopeChange={setScope}
               userDateFormat={userDateFormat}
@@ -2986,8 +3037,35 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             Showing the first {searchTruncation.shown.toLocaleString()} of {searchTruncation.total.toLocaleString()} matches; the rest are hidden. Narrow your search to see them.
           </div>
         )}
+        {laneNotice && <span className="sr-only">{laneNotice}</span>}
       </div>
-      {filteredCardIds !== null && filteredCardIds.size === 0 && (
+      {/* #2205 — a lane that stopped matching the lane filters (useLaneFilterNotice).
+          The text is announced through the live region above; this row is the visible copy. */}
+      {laneNotice && (
+        <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
+          <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
+          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            Edit lane filters
+          </button>
+          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      )}
+      {/* #2205 — every lane filtered out; takes precedence over the card empty state. */}
+      {allLanesFilteredOut && (
+        <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm flex items-center gap-3">
+          No lanes match your lane filters.
+          <button
+            type="button"
+            onClick={() => { const next = { ...effectiveFilters }; delete next.laneFilter; setActiveFilterId(null); setFilters(next); }}
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Clear lane filters
+          </button>
+        </div>
+      )}
+      {!allLanesFilteredOut && filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
           No cards match the active filters.
         </div>
@@ -3029,6 +3107,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </svg>
           <span className="text-info-on-tint">Focused on:</span>
           <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
+          {laneFilterKey !== "" && (
+            <>
+              <span aria-hidden="true" className="text-xs text-fg-tertiary">·</span>
+              <span className="text-xs text-fg-tertiary">Lane filters paused</span>
+            </>
+          )}
           <div className="flex-1" />
           <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
@@ -3148,7 +3232,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             // so that DnD reordering remains functional even in focus mode.
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
               {(() => {
-                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                const visible = board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
                 return visible.map((swimlane, idx) => (
                   <React.Fragment key={swimlane.id}>
                     <RowSeparator
@@ -3195,7 +3279,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
                       onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
                       onCardAdded={onCardAdded}
-                      onSwimlaneUpdated={onSwimlaneUpdated}
+                      onSwimlaneUpdated={handleLocalSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}
                       collapsed={collapsedSwimlaneIds.has(swimlane.id)}
                       onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
@@ -3226,7 +3310,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               })()}
               {/* Bottom separator — resizes the last swimlane */}
               {(() => {
-                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                const visible = board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
                 const last = visible[visible.length - 1];
                 return (
                   <RowSeparator

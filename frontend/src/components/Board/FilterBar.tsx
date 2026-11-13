@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -11,6 +11,16 @@ import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
+import { LaneFilterControl } from "./LaneFilterPopover";
+import {
+  isLaneFilterActive,
+  laneFilterChipItems,
+  laneFilterFields,
+  removeLaneItem,
+  summarizeLaneFilter,
+  type LaneFilter,
+  type LaneValueFormatter,
+} from "../../utils/laneFilter";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Number/date are equality-only (the value is
@@ -53,6 +63,13 @@ export interface FilterState {
    * before this field existed still loads; absent reads as false.
    */
   blockedOnly?: boolean;
+  /**
+   * #2205 — rules that hide swimlanes by their own custom field values.
+   * Optional and absent from EMPTY_FILTER, so every filter persisted or saved
+   * before lane filters existed still loads, and Clear all drops it. Card
+   * filters are unaffected; the two are AND-ed on the board.
+   */
+  laneFilter?: LaneFilter;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -101,6 +118,8 @@ export function countActiveFilters(f: FilterState): number {
     f.dueDate !== null,
     Object.values(f.customFields).some(isCustomFieldFilterActive),
     !!f.blockedOnly,
+    // #2205 — all lane rules count as one dimension; the per-rule count is on the Lanes trigger.
+    isLaneFilterActive(f.laneFilter),
   ].filter(Boolean).length;
 }
 
@@ -122,6 +141,12 @@ interface Props {
   onScopeChange?: (scope: "board" | "all") => void;
   /** The user's `date_format` preference, for date custom-field chips (#1993). */
   userDateFormat?: string;
+  /** #2205 — lanes the lane filter hides (0 while focus mode pauses it). */
+  hiddenLaneCount?: number;
+  /** #2205 — focus mode is on, so lane filters are paused. */
+  laneFiltersPaused?: boolean;
+  /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
+  lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
 }
 
 interface MyCardsButtonProps {
@@ -222,8 +247,25 @@ const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "blocked", label: "Blocked" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY" }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, laneFiltersPaused = false, lanesTriggerRef }: Props) {
   const activeCount = countActiveFilters(filters);
+  // #2205 — the swimlane fields this viewer may rule on. Admin-only fields are
+  // offered to admins only: their values are never sent to other roles.
+  const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
+  const swimlaneDefs = board.swimlane_custom_field_definitions;
+  const laneFields = useMemo(() => laneFilterFields(swimlaneDefs ?? [], isBoardAdmin), [swimlaneDefs, isBoardAdmin]);
+  const laneFmt: LaneValueFormatter = useCallback(
+    (field, raw) => {
+      const def = (swimlaneDefs ?? []).find((d) => d.id === field.id);
+      return def ? formatCustomFieldValue(def, raw, userDateFormat) : raw;
+    },
+    [swimlaneDefs, userDateFormat],
+  );
+  const laneChips = laneFilterChipItems(filters.laneFilter, laneFields, laneFmt);
+  const laneRuleCount = summarizeLaneFilter(filters.laneFilter, laneFields, laneFmt).completeCount;
+  const ownLanesTriggerRef = useRef<HTMLButtonElement>(null);
+  const lanesTrigger = lanesTriggerRef ?? ownLanesTriggerRef;
+  const chipGroupRef = useRef<HTMLDivElement>(null);
   const searchDisabled = scope === "all";
   const blockedCount = useMemo(() => board.cards.filter(isCardBlocked).length, [board.cards]);
 
@@ -403,8 +445,13 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     });
   }
 
+  const statusText = [
+    hiddenLaneCount > 0 ? `${hiddenLaneCount} lane${hiddenLaneCount !== 1 ? "s" : ""} hidden` : "",
+    hiddenCount > 0 ? `${hiddenCount} card${hiddenCount !== 1 ? "s" : ""} hidden` : "",
+  ].filter(Boolean).join(" · ");
+
   return (
-    <div className="flex flex-col gap-1.5 w-full">
+    <div className="flex flex-col w-full">
       {/* Row 1: filter controls */}
       <div className="flex items-center gap-2 flex-wrap" onKeyDown={handleRow1KeyDown} onKeyDownCapture={handleRow1KeyDownCapture}>
         <span className="w-px h-4 bg-surface-active shrink-0" />
@@ -603,6 +650,23 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           />
         )}
 
+        {/* #2205 — hidden when this viewer has no swimlane field to rule on. */}
+        {laneFields.length > 0 && (
+          <LaneFilterControl
+            filter={filters.laneFilter}
+            fields={laneFields}
+            onChange={(laneFilter) => {
+              const next = { ...filters, laneFilter };
+              if (!laneFilter) delete next.laneFilter;
+              onChange(next);
+            }}
+            paused={laneFiltersPaused}
+            fmt={laneFmt}
+            activeRuleCount={laneRuleCount}
+            triggerRef={lanesTrigger}
+          />
+        )}
+
         {activeCount > 0 && (
           <button
             onClick={() => onChange(EMPTY_FILTER)}
@@ -613,19 +677,43 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
         )}
       </div>
 
-      {/* Row 2: active filter chips (only when at least one chip exists) */}
-      {chips.length > 0 && (
-        <div role="group" aria-label="Active filters" className="flex items-center gap-1.5 flex-wrap">
-          {chips.map((chip) => (
-            <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
-          ))}
-          {hiddenCount > 0 && (
-            <span role="status" aria-live="polite" aria-atomic="true" className="ml-auto text-xs text-fg-tertiary shrink-0 whitespace-nowrap">
-              {hiddenCount} card{hiddenCount !== 1 ? "s" : ""} hidden
-            </span>
-          )}
-        </div>
-      )}
+      {/* Row 2: active filter chips (only when at least one chip exists). The
+          status beside them is always mounted so its text is announced (#2205). */}
+      <div className={`flex items-center gap-1.5 ${chips.length + laneChips.length > 0 || statusText ? "mt-1.5" : ""}`}>
+        {chips.length + laneChips.length > 0 && (
+          <div ref={chipGroupRef} role="group" aria-label="Active filters" className="flex items-center gap-1.5 flex-wrap min-w-0">
+            {chips.map((chip) => (
+              <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
+            ))}
+            {laneChips.map((chip, i) => (
+              <span key={`lane:${chip.id}`} className="contents">
+                {i > 0 && <span className="text-xs text-fg-tertiary">{chip.join}</span>}
+                <FilterChip
+                  tag="Lanes"
+                  label={chip.label}
+                  dataLaneChip
+                  onDismiss={() => {
+                    if (!filters.laneFilter) return;
+                    const laneFilter = removeLaneItem(filters.laneFilter, chip.id);
+                    const next = { ...filters, laneFilter };
+                    if (!laneFilter) delete next.laneFilter;
+                    onChange(next);
+                    // Focus the chip that takes this one's place, else the Lanes trigger.
+                    setTimeout(() => {
+                      const remaining = chipGroupRef.current?.querySelectorAll<HTMLElement>("[data-lane-chip]");
+                      const target = remaining?.[i] ?? remaining?.[i - 1];
+                      (target ?? lanesTrigger.current)?.focus();
+                    }, 0);
+                  }}
+                />
+              </span>
+            ))}
+          </div>
+        )}
+        <span role="status" aria-live="polite" aria-atomic="true" className="ml-auto text-xs text-fg-tertiary shrink-0 whitespace-nowrap">
+          {statusText}
+        </span>
+      </div>
     </div>
   );
 }
