@@ -4230,7 +4230,7 @@
 <h2 id="card-detail">Card detail<a class="headerlink" href="#card-detail" title="Permanent link">&para;</a></h2>
 <p>Click any card to open a side panel with full context:</p>
 <ul>
-<li><strong>Priority</strong> — low / medium / high / urgent, shown as a color-coded left border</li>
+<li><strong>Priority</strong> — low / medium / high / urgent, shown as a color-coded card border (at Comfortable density, overdue and due-soon cards take a red or amber border instead)</li>
 <li><strong>Assignee</strong> — any board member; triggers a notification on assignment</li>
 <li><strong>Labels</strong> — board-scoped tags for filtering and grouping</li>
 <li><strong>Due date</strong> — optional deadline</li>
@@ -4483,7 +4483,7 @@
 <hr />
 <h2 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
-<p>Each board has an admin-controlled <strong>Card density</strong> setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in <strong>Board Settings → Display</strong>.</p>
+<p>Each board has an admin-controlled <strong>Card density</strong> setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. At Comfortable, an overdue or due-soon card also gets a red or amber border. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in <strong>Board Settings → Display</strong>.</p>
 <p>The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and <code>localStorage</code> values for the old keys are silently ignored.</p>
 <p>Any member can override the board's density for their own view without changing it for anyone else — turn on <strong>Use my own density</strong> in Board Settings → Display (added in 1.2, browser-local, board-scoped).</p>
 <p>→ <a href="board/#card-density">Board &amp; Cards — Card density</a> · <a href="board/#personal-density-override">Personal density override</a></p>
