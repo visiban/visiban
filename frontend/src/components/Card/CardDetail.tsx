@@ -1428,8 +1428,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               aria-label={dockedPref ? "Open next to card" : "Dock to edge"}
               title={dockedPref ? "Open next to card" : "Dock to edge"}
               data-testid="card-sheet-dock-toggle"
-              className={`w-7 h-7 flex items-center justify-center rounded border transition shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                dockedPref ? "bg-surface-hover border-line-strong text-fg" : "border-transparent"
+              className={`w-7 h-7 flex items-center justify-center rounded border transition shrink-0 hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                dockedPref ? "bg-surface-hover border-line-strong text-fg" : "border-transparent text-fg-tertiary"
               }`}
             >
               <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
