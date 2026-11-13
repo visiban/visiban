@@ -139,6 +139,25 @@ check "the defer names the agent to run" \
 check "the defer says it is not a pass" \
   "$(echo "$OUT" | grep -q "not a pass" && echo 0 || echo 1)"
 
+# --- #2125: a mixin's write is held to "every write broadcasts" ------------
+# revoke_invite_link lives on BoardInviteLinksMixin, not on a view class. Drop its
+# emit and the run must fail; before #2125 the mixin was never scanned.
+copy_tree "$TMP/mixin"
+"$PY" - "$TMP/mixin/backend/boards/views/invites.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+at = text.index("def revoke_invite_link")
+call = "_broadcast.record_board_event("
+i = text.index(call, at)
+p.write_text(text[:i] + "_broadcast.nothing(" + text[i + len(call):])
+PY
+run_gate --root "$TMP/mixin"
+check "a mixin write that stops broadcasting is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the mixin action" \
+  "$(echo "$OUT" | grep -q "BoardInviteLinksMixin::@action revoke_invite_link" && echo 0 || echo 1)"
+
 # --- unknown flag is a usage error, not a pass ----------------------------
 run_gate --no-such-flag
 check "unknown flag does not exit 0" "$([ "$RC" -ne 0 ] && echo 0 || echo 1)"

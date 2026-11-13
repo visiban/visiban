@@ -96,6 +96,7 @@ _body_nodes = _shared._body_nodes
 _calls = _shared._calls
 _local_names = _shared._local_names
 _is_view_class = _shared._is_view_class
+_is_view_mixin = _shared._is_view_mixin
 _write_handlers = _shared._write_handlers
 _is_scoped = _shared._is_scoped
 _load_module = _shared._load_module
@@ -321,7 +322,20 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
 
 # Broadcasts or writes whose shape the checker cannot classify and the
 # broadcast-check AGENT has reviewed. Records what it found.
-AGENT_REVIEWED: dict[str, str] = {}
+AGENT_REVIEWED: dict[str, str] = {
+    "backend/boards/views/import_export.py::BoardImportExportMixin::@action import_board [post]": (
+        "JSON and CSV board import (#2125). The handler dispatches to "
+        "_import_json / _import_csv through a local variable, which this call "
+        "graph cannot follow, so it reads as reaching no emit. Both importers "
+        "do broadcast: each builds a plain-data _broadcast_created closure "
+        "(board id and payload only, no ORM capture) and defers it with "
+        "transaction.on_commit before returning, announcing the new board. "
+        "Read by hand against import_export.py, not a broadcast-check agent "
+        "run. The other four mixin writes need no entry: invite_links, "
+        "invite_link_send and revoke_invite_link reach record_board_event, and "
+        "import_trello reaches _broadcast_imported_board (on_commit)."
+    ),
+}
 
 
 # ─── Call graph ──────────────────────────────────────────────────────────────
@@ -716,7 +730,13 @@ def run(root: Path, *, quiet: bool = False) -> Report:
     for rel in view_rels:
         mod = _load_module(root, rel)
         for cls in mod.classes:
-            if not _is_view_class(cls) or not _is_scoped(cls, mod):
+            # A mixin's writes run on a scoped viewset, so it is always scanned,
+            # as check-rbac-coverage does (#2125); without this the five mixin
+            # writes (invite_links, invite_link_send, revoke_invite_link,
+            # import_board, import_trello) were never held to "every write
+            # broadcasts".
+            mixin = _is_view_mixin(cls)
+            if not mixin and (not _is_view_class(cls) or not _is_scoped(cls, mod)):
                 continue
             for label, handlers in _write_handlers(cls):
                 rep.write_actions += 1
