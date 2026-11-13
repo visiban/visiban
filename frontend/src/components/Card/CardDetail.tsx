@@ -10,6 +10,7 @@ import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
+import ActiveMark from "../Common/ActiveMark";
 import { isHardLimit, limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
 import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
@@ -2065,8 +2066,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         type="button"
                         aria-pressed={hideCompleted}
                         onClick={() => setHideCompleted((h) => !h)}
-                        className="text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
+                        <ActiveMark active={hideCompleted} />
                         Hide completed
                       </button>
                     </div>

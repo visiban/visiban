@@ -15,6 +15,7 @@ import json
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -297,6 +298,41 @@ class ChecklistExportImportTests(_Base):
         self.assertFalse(
             CardChecklist.objects.filter(card__board_id=r.data["id"], assignee__isnull=False).exists()
         )
+
+    def test_import_date_shift_moves_checklist_due_dates_and_activity_values(self, _):
+        today = timezone.localdate()
+        base = today - datetime.timedelta(days=10)
+        data = {
+            "name": "Shifted",
+            "columns": [{"name": "Todo", "position": 0}],
+            "swimlanes": [{"name": "General", "position": 0}],
+            "labels": [],
+            "cards": [{
+                "title": "T", "column": "Todo", "swimlane": "General", "priority": "medium",
+                "position": 0,
+                "checklist": [{"text": "a", "due_date": base.isoformat()}],
+                "activities": [{
+                    "event_type": "checklist_item_due_changed",
+                    "from_value": base.isoformat(),
+                    "to_value": (base + datetime.timedelta(days=2)).isoformat(),
+                }],
+            }],
+        }
+        f = io.BytesIO(json.dumps(data).encode())
+        f.name = "board.json"
+        r = self.client.post(
+            "/api/v1/boards/import/",
+            {"file": f, "options": json.dumps({"shift_dates_from": base.isoformat()})},
+            format="multipart",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        item = CardChecklist.objects.get(card__board_id=r.data["id"])
+        self.assertEqual(item.due_date, today)
+        act = CardActivity.objects.get(
+            card__board_id=r.data["id"], event_type="checklist_item_due_changed"
+        )
+        self.assertEqual(act.from_value, today.isoformat())
+        self.assertEqual(act.to_value, (today + datetime.timedelta(days=2)).isoformat())
 
     def test_import_rejects_bad_types(self, _):
         for entry in ({"text": "a", "assignee": 5}, {"text": "a", "due_date": "not-a-date"}):
