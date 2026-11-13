@@ -3298,18 +3298,58 @@ describe('BoardView lane filters (#2205)', () => {
     expect(screen.getAllByText('New lane “Fresh Lane” is hidden because it doesn\'t match your lane filters.').length).toBeGreaterThan(0)
   })
 
-  it('stays silent when focus left the lane for a non-focusable area before a remote edit hides it', () => {
+  it('stays silent when focus left the lane for a non-focusable area before a remote edit hides it', async () => {
     mockSearchParams = new URLSearchParams(priyaParam)
     mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
     const { rerender } = render(<BoardView {...defaultProps()} />)
     const btn = screen.getByTestId('focus-btn-20')
     act(() => { btn.focus() })
+    // jsdom reports hasFocus() false once nothing is focused; a real page stays focused after a click on body.
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     act(() => { btn.blur() })
+    await act(async () => { await Promise.resolve() }) // the deferred focusout check
+    hasFocus.mockRestore()
     expect(document.activeElement).toBe(document.body)
     mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
     rerender(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
     expect(screen.queryByText(/no longer matches your lane filters/)).not.toBeInTheDocument()
     expect(document.activeElement).toBe(document.body)
+  })
+  it('keeps the notice and recovers focus when the browser fires focusout during removal of the focused lane (Chromium)', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    const btn = screen.getByTestId('focus-btn-20')
+    act(() => { btn.focus() })
+    // Chromium dispatches focusout (relatedTarget null, target still connected) just before detaching a focused node.
+    const realRemove = Node.prototype.removeChild
+    const spy = vi.spyOn(Node.prototype, 'removeChild').mockImplementation(function (this: Node, child: Node) {
+      if (child.contains(btn) && btn.isConnected) btn.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }))
+      return realRemove.call(this, child) as never
+    })
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    spy.mockRestore()
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+    expect(document.activeElement).toBe(document.querySelector('[data-board-scroll]'))
+  })
+
+  it('a focusout while the document is not focused (window blur) does not clear the lane, so a hide while away still notifies', async () => {
+    mockSearchParams = new URLSearchParams(priyaParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Priya')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    const btn = screen.getByTestId('focus-btn-20')
+    act(() => { btn.focus() })
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    act(() => { btn.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null })) })
+    await act(async () => { await Promise.resolve() })
+    hasFocus.mockRestore()
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Sam'), lane(21, 'Customer B', 'Priya')]) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
   })
 })

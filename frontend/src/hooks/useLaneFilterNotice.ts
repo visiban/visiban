@@ -38,8 +38,8 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
   const localEditsRef = useRef(new Set<number>());
   // Closest [data-swimlane-id] of the last focused element. Not cleared when
   // the focused element is removed with its lane (that drop is what recovery
-  // detects), but cleared when the user moves focus out themselves (focusout
-  // with no new target while the element is still connected).
+  // detects), but cleared when the user moves focus out themselves (a deferred
+  // check after focusout; see below).
   const focusedLaneIdRef = useRef<number | null>(null);
   // The lane focus was recovered from in this commit. Layout effects run
   // before the notice effect, and the recovery focus() itself fires focusin,
@@ -54,15 +54,27 @@ export function useLaneFilterNotice({ swimlanes, hiddenIds, filterKey, focusedSw
     };
     // Focus that leaves the page content for a non-focusable area (relatedTarget
     // null) fires focusout but no focusin, so without this the ref would keep
-    // naming a lane the user is no longer in. The one case that must survive is
-    // the lane unmounting under focus: browsers fire no focusout for a removed
-    // element (jsdom may), so the recovery layout effect also guards on it.
+    // naming a lane the user is no longer in. The event alone cannot tell that
+    // apart from two cases that must keep the ref: Chromium fires focusout
+    // synchronously while removing a focused element (relatedTarget null, target
+    // still connected), which is the lane being hidden under focus; and a window
+    // or tab blur fires it while the element stays activeElement. So decide in a
+    // microtask, after React's commit (and the recovery layout effect) has run:
+    // clear only if the target is still in the document, the document has focus,
+    // and focus truly landed on <body>.
+    let disposed = false;
     const onFocusOut = (e: FocusEvent) => {
-      if (e.relatedTarget === null && e.target instanceof Element && e.target.isConnected) focusedLaneIdRef.current = null;
+      if (e.relatedTarget !== null || !(e.target instanceof Element)) return;
+      const target = e.target;
+      queueMicrotask(() => {
+        if (disposed) return;
+        if (target.isConnected && document.hasFocus() && document.activeElement === document.body) focusedLaneIdRef.current = null;
+      });
     };
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     return () => {
+      disposed = true;
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
     };
