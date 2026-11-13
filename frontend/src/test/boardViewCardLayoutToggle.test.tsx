@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
@@ -284,6 +284,26 @@ describe('BoardView — card layout toggle button', () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
     expect(screen.getByLabelText('Switch to expanded card layout')).toBeInTheDocument()
+  })
+
+  it('every Row 2 toolbar toggle pairs aria-pressed with the underline cue (#2188)', async () => {
+    render(<BoardView />)
+    const user = userEvent.setup()
+    const cases: [string, string][] = [
+      ['Switch to compact card layout', 'Switch to expanded card layout'],
+      ['Show archived cards', 'Hide archived cards'],
+      ['Open activity drawer', 'Close activity drawer'],
+      ['Keyboard shortcuts', 'Close keyboard shortcuts'],
+      ['Filters', 'Filters'],
+    ]
+    for (const [before, after] of cases) {
+      const btn = screen.getAllByRole('button', { name: before }).find((b) => b.hasAttribute('aria-pressed'))!
+      expect(btn).toHaveAttribute('aria-pressed', 'false')
+      expect(within(btn).queryByTestId('active-underline')).not.toBeInTheDocument()
+      await user.click(btn)
+      const pressed = screen.getAllByRole('button', { name: after }).find((b) => b.getAttribute('aria-pressed') === 'true')!
+      expect(within(pressed).getByTestId('active-underline')).toBeInTheDocument()
+    }
   })
 
   it('clicking the toggle switches from expanded to compact', async () => {

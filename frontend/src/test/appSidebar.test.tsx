@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppSidebar from '../components/Layout/AppSidebar'
 import type { User, Group, Board } from '../types'
@@ -114,6 +114,7 @@ describe('AppSidebar', () => {
     expect(toggle).toHaveAttribute('aria-label', 'Collapse sidebar')
     // persistent-mode toggle: aria-pressed exposes state to screen readers (frontend/CLAUDE.md § Toggle buttons)
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(within(toggle).queryByTestId('active-underline')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
   })
 
@@ -169,6 +170,8 @@ describe('AppSidebar', () => {
     const expanded = screen.getByTitle('Expand sidebar')
     expect(expanded).toBeInTheDocument()
     expect(expanded).toHaveAttribute('aria-pressed', 'true')
+    // Non-color active cue (#2188), in addition to the chevron direction.
+    expect(within(expanded).getByTestId('active-underline')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
   })
 

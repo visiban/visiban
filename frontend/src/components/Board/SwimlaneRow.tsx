@@ -15,6 +15,7 @@ import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -415,7 +416,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}
@@ -427,11 +428,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 <line x1="1" y1="8" x2="4" y2="8" />
                 <line x1="12" y1="8" x2="15" y2="8" />
               </svg>
+              <ActiveUnderline active={isFocused} placement="below" />
             </button>
             <button
               data-tour-step="swimlane-collapse"
               onClick={onToggleCollapse}
-              className="text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+              className="relative text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               aria-pressed={collapsed}
               aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
               title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
@@ -443,6 +445,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               >
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
+              <ActiveUnderline active={collapsed} placement="below" />
             </button>
           </div>
         </div>

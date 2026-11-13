@@ -13,6 +13,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import Spinner from "../Common/Spinner";
 import { DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 interface Props {
   user: User;
@@ -336,7 +337,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
         )}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className={`text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
+          className={`relative text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-pressed={collapsed}
@@ -358,6 +359,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
               />
             </svg>
           )}
+          <ActiveUnderline active={collapsed} />
         </button>
       </div>
 

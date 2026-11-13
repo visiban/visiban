@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LensSwimlaneRow from '../components/Board/Lens/LensSwimlaneRow'
 import type { LensAxis, NormalizedIssue } from '../types'
@@ -69,6 +69,7 @@ describe('LensSwimlaneRow', () => {
     const { onFocus } = setup()
     const crosshair = screen.getByRole('button', { name: 'Focus on v1.2' })
     expect(crosshair).toHaveAttribute('aria-pressed', 'false')
+    expect(within(crosshair).queryByTestId('active-underline')).not.toBeInTheDocument()
     await user.click(crosshair)
     expect(onFocus).toHaveBeenCalledWith('v1')
   })
@@ -78,6 +79,8 @@ describe('LensSwimlaneRow', () => {
     const { onExitFocus } = setup({ isFocused: true })
     const crosshair = screen.getByRole('button', { name: 'Exit focus' })
     expect(crosshair).toHaveAttribute('aria-pressed', 'true')
+    // Non-color active cue (#2188): the underline bar, not the text-info tint alone.
+    expect(within(crosshair).getByTestId('active-underline')).toBeInTheDocument()
     await user.click(crosshair)
     expect(onExitFocus).toHaveBeenCalled()
   })
@@ -97,6 +100,20 @@ describe('LensSwimlaneRow', () => {
     const { onToggleCollapse } = setup()
     await user.click(screen.getByRole('button', { name: 'Collapse v1.2' }))
     expect(onToggleCollapse).toHaveBeenCalled()
+  })
+
+  it('collapse chevron pairs aria-pressed with the underline cue (#2188)', () => {
+    setup()
+    const open = screen.getByRole('button', { name: 'Collapse v1.2' })
+    expect(open).toHaveAttribute('aria-pressed', 'false')
+    expect(within(open).queryByTestId('active-underline')).not.toBeInTheDocument()
+  })
+
+  it('collapsed chevron shows the underline cue with aria-pressed=true (#2188)', () => {
+    setup({ collapsed: true })
+    const closed = screen.getByRole('button', { name: 'Expand v1.2' })
+    expect(closed).toHaveAttribute('aria-pressed', 'true')
+    expect(within(closed).getByTestId('active-underline')).toBeInTheDocument()
   })
 
   // --- Resizing (#1065) ---

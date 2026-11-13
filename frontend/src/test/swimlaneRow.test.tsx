@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
@@ -275,12 +275,15 @@ describe('SwimlaneRow', () => {
     render(<SwimlaneRow {...props} />)
     const btn = screen.getByTitle('Exit focus')
     expect(btn).toHaveAttribute('aria-pressed', 'true')
+    // Non-color active cue (#2188): the underline bar, not the text-info tint alone.
+    expect(within(btn).getByTestId('active-underline')).toBeInTheDocument()
   })
 
   it('aria-pressed=false when not focused', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     const btn = screen.getByTitle('Focus on Customer A')
     expect(btn).toHaveAttribute('aria-pressed', 'false')
+    expect(within(btn).queryByTestId('active-underline')).not.toBeInTheDocument()
   })
 
   it('clicking focused crosshair calls onExitFocus, not onFocus', async () => {
@@ -296,6 +299,7 @@ describe('SwimlaneRow', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     const btn = screen.getByTitle('Collapse Customer A')
     expect(btn).toHaveAttribute('aria-pressed', 'false')
+    expect(within(btn).queryByTestId('active-underline')).not.toBeInTheDocument()
   })
 
   it('collapse button has aria-pressed=true when collapsed', () => {
@@ -304,6 +308,7 @@ describe('SwimlaneRow', () => {
     render(<SwimlaneRow {...props} />)
     const btn = screen.getByTitle('Expand Customer A')
     expect(btn).toHaveAttribute('aria-pressed', 'true')
+    expect(within(btn).getByTestId('active-underline')).toBeInTheDocument()
   })
 
   it('collapse button title reflects collapsed state', () => {

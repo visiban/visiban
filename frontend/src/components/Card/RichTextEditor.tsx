@@ -20,6 +20,7 @@ import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
 import { placeFixedElement, subscribeVisualViewport, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 /**
  * Our own key for the mention suggestion plugin, so the popup can end the
@@ -138,13 +139,14 @@ function ToolbarButton({
       title={title}
       aria-label={title}
       aria-pressed={active ?? false}
-      className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      className={`relative px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
           : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
       }`}
     >
       {children}
+      <ActiveUnderline active={active ?? false} />
     </button>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
 import { useEditor, ReactRenderer } from '@tiptap/react'
 import MentionExtension from '@tiptap/extension-mention'
@@ -206,6 +206,7 @@ describe('RichTextEditor', () => {
       const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
       fireEvent.click(container.firstChild as Element)
       expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'false')
+      expect(within(screen.getByTitle('Bold (Ctrl+B)')).queryByTestId('active-underline')).not.toBeInTheDocument()
     })
 
     it('sets aria-pressed to true on the toolbar button for the active mark', () => {
@@ -226,6 +227,9 @@ describe('RichTextEditor', () => {
         fireEvent.click(container.firstChild as Element)
         expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'true')
         expect(screen.getByTitle('Italic (Ctrl+I)')).toHaveAttribute('aria-pressed', 'false')
+        // Non-color active cue (#2188): the underline bar moves with aria-pressed.
+        expect(within(screen.getByTitle('Bold (Ctrl+B)')).getByTestId('active-underline')).toBeInTheDocument()
+        expect(within(screen.getByTitle('Italic (Ctrl+I)')).queryByTestId('active-underline')).not.toBeInTheDocument()
       } finally {
         // Restore the module-level default so later tests in this file see a
         // null editor again.

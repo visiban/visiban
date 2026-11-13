@@ -1,3 +1,4 @@
+import ActiveUnderline from "../../Common/ActiveUnderline";
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
@@ -148,7 +149,7 @@ export default function LensToolbar({
         <button
           type="button"
           onClick={onToggleFilters}
-          className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
@@ -161,6 +162,7 @@ export default function LensToolbar({
               {activeCount}
             </span>
           )}
+          <ActiveUnderline active={showFilters || activeCount > 0} />
         </button>
       </Tooltip>
       {!foldToolbarControls && (
@@ -171,11 +173,12 @@ export default function LensToolbar({
           aria-pressed={cardLayout === "compact"}
           aria-label={layoutLabel}
           aria-keyshortcuts={formatShortcut({ mod: true, shift: true, key: "L" })}
-          className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             cardLayout === "compact" ? "text-info-on-tint bg-primary-emphasis/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
         >
           {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
+          <ActiveUnderline active={cardLayout === "compact"} />
         </button>
       </Tooltip>
       )}

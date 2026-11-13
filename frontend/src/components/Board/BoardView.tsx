@@ -106,6 +106,7 @@ import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../ut
 import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
+import ActiveUnderline from "../Common/ActiveUnderline";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -2746,7 +2747,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <button
               data-tour-step="filter"
               onClick={() => setShowFilters((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showFilters || activeCount > 0}
               aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
               aria-keyshortcuts="F"
@@ -2757,6 +2758,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   {activeCount}
                 </span>
               )}
+              <ActiveUnderline active={showFilters || activeCount > 0} />
             </button>
           </Tooltip>
           {/* Overlay picker (#1147). Zone 2, right after Filters: Filters changes
@@ -2789,13 +2791,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
               aria-pressed={cardLayout === "compact"}
               aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
-              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 cardLayout === "compact"
                   ? "text-info-on-tint bg-primary-emphasis/10"
                   : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
               {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
+              <ActiveUnderline active={cardLayout === "compact"} />
             </button>
           </Tooltip>
           )}
@@ -2803,12 +2806,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
             <button
               onClick={() => setShowArchived((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning-on-tint bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning-on-tint bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showArchived}
               aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
               aria-keyshortcuts="Y"
             >
               Archived
+              <ActiveUnderline active={showArchived} />
             </button>
           </Tooltip>
           )}
@@ -2829,11 +2833,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onClick={() => setDrawerOpen((v) => !v)}
               aria-pressed={drawerOpen}
               aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 drawerOpen ? "text-info-on-tint bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
               }`}
             >
               {ActivityDrawerIcon}
+              <ActiveUnderline active={drawerOpen} />
             </button>
           </Tooltip>
           <Tooltip content="Keyboard shortcuts (?)">
@@ -2847,6 +2852,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {!shortcutsSeen && (
                 <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
               )}
+              <ActiveUnderline active={showShortcuts} />
             </button>
           </Tooltip>
           {canExport && (
