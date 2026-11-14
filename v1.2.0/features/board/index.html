@@ -5649,6 +5649,7 @@
 <li>Pick a field, then a value or range:<ul>
 <li><strong>Dropdown</strong> fields: <strong>is</strong> or <strong>is not</strong> a choice.</li>
 <li><strong>Number</strong> and <strong>Date</strong> fields: <strong>between</strong> two values. Leave either end as <strong>Any</strong> for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.</li>
+<li><strong>Text</strong> and <strong>URL</strong> fields (<a href="https://gitlab.com/visiban/visiban/-/issues/2226">#2226</a>): <strong>is</strong> or <strong>is not</strong> one of the values your lanes already carry for that field (listed alphabetically), or <strong>contains</strong> text you type (up to 500 characters), for example <em>AE is Ethan Ross</em> or <em>AE contains ross</em>. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty <strong>contains</strong> box is an incomplete filter.</li>
 </ul>
 </li>
 <li>Add more filters, or <strong>+ Add group</strong> to bracket several together. Between every two filters or groups, an <strong>And / Or</strong> toggle sets how they combine. <strong>And</strong> binds tighter than <strong>Or</strong>, the way it does in arithmetic, and groups go one level deep.</li>
@@ -5656,9 +5657,9 @@
 </ol>
 <p>Rules apply as soon as they are complete; <strong>Done</strong> just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.</p>
 <ul>
-<li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong> and <strong>between</strong> and passes <strong>is not</strong>.</li>
+<li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong>, <strong>contains</strong>, and <strong>between</strong> and passes <strong>is not</strong>.</li>
 <li><strong>Admin-only fields</strong> are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.</li>
-<li><strong>Text, URL, checkbox, and multi-select</strong> swimlane fields can't be filtered on yet. If a board has no dropdown, number, or date swimlane field you can see, <strong>Lanes</strong> is hidden.</li>
+<li><strong>Checkbox and multi-select</strong> swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, <strong>Lanes</strong> is hidden.</li>
 <li><strong>Chips:</strong> each complete filter or group shows as a chip tagged <strong>Lanes</strong>, joined by "and" / "or". Dismissing a chip removes that filter or group. The <strong>Lanes</strong> button shows how many rules are active; the Filters badge and <strong>Clear all</strong> count all lane rules together as one filter.</li>
 <li><strong>Lanes with no matching cards</strong> stay visible, as they do with card filters alone.</li>
 <li><strong>When every lane is hidden,</strong> the board says "No lanes match your lane filters." with a <strong>Clear lane filters</strong> button.</li>
