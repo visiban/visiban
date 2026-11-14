@@ -1,4 +1,3 @@
 # scripts/tests/*.test.sh intentionally NOT run by CI. Format: <file><TAB><reason>. See scripts/check-script-tests-wired.sh (#2117).
 wt-list.test.sh	Owned by #1648 (wires wt-list and wt-prune together); remove both entries when it lands
 wt-prune.test.sh	Owned by #1648 (wires wt-list and wt-prune together); remove both entries when it lands
-wt-forge-timeout.test.sh	Passes on macOS/glibc but fails 20 checks on the Alpine image this job uses (forge_run perl-alarm and stub-glab process-group behavior); needs a Debian-based job image (follow-up #2189)

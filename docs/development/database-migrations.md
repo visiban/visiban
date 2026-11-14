@@ -732,6 +732,28 @@ installs have already run them; these are documented instead.
   `ADD CONSTRAINT ... FOREIGN KEY`, which takes `SHARE ROW EXCLUSIVE` on `users` and
   `account_emailaddress` briefly. With every row `NULL` this is fast. For future FKs on large
   tables use the `NOT VALID` then `VALIDATE` pattern above.
+- **`boards/0078_cardmovement_board_snapshots` adds a foreign key without `NOT VALID`.** It
+  adds a nullable `board` FK to `card_movements`, an append-only table that grows without
+  bound. On PostgreSQL the `ADD CONSTRAINT ... FOREIGN KEY` validates the new column against
+  `boards` under a lock on both tables. With every row `NULL` the scan finds nothing to
+  check, so it is quick, but its cost still tracks the table's size. `boards/0079` shows the
+  class of fix for the sibling problem: its `DropNotNullKeepingForeignKey` changes
+  nullability without rebuilding (and re-validating) the existing `card_id` FK. `0078` has
+  no such equivalent and has shipped, so it is documented here rather than edited. For a
+  future FK on a large table, use the [`NOT VALID` then `VALIDATE`
+  recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
+  `NULL`. No checker enforces this today: `check_migration_concurrency` does not inspect
+  foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
+  considered (#1894) and declined for now: a lint cannot tell a large table from a small
+  one, so it would either flag every FK on a small table or miss the ones that matter.
+- **NOT NULL columns first shipped with a Python-only `default=`.** `accounts/0027`,
+  `accounts/0030`, `accounts/0034` and `boards/0052` added `NOT NULL` columns with
+  `default=` but no `db_default=`, which is the rolling-deploy hazard described under
+  [A NOT NULL column with a default](#a-not-null-column-with-a-default). Later additive
+  migrations restored the database default (`accounts/0038` and `boards/0072`), so a 1.2 GA
+  install has it. Both migrations first shipped in `1.2.0-beta.2`, so only an install that
+  ran `1.2.0-beta.1` or a 1.2 alpha and has not yet applied them lacks the default, which matters only if an old-release pod inserts rows during the
+  rollout. See the [upgrade guide](../administration/upgrade.md#12-migrations-and-database-defaults).
 - **`RunPython` UPDATE shares a transaction with `ADD COLUMN`.** `accounts/0030` updates
   `users` in the same transaction as its column additions, so the UPDATE runs while
   `ACCESS EXCLUSIVE` is held. (`accounts/0036` is a standalone `RunPython` with no schema

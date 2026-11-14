@@ -2742,8 +2742,9 @@ gate-selftest-parity:
 # job above, the rest here. `check-script-tests-wired.sh` fails when a new test
 # file is added without wiring it (or an entry in
 # scripts/tests/unwired-allowlist.txt with a reason). wt-list/wt-prune are
-# allowlisted: #1648 owns wiring them; wt-forge-timeout is allowlisted because it fails
-# under Alpine/busybox (perl alarm + process-group semantics) and needs a Debian-based job image (follow-up #2189).
+# allowlisted: #1648 owns wiring them; wt-forge-timeout runs in the Debian-based
+# `script-tests-glibc` job below because it needs glibc/procps process-group
+# semantics (#2189).
 #
 # rules fire on any change under scripts/ (the scripts and their tests), the
 # backend/frontend trees some tests read as fixtures, and this file.
@@ -2792,6 +2793,32 @@ script-tests:
     - bash scripts/tests/osv-severity-gate.test.sh
     - bash scripts/tests/resolve-docs-version.test.sh
     - bash scripts/tests/wt-doctor-drift.test.sh
+  allow_failure: false
+
+# wt-forge-timeout.test.sh needs glibc/Debian userland (perl alarm and process-group
+# behavior differ under Alpine/busybox, so script-tests above cannot run it). It
+# also exercises scripts/wt without an origin/HEAD ref, which is how Debian's
+# git (no followRemoteHEAD) leaves a fresh clone's remote (#2189). Fires only on
+# the script under test, its test, and this file.
+script-tests-glibc:
+  stage: test
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &script-tests-glibc-paths
+        - .gitlab-ci.yml
+        - scripts/wt
+        - scripts/tests/wt-forge-timeout.test.sh
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *script-tests-glibc-paths
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends bash git perl procps
+    - git config --global --add safe.directory '*'
+    - git config --global user.email ci@example.invalid
+    - git config --global user.name ci
+  script:
+    - bash scripts/tests/wt-forge-timeout.test.sh
   allow_failure: false
 
 # Stale version claims in the docs are silent misinformation (#1083): a

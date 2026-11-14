@@ -873,6 +873,21 @@ Migration `boards/0055_add_card_board_updated_idx` adds a partial index on `Card
 -updated_at)` backing the new [`GET /api/v1/cards/`](../api/cards.md) cross-board query
 endpoint (#1112). It touches the existing, likely-large `cards` table, so it uses `CREATE INDEX CONCURRENTLY` (via `visiban.db_operations`, `atomic = False`) and takes no blocking lock, per the [zero-downtime migration rules](#zero-downtime-migration-rules) above.
 
+##### 1.2 migrations and database defaults
+
+`accounts/0027`, `accounts/0030`, `accounts/0034` and `boards/0052` add `NOT NULL` columns
+that, in the betas, carried a Django-level default only. PostgreSQL then drops the column
+default after the `ALTER` (Django's schema editor issues the `DROP DEFAULT`), so a pod still
+running the old release that inserts a row without naming the column fails with a `NOT NULL`
+violation until it drains. `accounts/0038` and
+`boards/0072` restore the database-level default with an additive `AlterField` (metadata
+only, no table rewrite). What this means for you:
+
+- **Upgrading from 1.1.x straight to GA:** nothing to do. Every migration runs in order, and the database ends with the default in place.
+- **Upgrading from `1.2.0-beta.1` or any 1.2 alpha:** these tags have none of the database defaults restored (`0038` and `0072` first ship in `1.2.0-beta.2`). Apply the whole GA migration set as usual; `0038` and `0072` run with it and close the gap. Between the earlier schema and that point, an old pod inserting a `users`, `sitesetting` or `boards` row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the [maintenance window](maintenance-mode.md).
+- **Upgrading from `1.2.0-beta.2` or later (including `beta.3` and `rc.1`):** `accounts/0038` and `boards/0072` are already applied. Nothing to do.
+- **Nothing needs a manual fix** and no data changes.
+
 !!! note "Notification side effect of `accounts/0030`"
     Because `email_notif_due_soon` now drives the real due-date email, anyone who previously had **Due date approaching** on (which historically only produced staleness alerts) starts receiving the 24-hour due-date email too. See the note in [Notifications](../features/notifications.md) if you need to tell your users.
 
