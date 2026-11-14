@@ -78,6 +78,36 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.getByTitle("Sprint: not set")).toBeInTheDocument();
   });
 
+  it.each(["text", "number", "date"] as const)("keeps an empty pinned %s field hidden with quick edit on, at comfortable and standard", (field_type) => {
+    for (const density of ["comfortable", "standard"] as const) {
+      const { unmount } = render(
+        <CardItem
+          card={makeCard({ custom_field_values: [] })}
+          customFieldDefinitions={[makeDefinition({ field_type })]}
+          density={density}
+          boardId={7}
+          onCardUpdated={vi.fn()}
+        />
+      );
+      expect(screen.queryByTitle(/Sprint/)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("the drag overlay shows the same inert ghost as the in-cell card (#2193)", () => {
+    const defs = [makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["A"] })];
+    render(<CardItem card={makeCard()} customFieldDefinitions={defs} density="comfortable" overlay canEdit />);
+    const ghost = screen.getByTitle("Stage: not set");
+    expect(ghost).not.toHaveAttribute("role");
+    expect(ghost).not.toHaveAttribute("tabindex");
+  });
+
+  it("the drag overlay of a non-editable card shows no ghost", () => {
+    const defs = [makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["A"] })];
+    render(<CardItem card={makeCard()} customFieldDefinitions={defs} density="comfortable" overlay />);
+    expect(screen.queryByTitle(/Stage/)).not.toBeInTheDocument();
+  });
+
   it("does not render a chip for a field that isn't pinned", () => {
     render(
       <CardItem

@@ -82,7 +82,9 @@ export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePr
       // focusout bubbles: Tab (or any focus move) leaving the wrapper closes
       // the popover without pulling focus back to the trigger. No focus trap.
       onBlur={(e) => {
-        if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) close(false);
+        // A null relatedTarget is an app switch, not a dismissal (#2095); outside
+        // clicks have the document mousedown listener.
+        if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) close(false);
       }}
     >
       <button

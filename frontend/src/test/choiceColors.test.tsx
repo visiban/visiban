@@ -458,6 +458,16 @@ describe("ChoiceColorPicker (#1391)", () => {
     }
   });
 
+  it("a blur with a null relatedTarget keeps the popover open; an outside mousedown closes it (#2240)", async () => {
+    const user = userEvent.setup();
+    render(<div><p>outside</p><ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} /></div>);
+    await user.click(screen.getByRole("button", { name: /Color for Low/ }));
+    fireEvent.blur(screen.getByRole("radio", { name: "Slate" }), { relatedTarget: null });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByText("outside"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("a click outside closes the popover without changing anything", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

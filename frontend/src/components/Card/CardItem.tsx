@@ -76,6 +76,13 @@ interface Props {
    *  ones. */
   customFieldDefinitions?: CustomFieldDefinition[];
   boardId?: number;
+  /**
+   * Visibility-only twin of the quick-edit opt-in (#2193): the drag overlay
+   * gets no `boardId`/`onCardUpdated` (it must stay inert) but must still
+   * render the same empty-pinned ghost chips as the in-cell card, or the
+   * dragged preview's height differs. Never makes anything interactive.
+   */
+  canEdit?: boolean;
   /** Another card in the same cell is expanded (hovered or focused): this one
    *  is blurred and faded to near-invisible so the expanded card reads as the
    *  cell's only content. Driven by BoardCell from `onExpandChange`. */
@@ -190,6 +197,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.inDoneColumn === next.inDoneColumn &&
     prev.customFieldDefinitions === next.customFieldDefinitions &&
     prev.boardId === next.boardId &&
+    prev.canEdit === next.canEdit &&
     prev.dimmed === next.dimmed &&
     prev.onExpandChange === next.onExpandChange &&
     prev.onCardUpdated === next.onCardUpdated &&
@@ -198,7 +206,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -517,7 +525,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // ghost counts toward "is there anything in this row", like a set chip.
   const showsPinnedChip = (d: CustomFieldDefinition) => {
     const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
-    return (v && v.value !== "") || density === "dense" || isQuickEditable(d);
+    const ghostVisible = (quickEditEnabled || (!!overlay && canEdit && !readOnly)) && (d.field_type === "checkbox" || d.field_type === "dropdown");
+    return (v && v.value !== "") || density === "dense" || ghostVisible;
   };
   const hasVisibleCustomFieldChips = pinnedFields.some(showsPinnedChip);
 

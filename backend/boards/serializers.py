@@ -1521,9 +1521,10 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         Same rule as that check (``values.exists()``, so archived cards count),
         exposed so the field editor can lock the type picker up front instead
         of offering a click the server refuses. List reads annotate it with
-        :func:`annotate_has_values` (one query for the whole list); a single
-        instance without the annotation (a create or update response, a
-        broadcast payload) pays one ``EXISTS`` query.
+        :func:`annotate_has_values` (one query for the whole list). Updates
+        reuse the annotation from ``get_queryset`` (``refresh_from_db()``
+        keeps it), so only a single instance without it, such as a create
+        response, pays one ``EXISTS`` query.
         """
         annotated = getattr(obj, HAS_VALUES_ANNOTATION, None)
         if annotated is not None:
