@@ -4757,7 +4757,7 @@
 <hr />
 <h2 id="swimlane-row-custom-fields">Swimlane (row) custom fields<a class="headerlink" href="#swimlane-row-custom-fields" title="Permanent link">&para;</a></h2>
 <p>Board admins can also define typed fields on <strong>swimlanes</strong> (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.</p>
-<p><strong>By the numbers:</strong> up to <strong>15 swimlane fields</strong>, with up to <strong>8 of them pinned</strong> to the swimlane label panel.</p>
+<p><strong>By the numbers:</strong> up to <strong>15 swimlane fields</strong>, with up to <strong>8 of them pinned</strong> to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's <a href="../board/#card-density">card density</a> (Comfortable, Standard, Dense); the rest fold into a <code>+N</code> chip.</p>
 <p>Dropdown, number, and date swimlane fields can also hide lanes from the board: see <a href="../board/#lane-filters">Lane filters</a> (1.3+). Admin-only fields are offered there to board admins only.</p>
 <h3 id="managing-swimlane-fields-board-settings-swimlane-fields">Managing swimlane fields (Board Settings → Swimlane fields)<a class="headerlink" href="#managing-swimlane-fields-board-settings-swimlane-fields" title="Permanent link">&para;</a></h3>
 <p>Open <strong>Board Settings</strong> and select <strong>Swimlane fields</strong>, beside <strong>Card fields</strong>. Only board admins can create, edit, reorder, pin, or delete swimlane fields. Reorder by dragging the <code>⋮⋮</code> handle, or with the keyboard: Tab to the handle, Space to pick up, arrow keys to move, Space to drop.</p>
@@ -4772,10 +4772,10 @@
 <p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. <strong>Delete field</strong> at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.</p>
 </div>
 <h3 id="pinned-fields-in-the-swimlane-label-panel">Pinned fields in the swimlane label panel<a class="headerlink" href="#pinned-fields-in-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
-<p>Up to 8 pinned fields render as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name), stacked below the row name. They're hidden while the swimlane is collapsed, like the rest of the panel's detail.</p>
-<p>If the swimlane has further, unpinned values, a trailing <code>+N</code> chip opens a read-only popover listing every value the current viewer may see.</p>
+<p>Up to 8 fields can be pinned, and how many show as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name) follows the board's <a href="../board/#card-density">card density</a>: <strong>3</strong> at Comfortable, <strong>5</strong> at Standard, <strong>8</strong> at Dense. Chips are stacked below the row name, and they're hidden while the swimlane is collapsed, like the rest of the panel's detail. The same limits apply under the Classic preset.</p>
+<p>Pinned values past the visible count fold into a trailing <code>+N</code> chip, together with any unpinned values. It opens a read-only popover listing every value the current viewer may see, so nothing is lost.</p>
 <ul>
-<li><strong>Order:</strong> the N unpinned values come first, then the pinned ones under an <strong>On row</strong> heading.</li>
+<li><strong>Order:</strong> the N values counted by <code>+N</code> come first (folded pinned values in pin order, then unpinned ones), then the chips actually on the row under an <strong>On row</strong> heading.</li>
 <li><strong>Size:</strong> the popover grows to fit its values up to the window height. When it must scroll, a fade at the bottom edge shows there is more, and keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.</li>
 </ul>
 <h4 id="hiding-field-names-on-row-chips">Hiding field names on row chips<a class="headerlink" href="#hiding-field-names-on-row-chips" title="Permanent link">&para;</a></h4>
@@ -4785,7 +4785,7 @@
 <ul>
 <li><strong>On hover:</strong> the chip's tooltip reads <code>Field name: value</code>, as before.</li>
 <li><strong>For screen readers:</strong> the chip is still announced as <code>Field name: value</code>.</li>
-<li><strong>In the row's field list:</strong> the row's field popover lists every field with its name. It opens from the <code>+N</code> button when the row has unpinned values, or from an <strong>All fields</strong> button when every value is pinned, so touch and keyboard users can always reach the names.</li>
+<li><strong>In the row's field list:</strong> the row's field popover lists every field with its name. It opens from the <code>+N</code> button when some values are folded or unpinned, or from an <strong>All fields</strong> button when every value is already on the row, so touch and keyboard users can always reach the names.</li>
 </ul>
 <p><strong>Checkbox fields always show their name</strong>, because a bare <strong>Yes</strong> or <strong>No</strong> means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting affects only swimlane rows.</p>
 <div class="admonition tip">

@@ -5243,6 +5243,7 @@
 <th>Tier</th>
 <th>Best for</th>
 <th>What appears on the card face</th>
+<th>Pinned swimlane values per row</th>
 </tr>
 </thead>
 <tbody>
@@ -5250,16 +5251,19 @@
 <td><strong>Comfortable</strong> <em>(default for new boards)</em></td>
 <td>Sam-style occasional users; teams who want a clean glanceable board</td>
 <td>One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + <code>+N</code> overflow pill, checklist progress, assignee avatar</td>
+<td>3</td>
 </tr>
 <tr>
 <td><strong>Standard</strong></td>
 <td>Mid-density boards — extra signal without the full wall</td>
 <td>Adds a second label, due date (when not folded into the urgency badge), weight pill (when <code>&gt;1</code>), attachment count</td>
+<td>5</td>
 </tr>
 <tr>
 <td><strong>Dense</strong> <em>(default for boards upgraded from 1.0)</em></td>
 <td>Power users who use every field every day</td>
 <td>Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge</td>
+<td>8</td>
 </tr>
 </tbody>
 </table>
@@ -5852,7 +5856,7 @@
 <tbody>
 <tr>
 <td><strong>Classic</strong></td>
-<td>The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13): the board's own <a href="#card-density">card density</a>, no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic.</td>
+<td>The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the number of pinned swimlane chips shown per row, which follows card density as everywhere else (#1417, owner decision 2026-11-13): the board's own <a href="#card-density">card density</a>, no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic.</td>
 </tr>
 <tr>
 <td><strong>Default</strong></td>
