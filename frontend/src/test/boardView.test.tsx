@@ -125,9 +125,9 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
+  default: ({ swimlane, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
+      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -3155,9 +3155,9 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
 })
 
 
-// #2205 — lane filters: hidden lanes, focus pause, counts, empty state, notice.
+// #2205 — lane filters: hidden lanes, focus (#2251), counts, empty state, notice.
 describe('BoardView lane filters (#2205)', () => {
-  type LaneProps = { hiddenLaneCount?: number; laneFiltersPaused?: boolean; filters?: Record<string, unknown>; onChange?: (f: Record<string, unknown>) => void }
+  type LaneProps = { hiddenLaneCount?: number; filters?: Record<string, unknown>; onChange?: (f: Record<string, unknown>) => void }
   const laneProps = () => capturedFilterBarProps as unknown as LaneProps
   const aeField = {
     id: 7, uid: 'slf000000007', name: 'AE', field_type: 'dropdown' as const, choices: ['Priya', 'Sam'], position: 0,
@@ -3192,7 +3192,6 @@ describe('BoardView lane filters (#2205)', () => {
     expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'f' })
     expect(laneProps().hiddenLaneCount).toBe(2)
-    expect(laneProps().laneFiltersPaused).toBe(false)
   })
 
   it('a malformed ?f_lanes is ignored rather than hiding anything', () => {
@@ -3202,15 +3201,95 @@ describe('BoardView lane filters (#2205)', () => {
     expect(screen.getByTestId('swim-21')).toBeInTheDocument()
   })
 
-  it('focus mode pauses lane filters: the focused lane shows and the banner says so', () => {
-    mockSearchParams = new URLSearchParams(`${priyaParam}&focus=21`)
-    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya'), lane(21, 'Customer B', 'Sam')]) })
-    render(<BoardView {...defaultProps()} />)
-    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
-    expect(screen.getByText('Lane filters paused')).toBeInTheDocument()
-    fireEvent.keyDown(document, { key: 'f' })
-    expect(laneProps().hiddenLaneCount).toBe(0)
-    expect(laneProps().laneFiltersPaused).toBe(true)
+  describe('focus mode (#2251)', () => {
+    const cue = "doesn't match lane filters"
+
+    it('applies the rules while a matching lane is focused: only that lane shows, no cue', () => {
+      mockSearchParams = new URLSearchParams(`${priyaParam}&focus=20`)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Priya'), lane(21, 'EMEA', 'Sam'), lane(22, 'AMER', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
+      expect(screen.queryByText(cue)).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(laneProps().hiddenLaneCount).toBe(2)
+    })
+
+    it('keeps other matching lanes visible (collapsed by focus) and hides the rest', async () => {
+      mockSearchParams = new URLSearchParams(priyaParam)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Priya'), lane(21, 'EMEA', 'Priya'), lane(22, 'AMER', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByTestId('focus-btn-20'))
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'false')
+      expect(screen.getByTestId('swim-21')).toHaveAttribute('data-collapsed', 'true')
+      expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
+    })
+
+    it('the collapsed strip counts only lanes the rules leave visible', async () => {
+      mockSearchParams = new URLSearchParams(priyaParam)
+      mockBoardContextValue = defaultContext({ board: boardWith([
+        lane(20, 'APAC', 'Priya'), lane(21, 'EMEA', 'Priya'), lane(22, 'AMER', 'Sam'), lane(23, 'LATAM', 'Sam'), lane(24, 'NORD', 'Sam'),
+      ]) })
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByTestId('focus-btn-20'))
+      // Focus collapsed 4 lanes, but 3 of them are hidden by the rules: only EMEA shows collapsed.
+      expect(screen.getByText(/swimlane collapsed/)).toBeInTheDocument()
+      expect(screen.queryByText(/swimlanes collapsed/)).not.toBeInTheDocument()
+    })
+
+    it('exiting focus restores the pre-focus collapse state and the rules still apply', async () => {
+      mockSearchParams = new URLSearchParams(priyaParam)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Priya'), lane(21, 'EMEA', 'Priya'), lane(22, 'AMER', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByTestId('focus-btn-20'))
+      expect(screen.getByTestId('swim-21')).toHaveAttribute('data-collapsed', 'true')
+      await user.click(screen.getByText('Exit focus'))
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'false')
+      expect(screen.getByTestId('swim-21')).toHaveAttribute('data-collapsed', 'false')
+      expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
+      expect(screen.queryByText(/collapsed/)).not.toBeInTheDocument()
+    })
+
+    it('always shows a focused lane that fails the rules, with the cue, and excludes it from the hidden count', () => {
+      mockSearchParams = new URLSearchParams(`${priyaParam}&focus=20`)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Sam'), lane(21, 'EMEA', 'Priya'), lane(22, 'AMER', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+      expect(screen.queryByTestId('swim-22')).not.toBeInTheDocument()
+      expect(screen.getByText(cue)).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(laneProps().hiddenLaneCount).toBe(1)
+    })
+
+    it('never shows the all-lanes-filtered-out state while focused', () => {
+      mockSearchParams = new URLSearchParams(`${priyaParam}&focus=21`)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(21, 'EMEA', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+      expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()
+    })
+
+    it('with no lane rules focus is unchanged: every lane stays, no cue', () => {
+      mockSearchParams = new URLSearchParams('focus=20')
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Sam'), lane(21, 'EMEA', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+      expect(screen.queryByText(cue)).not.toBeInTheDocument()
+    })
+
+    it('clearing the rules while focused takes effect at once', () => {
+      mockSearchParams = new URLSearchParams(`${priyaParam}&focus=20`)
+      mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'APAC', 'Priya'), lane(21, 'EMEA', 'Sam')]) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'f' })
+      act(() => { const next = { ...laneProps().filters }; delete next.laneFilter; laneProps().onChange?.(next) })
+      expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    })
   })
 
   it('shows the all-lanes-hidden empty state ahead of the card one, and clears lane rules from it', async () => {

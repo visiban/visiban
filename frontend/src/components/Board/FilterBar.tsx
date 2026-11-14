@@ -142,10 +142,8 @@ interface Props {
   onScopeChange?: (scope: "board" | "all") => void;
   /** The user's `date_format` preference, for date custom-field chips (#1993). */
   userDateFormat?: string;
-  /** #2205 — lanes the lane filter hides (0 while focus mode pauses it). */
+  /** #2205 — lanes the lane filter hides (excludes the focused lane, which always shows). */
   hiddenLaneCount?: number;
-  /** #2205 — focus mode is on, so lane filters are paused. */
-  laneFiltersPaused?: boolean;
   /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
   lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -248,7 +246,7 @@ const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "blocked", label: "Blocked" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, laneFiltersPaused = false, lanesTriggerRef }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef }: Props) {
   const activeCount = countActiveFilters(filters);
   // #2205 — the swimlane fields this viewer may rule on. Admin-only fields are
   // offered to admins only: their values are never sent to other roles.
@@ -678,7 +676,6 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
               if (!laneFilter) delete next.laneFilter;
               onChange(next);
             }}
-            paused={laneFiltersPaused}
             fmt={laneFmt}
             activeRuleCount={laneRuleCount}
             triggerRef={lanesTrigger}

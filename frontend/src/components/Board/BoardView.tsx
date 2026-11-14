@@ -108,7 +108,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { isLaneFilterActive, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
+import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
 interface Props {
@@ -2018,18 +2018,32 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return next;
   }, [filters, boardLabels, boardCustomFieldDefs, laneFields]);
 
-  // #2205 — lanes hidden by lane rules. Focus mode pauses them: the focused
-  // lane always shows, and so does every other lane, collapsed as before.
-  const laneFilterHiddenIds = useMemo(
-    () => (focusedSwimlaneId !== null ? new Set<number>() : laneIdsHiddenByFilter(board.swimlanes, effectiveFilters.laneFilter, laneFields)),
-    [focusedSwimlaneId, board.swimlanes, effectiveFilters.laneFilter, laneFields],
+  // #2205 / #2251 — lanes the lane rules reject. The rules decide WHICH lanes show; focus
+  // mode decides which one is expanded. The focused lane always shows, even when it fails
+  // the rules, so it is dropped from the hidden set (and from the "N lanes hidden" count).
+  const laneRuleRejectedIds = useMemo(
+    () => laneIdsHiddenByFilter(board.swimlanes, effectiveFilters.laneFilter, laneFields),
+    [board.swimlanes, effectiveFilters.laneFilter, laneFields],
   );
+  const focusedLaneFailsRules = focusedSwimlaneId !== null && laneRuleRejectedIds.has(focusedSwimlaneId);
+  const laneFilterHiddenIds = useMemo(() => {
+    if (!focusedLaneFailsRules) return laneRuleRejectedIds;
+    const next = new Set(laneRuleRejectedIds);
+    next.delete(focusedSwimlaneId as number);
+    return next;
+  }, [laneRuleRejectedIds, focusedLaneFailsRules, focusedSwimlaneId]);
   const renderHiddenSwimlaneIds = useMemo(
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
   );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
+  // The collapsed-lanes strip counts only lanes the reader can see collapsed:
+  // focus collapses every other lane, including ones the lane rules hide (#2251).
+  const visibleCollapsedLaneCount = useMemo(
+    () => [...collapsedSwimlaneIds].filter((id) => !laneFilterHiddenIds.has(id)).length,
+    [collapsedSwimlaneIds, laneFilterHiddenIds],
+  );
   const lanesTriggerRef = useRef<HTMLButtonElement>(null);
   const { notice: laneNotice, dismiss: dismissLaneNotice, markLocalEdit: markLaneLocalEdit } = useLaneFilterNotice({
     swimlanes: board.swimlanes,
@@ -3078,7 +3092,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               currentUser={currentUser}
               hiddenCount={hiddenCount}
               hiddenLaneCount={laneFilterHiddenIds.size}
-              laneFiltersPaused={focusedSwimlaneId !== null}
               lanesTriggerRef={lanesTriggerRef}
               scope={scope}
               onScopeChange={setScope}
@@ -3131,7 +3144,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
-      {view === "board" && collapsedSwimlaneIds.size > 0 && (
+      {view === "board" && visibleCollapsedLaneCount > 0 && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info-on-tint shrink-0">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <line x1="2" y1="5" x2="14" y2="5" />
@@ -3139,9 +3152,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <polyline points="10,2 13,5 10,8" />
           </svg>
           <span>
-            <span className="font-medium text-info-on-tint">{collapsedSwimlaneIds.size}</span>
+            <span className="font-medium text-info-on-tint">{visibleCollapsedLaneCount}</span>
             {" "}
-            {collapsedSwimlaneIds.size === 1 ? "swimlane" : "swimlanes"} collapsed
+            {visibleCollapsedLaneCount === 1 ? "swimlane" : "swimlanes"} collapsed
           </span>
           <div className="flex-1" />
           <button
@@ -3165,12 +3178,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </svg>
           <span className="text-info-on-tint">Focused on:</span>
           <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
-          {isLaneFilterActive(effectiveFilters.laneFilter) && (
-            <>
-              <span aria-hidden="true" className="text-xs text-fg-tertiary">·</span>
-              <span className="text-xs text-fg-tertiary">Lane filters paused</span>
-            </>
-          )}
+          {/* Persistent live region (only its text is conditional) so the cue is announced when rules change. */}
+          <span role="status" className="text-xs text-fg-tertiary shrink-0 whitespace-nowrap">
+            {focusedLaneFailsRules && (
+              <>
+                <span aria-hidden="true">·</span> doesn't match lane filters
+              </>
+            )}
+          </span>
           <div className="flex-1" />
           <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
