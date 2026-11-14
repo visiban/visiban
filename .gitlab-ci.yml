@@ -2793,6 +2793,7 @@ script-tests:
     - bash scripts/tests/npm-audit-gate.test.sh
     - bash scripts/tests/osv-severity-gate.test.sh
     - bash scripts/tests/pre-tool-safety.test.sh
+    - bash scripts/tests/post-edit-checks.test.sh
     - bash scripts/tests/resolve-docs-version.test.sh
     - bash scripts/tests/wt-doctor-drift.test.sh
   allow_failure: false
