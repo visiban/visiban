@@ -126,6 +126,20 @@ describe('LensView', () => {
     expect(screen.getByRole('button', { name: 'Collapse v3' })).toBeInTheDocument()
   })
 
+  it('focus and exit-focus work through the stable ref-based handlers (#1088)', async () => {
+    const user = userEvent.setup()
+    setup('/')
+    await user.click(screen.getByRole('button', { name: 'Focus on v2' }))
+    // Focused: only v2 remains and its button flips to "Exit focus".
+    expect(screen.queryByRole('button', { name: 'Collapse v1' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Focus on v2' })).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Exit focus' })[0])
+    for (const k of ['v1', 'v2', 'v3']) {
+      expect(screen.getByRole('button', { name: `Collapse ${k}` })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: 'Focus on v2' })).toBeInTheDocument()
+  })
+
   it('drops a focus key that does not match a live lane', () => {
     setup('/?lens_focus=nonexistent')
     expect(screen.queryByRole('button', { name: 'Exit focus' })).not.toBeInTheDocument()

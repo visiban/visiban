@@ -25,6 +25,10 @@ interface Props {
 
 // Synthetic "no value" keys arrive from the backend with friendly labels
 // already set. We only need the key to push these lanes to the end.
+// Shared fallback so a lane with no bucket does not get a fresh [] (and defeat
+// LensSwimlaneRow's memo) on every render (#1088).
+const NO_ISSUES: NormalizedIssue[] = [];
+
 const NONE_KEYS = new Set(["__none__", "__nostatus__"]);
 
 /**
@@ -151,9 +155,9 @@ export default function LensGrid({
             columns={data.columns}
             sidebarWidth={sidebarWidth}
             colWidths={colWidths}
-            issues={issuesByLane.get(lane.key) ?? []}
+            issues={issuesByLane.get(lane.key) ?? NO_ISSUES}
             collapsed={collapsedKeys.has(lane.key)}
-            onToggleCollapse={() => onToggleCollapse(lane.key)}
+            onToggleCollapse={onToggleCollapse}
             isFocused={focusKey === lane.key}
             onFocus={onFocus}
             onExitFocus={onExitFocus}

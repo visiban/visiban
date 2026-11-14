@@ -99,7 +99,7 @@ describe('LensSwimlaneRow', () => {
     const user = userEvent.setup()
     const { onToggleCollapse } = setup()
     await user.click(screen.getByRole('button', { name: 'Collapse v1.2' }))
-    expect(onToggleCollapse).toHaveBeenCalled()
+    expect(onToggleCollapse).toHaveBeenCalledWith('v1')
   })
 
   it('collapse chevron pairs aria-pressed with the underline cue (#2188)', () => {
