@@ -148,3 +148,60 @@ class ChecklistAssignNotificationTests(TestCase):
         [note] = self._notes(self.member)
         self.assertLessEqual(len(note.verb), Notification._meta.get_field("verb").max_length)
         self.assertTrue(note.verb.endswith('…"'))
+
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+@patch(PATCH_BROADCAST)
+class ChecklistOldValuesReadUnderLockTests(TestCase):
+    """The old assignee / due date come from after the card lock (#2196)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.member = User.objects.create_user(username="member", password="pass")
+        self.board = Board.objects.create(name="Sprint", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+        col = Column.objects.create(board=self.board, name="Todo", position=0, allow_card_creation=True)
+        swim = Swimlane.objects.create(board=self.board, name="General", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=swim, title="Release", created_by=self.owner, position=0,
+        )
+        self.item = CardChecklist.objects.create(card=self.card, text="Tag", position=0, created_by=self.owner)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+        self.item_url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/{self.item.id}/"
+
+    def _patch_with_racing_write(self, body, racing_update):
+        """PATCH while a 'concurrent' request commits `racing_update` just as the lock is taken."""
+        from boards.services import cards as card_services
+
+        real_lock = card_services.lock_card_for_write
+
+        def lock_then_race(card_id):
+            real_lock(card_id)
+            CardChecklist.objects.filter(pk=self.item.pk).update(**racing_update)
+
+        with patch("boards.views.cards.card_services.lock_card_for_write", side_effect=lock_then_race):
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.client.patch(self.item_url, body, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_assignee_already_set_by_a_racing_request_adds_no_history_or_notification(self, _):
+        from boards.models import CardActivity
+
+        self._patch_with_racing_write({"assignee_id": self.member.id}, {"assignee_id": self.member.id})
+        self.assertFalse(
+            CardActivity.objects.filter(event_type=CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED).exists(),
+        )
+        self.assertFalse(Notification.objects.filter(recipient=self.member).exists())
+
+    def test_due_date_already_set_by_a_racing_request_adds_no_history(self, _):
+        import datetime
+
+        from boards.models import CardActivity
+
+        due = datetime.date(2026, 12, 1)
+        self._patch_with_racing_write({"due_date": due.isoformat()}, {"due_date": due})
+        self.assertFalse(
+            CardActivity.objects.filter(event_type=CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED).exists(),
+        )

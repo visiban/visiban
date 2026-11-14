@@ -247,6 +247,16 @@ describe('SampleGallery — choosing a sample', () => {
     expect(options).toEqual({ shift_dates_from: '2026-03-15' })
   })
 
+  it('tells onImport the file is a sample, so unmatched demo assignees stay out of the notice (#2198)', async () => {
+    const { user, onImport } = await renderModal()
+    await user.click(card('Sales Overlay'))
+    await screen.findByText(/From sample:/)
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1))
+    expect(onImport.mock.calls[0][3]).toEqual({ sample: true })
+  })
+
   it('keeps the include choices alongside the date shift', async () => {
     const { user, onImport } = await renderModal()
     await user.click(card('Sales Overlay'))
