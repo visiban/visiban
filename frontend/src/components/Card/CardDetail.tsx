@@ -2656,7 +2656,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             </div>
             <div className="flex gap-3 justify-end">
               <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
-              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
+              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-on-warning text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
             </div>
           </>
         ) : null}

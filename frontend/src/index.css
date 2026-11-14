@@ -93,8 +93,9 @@
   --danger-emphasis: 239 68 68;    /* red-500 — danger focus ring / card border */
 
   /* Interactive — warning action */
-  --warning-bg: 217 119 6;         /* amber-600 — archive/warn button bg */
-  --warning-bg-hover: 180 83 9;    /* amber-700 — warning hover */
+  /* #2169: amber-700 so `text-on-warning` (white) is 5.02:1 at rest (amber-600 was 3.19); hover 7.09. */
+  --warning-bg: 180 83 9;          /* amber-700 — archive/warn button bg */
+  --warning-bg-hover: 146 64 14;   /* amber-800 — warning hover */
   --warning-emphasis: 245 158 11;  /* amber-500 — card border for warnings */
 
   /* Interactive — positive action */
@@ -176,8 +177,8 @@
   --danger-bg-hover: 185 28 28;
   --danger-emphasis: 239 68 68;
 
-  --warning-bg: 217 119 6;
-  --warning-bg-hover: 180 83 9;
+  --warning-bg: 180 83 9;
+  --warning-bg-hover: 146 64 14;
   --warning-emphasis: 245 158 11;
 
   --success-bg: 22 163 74;

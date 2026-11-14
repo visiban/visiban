@@ -195,6 +195,34 @@ describe('card aging ramp contrast (#1841)', () => {
   })
 })
 
+// #2169: the warning-action button is `bg-warning-bg hover:bg-warning-bg-hover text-on-warning`.
+// --warning-bg is amber-700 in both themes (amber-600 gave white 3.19:1, and text-fg 2.58:1 dark).
+describe('warning-action button (#2169)', () => {
+  it.each([
+    ['dark', darkBlock],
+    ['light', lightBlock],
+  ])('%s theme: text-on-warning holds >= 4.5:1 at rest and on hover', (_n, block) => {
+    const fg = rgbOf(block, 'on-warning')
+    expect(ratio(fg, rgbOf(block, 'warning-bg'))).toBeCloseTo(5.02, 2)
+    expect(ratio(fg, rgbOf(block, 'warning-bg-hover'))).toBeCloseTo(7.09, 2)
+  })
+
+  it('text-fg is not AA on warning-bg in dark mode, which is why every warning fill uses text-on-warning', () => {
+    expect(ratio(rgbOf(darkBlock, 'fg'), rgbOf(darkBlock, 'warning-bg'))).toBeLessThan(4.5)
+    const files = ['components/Card/CardDetail', 'pages/JoinPage', 'components/Auth/LoginPage', 'components/Common/ProviderIcons']
+    let seen = 0
+    for (const f of files) {
+      const src = readFileSync(`src/${f}.tsx`, 'utf8')
+      for (const [cls] of src.matchAll(/"[^"]*\bbg-warning-bg\b[^"]*"/g)) {
+        const colors = [...cls.matchAll(TEXT_UTILITY)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t))
+        expect(colors, `${f}: ${cls}`).toEqual(['on-warning'])
+        seen++
+      }
+    }
+    expect(seen).toBe(4)
+  })
+})
+
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
