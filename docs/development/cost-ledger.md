@@ -165,7 +165,7 @@ It prices the orchestrating session's own usage over `--since`/`--until` plus th
 ## The cost comments
 <a id="the-cost-records"></a>
 
-GitLab renders the bare ledger lines run together as one paragraph, so the readable table is an MR comment, `## Cost of this MR (#<issue>)`, with a Sonnet vs Opus split. The description carries no `## Cost` section. The same setting governs it: ledger on, an MR carries the lines and the comment; off, neither.
+GitLab renders the bare ledger lines run together as one paragraph, so the readable table is an MR comment, `## Cost of this MR (#<issue>)`, with a per-family split (Sonnet, Opus, Fable). The description carries no `## Cost` section. The same setting governs it: ledger on, an MR carries the lines and the comment; off, neither.
 
 Work on an MR after its first comment is a further comment, never an edit:
 

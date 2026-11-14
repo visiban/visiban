@@ -7,7 +7,7 @@ macrodream/blueprint#386) for #2128; docs/development/cost-ledger.md is the cont
 Why this exists. `/mr` and `/wave` write the cost ledger as bare lines at the end of `## Gates`
 (`subagent-tokens:`, `orchestrator-tokens:`, `est-cost-usd:`); GitLab renders them run together
 as one paragraph, so a person reading a merged MR could not read the tokens or the cost
-(macrodream/blueprint#381). This renders the figures as an MR comment with a Sonnet vs Opus split
+(macrodream/blueprint#381). This renders the figures as an MR comment with a per-family split (Sonnet, Opus, Fable)
 (macrodream/blueprint#383). The comment is the only human-readable cost table: there is no
 `## Cost` section in the description any more (macrodream/blueprint#384). The ledger lines stay
 where they are, and `scripts/cost_ledger_lines.py` and `/kaizen` (`scripts/kaizen_gate_ledger.py`)
@@ -210,7 +210,7 @@ HEADER_FAM_RE = re.compile(r"(Sonnet|Opus|Fable|Other) tokens \| (Sonnet|Opus|Fa
 # have the first two or the first two plus Other, and must keep parsing.
 EXTRA_FAMS = ([], ["Other"], ["Fable"], ["Fable", "Other"])
 # est-cost.py's omission line for a model with no price row (only a strictly shaped model id is taken).
-NOROW_RE = re.compile(r"^FAIL: model ([A-Za-z0-9][A-Za-z0-9._-]{0,63}) has no row in the price table; no line printed$")
+NOROW_RE = re.compile(r"^FAIL: model " + SPLIT_MODEL + r" has no row in the price table; no line printed$")
 TOTAL_ROW_RE = re.compile(r"^\| \*\*Total\*\* \| (.{1,4000}) \|$")
 CELL_RE = re.compile(r"^\*\*(.{1,400})\*\*$")
 TOK_CELL_RE = re.compile(r"^[0-9]{1,3}(?:,[0-9]{3}){0,5}$")
@@ -396,7 +396,7 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None, se
                        % (got.quantize(CENT), f["usd"][0][0]))
     for mdl in sp.get("norow") or []:
         out.append("- Model `%s` has no row in `.claude/model-prices.json`, so no estimate was made for it; add its price row "
-                   "(scripts/est-cost.py) and re-post to get one." % mdl)
+                   "to that file and re-post to get one." % mdl)
     out.append("- Costs are estimates at list prices from `.claude/model-prices.json` (%s), not billed amounts; a model with no price row shows `n/a`."
                % ("prices %s" % prices if prices else "no price date on the ledger line"))
     if record == 1 and since is not None and end:
@@ -1080,6 +1080,9 @@ def self_test():
                                      "subagent-tokens: model claude-fable-9 7\norchestrator-tokens: model claude-fable-9 3"))
     check("comment: a model with no price row is named in the notes", "Model `claude-fable-9` has no row in `.claude/model-prices.json`" in norow
           and "n/a (no estimate for this model" in norow, norow)
+    colon = "\n".join(comment_lines(full, 1, None, "FAIL: model anthropic:fable-9 has no row in the price table; no line printed\n"
+                                      "subagent-tokens: model anthropic:fable-9 7\norchestrator-tokens: model anthropic:fable-9 3"))
+    check("comment: a model id containing a colon gets the no-row note", "Model `anthropic:fable-9` has no row in" in colon, colon)
     evil = "\n".join(comment_lines(full, 1, None, "FAIL: model x|**evil** has no row in the price table; no line printed"))
     check("comment: a hostile model id in the no-row line is not echoed", "evil" not in evil, evil)
     check("comment: partial ledger renders n/a", "n/a (no `orchestrator-tokens:" in "\n".join(comment_lines(desc("subagent-tokens: 10"))))
