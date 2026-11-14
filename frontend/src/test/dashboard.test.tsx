@@ -43,7 +43,7 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { listBoards, deleteBoard, createBoard, importBoard, previewTrelloImport, confirmTrelloImport } from '../api/boards'
+import { listBoards, listSampleBoards, getSampleBoardFile, deleteBoard, createBoard, importBoard, previewTrelloImport, confirmTrelloImport } from '../api/boards'
 import { listGroups } from '../api/groups'
 import type { TrelloImportPreview } from '../types'
 import { flagsWrapper } from './instanceFlagsWrapper'
@@ -621,6 +621,47 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/boards/58', { state: { importSummary } }),
     )
+  })
+
+  // #2198: a sample's demo1-demo5 assignees never match, so a sample import must
+  // not hand the board an unmatched-assignee notice; a user's file still does.
+  it.each([
+    ['a sample', true, 0],
+    ['a user file', false, 96],
+  ])('%s import forwards the unmatched-assignee count as %s (#2198)', async (_label, viaSample, expected) => {
+    const user = userEvent.setup()
+    const importSummary = {
+      options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0, assignees: 96 },
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 59, name: 'Imported Board', description: '', owner: fakeUser,
+      group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    if (viaSample) {
+      ;(listSampleBoards as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{
+        id: 'simple_kanban', title: 'Simple Kanban', description: 'd', swimlane_theme: 'team',
+        card_count: 10, includes: [], order: 1, schema_version: 2, date_anchor: '2026-03-15',
+      }])
+      ;(getSampleBoardFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Blob(['{}'], { type: 'application/json' }))
+    }
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    const dialog = await screen.findByRole('dialog')
+    if (viaSample) {
+      await user.click(await within(dialog).findByRole('button', { name: /^Use this sample: / }))
+      await within(dialog).findByText(/From sample:/)
+    } else {
+      const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
+      await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
+    }
+    await user.click(within(dialog).getByRole('button', { name: 'Import' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled())
+    const [, state] = mockNavigate.mock.calls[mockNavigate.mock.calls.length - 1] as [string, { state?: { importSummary: typeof importSummary } }?]
+    if (expected === 0) expect(state).toBeUndefined()
+    else expect(state?.state?.importSummary.skipped.assignees).toBe(expected)
   })
 
   // #119: unchecking an Include option sends it, and a non-empty skip

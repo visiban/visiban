@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
 import { ToastProvider } from '../contexts/ToastContext'
-import { countImportWarnings, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
+import { countImportWarnings, forSampleImport, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 // The modal fetches the sample list on open (#1452). Keep the rest of the real
@@ -528,6 +528,19 @@ describe('formatImportSkipped (#119)', () => {
       "Board imported. 3 assignees didn't match a user and were left unassigned. "
         + 'Skipped: 2 cards, 3 comments, 4 checklist items, and 1 more.',
     )
+  })
+
+  it('a sample import shows no assignee sentence; a user file still does (#2198)', () => {
+    const summary = summaryOf({ assignees: 96 })
+    expect(formatImportSkipped(forSampleImport(summary))).toBeNull()
+    expect(formatImportSkipped(summary)).toBe(
+      "Board imported. 96 assignees didn't match a user and were left unassigned.",
+    )
+    // Other skips on a sample still show; only the assignee count is dropped.
+    expect(formatImportSkipped(forSampleImport(summaryOf({ assignees: 96, cards: 2 })))).toBe(
+      'Board imported. Skipped: 2 cards.',
+    )
+    expect(forSampleImport(summaryOf({ cards: 2 }))).toEqual(summaryOf({ cards: 2 }))
   })
 
   it('treats a missing assignees count (older server) as zero', () => {

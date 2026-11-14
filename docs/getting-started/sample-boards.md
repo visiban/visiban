@@ -100,7 +100,7 @@ Visiban moves a sample's dates so the board looks current. The CSV files are the
 !!! tip "Who did what"
     The samples name the users `demo1` through `demo5` as assignees and as the people behind each move and history entry.
 
-    - **Assignees** link to an account with one of those usernames only if it's visible to you. That means you, people who share a board or group with you, or members of the group you import into. Site administrators and users with all-content access see all active accounts. Inactive accounts are never linked. Otherwise cards are imported unassigned.
+    - **Assignees** link to an account with one of those usernames only if it's visible to you. That means you, people who share a board or group with you, or members of the group you import into. Site administrators and users with all-content access see all active accounts. Inactive accounts are never linked. Otherwise cards are imported unassigned. The import notice does not list these unmatched assignees for a sample, because unassigned is the expected result. (Importing your own file does report them.)
     - **Moves and history entries** are always recorded under you, the importing user, with the sample's name kept beside yours ("imported, originally demo1"). See [Imported history](../features/card-history.md#imported-history).
     - **Comments** are always imported as written by you, with the sample's name kept beside yours the same way.
 

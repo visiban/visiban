@@ -7,10 +7,16 @@ import { formatDateStr } from "../../utils/date";
 import type { ImportOptions, SampleBoardSummary } from "../../types";
 import { isImeComposing } from "../../utils/imeComposition";
 
+/** What the modal knows about the import beyond the file and options. */
+export interface ImportMeta {
+  /** The file came from the sample gallery, not the user (#2198). */
+  sample?: boolean;
+}
+
 interface Props {
   /** Called with a third `options` argument only when the user deselected
    *  something; a default import passes just `(file, name)` (#119). */
-  onImport: (file: File, name?: string, options?: ImportOptions) => Promise<void>;
+  onImport: (file: File, name?: string, options?: ImportOptions, meta?: ImportMeta) => Promise<void>;
   onCancel: () => void;
   /** When provided, shows a link that switches to the Trello import wizard (#456). */
   onSwitchToTrello?: () => void;
@@ -335,7 +341,10 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
       const options: ImportOptions | undefined = chosen || dates ? { ...chosen, ...dates } : undefined;
       // Two arguments for a default import, so callers (and their tests) see
       // exactly the pre-#119 call; the third only when something differs.
-      if (options) await onImport(file, name.trim() || undefined, options);
+      // A fourth `meta` argument only for a sample, so the caller can leave the
+      // sample's intentionally unmatched demo assignees out of the notice (#2198).
+      if (source) await onImport(file, name.trim() || undefined, options, { sample: true });
+      else if (options) await onImport(file, name.trim() || undefined, options);
       else await onImport(file, name.trim() || undefined);
     } catch (err: unknown) {
       const detail =

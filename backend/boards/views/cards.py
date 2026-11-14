@@ -2038,13 +2038,19 @@ class CardViewSet(viewsets.ModelViewSet):
                 _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
-        old_assignee = item.assignee
-        old_due = item.due_date
         serializer = CardChecklistSerializer(item, data=request.data, partial=True, context={"board": board})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             # May insert a card-FK activity row below (#1587).
             card_services.lock_card_for_write(card.pk)
+            # Read the "old" assignee and due date only now, under the card lock
+            # (#2196): values read before it can be stale, so two concurrent
+            # PATCHes assigning the same user would both see the previous
+            # assignee and double up History rows and notifications. The
+            # card-assign path reads after its lock for the same reason.
+            locked = get_object_or_404(CardChecklist.objects.select_related("assignee"), pk=item.pk, card=card)
+            old_assignee = locked.assignee
+            old_due = locked.due_date
             serializer.save()
             if "is_checked" in request.data and request.data["is_checked"] != old_checked:
                 checklist_event_type = (

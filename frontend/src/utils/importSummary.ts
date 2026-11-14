@@ -85,3 +85,13 @@ export const IMPORT_WARNINGS_HEADLINE = "Board imported, with import warnings:";
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {
   return formatImportSkipped(summary) !== null || importWarnings(summary).length > 0;
 }
+
+/**
+ * The summary to hand the notice for a sample-gallery import (#2198): samples
+ * name `demo1`-`demo5` as assignees and are meant to import unassigned, so the
+ * unmatched-assignee count is noise there. The API still counts them.
+ */
+export function forSampleImport(summary: ImportSummary): ImportSummary {
+  if (!summary.skipped?.assignees) return summary;
+  return { ...summary, skipped: { ...summary.skipped, assignees: 0 } };
+}

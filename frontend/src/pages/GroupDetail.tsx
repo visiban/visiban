@@ -27,11 +27,11 @@ import HealthStatusControl from "../components/Common/HealthStatusControl";
 import { HealthListingPill } from "../components/Common/HealthStatusPill";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
-import ImportBoardModal from "../components/Board/ImportBoardModal";
+import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoardModal";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
 import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, Priority, User } from "../types";
-import { hasImportSkips } from "../utils/importSummary";
+import { forSampleImport, hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
@@ -871,7 +871,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     void navigate(`/boards/${board.id}`);
   };
 
-  const handleImportBoard = async (file: File, name?: string, options?: ImportOptions) => {
+  const handleImportBoard = async (file: File, name?: string, options?: ImportOptions, meta?: ImportMeta) => {
     const board = options ? await importBoard(file, name, groupId, options) : await importBoard(file, name, groupId);
     setImportingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
@@ -879,8 +879,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // A selective import that left something out hands its summary to the
     // board page, which shows the skipped counts (#119) and any CSV import
     // warnings (#1526).
-    if (hasImportSkips(board.import_summary)) {
-      void navigate(`/boards/${board.id}`, { state: { importSummary: board.import_summary } });
+    const importSummary = meta?.sample ? forSampleImport(board.import_summary) : board.import_summary;
+    if (hasImportSkips(importSummary)) {
+      void navigate(`/boards/${board.id}`, { state: { importSummary } });
     } else {
       void navigate(`/boards/${board.id}`);
     }
