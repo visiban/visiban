@@ -513,6 +513,50 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([]));
   });
 
+  describe("focus after deleting a field (#2204)", () => {
+    const deleteVia = async (user: ReturnType<typeof userEvent.setup>, opener: HTMLElement) => {
+      await user.click(opener);
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.type(within(dialog).getByLabelText(/Type/), "Sprint");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Delete field?" })).not.toBeInTheDocument());
+    };
+    const fields = () => [makeDefinition({ id: 1, name: "Sprint" }), makeDefinition({ id: 2, name: "Budget" })];
+
+    it("row ✕: focus moves to + Add field, not <body>", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard(fields())} isAdmin onFieldsUpdated={vi.fn()} />);
+      await deleteVia(user, screen.getByTitle("Delete Sprint"));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add field" }));
+    });
+
+    it("row ✕ on the last field: focus moves to the empty state's + Add field", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ id: 1, name: "Sprint" })])} isAdmin onFieldsUpdated={vi.fn()} />);
+      await deleteVia(user, screen.getByTitle("Delete Sprint"));
+      expect(screen.getByText("No custom fields yet")).toBeInTheDocument();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add field" }));
+    });
+
+    it("Delete field in the editor: focus moves to + Add field once the editor closes", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard(fields())} isAdmin onFieldsUpdated={vi.fn()} />);
+      await user.click(screen.getByTitle("Edit Sprint"));
+      await deleteVia(user, screen.getByRole("button", { name: "Delete field" }));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add field" }));
+    });
+
+    it("canceling returns focus to the row ✕ that opened it (the fallback is unused)", async () => {
+      const user = userEvent.setup();
+      render(<BoardSettingsFieldsTab board={makeBoard(fields())} isAdmin onFieldsUpdated={vi.fn()} />);
+      const opener = screen.getByTitle("Delete Sprint");
+      await user.click(opener);
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(document.activeElement).toBe(opener);
+    });
+  });
+
   describe("type lock reason and Delete in the editor (#2194)", () => {
     const LOCK_RE = /The type can't be changed because cards already have values/;
 

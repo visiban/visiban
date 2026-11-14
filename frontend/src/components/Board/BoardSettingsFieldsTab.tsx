@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -377,11 +377,19 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     }
   };
 
+  // #2204: after a delete the modal's opener (the row ✕, or the editor's Delete field
+  // button) is gone, so focus returns to "+ Add field" (list footer or empty state),
+  // or to the tab heading when no enabled Add field button is rendered.
+  const tabRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLParagraphElement>(null);
+  const deleteFocusFallback = () =>
+    tabRef.current?.querySelector<HTMLElement>("button[data-add-field]:not([disabled])") ?? headingRef.current;
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
     // Deleting from inside the editor: close it on success, or the editor would stay open on a removed field.
-    // (Focus handling after the delete is tracked in #2204.)
+    // Focus after the delete: the modal's restoreFocusTo fallback (#2204).
     const wasEditing = editingId === deleteTarget.id;
     setFields(fields.filter((f) => f.id !== deleteTarget.id));
     try {
@@ -442,9 +450,9 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   }
 
   return (
-    <div>
+    <div ref={tabRef}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Custom fields</p>
+        <p ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">Custom fields</p>
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
@@ -538,7 +546,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
               + Add field
             </button>
           ) : (
-            <button onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            <button data-add-field onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
               + Add field
             </button>
           )}
@@ -554,7 +562,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       )}
 
       {deleteTarget && (
-        <ModalWrapper open onClose={() => { setDeleteTarget(null); setDeleteInput(""); }} title="Delete field?" maxWidth="max-w-sm">
+        <ModalWrapper open onClose={() => { setDeleteTarget(null); setDeleteInput(""); }} title="Delete field?" maxWidth="max-w-sm" restoreFocusTo={deleteFocusFallback}>
           <p className="text-fg-tertiary text-sm mb-1">
             <span className="text-fg font-medium">{deleteTarget.name}</span> will be permanently deleted.
           </p>
@@ -612,7 +620,7 @@ function EmptyState({ isAdmin, onAdd }: { isAdmin: boolean; onAdd?: () => void }
           : "This board has no custom fields."}
       </p>
       {isAdmin && onAdd && (
-        <button onClick={onAdd} className="text-sm px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+        <button data-add-field onClick={onAdd} className="text-sm px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
           + Add field
         </button>
       )}

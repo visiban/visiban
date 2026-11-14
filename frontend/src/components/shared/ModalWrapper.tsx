@@ -23,6 +23,12 @@ interface ModalWrapperProps {
   /** When true, a border is shown below the header. Useful for multi-section
    *  modals (tabbed, scrollable body with footer). */
   headerBorder?: boolean;
+  /** Fallback focus target for when the control that opened the modal is gone by the
+   *  time it closes (#2204: the deleted row's ✕, or the editor's Delete field button,
+   *  which leaves with the editor). Passed to useFocusTrap's `restoreTarget`: used only
+   *  if the opener is disconnected, and a function is resolved at close, after the
+   *  same commit has removed the opener. Without it focus drops to <body>. */
+  restoreFocusTo?: HTMLElement | null | (() => HTMLElement | null);
 }
 
 /**
@@ -47,6 +53,7 @@ export default function ModalWrapper({
   noPadding = false,
   panelClassName,
   headerBorder = false,
+  restoreFocusTo,
 }: ModalWrapperProps) {
   const headingId = labelId ?? "modal-title";
   const panelRef = useRef<HTMLDivElement>(null);
@@ -71,7 +78,7 @@ export default function ModalWrapper({
     }
   }, [open]);
 
-  useFocusTrap(panelRef, open);
+  useFocusTrap(panelRef, open, restoreFocusTo);
 
   // A press that starts inside the panel and ends on the backdrop (a color picker drag
   // released past the panel's edge, a text selection) fires its click on the backdrop,

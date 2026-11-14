@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -380,6 +380,14 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     }
   };
 
+  // #2204: after a delete the modal's opener (the row ✕, or the editor's Delete field
+  // button) is gone, so focus returns to "+ Add field" (list footer or empty state),
+  // or to the tab heading when no enabled Add field button is rendered.
+  const tabRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLParagraphElement>(null);
+  const deleteFocusFallback = () =>
+    tabRef.current?.querySelector<HTMLElement>("button[data-add-field]:not([disabled])") ?? headingRef.current;
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const prev = fields;
@@ -450,10 +458,10 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   }
 
   return (
-    <div>
+    <div ref={tabRef}>
       <RowChipNamesSetting board={board} isAdmin onUpdateBoardSettings={onUpdateBoardSettings} />
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Swimlane fields</p>
+        <p ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">Swimlane fields</p>
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
@@ -553,7 +561,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
               + Add field
             </button>
           ) : (
-            <button onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            <button data-add-field onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
               + Add field
             </button>
           )}
@@ -569,7 +577,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       )}
 
       {deleteTarget && (
-        <ModalWrapper open onClose={() => { setDeleteTarget(null); setDeleteInput(""); }} title="Delete field?" maxWidth="max-w-sm">
+        <ModalWrapper open onClose={() => { setDeleteTarget(null); setDeleteInput(""); }} title="Delete field?" maxWidth="max-w-sm" restoreFocusTo={deleteFocusFallback}>
           <p className="text-fg-tertiary text-sm mb-1">
             <span className="text-fg font-medium">{deleteTarget.name}</span> will be permanently deleted.
           </p>
@@ -627,7 +635,7 @@ function EmptyState({ isAdmin, onAdd }: { isAdmin: boolean; onAdd?: () => void }
           : "This board has no swimlane fields."}
       </p>
       {isAdmin && onAdd && (
-        <button onClick={onAdd} className="text-sm px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+        <button data-add-field onClick={onAdd} className="text-sm px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
           + Add field
         </button>
       )}

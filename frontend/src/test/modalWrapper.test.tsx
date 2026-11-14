@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
+import { useRef, useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import ModalWrapper from '../components/shared/ModalWrapper'
 
@@ -333,5 +334,40 @@ describe('ModalWrapper initial focus (#1732)', () => {
       </ModalWrapper>,
     )
     expect(screen.getByLabelText('Name')).toHaveFocus()
+  })
+
+  // #2204: when the opener is gone by the time the modal closes, focus goes to the fallback.
+  describe('restoreFocusTo (#2204)', () => {
+    function Harness({ removeOpener }: { removeOpener: boolean }) {
+      const [open, setOpen] = useState(false)
+      const [openerShown, setOpenerShown] = useState(true)
+      const fallbackRef = useRef<HTMLButtonElement>(null)
+      return (
+        <div>
+          <button ref={fallbackRef}>Fallback</button>
+          {openerShown && <button onClick={() => setOpen(true)}>Opener</button>}
+          <ModalWrapper open={open} onClose={() => setOpen(false)} title="Confirm" restoreFocusTo={() => fallbackRef.current}>
+            <button onClick={() => { if (removeOpener) setOpenerShown(false); setOpen(false) }}>Confirm</button>
+          </ModalWrapper>
+        </div>
+      )
+    }
+
+    it('focuses the fallback when the opener unmounted with the close', async () => {
+      const user = userEvent.setup()
+      render(<Harness removeOpener />)
+      await user.click(screen.getByRole('button', { name: 'Opener' }))
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(screen.queryByRole('button', { name: 'Opener' })).not.toBeInTheDocument()
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Fallback' }))
+    })
+
+    it('still returns focus to the opener when it is still there', async () => {
+      const user = userEvent.setup()
+      render(<Harness removeOpener={false} />)
+      await user.click(screen.getByRole('button', { name: 'Opener' }))
+      act(() => { fireEvent.click(screen.getByRole('button', { name: 'Confirm' })) })
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Opener' }))
+    })
   })
 })
