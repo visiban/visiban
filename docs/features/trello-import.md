@@ -67,7 +67,7 @@ Click **Create board**. You see an upload progress bar, then **Creating board…
 | Lists | Columns, in the same order. Archived lists are skipped by default. If you include them, they are imported along with their archived cards. |
 | Cards | Cards with the title (up to 500 characters), description, due date, archived state, and original creation time. The due date is imported as a date, in UTC. |
 | Labels | Labels. Each Trello color maps to the closest Visiban color. Unnamed labels are named after their color. Duplicate names get a " (2)" suffix. |
-| Checklists | One checklist per card. Visiban supports one checklist per card, so multiple Trello checklists are combined, and each item is prefixed with `Checklist name: `. |
+| Checklists | One checklist per card. Visiban supports one checklist per card, so multiple Trello checklists are combined, and each item is prefixed with `Checklist name: `. New in 1.3: each item keeps its due date and its assigned member (matched like card members, see below). |
 | Comments | Comments, with their original timestamps, posted under your name with the Trello author's name kept beside it. See [Comment authors](#comment-authors). Comments over 10,000 characters are shortened; card descriptions over 50,000 characters are too. The preview warns when this happens. |
 | Attachments | Links are added to the card description under **Attachments (imported from Trello)**. The files themselves are not copied. |
 | Members | Matched to Visiban users when possible. See below. |
@@ -85,8 +85,10 @@ Only people you can already see in Visiban are checked: people who share a board
 
 **Add matched members to this board** is off by default.
 
-- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card).
-- **Off:** cards are unassigned.
+- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card) and to their checklist items.
+- **Off:** cards and checklist items are unassigned.
+
+A checklist item assigned to someone who did not match imports unassigned.
 
 Either way, comments are attributed to you (see below). Importing never sends notifications.
 

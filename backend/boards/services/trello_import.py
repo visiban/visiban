@@ -148,6 +148,10 @@ class TCheckItem:
     name: str
     complete: bool
     pos: float
+    # #2197: a checkItem's own due date and member (Trello's "assign to
+    # checklist item"). ``member_id`` is "" when the item has no member.
+    due: str | None = None
+    member_id: str = ""
 
 
 @dataclass
@@ -445,7 +449,13 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
         for j, ci in _dict_items(raw_items, f"{where}.checkItems"):
             cwhere = f"{where}.checkItems[{j}]"
             state = _str(ci, "state", cwhere)
-            items.append(TCheckItem(name=_str(ci, "name", cwhere), complete=state == "complete", pos=_num(ci, "pos", cwhere)))
+            ci_due = ci.get("due")
+            if ci_due is not None and not isinstance(ci_due, str):
+                raise TrelloImportError(f"{cwhere}: 'due' must be a string or null.")
+            items.append(TCheckItem(
+                name=_str(ci, "name", cwhere), complete=state == "complete", pos=_num(ci, "pos", cwhere),
+                due=ci_due, member_id=_str(ci, "idMember", cwhere),
+            ))
         total_items += len(items)
         checklists.append(TChecklist(
             id=_str(item, "id", where, required=True),
@@ -663,7 +673,8 @@ class ImportPlan:
     labels: list[dict]             # {key(trello id), name, color}
     swimlanes: list[dict]          # {key, name, color, position}
     cards: list[PlannedCard]
-    checklist_items: dict[str, list[tuple[str, bool]]]   # trello card id → [(text, checked)]
+    # trello card id → [(text, checked, assignee_id, due_date)] (#2197)
+    checklist_items: dict[str, list[tuple[str, bool, int | None, datetime.date | None]]]
     comments: list[dict]           # {card_id, imported_from_username, body, created_at}
     member_user_ids: list[int]     # to add as board members (opt-in only)
     preview: dict
@@ -903,7 +914,12 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
     planned_ids = {p.trello_id for p in planned}
 
     # --- Checklists: Visiban has flat items, not named checklists. --------
-    checklist_items: dict[str, list[tuple[str, bool]]] = {}
+    # #2197: a checkItem's member maps exactly like a card's: only a member
+    # matched within the importer's visible users (``match_members``, security
+    # invariants Rule 5), and only when add_matched_members makes them a board
+    # member, since a checklist assignee must be one. Anyone else imports
+    # unassigned. Its due date is read like a card's, to a UTC date.
+    checklist_items: dict[str, list[tuple[str, bool, int | None, datetime.date | None]]] = {}
     multi_checklist_cards = 0
     item_total = 0
     for card_id, cls in checklists_by_card.items():
@@ -919,7 +935,15 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
                 text = it.name.strip() or "Untitled item"
                 if prefix and cl.name:
                     text = f"{cl.name}: {text}"
-                out.append((text[:_MAX_CHECKLIST_TEXT], it.complete))
+                item_assignee = matched.get(it.member_id) if add_members and it.member_id else None
+                item_due = None
+                if it.due:
+                    dt = _parse_ts(it.due)
+                    if dt is None:
+                        bad_due += 1
+                    else:
+                        item_due = dt.astimezone(datetime.timezone.utc).date()
+                out.append((text[:_MAX_CHECKLIST_TEXT], it.complete, item_assignee, item_due))
         if out:
             checklist_items[card_id] = out
             item_total += len(out)
@@ -980,7 +1004,7 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
               "Matched members will not be added to the board and assignees are left empty.",
               matched_count)
     _warn(warnings, "unmatched_members",
-          "Unmatched members are not assigned to cards.",
+          "Unmatched members are not assigned to cards or checklist items.",
           unmatched_count)
 
     attachment_total = sum(len(c.attachments) for c in export.cards)
@@ -1160,9 +1184,9 @@ def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None =
         CardChecklist.objects.bulk_create(
             [
                 CardChecklist(card=card_by_trello[cid], text=text, is_checked=checked,
-                              position=i, created_by=user)
+                              position=i, created_by=user, assignee_id=assignee_id, due_date=due_date)
                 for cid, items in plan.checklist_items.items()
-                for i, (text, checked) in enumerate(items)
+                for i, (text, checked, assignee_id, due_date) in enumerate(items)
             ],
             batch_size=_BATCH,
         )

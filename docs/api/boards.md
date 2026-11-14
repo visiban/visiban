@@ -1218,7 +1218,7 @@ An export, or a `mapping`, that contains an unpaired UTF-16 surrogate (`"\ud800"
 - **Lists to columns**, ordered by Trello position and renumbered densely from 0. Archived lists are skipped unless `include_archived_lists` is `true`; their cards are then imported as archived cards. Without that option, cards in archived lists are skipped. Cards that reference a list missing from the export are skipped.
 - **Labels** keep their names. Trello color names are converted to hex (`#RRGGBB`); an unnamed label is named after its color. A duplicate name gets a `" (2)"` suffix (then `(3)`, and so on).
 - **Labels to swimlanes** for the labels listed in `swimlane_label_ids`. A card goes to the swimlane of the first mapped label in **the card's own label order**; any other mapped labels stay as ordinary labels. Cards with no mapped label go to the default swimlane.
-- **Checklists** are flattened into one checklist per card. When a card has several checklists, each item's text is prefixed with its checklist name.
+- **Checklists** are flattened into one checklist per card. When a card has several checklists, each item's text is prefixed with its checklist name. Since 1.3 (#2197) a checklist item keeps its Trello due date (`due`, converted to a UTC date like a card's; an unreadable one is left empty and counted in `invalid_due_dates`) and its member (`idMember`), matched like card members below.
 - **Comments** are imported with their original timestamps.
 - **Archived cards** (closed in Trello) are imported archived.
 - **Attachments** are not copied. Each attachment is appended to the card description as a link, and only `http` and `https` URLs are kept. Uploaded files are reported under `unmappable` as `attachment_files`.
@@ -1231,7 +1231,8 @@ A Trello member matches a Visiban user when the Trello **username** equals the V
 Matching considers only users the caller can already see: co-members of the caller's boards and groups, and members and owner of the target group. Site admins can match any active user. This stops a crafted file from probing whether a username exists. The response reports only a **count** of matches, never which accounts.
 
 - `add_matched_members: false` (default): matched users are not added to the board and cards are left unassigned.
-- `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Adding members sends no notification.
+- `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card) and, since 1.3, to their checklist items. Adding members or assigning items sends no notification.
+- A checklist item whose member did not match, or any checklist item when `add_matched_members` is `false`, imports unassigned (#2197).
 
 Since 1.2 (#1702), with either setting, every comment is authored by the importer and keeps its Trello time. The Trello author's display name is kept as text in the comment's `imported_from_username` (at most 150 characters, line breaks collapsed), never matched to an account, and the body starts with the plain-text line `(imported from Trello)`. Earlier versions authored a matched member's comments as that member when `add_matched_members` was `true`, and put the author's name in the body (`Full Name (imported from Trello):`) otherwise; comments imported then are unchanged.
 
@@ -1362,7 +1363,7 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 | `unknown_labels` | Label references missing from the export will be ignored. |
 | `comments_may_be_incomplete` | The export hit Trello's 1,000-action limit, so older comments may be missing. |
 | `matched_members_not_added` | Members matched but `add_matched_members` is `false`. Only present when `false`. |
-| `unmatched_members` | Members with no matching Visiban user are not assigned to cards. |
+| `unmatched_members` | Members with no matching Visiban user are not assigned to cards or checklist items. |
 
 **`unmappable`** — Trello data that has no Visiban equivalent and is dropped. Each entry is `{kind, count}`, present only when the count is greater than zero. Kinds:
 
