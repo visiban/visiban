@@ -465,7 +465,7 @@ def _running(own, fams, prior):
                 # A compact record (no per-model split) has no family figures: n/a, not 0.
                 vals.append(None)
                 continue
-            # A family column a record does not show was not used in it (only `Other` comes and goes).
+            # A family column a record does not show was not used in it (only `Fable` and `Other` come and go).
             vals.append(p["total"][col] if col in p["total"] else 0)
         if any(v is None for v in vals):
             cells.append("n/a (a record has no figure in this column)")
