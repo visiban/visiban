@@ -910,7 +910,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     <span
                       key={label.id}
                       className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
-                      style={colorChipStyle(label.color)}
+                      style={colorChipStyle(label.color, aging.stage)}
                       title={label.name}
                     >
                       {display}

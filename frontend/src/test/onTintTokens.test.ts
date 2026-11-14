@@ -6,6 +6,7 @@ import { INVITE_STATUS_STYLES } from '../constants/invites'
 import { AGING_STAGE_CLASSES, staleBadgeToneClass, urgencyBadgeToneClass } from '../utils/agingTint'
 import { CHOICE_COLORS } from '../constants/choiceColors'
 import { HEALTH_STATUS_STYLES, HEALTH_STATUS_TEXT } from '../constants/healthStatus'
+import { DIMMED_CHIP_SURFACES } from '../utils/colorContrast'
 
 // #1550: every on-tint text token must be declared in both theme blocks of index.css and exposed
 // to Tailwind. Read from disk: Vitest stubs CSS imports (`?raw` on a .css file comes back empty).
@@ -192,6 +193,34 @@ describe('card aging ramp contrast (#1841)', () => {
     expect(parse('stale').hue).toBe('stale-tint')
     const tint = blend(rgbOf(lightBlock, 'warning'), rgbOf(lightBlock, 'surface'), 0.15)
     expect(ratio(blend(rgbOf(lightBlock, 'warning-on-tint'), tint, 0.85), tint)).toBeLessThan(4.5)
+  })
+})
+
+// #2102: label chips on dimmed surfaces get a dim-aware fg from colorChipStyle(color, dim). The
+// backdrops it compensates for are hardcoded hex in colorContrast.ts; recompute them from the
+// real stage classes and tokens so a stage or token change fails here, not silently on screen.
+describe('dimmed chip surfaces mirror the stage classes and tokens (#2102)', () => {
+  const hex = (c: number[]) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0').toUpperCase()).join('')
+  it.each(['warning', 'stale', 'stale2x', 'stale3x'] as const)('%s: opacity and per-theme backdrop match', (stage) => {
+    const { hue, alpha, opacity } = parse(stage)
+    const s = DIMMED_CHIP_SURFACES[stage]
+    expect(s.opacity).toBe(opacity)
+    expect(s.light).toBe(hex(blend(rgbOf(lightBlock, hue), rgbOf(lightBlock, 'surface'), alpha)))
+    expect(s.dark).toBe(hex(blend(rgbOf(darkBlock, hue), rgbOf(darkBlock, 'surface'), alpha)))
+  })
+
+  it('lens-closed: opacity-70 on the card root over the lane bg-canvas', () => {
+    const s = DIMMED_CHIP_SURFACES['lens-closed']
+    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('${closed ? "opacity-70" : ""}')
+    expect(readFileSync('src/components/Board/Lens/LensSwimlaneRow.tsx', 'utf8')).toMatch(/className="shrink-0 bg-canvas /)
+    expect(s.opacity).toBe(0.7)
+    expect(s.light).toBe(hex(rgbOf(lightBlock, 'canvas')))
+    expect(s.dark).toBe(hex(rgbOf(darkBlock, 'canvas')))
+  })
+
+  it('both dimmed label-chip sites pass their dim', () => {
+    expect(readFileSync('src/components/Card/CardItem.tsx', 'utf8')).toContain('colorChipStyle(label.color, aging.stage)')
+    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('closed ? "lens-closed" : null)')
   })
 })
 
