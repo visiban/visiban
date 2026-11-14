@@ -12,7 +12,7 @@
 # STDERR (that is the stream Claude Code feeds back to the model).
 #
 # Override the default-branch guard for a deliberate one-off:
-#   ALLOW_DEFAULT_BRANCH_EDIT=1
+#   ALLOW_DEFAULT_BRANCH_EDIT=1   (must be exported before launching claude; hooks inherit its env)
 #
 # The guard fails open: any git error or malformed payload exits 0, so a broken
 # hook can never block all editing. Self-test: scripts/tests/pre-tool-safety.test.sh
