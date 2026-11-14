@@ -1219,7 +1219,10 @@ _CARD_DETAIL_HISTORY_MAX = 200
 
 
 def card_detail(*, card_id):
-    """Card detail + full audit history for the ``card://{card_id}`` MCP resource.
+    """Card detail + audit history for the ``card://{card_id}`` MCP resource.
+
+    Activities and comments are the 200 newest, with ``*_truncated`` flags.
+    Movements are uncapped (#2255).
 
     RBAC is enforced by ``_resolve_board_for_card`` — the same resolver every
     write tool uses — so board membership is required exactly as it is for
