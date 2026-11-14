@@ -101,13 +101,13 @@ class Component extends DCLogic {
       { name: 'Design', p50: null, p85: null, blocked: 0, wip: 1, done: 4, spark: [], trend: 'Not enough cards' },
     ];
     const lanes = DATA.map((d) => {
-      const slow = d.p50 !== null && d.p50 > 11 * 1.15;
+      const slow = d.p50 !== null && d.done >= 10 && d.p50 > 11 * 1.2;
       const slower = d.trend.indexOf('Slower') === 0;
       const faster = d.trend.indexOf('Faster') === 0;
       return {
         name: d.name,
-        status: d.p50 === null ? 'Too few finished cards' : slow ? 'Slower than the board' : d.p50 < 11 * 0.85 ? 'Faster than the board' : 'In line with the board',
-        statusFg: slow ? 'var(--warn-text)' : d.p50 !== null && d.p50 < 11 * 0.85 ? 'var(--ok-text)' : 'var(--fg3)',
+        status: d.p50 === null ? 'Too few finished cards' : slow ? 'Slower than the board' : d.done >= 10 && d.p50 < 11 * 0.8 ? 'Faster than the board' : 'In line with the board',
+        statusFg: slow ? 'var(--warn-text)' : d.p50 !== null && d.done >= 10 && d.p50 < 11 * 0.8 ? 'var(--ok-text)' : 'var(--fg3)',
         barBg: slow ? 'var(--warn)' : 'var(--bar)',
         p50w: d.p50 === null ? 0 : (d.p50 / 30) * 100,
         tailw: d.p50 === null ? 0 : ((d.p85 - d.p50) / 30) * 100,
