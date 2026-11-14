@@ -1254,9 +1254,12 @@ When one page or tab can simultaneously render more than one bare-text button wi
   portal path follows the "Anchored `fixed` popovers" rule (#1455): measured placement via
   `useAnchoredPlacement`, dismissed on resize and outside scroll, bottom fade via
   `useOverflowFade`, menu at least trigger-width and clamped to the viewport's right edge.
-  Known limitation, `SplitButton` only: its anchor is measured once when the menu opens,
-  so scrolling Row 2 or resizing the window while it is open leaves the menu behind.
-  Closing on scroll/resize (or re-measuring) is the fix whenever that becomes visible.
+  `SplitButton` measures its anchor once when the menu opens (it is exempt from measured
+  placement, see the anchored-popover rule), so it closes on window `resize` and on any
+  scroll outside the menu, like the `portalMenu` path (#1171): a resize crossing `lg`
+  shifts the toolbar's controls, and scrolling Row 2 moves the chevron, either of which
+  would leave a `fixed` menu behind its trigger. Dismiss, never re-measure, for a menu
+  anchored once.
 - **Portaled menus close on Tab and return focus to the trigger on selection (#1478).**
   A portal lands at the end of `<body>`, so Tab from a menu item would leave the dialog
   with the menu still open, and selecting an item unmounts the focused element, dropping
