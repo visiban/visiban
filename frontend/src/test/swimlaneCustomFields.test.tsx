@@ -779,6 +779,18 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(remove).toHaveAttribute('type', 'button')
   })
 
+  it("each choice row's drag handle is a named button, not an HTML5 drag span (#2190)", async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.click(screen.getByRole('button', { name: /Dropdown/ }))
+    await user.click(screen.getByRole('button', { name: '+ Add choice' }))
+    const handle = screen.getByRole('button', { name: 'Drag to reorder choice 1' })
+    expect(handle).toHaveAttribute('type', 'button')
+    expect(handle).not.toHaveAttribute('draggable')
+    expect(handle).toHaveClass('focus:ring-2', 'focus:ring-primary-emphasis')
+  })
+
   it('defaults a new field to admin-only', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)

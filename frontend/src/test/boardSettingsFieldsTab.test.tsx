@@ -127,6 +127,30 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(screen.getByRole("button", { name: "Remove choice Alpha" })).toBe(remove);
   });
 
+  it("each choice row has a named, ringed drag-handle button with a keyboard pick-up (#2190)", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.click(screen.getByRole("button", { name: /Dropdown/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    const handle = screen.getByRole("button", { name: "Drag to reorder choice 1" });
+    expect(handle.tagName).toBe("BUTTON");
+    expect(handle).toHaveAttribute("type", "button");
+    expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+    expect(handle).not.toHaveAttribute("draggable");
+    expect(handle).toHaveClass("focus:ring-2", "focus:ring-primary-emphasis");
+    // Named by the choice text once typed, like the Remove button.
+    await user.type(screen.getAllByRole("textbox").at(-2)!, "Alpha");
+    expect(screen.getByRole("button", { name: "Drag to reorder choice Alpha" })).toBe(handle);
+    // A tab stop the KeyboardSensor picks up, announced by choice name, not by id.
+    handle.focus();
+    await user.keyboard(" ");
+    expect(await screen.findByText("Picked up choice Alpha, at position 1 of 2.")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(await screen.findByText(/Reorder canceled\. choice Alpha returned to position 1 of 2\./)).toBeInTheDocument();
+  });
+
   it("a dropdown field requires at least one choice before it can be saved", async () => {
     const user = userEvent.setup();
     render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
