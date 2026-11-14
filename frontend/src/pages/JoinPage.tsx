@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { resolveJoinToken, joinGroup } from "../api/groups";
-import { resolveBoardJoinToken, joinBoard } from "../api/boards";
-import type { BoardInviteRole, BoardJoinResult } from "../api/boards";
+import type { BoardInviteRole } from "../api/boards";
+import { BOARD_INVITE, GROUP_INVITE, inviteKindOf, joinInvite } from "../api/inviteKinds";
 import { getAuthProviders } from "../api/auth";
 import type { User } from "../types";
 import { providerLoginUrl } from "../utils/oauth";
@@ -72,8 +71,9 @@ export default function JoinPage({ user }: Props) {
 
   // Site-wide invite links (vbnl_ prefix) are for registration, not group joining.
   // Redirect to the login page with the token so the registration form can consume it.
-  const isSiteInvite = token?.startsWith("vbnl_") ?? false;
-  const isBoardInvite = token?.startsWith("vbnb_") ?? false;
+  const kindName = token ? inviteKindOf(token).name : null;
+  const isSiteInvite = kindName === "site";
+  const isBoardInvite = kindName === "board";
 
   useEffect(() => {
     if (!token) return;
@@ -86,7 +86,7 @@ export default function JoinPage({ user }: Props) {
       return;
     }
     if (isBoardInvite) {
-      resolveBoardJoinToken(token)
+      BOARD_INVITE.resolve(token)
         .then((data) => {
           setGroupName(data.board_name);
           setGroupId(data.board_id);
@@ -101,7 +101,7 @@ export default function JoinPage({ user }: Props) {
         .finally(() => setLoading(false));
       return;
     }
-    resolveJoinToken(token)
+    GROUP_INVITE.resolve(token)
       .then((data) => {
         setGroupName(data.group_name);
         setGroupId(data.group_id);
@@ -142,12 +142,8 @@ export default function JoinPage({ user }: Props) {
   // Replaces the manual "Join" button — authenticated users should land in the group
   // without an extra click.
   const joinBoardAndGo = (raw: string) =>
-    joinBoard(raw)
-      .then((res: BoardJoinResult) =>
-        navigate(`/boards/${res.board_id}`, {
-          state: { joinedBoard: res.board_name, joinedRole: res.role, created: res.created },
-        }),
-      )
+    joinInvite(raw)
+      .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch((err) => {
         const code = goneCode(err);
         if (code) {
@@ -171,8 +167,8 @@ export default function JoinPage({ user }: Props) {
       void joinBoardAndGo(token);
       return;
     }
-    joinGroup(token)
-      .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
+    joinInvite(token)
+      .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch((err) => {
         setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
@@ -189,8 +185,8 @@ export default function JoinPage({ user }: Props) {
       void joinBoardAndGo(token);
       return;
     }
-    joinGroup(token)
-      .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
+    joinInvite(token)
+      .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch((err) => {
         setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
