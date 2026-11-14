@@ -12,7 +12,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0101_custom_field_thresholds'),
+        ('boards', '0102_canonicalize_custom_field_values'),
     ]
 
     operations = [
