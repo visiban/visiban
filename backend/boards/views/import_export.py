@@ -272,6 +272,10 @@ _IMPORT_SKIP_KEYS = (
     # Not an option skip: colors replaced with the default because they were
     # not hex (#2093). Kept here so every import reports the same shape.
     "colors",
+    # Not an option skip either (#2198): card and checklist item assignee names
+    # that matched no user in the importer's visible pool (Rule 5), so the card
+    # or item imported unassigned. Counts references, not distinct names.
+    "assignees",
 )
 
 
@@ -1937,6 +1941,8 @@ class BoardImportExportMixin:
 
                 assignee_username = card_data.get("assignee")
                 assignee = user_map.get(assignee_username.lower()) if assignee_username else None
+                if assignee_username and assignee is None:
+                    skipped["assignees"] += 1
 
                 card_obj = Card(
                     board=board,
@@ -2089,15 +2095,18 @@ class BoardImportExportMixin:
                 # Checklist items + checklist-added activities
                 checklist_source = card_data.get("checklist", []) if options["checklist"] else []
                 for ci_idx, checklist_data in enumerate(checklist_source):
+                    item_assignee = (
+                        user_map.get(checklist_data["assignee"].lower())
+                        if checklist_data.get("assignee") else None
+                    )
+                    if checklist_data.get("assignee") and item_assignee is None:
+                        skipped["assignees"] += 1  # #2198
                     item = CardChecklist(
                         card_id=card_pk,
                         text=checklist_data.get("text", ""),
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
-                        assignee=(
-                            user_map.get(checklist_data["assignee"].lower())
-                            if checklist_data.get("assignee") else None
-                        ),
+                        assignee=item_assignee,
                         due_date=checklist_data.get("due_date") or None,
                         # The importer is the actor; a NULL creator would make
                         # every imported item moderator-only (#1943).
@@ -2791,6 +2800,8 @@ class BoardImportExportMixin:
                 due_date = _cell(row, "Due Date") or None
                 assignee_name = _cell(row, "Assignee")
                 assignee = csv_user_map.get(assignee_name.lower()) if assignee_name else None
+                if assignee_name and assignee is None:
+                    skipped["assignees"] += 1  # #2198
 
                 weight_str = _cell(row, "Weight") or "1"
                 try:

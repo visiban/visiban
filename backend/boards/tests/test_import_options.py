@@ -25,7 +25,7 @@ _URL = "/api/v1/boards/import/"
 _ALL_ON = {"labels": True, "cards": True, "comments": True, "checklist": True, "history": True}
 _NO_SKIPS = {
     "cards": 0, "comments": 0, "checklist_items": 0, "label_refs": 0,
-    "movements": 0, "activities": 0, "colors": 0,
+    "movements": 0, "activities": 0, "colors": 0, "assignees": 0,
 }
 
 
@@ -142,7 +142,9 @@ class ImportOptionsDefaultTests(_ImportOptionsBase):
         board = self._board(resp)
         self.assertEqual(self._counts(board), self.FULL)
         self.assertEqual(resp.data["import_summary"]["options_applied"], _ALL_ON)
-        self.assertEqual(resp.data["import_summary"]["skipped"], _NO_SKIPS)
+        # Neither card assignee resolves: "alice" shares no board with the
+        # importer (Rule 5) and the other name matches nobody (#2198).
+        self.assertEqual(resp.data["import_summary"]["skipped"], {**_NO_SKIPS, "assignees": 2})
 
     def test_no_options_matches_explicit_all_true_and_empty_object(self):
         baseline = self._row_snapshot(self._board(self._post()))
@@ -209,7 +211,7 @@ class ImportOptionsFlagTests(_ImportOptionsBase):
         })
         self.assertEqual(summary["skipped"], {
             "cards": 2, "comments": 4, "checklist_items": 6, "label_refs": 3,
-            "movements": 2, "activities": 2, "colors": 0,
+            "movements": 2, "activities": 2, "colors": 0, "assignees": 0,
         })
         self.assertEqual(resp.data["card_count"], 0)
 

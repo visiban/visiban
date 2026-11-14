@@ -1839,6 +1839,11 @@ export interface ImportSkippedCounts {
   activities: number;
   /** Non-hex colors replaced by the default (#2093); absent from older servers. */
   colors?: number;
+  /**
+   * Card and checklist item assignee names that matched no user the importer
+   * can see, so those imported unassigned (#2198); absent from older servers.
+   */
+  assignees?: number;
 }
 
 export interface ImportSummary {
