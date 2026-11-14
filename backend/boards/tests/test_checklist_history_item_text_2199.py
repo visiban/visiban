@@ -142,6 +142,13 @@ class ChecklistHistoryItemTextTests(TestCase):
         act = CardActivity.objects.get(card__board_id=r.data["id"])
         self.assertIsNone(act.item_text)
 
+    def test_import_drops_item_text_on_other_event_types(self, _):
+        r = self._import_activity({"event_type": "priority_change", "from_value": "low", "to_value": "high",
+                                   "item_text": "parked"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        act = CardActivity.objects.get(card__board_id=r.data["id"], event_type=ET.PRIORITY_CHANGE)
+        self.assertIsNone(act.item_text)
+
     def test_import_rejects_a_bad_item_text(self, _):
         base = {"event_type": "checklist_item_assigned", "from_value": "", "to_value": "x"}
         for bad in (5, ["a"], "x" * 501, "nul\x00"):

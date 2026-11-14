@@ -3,9 +3,20 @@ import { userDisplayName } from "../types";
 import { formatBlockedDuration } from "./blockedState";
 import { formatDateStr } from "./date";
 
-/** `Checklist item "Write tests"`, or `Checklist item` when the row names no item (#2199). */
+/** Longest item name a History label quotes before an ellipsis (#2199). */
+const ITEM_TEXT_IN_LABEL_MAX = 40;
+
+/**
+ * `Checklist item "Write tests"`, or `Checklist item` when the row names no
+ * item (#2199). The name is capped: the History row is a single truncated
+ * line, and a long name must not push the from → to values out of view.
+ */
 function checklistItemLead(itemText: string | null | undefined): string {
-  return itemText ? `Checklist item "${itemText}"` : "Checklist item";
+  if (!itemText) return "Checklist item";
+  const name = itemText.length > ITEM_TEXT_IN_LABEL_MAX
+    ? `${itemText.slice(0, ITEM_TEXT_IN_LABEL_MAX - 1)}\u2026`
+    : itemText;
+  return `Checklist item "${name}"`;
 }
 
 /** One-line description of a timeline activity entry (the History tab's row text). */

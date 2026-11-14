@@ -421,4 +421,17 @@ describe("ActivityTabPanel checklist assignee and due labels (#445)", () => {
     expect(screen.getByText(/^Checklist item "Ship it" due: \(none\) → \S*2026\S*$/)).toBeInTheDocument();
     expect(screen.getByText("Checklist item assignee: alex → sam")).toBeInTheDocument();
   });
+
+  it("caps a long item name so the from → to values stay visible (#2199)", async () => {
+    const long = "Write the integration tests for the importer and the exporter";
+    (getCardTimeline as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({ id: 1, event_type: "checklist_item_assigned", data: { from_value: "", to_value: "alex", item_text: long, event_type: "checklist_item_assigned" } }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(
+      await screen.findByText('Checklist item "Write the integration tests for the imp\u2026" assignee: (none) → alex')
+    ).toBeInTheDocument();
+  });
 });

@@ -7,6 +7,7 @@ import {
   IMPORT_WARNINGS_HEADLINE,
   countImportWarnings,
   importWarnings,
+  unmatchedAssignees,
 } from "../../utils/importSummary";
 
 interface Props {
@@ -25,8 +26,8 @@ export const IMPORT_TOAST_KEY = "import-summary";
  * on, even when it reports dropped values. Raises nothing when there is
  * nothing to report.
  *
- * A notice that lists warnings persists until dismissed; the skipped-counts-only
- * notice auto-dismisses after 8 s, and the region pauses it while hovered or
+ * A notice that lists warnings or reports unmatched assignees (#2198) persists
+ * until dismissed; the option-skips-only notice auto-dismisses after 8 s, and the region pauses it while hovered or
  * focused. The announcement carries the headline and a count, never the list;
  * the list stays a focusable, labeled `ul` in the visible toast so it is
  * reachable by keyboard. Renders nothing itself.
@@ -57,8 +58,9 @@ export default function ImportSkippedToast({ summary, onDismiss }: Props) {
           ))}
         </ul>
       ) : undefined,
-      // A notice carrying warnings is never timed out: the user needs time to read it.
-      durationMs: warnings.length > 0 ? null : IMPORT_SKIPPED_TOAST_MS,
+      // A notice carrying warnings, or unmatched assignees the user may need to
+      // reassign (#2198), is never timed out: the user needs time to act on it.
+      durationMs: warnings.length > 0 || unmatchedAssignees(summary) > 0 ? null : IMPORT_SKIPPED_TOAST_MS,
       announceText: warnings.length > 0
         ? `${skippedMessage ? `${skippedMessage} ` : "Board imported. "}${warningCount} import ${warningCount === 1 ? "warning" : "warnings"}.`
         : message,
