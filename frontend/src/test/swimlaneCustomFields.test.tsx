@@ -830,6 +830,22 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.queryByText(/The type can't be changed because swimlanes already have values/)).not.toBeInTheDocument()
   })
 
+  it('after a delete that leaves the board at the cap, focus falls back to the tab heading (#2204)', async () => {
+    const user = userEvent.setup()
+    const defs = Array.from({ length: 16 }, (_, i) =>
+      makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
+    )
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByTitle('Delete F0'))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete field?' })
+    await user.type(within(dialog).getByLabelText(/Type/), 'F0')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete field?' })).not.toBeInTheDocument())
+    const heading = screen.getByText('Swimlane fields')
+    expect(heading).toHaveAttribute('tabindex', '-1')
+    expect(document.activeElement).toBe(heading)
+  })
+
   it('disables Add field at the cap', () => {
     const defs = Array.from({ length: 15 }, (_, i) =>
       makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })

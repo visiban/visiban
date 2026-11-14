@@ -128,7 +128,7 @@ function pairFor(base: string, surface: string, alpha: number, extreme: string, 
   let fg = base;
   // 2% steps toward the extreme; t = 1 is pure black/white, which always clears 6:1
   // opaque. Under a dim the target is the rendered ratio; where pure black/white
-  // cannot reach 6:1 there (dark closed Lens card), the loop ends at the extreme,
+  // cannot reach 6:1 there (dark closed Lens card, dark stale stages at 5.91), the loop ends at the extreme,
   // the most the chip can do, and the pinned floor in colorContrast.test.ts applies.
   for (let t = 0; t <= 1.0001 && renderedRatio(fg, bg, dim) < MIN_CHIP_CONTRAST; t += 0.02) {
     fg = mix(extreme, base, Math.min(t, 1));

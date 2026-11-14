@@ -546,6 +546,21 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "+ Add field" }));
     });
 
+    it("at the field cap no Add field button is enabled: focus falls back to the tab heading", async () => {
+      const user = userEvent.setup();
+      const many = Array.from({ length: 31 }, (_, i) => makeDefinition({ id: i + 1, name: `F${i}` }));
+      render(<BoardSettingsFieldsTab board={makeBoard(many)} isAdmin onFieldsUpdated={vi.fn()} />);
+      const dialogOpener = screen.getByTitle("Delete F0");
+      await user.click(dialogOpener);
+      const dialog = await screen.findByRole("dialog", { name: "Delete field?" });
+      await user.type(within(dialog).getByLabelText(/Type/), "F0");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Delete field?" })).not.toBeInTheDocument());
+      const heading = screen.getByText("Custom fields");
+      expect(heading).toHaveAttribute("tabindex", "-1");
+      expect(document.activeElement).toBe(heading);
+    });
+
     it("canceling returns focus to the row ✕ that opened it (the fallback is unused)", async () => {
       const user = userEvent.setup();
       render(<BoardSettingsFieldsTab board={makeBoard(fields())} isAdmin onFieldsUpdated={vi.fn()} />);

@@ -195,6 +195,19 @@ describe('card hover expansion stays an overlay inside its cell', () => {
     spy.mockRestore()
   })
 
+  it('keyboard focus on a control inside the card (not the card itself) does not expand it', () => {
+    const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 })
+    const spy = vi.spyOn(card, 'matches').mockReturnValue(true)
+    // The checkbox / ⋯ button sit directly inside the card; their focus bubbles to the card's
+    // onFocus with target !== currentTarget, which must not count as the card's own focus.
+    const inner = card.querySelector('[data-testid="card-metadata-row"]')!.parentElement as HTMLElement
+    expect(inner).not.toBe(card)
+    act(() => { fireEvent.focus(inner) })
+    expect(card).toHaveClass('relative')
+    expect(card).not.toHaveClass('absolute')
+    spy.mockRestore()
+  })
+
   it('moving keyboard focus from the card into the row keeps it expanded', () => {
     const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 }, true)
     const spy = vi.spyOn(card, 'matches').mockReturnValue(true)

@@ -351,6 +351,18 @@ describe('BoardSelector delete dialog focus management (#1732)', () => {
     }
   })
 
+  it('moves focus to the Your Boards heading after a confirmed delete, not <body>', async () => {
+    mockListBoards.mockResolvedValue([ownedBoard])
+    mockDeleteBoard.mockResolvedValue(undefined)
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your Boards' }))
+  })
+
   it('restores focus to the Delete trigger when the dialog is canceled', async () => {
     mockListBoards.mockResolvedValue([ownedBoard])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
