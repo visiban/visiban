@@ -1,14 +1,24 @@
 #!/bin/bash
 # Post-edit hook: emit reminders to run relevant agents when sensitive files are modified.
-# Receives the tool call JSON on stdin. Exit 0 = informational; exit 2 = block.
+# Receives the tool call JSON on stdin; the path is nested under tool_input
+# (file_path, or notebook_path for NotebookEdit). Always exits 0 (informational):
+# reminders go to the model as PostToolUse additionalContext JSON on stdout.
+#
+# The Python is passed via `python3 -c "$PY"` (heredoc only fills a variable), NOT
+# as `python3 - <<EOF`: a heredoc replaces the
+# hook's stdin, so json.load(sys.stdin) failed and the hook never fired (#2241,
+# same defect class as #2230). Self-test: scripts/tests/post-edit-checks.test.sh
 
-python3 - <<'PYEOF'
+PY=$(cat <<'PYEOF'
 import sys, json, re
 
 try:
     data = json.load(sys.stdin)
-    file_path = data.get("tool_input", {}).get("file_path", "")
+    tool_input = data.get("tool_input") or {}
+    file_path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
 except Exception:
+    sys.exit(0)
+if not isinstance(file_path, str) or not file_path:
     sys.exit(0)
 
 messages = []
@@ -53,6 +63,14 @@ if re.search(r"backend/.*/settings\.py$", file_path):
     )
 
 if messages:
-    print("\n".join(messages))
-
+    # PostToolUse stdout is not shown to the model; additionalContext is.
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": "\n".join(messages),
+        }
+    }))
 PYEOF
+)
+
+python3 -c "$PY"
