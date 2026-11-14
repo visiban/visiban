@@ -386,8 +386,10 @@ def build_mcp_server():
         name="list_swimlanes",
         description=(
             "List a board's swimlanes (id, uid, name, position, color, card_count, is_collapsed, "
-            "wip_limit, weight_limit), ordered by position. wip_limit/weight_limit are the "
-            "swimlane's own limits (null = none); card_count counts every active card in the "
+            "wip_limit, weight_limit, health_status), ordered by position. wip_limit/weight_limit "
+            "are the swimlane's own limits (null = none); health_status is the lane's manual "
+            "health status (on_track, at_risk, off_track, or null = no status; read-only "
+            "here, independent of the board's status); card_count counts every active card in the "
             "row, not only the columns that count toward its limits. contact_email is "
             "included only for admin/site_admin callers."
         ),

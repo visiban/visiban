@@ -64,6 +64,7 @@ Each swimlane has the following fields:
 | Color | Left-edge stripe color on the label panel. Pick a preset or a [custom color](#custom-colors) |
 | Contact email | Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers) |
 | Notes | Optional free-text field on the data model; not currently exposed in the UI |
+| Health status | Optional; set by board admins on each lane. Separate from the board's own status. See [Lane status](health-status.md#lane-status) |
 | Position | Controls row order on the board |
 
 !!! note
@@ -76,6 +77,7 @@ Click the chevron on the label panel to collapse a swimlane and save vertical sp
 
 - The row shrinks to its minimum height; the stored row min-height is ignored.
 - Each column cell keeps the column's full width and renders as a centered count pill (empty cells show nothing).
+- A set health status stays visible as a shape beside the lane name; a lane with no status shows nothing extra.
 - The contact email and edit (✎) button are hidden; the drag handle and the focus-mode crosshair remain.
 - Click the chevron again to expand and restore full card visibility.
 

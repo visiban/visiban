@@ -425,7 +425,7 @@ Lists a board's swimlanes, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed, wip_limit, weight_limit}` (`uid` since 1.3; `wip_limit` and `weight_limit`, the swimlane's own limits or `null`, since 1.3, #1150), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
+**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed, wip_limit, weight_limit, health_status}` (`uid` since 1.3; `wip_limit` and `weight_limit`, the swimlane's own limits or `null`, since 1.3, #1150; `health_status`, the lane's manual health status, `on_track`/`at_risk`/`off_track` or `null` for no status, read-only, since 1.3, #2243), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
 
 ### `list_cards`
 

@@ -137,6 +137,11 @@ export const createSwimlane = (boardId: number, data: { name: string; contact_em
 export const updateSwimlane = (boardId: number, swimlaneId: number, data: Partial<Swimlane>) =>
   client.put<Swimlane>(`/api/v1/boards/${boardId}/swimlanes/${swimlaneId}/`, data).then((r) => r.data);
 
+// PATCH, not PUT: a body with only the changed fields (e.g. `health_status`,
+// #2243) is a partial update; PUT requires `name`.
+export const patchSwimlane = (boardId: number, swimlaneId: number, data: Partial<Swimlane>) =>
+  client.patch<Swimlane>(`/api/v1/boards/${boardId}/swimlanes/${swimlaneId}/`, data).then((r) => r.data);
+
 export const deleteSwimlane = (boardId: number, swimlaneId: number) =>
   client.delete(`/api/v1/boards/${boardId}/swimlanes/${swimlaneId}/`);
 

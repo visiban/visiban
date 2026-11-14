@@ -219,6 +219,17 @@ class PublicBoardEndpointTests(TestCase):
             self.assertNotIn("contact_email", lane)
             self.assertNotIn("notes", lane)
 
+    def test_swimlane_health_status_absent(self):
+        """Lane health status (#2243) stays off the share link: the public
+        swimlane serializer lists its fields explicitly and omits it."""
+        from boards.models import Swimlane
+
+        Swimlane.objects.create(board=self.board, name="HS lane 2243", health_status="at_risk")
+        r = self.anon.get(self._url())
+        self.assertTrue(r.data["swimlanes"])
+        for lane in r.data["swimlanes"]:
+            self.assertNotIn("health_status", lane)
+
     def test_members_list_absent(self):
         r = self.anon.get(self._url())
         self.assertNotIn("members", r.data)

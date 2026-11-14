@@ -109,3 +109,39 @@ test.describe('swimlane field order shortcut', () => {
     await expect(page.getByRole('button', { name: 'Swimlane fields' })).not.toHaveAttribute('aria-current', 'true')
   })
 })
+
+// Lane health status (#2243): a set status rides inline on a collapsed lane
+// and must not make the row taller than an unset one (jsdom cannot measure).
+test.describe('collapsed swimlane health status height', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+
+  test('a collapsed lane with a status is the same height as one without', async ({ page }) => {
+    const withStatus = { ...SWIMLANE, id: 1, uid: 'swim000001g', name: 'Alpha', position: 0, health_status: 'at_risk' }
+    const without = { ...SWIMLANE, id: 2, uid: 'swim000002g', name: 'Bravo', position: 1, health_status: null }
+    const board = { ...BOARD_FULL, swimlanes: [withStatus, without], cards: [] } as unknown as typeof BOARD_FULL
+    await routeAuth(page)
+    await routeBoard(page, board)
+    await page.addInitScript(
+      ({ boardId }) => {
+        window.localStorage.setItem(
+          `board:${boardId}:view-prefs`,
+          JSON.stringify({ collapsedSwimlaneIds: [1, 2] }),
+        )
+      },
+      { boardId: board.id },
+    )
+    await page.goto(`/boards/${board.id}`)
+    const a = page.getByRole('button', { name: 'Expand Alpha' })
+    const b = page.getByRole('button', { name: 'Expand Bravo' })
+    await expect(a).toBeVisible({ timeout: 10_000 })
+    await expect(b).toBeVisible()
+    await expect(page.getByText(/Health status for lane Alpha/)).toBeAttached()
+    // Measure the label panel (the element carrying the py-1 padding).
+    const panelHeight = async (name: string) =>
+      page
+        .getByRole('button', { name: `Expand ${name}` })
+        .locator('xpath=ancestor::*[contains(@class,"py-1")][1]')
+        .evaluate((el) => el.getBoundingClientRect().height)
+    expect(await panelHeight('Alpha')).toBe(await panelHeight('Bravo'))
+  })
+})

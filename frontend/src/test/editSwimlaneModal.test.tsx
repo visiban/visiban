@@ -22,7 +22,7 @@ function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
     color: '#6B7280',
     position: 0,
     is_collapsed: false,
-    created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
+    created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
     ...overrides,
   }
 }

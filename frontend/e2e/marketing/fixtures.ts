@@ -169,7 +169,7 @@ const lane = (id: number, name: string, position: number, color: string, contact
   wip_limit: null,
   weight_limit: null,
   limit_enforcement: null,
-  limit_column_ids: null,
+  limit_column_ids: null, health_status: null,
 })
 
 /** One swimlane per customer account. */

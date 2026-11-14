@@ -783,6 +783,15 @@ def _limit_enforcement_error(value):
     return 'must be null, "block" or "hard"'
 
 
+def _health_status_error(value):
+    """A swimlane ``health_status`` (#2243): null or a HealthStatus value."""
+    from groups.health import HealthStatus
+
+    if value is None or (isinstance(value, str) and value in HealthStatus.values):
+        return None
+    return 'must be null, "on_track", "at_risk" or "off_track"'
+
+
 def _limit_columns_error(value):
     """A swimlane ``limit_columns`` (#1150): null, or a non-empty list of
     column names; each name is checked against the file's columns later."""
@@ -890,6 +899,8 @@ def _validate_json_import_values(data):
         ("weight_limit", _swimlane_limit_error),
         ("limit_enforcement", _limit_enforcement_error),
         ("limit_columns", _limit_columns_error),
+        # Lane health status (#2243): the manual pin, restored as exported.
+        ("health_status", _health_status_error),
     )
     label_specs = (
         ("name", _text(_field_max_length(Label, "name"))),
@@ -1805,6 +1816,9 @@ class BoardImportExportMixin:
                     wip_limit=sw.get("wip_limit"),
                     weight_limit=sw.get("weight_limit"),
                     limit_enforcement=sw.get("limit_enforcement"),
+                    # Lane health status (#2243); a file from before 1.3
+                    # has no key and imports as "no status".
+                    health_status=sw.get("health_status"),
                     limit_column_ids=(
                         sorted({column_map[name].pk for name in sw["limit_columns"]})
                         if sw.get("limit_columns") else None
@@ -3257,6 +3271,9 @@ class BoardImportExportMixin:
                             [column_names_by_id[pk] for pk in sw.limit_column_ids if pk in column_names_by_id]
                             or None
                         ) if sw.limit_column_ids is not None else None,
+                        # Lane health status (#2243), the manual pin; an
+                        # additive key, last so existing key order holds.
+                        "health_status": sw.health_status,
                     }
                     for sw in swimlanes
                 ],

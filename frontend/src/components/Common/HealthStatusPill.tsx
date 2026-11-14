@@ -18,9 +18,20 @@ interface Props {
   ariaDisabled?: boolean;
   title?: string;
   className?: string;
+  /**
+   * `"lane"` (#2243): tighter padding for the swimlane label panel. Same
+   * hue, shape and word as a board pill; a lane value is never inherited, so
+   * the caller never passes `inheritedFrom` and the border is never dashed.
+   */
+  scope?: "header" | "lane";
+  /** Shape only at every width (the collapsed lane row); the word stays in the accessible name. */
+  shapeOnly?: boolean;
+  /** Screen-reader text before the word. Default `Health status: `. */
+  srPrefix?: string;
 }
 
-const BASE = "inline-flex items-center gap-1.5 min-h-6 px-2 py-0.5 text-xs font-medium rounded-full border shrink-0 max-w-full";
+const BASE = "inline-flex items-center min-h-6 py-0.5 text-xs font-medium rounded-full border shrink-0 max-w-full";
+const SCOPE_SPACING = { header: "gap-1.5 px-2", lane: "gap-1 px-1.5" } as const;
 
 /**
  * A board or group health pill (#1133): tint + shape + word, never color alone.
@@ -31,12 +42,16 @@ const BASE = "inline-flex items-center gap-1.5 min-h-6 px-2 py-0.5 text-xs font-
  * is always inside the name: "Health status: At risk, inherited from Eng".
  */
 const HealthStatusPill = forwardRef<HTMLButtonElement, Props>(function HealthStatusPill(
-  { value, inheritedFrom, collapseLabel, onClick, expanded, busy, ariaDisabled, title, className = "" },
+  {
+    value, inheritedFrom, collapseLabel, onClick, expanded, busy, ariaDisabled, title, className = "",
+    scope = "header", shapeOnly = false, srPrefix = "Health status: ",
+  },
   ref,
 ) {
   const label = healthLabel(value);
   const classes = [
     BASE,
+    SCOPE_SPACING[scope],
     HEALTH_STATUS_STYLES[value],
     inheritedFrom ? "border-dashed" : "",
     onClick ? "focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : "",
@@ -48,9 +63,9 @@ const HealthStatusPill = forwardRef<HTMLButtonElement, Props>(function HealthSta
   ].filter(Boolean).join(" ");
   const content = (
     <>
-      <span className="sr-only">Health status: </span>
+      <span className="sr-only">{srPrefix}</span>
       <HealthStatusShape value={value} />
-      <span className={collapseLabel ? "sr-only md:not-sr-only truncate" : "truncate"}>{label}</span>
+      <span className={shapeOnly ? "sr-only" : collapseLabel ? "sr-only md:not-sr-only truncate" : "truncate"}>{label}</span>
       {inheritedFrom && <span className="sr-only">, inherited from {inheritedFrom}</span>}
     </>
   );

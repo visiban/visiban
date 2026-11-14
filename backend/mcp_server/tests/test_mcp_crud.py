@@ -145,7 +145,7 @@ class ListSwimlanesTests(CrudToolsTestCase):
             set(row),
             {
                 "id", "uid", "name", "position", "color", "card_count", "is_collapsed",
-                "contact_email", "wip_limit", "weight_limit",
+                "contact_email", "wip_limit", "weight_limit", "health_status",
             },
         )
         self.assertEqual(row["uid"], self.swimlane.uid)  # #1974
@@ -162,6 +162,15 @@ class ListSwimlanesTests(CrudToolsTestCase):
             (rows[self.other_swimlane.id]["wip_limit"], rows[self.other_swimlane.id]["weight_limit"]),
             (None, None),
         )
+
+    def test_returns_the_lane_health_status(self):
+        # #2243: read-only, the manual pin or null (no status).
+        self.swimlane.health_status = "at_risk"
+        self.swimlane.save(update_fields=["health_status"])
+        result = self._call("list_swimlanes", self.raw_token, board_id=self.board.id)
+        rows = {r["id"]: r for r in result}
+        self.assertEqual(rows[self.swimlane.id]["health_status"], "at_risk")
+        self.assertIsNone(rows[self.other_swimlane.id]["health_status"])
 
     def test_move_into_a_full_swimlane_is_a_structured_swimlane_error(self):
         # #1150: enforced exactly as over REST, with no override over MCP.

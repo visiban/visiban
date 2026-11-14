@@ -806,6 +806,8 @@ Since 1.3 (#1101), each column object also carries its [policy](#column-policy-s
 
 Since 1.3, each swimlane object also carries its [limits](#swimlane-limits-since-13): `wip_limit`, `weight_limit`, `limit_enforcement`, and `limit_columns`, the names of the columns that count (or `null` for the default, every column not marked done). Names, not ids, because the file keys columns by name and an import creates new ids. All four are additive (`schema_version` stays `2`), and JSON import restores them without enforcing them. A `limit_columns` name that is not one of the file's columns, an empty list, a limit below `1`, or a `limit_enforcement` other than `"block"`, `"hard"` or `null` is a `400`.
 
+Since 1.3 (#2243), each swimlane object also carries its [lane health status](../features/health-status.md#lane-status), `health_status` (`"on_track"`, `"at_risk"`, `"off_track"` or `null` for no status), as the last key. Additive: `schema_version` stays `2`, an older file without the key imports as `null`, and any other value is a `400`.
+
 ```json
 {
   "schema_version": 2,
@@ -1818,6 +1820,7 @@ Swimlane response objects include the following fields:
 | `wip_limit` | integer or null | Since 1.3 (#1150). Maximum number of active cards in the swimlane's counted columns. `null` (the default) means no limit; the minimum is `1`. Every board role receives it. See [Swimlane limits](#swimlane-limits-since-13). |
 | `weight_limit` | integer or null | Since 1.3. Maximum total weight of active cards in the counted columns. `null` means no limit; minimum `1`. |
 | `limit_enforcement` | string or null | Since 1.3. `"block"` (refused with `409`; board admins can override with `?force=true`), `"hard"` (the WIP limit admits no override for any role; the weight limit stays a block), or `null` (the default) to inherit the board's `enforce_wip_limits`, `enforce_wip_hard` and `enforce_weight_limits`, exactly as a column does. A write of `""` is accepted and stored as `null`, so it is never returned. |
+| `health_status` | string or null | Since 1.3 (#2243). The lane's manual [health status](../features/health-status.md#lane-status): `on_track`, `at_risk`, `off_track`, or `null` (the default) for no status. Independent of the board's `health_status`: `null` never inherits the board's value, and a lane's value never rolls up to the board. Every member reads it; only board admins and site admins write it (`403` for other roles, before the body is validated). Any other value returns `400` with `{"health_status": [...]}`. Not on the public share-link payload. |
 | `limit_column_ids` | array of integers or null | Since 1.3. Ids of the board's columns whose cards count toward the swimlane's limits, sorted. `null` (the default) means every column whose `is_done` is `false`. An empty list is refused with `400`. Deleting a column removes its id; a list left empty becomes `null`. |
 
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
@@ -1825,7 +1828,7 @@ Swimlane response objects include the following fields:
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/` / `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
 
-**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2), `wip_limit`, `weight_limit`, `limit_enforcement`, `limit_column_ids` (since 1.3)
+**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2), `wip_limit`, `weight_limit`, `limit_enforcement`, `limit_column_ids`, `health_status` (since 1.3)
 
 A `limit_column_ids` entry that is not a column of this board, whether it exists on another board or not at all, returns `400 Bad Request` with the same message either way. So does one deleted while the request was in flight.
 

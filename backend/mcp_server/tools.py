@@ -749,6 +749,9 @@ def _swimlanes_payload(board, role):
             # The row's own limits (#1150), as list_columns returns wip_limit.
             "wip_limit": s.wip_limit,
             "weight_limit": s.weight_limit,
+            # Lane health status (#2243): read-only here, every role, as
+            # SwimlaneSerializer serves it to every member over REST.
+            "health_status": s.health_status,
         }
         if can_see_contact_email:
             row["contact_email"] = s.contact_email
