@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
@@ -169,7 +169,11 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   // straight down would defeat LensSwimlaneRow's React.memo. The wrappers never
   // change and always call the latest handler through a ref.
   const handlersRef = useRef({ toggleCollapse, enterFocus, exitFocus });
-  handlersRef.current = { toggleCollapse, enterFocus, exitFocus };
+  // Assigned in a layout effect, not during render, so an abandoned concurrent
+  // render can never leave the ref pointing at a stale closure.
+  useLayoutEffect(() => {
+    handlersRef.current = { toggleCollapse, enterFocus, exitFocus };
+  });
   const stableToggleCollapse = useCallback((key: string) => handlersRef.current.toggleCollapse(key), []);
   const stableEnterFocus = useCallback((key: string) => handlersRef.current.enterFocus(key), []);
   const stableExitFocus = useCallback(() => handlersRef.current.exitFocus(), []);
