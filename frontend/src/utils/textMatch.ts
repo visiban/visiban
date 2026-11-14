@@ -39,7 +39,7 @@ export function isRegexOperand(trimmed: string): boolean {
 const MAX_UNBOUNDED = 2;
 const MAX_QUANTIFIERS = 8;
 /** Values are cut to this length before a user regex runs, bounding polynomial cases. */
-const MAX_VALUE = 1000;
+const MAX_VALUE = 200;
 
 /**
  * Reason a regex source is unsafe to run, or null. Walks the source tracking
@@ -62,14 +62,29 @@ export function unsafeRegexReason(src: string): string | null {
     if (c !== "{") return null;
     const m = /^\{(\d+)(,(\d*))?\}/.exec(src.slice(i));
     if (!m) return null;
-    return { len: m[0].length, unbounded: m[2] !== undefined && m[3] === "", repeat: true };
+    // {n,} and any range wider than 3 repeats count as unbounded: a{0,999} is as
+    // dangerous as a*, and a{0,10} chained is polynomial of high degree.
+    const hi = m[2] === undefined ? Number(m[1]) : m[3] === "" ? Infinity : Number(m[3]);
+    return { len: m[0].length, unbounded: hi > 3, repeat: true };
   };
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === "\\") { i++; continue; }
     if (inClass) { if (c === "]") inClass = false; continue; }
     if (c === "[") { inClass = true; continue; }
-    if (c === "(") { stack.push({ quant: false, alt: false }); continue; }
+    if (c === "(") {
+      const g = { quant: false, alt: false };
+      stack.push(g);
+      if (src[i + 1] === "?") {
+        // A group prefix, not a quantifier: skip it. Non-capturing `(?:` and named
+        // `(?<n>` groups are ordinary; lookarounds are kept unrepeatable.
+        const named = /^\(\?<([A-Za-z_$][\w$]*)>/.exec(src.slice(i));
+        if (named) i += named[0].length - 1;
+        else if (src[i + 2] === ":") i += 2;
+        else { g.alt = true; i += 1; }
+      }
+      continue;
+    }
     if (c === "|") { stack[stack.length - 1].alt = true; continue; }
     const q = c === ")" ? null : quantLen(i);
     if (q) {
@@ -85,7 +100,10 @@ export function unsafeRegexReason(src: string): string | null {
       const next = quantLen(i + 1);
       if (next?.repeat && (g.quant || g.alt)) return "Nested quantifiers are not supported";
       // A group that holds a quantifier counts as one for its parent.
-      if (g.quant) stack[stack.length - 1].quant = true;
+      const parent = stack[stack.length - 1];
+      if (g.quant) parent.quant = true;
+      // An alternation anywhere inside still branches the parent's repeats.
+      if (g.alt) parent.alt = true;
     }
   }
   if (unbounded > MAX_UNBOUNDED || total > MAX_QUANTIFIERS) return "Too many repeats in one pattern";

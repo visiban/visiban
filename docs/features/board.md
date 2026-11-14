@@ -512,7 +512,7 @@ The lane filter **contains** rule and the text box of a [text or URL custom fiel
 - **`*`** matches any run of characters, including none. **`?`** matches exactly one character. Wildcards are not anchored: `e*ross` still matches inside a longer value. Every other character, including `.`, `+`, `(`, and `[`, is literal.
 - **`/pattern/`** (starts and ends with a slash, with at least one character between) is a regular expression. It is always case-insensitive. Anchor it yourself with `^` and `$`.
 - **A literal `*` or `?`:** use a regular expression, for example `/\*/` for an asterisk.
-- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`), backreferences (such as `\1`), or more than a few repeat operators (such as `a*a*a*b`) are treated as invalid, and patterns over 500 characters are too. Regular expressions are tested against the first 1,000 characters of a value.
+- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`), backreferences (such as `\1`), or more than two open-ended repeats (such as `a*a*a*b`, or a wide range like `a{0,999}`) are treated as invalid, and patterns over 500 characters are too. Regular expressions are tested against only the first 200 characters of a value, so a `$` anchor cannot match text past that point. Wildcard patterns have no such limit. Non-capturing `(?:...)` and named groups can be repeated like ordinary groups.
 
 | You type | Matches | Doesn't match |
 |---|---|---|
@@ -525,6 +525,8 @@ The lane filter **contains** rule and the text box of a [text or URL custom fiel
 
 !!! note
     A `*` or `?` already typed into a **contains** value before 1.3 now acts as a wildcard. The board search box is not affected: it still matches literal text.
+
+    Card text and URL filters also changed slightly: a query of only spaces is now inactive (it used to filter on the spaces), queries and card values are trimmed before matching, a saved or shared query longer than 500 characters is invalid and ignored, and a saved query that starts and ends with `/` (for example `/usr/`) is now read as a regular expression.
 
 #### URL-serialized filter state
 

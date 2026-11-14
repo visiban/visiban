@@ -76,7 +76,7 @@ describe('compileTextMatcher (#2227)', () => {
   })
 
   it('rejects nested quantifiers and backreferences instead of running them', () => {
-    for (const p of ['/(a+)+$/', '/(a*)*/', '/(a|aa)+/', '/(a+){2,}/', '/((a+))+/', '/(x+x+)+y/', '/(?:a*){30}b/', '/(a|a){30}b/', '/a*a*a*a*b/', '/(a+)?(a+)?(a+)?(a+)?(a+)?b/', '/(a)\\1/', '/(?<n>a)\\k<n>/']) {
+    for (const p of ['/(a+)+$/', '/(a*)*/', '/(a|aa)+/', '/(a+){2,}/', '/((a+))+/', '/(x+x+)+y/', '/(?:a*){30}b/', '/((a|aa))+$/', '/(x(a|b)y)+/', '/(?:(a|b))*/', '/(?=a)*/', '/(a{0,999}){1}b/', '/a{0,999}a{0,999}a{0,999}b/', '/(a|a){30}b/', '/a*a*a*a*b/', '/(a+)?(a+)?(a+)?(a+)?(a+)?b/', '/(a)\\1/', '/(?<n>a)\\k<n>/']) {
       expect(compileTextMatcher(p).kind, p).toBe('invalid')
     }
     // The classic catastrophic input would hang if it ran; it is rejected up front.
@@ -86,7 +86,7 @@ describe('compileTextMatcher (#2227)', () => {
   })
 
   it('allows safe groups and escaped or class-bound quantifier characters', () => {
-    for (const p of ['/(ab)+/', '/(a|b)/', '/(a+)?/', '/(a+)/', '/[(+]+/', '/\\(a+\\)+/', '/(a){3}/']) {
+    for (const p of ['/(ab)+/', '/(a|b)/', '/(a+)?/', '/(a+)/', '/[(+]+/', '/\\(a+\\)+/', '/(a){3}/', '/(?:ab)+/', '/(?<n>ab)+/', '/(?:a|b)/', '/(?:a|b)?c/']) {
       expect(compileTextMatcher(p).kind, p).toBe('ok')
     }
     expect(unsafeRegexReason('a+b*')).toBeNull()
@@ -99,10 +99,32 @@ describe('compileTextMatcher (#2227)', () => {
     expect(Date.now() - start).toBeLessThan(2000)
   })
 
-  it('bounds regex runtime by capping the tested value', () => {
+  it('caps the tested value so surviving quadratic patterns stay fast', () => {
+    // a*a*b is accepted (two unbounded repeats) but quadratic: only the first 200
+    // characters are tested, so a hostile 100k value is cheap. Fails if the cap goes.
     const start = Date.now()
     expect(t('/a*a*b/', 'a'.repeat(100000))).toBe(false)
-    expect(Date.now() - start).toBeLessThan(2000)
+    expect(Date.now() - start).toBeLessThan(100)
+    // `$` cannot match past the cap.
+    expect(t('/b$/', 'a'.repeat(300) + 'b')).toBe(false)
+  })
+
+  it('every known hostile pattern is rejected or finishes fast on a hostile value', () => {
+    const hostile: [string, string][] = [
+      ['/((a|aa))+$/', 'a'.repeat(40) + 'b'],
+      ['/(x(a|b)y)+/', 'xay'.repeat(30) + 'z'],
+      ['/(?:(a|b))*/', 'ab'.repeat(30) + 'c'],
+      ['/a{0,999}a{0,999}a{0,999}a{0,999}a{0,999}a{0,999}a{0,999}a{0,999}b/', 'a'.repeat(300)],
+      ['/a*a*b/', 'a'.repeat(1000)],
+      ['/(a*)(a*)x/', 'a'.repeat(1000)],
+      ['/^(a+)+$/', 'a'.repeat(40) + 'b'],
+    ]
+    for (const [p, v] of hostile) {
+      const start = Date.now()
+      const m = compileTextMatcher(p)
+      if (m.kind === 'ok') m.test(v)
+      expect(Date.now() - start, p).toBeLessThan(100)
+    }
   })
 
   it('rejects an operand over the 500-character cap', () => {
