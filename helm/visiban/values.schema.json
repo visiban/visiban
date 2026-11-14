@@ -387,7 +387,15 @@
                 "storageClass": { "type": "string" }
               }
             },
-            "resources": { "type": "object" }
+            "resources": { "type": "object" },
+            "maxmemory": {
+              "description": "Valkey memory ceiling (for example 128mb). Empty string removes the ceiling.",
+              "type": "string"
+            },
+            "maxmemoryPolicy": {
+              "description": "Valkey eviction policy applied when maxmemory is reached. Defaults to volatile-lru.",
+              "type": "string"
+            }
           }
         },
         "commonConfiguration": {

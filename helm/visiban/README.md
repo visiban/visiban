@@ -104,6 +104,8 @@ Helm install silently changed Valkey major on any pod reschedule (#1200).
   `REDIS_CACHE_URL` are unchanged across the upgrade.
 - Valkey holds only the Channels layer and the Django cache, so the upgrade's
   pod replacement loses nothing that is not rebuilt on its own.
+- `valkey.primary.maxmemory` (default `128mb`; empty removes the ceiling) and
+  `valkey.primary.maxmemoryPolicy` (default `volatile-lru`) bound Valkey's memory.
 - `valkey.architecture=replication` and a Bitnami `valkey.image` fail the
   render with an explanation rather than being ignored. Other Bitnami-only keys
   are no longer read.
