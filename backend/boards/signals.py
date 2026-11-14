@@ -88,6 +88,9 @@ swimlane_custom_field_value_changed = Signal()
 #               English out of ``verb``. Keys currently populated:
 #                 mentioned  → source ("comment"|"description"),
 #                              comment_id, comment_body (comment source only)
+#                 assigned   → previous_assignee_name; a checklist-item
+#                              assignment (#2196) adds checklist_item_id and
+#                              checklist_item_text
 #                 card_moved → from_column_name, to_column_name
 #                 due_soon   → due_date (ISO date string)
 #                 comment_added → comment_id, comment_body

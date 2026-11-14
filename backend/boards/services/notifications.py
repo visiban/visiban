@@ -139,6 +139,62 @@ def create_notifications(notifications, *, context=None):
     return created
 
 
+# Room for the checklist item's text in a checklist-assignment verb (#2196).
+# The card title gets the rest of ``Notification.verb``; quoted_card_verb clips.
+_CHECKLIST_ITEM_VERB_ROOM = 120
+
+
+def notify_checklist_item_assigned(*, item, card, board, actor, previous_assignee):
+    """Notify a checklist item's new assignee that it was assigned to them (#2196).
+
+    The same event as a card assignment, so it uses the card-assignment
+    notification and its preferences: ``action_type`` ``assigned``, gated on the
+    recipient's ``notif_card_assigned`` (and so, in the email sender,
+    ``email_notif_card_assigned``). A second preference pair would make one
+    "tell me when I'm given work" decision two toggles that could disagree.
+
+    Sends nothing when the assignee did not change, when the item was
+    unassigned, or when the actor assigned themselves. The assignee is already
+    limited to the board's assignable members by ``CardChecklistSerializer``,
+    and ``create_notifications`` drops inactive recipients.
+
+    Call it inside the write's transaction *after* the ``card.updated``
+    broadcast is recorded: on_commit callbacks run in registration order, and
+    the board's other clients should not wait behind notification delivery
+    (same ordering as ``services.cards.update_card``).
+    """
+    recipient = item.assignee
+    if recipient is None:
+        return []
+    if previous_assignee is not None and previous_assignee.pk == recipient.pk:
+        return []
+    if actor is not None and recipient.pk == actor.pk:
+        return []
+    if not recipient.notif_card_assigned:
+        return []
+    return create_notifications(
+        [
+            Notification(
+                recipient=recipient,
+                actor=actor,
+                action_type=Notification.ActionType.ASSIGNED,
+                verb=quoted_card_verb(
+                    "You were assigned a checklist item on",
+                    card.title,
+                    f': "{clip_text(item.text, _CHECKLIST_ITEM_VERB_ROOM)}"',
+                ),
+                card=card,
+                board=board,
+            )
+        ],
+        context={
+            "previous_assignee_name": previous_assignee.username if previous_assignee else "",
+            "checklist_item_id": item.pk,
+            "checklist_item_text": item.text,
+        },
+    )
+
+
 def dispatch_created_notifications(notifications, context):
     """Deliver ``notifications`` and announce them. Runs after commit.
 

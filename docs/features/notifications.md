@@ -49,6 +49,16 @@ When someone else assigns a card to you, you receive a notification:
 
 > "You were assigned to "\{card title\}""
 
+New in 1.3: assigning you a checklist item notifies you the same way, under the
+same **Card assigned to me** preference (in-app, and email when you turned email on
+for it):
+
+> "You were assigned a checklist item on "\{card title\}": "\{item text\}""
+
+Assigning yourself sends nothing, and neither does unassigning, changing an item's
+due date, or saving an item whose assignee did not change. Long card titles and
+item text are shortened to fit.
+
 ## @mention notifications
 
 Typing `@username` in a card comment **or description** notifies the mentioned user:

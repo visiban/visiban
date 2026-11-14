@@ -30,7 +30,9 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
-from ..services.notifications import card_watcher_ids, create_notifications, quoted_card_verb
+from ..services.notifications import (
+    card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
+)
 from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
@@ -1987,6 +1989,10 @@ class CardViewSet(viewsets.ModelViewSet):
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            # After the broadcast on purpose (#2196): see notify_checklist_item_assigned.
+            notify_checklist_item_assigned(
+                item=item, card=card, board=board, actor=request.user, previous_assignee=None,
+            )
         return Response(CardChecklistSerializer(item, context={"board": board}).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -2054,6 +2060,10 @@ class CardViewSet(viewsets.ModelViewSet):
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            # After the broadcast on purpose (#2196): see notify_checklist_item_assigned.
+            notify_checklist_item_assigned(
+                item=item, card=card, board=board, actor=request.user, previous_assignee=old_assignee,
+            )
         return Response(serializer.data)
 
     @extend_schema(
