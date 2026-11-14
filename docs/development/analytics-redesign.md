@@ -98,6 +98,8 @@ These come from the flow-metric ADR (#1532) and `backend/boards/services/flow_me
 | Weekly throughput median | the API returns one | withheld, with the reason |
 | Bottleneck | a column's queue grew over the period | "No bottleneck" or "Too early to say" |
 
+**Naming the threshold:** a tile or a Swimlanes row may name the card count at which a value appears ("appears at 7"). A chart note names no number, as the ADR requires.
+
 **Where the sample size shows:** on the Cycle time tile; in each chart's notes, as `ChartPanel` does today ("102 cards."); and as the "finished" count on each Swimlanes row.
 
 ## How work flows
@@ -194,7 +196,7 @@ Charts stay one hue. A breakdown never colors marks by group.
 | Time blocked | A bar and "N% of elapsed time" |
 | Counts | Cards in progress and cards finished |
 
-- **Status** compares the swimlane's median with the board median: "Slower than the board" when more than 15% above, "Faster than the board" when more than 15% below, otherwise "In line with the board". The 15% is a proposed threshold for `architect` to confirm.
+- **Status** compares the swimlane's median with the board median: "Slower than the board" when more than 15% above, "Faster than the board" when more than 15% below, otherwise "In line with the board". The 15% is a proposed threshold for `architect` to confirm. The artboard source hard-codes 13 and 10 days for its sample data; the 15% rule governs.
 - **Trend** compares the first and last rolling medians in the period with the same 15% threshold: "Slower, A to B days", "Faster, A to B days" or "Steady".
 - **Bar scale** is shared by every row and runs from 0 to the largest 85th percentile on the page, rounded up to a round number. The board-median tick sits on that scale.
 - A swimlane with fewer than five finished cards shows no median, no bar and no trend. Its cycle-time text says how many cards have finished and its trend text is "Not enough cards".
