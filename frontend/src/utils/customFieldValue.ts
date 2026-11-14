@@ -504,32 +504,20 @@ function dayInTimeZone(now: Date, timeZone: string): string {
 }
 
 /**
- * A stored date value as a UTC day number, or `null`. Defensive on purpose:
- * the server keeps a date as typed once Python's `date.fromisoformat`
- * accepts it, which on 3.11+ includes `20260101` and ISO week dates
- * (`2026-W01-1`, `2026W011`) as well as `YYYY-MM-DD` (#2218). Anything
- * else, or an impossible calendar date, is `null` (no mark).
+ * A stored date value as a UTC day number, or `null`. The server stores
+ * every date value as `YYYY-MM-DD` (#2218: canonicalized on write, and
+ * existing rows rewritten by a data migration), so that is the only form
+ * read here. Anything else, or an impossible calendar date, is `null`
+ * (no mark).
  */
 function utcDayOf(raw: string): number | null {
-  const t = raw.trim();
-  let m = /^(\d{4})-?(\d{2})-?(\d{2})$/.exec(t);
-  if (m) {
-    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-    const ms = Date.UTC(y, mo - 1, d);
-    const back = new Date(ms);
-    if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
-    return ms / DAY_MS;
-  }
-  m = /^(\d{4})-?W(\d{2})-?([1-7])$/.exec(t);
-  if (m) {
-    const [y, week, weekday] = [Number(m[1]), Number(m[2]), Number(m[3])];
-    if (week < 1 || week > 53) return null;
-    // ISO week 1 is the week holding 4 January; its Monday anchors the rest.
-    const jan4 = Date.UTC(y, 0, 4) / DAY_MS;
-    const jan4Weekday = new Date(jan4 * DAY_MS).getUTCDay() || 7;
-    return jan4 - (jan4Weekday - 1) + (week - 1) * 7 + (weekday - 1);
-  }
-  return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const ms = Date.UTC(y, mo - 1, d);
+  const back = new Date(ms);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
+  return ms / DAY_MS;
 }
 
 /**
