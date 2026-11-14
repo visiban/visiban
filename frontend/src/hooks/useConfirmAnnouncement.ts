@@ -23,10 +23,22 @@ import { useEffect, useRef } from "react";
  */
 const REGION_ATTR = "data-confirm-announcer";
 
+// Which prompt currently owns each region's text (a WeakMap, not a DOM expando).
+const owners = new WeakMap<HTMLElement, symbol>();
+
+/**
+ * The region for the topmost open `aria-modal` dialog, else the page's. A screen
+ * reader that honors `aria-modal` may ignore a live region outside the active
+ * dialog, so a prompt opened inside a modal needs its region inside that modal.
+ */
 function ensureRegion(): HTMLElement | null {
   if (typeof document === "undefined") return null;
-  const existing = document.querySelector<HTMLElement>(`[${REGION_ATTR}]`);
-  if (existing?.isConnected) return existing;
+  const modals = document.querySelectorAll<HTMLElement>('[aria-modal="true"]');
+  const container = modals.length > 0 ? modals[modals.length - 1] : document.body;
+  const existing = Array.from(container.children).find(
+    (c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute(REGION_ATTR),
+  );
+  if (existing) return existing;
   const el = document.createElement("div");
   el.setAttribute(REGION_ATTR, "");
   el.setAttribute("aria-live", "polite");
@@ -35,8 +47,13 @@ function ensureRegion(): HTMLElement | null {
   // outside React so it cannot take the class from a component.
   el.style.cssText =
     "position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0";
-  document.body.appendChild(el);
+  container.appendChild(el);
   return el;
+}
+
+/** Create the page-level region at app boot so it exists before any prompt opens. */
+export function mountConfirmAnnouncer(): void {
+  ensureRegion();
 }
 
 export function useConfirmAnnouncement(message: string | null): void {
@@ -52,13 +69,12 @@ export function useConfirmAnnouncement(message: string | null): void {
     const region = ensureRegion();
     if (!region) return;
     const me = owner.current;
+    owners.set(region, me);
     region.textContent = message;
-    (region as HTMLElement & { _owner?: symbol })._owner = me;
     return () => {
-      const r = region as HTMLElement & { _owner?: symbol };
-      if (r._owner === me) {
-        r.textContent = "";
-        r._owner = undefined;
+      if (owners.get(region) === me) {
+        region.textContent = "";
+        owners.delete(region);
       }
     };
   }, [message]);

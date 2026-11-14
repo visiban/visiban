@@ -11,6 +11,16 @@ function Host({ message }: { message: string | null }) {
 const region = () => document.querySelector('[data-confirm-announcer]') as HTMLElement | null
 
 describe('useConfirmAnnouncement (#1435)', () => {
+  it('mounts its region inside the topmost aria-modal dialog so modal-scoped AT reads it', () => {
+    const dialog = document.createElement('div')
+    dialog.setAttribute('aria-modal', 'true')
+    document.body.appendChild(dialog)
+    const { rerender } = render(<Host message={null} />)
+    rerender(<Host message="Remove it?" />)
+    expect(dialog.querySelector('[data-confirm-announcer]')?.textContent).toBe('Remove it?')
+    dialog.remove()
+  })
+
   it('mounts an empty, persistent polite region before any prompt opens', () => {
     render(<Host message={null} />)
     const el = region()

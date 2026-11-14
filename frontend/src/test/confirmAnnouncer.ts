@@ -1,4 +1,6 @@
-/** Text currently held by useConfirmAnnouncement's persistent live region (#1435). */
+/** Text currently held by useConfirmAnnouncement's live region(s) (#1435). */
 export function announced(): string {
-  return document.querySelector('[data-confirm-announcer]')?.textContent ?? ''
+  return Array.from(document.querySelectorAll('[data-confirm-announcer]'))
+    .map((el) => el.textContent ?? '')
+    .join('')
 }
