@@ -114,8 +114,11 @@ WT_STASH_NS="refs/wt-stash"
 WT_E2E_PORT_BASE="${WT_E2E_PORT_BASE:-15173}"
 WT_E2E_PORT_SPAN="${WT_E2E_PORT_SPAN:-800}"
 
-# Default branch = origin/HEAD target, falling back to main.
-DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
+# Default branch = origin/HEAD target, falling back to main. `|| true`: with no
+# origin/HEAD ref (older git does not create one on fetch) symbolic-ref exits 1,
+# and under `set -e -o pipefail` that would abort the whole script before the
+# fallback below runs (#2189).
+DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 
 # Dev-dep dirs to symlink from each new worktree back to the main checkout.
