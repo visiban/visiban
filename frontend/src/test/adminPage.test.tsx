@@ -1197,6 +1197,7 @@ describe('AdminPage — Escape key', () => {
     fireEvent.click(screen.getByText('Invite Links'))
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
+    expect(announced()).toBe('Revoke this invite link? Anyone holding it will no longer be able to join.')
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()

@@ -82,7 +82,11 @@ for (const scheme of ['light', 'dark'] as const) {
       const lighter = cellOf(page, 'Doing one')
       await expect(lighter.getByRole('img', { name: /^Card count: 1 card, level \d of 4$/ })).toHaveText('1')
       // A cell with no cards has no reading at all.
-      await expect(cellOf(page, 'Doing one').getByRole('img')).toHaveCount(1)
+      // The Done cell holds no cards: of the three cells, only Todo and Doing carry a reading.
+      const cells = page.locator('[data-board-cell]')
+      await expect(cells).toHaveCount(3)
+      await expect(cells.filter({ has: page.getByRole('img', { name: /^Card count:/ }) })).toHaveCount(2)
+      await expect(cells.filter({ hasNot: page.getByText(/^(Todo|Doing) /) }).getByRole('img')).toHaveCount(0)
 
       await pickOverlay(page, 'None')
       await expect(page.getByRole('img', { name: /^Card count:/ })).toHaveCount(0)

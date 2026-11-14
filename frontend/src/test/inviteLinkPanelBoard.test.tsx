@@ -199,6 +199,7 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     const prompt = screen.getByText('Revoke this invite? The person it was emailed to will no longer be able to join.')
     expect(prompt.parentElement).toHaveAttribute('role', 'status')
     expect(prompt.parentElement).toHaveAttribute('aria-live', 'polite')
+    expect(announced()).toBe(prompt.textContent)
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(mockRevoke).toHaveBeenCalledWith(9, 1)
     expect(await screen.findByRole('button', { name: 'Show past invites (1)' })).toBeInTheDocument()

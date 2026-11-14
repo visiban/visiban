@@ -36,6 +36,7 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 import SettingsPage from '../pages/SettingsPage'
+import { announced } from './confirmAnnouncer'
 import type { User } from '../types'
 
 const fakeUser: User = {
@@ -325,6 +326,7 @@ describe('AccessTokensTab', () => {
     await switchToAccessTokensTab()
     await userEvent.click(await screen.findByRole('button', { name: `Revoke ${token1.name}` }))
     expect(screen.getByText(/Anything using this token will lose access/)).toBeInTheDocument()
+    expect(announced()).toBe(`Revoke ${token1.name}? Anything using this token will lose access.`)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/Anything using this token will lose access/)).not.toBeInTheDocument()
     expect(mockNavigate).not.toHaveBeenCalled()

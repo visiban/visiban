@@ -99,16 +99,6 @@ export default function WebhookDetail(props: Props) {
   const changeAddressRef = useRef<HTMLButtonElement>(null);
   const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
-  useConfirmAnnouncement(
-    confirm === null
-      ? null
-      : {
-          disable: "Turn off this webhook? Visiban stops sending to this address until an admin turns it back on.",
-          delete: "Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.",
-          reenable: reenableConfirmCopy(sub),
-          rotate: "Rotate the secret? Choose what happens to the current one.",
-        }[confirm],
-  );
   // One entry per action, not one slot: a test send finishing must not re-arm a
   // rotate still running, which would let a second rotate replace its secret.
   const [inFlight, setInFlight] = useState<ReadonlySet<InFlightKind>>(() => new Set());
@@ -165,6 +155,19 @@ export default function WebhookDetail(props: Props) {
   const reason = disabledReasonCopy(sub, status.disable_after_failures);
   const takeOver = sub.disabled_reason === "creator_lost_access";
   const expired = sub.disabled_reason === "cursor_expired" || expiredOnServer;
+  // One string feeds both the visible prompt and the announcement, so a screen
+  // reader user hears exactly what a sighted user reads.
+  const reenablePrompt = expired && !takeOver ? reenableConfirmCopy({ ...sub, disabled_reason: "cursor_expired" }) : reenableConfirmCopy(sub);
+  useConfirmAnnouncement(
+    confirm === null
+      ? null
+      : {
+          disable: "Turn off this webhook? Visiban stops sending to this address until an admin turns it back on.",
+          delete: "Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.",
+          reenable: reenablePrompt,
+          rotate: "Rotate the secret? Choose what happens to the current one.",
+        }[confirm],
+  );
 
   const handle = async (kind: InFlightKind, fn: () => Promise<void>, fail: (err: unknown) => void) => {
     setInFlight((prev) => new Set(prev).add(kind));
@@ -323,7 +326,7 @@ export default function WebhookDetail(props: Props) {
           {sub.disabled_reason !== "secret_unavailable" && (confirm === "reenable" ? (
             <div role="group" aria-labelledby={`${uid}-reenable`} className="flex flex-col gap-2 border-t border-warning/40 pt-2.5 mt-1">
               <p id={`${uid}-reenable`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
-                {expired && !takeOver ? reenableConfirmCopy({ ...sub, disabled_reason: "cursor_expired" }) : reenableConfirmCopy(sub)}
+                {reenablePrompt}
               </p>
               {takeOver && currentUserHasPassword && (
                 <div className="flex flex-col gap-1">

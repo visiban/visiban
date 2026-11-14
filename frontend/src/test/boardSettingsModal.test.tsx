@@ -410,7 +410,9 @@ describe('BoardSettingsModal — Members tab', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} />)
 
     await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
-    expect(announced()).toBe('Enable hard mode? No one, including admins, will be able to bypass WIP limits.')
+    // The announcement must equal the prompt a sighted user reads.
+    const visible = screen.getByText(/^Enable hard mode\?/)
+    expect(announced()).toBe(visible.textContent)
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()

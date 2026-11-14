@@ -101,7 +101,10 @@ export default function JoinPage({ user }: Props) {
         .finally(() => setLoading(false));
       return;
     }
-    GROUP_INVITE.resolve(token)
+    // Resolve through the table so a kind added to INVITE_KINDS is previewed by
+    // its own endpoint, not silently by the group one (#1491). Only the group
+    // payload shape is handled here; a new kind needs its own branch above.
+    (inviteKindOf(token).resolve as typeof GROUP_INVITE.resolve)(token)
       .then((data) => {
         setGroupName(data.group_name);
         setGroupId(data.group_id);

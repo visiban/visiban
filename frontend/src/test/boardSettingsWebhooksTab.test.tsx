@@ -454,6 +454,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(screen.getByText(/Events from the gap won't be sent/)).toBeInTheDocument()
+    expect(announced()).toBe(screen.getByText(/Events from the gap won't be sent/).textContent)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(m.reenable).toHaveBeenLastCalledWith(3, 1, 'latest', undefined)
 
@@ -462,6 +463,8 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/can only resume with new events/)
+    // After the server's 409 the visible prompt swaps to the expired copy; the announcement follows it.
+    expect(announced()).toBe(screen.getByText(/Events from the gap won't be sent/).textContent)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(m.reenable).toHaveBeenLastCalledWith(3, 2, 'latest', undefined)
   })

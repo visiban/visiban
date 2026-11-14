@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import JoinPage from '../pages/JoinPage'
 import type { User } from '../types'
+import { INVITE_KINDS, type InviteKind } from '../api/inviteKinds'
 
 vi.mock('../api/groups', () => ({
   resolveJoinToken: vi.fn(),
@@ -57,6 +58,19 @@ describe('JoinPage', () => {
 
   afterEach(() => {
     sessionStorage.clear()
+  })
+
+  it('previews a token through its own kind\'s resolve, not the group endpoint (#1491)', async () => {
+    const resolve = vi.fn().mockResolvedValue({ group_name: 'Via new kind', group_id: 9, can_register: false })
+    const extra: InviteKind = { name: 'group', prefix: 'vbnx_', resolve, join: vi.fn().mockResolvedValue({ path: '/', state: {} }) }
+    ;(INVITE_KINDS as InviteKind[]).push(extra)
+    try {
+      renderJoinPage(null, 'vbnx_tok')
+      await waitFor(() => expect(resolve).toHaveBeenCalledWith('vbnx_tok'))
+      expect(mockResolveJoinToken).not.toHaveBeenCalled()
+    } finally {
+      ;(INVITE_KINDS as InviteKind[]).pop()
+    }
   })
 
   it('shows loading state initially', () => {

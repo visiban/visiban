@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import BoardSettingsFieldsTab from "../components/Board/BoardSettingsFieldsTab";
 import type { BoardFull, CustomFieldDefinition, User } from "../types";
 import * as boardsApi from "../api/boards";
+import { announced } from "./confirmAnnouncer";
 
 vi.mock("../api/boards", () => ({
   createCustomFieldDefinition: vi.fn(),
@@ -582,6 +583,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       await user.click(screen.getByTitle("Edit Sprint"));
       expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /# Number/ }));
+      expect(announced()).toMatch(/^If cards already have values for this field, the save will be refused\./);
       await user.click(screen.getByRole("button", { name: "Change type" }));
       await user.click(screen.getByRole("button", { name: "Save field" }));
       const reason = await screen.findByText(LOCK_RE);
