@@ -507,13 +507,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // non-interactive chips, the same opt-in shape as onSelect above.
   const pinnedFields = customFieldDefinitions.filter((d) => d.show_on_card).sort((a, b) => a.position - b.position);
   const quickEditEnabled = !readOnly && boardId !== undefined && !!onCardUpdated;
-  // Empty-value handling (#371 ux-design spec §2): comfortable/standard omit
-  // an unset pinned field entirely; dense renders a ghost placeholder, so an
-  // empty field still counts toward "is there anything in this row" at dense.
-  const hasVisibleCustomFieldChips = pinnedFields.some((d) => {
+  // Whether quick edit can set this field from the card face (#371).
+  const isQuickEditable = (d: CustomFieldDefinition) =>
+    quickEditEnabled && (d.field_type === "checkbox" || d.field_type === "dropdown");
+  // Empty-value handling: dense renders a ghost for every unset pinned
+  // field; comfortable/standard render one only for a quick-editable field
+  // (#2193, superseding the #371 §2 "omit entirely" rule, which left a
+  // cleared dropdown or checkbox with no way back from the card face). A
+  // ghost counts toward "is there anything in this row", like a set chip.
+  const showsPinnedChip = (d: CustomFieldDefinition) => {
     const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
-    return (v && v.value !== "") || density === "dense";
-  });
+    return (v && v.value !== "") || density === "dense" || isQuickEditable(d);
+  };
+  const hasVisibleCustomFieldChips = pinnedFields.some(showsPinnedChip);
 
   const commitCustomFieldValue = async (fieldId: number, value: string) => {
     if (boardId === undefined || !onCardUpdated) return;
@@ -946,16 +952,20 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {pinnedFields.map((def) => {
                   const entry = card.custom_field_values.find((v) => v.field_definition === def.id);
                   const populated = entry && entry.value !== "";
-                  const editableType = def.field_type === "checkbox" || def.field_type === "dropdown";
-                  const interactive = quickEditEnabled && editableType;
+                  const interactive = isQuickEditable(def);
 
                   if (!populated) {
-                    // Empty-value handling (§2): comfortable/standard omit
-                    // entirely; dense shows a dashed ghost. Checkbox/dropdown
-                    // ghosts stay clickable (there's just nothing set yet —
-                    // clicking still opens the same toggle/popover as a
-                    // populated chip); text/number/date ghosts are inert.
-                    if (density !== "dense") return null;
+                    // Empty-value handling (`showsPinnedChip`, #2193): dense
+                    // shows a dashed ghost for every type; comfortable and
+                    // standard show one only where quick edit can set the
+                    // value, since a text/number/date ghost there would be
+                    // inert clutter with no card-face path to act on.
+                    // Checkbox/dropdown ghosts open the same toggle/popover
+                    // as a set chip. The server pin cap (PIN_CAP) bounds how
+                    // many ghosts a card can add. From an unset state the
+                    // checkbox label names the outcome ("set it to Yes"),
+                    // not a vague "toggle".
+                    if (!showsPinnedChip(def)) return null;
                     return (
                       <span
                         key={def.id}
@@ -976,7 +986,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                             setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
                           }
                         } : undefined}
-                        aria-label={interactive ? `${def.name}: not set. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                        aria-label={interactive ? `${def.name}: not set. Press Enter to ${def.field_type === "checkbox" ? "set it to Yes" : "edit"}.` : undefined}
                         className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line overflow-hidden min-w-[3.5rem] max-w-[10rem] text-fg-tertiary ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                         title={`${def.name}: not set`}
                       >

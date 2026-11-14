@@ -97,7 +97,12 @@ Pinned values render as small bordered chips in the card's metadata row, alongsi
 - **Multi-select:** up to two picks as small chips, with a `+N` marker for the rest (hover it to see them all).
 - **Long values:** truncated with an ellipsis; hover the chip for the full value.
 
-**Unset pinned fields:** hidden at **Comfortable** and **Standard** card density (see [Card density](board.md#card-density)) to keep the face uncluttered. At **Dense** density they show as a dashed "ghost" chip, so power users always see the full set of pinned fields.
+**Unset pinned fields:** a pinned field with no value shows as a dashed "ghost" chip (the field name and a dash) instead of disappearing:
+
+- **Checkbox and dropdown** fields show the ghost at every [card density](board.md#card-density) when you can edit the board. Click it, or focus it and press Enter, to set the value straight from the card, the same as a chip that has one. Clearing a pinned dropdown with **— No value —** leaves its ghost on the card, so you can pick a value again without opening the card.
+- **Other types** (text, number, date, URL, multi-select) show the ghost only at **Dense** density, so power users always see the full set of pinned fields. At **Comfortable** and **Standard** they stay hidden until they have a value, because they are set from the card detail, not the card face.
+
+*Changed in 1.3:* before 1.3, an unset checkbox or dropdown was hidden at Comfortable and Standard density too, so clearing one removed it from the card face.
 
 ### Quick edit from the card face
 
