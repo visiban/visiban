@@ -42,6 +42,7 @@ export default function ThresholdFields({ isDate, draft, onChange }: Props) {
           <label key={d.value || "off"} className="inline-flex items-center gap-1.5 text-sm text-fg-secondary">
             <input
               type="radio"
+              className="accent-primary"
               name={`${id}-direction`}
               value={d.value}
               checked={draft.direction === d.value}
