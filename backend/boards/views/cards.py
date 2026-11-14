@@ -705,6 +705,21 @@ class CardViewSet(viewsets.ModelViewSet):
             return Response(exc.body(), status=exc.status)
         return super().handle_exception(exc)
 
+    def create(self, request, *args, **kwargs):
+        """POST: the mutation-role check runs before the body is validated (#2191).
+
+        DRF validates the serializer before ``perform_create``, so a viewer
+        sending an invalid body got a ``400`` naming the bad fields where a valid
+        body gets ``403``. Mirrors ``update``: the rule stays in the service, only
+        the ordering is the adapter's concern. The board and role are cached per
+        request, so this adds no query, and the check takes no lock, so the
+        card-create lock order inside ``create_card`` is unchanged. A caller with
+        no access still gets the ``404`` from ``_board_and_role``.
+        """
+        board, role = self._board_and_role()
+        card_services.require_mutation_role(actor=request.user, board=board, role=role)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         result = card_services.create_card(
