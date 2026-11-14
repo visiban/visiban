@@ -4688,6 +4688,14 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
   body such as <code>.then(() =&gt; setTimeout(...))</code>, or <code>void setTimeout(...)</code>) with a delay other
   than a literal <code>0</code>. It doesn't catch a stored id that's never cleared, so review still has
   to look for the cleanup.</li>
+<li>[ ] <strong>No interaction loop that can outlive its test (#2177).</strong> Vitest does not cancel a
+  timed-out test's body: a <code>for</code> loop of <code>await user.tab()</code> (or any <code>user.*</code> call) keeps
+  dispatching keys on <code>document.activeElement</code> after the timeout, into whatever test runs
+  next, and that test fails on both attempts because the retry's loop leaks too. Stop such a
+  loop on its own goal <em>and</em> on its test's teardown: <code>panel.isConnected</code> in the loop condition
+  ends it once cleanup unmounts the panel (see the focus-trap Move-popover test in
+  <code>cardDetail.test.tsx</code>). The victim is usually a later test whose portaled menu closes on
+  Tab, not the loop's own test.</li>
 </ul>
 <h2 id="writing-tests-that-catch-mutations">Writing tests that catch mutations<a class="headerlink" href="#writing-tests-that-catch-mutations" title="Permanent link">&para;</a></h2>
 <p>A test that only checks <code>status_code == 200</code> or <code>assertTrue(result)</code> passes when the code under it is wrong. The <a href="../mutation-testing/">mutation baseline</a> shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from <code>backend/boards/tests/</code>.</p>
