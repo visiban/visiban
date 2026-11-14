@@ -199,6 +199,17 @@ function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onP
       ref={popoverRef}
       role="dialog"
       aria-label={`Color for ${choice}`}
+      // A press on a non-focusable part of the popover (the padding, the
+      // "Automatic" label) would move focus to the nearest focusable ancestor,
+      // the settings modal's tabIndex=-1 dialog, and the wrapper's blur would
+      // close the popover. Only a control INSIDE the popover keeps its own
+      // focus behavior: closest() also climbs past the popover, so an unscoped
+      // match would find that ancestor and let the press through again
+      // (#2240, the #2224 guard in ColorSwatchPicker).
+      onMouseDown={(e) => {
+        const control = (e.target as Element).closest("input,button,select,textarea,[tabindex]");
+        if (!control || !e.currentTarget.contains(control)) e.preventDefault();
+      }}
       className={`absolute left-0 ${above ? "bottom-full mb-1" : "top-full mt-1"} z-20 w-max bg-surface border border-line-strong rounded-lg shadow-xl p-2`}
     >
       <p className="text-xs text-fg-muted mb-1.5">{current ? choiceColorName(current) : "Automatic"}</p>
