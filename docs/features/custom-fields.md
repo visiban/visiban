@@ -220,13 +220,17 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 
 | Field type | Filter behavior |
 |---|---|
-| Text | Substring match |
+| Text | Substring match; `*` / `?` wildcards and `/regex/` patterns since 1.3 (see below) |
 | Number | Exact value match |
 | Date | Exact value match |
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No; a card that was never checked counts as **No** |
-| URL | Substring match on the full address |
+| URL | Substring match on the full address; wildcards and `/regex/` since 1.3 |
 | Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+**Wildcards and regular expressions:** the Text and URL filter boxes accept `*` (any run of characters), `?` (one character), and `/regex/` patterns, for example `e*ross` or `/^ethan/`. An invalid pattern is ignored and shows an inline error. The full syntax, examples, and the rules for a literal `*` are in [Wildcards and regular expressions](board.md#wildcards-and-regular-expressions).
 
 !!! note
     Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).

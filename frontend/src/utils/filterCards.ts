@@ -1,6 +1,7 @@
 import type { Card } from "../types";
 import { userDisplayName } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
+import { compileTextMatcher } from "./textMatch";
 import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
 import { isCardBlocked } from "./blockedState";
@@ -163,7 +164,8 @@ export function filterCards(
       // Exception (#1848): a checkbox field treats a missing row as "false",
       // since unchecking deletes the row.
       for (const [idStr, cf] of Object.entries(filters.customFields)) {
-        if (cf.kind === "text" && cf.query === "") continue;
+        // An invalid pattern (#2227) is inactive, like a blank box.
+        if (cf.kind === "text" && compileTextMatcher(cf.query).kind !== "ok") continue;
         if ((cf.kind === "number" || cf.kind === "date") && cf.equals === "") continue;
         if ((cf.kind === "choice" || cf.kind === "multi_choice") && cf.values.length === 0) continue;
 
@@ -177,7 +179,8 @@ export function filterCards(
         }
 
         if (cf.kind === "text") {
-          if (!cardValue || !cardValue.toLowerCase().includes(cf.query.toLowerCase())) return false;
+          const m = compileTextMatcher(cf.query);
+          if (!cardValue || m.kind !== "ok" || !m.test(cardValue)) return false;
         } else if (cf.kind === "number") {
           const a = cardValue !== undefined ? Number(cardValue) : NaN;
           const b = Number(cf.equals);

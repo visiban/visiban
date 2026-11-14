@@ -486,7 +486,7 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 2. Pick a field, then a value or range:
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
-    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
+    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. **contains** also accepts `*` and `?` wildcards and `/regex/` patterns: see [Wildcards and regular expressions](#wildcards-and-regular-expressions). **is** and **is not** always match the whole value exactly. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
 3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
 4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
 
@@ -501,6 +501,30 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 - **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
 
 Lane filters are saved with the rest of the filter state in your browser, in the URL (`f_lanes`), and in [saved filters](saved-filters.md).
+
+#### Wildcards and regular expressions
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+The lane filter **contains** rule and the text box of a [text or URL custom field filter](custom-fields.md#filtering-by-custom-fields) share one matcher, so the same syntax works in both. Type it straight into the box; there is no extra setting.
+
+- **Plain text** (no `*` or `?`) is a case-insensitive substring match, as before. Leading and trailing spaces are ignored.
+- **`*`** matches any run of characters, including none. **`?`** matches exactly one character. Wildcards are not anchored: `e*ross` still matches inside a longer value. Every other character, including `.`, `+`, `(`, and `[`, is literal.
+- **`/pattern/`** (starts and ends with a slash, with at least one character between) is a regular expression. It is always case-insensitive. Anchor it yourself with `^` and `$`.
+- **A literal `*` or `?`:** use a regular expression, for example `/\*/` for an asterisk.
+- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`) and backreferences (such as `\1`) are treated as invalid.
+
+| You type | Matches | Doesn't match |
+|---|---|---|
+| `ross` | Ethan Ross, Rossi | Ethan R. |
+| `e*ross` | Ethan Ross | Ross Ethan |
+| `j?n` | Jan, Jon | Jean |
+| `/^ethan/` | Ethan Ross | Seth Ethan |
+| `/ross$\|lee$/` | Ethan Ross, Amy Lee | Rossi |
+| `/[/` | (invalid; filter ignored, error shown) | |
+
+!!! note
+    A `*` or `?` already typed into a **contains** value before 1.3 now acts as a wildcard. The board search box is not affected: it still matches literal text.
 
 #### URL-serialized filter state
 

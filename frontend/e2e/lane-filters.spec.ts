@@ -128,6 +128,20 @@ test.describe('lane filters', () => {
     await page.reload()
     await expect(acme).toBeVisible()
     await expect(globex).toHaveCount(0)
+
+    // #2227: a wildcard lane rule, and an invalid regex that is ignored with an error.
+    await page.getByRole('button', { name: /^filters/i }).click()
+    await filters.getByRole('button', { name: /^Lanes/ }).first().click()
+    const dialog2 = page.getByRole('dialog', { name: 'Lane filters' })
+    const box2 = dialog2.getByRole('textbox', { name: 'Filter 1 Owner contains' })
+    await box2.fill('o*grant')
+    await expect(dialog2.getByText('Reads as: Owner contains o*grant')).toBeVisible()
+    await expect(globex).toBeVisible()
+    await expect(acme).toHaveCount(0)
+    await box2.fill('/[/')
+    await expect(dialog2.getByRole('alert')).toContainText('Invalid regular expression')
+    await expect(acme).toBeVisible()
+    await expect(globex).toBeVisible()
   })
 
   // The list's max-height reserves 9rem (10.5rem with the paused note) for the

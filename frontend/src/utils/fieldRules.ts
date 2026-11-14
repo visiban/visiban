@@ -16,6 +16,8 @@
  * and compared case-insensitively, so "Ethan Ross " and "ethan ross" match.
  */
 
+import { compileTextMatcher } from "./textMatch";
+
 export type FieldRuleJoin = "and" | "or";
 /** Additive-only: the backend validates against the same enum. */
 export type FieldRuleOp = "is" | "is_not" | "between" | "contains";
@@ -97,7 +99,11 @@ export function isRuleComplete(rule: FieldRule, t: RuleFieldType | null | undefi
   if (!opsForFieldType(t).includes(rule.op)) return false;
   if (t === "dropdown") return typeof rule.value === "string" && rule.value !== "";
   // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
-  if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
+  if (isTextRuleType(t)) {
+    if (normalizeText(rule.value) === null) return false;
+    // An invalid regex (#2227) is incomplete, like a blank box: ignored, never throws.
+    return rule.op !== "contains" || compileTextMatcher(rule.value).kind === "ok";
+  }
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
 }
 
@@ -117,7 +123,11 @@ export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undef
     const want = normalizeText(rule.value) ?? "";
     if (rule.op === "is_not") return v === null || v !== want;
     if (v === null) return false;
-    return rule.op === "contains" ? v.includes(want) : v === want;
+    if (rule.op !== "contains") return v === want;
+    // `contains` accepts * / ? wildcards and /regex/ (#2227); an invalid
+    // pattern is incomplete upstream, and matches nothing if evaluated anyway.
+    const m = compileTextMatcher(rule.value);
+    return m.kind === "ok" && m.test(raw as string);
   }
   const v = normalizeFor(t, raw);
   if (v === null) return false;

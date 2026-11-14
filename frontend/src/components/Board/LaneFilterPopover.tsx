@@ -27,6 +27,7 @@ import {
   type LaneRule,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
+import { INVALID_PATTERN_MESSAGE, PATTERN_HINT, isInvalidTextPattern } from "../../utils/textMatch";
 
 const PANEL_WIDTH = 560;
 /** Above the popover's own 25 so Escape in an open inner menu closes only that menu. */
@@ -287,9 +288,16 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               placeholder="Text to match"
               maxLength={LANE_FILTER_MAX_STRING}
               aria-label={`Filter ${n} ${def.name} contains`}
+              aria-invalid={isInvalidTextPattern(r.value) || undefined}
+              aria-describedby={`lane-rule-${r.id}-${isInvalidTextPattern(r.value) ? "error" : "hint"}`}
               onChange={(e) => updateRule(r.id, { value: e.target.value })}
-              className={`${INPUT_CLS} w-full`}
+              className={`${isInvalidTextPattern(r.value) ? INPUT_CLS.replace("border-line", "border-danger") : INPUT_CLS} w-full`}
             />
+            {isInvalidTextPattern(r.value) ? (
+              <p id={`lane-rule-${r.id}-error`} role="alert" className="text-xs text-danger mt-1">{INVALID_PATTERN_MESSAGE}</p>
+            ) : (
+              <p id={`lane-rule-${r.id}-hint`} className="text-xs text-fg-tertiary mt-1">{PATTERN_HINT}</p>
+            )}
           </div>
         )}
         {textType && def && r.op !== "contains" && (

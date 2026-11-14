@@ -144,6 +144,13 @@ describe('fieldRules — text and url (#2226)', () => {
     expect(isRuleComplete(tr('contains', 'ross'), 'text')).toBe(true)
     expect(isRuleComplete(tr('is', 'Ethan Ross'), 'url')).toBe(true)
     expect(isRuleComplete(tr('between', 'x'), 'text')).toBe(false)
+    // #2227: an invalid regex is incomplete; wildcards and valid regexes are complete.
+    expect(isRuleComplete(tr('contains', '/[/'), 'text')).toBe(false)
+    expect(isRuleComplete(tr('contains', '/(a+)+$/'), 'text')).toBe(false)
+    expect(isRuleComplete(tr('contains', 'e*ross'), 'text')).toBe(true)
+    expect(isRuleComplete(tr('contains', '/^ethan/'), 'url')).toBe(true)
+    // is / is not stay exact: an invalid-looking operand is still a literal.
+    expect(isRuleComplete(tr('is', '/[/'), 'text')).toBe(true)
     // `contains` is not a dropdown operator.
     expect(isRuleComplete({ field: 1, op: 'contains', value: 'a' }, 'dropdown')).toBe(false)
   })
@@ -157,6 +164,29 @@ describe('fieldRules — text and url (#2226)', () => {
     expect(matchRule(tr('contains', 'ROSS '), 'text', 'Ethan Ross')).toBe(true)
     expect(matchRule(tr('contains', 'grant'), 'url', 'https://Grant.example')).toBe(true)
     expect(matchRule(tr('contains', 'ross'), 'text', 'Olivia Grant')).toBe(false)
+  })
+
+  it('contains supports wildcards and /regex/; every documented example row holds (#2227)', () => {
+    const c = (operand: string, raw: string) => matchRule(tr('contains', operand), 'text', raw)
+    const rows: [string, string[], string[]][] = [
+      ['ross', ['Ethan Ross', 'Rossi'], ['Ethan R.']],
+      ['e*ross', ['Ethan Ross'], ['Ross Ethan']],
+      ['j?n', ['Jan', 'Jon'], ['Jean']],
+      ['/^ethan/', ['Ethan Ross'], ['Seth Ethan']],
+      ['/ross$|lee$/', ['Ethan Ross', 'Amy Lee'], ['Rossi']],
+    ]
+    for (const [operand, yes, no] of rows) {
+      for (const v of yes) expect(c(operand, v), `${operand} ~ ${v}`).toBe(true)
+      for (const v of no) expect(c(operand, v), `${operand} !~ ${v}`).toBe(false)
+    }
+    // Invalid regex: incomplete upstream, and matches nothing if evaluated anyway.
+    expect(c('/[/', 'Ethan Ross')).toBe(false)
+    // A literal * is matched with a regex.
+    expect(c('/\\*/', 'a*b')).toBe(true)
+    // is / is not stay exact: * is a literal there.
+    expect(matchRule(tr('is', 'e*ross'), 'text', 'Ethan Ross')).toBe(false)
+    expect(matchRule(tr('is', 'e*ross'), 'text', 'E*Ross')).toBe(true)
+    expect(matchRule(tr('is_not', 'e*ross'), 'text', 'Ethan Ross')).toBe(true)
   })
 
   it('applies the empty-value rule: no value fails is and contains, passes is not', () => {
