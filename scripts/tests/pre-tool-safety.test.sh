@@ -8,6 +8,9 @@
 
 set -uo pipefail
 
+# Hermetic: a developer-exported override must not change the cases below.
+unset ALLOW_DEFAULT_BRANCH_EDIT
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOK="$REPO_ROOT/.claude/hooks/pre-tool-safety.sh"
 
