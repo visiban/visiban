@@ -72,8 +72,23 @@ describe("richTextEditColor (#2099)", () => {
 
   it("re-decorates after an edit so new colored text is adjusted too", () => {
     const v = mount(doc(["a", "#f1f5f9"]));
-    v.dispatch(v.state.tr.insertText("b", 2));
-    expect(v.dom.querySelectorAll(".rt-color").length).toBeGreaterThan(0);
+    const spans = () => Array.from(v.dom.querySelectorAll<HTMLElement>(".rt-color"));
+    expect(spans()).toHaveLength(1);
+    const oldLight = spans()[0].style.getPropertyValue("--rt-fg-light");
+    const oldDark = spans()[0].style.getPropertyValue("--rt-fg-dark");
+    // Append a run with a different color: it only gets a span if decorations recompute.
+    const tr = v.state.tr.insertText("b", 2);
+    tr.addMark(2, 3, schema.marks.textStyle.create({ color: "#0f172a" }));
+    v.dispatch(tr);
     expect(v.state.doc.textContent).toBe("ab");
+    const after = spans();
+    expect(after).toHaveLength(2);
+    const added = after.find((s) => s.textContent === "b")!;
+    const kept = after.find((s) => s.textContent === "a")!;
+    expect(added.style.getPropertyValue("--rt-fg-light")).toBe(readableTextColor("#0f172a", "light"));
+    expect(added.style.getPropertyValue("--rt-fg-dark")).toBe(readableTextColor("#0f172a", "dark"));
+    expect(added.style.getPropertyValue("--rt-fg-dark")).not.toBe(oldDark);
+    expect(kept.style.getPropertyValue("--rt-fg-light")).toBe(oldLight);
+    expect(kept.style.getPropertyValue("--rt-fg-dark")).toBe(oldDark);
   });
 });
