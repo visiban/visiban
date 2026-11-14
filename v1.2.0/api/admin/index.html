@@ -5453,7 +5453,9 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 most recent revoked, used or expired ones. <em>(1.3+, #1966)</em> Before 1.3 every
 link ever created was returned. Older past links are not deleted; they are only
 left out of this list. The response is still a bare array, not a paginated
-object.</p>
+object. <em>(1.3+, #1885)</em> The <code>X-Total-Count</code> response header gives the number of
+links including the ones left out, and <code>X-Truncated</code> is <code>true</code> when older past
+links were left out (<code>false</code> otherwise).</p>
 <p><strong>Permission:</strong> <code>IsSiteAdmin</code>.</p>
 <p><strong>Response</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">[</span>

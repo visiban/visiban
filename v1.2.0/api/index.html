@@ -4385,6 +4385,7 @@
 <li><code>GET /boards/</code>, <code>GET /groups/</code></li>
 <li><code>GET /boards/{id}/columns/</code>, <code>swimlanes/</code>, <code>labels/</code>, <code>custom-fields/</code>, <code>swimlane-custom-fields/</code>, and <code>export-history/</code></li>
 <li><code>GET /groups/{id}/descendant-boards/paged/</code> (see <a href="groups/#get-apiv1groupsiddescendant-boardspaged">Groups API</a>)</li>
+<li><code>GET /groups/{id}/members/paged/</code>, <code>subgroups/paged/</code> and <code>boards/paged/</code> <em>(1.3+)</em> (see <a href="groups/">Groups API</a>)</li>
 <li><code>GET /admin/users/</code>, <code>GET /admin/action-log/</code>, and <code>GET /admin/board-invite-links/</code> (see the <a href="admin/">Admin API</a>)</li>
 </ul>
 <p>Some list endpoints deliberately <strong>do not</strong> use it. Check the endpoint's own page before parsing the response:</p>
@@ -4421,7 +4422,23 @@
 <td>Bare JSON array, not paginated and <strong>not bounded</strong>: it returns every board in the group's subtree that the caller can access, which for a top-level group can be the whole organization. Use <code>GET /groups/{id}/descendant-boards/paged/</code> for bounded pages</td>
 </tr>
 <tr>
-<td>Small, bounded lists (group members, subgroups, boards, labels, and invite links of a group; board invite links and saved filters; <code>GET /admin/invite-links/</code>; <code>GET /users/</code> (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's comments, attachments, checklist, and relations)</td>
+<td><code>GET /groups/{id}/members/</code>, <code>GET /groups/{id}/subgroups/</code>, <code>GET /groups/{id}/boards/</code></td>
+<td>Bare JSON array, not paginated and <strong>not bounded</strong>: <code>members</code> includes every inherited ancestor member, so a subgroup under a large root returns the root's whole membership, and <code>boards</code> can be every board in a flat organization. Use the <code>/paged/</code> sibling of each (since 1.3: <code>members/paged/</code>, <code>subgroups/paged/</code>, <code>boards/paged/</code>) for <code>{count, offset, page_size, results}</code> pages. See <a href="groups/">Groups API</a></td>
+</tr>
+<tr>
+<td><code>GET /boards/{id}/cards/{card_id}/activities/</code>, <code>comments/</code>, <code>attachments/</code></td>
+<td>Bare JSON array of every row by default. Since 1.3, optional <code>limit</code> (max 200) and <code>offset</code>, and <code>X-Total-Count</code> / <code>X-Truncated</code> headers on every response. See <a href="cards/#paging-a-cards-history-lists">Cards API</a></td>
+</tr>
+<tr>
+<td><code>GET /boards/{id}/invite-links/</code>, <code>GET /admin/invite-links/</code></td>
+<td>Bare JSON array: every pending invite plus at most the 50 most recent past ones. Since 1.3, <code>X-Total-Count</code> counts every invite and <code>X-Truncated</code> is <code>true</code> when older past ones were left out</td>
+</tr>
+<tr>
+<td>Group invite links and group labels</td>
+<td>Bare JSON array, not paginated and not capped. Invite links hold at most 5 active shareable links and 50 pending emailed invites per group, but also every consumed or expired link, so the list grows with use (tracked in #2253); labels grow only as admins add them (tracked in #2256)</td>
+</tr>
+<tr>
+<td>Small, bounded lists (board saved filters; <code>GET /users/</code> (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's checklist and relations)</td>
 <td>Bare JSON array, not paginated</td>
 </tr>
 </tbody>

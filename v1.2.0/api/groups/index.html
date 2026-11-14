@@ -2230,6 +2230,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-apiv1groupsidmemberspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/members/paged/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#patch-apiv1groupsidmembersuser_id" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2279,6 +2290,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidsubgroupspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/subgroups/paged/
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2301,6 +2323,17 @@
     <span class="md-ellipsis">
       
         GET /api/v1/groups/{id}/boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidboardspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/boards/paged/
       
     </span>
   </a>
@@ -5045,7 +5078,7 @@
 <hr />
 <h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidmembers"><code>GET /api/v1/groups/{id}/members/</code><a class="headerlink" href="#get-apiv1groupsidmembers" title="Permanent link">&para;</a></h3>
-<p>List group members. Requires group membership.</p>
+<p>List group members. Requires group membership. Returns every direct and inherited member as one array; under a large root group that is the root's whole membership, so use <a href="#get-apiv1groupsidmemberspaged"><code>members/paged/</code></a> for bounded pages.</p>
 <p><strong>Response</strong> — array of member objects:</p>
 <table>
 <thead>
@@ -5098,6 +5131,32 @@
 </tr>
 </tbody>
 </table>
+<h3 id="get-apiv1groupsidmemberspaged"><code>GET /api/v1/groups/{id}/members/paged/</code><a class="headerlink" href="#get-apiv1groupsidmemberspaged" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>The same members as <code>GET /api/v1/groups/{id}/members/</code>, with the same access rule and the same per-row fields (including the admin-only <code>has_all_content_access</code> and <code>is_site_admin</code>), returned in pages (#1780). Requires group membership.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>offset</code></td>
+<td>Zero-based row offset (default <code>0</code>). An invalid or negative value is treated as <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>page_size</code></td>
+<td>Rows per page (default <code>50</code>, max <code>200</code>). An invalid, zero or negative value uses the default; a larger value is capped at <code>200</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> — <code>{count, offset, page_size, results}</code>, the standard <a href="../#pagination">paginated envelope</a>.</p>
+<p>Rows are ordered direct members first, then inherited members by ancestor distance (nearest first), and by membership <code>id</code> within each. A user is listed once: as a direct member if they have a direct row, otherwise from the nearest ancestor whose role grants access. This order differs from the bare list's, which is not guaranteed to be stable. A membership added or removed during a walk shifts the rows after it, as with any offset-paginated endpoint.</p>
 <h3 id="patch-apiv1groupsidmembersuser_id"><code>PATCH /api/v1/groups/{id}/members/{user_id}/</code><a class="headerlink" href="#patch-apiv1groupsidmembersuser_id" title="Permanent link">&para;</a></h3>
 <p>Change a member's role. Requires group admin. Cannot modify the membership of a site admin who is a member of the group. The target must already have a membership in the group (the role of an inactive member can be changed); otherwise the response is the same <code>404 Not Found</code> whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member.</p>
 <p><strong>Request</strong> <code>{ "role": "admin" }</code> (<code>role</code> is required and is the only key read)</p>
@@ -5147,12 +5206,63 @@
 <h3 id="get-apiv1groupsidsubgroups"><code>GET /api/v1/groups/{id}/subgroups/</code><a class="headerlink" href="#get-apiv1groupsidsubgroups" title="Permanent link">&para;</a></h3>
 <p>List direct subgroups of this group that are visible to the requesting user. Requires membership in this group or any ancestor group. Visibility follows the RBAC inheritance model: members of a parent group see all descendant subgroups (not only subgroups they have been added to directly) — see <a href="../../features/rbac/inheritance/#visibility-of-descendant-groups">Role Inheritance</a> for the full rule.</p>
 <p><strong>Response</strong> — array of <code>Group</code> summary objects (same shape as the list endpoint; <code>ancestors</code> is omitted for parity with <code>GET /api/v1/groups/</code>).</p>
+<h3 id="get-apiv1groupsidsubgroupspaged"><code>GET /api/v1/groups/{id}/subgroups/paged/</code><a class="headerlink" href="#get-apiv1groupsidsubgroupspaged" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>The same subgroups as <code>GET /api/v1/groups/{id}/subgroups/</code>, with the same access rule and row shape, returned in pages (#1885). Ordered by subgroup <code>id</code>, oldest first, so a rename does not move a row and a new subgroup is added at the end.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>offset</code></td>
+<td>Zero-based row offset (default <code>0</code>). An invalid or negative value is treated as <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>page_size</code></td>
+<td>Rows per page (default <code>50</code>, max <code>200</code>). An invalid, zero or negative value uses the default; a larger value is capped at <code>200</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> — <code>{count, offset, page_size, results}</code>, the standard <a href="../#pagination">paginated envelope</a>.</p>
 <hr />
 <h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#get-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
 <p>List boards in this group. Requires group membership.</p>
 <p>A board is listed only when the caller's role on it resolves the same way as for board detail; a board the caller cannot open is not listed.</p>
 <p>Pass <code>?expand=group</code> to populate <code>group_detail</code> on each board (see <a href="../#expanding-foreign-key-fields">Expanding foreign-key fields</a>). <em>(1.2+)</em> The ancestor chain is resolved with one bulk fetch, so the query count does not grow with the number of boards (#1316).</p>
+<p>Returns every listed board as one array. In a flat organization with every board in one group that is every board, so use <a href="#get-apiv1groupsidboardspaged"><code>boards/paged/</code></a> for bounded pages.</p>
+<h3 id="get-apiv1groupsidboardspaged"><code>GET /api/v1/groups/{id}/boards/paged/</code><a class="headerlink" href="#get-apiv1groupsidboardspaged" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>The same boards as <code>GET /api/v1/groups/{id}/boards/</code>, with the same access rule, per-board payload and <code>?expand=group</code> support, returned in pages (#1784). Ordered by board <code>id</code>, oldest first: editing a board does not move it, and a board created in the group is added at the end. A board moved into the group or newly made visible can insert an earlier row; a deletion, a move out, or lost access can skip one.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>offset</code></td>
+<td>Zero-based row offset (default <code>0</code>). An invalid or negative value is treated as <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>page_size</code></td>
+<td>Rows per page (default <code>50</code>, max <code>200</code>). An invalid, zero or negative value uses the default; a larger value is capped at <code>200</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> — <code>{count, offset, page_size, results}</code>, the standard <a href="../#pagination">paginated envelope</a>.</p>
 <h3 id="post-apiv1groupsidboards"><code>POST /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#post-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
 <p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically. The seeded <code>allowed_priorities</code> value is deprecated and not enforced on cards (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <blockquote>
