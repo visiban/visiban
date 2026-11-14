@@ -489,3 +489,68 @@ class NotifyStaleCardsDoneColumnTest(TestCase):
         self.assertTrue(Notification.objects.filter(card=live, recipient=self.owner).exists())
         self.assertTrue(Notification.objects.filter(card=live, recipient=self.assignee).exists())
         self.assertFalse(Notification.objects.filter(card=done).exists())
+
+
+class NotifyStaleCardsScalingTest(TestCase):
+    """The scan must not scale with movement history or idle boards (#1960)."""
+
+    def _board_with_card(self, name, n_movements, days_ago=30):
+        owner = User.objects.create_user(username=name, password="pass", notif_stale=True)
+        board = _make_board(owner)
+        col = Column.objects.create(board=board, name="Backlog", position=0, allow_card_creation=True)
+        swim = Swimlane.objects.create(board=board, name="General", position=0)
+        card = Card.objects.create(
+            board=board, column=col, swimlane=swim, title=f"{name} card",
+            created_by=owner, position=0,
+        )
+        # Newest movement is the stale one; older rows must not change the result.
+        for i in range(n_movements):
+            _make_stale_movement(card, owner, col, swim, days_ago=days_ago + n_movements - i)
+        _make_stale_movement(card, owner, col, swim, days_ago=days_ago)
+        return board, card
+
+    def _count_queries(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            call_command("notify_stale_cards", verbosity=0)
+        return len(ctx)
+
+    def test_movement_history_does_not_add_queries_or_change_result(self):
+        _, light = self._board_with_card("light", 0)
+        light_queries = self._count_queries()
+        Notification.objects.all().delete()
+
+        # A second stale board whose card has 40 extra movements must cost
+        # exactly what the first did: history depth adds no queries.
+        _, deep = self._board_with_card("deep", 40)
+        Notification.objects.all().delete()
+        two_boards = self._count_queries()
+        self.assertEqual(two_boards - light_queries, light_queries - 2)
+        self.assertEqual(Notification.objects.filter(card=deep).count(), 1)
+        self.assertEqual(Notification.objects.filter(card=light).count(), 1)
+
+    def test_board_with_no_stale_cards_costs_one_board_query(self):
+        board, card = self._board_with_card("fresh", 3, days_ago=1)
+        # Boards query + site-admin query + this board's stale-card query
+        # (+ wrapper/savepoint-free), regardless of how many movements exist.
+        self.assertLessEqual(self._count_queries(), 4)
+        self.assertEqual(Notification.objects.filter(board=board).count(), 0)
+
+    def test_notifications_written_in_chunks(self):
+        from unittest import mock
+        from boards.management.commands import notify_stale_cards as cmd
+
+        board, card = self._board_with_card("chunky", 1)
+        col, swim = card.column, card.swimlane
+        for i in range(4):
+            c = Card.objects.create(
+                board=board, column=col, swimlane=swim, title=f"extra {i}",
+                created_by=board.owner, position=i + 1,
+            )
+            _make_stale_movement(c, board.owner, col, swim, days_ago=30)
+
+        with mock.patch.object(cmd, "NOTIFICATION_CHUNK_SIZE", 2):
+            call_command("notify_stale_cards", verbosity=0)
+        self.assertEqual(Notification.objects.filter(board=board).count(), 5)
