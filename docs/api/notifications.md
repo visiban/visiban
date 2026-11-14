@@ -13,7 +13,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications
 
 **How it works:** Visiban creates notifications for board members when:
 
-- A card is assigned to them (`notif_card_assigned`)
+- A card is assigned to them (`notif_card_assigned`), or, since 1.3, a checklist item (same preference and `action_type` `assigned`; the `verb` reads `You were assigned a checklist item on "<card>": "<item>"`)
 - They are @mentioned in a comment or card description (`notif_mentioned`)
 - A card they own is moved to a different column or swimlane (`notif_card_moved`)
 - A card they own is due within 24 hours (`notif_due_soon`) — *added in 1.2*

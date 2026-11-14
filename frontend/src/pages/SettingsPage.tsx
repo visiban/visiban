@@ -1157,7 +1157,7 @@ interface NotifRowSpec {
 }
 
 const NOTIF_ROWS: NotifRowSpec[] = [
-  { key: "notif_card_assigned", label: "Card assigned to me", description: "When someone assigns a card to you", emailKey: "email_notif_card_assigned" },
+  { key: "notif_card_assigned", label: "Card assigned to me", description: "When someone assigns a card or checklist item to you", emailKey: "email_notif_card_assigned" },
   { key: "notif_mentioned", label: "Someone @mentions me", description: "When you are mentioned in a comment", emailKey: "email_notif_mentioned" },
   { key: "notif_due_soon", label: "Due date approaching", description: "24h warning before a card you own is due", emailKey: "email_notif_due_soon" },
   { key: "notif_card_moved", label: "Card I\u2019m watching is moved", description: "When a watched card changes column", emailKey: "email_notif_card_moved" },
