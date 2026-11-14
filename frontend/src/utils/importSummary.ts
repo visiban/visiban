@@ -27,11 +27,34 @@ export function formatImportSkipped(summary: ImportSummary | null | undefined): 
     },
   ];
   const parts = items.filter(({ n }) => n > 0).map(({ n, one, many }) => `${n} ${n === 1 ? one : many}`);
-  if (parts.length === 0) return null;
-  const listed = parts.slice(0, MAX_LISTED);
-  const rest = parts.length - listed.length;
-  if (rest > 0) listed.push(`and ${rest} more`);
-  return `Board imported. Skipped: ${listed.join(", ")}.`;
+  // Unmatched assignees (#2198) get their own sentence, ahead of the list: the
+  // card or item was imported, only its assignee was dropped, so "Skipped"
+  // would misstate it, and it must never fold into "and N more".
+  const unmatched = unmatchedAssignees(summary);
+  const assigneeSentence = unmatched > 0
+    ? unmatched === 1
+      ? "1 assignee didn't match a user and was left unassigned."
+      : `${unmatched} assignees didn't match a user and were left unassigned.`
+    : null;
+  if (parts.length === 0 && !assigneeSentence) return null;
+  const sentences = ["Board imported."];
+  if (assigneeSentence) sentences.push(assigneeSentence);
+  if (parts.length > 0) {
+    const listed = parts.slice(0, MAX_LISTED);
+    const rest = parts.length - listed.length;
+    if (rest > 0) listed.push(`and ${rest} more`);
+    sentences.push(`Skipped: ${listed.join(", ")}.`);
+  }
+  return sentences.join(" ");
+}
+
+/**
+ * How many card and checklist item assignees matched no user (#2198); 0 from
+ * servers that predate the count. A notice reporting any stays until
+ * dismissed: the user did not choose this loss and may need to reassign.
+ */
+export function unmatchedAssignees(summary: ImportSummary | null | undefined): number {
+  return summary?.skipped?.assignees ?? 0;
 }
 
 /**
@@ -61,4 +84,14 @@ export const IMPORT_WARNINGS_HEADLINE = "Board imported, with import warnings:";
 /** True when the import left anything out or raised warnings, i.e. the notice should be shown. */
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {
   return formatImportSkipped(summary) !== null || importWarnings(summary).length > 0;
+}
+
+/**
+ * The summary to hand the notice for a sample-gallery import (#2198): samples
+ * name `demo1`-`demo5` as assignees and are meant to import unassigned, so the
+ * unmatched-assignee count is noise there. The API still counts them.
+ */
+export function forSampleImport(summary: ImportSummary): ImportSummary {
+  if (!summary.skipped?.assignees) return summary;
+  return { ...summary, skipped: { ...summary.skipped, assignees: 0 } };
 }

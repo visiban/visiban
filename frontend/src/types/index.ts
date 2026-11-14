@@ -949,6 +949,12 @@ export interface CardActivity {
   created_at: string;
   /** See `CardMovement.imported_from_username` (#1675). */
   imported_from_username: string | null;
+  /**
+   * The checklist item's text on `checklist_item_assigned` and
+   * `checklist_item_due_changed` rows (#2199); null on other rows and on rows
+   * recorded before 1.3. Optional so fixtures from older servers still type.
+   */
+  item_text?: string | null;
 }
 
 export interface CardTimelineEntry {
@@ -1839,6 +1845,11 @@ export interface ImportSkippedCounts {
   activities: number;
   /** Non-hex colors replaced by the default (#2093); absent from older servers. */
   colors?: number;
+  /**
+   * Card and checklist item assignee names that matched no user the importer
+   * can see, so those imported unassigned (#2198); absent from older servers.
+   */
+  assignees?: number;
 }
 
 export interface ImportSummary {

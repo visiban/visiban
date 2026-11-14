@@ -562,7 +562,7 @@ def _add_checklist_assign_due(cards: list[dict], slug: str, done_cols: set[str])
 
     Writes the shapes ``_record_checklist_assign_due`` writes: the assignee
     event carries usernames, the due-date event ISO dates, both from an empty
-    side. The two rows sit minutes after the item's ``checklist_item_added`` row,
+    side, and both name the item in ``item_text`` (#2199). The two rows sit minutes after the item's ``checklist_item_added`` row,
     so they stay inside the card's own timeline. No random draw is made, so no
     other card or template shifts.
     """
@@ -585,9 +585,11 @@ def _add_checklist_assign_due(cards: list[dict], slug: str, done_cols: set[str])
     item["due_date"] = due
     card["activities"] = sorted(card["activities"] + [
         {"event_type": "checklist_item_assigned", "from_value": "", "to_value": assignee,
-         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=10))},
+         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=10)),
+         "item_text": item["text"]},
         {"event_type": "checklist_item_due_changed", "from_value": "", "to_value": due,
-         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=20))},
+         "actor": card["created_by"], "created_at": _iso(when + timedelta(minutes=20)),
+         "item_text": item["text"]},
     ], key=lambda a: a["created_at"])
 
 

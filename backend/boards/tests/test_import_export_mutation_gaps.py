@@ -1152,7 +1152,7 @@ class ImportJsonDefaultsTests(ImportBase):
                     "checklist_items": 1,
                     "label_refs": 1,
                     "movements": 1,
-                    "activities": 1, "colors": 0,
+                    "activities": 1, "colors": 0, "assignees": 0,
                 },
             },
         )
@@ -1189,7 +1189,7 @@ class ImportJsonDefaultsTests(ImportBase):
                 "checklist_items": 1,
                 "label_refs": 1,
                 "movements": 2,
-                "activities": 1, "colors": 0,
+                "activities": 1, "colors": 0, "assignees": 0,
             },
         )
         self.assertEqual(Card.objects.count(), 0)
@@ -1218,7 +1218,7 @@ class ImportJsonDefaultsTests(ImportBase):
                     "checklist_items": 0,
                     "label_refs": 0,
                     "movements": 0,
-                    "activities": 0, "colors": 0,
+                    "activities": 0, "colors": 0, "assignees": 0,
                 }
                 base.update(expected)
                 self.assertEqual(skipped, base)
@@ -1611,7 +1611,7 @@ class ImportCsvTests(ImportBase):
                 "checklist_items": 0,
                 "label_refs": 3,
                 "movements": 0,
-                "activities": 0, "colors": 0,
+                "activities": 0, "colors": 0, "assignees": 0,
             },
         )
         self.assertEqual(Card.objects.count(), 0)
@@ -2080,6 +2080,7 @@ class ExportJsonShapeTests(ExportBase):
                     "actor": None,
                     "created_at": t0.isoformat(),
                     "imported_from_username": None,
+                    "item_text": None,
                 },
                 {
                     "event_type": "title_change",
@@ -2088,6 +2089,7 @@ class ExportJsonShapeTests(ExportBase):
                     "actor": "owner",
                     "created_at": a_late.created_at.isoformat(),
                     "imported_from_username": None,
+                    "item_text": None,
                 },
             ],
         )
@@ -2100,6 +2102,8 @@ class ExportJsonShapeTests(ExportBase):
                 "actor",
                 "created_at",
                 "imported_from_username",
+                # Additive (#2199).
+                "item_text",
             ],
         )
 

@@ -49,6 +49,10 @@ class ImportSkippedCountsSerializer(serializers.Serializer):
     movements = serializers.IntegerField()
     activities = serializers.IntegerField()
     colors = serializers.IntegerField(help_text="Colors replaced with the default because they were not hex (#2093).")
+    assignees = serializers.IntegerField(help_text=(
+        "Card and checklist item assignee names that matched no user the importer can see, "
+        "so the card or item was imported unassigned (#2198)."
+    ))
 
 
 class ImportSummarySerializer(serializers.Serializer):

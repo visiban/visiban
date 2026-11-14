@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
 import { ToastProvider } from '../contexts/ToastContext'
-import { countImportWarnings, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
+import { countImportWarnings, forSampleImport, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 // The modal fetches the sample list on open (#1452). Keep the rest of the real
@@ -519,6 +519,35 @@ describe('formatImportSkipped (#119)', () => {
       'Board imported. Skipped: 2 cards, 3 comments, 4 checklist items, and 2 more.',
     )
   })
+
+  it('reports unmatched assignees in their own sentence, ahead of the skipped list (#2198)', () => {
+    expect(formatImportSkipped(summaryOf({ assignees: 1 }))).toBe(
+      "Board imported. 1 assignee didn't match a user and was left unassigned.",
+    )
+    expect(formatImportSkipped(summaryOf({ assignees: 3, cards: 2, comments: 3, checklist_items: 4, label_refs: 1 }))).toBe(
+      "Board imported. 3 assignees didn't match a user and were left unassigned. "
+        + 'Skipped: 2 cards, 3 comments, 4 checklist items, and 1 more.',
+    )
+  })
+
+  it('a sample import shows no assignee sentence; a user file still does (#2198)', () => {
+    const summary = summaryOf({ assignees: 96 })
+    expect(formatImportSkipped(forSampleImport(summary))).toBeNull()
+    expect(formatImportSkipped(summary)).toBe(
+      "Board imported. 96 assignees didn't match a user and were left unassigned.",
+    )
+    // Other skips on a sample still show; only the assignee count is dropped.
+    expect(formatImportSkipped(forSampleImport(summaryOf({ assignees: 96, cards: 2 })))).toBe(
+      'Board imported. Skipped: 2 cards.',
+    )
+    expect(forSampleImport(summaryOf({ cards: 2 }))).toEqual(summaryOf({ cards: 2 }))
+  })
+
+  it('treats a missing assignees count (older server) as zero', () => {
+    // `zero` has no `assignees` key, as a pre-#2198 server sends.
+    expect('assignees' in zero).toBe(false)
+    expect(formatImportSkipped(summaryOf({}))).toBeNull()
+  })
 })
 
 // The notice renders in the shared toast region (#2060).
@@ -572,6 +601,25 @@ describe('ImportSkippedToast (#119)', () => {
       act(() => { close.blur() })
       act(() => { vi.advanceTimersByTime(8000) })
       expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('announces unmatched assignees and stays until dismissed (#2198)', () => {
+    vi.useFakeTimers()
+    try {
+      const onDismiss = vi.fn()
+      renderNotice(
+        <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0, assignees: 2 } }} onDismiss={onDismiss} />,
+      )
+      act(() => { vi.advanceTimersByTime(0) })
+      const text = "Board imported. 2 assignees didn't match a user and were left unassigned."
+      expect(screen.getByRole('status')).toHaveTextContent(text)
+      expect(screen.getByTestId('import-notice')).toHaveTextContent(text)
+      act(() => { vi.advanceTimersByTime(60000) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      expect(screen.getByTestId('import-notice')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

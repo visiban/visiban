@@ -65,8 +65,9 @@ class ClearViewerChecklistAssigneesTests(TestCase):
         self._call()
         item_rows = CardActivity.objects.filter(card=self.card, event_type=ET.CHECKLIST_ITEM_ASSIGNED)
         self.assertEqual(
-            list(item_rows.values_list("from_value", "to_value", "actor")),
-            [("cl_viewer", "", None)],
+            list(item_rows.values_list("from_value", "to_value", "actor", "item_text")),
+            # #2199: the row names the item it cleared.
+            [("cl_viewer", "", None, self.stale_item.text)],
         )
         card_rows = CardActivity.objects.filter(card=stale_card, event_type=ET.ASSIGNEE_CHANGE)
         self.assertEqual(

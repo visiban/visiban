@@ -3,6 +3,22 @@ import { userDisplayName } from "../types";
 import { formatBlockedDuration } from "./blockedState";
 import { formatDateStr } from "./date";
 
+/** Longest item name a History label quotes before an ellipsis (#2199). */
+const ITEM_TEXT_IN_LABEL_MAX = 40;
+
+/**
+ * `Checklist item "Write tests"`, or `Checklist item` when the row names no
+ * item (#2199). The name is capped: the History row is a single truncated
+ * line, and a long name must not push the from → to values out of view.
+ */
+function checklistItemLead(itemText: string | null | undefined): string {
+  if (!itemText) return "Checklist item";
+  const name = itemText.length > ITEM_TEXT_IN_LABEL_MAX
+    ? `${itemText.slice(0, ITEM_TEXT_IN_LABEL_MAX - 1)}\u2026`
+    : itemText;
+  return `Checklist item "${name}"`;
+}
+
 /** One-line description of a timeline activity entry (the History tab's row text). */
 export function activityLabel(
   event_type: string,
@@ -34,12 +50,14 @@ export function activityLabel(
       return `Due date: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
     }
     // #445: per-item assignee and due date. Not grouped like the other
-    // checklist events, whose to_value is the item text.
+    // checklist events, whose to_value is the item text. #2199: item_text
+    // names the item; rows recorded before 1.3 have none and keep the
+    // unnamed label.
     case "checklist_item_assigned":
-      return `Checklist item assignee: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
+      return `${checklistItemLead(d.item_text)} assignee: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
     case "checklist_item_due_changed": {
       const fmt = (iso: string) => (iso ? formatDateStr(iso, userDateFormat) : "(none)");
-      return `Checklist item due: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
+      return `${checklistItemLead(d.item_text)} due: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
     }
     // Manual block state (#1149): blocked carries the reason; unblocked the
     // reason it cleared (from_value) and the optional resolution (to_value).

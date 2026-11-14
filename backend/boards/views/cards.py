@@ -30,7 +30,9 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
-from ..services.notifications import card_watcher_ids, create_notifications, quoted_card_verb
+from ..services.notifications import (
+    card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
+)
 from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
@@ -547,12 +549,21 @@ _CARD_UPDATE_SCHEMA = extend_schema(
 # CardViewSet
 # ---------------------------------------------------------------------------
 
+# Activity types whose ``item_text`` names the checklist item (#2199). The
+# other checklist events already carry the item text in from/to.
+_ITEM_TEXT_EVENT_TYPES = frozenset({
+    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
+})
+
+
 def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
     """Record History rows for a checklist item's assignee and due-date changes (#445).
 
     Called inside the write's transaction, after the card row lock, like the
     other checklist activity rows (#1587). from/to carry the username and the
-    ISO date so the row stays readable after the user or the item is gone.
+    ISO date, and ``item_text`` the item's text (#2199), so the row stays
+    readable, and says which item changed, after the user or the item is gone.
     """
     new_assignee = item.assignee
     if (old_assignee.pk if old_assignee else None) != (new_assignee.pk if new_assignee else None):
@@ -560,14 +571,14 @@ def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
             from_value=old_assignee.username if old_assignee else "",
             to_value=new_assignee.username if new_assignee else "",
-            actor=actor,
+            item_text=item.text, actor=actor,
         )
     if old_due != item.due_date:
         CardActivity.objects.create(
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
             from_value=old_due.isoformat() if old_due else "",
             to_value=item.due_date.isoformat() if item.due_date else "",
-            actor=actor,
+            item_text=item.text, actor=actor,
         )
 
 
@@ -1613,6 +1624,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 "from_value": a.from_value,
                 "to_value": a.to_value,
             }
+            if a.event_type in _ITEM_TEXT_EVENT_TYPES:
+                # Additive key (#2199), present only on checklist assignee and
+                # due-date entries; null on rows written before 1.3.
+                data["item_text"] = a.item_text
             if a.event_type == CardActivity.EventType.UNBLOCKED:
                 # Additive key (#1149), present only on unblocked entries;
                 # null when no closed block matches (e.g. an imported entry
@@ -2060,6 +2075,10 @@ class CardViewSet(viewsets.ModelViewSet):
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            # After the broadcast on purpose (#2196): see notify_checklist_item_assigned.
+            notify_checklist_item_assigned(
+                item=item, card=card, board=board, actor=request.user, previous_assignee=None,
+            )
         return Response(CardChecklistSerializer(item, context={"board": board}).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -2095,24 +2114,37 @@ class CardViewSet(viewsets.ModelViewSet):
                 # The activity row is a card-FK insert, same race as a child
                 # create (#1587) — see lock_card_for_write.
                 card_services.lock_card_for_write(card.pk)
+                # Work from the row as it is under the lock (#2196): a delete
+                # that already committed answers 404 instead of recording a
+                # second deletion, and History carries the current text.
+                locked = get_object_or_404(CardChecklist, pk=item.pk, card=card)
                 CardActivity.objects.create(
                     card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
-                    from_value=item.text, to_value="", actor=request.user,
+                    from_value=locked.text, to_value="", actor=request.user,
                 )
-                item.delete()
+                locked.delete()
                 card_data = self._refetch_card_data(card)
                 board_id = board.id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        old_checked = item.is_checked
-        old_assignee = item.assignee
-        old_due = item.due_date
-        serializer = CardChecklistSerializer(item, data=request.data, partial=True, context={"board": board})
-        serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             # May insert a card-FK activity row below (#1587).
             card_services.lock_card_for_write(card.pk)
-            serializer.save()
+            # Build the PATCH from the row as it is under the card lock (#2196).
+            # The serializer saves every field of its instance, not only the
+            # ones the request sent, so an instance read before the lock would
+            # write its stale values back over a concurrent change, and the
+            # old/new comparisons below would record changes nobody made. The
+            # "old" values come from the same locked row. Validated here, once,
+            # so the response is unchanged for an uncontended request (a 400
+            # rolls back before anything is written).
+            locked = get_object_or_404(CardChecklist.objects.select_related("assignee"), pk=item.pk, card=card)
+            old_checked = locked.is_checked
+            old_assignee = locked.assignee
+            old_due = locked.due_date
+            serializer = CardChecklistSerializer(locked, data=request.data, partial=True, context={"board": board})
+            serializer.is_valid(raise_exception=True)
+            item = serializer.save()
             if "is_checked" in request.data and request.data["is_checked"] != old_checked:
                 checklist_event_type = (
                     CardActivity.EventType.CHECKLIST_ITEM_CHECKED
@@ -2127,6 +2159,10 @@ class CardViewSet(viewsets.ModelViewSet):
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            # After the broadcast on purpose (#2196): see notify_checklist_item_assigned.
+            notify_checklist_item_assigned(
+                item=item, card=card, board=board, actor=request.user, previous_assignee=old_assignee,
+            )
         return Response(serializer.data)
 
     @extend_schema(

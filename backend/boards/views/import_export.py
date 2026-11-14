@@ -272,6 +272,10 @@ _IMPORT_SKIP_KEYS = (
     # Not an option skip: colors replaced with the default because they were
     # not hex (#2093). Kept here so every import reports the same shape.
     "colors",
+    # Not an option skip either (#2198): card and checklist item assignee names
+    # that matched no user in the importer's visible pool (Rule 5), so the card
+    # or item imported unassigned. Counts references, not distinct names.
+    "assignees",
 )
 
 
@@ -862,6 +866,25 @@ def _text(max_length=None):
     return functools.partial(_text_error, max_length=max_length)
 
 
+# The activity types whose ``item_text`` names a checklist item (#2199); the
+# same set as ``views.cards._ITEM_TEXT_EVENT_TYPES``. Other types import NULL.
+_ITEM_TEXT_EVENT_TYPES = frozenset({
+    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
+})
+
+
+def _nullable_item_text(value):
+    """``CardActivity.item_text`` (#2199): null, or text that fits the column.
+
+    Not a ``_TEXT_CHECKS`` checker, so a number is refused rather than coerced:
+    the key is new in 1.3 and no exporter ever wrote anything but a string.
+    """
+    if value is None:
+        return None
+    return _text_error(value, CardActivity._meta.get_field("item_text").max_length)
+
+
 def _validate_json_import_values(data):
     """Value-level checks for a JSON import, run before the transaction (#1507).
 
@@ -972,6 +995,8 @@ def _validate_json_import_values(data):
         "activities": ("activity", (
             ("from_value", _text()), ("to_value", _text()),
             ("imported_from_username", imported_name),
+            # #2199: null (or absent, as in files from before 1.3) is no item name.
+            ("item_text", _nullable_item_text),
         )),
         # Manual block history (#1149).
         "blocks": ("block", (
@@ -1924,6 +1949,8 @@ class BoardImportExportMixin:
 
                 assignee_username = card_data.get("assignee")
                 assignee = user_map.get(assignee_username.lower()) if assignee_username else None
+                if assignee_username and assignee is None:
+                    skipped["assignees"] += 1
 
                 card_obj = Card(
                     board=board,
@@ -2076,15 +2103,18 @@ class BoardImportExportMixin:
                 # Checklist items + checklist-added activities
                 checklist_source = card_data.get("checklist", []) if options["checklist"] else []
                 for ci_idx, checklist_data in enumerate(checklist_source):
+                    item_assignee = (
+                        user_map.get(checklist_data["assignee"].lower())
+                        if checklist_data.get("assignee") else None
+                    )
+                    if checklist_data.get("assignee") and item_assignee is None:
+                        skipped["assignees"] += 1  # #2198
                     item = CardChecklist(
                         card_id=card_pk,
                         text=checklist_data.get("text", ""),
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
-                        assignee=(
-                            user_map.get(checklist_data["assignee"].lower())
-                            if checklist_data.get("assignee") else None
-                        ),
+                        assignee=item_assignee,
                         due_date=checklist_data.get("due_date") or None,
                         # The importer is the actor; a NULL creator would make
                         # every imported item moderator-only (#1943).
@@ -2176,6 +2206,11 @@ class BoardImportExportMixin:
                             to_value=act_data.get("to_value", ""),
                             actor=request.user,
                             imported_from_username=_imported_from_username(act_data, "actor"),
+                            # Kept only where History shows it (#2199), so a
+                            # file cannot park text on other rows.
+                            item_text=(
+                                act_data.get("item_text") if event_type in _ITEM_TEXT_EVENT_TYPES else None
+                            ),
                         ),
                         act_data.get("created_at"),
                     ))
@@ -2777,6 +2812,8 @@ class BoardImportExportMixin:
                 due_date = _cell(row, "Due Date") or None
                 assignee_name = _cell(row, "Assignee")
                 assignee = csv_user_map.get(assignee_name.lower()) if assignee_name else None
+                if assignee_name and assignee is None:
+                    skipped["assignees"] += 1  # #2198
 
                 weight_str = _cell(row, "Weight") or "1"
                 try:
@@ -3203,6 +3240,9 @@ class BoardImportExportMixin:
                             "actor": act.actor.username if act.actor else None,
                             "created_at": act.created_at.isoformat(),
                             "imported_from_username": act.imported_from_username,
+                            # Additive (#2199): null except on checklist
+                            # assignee and due-date entries.
+                            "item_text": act.item_text,
                         }
                         for act in sorted(card.activities.all(), key=lambda a: a.created_at)
                     ],
