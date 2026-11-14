@@ -885,6 +885,21 @@ describe('child text tones on a resting bg-surface-hover track (#2030)', () => {
     expect(editor.match(/: "text-fg-secondary hover:bg-surface-hover hover:text-fg"/g)?.length).toBe(2)
   })
 
+  it('hover-row and selected-fill children rest at fg-secondary or brighten on hover (#2030 round 2)', () => {
+    const card = readFileSync('src/components/Card/CardDetail.tsx', 'utf8')
+    expect(card).toContain('bg-surface-hover rounded-lg px-3 py-2 group')
+    expect(card).toContain('<p className="text-xs text-fg-secondary">{(a.size')
+    expect(card).toContain('line-through text-fg-muted group-hover:text-fg-secondary')
+    const rel = readFileSync('src/components/Card/CardRelationsSection.tsx', 'utf8')
+    expect(rel.match(/text-fg-muted group-hover:text-fg-secondary/g)?.length).toBe(3)
+    const settings = readFileSync('src/components/Board/BoardSettingsModal.tsx', 'utf8')
+    expect(settings).toContain('text-fg-muted group-hover:text-fg-secondary truncate">{u.email}')
+    expect(settings).toContain('className="group w-full text-left px-3 py-2.5 hover:bg-surface-hover')
+    const mention = readFileSync('src/components/Card/MentionTextarea.tsx', 'utf8')
+    expect(mention).toContain('i === selectedIndex ? "text-fg-secondary" : "text-fg-tertiary"')
+    expect(mention).toContain('group-hover:text-fg-secondary')
+  })
+
   it.each([
     ['dark', darkBlock, 6.97, 4.04],
     ["light", lightBlock, 9.45, 6.92],

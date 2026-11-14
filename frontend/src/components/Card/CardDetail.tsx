@@ -2215,7 +2215,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             }
                             className={`w-3.5 h-3.5 rounded accent-primary shrink-0 ${canComment && canModifyChecklistItem(item) ? "cursor-pointer" : "cursor-default"}`}
                           />
-                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-muted" : "text-fg-secondary"}`}>
+                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-muted group-hover:text-fg-secondary" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
                           <ChecklistItemControls
@@ -2366,7 +2366,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <a href={a.url} download={a.filename} target="_blank" rel="noreferrer" className="text-sm text-info hover:underline truncate block">
                             {a.filename}
                           </a>
-                          <p className="text-xs text-fg-muted">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
+                          <p className="text-xs text-fg-secondary">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
                         {canDeleteAttachment(a) && (
                           // #1193: attachment DELETE is not on DEMO_ALLOWED_WRITES,

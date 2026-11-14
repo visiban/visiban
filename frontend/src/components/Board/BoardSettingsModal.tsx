@@ -1356,12 +1356,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               key={u.id}
                               type="button"
                               onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+                              className="group w-full text-left px-3 py-2.5 hover:bg-surface-hover transition flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
                             >
                               <Avatar user={u} size="sm" />
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-fg truncate">{userDisplayName(u)}</p>
-                                <p className="text-xs text-fg-muted truncate">{u.email}</p>
+                                <p className="text-xs text-fg-muted group-hover:text-fg-secondary truncate">{u.email}</p>
                               </div>
                             </button>
                           ))}

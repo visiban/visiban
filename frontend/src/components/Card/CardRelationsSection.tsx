@@ -382,10 +382,10 @@ function RelationRow({
         className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-surface-hover"
         title="Archived — this relation no longer counts toward the blocked indicator"
       >
-        <span className="text-sm flex-1 min-w-0 truncate line-through text-fg-muted">
+        <span className="text-sm flex-1 min-w-0 truncate line-through text-fg-muted group-hover:text-fg-secondary">
           {rel.card.title}
         </span>
-        <span className="text-xs text-fg-muted shrink-0">Archived</span>
+        <span className="text-xs text-fg-muted group-hover:text-fg-secondary shrink-0">Archived</span>
         {remove}
       </div>
     );
@@ -406,7 +406,7 @@ function RelationRow({
       >
         {rel.card.title}
       </button>
-      <span className="text-xs text-fg-muted shrink-0 max-w-[8rem] truncate" title={columnName}>
+      <span className="text-xs text-fg-muted group-hover:text-fg-secondary shrink-0 max-w-[8rem] truncate" title={columnName}>
         {columnName}
       </span>
       {remove}
