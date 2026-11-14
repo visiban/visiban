@@ -507,7 +507,7 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return the charts on the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
 
 **Query parameters, on all seven:**
 
