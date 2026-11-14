@@ -1470,6 +1470,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lane-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lane status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-other-people-see-a-change" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4316,11 +4327,27 @@
 <li><strong>Dashboard:</strong> next to each board's name, and in the groups tree.</li>
 </ul>
 <p>Lists show a status only where one applies; they never show <strong>No status</strong>. A group you can see only because it is on the path to one of your groups (shown without its counts) shows no status either.</p>
+<h2 id="lane-status">Lane status<a class="headerlink" href="#lane-status" title="Permanent link">&para;</a></h2>
+<p><a id="lane-status"></a></p>
+<p>A board admin can also give a single swimlane its own status. On a board with one lane per customer, project or candidate, that marks the one lane in trouble (the <strong>Acme</strong> lane is <strong>At risk</strong>) while the rest of the board is fine.</p>
+<ul>
+<li><strong>Set it:</strong> hover the lane's label panel and choose the half-filled circle icon (on a touch screen it is always visible), or Tab to it. Pick <strong>On track</strong>, <strong>At risk</strong> or <strong>Off track</strong> and choose <strong>Save</strong>. To change or clear it, choose the lane's status pill; <strong>No status</strong> clears it. Only board admins can set or clear a lane's status.</li>
+<li><strong>Where it shows:</strong> on its own line under the lane's name. On a collapsed lane only the shape shows, next to the name; the word is still read out by screen readers. A lane with no status shows nothing to anyone who is not a board admin.</li>
+<li><strong>It is independent of the board:</strong> a lane's status never comes from the board's, and the board's status is never worked out from its lanes. Changing one never changes the other. A lane with no status means just that, <em>no status</em>: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed.</li>
+<li><strong>Who sees it:</strong> everyone who can see the board, and a change reaches everyone with the board open at once. A public share link does not show lane status.</li>
+<li><strong>Export and import:</strong> a board's JSON export carries each lane's status, and importing the file restores it.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">If you already track health with a lane field</p>
+<p>A board that built its own <strong>Health</strong> dropdown as a <a href="../custom-fields/#swimlane-row-custom-fields">swimlane custom field</a> now has two: that field and the lane status. Nothing moves the field's values into the lane status. Lane status is the one that shares the board and group pills' shapes and words, and that later lane features will build on; you can delete the custom field once you have set the statuses by hand.</p>
+</div>
+<p>The lane status is the lane's <strong>manual</strong> status: a value an admin pins. Like every 1.0+ field it follows the API stability rules, so it will not be renamed or removed.</p>
 <h2 id="when-other-people-see-a-change">When other people see a change<a class="headerlink" href="#when-other-people-see-a-change" title="Permanent link">&para;</a></h2>
 <p>A change to a board's status reaches everyone who has that board open, at once.</p>
 <p>A change to a group's status updates that group's page for everyone who has it open, including the subgroups and boards listed on it. The pages of its subgroups and boards that are already open do <strong>not</strong> update: they show the new inherited status after a reload (a board page also catches up after a lost connection). The dashboard shows the new status the next time it loads.</p>
 <h2 id="for-api-clients">For API clients<a class="headerlink" href="#for-api-clients" title="Permanent link">&para;</a></h2>
 <p>Boards and groups carry three fields: <code>health_status</code> (the entity's own value, or <code>null</code> to inherit), <code>effective_health_status</code> (the value that applies) and <code>health_status_source</code> (the <code>{id, name}</code> of the group the value comes from, or <code>null</code>). Values are <code>on_track</code>, <code>at_risk</code> and <code>off_track</code>. See the <a href="../../api/boards/#get-apiv1boardsid">Boards API</a> and the <a href="../../api/groups/#get-apiv1groupsid">Groups API</a>.</p>
+<p>Swimlanes carry one field, <code>health_status</code> (the lane's manual status, or <code>null</code> for no status; there is no inheritance, so there is no <code>effective_health_status</code> or <code>health_status_source</code>). Board admins write it with <code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>; see the <a href="../../api/boards/#swimlanes">Swimlanes API</a>.</p>
 
 
 
