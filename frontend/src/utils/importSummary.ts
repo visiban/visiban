@@ -15,7 +15,11 @@ const MAX_LISTED = 3;
 export function formatImportSkipped(summary: ImportSummary | null | undefined): string | null {
   const skipped = summary?.skipped;
   if (!skipped) return null;
+  // Unmatched assignees (#2198) come first: unlike the option skips, the user
+  // did not choose them and may want to reassign, so they never collapse into
+  // "and N more".
   const items: { n: number; one: string; many: string }[] = [
+    { n: skipped.assignees ?? 0, one: "unmatched assignee", many: "unmatched assignees" },
     { n: skipped.cards ?? 0, one: "card", many: "cards" },
     { n: skipped.comments ?? 0, one: "comment", many: "comments" },
     { n: skipped.checklist_items ?? 0, one: "checklist item", many: "checklist items" },

@@ -519,6 +519,21 @@ describe('formatImportSkipped (#119)', () => {
       'Board imported. Skipped: 2 cards, 3 comments, 4 checklist items, and 2 more.',
     )
   })
+
+  it('reports unmatched assignees first, so they never collapse (#2198)', () => {
+    expect(formatImportSkipped(summaryOf({ assignees: 1 }))).toBe(
+      'Board imported. Skipped: 1 unmatched assignee.',
+    )
+    expect(formatImportSkipped(summaryOf({ assignees: 3, cards: 2, comments: 3, checklist_items: 4 }))).toBe(
+      'Board imported. Skipped: 3 unmatched assignees, 2 cards, 3 comments, and 1 more.',
+    )
+  })
+
+  it('treats a missing assignees count (older server) as zero', () => {
+    // `zero` has no `assignees` key, as a pre-#2198 server sends.
+    expect('assignees' in zero).toBe(false)
+    expect(formatImportSkipped(summaryOf({}))).toBeNull()
+  })
 })
 
 // The notice renders in the shared toast region (#2060).
@@ -572,6 +587,20 @@ describe('ImportSkippedToast (#119)', () => {
       act(() => { close.blur() })
       act(() => { vi.advanceTimersByTime(8000) })
       expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('announces unmatched assignees from a JSON import (#2198)', () => {
+    vi.useFakeTimers()
+    try {
+      renderNotice(
+        <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0, assignees: 2 } }} onDismiss={vi.fn()} />,
+      )
+      act(() => { vi.advanceTimersByTime(0) })
+      expect(screen.getByRole('status')).toHaveTextContent('Board imported. Skipped: 2 unmatched assignees.')
+      expect(screen.getByTestId('import-notice')).toHaveTextContent('2 unmatched assignees')
     } finally {
       vi.useRealTimers()
     }
