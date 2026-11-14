@@ -554,7 +554,7 @@ Transfer group ownership to another user. Requires the **current owner** (not ju
 - `new_owner_id` — the user ID of the new owner; must already be a group **admin**, and *(1.3+)* an active account
 - `confirmation` — must exactly match the group's name (case-sensitive) to prevent accidental transfers
 
-Since 1.2, a `new_owner_id` that is not an integer, or is beyond the 64-bit integer range, returns `400 Bad Request` (it returned `500` before). A body that is not a JSON object was already a `400`.
+Since 1.2, a `new_owner_id` that is not an integer, or is beyond the 64-bit integer range, returns `400 Bad Request` (it returned `500` before). A body that is not a JSON object was already a `400` for the group owner. *(1.3+)* The caller's access is checked first: a caller with no access gets `404` and a non-owner gets `403`, whatever the body.
 
 *(1.3+)* The current owner must hold an admin membership on the group itself; a group whose owner lacks one is repaired by a superuser from the Django admin, as above.
 
