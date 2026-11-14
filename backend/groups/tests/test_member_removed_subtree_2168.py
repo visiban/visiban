@@ -6,10 +6,12 @@ announce ``member.removed`` on every descendant channel that no longer lists
 the user. Descendants that still list the user get no frame:
 ``GroupConsumer`` closes the socket of the user a ``member.removed`` names.
 """
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework import status
+from rest_framework.renderers import JSONRenderer
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -72,10 +74,13 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
         GroupMembership.objects.create(group=self.child, user=self.member, role="member")
         frames = self._remove(self.child)
         # Still a root member: the child's own channel gets the frame as before
-        # (#1051), the grandchild keeps listing them through root and gets none.
-        # Known gap #2175: had the child row carried a different role, the
-        # grandchild's inherited row would now show root's, with no frame.
+        # (#1051), the grandchild keeps listing them through root and gets no
+        # member.removed (it would close their socket). Its inherited row's
+        # source changed from Child to Root, so it gets member.updated (#2175).
         self.assertEqual(self._removed_channels(frames), {self.child.pk})
+        updated = [(gid, p) for gid, e, p in frames if e == "member.updated"]
+        self.assertEqual([gid for gid, _ in updated], [self.grandchild.pk])
+        self.assertEqual(updated[0][1]["inherited_from"], "Root")
 
     def test_ancestor_row_with_an_unknown_role_does_not_keep_the_subtree(self):
         # The members panel lists an inherited row only when its role is a
@@ -132,5 +137,125 @@ class MemberRemovedSubtreeFanOutTests(TestCase):
             broadcast_member_removed(self.root.pk, self.member.pk, {self.child.pk})
         # The removed group's own frame was already sent.
         self.assertEqual([c.args[0] for c in send.call_args_list], [self.root.pk])
+        self.assertIn("RuntimeError", "\n".join(logs.output))
+        self.assertNotIn("db down", "\n".join(logs.output))
+
+
+class MemberRemovedInheritedRowUpdatedTests(TestCase):
+    """A subgroup that keeps the user through a farther ancestor gets member.updated (#2175).
+
+    Root > Child > Grandchild; the user is a member of Root and an admin of
+    Child. Removing them from Child leaves Grandchild listing them inherited
+    from Root as member, where it listed Child / admin.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_2175", password="pw")
+        self.member = User.objects.create_user(username="member_2175", password="pw")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+        self.root = Group.objects.create(name="Root", owner=self.owner)
+        GroupMembership.objects.create(group=self.root, user=self.owner, role="admin")
+        self.child = Group.objects.create(name="Child", owner=self.owner, parent=self.root)
+        self.grandchild = Group.objects.create(name="Grandchild", owner=self.owner, parent=self.child)
+        self.great = Group.objects.create(name="Great", owner=self.owner, parent=self.grandchild)
+        # The owner's own Child row keeps Child from losing its last admin.
+        GroupMembership.objects.create(group=self.child, user=self.owner, role="admin")
+        self.root_row = GroupMembership.objects.create(group=self.root, user=self.member, role="member")
+        GroupMembership.objects.create(group=self.child, user=self.member, role="admin")
+
+    def _remove(self, group):
+        with patch("groups.broadcast.broadcast_group_event") as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.delete(f"/api/v1/groups/{group.pk}/members/{self.member.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT, resp.content)
+        return [(c.args[0], c.args[1], c.args[2]) for c in send.call_args_list]
+
+    def _members_row(self, group):
+        resp = self.client.get(f"/api/v1/groups/{group.pk}/members/")
+        self.assertEqual(resp.status_code, 200)
+        return next(r for r in resp.json() if r["user"]["id"] == self.member.pk)
+
+    def test_descendants_get_member_updated_with_their_new_inherited_row(self):
+        frames = self._remove(self.child)
+        updated = {gid: p for gid, e, p in frames if e == "member.updated"}
+        self.assertEqual(set(updated), {self.grandchild.pk, self.great.pk})
+        removed = {gid for gid, e, _ in frames if e == "member.removed"}
+        self.assertEqual(removed, {self.child.pk})
+        for gid in (self.grandchild.pk, self.great.pk):
+            payload = updated[gid]
+            self.assertEqual(payload["id"], None)
+            self.assertTrue(payload["is_inherited"])
+            self.assertEqual(payload["inherited_from"], "Root")
+            self.assertEqual(payload["role"], "member")
+            self.assertEqual(payload["user"]["id"], self.member.pk)
+            # Goes to every subscriber, so never the admin-only key.
+            self.assertNotIn("has_all_content_access", payload)
+
+    def test_payload_matches_the_members_endpoint_row(self):
+        frames = self._remove(self.child)
+        payload = next(p for gid, e, p in frames if e == "member.updated" and gid == self.grandchild.pk)
+        row = self._members_row(self.grandchild)
+        row.pop("has_all_content_access", None)  # admin-reader only, never on the frame
+        rendered = json.loads(JSONRenderer().render(payload))
+        self.assertEqual(rendered, row)
+
+    def test_nearer_source_below_the_removed_group_gets_no_frame(self):
+        # A direct row on Grandchild keeps Grandchild listing it directly and
+        # Great inheriting from Grandchild, so neither listing changes.
+        GroupMembership.objects.create(group=self.grandchild, user=self.member, role="viewer")
+        frames = self._remove(self.child)
+        self.assertEqual(
+            [(gid, e) for gid, e, _ in frames], [(self.child.pk, "member.removed")]
+        )
+
+    def test_removing_the_farther_row_leaves_the_nearer_source_alone(self):
+        # Removing Root's row: Grandchild still lists the user from Child,
+        # which was already its source, so nothing changes below Child.
+        frames = self._remove(self.root)
+        self.assertEqual(
+            [(gid, e) for gid, e, _ in frames], [(self.root.pk, "member.removed")]
+        )
+
+    def test_removed_row_with_an_unknown_role_sends_no_update(self):
+        # An out-of-enum row listed nothing (#1829), so it was nobody's source.
+        self.assertEqual(
+            self._updated_targets(removed_role="bogus"), []
+        )
+        self.assertEqual(
+            self._updated_targets(removed_role="admin"), [self.grandchild.pk, self.great.pk]
+        )
+        self.assertEqual(
+            self._updated_targets(removed_role=None), [self.grandchild.pk, self.great.pk]
+        )
+
+    def _updated_targets(self, *, removed_role):
+        GroupMembership.objects.filter(group=self.child, user=self.member).delete()
+        subtree = {self.child.pk, self.grandchild.pk, self.great.pk}
+        with patch("groups.broadcast.broadcast_group_event") as send:
+            broadcast_member_removed(self.child.pk, self.member.pk, subtree, removed_role=removed_role)
+        return [c.args[0] for c in send.call_args_list if c.args[1] == "member.updated"]
+
+    def test_update_costs_one_query_for_the_user(self):
+        for i in range(4):
+            Group.objects.create(name=f"Leaf {i}", owner=self.owner, parent=self.great)
+        GroupMembership.objects.filter(group=self.child, user=self.member).delete()
+        subtree = set(
+            Group.objects.exclude(pk__in=[self.root.pk]).values_list("pk", flat=True)
+        )
+        with patch("groups.broadcast.broadcast_group_event") as send:
+            # descendant groups + the user's memberships + the user.
+            with self.assertNumQueries(3):
+                broadcast_member_removed(self.child.pk, self.member.pk, subtree, removed_role="admin")
+        updated = [c for c in send.call_args_list if c.args[1] == "member.updated"]
+        self.assertEqual(len(updated), 2 + 4)
+
+    def test_failed_user_lookup_is_logged_and_swallowed(self):
+        GroupMembership.objects.filter(group=self.child, user=self.member).delete()
+        with patch("groups.broadcast.broadcast_group_event") as send, \
+             patch("accounts.models.User.objects.get", side_effect=RuntimeError("db down")), \
+             self.assertLogs("groups.broadcast", level="WARNING") as logs:
+            broadcast_member_removed(self.child.pk, self.member.pk, {self.grandchild.pk})
+        self.assertEqual([c.args[1] for c in send.call_args_list], ["member.removed"])
         self.assertIn("RuntimeError", "\n".join(logs.output))
         self.assertNotIn("db down", "\n".join(logs.output))

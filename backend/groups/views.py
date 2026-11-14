@@ -990,11 +990,14 @@ class GroupViewSet(viewsets.ModelViewSet):
 
                 def _broadcast_group_member_removed(
                     gid=group_id, uid=removed_user_id, sub_ids=frozenset(subtree_ids),
+                    role=locked.role,
                 ):
                     from .broadcast import broadcast_member_removed
                     # member.* mirrors the board channel's member.added/updated/
                     # removed naming so one frontend socket layer handles both.
-                    broadcast_member_removed(gid, uid, sub_ids)
+                    # A subgroup that keeps the user through a farther ancestor
+                    # gets member.updated with its new inherited row (#2175).
+                    broadcast_member_removed(gid, uid, sub_ids, removed_role=role)
 
                 transaction.on_commit(_broadcast_group_member_removed)
 
