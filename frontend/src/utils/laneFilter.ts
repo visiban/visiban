@@ -6,8 +6,8 @@
  * the "Reads as" text both come from the generic evaluator in fieldRules.ts,
  * so what the popover says and what the board shows can never disagree.
  *
- * Only dropdown, number and date swimlane fields can be ruled on (v1 schema).
- * Admin-only fields are offered to admins only: their values are never sent
+ * Dropdown, number, date, text and url swimlane fields can be ruled on
+ * (text and url since #2226). Admin-only fields are offered to admins only: their values are never sent
  * to other roles, so a rule on one would hide every lane for a member.
  */
 import type { Swimlane, SwimlaneCustomFieldDefinition } from "../types";
@@ -15,6 +15,7 @@ import {
   evalChain,
   isRuleComplete,
   isRuleFieldType,
+  isTextRuleType,
   matchRule,
   normalizeDate,
   normalizeNumber,
@@ -54,7 +55,9 @@ export const LANE_FILTER_MAX_RULES = 50;
 export const LANE_FILTER_MAX_STRING = 500;
 export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 
-const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between"];
+// An op this client does not know (a newer client's, say) drops the whole
+// rule in parseRule, so it can never filter with semantics it cannot apply.
+const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains"];
 
 type FieldLike = Pick<SwimlaneCustomFieldDefinition, "id" | "name" | "field_type" | "is_admin_only" | "position">;
 
@@ -113,6 +116,12 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     const value = str(o.value);
     const min = str(o.min);
     const max = str(o.max);
+    if (op === "contains") {
+      // The server accepts `contains` only with a string value and no range
+      // bounds. The compact URL form drops an empty value, so restore it.
+      rule.value = value ?? "";
+      return rule;
+    }
     if (value !== undefined) rule.value = value;
     if (min !== undefined) rule.min = min;
     if (max !== undefined) rule.max = max;
@@ -196,7 +205,7 @@ function pruneRule(r: LaneRule, types: Map<number, RuleFieldType>): LaneRule | n
   // A field this viewer may not rule on (deleted, unsupported, or admin-only
   // for a non-admin) is dropped, so its rule can never hide lanes.
   if (!t || !opsForFieldType(t).includes(r.op)) return null;
-  if (t === "dropdown") return r;
+  if (t === "dropdown" || isTextRuleType(t)) return r;
   const norm = t === "number" ? normalizeNumber : normalizeDate;
   const badMin = !!r.min && norm(r.min) === null;
   const badMax = !!r.max && norm(r.max) === null;
@@ -242,7 +251,7 @@ export function pruneLaneFilter(f: LaneFilter | undefined, fields: readonly Fiel
 export function isLaneFilterActive(f: LaneFilter | undefined): boolean {
   if (!f) return false;
   const done = (r: LaneRule) =>
-    r.field !== null && (r.op === "between" ? !!(r.min || r.max) : !!r.value);
+    r.field !== null && (r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim());
   return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some(done)));
 }
 
@@ -301,6 +310,37 @@ export function laneIdsHiddenByFilter(
   const test = compileLaneFilter(f, fields);
   if (!test) return new Set();
   return new Set(swimlanes.filter((s) => !test(s)).map((s) => s.id));
+}
+
+/**
+ * For each text or url field, the distinct non-empty values the lanes carry,
+ * trimmed and sorted alphabetically: the choices for a text `is` / `is not`
+ * rule (#2226). Values that differ only in case collapse to the first
+ * spelling seen, since matching ignores case. A value longer than the
+ * saved-filter bound is left out: a rule on it could not be saved.
+ */
+export function laneTextValueChoices(
+  swimlanes: readonly Pick<Swimlane, "custom_field_values">[],
+  fields: readonly FieldLike[],
+): Map<number, string[]> {
+  const textIds = new Set(fields.filter((f) => isRuleFieldType(f.field_type) && isTextRuleType(f.field_type)).map((f) => f.id));
+  const seen = new Map<number, Map<string, string>>();
+  for (const s of swimlanes) {
+    for (const v of s.custom_field_values ?? []) {
+      if (!textIds.has(v.field_definition) || typeof v.value !== "string") continue;
+      const shown = v.value.trim();
+      if (shown === "" || shown.length > LANE_FILTER_MAX_STRING) continue;
+      const byKey = seen.get(v.field_definition) ?? new Map<string, string>();
+      seen.set(v.field_definition, byKey);
+      const key = shown.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, shown);
+    }
+  }
+  const out = new Map<number, string[]>();
+  for (const [id, byKey] of seen) {
+    out.set(id, [...byKey.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })));
+  }
+  return out;
 }
 
 export type LaneValueFormatter = (field: FieldLike, raw: string) => string;

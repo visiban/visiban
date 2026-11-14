@@ -243,7 +243,7 @@ Board admins can also define typed fields on **swimlanes** (rows) instead of car
 
 **By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's [card density](board.md#card-density) (Comfortable, Standard, Dense); the rest fold into a `+N` chip.
 
-Dropdown, number, and date swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
+Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
 
 ### Managing swimlane fields (Board Settings → Swimlane fields)
 

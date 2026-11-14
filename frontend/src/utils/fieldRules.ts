@@ -12,22 +12,28 @@
  *
  * Stored number and date values are raw text (the server keeps them in a
  * TextField), so everything is normalized before comparing; a value that does
- * not normalize counts as no value.
+ * not normalize counts as no value. Text and URL values (#2226) are trimmed
+ * and compared case-insensitively, so "Ethan Ross " and "ethan ross" match.
  */
 
 export type FieldRuleJoin = "and" | "or";
 /** Additive-only: the backend validates against the same enum. */
-export type FieldRuleOp = "is" | "is_not" | "between";
-/** The field types a rule can target in v1. */
-export type RuleFieldType = "dropdown" | "number" | "date";
+export type FieldRuleOp = "is" | "is_not" | "between" | "contains";
+/** The field types a rule can target (text and url since #2226). */
+export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url";
 
-export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date"];
+export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date", "text", "url"];
+
+/** Text-backed types: matched trimmed and case-insensitively. */
+export function isTextRuleType(t: RuleFieldType): t is "text" | "url" {
+  return t === "text" || t === "url";
+}
 
 export interface FieldRule {
   /** Field definition id; null while the user has not picked one yet. */
   field: number | null;
   op: FieldRuleOp;
-  /** `is` / `is_not` operand. */
+  /** `is` / `is_not` / `contains` operand. */
   value?: string;
   /** `between` lower bound, inclusive; "" or absent = open. */
   min?: string;
@@ -41,7 +47,16 @@ export function isRuleFieldType(t: string): t is RuleFieldType {
 
 /** The operators a field type offers, in menu order. */
 export function opsForFieldType(t: RuleFieldType): FieldRuleOp[] {
-  return t === "dropdown" ? ["is", "is_not"] : ["between"];
+  if (t === "dropdown") return ["is", "is_not"];
+  if (isTextRuleType(t)) return ["is", "is_not", "contains"];
+  return ["between"];
+}
+
+/** Trimmed, lower-cased text, or null when nothing is left. */
+export function normalizeText(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim().toLowerCase();
+  return t === "" ? null : t;
 }
 
 /** Raw stored number text to a finite number, else null. */
@@ -81,19 +96,28 @@ export function isRuleComplete(rule: FieldRule, t: RuleFieldType | null | undefi
   if (rule.field === null || !t) return false;
   if (!opsForFieldType(t).includes(rule.op)) return false;
   if (t === "dropdown") return typeof rule.value === "string" && rule.value !== "";
+  // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
+  if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
 }
 
 /**
  * Evaluate one complete rule against a stored raw value (undefined = the
  * item has no value for the field). The empty-value rule: no value (or an
- * unparsable one) fails `is` and `between`, and passes `is_not`.
+ * unparsable one) fails `is`, `contains` and `between`, and passes `is_not`.
  */
 export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undefined): boolean {
   if (t === "dropdown") {
     const has = typeof raw === "string" && raw !== "";
     if (rule.op === "is_not") return !has || raw !== rule.value;
     return has && raw === rule.value;
+  }
+  if (isTextRuleType(t)) {
+    const v = normalizeText(raw);
+    const want = normalizeText(rule.value) ?? "";
+    if (rule.op === "is_not") return v === null || v !== want;
+    if (v === null) return false;
+    return rule.op === "contains" ? v.includes(want) : v === want;
   }
   const v = normalizeFor(t, raw);
   if (v === null) return false;
@@ -141,6 +165,10 @@ export function textChain(entries: readonly { join: FieldRuleJoin; text: string 
  */
 export function ruleText(rule: FieldRule, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
+  if (isTextRuleType(t)) {
+    const word = rule.op === "is_not" ? "is not" : rule.op === "contains" ? "contains" : "is";
+    return `${label} ${word} ${(rule.value ?? "").trim()}`;
+  }
   const lo = normalizeFor(t, rule.min) !== null ? fmt(String(rule.min).trim()) : null;
   const hi = normalizeFor(t, rule.max) !== null ? fmt(String(rule.max).trim()) : null;
   if (lo !== null && hi !== null) return `${label} between ${lo} and ${hi}`;

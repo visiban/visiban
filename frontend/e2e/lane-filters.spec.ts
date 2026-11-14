@@ -80,6 +80,56 @@ test.describe('lane filters', () => {
     await expect(acme).toBeVisible()
   })
 
+  // #2226 — text swimlane fields: `is` picks from the lanes' own values,
+  // `contains` matches a typed substring case-insensitively, and the rule
+  // survives a reload through the URL.
+  test('filters on a text field with is and contains', async ({ page }) => {
+    const OWNER = { ...AE_FIELD, id: 8, uid: 'slf0000008x', name: 'Owner', field_type: 'text', choices: [], position: 1 }
+    const textLane = (id: number, name: string, owner: string) => ({
+      ...lane(id, name, 'Priya'),
+      custom_field_values: [{ field_definition: OWNER.id, value: owner }],
+    })
+    const board = {
+      ...BOARD,
+      swimlanes: [textLane(1, 'Acme', 'Ethan Ross'), textLane(2, 'Globex', 'Olivia Grant')],
+      swimlane_custom_field_definitions: [AE_FIELD, OWNER],
+    }
+    await routeAuth(page)
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${board.id}`)
+    const acme = page.locator('[data-swimlane-id="1"]')
+    const globex = page.locator('[data-swimlane-id="2"]')
+    await expect(globex).toBeVisible()
+
+    await page.getByRole('button', { name: /^filters/i }).click()
+    const filters = page.getByRole('search', { name: 'Board filters' })
+    await filters.getByRole('button', { name: 'Lanes', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Lane filters' })
+    await dialog.getByRole('button', { name: '+ Add filter' }).click()
+    await dialog.getByRole('button', { name: /^Filter 1 field/ }).click()
+    await dialog.getByRole('menuitem', { name: 'Owner' }).click()
+    await dialog.getByRole('button', { name: /^Filter 1 value/ }).click()
+    await expect(dialog.getByRole('menuitem')).toHaveText(['Ethan Ross', 'Olivia Grant'])
+    await dialog.getByRole('menuitem', { name: 'Olivia Grant' }).click()
+    await expect(dialog.getByText('Reads as: Owner is Olivia Grant')).toBeVisible()
+    await expect(acme).toHaveCount(0)
+
+    await dialog.getByRole('button', { name: /^Filter 1 operator/ }).click()
+    await dialog.getByRole('menuitem', { name: 'contains' }).click()
+    const box = dialog.getByRole('textbox', { name: 'Filter 1 Owner contains' })
+    await box.fill('ROSS')
+    await expect(dialog.getByText('Reads as: Owner contains ROSS')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Done' }).click()
+    await expect(globex).toHaveCount(0)
+    await expect(acme).toBeVisible()
+    await expect(filters.getByRole('button', { name: 'Lanes: Owner contains ROSS, remove' }).last()).toBeVisible()
+    await expect(page).toHaveURL(/f_lanes=1\./)
+
+    await page.reload()
+    await expect(acme).toBeVisible()
+    await expect(globex).toHaveCount(0)
+  })
+
   // The list's max-height reserves 9rem (10.5rem with the paused note) for the
   // header, Reads-as and footer. Verify the whole panel, Done included, fits a
   // short viewport with a long rule list, with and without focus mode.

@@ -16,6 +16,7 @@ import {
   isLaneFilterActive,
   laneFilterChipItems,
   laneFilterFields,
+  laneTextValueChoices,
   removeLaneItem,
   summarizeLaneFilter,
   type LaneFilter,
@@ -278,6 +279,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     () => summarizeLaneFilter(filters.laneFilter, laneFields, laneFmt).completeCount,
     [filters.laneFilter, laneFields, laneFmt],
   );
+  // #2226 — the values text `is` / `is not` lane rules choose from.
+  const laneTextChoices = useMemo(() => laneTextValueChoices(board.swimlanes, laneFields), [board.swimlanes, laneFields]);
   const ownLanesTriggerRef = useRef<HTMLButtonElement>(null);
   const lanesTrigger = lanesTriggerRef ?? ownLanesTriggerRef;
   const chipGroupRef = useRef<HTMLDivElement>(null);
@@ -679,6 +682,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             fmt={laneFmt}
             activeRuleCount={laneRuleCount}
             triggerRef={lanesTrigger}
+            textChoices={laneTextChoices}
           />
         )}
 

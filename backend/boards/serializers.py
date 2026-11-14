@@ -4580,7 +4580,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _LANE_MAX_ITEMS = 20
     _LANE_MAX_RULES = 50
     _LANE_MAX_ID = 2**31 - 1
-    _LANE_OPS = {"is", "is_not", "between"}
+    _LANE_OPS = {"is", "is_not", "between", "contains"}
     _LANE_JOINS = {"and", "or"}
     _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
     _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
@@ -4751,6 +4751,13 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 if not isinstance(v, str) or len(v) > cap:
                     raise err(f"state_json.laneFilter rule {key} must be a string of at most {cap} characters.")
                 self._reject_nul(v, f"state_json.laneFilter rule {key}")
+        if op == "contains":
+            # #2226: a substring match has one operand, the value string (the
+            # cap above bounds it); range bounds would be silently ignored.
+            if not isinstance(rule.get("value"), str):
+                raise err("state_json.laneFilter contains rule needs a string value.")
+            if "min" in rule or "max" in rule:
+                raise err("state_json.laneFilter contains rule takes a value, not min or max.")
 
     def _validate_lane_filter(self, lf):
         """Shape check for ``laneFilter`` (#2205): {"items": [rule | group]},

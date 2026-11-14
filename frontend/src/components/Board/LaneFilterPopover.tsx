@@ -6,10 +6,19 @@ import ActiveMark from "../Common/ActiveMark";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN, visibleMaxHeight, clampLeftToVisible } from "../../hooks/useAnchoredPlacement";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
-import { isRuleComplete, opsForFieldType, ruleText, type FieldRuleJoin, type RuleFieldType } from "../../utils/fieldRules";
+import {
+  isRuleComplete,
+  isTextRuleType,
+  opsForFieldType,
+  ruleText,
+  type FieldRuleJoin,
+  type FieldRuleOp,
+  type RuleFieldType,
+} from "../../utils/fieldRules";
 import {
   LANE_FILTER_MAX_ITEMS,
   LANE_FILTER_MAX_RULES,
+  LANE_FILTER_MAX_STRING,
   laneRuleCount,
   nextLaneItemId,
   summarizeLaneFilter,
@@ -25,6 +34,9 @@ const INNER_ESCAPE_PRIORITY = 26;
 
 const SECONDARY_BTN =
   "text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
+const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", between: "between" };
+/** No text choices for a field: no lane carries a value for it yet. */
+const NO_CHOICES: string[] = [];
 const INPUT_CLS =
   "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
 
@@ -41,6 +53,8 @@ interface Props {
   paused: boolean;
   fmt: LaneValueFormatter;
   id: string;
+  /** Text/url field id to the lanes' distinct values (laneTextValueChoices). */
+  textChoices?: Map<number, string[]>;
 }
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
@@ -55,7 +69,7 @@ type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
  * closes. Inner menus are deliberately not portaled: a portaled menu would sit
  * outside the panel and the focusin-outside close would fire on it.
  */
-export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, paused, fmt, id }: Props) {
+export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, paused, fmt, id, textChoices }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const readsAsId = `${id}-reads-as`;
@@ -180,11 +194,41 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   const itemName = (it: LaneFilterItem) =>
     it.kind === "rule" ? `filter ${leafNumber.get(it.id)}` : `group ${groupNumber.get(it.id)}`;
 
+  // Text `is` / `is not` choices: the lanes' values, plus a stored value no
+  // lane carries any more (from a saved filter or link), so it stays visible
+  // and removable instead of reading as "Choose a value".
+  const choicesFor = (r: LaneRule): string[] => {
+    const base = (r.field !== null && textChoices?.get(r.field)) || NO_CHOICES;
+    const v = r.value?.trim();
+    if (!v || base.some((c) => c.toLowerCase() === v.toLowerCase())) return base;
+    return [...base, v].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  };
+
+  const changeOp = (r: LaneRule, op: FieldRuleOp) => {
+    if (op === r.op) return;
+    if (op === "contains") {
+      updateRule(r.id, { op, value: r.value ?? "" });
+      return;
+    }
+    if (r.op === "contains") {
+      // Typed text carries over only when it names a lane value, in that
+      // value's own spelling; otherwise the rule waits for a choice.
+      const v = r.value?.trim().toLowerCase();
+      const hit = v ? choicesFor({ ...r, value: undefined }).find((c) => c.toLowerCase() === v) : undefined;
+      updateRule(r.id, { op, value: hit });
+      return;
+    }
+    updateRule(r.id, { op });
+  };
+
   const renderRule = (r: LaneRule) => {
     const n = leafNumber.get(r.id) as number;
     const t = typeOf(r);
     const def = r.field === null ? undefined : fieldsById.get(r.field);
     const complete = isRuleComplete(r, t);
+    const ops = t ? opsForFieldType(t) : [];
+    const textType = t !== null && isTextRuleType(t);
+    const valueChoices = textType && r.op !== "contains" ? choicesFor(r) : NO_CHOICES;
     const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
     return (
       <div key={r.id} data-lane-row={r.id} className="flex flex-wrap items-center gap-2">
@@ -207,18 +251,18 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             updateRule(r.id, { field: fid, op: opsForFieldType(nt)[0], value: undefined, min: undefined, max: undefined });
           }}
         />
-        {t === "dropdown" ? (
-          <SingleSelectDropdown<"is" | "is_not">
+        {ops.length > 1 ? (
+          <SingleSelectDropdown<FieldRuleOp>
             label="is"
             ariaLabel={`Filter ${n} operator`}
             className="w-28 justify-between"
             escapePriority={INNER_ESCAPE_PRIORITY}
-            options={[{ value: "is", label: "is" }, { value: "is_not", label: "is not" }]}
-            selected={r.op === "is_not" ? "is_not" : "is"}
-            onChange={(op) => { if (op) updateRule(r.id, { op }); }}
+            options={ops.map((op) => ({ value: op, label: OP_LABELS[op] }))}
+            selected={ops.includes(r.op) ? r.op : ops[0]}
+            onChange={(op) => { if (op) changeOp(r, op); }}
           />
         ) : (
-          <span className="text-sm text-fg-tertiary w-28">{t ? "between" : ""}</span>
+          <span className="text-sm text-fg-tertiary w-28">{t ? OP_LABELS[ops[0]] : ""}</span>
         )}
         {t === "dropdown" && def && (
           <div className="flex-1 min-w-[10rem]">
@@ -232,6 +276,37 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               selected={r.value ? r.value : null}
               onChange={(v) => updateRule(r.id, { value: v ?? "" })}
             />
+          </div>
+        )}
+        {textType && def && r.op === "contains" && (
+          <div className="flex-1 min-w-[10rem]">
+            <input
+              type="text"
+              value={r.value ?? ""}
+              placeholder="Type text"
+              maxLength={LANE_FILTER_MAX_STRING}
+              aria-label={`Filter ${n} ${def.name} contains`}
+              onChange={(e) => updateRule(r.id, { value: e.target.value })}
+              className={`${INPUT_CLS} w-full`}
+            />
+          </div>
+        )}
+        {textType && def && r.op !== "contains" && (
+          <div className="flex-1 min-w-[10rem]">
+            {valueChoices.length > 0 ? (
+              <SingleSelectDropdown<string>
+                label="Choose a value"
+                ariaLabel={`Filter ${n} value`}
+                className="w-full justify-between"
+                labelClassName="truncate"
+                escapePriority={INNER_ESCAPE_PRIORITY}
+                options={valueChoices.map((c) => ({ value: c, label: c }))}
+                selected={valueChoices.find((c) => c.toLowerCase() === r.value?.trim().toLowerCase()) ?? null}
+                onChange={(v) => updateRule(r.id, { value: v ?? "" })}
+              />
+            ) : (
+              <span className="text-xs text-fg-tertiary">No lane has a value yet. Use contains to match text.</span>
+            )}
           </div>
         )}
         {(t === "number" || t === "date") && def && (
@@ -427,10 +502,12 @@ interface ControlProps {
   /** Complete leaf rules, for the badge. */
   activeRuleCount: number;
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Text/url field id to the lanes' distinct values, for text `is` rules. */
+  textChoices?: Map<number, string[]>;
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */
-export function LaneFilterControl({ filter, fields, onChange, paused, fmt, activeRuleCount, triggerRef: externalRef }: ControlProps) {
+export function LaneFilterControl({ filter, fields, onChange, paused, fmt, activeRuleCount, triggerRef: externalRef, textChoices }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -479,6 +556,7 @@ export function LaneFilterControl({ filter, fields, onChange, paused, fmt, activ
           onClose={onClose}
           paused={paused}
           fmt={fmt}
+          textChoices={textChoices}
         />
       )}
     </>
