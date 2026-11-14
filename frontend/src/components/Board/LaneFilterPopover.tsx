@@ -34,9 +34,14 @@ const INNER_ESCAPE_PRIORITY = 26;
 
 const SECONDARY_BTN =
   "text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
-const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", between: "between" };
+const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", not_contains: "does not contain", wildcard: "matches wildcard", between: "between" };
 /** No text choices for a field: no lane carries a value for it yet. */
 const NO_CHOICES: string[] = [];
+/** Operators that take a typed operand instead of a choice from the lanes' values. */
+const TYPED_OPS: readonly FieldRuleOp[] = ["contains", "not_contains", "wildcard"];
+const isTypedOp = (op: FieldRuleOp) => TYPED_OPS.includes(op);
+const WILDCARD_HINT = "Use * for any text and ? for one character. It matches any part of the value.";
+
 const INPUT_CLS =
   "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
 
@@ -206,11 +211,11 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const changeOp = (r: LaneRule, op: FieldRuleOp) => {
     if (op === r.op) return;
-    if (op === "contains") {
+    if (isTypedOp(op)) {
       updateRule(r.id, { op, value: r.value ?? "" });
       return;
     }
-    if (r.op === "contains") {
+    if (isTypedOp(r.op)) {
       // Typed text carries over only when it names a lane value, in that
       // value's own spelling; otherwise the rule waits for a choice.
       const v = r.value?.trim().toLowerCase();
@@ -228,7 +233,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     const complete = isRuleComplete(r, t);
     const ops = t ? opsForFieldType(t) : [];
     const textType = t !== null && isTextRuleType(t);
-    const valueChoices = textType && r.op !== "contains" ? choicesFor(r) : NO_CHOICES;
+    const valueChoices = textType && !isTypedOp(r.op) ? choicesFor(r) : NO_CHOICES;
     const laneValues = new Set(((r.field !== null && textChoices?.get(r.field)) || NO_CHOICES).map((c) => c.toLowerCase()));
     const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
     return (
@@ -256,14 +261,14 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           <SingleSelectDropdown<FieldRuleOp>
             label="is"
             ariaLabel={`Filter ${n} operator`}
-            className="w-28 justify-between"
+            className="w-40 justify-between"
             escapePriority={INNER_ESCAPE_PRIORITY}
             options={ops.map((op) => ({ value: op, label: OP_LABELS[op] }))}
             selected={ops.includes(r.op) ? r.op : ops[0]}
             onChange={(op) => { if (op) changeOp(r, op); }}
           />
         ) : (
-          <span className="text-sm text-fg-tertiary w-28">{t ? OP_LABELS[ops[0]] : ""}</span>
+          <span className="text-sm text-fg-tertiary w-40">{t ? OP_LABELS[ops[0]] : ""}</span>
         )}
         {t === "dropdown" && def && (
           <div className="flex-1 min-w-[10rem]">
@@ -279,20 +284,24 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             />
           </div>
         )}
-        {textType && def && r.op === "contains" && (
+        {textType && def && isTypedOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <input
               type="text"
               value={r.value ?? ""}
               placeholder="Text to match"
               maxLength={LANE_FILTER_MAX_STRING}
-              aria-label={`Filter ${n} ${def.name} contains`}
+              aria-label={`Filter ${n} ${def.name} ${OP_LABELS[r.op]}`}
+              aria-describedby={r.op === "wildcard" ? `lane-rule-${r.id}-hint` : undefined}
               onChange={(e) => updateRule(r.id, { value: e.target.value })}
               className={`${INPUT_CLS} w-full`}
             />
+            {r.op === "wildcard" && (
+              <p id={`lane-rule-${r.id}-hint`} className="text-xs text-fg-tertiary mt-1">{WILDCARD_HINT}</p>
+            )}
           </div>
         )}
-        {textType && def && r.op !== "contains" && (
+        {textType && def && !isTypedOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             {valueChoices.length > 0 ? (
               <SingleSelectDropdown<string>
@@ -307,7 +316,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
                 onChange={(v) => updateRule(r.id, { value: v ?? "" })}
               />
             ) : (
-              <span className="text-xs text-fg-tertiary">No lane has a value yet. Use contains to match text.</span>
+              <span className="text-xs text-fg-tertiary">No lane has a value yet. Use contains or matches wildcard to match text.</span>
             )}
           </div>
         )}

@@ -57,7 +57,7 @@ export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 
 // An op this client does not know (a newer client's, say) drops the whole
 // rule in parseRule, so it can never filter with semantics it cannot apply.
-const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains"];
+const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard"];
 
 type FieldLike = Pick<SwimlaneCustomFieldDefinition, "id" | "name" | "field_type" | "is_admin_only" | "position">;
 
@@ -116,8 +116,8 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     const value = str(o.value);
     const min = str(o.min);
     const max = str(o.max);
-    if (op === "contains") {
-      // The server accepts `contains` only with a string value and no range
+    if (op === "contains" || op === "not_contains" || op === "wildcard") {
+      // The server accepts these only with a string value and no range
       // bounds. The compact URL form drops an empty value, so restore it.
       rule.value = value ?? "";
       return rule;

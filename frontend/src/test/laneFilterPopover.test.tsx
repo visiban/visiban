@@ -208,7 +208,7 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('menuitem', { name: 'Ethan Ross' }))
     expect(screen.getByText('Reads as: Notes is Ethan Ross')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
-    expect(within(dialog).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['is', 'is not', 'contains'])
+    expect(within(dialog).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['is', 'is not', 'contains', 'does not contain', 'matches wildcard'])
     await user.click(within(dialog).getByRole('menuitem', { name: 'is not' }))
     expect(screen.getByText('Reads as: Notes is not Ethan Ross')).toBeInTheDocument()
     // Switching to contains carries the value into the text box.
@@ -222,6 +222,18 @@ describe('LaneFilterPopover', () => {
     await user.type(box, 'ross')
     expect(screen.getByText('Reads as: Notes contains ross')).toBeInTheDocument()
     expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 4, op: 'contains', value: 'ross' })
+    // #2227: the typed operators share the input; wildcard adds a hint.
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'matches wildcard' }))
+    const wbox = within(dialog).getByRole('textbox', { name: 'Filter 1 Notes matches wildcard' })
+    expect(wbox).toHaveValue('ross')
+    expect(wbox).toHaveAccessibleDescription(/for any text.*matches any part of the value/)
+    expect(screen.getByText('Reads as: Notes matches wildcard ross')).toBeInTheDocument()
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ op: 'wildcard', value: 'ross' })
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'does not contain' }))
+    expect(screen.getByText('Reads as: Notes does not contain ross')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/for any text/)).not.toBeInTheDocument()
     // Back to is: typed text that names no lane value is dropped.
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'is' }))
@@ -253,7 +265,7 @@ describe('LaneFilterPopover', () => {
     unmount()
     render(<Harness board={makeBoard([NOTES])} initial={{ items: [rule(1, 4, 'is')] }} />)
     dialog = await openPopover(user)
-    expect(within(dialog).getByText('No lane has a value yet. Use contains to match text.')).toBeInTheDocument()
+    expect(within(dialog).getByText('No lane has a value yet. Use contains or matches wildcard to match text.')).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /^Filter 1 value/ })).not.toBeInTheDocument()
   })
 
