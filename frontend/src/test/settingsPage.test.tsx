@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { useState } from 'react'
 import SettingsPage from '../pages/SettingsPage'
 import type { User } from '../types'
+import { announced } from './confirmAnnouncer'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1040,6 +1041,7 @@ describe('SecurityTab — connected accounts', () => {
     await ue.click(screen.getByTestId('disconnect-google'))
     expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
     expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
+    expect(announced()).toBe('Disconnect Google? You will no longer be able to sign in with it.')
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
     expect(mockDisconnectAccount).toHaveBeenCalledWith('google')
@@ -1105,6 +1107,17 @@ describe('SecurityTab — connected accounts', () => {
     // With no confirm open, Escape falls through to the page-level handler.
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(mockNavigate).toHaveBeenCalled()
+  })
+
+  it('a second Confirm click while a disconnect is pending sends one request (#1435)', async () => {
+    mockDisconnectAccount.mockReturnValue(new Promise(() => {}))
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    const confirm = screen.getByTestId('confirm-disconnect-google')
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(mockDisconnectAccount).toHaveBeenCalledTimes(1)
   })
 
   it('Escape is inert while a disconnect is in flight (#1366)', async () => {

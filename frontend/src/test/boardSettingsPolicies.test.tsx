@@ -41,6 +41,7 @@ vi.mock('../api/auth', () => ({
 }))
 
 import { patchColumn } from '../api/boards'
+import { announced } from './confirmAnnouncer'
 const mockPatchColumn = patchColumn as ReturnType<typeof vi.fn>
 
 const ADVISORY: ColumnPolicy = { v: 1, entry: ['Spec written'], done: ['Merged', 'Deployed'], mode: 'advisory' }
@@ -245,6 +246,7 @@ describe('BoardSettingsPoliciesSection — switching rows', () => {
     const prompt = screen.getByText(PROMPT).closest('[role="status"]') as HTMLElement
     expect(prompt).toHaveAttribute('aria-live', 'polite')
     expect(prompt).toHaveAttribute('aria-atomic', 'true')
+    expect(announced()).toBe(PROMPT)
     await user.click(within(prompt).getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByText(PROMPT)).toBeNull()
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'true')

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import {
   getAdminEmailSettings,
   patchAdminEmailSettings,
@@ -214,6 +215,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   const [confirmingSourceSwitch, setConfirmingSourceSwitch] = useState(false);
   // The confirm is triggered by Save (see handleSubmit), so Save is the trigger focus returns to (#1367).
   const saveTriggerRef = useConfirmFocusReturn(confirmingSourceSwitch ? "save" : null);
+  useConfirmAnnouncement(
+    confirmingSourceSwitch
+      ? "Switch to database configuration? All outbound email will use these settings as soon as you save."
+      : null,
+  );
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

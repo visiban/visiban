@@ -5,6 +5,7 @@ import AdminPage from '../pages/AdminPage'
 import type { User, AdminUser, SiteSettings, SiteEmailSettings } from '../types'
 import { stallEventLoopAfterWaitFor } from './eventLoopStall'
 import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
+import { announced } from './confirmAnnouncer'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1196,6 +1197,7 @@ describe('AdminPage — Escape key', () => {
     fireEvent.click(screen.getByText('Invite Links'))
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
+    expect(announced()).toBe('Revoke this invite link? Anyone holding it will no longer be able to join.')
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()
@@ -1342,6 +1344,7 @@ describe('AdminPage — maintenance mode', () => {
     await waitFor(() => screen.getByText('Confirm'))
     const prompt = screen.getByText(/Enable maintenance mode\?/).parentElement as HTMLElement
     const cancel = within(prompt).getByRole('button', { name: 'Cancel' })
+    expect(announced()).toBe('Enable maintenance mode? All non-admin users will immediately lose write access.')
     cancel.focus()
     fireEvent.click(cancel)
     expect(screen.getByLabelText('Maintenance mode')).toHaveFocus()
@@ -1806,6 +1809,7 @@ describe('AdminPage — Email (SMTP) settings', () => {
     // The confirm row appears and nothing is sent yet.
     await waitFor(() => screen.getByText(/Switch to database configuration\?/))
     expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+    expect(announced()).toMatch(/^Switch to database configuration\?/)
 
     fireEvent.click(screen.getByText('Confirm'))
     await waitFor(() => {

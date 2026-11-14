@@ -35,8 +35,8 @@ import AdminPage from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import UnavailablePage from "./pages/UnavailablePage";
 import type { HealthStatus, ImportSummary, User } from "./types";
-import { joinBoard, patchBoard, starBoard, unstarBoard } from "./api/boards";
-import { joinGroup } from "./api/groups";
+import { patchBoard, starBoard, unstarBoard } from "./api/boards";
+import { inviteKindOf, joinInvite } from "./api/inviteKinds";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
 export default function App() {
@@ -75,19 +75,12 @@ export default function App() {
     // Drop a malformed stored token instead of sending it anywhere (the api
     // functions also enforce the allowlist; #2174).
     if (!isValidJoinToken(pendingToken)) return;
-    // A board invite (vbnb_, #1444) redeems through the board join endpoint;
-    // every other pending token is a group invite. On failure JoinPage shows
-    // the right state for either kind.
-    if (pendingToken.startsWith("vbnb_")) {
-      joinBoard(pendingToken)
-        .then((res) => navigate(`/boards/${res.board_id}`, {
-          state: { joinedBoard: res.board_name, joinedRole: res.role, created: res.created },
-        }))
-        .catch(() => navigate(`/join/${pendingToken}`));
-      return;
-    }
-    joinGroup(pendingToken)
-      .then((group) => navigate(`/groups/${group.id}`, { state: { joinedGroup: group.name } }))
+    // The prefix-to-API dispatch lives in api/inviteKinds (#1491), shared with
+    // JoinPage. A site invite (vbnl_) only authorizes registration, so there
+    // is nothing to redeem. On failure JoinPage shows the right state.
+    if (!inviteKindOf(pendingToken).join) return;
+    joinInvite(pendingToken)
+      .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch(() => navigate(`/join/${pendingToken}`));
   }, [user, navigate]);
 

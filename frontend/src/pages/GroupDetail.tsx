@@ -5,6 +5,7 @@ import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
 import { useGroupSocket } from "../hooks/useGroupSocket";
 import type { BoardEvent } from "../hooks/useBoardSocket";
 import ConnectionStatus from "../components/Common/ConnectionStatus";
@@ -236,8 +237,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [confirmRemoveLabelId, setConfirmRemoveLabelId] = useState<number | null>(null);
+  const removingMemberIds = useRef(new Set<number>());
+  const removingLabelIds = useRef(new Set<number>());
   const removeMemberTriggerRef = useConfirmFocusReturn(confirmRemoveMemberId);
   const removeLabelTriggerRef = useConfirmFocusReturn(confirmRemoveLabelId);
+  const confirmingMember = confirmRemoveMemberId === null ? undefined : members.find((m) => m.user.id === confirmRemoveMemberId);
+  const confirmingLabel = confirmRemoveLabelId === null ? undefined : group?.shared_labels?.find((l) => l.id === confirmRemoveLabelId);
+  useConfirmAnnouncement(
+    confirmingMember
+      ? confirmingMember.has_all_content_access === true
+        ? "Remove this group role? Full access is not affected."
+        : `Remove ${confirmingMember.user.display_name || confirmingMember.user.username} from this group?`
+      : confirmingLabel
+        ? `Remove ${confirmingLabel.name} from this group?`
+        : null,
+  );
 
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");
@@ -881,6 +895,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleRemoveMember = async (userId: number) => {
+    // The prompt closes on Confirm, so the trigger is back while the DELETE is
+    // pending; a second Confirm must not send a second DELETE.
+    if (removingMemberIds.current.has(userId)) return;
+    removingMemberIds.current.add(userId);
     setConfirmRemoveMemberId(null);
     setMemberError(null);
     try {
@@ -890,6 +908,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       writeMembers((prev) => prev.filter((m) => m.user.id !== userId));
     } catch (err: unknown) {
       setMemberError(memberErrorMessage(err, "Failed to remove member. Please try again."));
+    } finally {
+      removingMemberIds.current.delete(userId);
     }
   };
 
@@ -958,6 +978,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleDeleteGroupLabel = async (labelId: number) => {
+    if (removingLabelIds.current.has(labelId)) return;
+    removingLabelIds.current.add(labelId);
     setConfirmRemoveLabelId(null);
     setLabelError(null);
     try {
@@ -965,6 +987,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== labelId) } : prev);
     } catch {
       setLabelError("Failed to remove label. Please try again.");
+    } finally {
+      removingLabelIds.current.delete(labelId);
     }
   };
 

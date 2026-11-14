@@ -3,6 +3,7 @@ import type { Column, ColumnPolicy } from "../../types";
 import { columnPolicy, policyCountSummary, POLICY_MODE_LABEL } from "../../utils/columnPolicy";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
 
@@ -172,6 +173,12 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
   // Focus returns to the row that was clicked when the discard prompt closes
   // (frontend/CLAUDE.md: dismissing an inline confirm returns focus to its trigger).
   const triggerRef = useConfirmFocusReturn<number>(pendingSwitchId);
+  const switchName = (id: number | null) => columns.find((c) => c.id === id)?.name ?? "";
+  useConfirmAnnouncement(
+    pendingSwitchId === null
+      ? null
+      : `Discard changes to “${switchName(openColumnId)}” and open “${switchName(pendingSwitchId)}”?`,
+  );
 
   const focusRow = (id: number) => requestAnimationFrame(() => buttonRefs.current.get(id)?.focus());
   const onDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);

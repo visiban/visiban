@@ -24,6 +24,7 @@ vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
 import { listInviteLinks, revokeInviteLink } from '../api/groups'
 import { listBoardInviteLinks, revokeBoardInviteLink, sendBoardInviteEmail } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
+import { announced } from './confirmAnnouncer'
 
 const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
 const mockRevoke = revokeBoardInviteLink as ReturnType<typeof vi.fn>
@@ -198,6 +199,7 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     const prompt = screen.getByText('Revoke this invite? The person it was emailed to will no longer be able to join.')
     expect(prompt.parentElement).toHaveAttribute('role', 'status')
     expect(prompt.parentElement).toHaveAttribute('aria-live', 'polite')
+    expect(announced()).toBe(prompt.textContent)
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(mockRevoke).toHaveBeenCalledWith(9, 1)
     expect(await screen.findByRole('button', { name: 'Show past invites (1)' })).toBeInTheDocument()
@@ -359,6 +361,7 @@ describe('InviteLinkPanel — group revoke fixes (#1421)', () => {
     render(<InviteLinkPanel scope={{ kind: 'group', id: 3 }} />)
     await user.click(await screen.findByRole('button', { name: 'Revoke' }))
     expect(screen.getByText('Revoke this invite link? Anyone holding it will no longer be able to join.')).toBeInTheDocument()
+    expect(announced()).toBe('Revoke this invite link? Anyone holding it will no longer be able to join.')
   })
 
   it('a 400 on revoke reports the invite as already used and refetches', async () => {

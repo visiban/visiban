@@ -685,6 +685,18 @@ describe('App — pending invite after OAuth (#1444)', () => {
     expect(mockJoinBoard).not.toHaveBeenCalled()
   })
 
+  it('a stored site invite (vbnl_) is dropped: nothing to redeem, no detour through /join (#1491)', async () => {
+    // Site invites only authorize registration, so a signed-in user has nothing
+    // to join. The old fallthrough (joinGroup 404 -> /join/<token>) only bounced
+    // back to "/" via JoinPage's site-invite redirect.
+    sessionStorage.setItem('pendingJoinToken', 'vbnl_tok')
+    render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
+    await waitFor(() => expect(sessionStorage.getItem('pendingJoinToken')).toBeNull())
+    expect(mockJoinBoard).not.toHaveBeenCalled()
+    expect(mockJoinGroup).not.toHaveBeenCalled()
+    expect(screen.getByTestId('probe')).not.toHaveTextContent('/join/')
+  })
+
   it('drops a malformed stored token without calling either join endpoint (#2174)', async () => {
     sessionStorage.setItem('pendingJoinToken', 'vbnb_a/../b')
     render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LensConnectionModal from '../components/Board/LensConnectionModal'
 import type { LensConnection } from '../types'
@@ -10,6 +10,7 @@ vi.mock('../api/gitLens', () => ({
 }))
 
 import { putLensConnection, deleteLensConnection } from '../api/gitLens'
+import { announced } from './confirmAnnouncer'
 
 const mockPut = putLensConnection as ReturnType<typeof vi.fn>
 const mockDelete = deleteLensConnection as ReturnType<typeof vi.fn>
@@ -124,11 +125,34 @@ describe('LensConnectionModal', () => {
     await user.click(screen.getByRole('button', { name: 'Remove lens' }))
     expect(mockDelete).not.toHaveBeenCalled()
     expect(screen.getByText('Remove this connection?')).toBeInTheDocument()
+    expect(announced()).toBe('Remove this connection?')
 
     // Confirm commits the removal.
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(5))
     expect(onRemoved).toHaveBeenCalled()
+  })
+
+  it('a second Confirm click while the removal is pending sends one request (#1435)', async () => {
+    const user = userEvent.setup()
+    let finish: () => void = () => {}
+    mockDelete.mockReturnValue(new Promise<void>((resolve) => { finish = resolve }))
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={savedConnection}
+        onSaved={vi.fn()}
+        onRemoved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Remove lens' }))
+    const confirm = screen.getByRole('button', { name: 'Confirm' })
+    await user.click(confirm)
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(mockDelete).toHaveBeenCalledTimes(1)
+    finish()
   })
 
   it('renders an existing connection whose creator was deleted (created_by: null, #1331)', () => {

@@ -11,6 +11,7 @@ import CardKeyFacts from "./CardKeyFacts";
 import { buildKeyFacts } from "../../utils/cardKeyFacts";
 import type { KeyFactTarget } from "../../utils/cardKeyFacts";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
@@ -168,6 +169,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
+  useConfirmAnnouncement(confirmDeleteCommentId === null ? null : "Delete this comment?");
   // Manual block form (#1149): the header's Block… and the banner's Unblock
   // open it; focus returns to whichever opened it on Cancel or Escape.
   const [blockFormMode, setBlockFormMode] = useState<BlockFormMode>(null);

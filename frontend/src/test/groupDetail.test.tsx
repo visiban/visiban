@@ -117,6 +117,7 @@ vi.mock('../api/auth', () => ({
 import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
 import { importBoard } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
+import { announced } from './confirmAnnouncer'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -769,6 +770,54 @@ describe('GroupDetail', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     const name = await screen.findByText('Design')
     expect(name.parentElement?.querySelector('.color-dot')).not.toBeNull()
+  })
+
+  it('announces the label remove prompt and a second remove while pending sends one DELETE (#1435)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    let resolveDelete: () => void = () => {}
+    mockDeleteGroupLabel.mockReturnValueOnce(new Promise<void>((r) => { resolveDelete = r }))
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Design')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+    expect(announced()).toBe('Remove Design from this group?')
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    // The prompt closed, so the trigger is back while the DELETE is pending.
+    await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(mockDeleteGroupLabel).toHaveBeenCalledTimes(1)
+    resolveDelete()
+    await waitFor(() => expect(screen.queryByText('Design')).not.toBeInTheDocument())
+  })
+
+  it('a second member remove while the first DELETE is pending sends one request (#1435)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    let resolveRemove: () => void = () => {}
+    mockRemoveGroupMember.mockReturnValueOnce(new Promise<void>((r) => { resolveRemove = r }))
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(mockRemoveGroupMember).toHaveBeenCalledTimes(1)
+    resolveRemove()
+    await waitFor(() => expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument())
   })
 
   it('surfaces an error and keeps the label when label removal fails (#1386)', async () => {
@@ -1952,6 +2001,7 @@ describe('GroupDetail', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
 
       expect(screen.getByText(/from this group\?/).textContent).toBe('Remove Alice Smith from this group?')
+      expect(announced()).toBe('Remove Alice Smith from this group?')
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
 

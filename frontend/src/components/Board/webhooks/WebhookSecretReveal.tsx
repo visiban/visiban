@@ -1,4 +1,7 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { useConfirmAnnouncement } from "../../../hooks/useConfirmAnnouncement";
+
+const GUARD_PROMPT = "Close without storing the secret? You'd have to rotate it to get a new one.";
 
 export interface WebhookSecretRevealHandle {
   focusCopy: () => void;
@@ -27,6 +30,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
   ref,
 ) {
   const uid = useId();
+  useConfirmAnnouncement(guardOpen ? GUARD_PROMPT : null);
   const headingId = `${uid}-heading`;
   const warningId = `${uid}-warning`;
   const doneHintId = `${uid}-done-hint`;
@@ -103,7 +107,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
       <div className="flex flex-wrap items-center justify-end gap-3">
         {guardOpen && (
           <div role="status" aria-live="polite" aria-atomic="true" className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
-            <span>Close without storing the secret? You'd have to rotate it to get a new one.</span>
+            <span>{GUARD_PROMPT}</span>
             <button
               type="button"
               onClick={onGuardConfirm}

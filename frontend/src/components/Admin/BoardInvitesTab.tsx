@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { getAdminBoardInviteLinks, revokeAdminBoardInviteLink } from "../../api/auth";
 import { INVITE_ROLE_LABELS, INVITE_STATUS_STYLES } from "../../constants/invites";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { AdminBoardInviteLink, AdminBoardInviteStatusFilter } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -48,6 +49,14 @@ export default function BoardInvitesTab() {
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [revokeError, setRevokeError] = useState<{ id: number; message: string } | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmId);
+  const confirmingRow = confirmId === null ? undefined : rows.find((r) => r.id === confirmId);
+  useConfirmAnnouncement(
+    !confirmingRow
+      ? null
+      : confirmingRow.delivery === "email"
+        ? `Revoke this invite to ${confirmingRow.board_name}? The person it was emailed to will no longer be able to join.`
+        : `Revoke this invite link to ${confirmingRow.board_name}? Anyone holding it will no longer be able to join.`,
+  );
   // A revoke that removes its own row (or its Revoke button) leaves nothing
   // for useConfirmFocusReturn to return to: focus moves to the heading.
   const headingRef = useRef<HTMLHeadingElement>(null);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -752,6 +753,11 @@ function FieldEditPanel({
   const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card;
   // The type button that raised the "Change type" prompt is the trigger focus returns to (#1367).
   const typeTriggerRef = useConfirmFocusReturn(pendingTypeChange);
+  useConfirmAnnouncement(
+    pendingTypeChange
+      ? "If cards already have values for this field, the save will be refused. To use a different type, add a new field of that type, then delete this one. Continue?"
+      : null,
+  );
 
   return (
     <div className={isNew ? "" : "bg-sunken border border-primary-soft rounded-lg p-3 my-1"}>

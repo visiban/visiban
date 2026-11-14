@@ -21,6 +21,7 @@ import {
   getWebhookStatus, listWebhooks, createWebhook, updateWebhook, deleteWebhook,
   disableWebhook, reenableWebhook, rotateWebhookSecret, testWebhook,
 } from '../api/webhooks'
+import { announced } from './confirmAnnouncer'
 
 const m = {
   status: getWebhookStatus as ReturnType<typeof vi.fn>,
@@ -226,6 +227,7 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     act(() => { intercepted = guard!(proceed) })
     expect(intercepted).toBe(true)
     expect(proceed).not.toHaveBeenCalled()
+    expect(announced()).toBe("Close without storing the secret? You'd have to rotate it to get a new one.")
     await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
     expect(proceed).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('webhook-secret-reveal')).not.toBeInTheDocument()
@@ -387,6 +389,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Turn off' }))
     expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to this address/)).toBeInTheDocument()
+    expect(announced()).toMatch(/^Turn off this webhook\? Visiban stops sending to this address/)
     await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
     expect(m.disable).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toHaveFocus())
@@ -405,6 +408,7 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByText('Reason code: failures')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     expect(screen.getByText(/Sending resumes to this address, starting with the events it missed/)).toBeInTheDocument()
+    expect(announced()).toMatch(/^Sending resumes to this address, starting with the events it missed/)
     // The confirm replaced its trigger, so focus moves into it.
     expect(screen.getByRole('button', { name: 'Turn on' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
@@ -450,6 +454,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(screen.getByText(/Events from the gap won't be sent/)).toBeInTheDocument()
+    expect(announced()).toBe(screen.getByText(/Events from the gap won't be sent/).textContent)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(m.reenable).toHaveBeenLastCalledWith(3, 1, 'latest', undefined)
 
@@ -458,6 +463,8 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/can only resume with new events/)
+    // After the server's 409 the visible prompt swaps to the expired copy; the announcement follows it.
+    expect(announced()).toBe(screen.getByText(/Events from the gap won't be sent/).textContent)
     await user.click(screen.getByRole('button', { name: 'Turn on from now' }))
     expect(m.reenable).toHaveBeenLastCalledWith(3, 2, 'latest', undefined)
   })
@@ -508,6 +515,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     expect(screen.getByText(/Rotate the secret\? Choose what happens/)).toBeInTheDocument()
+    expect(announced()).toBe('Rotate the secret? Choose what happens to the current one.')
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
     expect(m.rotate).toHaveBeenCalledWith(3, 1, 86400)
     const reveal = await screen.findByTestId('webhook-secret-reveal')
@@ -555,6 +563,7 @@ describe('Webhooks tab — detail', () => {
     const liveText = Array.from(document.querySelectorAll('[role="status"], [aria-live], [role="alert"]')).map((el) => el.textContent ?? '').join(' | ')
     expect(liveText).toMatch(/Visiban stops sending to this address/)
     expect(liveText).not.toMatch(/hooks\.zapier\.com/)
+    expect(announced()).toBe("Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.")
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByText(/its secret is destroyed/)).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Delete webhook' }))
@@ -947,6 +956,58 @@ describe('Webhooks tab — detail', () => {
     expect(screen.queryByText(/older secret from your last rotation/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Rotate secret…' })).toHaveFocus())
+  })
+
+  it('a double click on Confirm sends one turn off, and Cancel waits for it (#1435)', async () => {
+    const user = setup()
+    let finish: (value: unknown) => void = () => {}
+    m.list.mockResolvedValue([sub()])
+    m.disable.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Turn off' }))
+    const confirm = screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ })
+    await user.click(confirm)
+    expect(confirm).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(m.disable).toHaveBeenCalledTimes(1)
+    finish(sub({ enabled: false, disabled_reason: 'manual', disabled_at: minsAgo(0) }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toBeInTheDocument())
+  })
+
+  it('a double click on Confirm sends one delete (#1435)', async () => {
+    const user = setup()
+    let finish: (value: unknown) => void = () => {}
+    m.list.mockResolvedValue([sub()])
+    m.del.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Delete webhook' }))
+    const confirm = screen.getByRole('button', { name: /^Confirm: Delete this webhook/ })
+    await user.click(confirm)
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(m.del).toHaveBeenCalledTimes(1)
+    finish({})
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Webhooks' })).toBeInTheDocument())
+  })
+
+  it('a double click on Turn on sends one re-enable (#1435)', async () => {
+    const user = setup()
+    let finish: (value: unknown) => void = () => {}
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'failures', disabled_at: minsAgo(3) })])
+    m.reenable.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Turn on again' }))
+    const confirm = screen.getByRole('button', { name: 'Turn on' })
+    await user.click(confirm)
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(m.reenable).toHaveBeenCalledTimes(1)
+    finish(sub())
+    await screen.findByText('Webhook 1 of 1 is on.')
   })
 
   it('a double click sends one rotation, and Cancel waits for it', async () => {

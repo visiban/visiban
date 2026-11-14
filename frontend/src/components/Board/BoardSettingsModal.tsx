@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useToast } from "../../contexts/useToast";
 import { canDeleteBoard } from "../../utils/canDeleteBoard";
@@ -34,6 +35,8 @@ import { formatExportFormatLabel, formatExportRowCount } from "../../utils/expor
 
 // Chip tooltip and accessible description for a member whose all-content access
 // overrides their board role (#1301).
+// Shared by the visible prompt and its announcement so they cannot drift apart.
+const HARD_WIP_PROMPT = "Enable hard mode? No one, including admins, will be able to bypass WIP limits.";
 const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
 
 // Built from visibleRowChipCount so the density copy can't drift from the
@@ -286,6 +289,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const removeTriggerRef = useConfirmFocusReturn(pendingRemove);
+  const pendingRemoveMember = pendingRemove === null ? undefined : members.find((m) => m.user.id === pendingRemove);
+  useConfirmAnnouncement(
+    !pendingRemoveMember
+      ? null
+      : pendingRemoveMember.role === "site_admin" || pendingRemoveMember.has_all_content_access === true
+        ? "Remove this board role? Full access is not affected."
+        : `Remove ${userDisplayName(pendingRemoveMember.user)} from this board?`,
+  );
   // The "Full access" chip of each all-content row, by user id. Removing the
   // explicit board role unmounts the row's trigger, so focus lands on the chip
   // instead of falling to the page (#1301).
@@ -339,6 +350,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
   const hardWipTriggerRef = useConfirmFocusReturn(pendingHardWip ? "hard-wip" : null);
+  useConfirmAnnouncement(pendingHardWip ? HARD_WIP_PROMPT : null);
 
   // #974 — remembers the last personal density the user picked, for this
   // modal session only (NOT a separate persisted value from
@@ -1493,7 +1505,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                     {pendingHardWip && (
                       <div className="mt-1.5 flex items-center gap-2 text-xs">
-                        <span className="text-fg-tertiary">Enable hard mode? No one — including admins — will be able to bypass WIP limits.</span>
+                        <span className="text-fg-tertiary">{HARD_WIP_PROMPT}</span>
                         <button
                           onClick={() => {
                             onUpdateBoardSettings({ enforce_wip_hard: true });

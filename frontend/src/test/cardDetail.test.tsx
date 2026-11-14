@@ -80,6 +80,7 @@ vi.mock('../components/Card/RichTextEditor', () => ({
 import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem, getCardTimeline } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
 import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+import { announced } from './confirmAnnouncer'
 // #967: the card tab is session memory at module level; start every test on Details.
 beforeEach(() => rememberCardDetailTab('details'))
 
@@ -1869,6 +1870,7 @@ describe('CardDetail', () => {
       await renderWithComment()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(announced()).toBe('Delete this comment?')
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'No' })).not.toBeInTheDocument()

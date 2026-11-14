@@ -30,3 +30,17 @@ describe('ShareBoardHeader sign-in CTA (#1740)', () => {
     expect(screen.getByText('home')).toBeInTheDocument()
   })
 })
+
+describe('ShareBoardHeader content (#1990)', () => {
+  it('shows the wordmark, the board name (with a full-name title) and a View only badge, and no edit controls', () => {
+    render(
+      <MemoryRouter initialEntries={['/share/tok']}>
+        <ShareBoardHeader boardName="A very long board name" />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('img', { name: 'Visiban' })).toBeInTheDocument()
+    expect(screen.getByText('A very long board name')).toHaveAttribute('title', 'A very long board name')
+    expect(screen.getByText('View only')).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+  })
+})

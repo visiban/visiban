@@ -1,4 +1,11 @@
 import '@testing-library/jest-dom'
+import { configure } from '@testing-library/react'
+
+// useConfirmAnnouncement (#1435) keeps one hidden live region on document.body
+// that repeats each open inline-confirm prompt's text. Text queries would see
+// every prompt twice, so skip it by default; the hook's own test reads it with
+// `ignore: ''` or a direct selector.
+configure({ defaultIgnore: 'script, style, [data-confirm-announcer]' })
 
 // jsdom does not implement PointerEvent.  Polyfill it as a MouseEvent subclass
 // so tests that exercise real @dnd-kit/core sensors (which check event.isPrimary
