@@ -5,7 +5,7 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 
 **Why it matters:** The current tab has three sections with three filter models, buries the bottleneck in a chart footnote, and puts the most actionable list last. The redesign answers "where is work stuck and what should I look at" before it shows a chart.
 
-**Status:** Design only. Nothing on this page is implemented. The work is tracked in #2257 (page restructure) and #458 (swimlane comparison and breakdowns), both labelled `analytics-redesign`.
+**Status:** Design only. Nothing on this page is implemented. The work is tracked in #2257 (page restructure) and #458 (swimlane comparison and breakdowns), both labeled `analytics-redesign`.
 
 **Watch out:** Every number in the screenshots is sample data. The screenshots approximate charts with plain boxes; build the real charts on `components/Common/Chart.tsx`.
 
@@ -36,7 +36,10 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 
 ## Page structure
 
-The tab has two views, **Overview** and **Swimlanes**, switched by a tab row under the page title. Both share one filter bar.
+The tab has two views, **Overview** and **Swimlanes**, switched by a row of two links under the page title.
+
+- Build the switch as a `<nav>` of links with `aria-current="page"` on the active one, not an ARIA tablist. The active link is bold with an underline, so color is not the only cue.
+- The Period and Label selections carry over when switching views.
 
 Overview, top to bottom:
 
@@ -57,7 +60,8 @@ Chart rows are two equal columns from `lg` and one column below, and a chart fra
 
 ## Filter bar
 
-- **Period**, **Swimlane** and **Label** dropdowns, in that order, using `SingleSelectDropdown` with `portalMenu`. One selection drives every panel on both tabs.
+- **Period**, **Swimlane** and **Label** dropdowns, in that order, using `SingleSelectDropdown` with `portalMenu`. One selection drives every panel on the Overview.
+- The Swimlanes view has Period and Label only. It has no Swimlane filter and no Break down by, because it already shows every swimlane.
 - **Period options:** last 30, 90, 180 and 365 days. Default 90.
 - **Break down by:** a segmented group with None, Swimlane, Label, and one entry per eligible card custom field (#458). The active segment carries `ActiveMark`.
 - **Export CSV**, admin and site admin only, as today.
@@ -82,7 +86,19 @@ Four tiles, each with a label, one large number with its unit, and one supportin
 | Work in progress | Cards in progress now | Columns over their limit and cards past the 85th percentile |
 | Blocked time | Total days blocked | Number of blocks and cards blocked now |
 
-A percentile below the minimum sample size in the flow-metric ADR (#1532) is withheld, and the tile says why.
+### Withholding rules
+
+These come from the flow-metric ADR (#1532) and `backend/boards/services/flow_metrics.py`. The server applies them; the page only reports the result.
+
+| Value | Shown when | Otherwise |
+|---|---|---|
+| Median (50th percentile) | at least 5 finished cards | withheld, with the count so far |
+| 85th percentile | at least 7 finished cards | withheld, with the count so far |
+| 95th percentile | at least 20 finished cards | withheld |
+| Weekly throughput median | the API returns one | withheld, with the reason |
+| Bottleneck | a column's queue grew over the period | "No bottleneck" or "Too early to say" |
+
+**Where the sample size shows:** on the Cycle time tile; in each chart's notes, as `ChartPanel` does today ("102 cards."); and as the "finished" count on each Swimlanes row.
 
 ## How work flows
 
@@ -103,7 +119,7 @@ One row, left to right, inside a box that scrolls sideways when the panel is nar
 Under the flow row, in the same panel.
 
 - One horizontal bar per group. With no breakdown there is one bar, "All cards".
-- Each bar is segmented by in-progress column; a segment's width is the median days in that column and it is labelled with that number.
+- Each bar is segmented by in-progress column; a segment's width is the median days in that column and it is labeled with that number.
 - The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The total is printed at the end.
 - The bottleneck column's segment is hatched.
 - This replaces the dwell heatmap on this tab. The board overlay keeps the per-cell view.
@@ -115,8 +131,8 @@ All four charts keep the `ChartPanel` behavior they have today: summary sentence
 | Chart | What changes |
 |---|---|
 | Cumulative flow | Layout position only. Bands in one hue with alpha steps, 1px separators, direct labels at the right edge, hatched bottleneck. |
-| Throughput | Adds a "started" marker per week next to the finished bar. Median dashed, labelled in the right margin. |
-| Aging work in progress | Layout position only. 50th percentile dashed, 85th solid and heavier, both labelled in the right margin. Ringed past the 85th, square when blocked. |
+| Throughput | Adds a "started" marker per week next to the finished bar. Median dashed, labeled in the right margin. |
+| Aging work in progress | Layout position only. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. |
 | Cycle time | Layout position only. Same reference-line vocabulary. |
 
 No chart uses a status color or a categorical palette.
@@ -128,7 +144,8 @@ One list that replaces the stalled-cards table.
 - **Membership:** a card is listed once if it is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile.
 - **Order:** oldest first.
 - **Row:** card title, then column, swimlane and the reason; age in days on the right. Selecting a row opens the card.
-- Shows five rows with a link to the full list.
+- **Age color:** `text-danger` when the card is past the 85th percentile, `text-warning` otherwise. Every card on this list is already flagged, so there is no neutral tier.
+- Shows five rows. "All N cards" expands the list in place, 25 per page, like the stalled table today.
 
 ## Why cards get blocked
 
@@ -143,8 +160,10 @@ Opens from a column box or from the bottleneck panel's primary button. Reuse `Fl
 
 - Heading: column name, and "N cards in this column now, limit L".
 - Three figures: in column against the limit, median wait, cards past the 85th percentile.
-- The oldest card expanded: title, age, swimlane and blocked state, a bar of its time by column, one sentence naming the time in this column, and buttons "Open card" and "Movement history".
-- The remaining cards, oldest first, five at a time.
+- The oldest card expanded: title, age, swimlane and blocked state, a bar of its time by column, one sentence naming the time in this column, and an "Open card" button that opens the card detail (`onOpenCard`).
+- The screenshot also shows a "Movement history" button. Do not build it; "Open card" already leads there.
+- The remaining cards, oldest first. Five show at first; a "Show N more" button reveals the rest. The screenshot shows this as plain text.
+- Opening, closing and focus return follow `FlowDrillDrawer` as it works today.
 
 ![Column drawer open on Review](analytics-redesign/overview-drawer.png)
 
@@ -163,8 +182,8 @@ Charts stay one hue. A breakdown never colors marks by group.
 
 ## Swimlanes tab (#458)
 
-- Same title row, tabs and filter bar. Two more controls: "Group lanes by" (None, or a swimlane custom field) and "Sort" (slowest first by default).
-- A finding panel at the top names the slowest swimlanes in one heading and one sentence.
+- Same title row and view links. Controls: Period, Label, "Group lanes by" (None, or a swimlane custom field) and "Sort" (slowest first by default).
+- A finding panel at the top names up to two swimlanes whose status is "slower", slowest first, in one heading and one sentence. When none is slower it says so.
 - One row per swimlane:
 
 | Cell | Content |
@@ -175,7 +194,12 @@ Charts stay one hue. A breakdown never colors marks by group.
 | Time blocked | A bar and "N% of elapsed time" |
 | Counts | Cards in progress and cards finished |
 
-- A swimlane with fewer than five finished cards shows no median, no bar and no trend, and says how many cards have finished.
+- **Status** compares the swimlane's median with the board median: "Slower than the board" when more than 15% above, "Faster than the board" when more than 15% below, otherwise "In line with the board". The 15% is a proposed threshold for `architect` to confirm.
+- **Trend** compares the first and last rolling medians in the period with the same 15% threshold: "Slower, A to B days", "Faster, A to B days" or "Steady".
+- **Bar scale** is shared by every row and runs from 0 to the largest 85th percentile on the page, rounded up to a round number. The board-median tick sits on that scale.
+- A swimlane with fewer than five finished cards shows no median, no bar and no trend. Its cycle-time text says how many cards have finished and its trend text is "Not enough cards".
+- A swimlane with five or six finished cards shows the median but no 85th-percentile line.
+- A legend under the rows explains the board-median tick, the solid bar, the thin line and the trend.
 - Status is carried by the words, not by color.
 - Below 1024px each row's cells wrap under the name.
 
@@ -186,7 +210,7 @@ Charts stay one hue. A breakdown never colors marks by group.
 | State | What shows |
 |---|---|
 | Loading | Skeleton blocks the size of the final panels. Filters stay usable. |
-| No history yet | Heading, one sentence on what the page will show, a dimmed example bar labelled as an example, and "Go to board". |
+| No history yet | Heading, one sentence on what the page will show, a dimmed example bar labeled as an example, and "Go to board". |
 | Too little data | The page renders. The bottleneck panel says "Too early to say" with the reason. Tiles mark values "Provisional" and say what is withheld and when it will appear. |
 | Filters match nothing | Heading, a sentence naming the active filters, a removable chip per filter, a suggestion when widening the period would match cards, and "Clear all filters". |
 
@@ -213,6 +237,25 @@ The screenshots use literal colors. Build with the tokens.
 
 Smallest text is 12px everywhere.
 
+### Alpha steps
+
+Every mark is `chartTint(alpha)`. The design uses these values; keep the order of strengths even if `ux-review` adjusts a number.
+
+| Mark | Alpha |
+|---|---|
+| Cumulative flow and time bars: Done | 0.12 |
+| Ready | 0.22 |
+| In progress | 0.42 |
+| QA | 0.7 |
+| Bottleneck column (hatched) | 0.62 with 0.3 stripes |
+| Throughput bars | 0.6; highlighted group 0.7, the rest 0.22 |
+| Aging marks | 0.85; highlighted group 0.95, the rest 0.22 |
+| Cycle time dots | 0.8; highlighted group 0.95, the rest 0.2 |
+| Flow-row squares | 0.7; over the limit, hollow with a 0.9 outline |
+| Blocked-reason and Swimlanes bars | 0.7 |
+
+Cumulative flow bands stack bottom to top in board order from Done back to the first in-progress column.
+
 ## Phone width
 
 ![Overview at 390px](analytics-redesign/overview-phone.png)
@@ -232,7 +275,7 @@ All additions are additive; no existing field, endpoint or parameter changes. Th
 | Flow row | WIP limit per column | Yes, on the column |
 | Where the time goes | Median days per column for the selected filters | No (the heatmap returns averages) |
 | Throughput | Cards started per week | No |
-| Blocked tile and list | Blocked totals and reasons for the same period as the flow charts | Partly: the analytics endpoint accepts 7, 30 or 90 days only |
+| Blocked tile and list | Blocked totals and reasons for the same period and filters as the flow charts | Partly: the analytics endpoint accepts 1 to 365 days, but takes no swimlane or label filter |
 | Needs attention | Stalled cards for the same period and filters | Partly: not filtered by swimlane or label |
 | Breakdowns (#458) | Each flow metric grouped by swimlane, label or custom field | No |
 | Swimlanes tab (#458) | Rolling median and share of elapsed time blocked, per swimlane | No |
@@ -246,6 +289,16 @@ Percentiles and medians come from the server. The browser never computes one.
 - The blocked-time table per column.
 
 These are UI removals only. The analytics endpoint keeps every field it returns today. Run `sunset-check` on the heatmap before removing it.
+
+## Not part of this design
+
+- #458's "card detail: show the card's own cycle time against its swimlane" has no design here. Leave it out unless it is designed separately.
+
+## Docs to update when this is built
+
+- `docs/features/analytics.md`: it describes the heatmap, the Age/Throughput toggle, the 7/30/90 pills, the stalled table and the blocked table, and uses "Throughput" for dwell time. After the change "Throughput" means cards finished per week everywhere.
+- `docs/api/`: every added field and parameter.
+- `frontend/CLAUDE.md` § Charts: any new rule `ux-review` surfaces, and a pointer to this page.
 
 ## Open decisions
 
@@ -268,6 +321,7 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 - [ ] All four states render as in `states.png`
 - [ ] No sideways page scroll at 390px
 - [ ] Light and dark themes both pass the contrast rules in `frontend/CLAUDE.md`
+- [ ] `docs/features/analytics.md`, `docs/api/` and `frontend/CLAUDE.md` § Charts are updated in the same MR
 
 ## Artboard sources
 
