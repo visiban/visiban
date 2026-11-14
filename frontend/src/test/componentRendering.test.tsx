@@ -249,7 +249,7 @@ describe('CardItem', () => {
     const root = container.firstChild as HTMLElement
     const overlay = root.querySelector('[aria-hidden="true"]')
     expect(overlay).toBeInTheDocument()
-    expect(overlay?.className).toContain('bg-warning/15')
+    expect(overlay?.className).toContain('bg-stale-tint/15')
   })
 
   // ---- #1841: graduated staleness ramp ----
@@ -271,7 +271,7 @@ describe('CardItem', () => {
     const a = overlayOf(renderAged(21).container)
     const b = overlayOf(renderAged(35).container)
     const c = overlayOf(renderAged(56).container)
-    expect(a?.className).toContain('bg-warning/15')
+    expect(a?.className).toContain('bg-stale-tint/15')
     expect(b?.className).toContain('bg-danger/15')
     expect(c?.className).toContain('bg-stale-severe/20')
     expect(c?.className).toContain('ring-inset')
@@ -300,7 +300,7 @@ describe('CardItem', () => {
   // A never-moved card (e.g. Trello/CSV import) ages from created_at, like the
   // server's is_stale fallback — the imported-board case #1841 opens with.
   it.each([
-    [21, 'bg-warning/15', 'Stale · 21d'],
+    [21, 'bg-stale-tint/15', 'Stale · 21d'],
     [56, 'bg-stale-severe/20', 'Stale · 56d'],
   ])('a never-moved card created %i days ago ages from created_at', (days, overlay, label) => {
     const { container } = render(

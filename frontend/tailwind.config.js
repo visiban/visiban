@@ -48,6 +48,7 @@ export default {
         "urgent-on-tint": "rgb(var(--urgent-on-tint) / <alpha-value>)",
         // Stale 3x aging stage (#1841) — card overlay fill + inset ring only
         "stale-severe": "rgb(var(--stale-severe) / <alpha-value>)",
+        "stale-tint": "rgb(var(--stale-tint) / <alpha-value>)",
 
         // Interactive — primary (Visiban brand blue)
         primary: "rgb(var(--primary) / <alpha-value>)",

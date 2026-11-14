@@ -116,7 +116,7 @@ describe('CardItem — card_density (#961)', () => {
     it('renders the urgency badge with the formatted date for due-soon cards', () => {
       const { container } = render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" />)
       const badge = container.querySelector('.text-warning-on-tint') as HTMLElement
-      // #871: plain text-warning is 3.56:1 on a white card, so the untinted badge uses warning-on-tint.
+      // #871: plain text-warning was 3.56:1 on a white card (before #2029), so the untinted badge uses warning-on-tint.
       expect(container.querySelector('.text-warning')).toBeNull()
       expect(badge.textContent).not.toMatch(/⏱/)
       expect(badge.textContent).toMatch(/^Due /)

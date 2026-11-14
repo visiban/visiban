@@ -75,7 +75,7 @@ describe('urgent-on-tint contrast (#1594)', () => {
 })
 
 // #2046: CLAUDE.md § System signals puts `text-warning-on-tint` / `text-danger-on-tint` on untinted
-// card surfaces, because plain `warning` (orange-600) is 3.56:1 on white (#2029). Pin the claimed ratios.
+// card surfaces, because plain `warning` (orange-600) was 3.56:1 on white before #2029. Pin the claimed ratios.
 describe('system-signal on-tint text on untinted surfaces (#2046)', () => {
   it.each([
     ['dark', 'warning-on-tint', darkBlock, 8.6],
@@ -180,6 +180,18 @@ describe('card aging ramp contrast (#1841)', () => {
     expect(darkBlock).toContain('--stale-severe:')
     expect(lightBlock).toContain('--stale-severe:')
     expect(tw).toContain('"stale-severe": "rgb(var(--stale-severe) / <alpha-value>)"')
+  })
+
+  // #2029: the stale (1-2x) fill has its own token pinned to the pre-#2029 orange, so retuning the
+  // light --warning text token to orange-700 cannot darken the tint. With bg-warning/15 the light
+  // stale card title fell to 4.44:1.
+  it('stale-tint is declared in both themes, exposed to tailwind, and is the stale overlay hue', () => {
+    expect(rgbOf(darkBlock, 'stale-tint')).toEqual([251, 146, 60])
+    expect(rgbOf(lightBlock, 'stale-tint')).toEqual([234, 88, 12])
+    expect(tw).toContain('"stale-tint": "rgb(var(--stale-tint) / <alpha-value>)"')
+    expect(parse('stale').hue).toBe('stale-tint')
+    const tint = blend(rgbOf(lightBlock, 'warning'), rgbOf(lightBlock, 'surface'), 0.15)
+    expect(ratio(blend(rgbOf(lightBlock, 'warning-on-tint'), tint, 0.85), tint)).toBeLessThan(4.5)
   })
 })
 
@@ -371,7 +383,6 @@ describe('untinted card face text (#1862)', () => {
   // A token that may sit below 4.5:1 on its file's backgrounds, with its reason.
   const EXEMPT: Record<string, string> = {
     'on-primary': 'selection checkbox tick on its solid bg-primary-emphasis fill, not on bg-surface',
-    success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
   }
   // Exact non-text elements cut out of a file before it is scanned, each with its reason. Only the
   // matched element is exempt; every other class in the file is still checked.
@@ -446,11 +457,13 @@ describe('untinted card face text (#1862)', () => {
     expect(onBg(lightBlock, 'fg-tertiary', 'surface-sunken')).toBeCloseTo(7.24, 2)
   })
 
-  // When this fails, #2029 has fixed the light success token: drop the exemption above and
-  // the matching note in frontend/CLAUDE.md.
-  it('the success exemption is still needed: it is sub-AA on white in light mode', () => {
+  // #2029: light --success moved from green-600 (3.30:1 on white) to green-700, so the
+  // checklist-complete count needs no exemption; the floor test above now checks it too.
+  it('success, the checklist-complete count, clears AA untinted in both themes (#2029)', () => {
     expect(allUsed.has('success')).toBe(true)
-    expect(onBg(lightBlock, 'success')).toBeCloseTo(3.30, 2)
+    expect(onBg(lightBlock, 'success')).toBeCloseTo(5.02, 2)
+    expect(onBg(lightBlock, 'success', 'surface-sunken')).toBeCloseTo(4.79, 2)
+    expect(onBg(darkBlock, 'success')).toBeGreaterThanOrEqual(4.5)
   })
 
   // #871: the untinted due-soon badge and the due pill moved off plain `warning` (orange-600, 3.56:1
@@ -460,21 +473,25 @@ describe('untinted card face text (#1862)', () => {
   it('plain warning is no longer used on the card face, and its on-tint replacement clears AA', () => {
     expect(allUsed.has('warning')).toBe(false)
     expect(urgencyBadgeToneClass('warning', 'none')).toBe('text-warning-on-tint')
-    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2) // why the swap was needed
+    // Plain light warning was orange-600, 3.56:1, which is why the swap was needed; #2029 made it
+    // orange-700 (5.18:1), but the card face keeps the on-tint token, which holds more.
+    expect(onBg(lightBlock, 'warning')).toBeCloseTo(5.18, 2)
     expect(onBg(darkBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(8.6)
     expect(onBg(lightBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(7.3)
   })
 
-  // Narrow, dated exemption (2026-11-13, #871 / #1146): the Classic preset keeps the pre-#871 card
-  // face byte for byte, so its untinted due-soon badge is still plain `text-warning` (3.56:1 on white
-  // in light mode, #2029). It is NOT added to `used` above, because it is reachable only through
-  // `urgencyBadgeToneClass(…, 'none', classicFace = true)`, never a class literal in a card-face file
-  // (the test above proves that). Every other tone and stage is identical under Classic. When Classic
-  // retires, or #2029 fixes the light warning token, drop the `classicFace` branch, this test and the
-  // matching note in frontend/CLAUDE.md § Board presets.
-  it('the one gated exception: Classic keeps plain warning on the untinted due-soon badge only', () => {
+  // #871 / #1146 gate (2026-11-13): the Classic preset keeps the pre-#871 card face class for class,
+  // so its untinted due-soon badge is still plain `text-warning`. Until #2029 that was a tracked
+  // a11y exception (orange-600, 3.56:1 on white); #2029 retuned the light token to orange-700, so
+  // the badge now clears AA (5.18:1 surface, 4.95:1 sunken) and is no longer an exception. The
+  // branch stays because it is a Classic face decision, not a contrast one; drop it when Classic
+  // retires. It is reachable only through `urgencyBadgeToneClass(…, 'none', classicFace = true)`,
+  // never a class literal in a card-face file (the test above proves that).
+  it('Classic keeps plain warning on the untinted due-soon badge only, and it clears AA (#2029)', () => {
     expect(urgencyBadgeToneClass('warning', 'none', true)).toBe('text-warning')
-    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2)
+    expect(onBg(lightBlock, 'warning')).toBeGreaterThanOrEqual(4.5)
+    expect(onBg(lightBlock, 'warning', 'surface-sunken')).toBeCloseTo(4.95, 2)
+    expect(onBg(darkBlock, 'warning')).toBeGreaterThanOrEqual(4.5)
     for (const tone of ['danger', 'warning', 'info'] as const) {
       for (const stage of ['warning', 'stale', 'stale2x', 'stale3x'] as const) {
         expect(urgencyBadgeToneClass(tone, stage, true), `${tone} on ${stage}`).toBe(urgencyBadgeToneClass(tone, stage))
@@ -533,12 +550,14 @@ describe('health status pairings (#1133)', () => {
   it.each([
     ['dark', darkBlock],
     ['light', lightBlock],
-  ])('%s theme: every pairing holds >= 5.26:1 on canvas, sunken and surface', (_n, block) => {
+  // #2029 darkened light --warning / --success (the /20 fills) to the -700 step, so the light floor
+  // moved from 5.26 to 5.00 (success on canvas); still AA.
+  ])('%s theme: every pairing holds >= 5.00:1 on canvas, sunken and surface', (_n, block) => {
     for (const [state, cls] of Object.entries(HEALTH_STATUS_STYLES)) {
       const { fill, text } = pair(cls)
       for (const surf of ['canvas', 'surface-sunken', 'surface']) {
         const tint = blend(rgbOf(block, fill), rgbOf(block, surf), 0.2)
-        expect(ratio(rgbOf(block, text), tint), `${state} on ${surf}`).toBeGreaterThanOrEqual(5.26)
+        expect(ratio(rgbOf(block, text), tint), `${state} on ${surf}`).toBeGreaterThanOrEqual(5.0)
       }
     }
   })
