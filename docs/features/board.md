@@ -486,13 +486,13 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 2. Pick a field, then a value or range:
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
-    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. **contains** also accepts `*` and `?` wildcards and `/regex/` patterns: see [Wildcards and regular expressions](#wildcards-and-regular-expressions). **is** and **is not** always match the whole value exactly. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
+    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or one of three operators that take text you type (up to 500 characters): **contains**, **does not contain**, and **matches wildcard**, for example *AE is Ethan Ross*, *AE contains ross*, or *AE matches Ethan\**. Matching ignores case and leading or trailing spaces. See [Text operators and wildcards](#text-operators-and-wildcards). A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
 3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
 4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
 
 Rules apply as soon as they are complete; **Done** just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.
 
-- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, and **between** and passes **is not**.
+- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, **matches wildcard**, and **between**, and passes **is not** and **does not contain**.
 - **Admin-only fields** are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.
 - **Checkbox and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, **Lanes** is hidden.
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
@@ -502,31 +502,34 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 
 Lane filters are saved with the rest of the filter state in your browser, in the URL (`f_lanes`), and in [saved filters](saved-filters.md).
 
-#### Wildcards and regular expressions
+#### Text operators and wildcards
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-The lane filter **contains** rule and the text box of a [text or URL custom field filter](custom-fields.md#filtering-by-custom-fields) share one matcher, so the same syntax works in both. Type it straight into the box; there is no extra setting.
+Text and URL swimlane fields offer five operators in a lane filter:
 
-- **Plain text** (no `*` or `?`) is a case-insensitive substring match, as before. Leading and trailing spaces are ignored.
-- **`*`** matches any run of characters, including none. **`?`** matches exactly one character. Wildcards are not anchored: `e*ross` still matches inside a longer value. Every other character, including `.`, `+`, `(`, and `[`, is literal.
-- **`/pattern/`** (starts and ends with a slash, with at least one character between) is a regular expression. It is always case-insensitive. Anchor it yourself with `^` and `$`.
-- **A literal `*` or `?`:** use a regular expression, for example `/\*/` for an asterisk.
-- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`), backreferences (such as `\1`), or more than two open-ended repeats (such as `a*a*a*b`, or a wide range like `a{0,999}`) are treated as invalid, and patterns over 500 characters are too. Regular expressions are tested against only the first 200 characters of a value, so a `$` anchor cannot match text past that point. Wildcard patterns have no such limit. Non-capturing `(?:...)` and named groups can be repeated like ordinary groups.
+| Operator | Matches a lane when its value... |
+|---|---|
+| **is** / **is not** | equals the value you pick, exactly |
+| **contains** | has your text anywhere inside it. `*` and `?` are ordinary characters here |
+| **does not contain** | does not have your text inside it (the opposite of **contains**) |
+| **matches wildcard** | matches your pattern from start to finish, where `*` stands for any run of characters (including none) and `?` for exactly one character |
+
+All of them ignore case and leading or trailing spaces. A **contains**, **does not contain**, or **matches wildcard** filter with a blank box is incomplete and is ignored.
+
+With **matches wildcard** the whole value must match, so put a `*` at either end to leave that end open: `Ethan*` means "starts with Ethan" and `*ross*` means "contains ross".
 
 | You type | Matches | Doesn't match |
 |---|---|---|
-| `ross` | Ethan Ross, Rossi | Ethan R. |
+| `Ethan*` | Ethan Ross | Seth Ethan |
+| `*ross` | Ethan Ross | Rossi |
+| `*ross*` | Ethan Ross, Rossi | Ethan R. |
 | `e*ross` | Ethan Ross | Ross Ethan |
-| `j?n` | Jan, Jon | Jean |
-| `/^ethan/` | Ethan Ross | Seth Ethan |
-| `/ross$\|lee$/` | Ethan Ross, Amy Lee | Rossi |
-| `/[/` | (invalid; filter ignored, error shown) | |
+| `j?n` | Jan, Jon | Jean, Jan Smith |
 
-!!! note
-    A `*` or `?` already typed into a **contains** value before 1.3 now acts as a wildcard. The board search box is not affected: it still matches literal text.
-
-    Card text and URL filters also changed slightly: a query of only spaces is now inactive (it used to filter on the spaces), queries and card values are trimmed before matching, a saved or shared query longer than 500 characters is invalid and ignored, and a saved query that starts and ends with `/` (for example `/usr/`) is now read as a regular expression.
+- **A literal `*` or `?`:** use **contains**, where they are plain characters.
+- **Lanes with no value** fail **matches wildcard** and **contains**, and pass **does not contain** (as they pass **is not**).
+- Wildcard patterns are never treated as regular expressions, so no other character has a special meaning.
 
 #### URL-serialized filter state
 

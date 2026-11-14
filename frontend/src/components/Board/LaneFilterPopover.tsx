@@ -27,7 +27,6 @@ import {
   type LaneRule,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
-import { INVALID_PATTERN_MESSAGE, PATTERN_HINT, isInvalidTextPattern } from "../../utils/textMatch";
 
 const PANEL_WIDTH = 560;
 /** Above the popover's own 25 so Escape in an open inner menu closes only that menu. */
@@ -35,12 +34,16 @@ const INNER_ESCAPE_PRIORITY = 26;
 
 const SECONDARY_BTN =
   "text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
-const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", between: "between" };
+const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", not_contains: "does not contain", wildcard: "matches wildcard", between: "between" };
 /** No text choices for a field: no lane carries a value for it yet. */
 const NO_CHOICES: string[] = [];
-const INPUT_CLS_BASE =
-  "bg-surface border rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2";
-const INPUT_CLS = `${INPUT_CLS_BASE} border-line focus:ring-primary-emphasis focus:border-transparent`;
+/** Operators that take a typed operand instead of a choice from the lanes' values. */
+const TYPED_OPS: readonly FieldRuleOp[] = ["contains", "not_contains", "wildcard"];
+const isTypedOp = (op: FieldRuleOp) => TYPED_OPS.includes(op);
+const WILDCARD_HINT = "* matches any text, ? one character; the whole value must match";
+
+const INPUT_CLS =
+  "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
 
 interface Props {
   filter: LaneFilter | undefined;
@@ -208,11 +211,11 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const changeOp = (r: LaneRule, op: FieldRuleOp) => {
     if (op === r.op) return;
-    if (op === "contains") {
+    if (isTypedOp(op)) {
       updateRule(r.id, { op, value: r.value ?? "" });
       return;
     }
-    if (r.op === "contains") {
+    if (isTypedOp(r.op)) {
       // Typed text carries over only when it names a lane value, in that
       // value's own spelling; otherwise the rule waits for a choice.
       const v = r.value?.trim().toLowerCase();
@@ -230,7 +233,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     const complete = isRuleComplete(r, t);
     const ops = t ? opsForFieldType(t) : [];
     const textType = t !== null && isTextRuleType(t);
-    const valueChoices = textType && r.op !== "contains" ? choicesFor(r) : NO_CHOICES;
+    const valueChoices = textType && !isTypedOp(r.op) ? choicesFor(r) : NO_CHOICES;
     const laneValues = new Set(((r.field !== null && textChoices?.get(r.field)) || NO_CHOICES).map((c) => c.toLowerCase()));
     const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
     return (
@@ -281,35 +284,24 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             />
           </div>
         )}
-        {textType && def && r.op === "contains" && (
+        {textType && def && isTypedOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <input
               type="text"
               value={r.value ?? ""}
               placeholder="Text to match"
               maxLength={LANE_FILTER_MAX_STRING}
-              aria-label={`Filter ${n} ${def.name} contains`}
-              aria-invalid={isInvalidTextPattern(r.value) || undefined}
-              aria-describedby={`lane-rule-${r.id}-msg`}
+              aria-label={`Filter ${n} ${def.name} ${OP_LABELS[r.op]}`}
+              aria-describedby={r.op === "wildcard" ? `lane-rule-${r.id}-hint` : undefined}
               onChange={(e) => updateRule(r.id, { value: e.target.value })}
-              className={`${INPUT_CLS_BASE} w-full ${
-                isInvalidTextPattern(r.value)
-                  ? "border-danger focus:ring-danger-emphasis"
-                  : "border-line focus:ring-primary-emphasis focus:border-transparent"
-              }`}
+              className={`${INPUT_CLS} w-full`}
             />
-            {/* One always-mounted polite slot: hint and error swap inside it, so
-                per-keystroke validity never mounts or unmounts an alert. */}
-            <p
-              id={`lane-rule-${r.id}-msg`}
-              role="status"
-              className={`text-xs mt-1 ${isInvalidTextPattern(r.value) ? "text-danger" : "text-fg-tertiary"}`}
-            >
-              {isInvalidTextPattern(r.value) ? INVALID_PATTERN_MESSAGE : PATTERN_HINT}
-            </p>
+            {r.op === "wildcard" && (
+              <p id={`lane-rule-${r.id}-hint`} className="text-xs text-fg-tertiary mt-1">{WILDCARD_HINT}</p>
+            )}
           </div>
         )}
-        {textType && def && r.op !== "contains" && (
+        {textType && def && !isTypedOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             {valueChoices.length > 0 ? (
               <SingleSelectDropdown<string>

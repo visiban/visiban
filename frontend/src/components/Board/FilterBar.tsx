@@ -9,8 +9,6 @@ import FilterChip from "./FilterChip";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { PRIORITY_COLORS } from "../../constants/colors";
-import { LANE_FILTER_MAX_STRING } from "../../utils/laneFilter";
-import { compileTextMatcher, INVALID_PATTERN_MESSAGE, PATTERN_HINT } from "../../utils/textMatch";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { LaneFilterControl } from "./LaneFilterPopover";
@@ -91,7 +89,7 @@ export const EMPTY_FILTER: FilterState = {
 export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
   return v.kind === "choice" || v.kind === "multi_choice"
     ? v.values.length > 0
-    : v.kind === "text" ? compileTextMatcher(v.query).kind === "ok" : v.equals !== "";
+    : v.kind === "text" ? v.query !== "" : v.equals !== "";
 }
 
 function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFilterValue {
@@ -759,27 +757,14 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
   // stored address — rather than falling through to the choice dropdown,
   // which would render with no options.
   if ((definition.field_type === "text" || definition.field_type === "url") && value.kind === "text") {
-    const invalid = compileTextMatcher(value.query).kind === "invalid";
-    const base = `custom-field-${definition.id}-text`;
     return (
-      <span className="inline-flex items-center gap-1 shrink-0">
-        <input
-          type="text"
-          value={value.query}
-          onChange={(e) => onChange({ kind: "text", query: e.target.value })}
-          placeholder={`${definition.name} contains…`}
-          title={PATTERN_HINT}
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${base}-hint ${base}-msg` : `${base}-hint`}
-          maxLength={LANE_FILTER_MAX_STRING}
-          className={`bg-surface border rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-32 focus:outline-none focus:ring-2 shrink-0 ${invalid ? "border-danger focus:ring-danger-emphasis" : "border-line focus:ring-primary-emphasis focus:border-transparent"}`}
-        />
-        <span id={`${base}-hint`} className="sr-only">{PATTERN_HINT}</span>
-        {/* Always-mounted polite slot; the full message is also the tooltip. */}
-        <span id={`${base}-msg`} role="status" title={invalid ? INVALID_PATTERN_MESSAGE : undefined} className={invalid ? "text-xs text-danger truncate max-w-[8rem]" : "sr-only"}>
-          {invalid ? INVALID_PATTERN_MESSAGE : ""}
-        </span>
-      </span>
+      <input
+        type="text"
+        value={value.query}
+        onChange={(e) => onChange({ kind: "text", query: e.target.value })}
+        placeholder={`${definition.name} contains…`}
+        className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-32 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0"
+      />
     );
   }
 

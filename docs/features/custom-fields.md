@@ -220,17 +220,13 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 
 | Field type | Filter behavior |
 |---|---|
-| Text | Substring match; `*` / `?` wildcards and `/regex/` patterns since 1.3 (see below) |
+| Text | Substring match |
 | Number | Exact value match |
 | Date | Exact value match |
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No; a card that was never checked counts as **No** |
-| URL | Substring match on the full address; wildcards and `/regex/` since 1.3 |
+| URL | Substring match on the full address |
 | Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
-
-<span class="vb-version" title="Added in 1.3">1.3+</span>
-
-**Wildcards and regular expressions:** the Text and URL filter boxes accept `*` (any run of characters), `?` (one character), and `/regex/` patterns, for example `e*ross` or `/^ethan/`. An invalid pattern is ignored and shows an inline error. The full syntax, examples, and the rules for a literal `*` are in [Wildcards and regular expressions](board.md#wildcards-and-regular-expressions).
 
 !!! note
     Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
@@ -247,7 +243,7 @@ Board admins can also define typed fields on **swimlanes** (rows) instead of car
 
 **By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's [card density](board.md#card-density) (Comfortable, Standard, Dense); the rest fold into a `+N` chip.
 
-Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
+Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Text and URL fields offer **contains**, **does not contain**, and **matches wildcard** (`*` any text, `?` one character, whole value must match): see [Text operators and wildcards](board.md#text-operators-and-wildcards). Admin-only fields are offered there to board admins only.
 
 ### Managing swimlane fields (Board Settings → Swimlane fields)
 

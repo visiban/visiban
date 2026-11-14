@@ -666,27 +666,6 @@ describe('FilterBar — URL custom fields (#1390)', () => {
   })
 })
 
-describe('FilterBar — text pattern validation (#2227)', () => {
-  it('flags an invalid regex on the custom-field text input and caps its length', () => {
-    const board = makeBoard()
-    board.custom_field_definitions = [{
-      id: 7, uid: 'cfuid007', name: 'Docs', field_type: 'text', choices: [], position: 0,
-      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
-    }]
-    const filters = (query: string) => ({ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [7], customFields: { 7: { kind: 'text' as const, query } } })
-    const { rerender } = render(<FilterBar board={board} filters={filters('')} onChange={vi.fn()} />)
-    const input = screen.getByPlaceholderText('Docs contains…')
-    expect(input).toHaveAttribute('maxLength', '500')
-    expect(input).not.toHaveAttribute('aria-invalid')
-    rerender(<FilterBar board={board} filters={filters('/[/')} onChange={vi.fn()} />)
-    expect(input).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByText('Invalid regular expression — this filter is ignored')).toHaveAttribute('role', 'status')
-    expect(input.getAttribute('aria-describedby')).toContain('-msg')
-    // An invalid pattern is not an active filter: no chip.
-    expect(screen.queryByText(/Docs: /)).not.toBeInTheDocument()
-  })
-})
-
 describe('FilterBar — multi-select custom fields (#1391)', () => {
   function msBoard() {
     const board = makeBoard()

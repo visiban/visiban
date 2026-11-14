@@ -129,19 +129,19 @@ test.describe('lane filters', () => {
     await expect(acme).toBeVisible()
     await expect(globex).toHaveCount(0)
 
-    // #2227: a wildcard lane rule, and an invalid regex that is ignored with an error.
+    // #2227: switch to the wildcard operator; it matches the whole value.
     await page.getByRole('button', { name: /^filters/i }).click()
     await filters.getByRole('button', { name: /^Lanes/ }).first().click()
     const dialog2 = page.getByRole('dialog', { name: 'Lane filters' })
-    const box2 = dialog2.getByRole('textbox', { name: 'Filter 1 Owner contains' })
+    await dialog2.getByRole('button', { name: /^Filter 1 operator/ }).click()
+    await dialog2.getByRole('menuitem', { name: 'matches wildcard' }).click()
+    const box2 = dialog2.getByRole('textbox', { name: 'Filter 1 Owner matches wildcard' })
     await box2.fill('o*grant')
-    await expect(dialog2.getByText('Reads as: Owner contains o*grant')).toBeVisible()
+    await expect(dialog2.getByText('Reads as: Owner matches wildcard o*grant')).toBeVisible()
     await expect(globex).toBeVisible()
     await expect(acme).toHaveCount(0)
-    await box2.fill('/[/')
-    await expect(dialog2.getByRole('status').filter({ hasText: 'Invalid regular expression' })).toContainText('Invalid regular expression')
-    await expect(acme).toBeVisible()
-    await expect(globex).toBeVisible()
+    await box2.fill('grant')
+    await expect(globex).toHaveCount(0)
   })
 
   // The list's max-height reserves 9rem (10.5rem with the paused note) for the

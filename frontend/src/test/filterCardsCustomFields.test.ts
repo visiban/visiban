@@ -35,32 +35,6 @@ describe("filterCards — custom field filters (#371)", () => {
       expect(filterCards(cards, filters)).toEqual([1]);
     });
 
-    it("supports * / ? wildcards and /regex/ (#2227)", () => {
-      const cards = [
-        makeCard({ id: 1, custom_field_values: [{ field_definition: 5, value: "Ethan Ross" }] }),
-        makeCard({ id: 2, custom_field_values: [{ field_definition: 5, value: "Ross Ethan" }] }),
-        makeCard({ id: 3, custom_field_values: [{ field_definition: 5, value: "Amy Lee" }] }),
-      ];
-      const run = (query: string) =>
-        filterCards(cards, { ...EMPTY_FILTER, customFields: { 5: { kind: "text" as const, query } } });
-      expect(run("e*ross")).toEqual([1]);
-      expect(run("amy ?ee")).toEqual([3]);
-      expect(run("/^ethan/")).toEqual([1]);
-      expect(run("/ross$|lee$/")).toEqual([1, 3]);
-    });
-
-    it("treats an invalid pattern as an inactive filter, not match-nothing (#2227)", () => {
-      const cards = [
-        makeCard({ id: 1, custom_field_values: [{ field_definition: 5, value: "Ethan Ross" }] }),
-        makeCard({ id: 2, custom_field_values: [] }),
-      ];
-      for (const query of ["/[/", "/(a+)+$/"]) {
-        const filters = { ...EMPTY_FILTER, customFields: { 5: { kind: "text" as const, query } } };
-        expect(filterCards(cards, filters)).toEqual([1, 2]);
-        expect(hasActiveClientFilters(filters)).toBe(false);
-      }
-    });
-
     it("excludes a card with no value at all for the filtered field", () => {
       const cards = [makeCard({ id: 1, custom_field_values: [] })];
       const filters = { ...EMPTY_FILTER, customFields: { 5: { kind: "text" as const, query: "legal" } } };

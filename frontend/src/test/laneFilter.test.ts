@@ -130,8 +130,8 @@ describe('fieldRules — text and url (#2226)', () => {
   const tr = (op: FieldRule['op'], value?: string): FieldRule => ({ field: 6, op, value })
 
   it('offers is / is not / contains on text and url fields', () => {
-    expect(opsForFieldType('text')).toEqual(['is', 'is_not', 'contains'])
-    expect(opsForFieldType('url')).toEqual(['is', 'is_not', 'contains'])
+    expect(opsForFieldType('text')).toEqual(['is', 'is_not', 'contains', 'not_contains', 'wildcard'])
+    expect(opsForFieldType('url')).toEqual(['is', 'is_not', 'contains', 'not_contains', 'wildcard'])
     expect(normalizeText('  Ethan Ross ')).toBe('ethan ross')
     expect(normalizeText('   ')).toBeNull()
     expect(normalizeText(undefined)).toBeNull()
@@ -144,13 +144,6 @@ describe('fieldRules — text and url (#2226)', () => {
     expect(isRuleComplete(tr('contains', 'ross'), 'text')).toBe(true)
     expect(isRuleComplete(tr('is', 'Ethan Ross'), 'url')).toBe(true)
     expect(isRuleComplete(tr('between', 'x'), 'text')).toBe(false)
-    // #2227: an invalid regex is incomplete; wildcards and valid regexes are complete.
-    expect(isRuleComplete(tr('contains', '/[/'), 'text')).toBe(false)
-    expect(isRuleComplete(tr('contains', '/(a+)+$/'), 'text')).toBe(false)
-    expect(isRuleComplete(tr('contains', 'e*ross'), 'text')).toBe(true)
-    expect(isRuleComplete(tr('contains', '/^ethan/'), 'url')).toBe(true)
-    // is / is not stay exact: an invalid-looking operand is still a literal.
-    expect(isRuleComplete(tr('is', '/[/'), 'text')).toBe(true)
     // `contains` is not a dropdown operator.
     expect(isRuleComplete({ field: 1, op: 'contains', value: 'a' }, 'dropdown')).toBe(false)
   })
@@ -166,27 +159,40 @@ describe('fieldRules — text and url (#2226)', () => {
     expect(matchRule(tr('contains', 'ross'), 'text', 'Olivia Grant')).toBe(false)
   })
 
-  it('contains supports wildcards and /regex/; every documented example row holds (#2227)', () => {
-    const c = (operand: string, raw: string) => matchRule(tr('contains', operand), 'text', raw)
-    const rows: [string, string[], string[]][] = [
-      ['ross', ['Ethan Ross', 'Rossi'], ['Ethan R.']],
-      ['e*ross', ['Ethan Ross'], ['Ross Ethan']],
-      ['j?n', ['Jan', 'Jon'], ['Jean']],
-      ['/^ethan/', ['Ethan Ross'], ['Seth Ethan']],
-      ['/ross$|lee$/', ['Ethan Ross', 'Amy Lee'], ['Rossi']],
-    ]
-    for (const [operand, yes, no] of rows) {
-      for (const v of yes) expect(c(operand, v), `${operand} ~ ${v}`).toBe(true)
-      for (const v of no) expect(c(operand, v), `${operand} !~ ${v}`).toBe(false)
+  it('not_contains is the inverse of contains; wildcard matches the whole value (#2227)', () => {
+    const nc = (v: string, raw: string | undefined) => matchRule(tr('not_contains', v), 'text', raw)
+    const wc = (v: string, raw: string | undefined) => matchRule(tr('wildcard', v), 'text', raw)
+    expect(nc('ross', 'Ethan Ross')).toBe(false)
+    expect(nc(' ROSS ', 'Olivia Grant')).toBe(true)
+    // contains stays literal: * and ? are ordinary characters there.
+    expect(matchRule(tr('contains', 'e*ross'), 'text', 'Ethan Ross')).toBe(false)
+    expect(matchRule(tr('contains', 'e*ross'), 'text', 'the E*Ross')).toBe(true)
+    expect(nc('e*ross', 'Ethan Ross')).toBe(true)
+    // Empty-value rule: no value passes not_contains, fails wildcard.
+    for (const raw of [undefined, '', '   ']) {
+      expect(nc('ross', raw)).toBe(true)
+      expect(wc('*', raw)).toBe(false)
     }
-    // Invalid regex: incomplete upstream, and matches nothing if evaluated anyway.
-    expect(c('/[/', 'Ethan Ross')).toBe(false)
-    // A literal * is matched with a regex.
-    expect(c('/\\*/', 'a*b')).toBe(true)
-    // is / is not stay exact: * is a literal there.
-    expect(matchRule(tr('is', 'e*ross'), 'text', 'Ethan Ross')).toBe(false)
-    expect(matchRule(tr('is', 'e*ross'), 'text', 'E*Ross')).toBe(true)
-    expect(matchRule(tr('is_not', 'e*ross'), 'text', 'Ethan Ross')).toBe(true)
+    // Every documented example row.
+    const rows: [string, string[], string[]][] = [
+      ['Ethan*', ['Ethan Ross'], ['Seth Ethan']],
+      ['*ross', ['Ethan Ross'], ['Rossi']],
+      ['*ross*', ['Ethan Ross', 'Rossi'], ['Ethan R.']],
+      ['e*ross', ['Ethan Ross'], ['Ross Ethan']],
+      ['j?n', ['Jan', 'Jon'], ['Jean', 'Jan Smith']],
+    ]
+    for (const [pat, yes, no] of rows) {
+      for (const v of yes) expect(wc(pat, v), `${pat} ~ ${v}`).toBe(true)
+      for (const v of no) expect(wc(pat, v), `${pat} !~ ${v}`).toBe(false)
+    }
+    // Blank operands are incomplete for both new operators.
+    for (const op of ['not_contains', 'wildcard'] as const) {
+      expect(isRuleComplete(tr(op, '  '), 'text')).toBe(false)
+      expect(isRuleComplete(tr(op, 'x'), 'url')).toBe(true)
+      expect(isRuleComplete({ field: 1, op, value: 'a' }, 'dropdown')).toBe(false)
+    }
+    expect(ruleText(tr('not_contains', ' ross '), 'text', 'AE', (raw) => raw)).toBe('AE does not contain ross')
+    expect(ruleText(tr('wildcard', 'e*ross'), 'text', 'AE', (raw) => raw)).toBe('AE matches wildcard e*ross')
   })
 
   it('applies the empty-value rule: no value fails is and contains, passes is not', () => {
@@ -258,6 +264,18 @@ describe('laneFilter', () => {
     expect(sanitizeLaneFilter({ items: [{ id: 1, field: 6, op: 'contains', min: '1', max: '2' }] })!.items[0]).toEqual(
       rule(1, 6, 'contains', { value: '' }),
     )
+  })
+
+  it('round-trips not_contains and wildcard rules and drops an unknown op alone (#2227)', () => {
+    const f: LaneFilter = {
+      items: [rule(1, NOTES.id, 'not_contains', { value: 'ross' }), rule(2, NOTES.id, 'wildcard', { value: 'e*' }), rule(3, NOTES.id, 'wildcard', { value: '' })],
+    }
+    expect(parseLaneFilterParam(serializeLaneFilterParam(f))!.items).toEqual(f.items)
+    expect(sanitizeLaneFilter(JSON.parse(JSON.stringify(f)))).toEqual(f)
+    expect(sanitizeLaneFilter({ items: [{ id: 1, field: 6, op: 'wildcard', min: '1' }, { id: 2, field: 6, op: 'regex', value: 'x' }] })!.items).toEqual([
+      rule(1, 6, 'wildcard', { value: '' }),
+    ])
+    expect(isLaneFilterActive({ items: [rule(1, NOTES.id, 'wildcard', { value: ' ' })] })).toBe(false)
   })
 
   it('evaluates top-level And/Or with a group, matching the Reads-as text', () => {

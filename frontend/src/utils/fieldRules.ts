@@ -16,11 +16,11 @@
  * and compared case-insensitively, so "Ethan Ross " and "ethan ross" match.
  */
 
-import { compileTextMatcher } from "./textMatch";
+import { wildcardMatch } from "./textMatch";
 
 export type FieldRuleJoin = "and" | "or";
 /** Additive-only: the backend validates against the same enum. */
-export type FieldRuleOp = "is" | "is_not" | "between" | "contains";
+export type FieldRuleOp = "is" | "is_not" | "between" | "contains" | "not_contains" | "wildcard";
 /** The field types a rule can target (text and url since #2226). */
 export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url";
 
@@ -35,7 +35,7 @@ export interface FieldRule {
   /** Field definition id; null while the user has not picked one yet. */
   field: number | null;
   op: FieldRuleOp;
-  /** `is` / `is_not` / `contains` operand. */
+  /** `is` / `is_not` / `contains` / `not_contains` / `wildcard` operand. */
   value?: string;
   /** `between` lower bound, inclusive; "" or absent = open. */
   min?: string;
@@ -50,7 +50,7 @@ export function isRuleFieldType(t: string): t is RuleFieldType {
 /** The operators a field type offers, in menu order. */
 export function opsForFieldType(t: RuleFieldType): FieldRuleOp[] {
   if (t === "dropdown") return ["is", "is_not"];
-  if (isTextRuleType(t)) return ["is", "is_not", "contains"];
+  if (isTextRuleType(t)) return ["is", "is_not", "contains", "not_contains", "wildcard"];
   return ["between"];
 }
 
@@ -99,18 +99,14 @@ export function isRuleComplete(rule: FieldRule, t: RuleFieldType | null | undefi
   if (!opsForFieldType(t).includes(rule.op)) return false;
   if (t === "dropdown") return typeof rule.value === "string" && rule.value !== "";
   // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
-  if (isTextRuleType(t)) {
-    if (normalizeText(rule.value) === null) return false;
-    // An invalid regex (#2227) is incomplete, like a blank box: ignored, never throws.
-    return rule.op !== "contains" || compileTextMatcher(rule.value).kind === "ok";
-  }
+  if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
 }
 
 /**
  * Evaluate one complete rule against a stored raw value (undefined = the
  * item has no value for the field). The empty-value rule: no value (or an
- * unparsable one) fails `is`, `contains` and `between`, and passes `is_not`.
+ * unparsable one) fails `is`, `contains`, `wildcard` and `between`, and passes `is_not` and `not_contains`.
  */
 export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undefined): boolean {
   if (t === "dropdown") {
@@ -122,12 +118,13 @@ export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undef
     const v = normalizeText(raw);
     const want = normalizeText(rule.value) ?? "";
     if (rule.op === "is_not") return v === null || v !== want;
+    if (rule.op === "not_contains") return v === null || !v.includes(want);
     if (v === null) return false;
-    if (rule.op !== "contains") return v === want;
-    // `contains` accepts * / ? wildcards and /regex/ (#2227); an invalid
-    // pattern is incomplete upstream, and matches nothing if evaluated anyway.
-    const m = compileTextMatcher(rule.value);
-    return m.kind === "ok" && m.test(raw as string);
+    // `contains` stays a literal substring (`*` / `?` are plain characters), so
+    // no saved or shared filter changes meaning; `wildcard` (#2227) matches the
+    // whole value. A lane with no value (handled above) passes not_contains.
+    if (rule.op === "wildcard") return wildcardMatch(want, v);
+    return rule.op === "contains" ? v.includes(want) : v === want;
   }
   const v = normalizeFor(t, raw);
   if (v === null) return false;
@@ -169,6 +166,14 @@ export function textChain(entries: readonly { join: FieldRuleJoin; text: string 
     .join(" or ");
 }
 
+const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
+  is: "is",
+  is_not: "is not",
+  contains: "contains",
+  not_contains: "does not contain",
+  wildcard: "matches wildcard",
+};
+
 /**
  * Plain-language text for one complete rule. `fmt` renders a stored value for
  * display (number grouping, the user's date format).
@@ -176,7 +181,7 @@ export function textChain(entries: readonly { join: FieldRuleJoin; text: string 
 export function ruleText(rule: FieldRule, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
-    const word = rule.op === "is_not" ? "is not" : rule.op === "contains" ? "contains" : "is";
+    const word = TEXT_OP_WORDS[rule.op] ?? "is";
     return `${label} ${word} ${(rule.value ?? "").trim()}`;
   }
   const lo = normalizeFor(t, rule.min) !== null ? fmt(String(rule.min).trim()) : null;
