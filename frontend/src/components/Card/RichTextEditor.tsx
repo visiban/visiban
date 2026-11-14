@@ -303,9 +303,13 @@ function ColorPicker({
           style={shift ? { marginLeft: shift } : undefined}
           // Pressing the panel's padding or preview would otherwise move focus to <body>
           // and blur-save the editor out from under the draft. Controls keep their own focus.
+          // Only a control INSIDE the popover counts: closest() also climbs past it, and the
+          // card sheet's own tabindex="-1" would otherwise let the press focus the sheet,
+          // which closes the panel (#2223).
           onMouseDown={(e) => {
             if (!custom) return;
-            if (!(e.target as Element).closest("input,button,[tabindex]")) e.preventDefault();
+            const control = (e.target as Element).closest("input,button,[tabindex]");
+            if (!control || !e.currentTarget.contains(control)) e.preventDefault();
           }}
           className={`absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 ${
             custom ? "w-max" : "flex flex-wrap gap-2.5 w-40"
