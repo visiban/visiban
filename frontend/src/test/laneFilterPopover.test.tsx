@@ -290,7 +290,7 @@ describe('LaneFilterPopover', () => {
       const dialog = await openPopover(user)
       expect(listOf(dialog).style.minHeight).toBe('')
       await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
-      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      expect(listOf(dialog).style.minHeight).toMatch(/^min\(\d+px, /)
       await user.keyboard('{Escape}')
       expect(listOf(dialog).style.minHeight).toBe('')
     })
@@ -302,7 +302,7 @@ describe('LaneFilterPopover', () => {
       const dialog = await openPopover(user)
       for (const name of [/^Filter 1 operator/, /^Filter 1 value/, /^Filter 1 field/]) {
         await user.click(within(dialog).getByRole('button', { name }))
-        expect(listOf(dialog).style.minHeight).toContain('16rem')
+        expect(listOf(dialog).style.minHeight).toMatch(/^min\(\d+px, /)
         await user.keyboard('{Escape}')
         expect(listOf(dialog).style.minHeight).toBe('')
       }
@@ -315,9 +315,9 @@ describe('LaneFilterPopover', () => {
       await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
       // fireEvent skips the mousedown a real click sends, so the first menu stays open.
       fireEvent.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
-      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      expect(listOf(dialog).style.minHeight).toMatch(/^min\(\d+px, /)
       await user.keyboard('{Escape}')
-      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      expect(listOf(dialog).style.minHeight).toMatch(/^min\(\d+px, /)
       await user.keyboard('{Escape}')
       expect(listOf(dialog).style.minHeight).toBe('')
     })
@@ -327,7 +327,7 @@ describe('LaneFilterPopover', () => {
       render(<Harness initial={{ items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, null, 'is')] }} />)
       const dialog = await openPopover(user)
       await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
-      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      expect(listOf(dialog).style.minHeight).toMatch(/^min\(\d+px, /)
       fireEvent.click(within(dialog).getByRole('button', { name: 'Remove filter 2: incomplete' }))
       await waitFor(() => expect(within(dialog).queryByRole('button', { name: /^Filter 2 field/ })).not.toBeInTheDocument())
       expect(listOf(dialog).style.minHeight).toBe('')

@@ -65,7 +65,6 @@ interface Props {
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
 
 /** Room an open inner menu needs inside the scrolling rule list (#2231). */
-const OPEN_MENU_MIN_HEIGHT = "16rem";
 
 /**
  * Clears a rule's open-menu keys when the rule row unmounts. A select inside
@@ -107,6 +106,30 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
       return next;
     });
   }, []);
+  // Room the open menu needs below the list's top edge, measured from the menu
+  // itself: the menu has no max-height in flow, so any fixed reserve fails once
+  // the menu's row sits low in a long list. Capped by the list's max-height in
+  // CSS; the scroll effect below then brings the menu into view.
+  const [menuReserve, setMenuReserve] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const menu = openMenus.size > 0 ? list?.querySelector<HTMLElement>('[role="menu"]') : null;
+    if (!list || !menu) { setMenuReserve(null); return; }
+    const top = menu.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    setMenuReserve(Math.ceil(top + menu.offsetHeight) + 8);
+  }, [openMenus]);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const menu = menuReserve !== null ? list?.querySelector<HTMLElement>('[role="menu"]') : null;
+    if (!list || !menu) return;
+    const menuTop = menu.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    const menuBottom = menuTop + menu.offsetHeight;
+    // Show the whole menu when it fits; when it is taller than the list, start
+    // at its first option (keeping the trigger row in view) so all are reachable.
+    if (menuBottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(list.scrollTop, Math.min(menuBottom + 8 - list.clientHeight, menuTop - 40));
+    }
+  }, [menuReserve]);
   const readsAsId = `${id}-reads-as`;
   const headingId = `${id}-heading`;
   const items = filter?.items ?? [];
@@ -117,7 +140,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const top = useAnchoredPlacement(panelRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
-    deps: [ruleCount, items.length, paused],
+    deps: [ruleCount, items.length, paused, menuReserve],
     onResize: () => onClose(false),
     onOutsideScroll: () => onClose(false),
   });
@@ -439,7 +462,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           style={{
             maxHeight: listMaxHeight,
             // While a menu is open, keep the list tall enough to show it (#2231).
-            minHeight: openMenus.size > 0 ? `min(${OPEN_MENU_MIN_HEIGHT}, ${listMaxHeight})` : undefined,
+            minHeight: menuReserve !== null ? `min(${menuReserve}px, ${listMaxHeight})` : undefined,
           }}
         >
           {items.length === 0 && <p className="text-xs text-fg-faint italic">No lane filters yet.</p>}
