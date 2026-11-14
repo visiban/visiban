@@ -46,7 +46,10 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   expect(bb!.y).toBeGreaterThanOrEqual(0)
   expect(bb!.y + bb!.height).toBeLessThanOrEqual(VIEWPORT_H)
   // The list is capped to the larger free side and scrolls, so the last option is reached by scrolling.
-  await page.getByText('@member5', { exact: true }).scrollIntoViewIfNeeded()
+  // Scroll the whole option row, not just its @username line: when the cap clips only the last
+  // option's display-name line, the username line is already fully visible, so scrolling to the
+  // text alone was a no-op and the scrollTop check below read 0 (#2223).
+  await list.getByRole('option', { name: /@member5/ }).scrollIntoViewIfNeeded()
   // #967: when capped, the list must actually stay scrolled (its own scroll used to re-place it,
   // which cleared the cap and snapped scrollTop back to 0).
   if (await list.evaluate((n) => n.scrollHeight > n.clientHeight)) {
