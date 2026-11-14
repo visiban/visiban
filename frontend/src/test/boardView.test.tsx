@@ -1295,11 +1295,15 @@ describe('BoardView', () => {
     mockedGetCardStatus.mockResolvedValue({ archived: true })
     mockSearchParams = new URLSearchParams('card=999')
     render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
-    // Query the toast by test id, not text: the same message is also mirrored
-    // into the sr-only toast announcer once it settles, so getByText races
-    // between one and two matches and fails intermittently on a loaded runner.
+    // Query the visible toast by test id, not text: the same message is also
+    // mirrored into the sr-only toast announcer once it settles (#2220), so
+    // getByText races between one and two matches.
     await waitFor(() =>
       expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent('This card has been archived.')
+    )
+    // The announcement is a separate, deterministic assertion.
+    await waitFor(() =>
+      expect(screen.getByTestId('toast-announcer-polite')).toHaveTextContent('This card has been archived.')
     )
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
@@ -1809,7 +1813,12 @@ describe('BoardView', () => {
 
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
       // Closed with a reason, not silently: an unsaved draft went with it.
-      expect(screen.getByText('The card you had open was deleted or archived, so it was closed.')).toBeInTheDocument()
+      // #2220 — exclude the sr-only announcer copy, which fills in on a timer.
+      expect(
+        screen
+          .getAllByText('The card you had open was deleted or archived, so it was closed.')
+          .filter((el) => !el.closest('[data-testid^="toast-announcer"]'))
+      ).toHaveLength(1)
     })
 
     it('hands CardDetail the refreshed card after a board reload replaces it (#1773)', () => {
