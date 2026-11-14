@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Board analytics</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:var(--link)}a:hover{color:var(--strong)}
+.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--danger-text:#fca5a5;--h:59,130,246;--mark:#f8fafc;--shadow:0 20px 50px rgba(0,0,0,0.55)}
+.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--danger-text:#991b1b;--h:59,130,246;--mark:#0f172a;--shadow:0 20px 50px rgba(15,23,42,0.25)}
+.vb-dark,.vb-light{--s-ready:rgba(var(--h),0.22);--s-prog:rgba(var(--h),0.42);--s-review:repeating-linear-gradient(135deg,rgba(var(--h),0.62) 0 8px,rgba(var(--h),0.3) 8px 10px);--s-qa:rgba(var(--h),0.7);--s-done:rgba(var(--h),0.12)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 24px 20px 48px; box-sizing: border-box; font-size: 14px; line-height: 1.45">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.01em">Analytics</h1>
+<span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warn-tint); color: var(--warn-text)">Beta</span>
+<span style="color: var(--fg3); font-size: 13px">Platform roadmap · Aug 16 – Nov 14 · sample data</span>
+</div>
+<nav aria-label="Analytics views" style="display: flex; gap: 4px; border-bottom: 1px solid var(--line)">
+<span aria-current="page" style="min-height: 44px; display: flex; align-items: center; padding: 0 14px; font-weight: 600; color: var(--strong); border-bottom: 2px solid var(--primary); margin-bottom: -1px">Overview</span>
+<a href="Lanes.dc.html" style="min-height: 44px; display: flex; align-items: center; padding: 0 14px; color: var(--fg2); text-decoration: none">Swimlanes</a>
+</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">Last 90 days <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">All swimlanes <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">All labels <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto">
+<span id="bd-label" style="color: var(--fg3); font-size: 13px">Break down by</span>
+<div role="group" aria-labelledby="bd-label" style="display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; background: var(--panel)">
+<sc-for list="{{options}}" as="o" hint-placeholder-count="4">
+<button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="min-height: 44px; padding: 0 14px 0 10px; border: 0; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; background: {{o.bg}}; color: {{o.fg}}; font-weight: {{o.weight}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="visibility: {{o.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{o.label}}</button>
+</sc-for>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; cursor: pointer">Export CSV</button>
+</div>
+</div>
+<sc-if value="{{grouped}}" hint-placeholder-val="{{false}}">
+<div role="group" aria-labelledby="hl-label" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); font-size: 13px">
+<span id="hl-label" style="color: var(--fg3)">Highlight</span>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: var(--fg); font: inherit; font-weight: {{g.weight}}; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="visibility: {{g.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{g.name}}</button>
+</sc-for>
+<span style="color: var(--fg3)">{{legendNote}}</span>
+</div>
+</sc-if>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="bn-h" style="flex: 2 1 420px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--warn); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; color: var(--warn-text); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2h12L9.5 8v5l-3 1V8z"/></svg>
+Bottleneck
+</div>
+<h2 id="bn-h" style="margin: 0; font-size: 30px; font-weight: 650; letter-spacing: -0.02em">Review</h2>
+<p style="margin: 0; color: var(--fg2); font-size: 15px; max-width: 54ch">Cards wait <strong style="color: var(--strong)">6.2 days</strong> here, half of the whole cycle. The queue grew from 4 to 11 cards against a limit of 5, because 8.4 cards arrive each week and 7.8 leave.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px">
+<button type="button" onClick="{{openReview}}" style="min-height: 44px; padding: 0 16px; border-radius: 6px; border: 0; background: var(--primary); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">See the 11 cards</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; cursor: pointer">Open on board</button>
+</div>
+</section>
+<div style="flex: 3 1 480px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px">
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: var(--fg3); font-size: 13px">Cycle time</span>
+<span style="font-size: 30px; font-weight: 650; letter-spacing: -0.02em">11<span style="font-size: 16px; font-weight: 500; color: var(--fg3)"> days</span></span>
+<span style="color: var(--fg2); font-size: 13px">Half finish within this. 85% within 19 days. Based on 102 cards.</span>
+</div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: var(--fg3); font-size: 13px">Throughput</span>
+<span style="font-size: 30px; font-weight: 650; letter-spacing: -0.02em">8<span style="font-size: 16px; font-weight: 500; color: var(--fg3)"> / week</span></span>
+<span style="color: var(--fg2); font-size: 13px">Median of 13 weeks. 102 cards finished.</span>
+</div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: var(--fg3); font-size: 13px">Work in progress</span>
+<span style="font-size: 30px; font-weight: 650; letter-spacing: -0.02em">27<span style="font-size: 16px; font-weight: 500; color: var(--fg3)"> cards</span></span>
+<span style="color: var(--warn-text); font-size: 13px">1 column over its limit. 3 cards past 19 days.</span>
+</div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: var(--fg3); font-size: 13px">Blocked time</span>
+<span style="font-size: 30px; font-weight: 650; letter-spacing: -0.02em">14.5<span style="font-size: 16px; font-weight: 500; color: var(--fg3)"> days</span></span>
+<span style="color: var(--fg2); font-size: 13px">10 blocks. 3 cards blocked right now.</span>
+</div>
+</div>
+</div>
+
+<section aria-labelledby="fl-h" style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+<h2 id="fl-h" style="margin: 0; font-size: 17px; font-weight: 650">How work flows</h2>
+<span style="color: var(--fg2); font-size: 13px">Each square is a card in that column now; hollow squares are over the limit. Connectors show cards per week moving on. Select a column to see its cards.</span>
+</div>
+<div style="overflow-x: auto; padding-bottom: 4px">
+<div style="display: flex; align-items: center; min-width: 980px">
+<sc-for list="{{pipe}}" as="p" hint-placeholder-count="4">
+<div style="flex: 1 1 0; min-width: 0; display: flex; align-items: center">
+<div style="flex: 1 1 0; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<span style="font-size: 12px; font-weight: 600; color: var(--fg2); white-space: nowrap">{{p.inLabel}}</span>
+<div aria-hidden="true" style="align-self: stretch; height: {{p.inH}}px; background: var(--line-strong)"></div>
+<span style="font-size: 12px; color: var(--fg3); white-space: nowrap">{{p.inNote}}</span>
+</div>
+<button type="button" onClick="{{p.open}}" aria-label="{{p.aria}}" style="flex: 0 0 168px; box-sizing: border-box; text-align: left; background: var(--inset); border: 1px solid {{p.border}}; border-radius: 8px; padding: 12px; color: var(--fg); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 650; white-space: nowrap">{{p.name}}</span>
+<span aria-hidden="true" style="display: flex; flex-wrap: wrap; gap: 3px; min-height: 26px; align-content: flex-start">
+<sc-for list="{{p.squares}}" as="q" hint-placeholder-count="6">
+<span style="width: 10px; height: 10px; border-radius: 2px; background: {{q.bg}}; box-shadow: {{q.ring}}"></span>
+</sc-for>
+</span>
+<span style="font-size: 13px"><strong>{{p.wip}}</strong> <span style="color: var(--fg2)">{{p.limit}}</span></span>
+<span style="font-size: 12px; color: var(--fg2)">{{p.dwell}} median wait</span>
+<span style="font-size: 12px; font-weight: 600; color: {{p.netFg}}">{{p.net}}</span>
+</button>
+</div>
+</sc-for>
+<div style="flex: 0.8 1 0; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<span style="font-size: 12px; font-weight: 600; color: var(--fg2); white-space: nowrap">7.8 / wk</span>
+<div aria-hidden="true" style="align-self: stretch; height: 19px; background: var(--line-strong)"></div>
+<span style="font-size: 12px; color: var(--fg3); white-space: nowrap">finished</span>
+</div>
+<div style="flex: 0 0 120px; box-sizing: border-box; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 650">Done</span>
+<span style="font-size: 22px; font-weight: 650">102</span>
+<span style="font-size: 12px; color: var(--fg2)">in 90 days</span>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+<h3 style="margin: 0; font-size: 14px; font-weight: 650">Where the time goes</h3>
+<span style="color: var(--fg3); font-size: 13px">{{flowSub}}</span>
+</div>
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="1">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px">
+<div style="flex: 0 0 120px; display: flex; align-items: center; gap: 4px; font-weight: {{row.weight}}; min-width: 0"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="flex: none; visibility: {{row.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{row.name}}</div>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 10px">
+<div style="width: {{row.w}}%; display: flex; gap: 2px; height: 36px; border-radius: 6px; overflow: hidden">
+<sc-for list="{{row.segs}}" as="s" hint-placeholder-count="4">
+<div title="{{s.tip}}" style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
+</sc-for>
+</div>
+<span style="flex: none; color: var(--fg2); font-size: 13px; font-variant-numeric: tabular-nums">{{row.total}}</span>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--fg2); font-size: 12px">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: var(--s-ready)"></span>Ready</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: var(--s-prog)"></span>In progress</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: var(--s-review)"></span>Review (bottleneck, hatched)</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: var(--s-qa)"></span>QA</span>
+<span style="color: var(--fg3)">Bar length is median days from Ready to Done.</span>
+</div>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="cfd-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="cfd-h" style="margin: 0; font-size: 17px; font-weight: 650">Cumulative flow</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">The Review band keeps widening while the others hold steady. A widening band is a queue that is building up.</p>
+</div>
+<div role="group" aria-label="Cumulative flow view" style="flex: none; display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="min-height: 32px; padding: 0 10px 0 6px; border: 0; font: inherit; font-size: 12px; font-weight: 600; background: var(--primary); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>Chart</button>
+<button type="button" aria-pressed="false" style="min-height: 32px; padding: 0 10px 0 22px; border: 0; font: inherit; font-size: 12px; background: transparent; color: var(--fg2); cursor: pointer">Table</button>
+</div>
+</div>
+<div style="display: flex; gap: 8px">
+<div role="img" aria-label="Stacked chart of cards per column per day for 90 days. The Review band grows from 4 to 11 cards." style="flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; height: 240px; gap: 1px; border-bottom: 1px solid var(--line-strong)">
+<sc-for list="{{cfd}}" as="day" hint-placeholder-count="30">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column-reverse">
+<sc-for list="{{day.segs}}" as="s" hint-placeholder-count="5">
+<div style="flex: 0 0 {{s.h}}%; box-sizing: border-box; border-top: 1px solid var(--panel); background: {{s.bg}}"></div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div aria-hidden="true" style="flex: none; width: 76px; height: 240px; position: relative; font-size: 12px; color: var(--fg2)">
+<sc-for list="{{cfdLabels}}" as="l" hint-placeholder-count="5">
+<span style="position: absolute; left: 0; bottom: {{l.b}}px; white-space: nowrap; line-height: 14px">{{l.name}}</span>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; color: var(--fg3); font-size: 12px; padding-right: 84px"><span>Aug 16</span><span>Sep 15</span><span>Oct 15</span><span>Nov 14</span></div>
+<p style="margin: 0; color: var(--fg3); font-size: 12px">The hatched band is the bottleneck.</p>
+</section>
+<section aria-labelledby="tp-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="tp-h" style="margin: 0; font-size: 17px; font-weight: 650">Throughput</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">{{tpSub}}</p>
+</div>
+<div role="group" aria-label="Throughput view" style="flex: none; display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="min-height: 32px; padding: 0 10px 0 6px; border: 0; font: inherit; font-size: 12px; font-weight: 600; background: var(--primary); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>Chart</button>
+<button type="button" aria-pressed="false" style="min-height: 32px; padding: 0 10px 0 22px; border: 0; font: inherit; font-size: 12px; background: transparent; color: var(--fg2); cursor: pointer">Table</button>
+</div>
+</div>
+<div style="display: flex; gap: 8px">
+<div role="img" aria-label="Bar chart of cards finished per week for 13 weeks, between 5 and 11, median 8, with a marker for cards started each week." style="flex: 1 1 0; min-width: 0; position: relative; height: 240px; display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid var(--line-strong)">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 160px; border-top: 1px dashed var(--fg3)"></div>
+<sc-for list="{{weeks}}" as="w" hint-placeholder-count="13">
+<div style="flex: 1 1 0; min-width: 0; position: relative; display: flex; flex-direction: column-reverse; gap: 1px">
+<sc-for list="{{w.segs}}" as="s" hint-placeholder-count="1">
+<div style="height: {{s.h}}px; background: {{s.bg}}"></div>
+</sc-for>
+<span style="position: absolute; left: -1px; right: -1px; bottom: {{w.arr}}px; height: 3px; background: var(--mark)"></span>
+</div>
+</sc-for>
+</div>
+<div aria-hidden="true" style="flex: none; width: 64px; height: 240px; position: relative; font-size: 12px; color: var(--fg2)">
+<span style="position: absolute; left: 0; bottom: 153px; white-space: nowrap; line-height: 14px">median 8</span>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; color: var(--fg3); font-size: 12px; padding-right: 72px"><span>Aug 17</span><span>Nov 9</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--fg2); font-size: 12px">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: rgba(var(--h), 0.6)"></span>Finished</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 3px; background: var(--mark)"></span>Started</span>
+</div>
+</section>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="age-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="age-h" style="margin: 0; font-size: 17px; font-weight: 650">Aging work in progress</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">{{ageSub}}</p>
+</div>
+<div role="group" aria-label="Aging work in progress view" style="flex: none; display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="min-height: 32px; padding: 0 10px 0 6px; border: 0; font: inherit; font-size: 12px; font-weight: 600; background: var(--primary); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>Chart</button>
+<button type="button" aria-pressed="false" style="min-height: 32px; padding: 0 10px 0 22px; border: 0; font: inherit; font-size: 12px; background: transparent; color: var(--fg2); cursor: pointer">Table</button>
+</div>
+</div>
+<div style="display: flex; gap: 8px">
+<div aria-hidden="true" style="flex: none; width: 30px; height: 240px; position: relative; color: var(--fg3); font-size: 12px">
+<span style="position: absolute; right: 0; top: -7px">30d</span>
+<span style="position: absolute; right: 0; bottom: -7px">0</span>
+</div>
+<div role="img" aria-label="Dot plot of 27 cards in progress by column and age in days. Review holds the oldest cards, three of them past the 85th percentile of 19 days." style="flex: 1 1 0; min-width: 0; height: 240px; position: relative; display: flex; border-bottom: 1px solid var(--line-strong)">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 36.7%; background: rgba(var(--h), 0.10)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; height: 26.6%; background: rgba(var(--h), 0.05)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 63.3%; border-top: 2px solid var(--fg3)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; border-top: 1px dashed var(--fg3)"></div>
+<sc-for list="{{ageCols}}" as="col" hint-placeholder-count="4">
+<div style="flex: 1 1 0; min-width: 0; position: relative; border-left: 1px solid var(--line)">
+<sc-for list="{{col.dots}}" as="d" hint-placeholder-count="6">
+<span title="{{d.tip}}" style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 12px; height: 12px; margin: 0 0 -6px -6px; background: {{d.bg}}; border-radius: {{d.r}}; box-shadow: {{d.ring}}"></span>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div aria-hidden="true" style="flex: none; width: 76px; height: 240px; position: relative; font-size: 12px; color: var(--fg2)">
+<span style="position: absolute; left: 0; bottom: 63.3%; margin-bottom: -7px; white-space: nowrap; line-height: 14px">85th · 19d</span>
+<span style="position: absolute; left: 0; bottom: 36.7%; margin-bottom: -7px; white-space: nowrap; line-height: 14px">50th · 11d</span>
+</div>
+</div>
+<div style="display: flex; gap: 8px; color: var(--fg2); font-size: 12px; font-weight: 600; padding-right: 84px">
+<span style="flex: none; width: 30px"></span>
+<span style="flex: 1 1 0; text-align: center; min-width: 0">Ready</span>
+<span style="flex: 1 1 0; text-align: center; min-width: 0">In progress</span>
+<span style="flex: 1 1 0; text-align: center; min-width: 0">Review</span>
+<span style="flex: 1 1 0; text-align: center; min-width: 0">QA</span>
+</div>
+<p style="margin: 0; color: var(--fg3); font-size: 12px">Ringed cards are past the 85th percentile. Squares are blocked cards.</p>
+</section>
+<section aria-labelledby="att-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h2 id="att-h" style="margin: 0; font-size: 17px; font-weight: 650">Needs attention</h2>
+<a href="#att-h" style="font-size: 13px">All 9 cards</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="min-height: 56px; text-align: left; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--inset); color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600">Rotate signing keys for the mobile release</span><span style="display: block; color: var(--fg3); font-size: 12px">Review · Mobile · blocked: waiting on security review</span></span>
+<span style="flex: none; font-weight: 650; color: var(--danger-text); font-variant-numeric: tabular-nums">28d</span>
+</button>
+<button type="button" style="min-height: 56px; text-align: left; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--inset); color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600">Move audit export to background jobs</span><span style="display: block; color: var(--fg3); font-size: 12px">Review · Platform · blocked: external dependency</span></span>
+<span style="flex: none; font-weight: 650; color: var(--danger-text); font-variant-numeric: tabular-nums">24d</span>
+</button>
+<button type="button" style="min-height: 56px; text-align: left; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--inset); color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600">Swimlane health history drawer</span><span style="display: block; color: var(--fg3); font-size: 12px">Review · Platform · past 19 days</span></span>
+<span style="flex: none; font-weight: 650; color: var(--danger-text); font-variant-numeric: tabular-nums">21d</span>
+</button>
+<button type="button" style="min-height: 56px; text-align: left; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--inset); color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600">Onboarding checklist copy pass</span><span style="display: block; color: var(--fg3); font-size: 12px">Review · Growth · no movement for 9 days</span></span>
+<span style="flex: none; font-weight: 650; color: var(--warn-text); font-variant-numeric: tabular-nums">16d</span>
+</button>
+<button type="button" style="min-height: 56px; text-align: left; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--inset); color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600">Offline card edits sync conflict</span><span style="display: block; color: var(--fg3); font-size: 12px">In progress · Mobile · blocked: needs product decision</span></span>
+<span style="flex: none; font-weight: 650; color: var(--warn-text); font-variant-numeric: tabular-nums">12d</span>
+</button>
+</div>
+<p style="margin: 0; color: var(--fg3); font-size: 12px">One list for blocked, stalled and long-running cards, oldest first.</p>
+</section>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="ct-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="ct-h" style="margin: 0; font-size: 17px; font-weight: 650">Cycle time</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">{{ctSub}}</p>
+</div>
+<div role="group" aria-label="Cycle time view" style="flex: none; display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="min-height: 32px; padding: 0 10px 0 6px; border: 0; font: inherit; font-size: 12px; font-weight: 600; background: var(--primary); color: #ffffff; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>Chart</button>
+<button type="button" aria-pressed="false" style="min-height: 32px; padding: 0 10px 0 22px; border: 0; font: inherit; font-size: 12px; background: transparent; color: var(--fg2); cursor: pointer">Table</button>
+</div>
+</div>
+<div style="display: flex; gap: 8px">
+<div aria-hidden="true" style="flex: none; width: 30px; height: 220px; position: relative; color: var(--fg3); font-size: 12px">
+<span style="position: absolute; right: 0; top: -7px">30d</span>
+<span style="position: absolute; right: 0; bottom: -7px">0</span>
+</div>
+<div role="img" aria-label="Scatter plot of finished cards by finish date and cycle time in days, with lines at the median of 11 days and the 85th percentile of 19 days." style="flex: 1 1 0; min-width: 0; height: 220px; position: relative; border-bottom: 1px solid var(--line-strong); border-left: 1px solid var(--line)">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 63.3%; border-top: 2px solid var(--fg3)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; border-top: 1px dashed var(--fg3)"></div>
+<sc-for list="{{scatter}}" as="d" hint-placeholder-count="40">
+<span style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 8px; height: 8px; margin: 0 0 -4px -4px; border-radius: 50%; background: {{d.bg}}"></span>
+</sc-for>
+</div>
+<div aria-hidden="true" style="flex: none; width: 76px; height: 220px; position: relative; font-size: 12px; color: var(--fg2)">
+<span style="position: absolute; left: 0; bottom: 63.3%; margin-bottom: -7px; white-space: nowrap; line-height: 14px">85th · 19d</span>
+<span style="position: absolute; left: 0; bottom: 36.7%; margin-bottom: -7px; white-space: nowrap; line-height: 14px">50th · 11d</span>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; color: var(--fg3); font-size: 12px; padding: 0 84px 0 38px"><span>Aug 16</span><span>Sep 30</span><span>Nov 14</span></div>
+</section>
+<section aria-labelledby="bl-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div>
+<h2 id="bl-h" style="margin: 0; font-size: 17px; font-weight: 650">Why cards get blocked</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">One reason accounts for nearly half of all blocked time.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Waiting on security review</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">6.5d · 5</span></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>External dependency</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">4d · 2</span></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 62%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Needs product decision</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">2.5d · 2</span></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 38%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Environment down</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">1.5d · 1</span></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 23%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+</div>
+</div>
+<p style="margin: 0; color: var(--fg3); font-size: 12px">Days blocked · number of blocks. 8 of 10 blocks started in Review.</p>
+</section>
+</div>
+
+<p style="margin: 0; color: var(--fg3); font-size: 12px">Calendar days in UTC, from each card's movement history. Filters and breakdowns use each card's current swimlane, labels and field values.</p>
+</div>
+
+<sc-if value="{{drawerOpen}}" hint-placeholder-val="{{false}}">
+<aside aria-labelledby="dr-h" style="position: absolute; top: 16px; right: 16px; width: 460px; max-width: calc(100% - 32px); box-sizing: border-box; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 16px; z-index: 5">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="dr-h" style="margin: 0; font-size: 20px; font-weight: 650">{{dr.title}}</h2>
+<p style="margin: 2px 0 0; color: var(--fg2); font-size: 13px">{{dr.sub}}</p>
+</div>
+<button type="button" onClick="{{closeDrawer}}" aria-label="Close" style="flex: none; width: 44px; height: 44px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="background: var(--inset); border: 1px solid var(--line); border-radius: 6px; padding: 10px"><span style="display: block; font-size: 12px; color: var(--fg3)">In column</span><span style="font-size: 18px; font-weight: 650">{{dr.wip}}</span></div>
+<div style="background: var(--inset); border: 1px solid var(--line); border-radius: 6px; padding: 10px"><span style="display: block; font-size: 12px; color: var(--fg3)">Median wait</span><span style="font-size: 18px; font-weight: 650">{{dr.dwell}}</span></div>
+<div style="background: var(--inset); border: 1px solid var(--line); border-radius: 6px; padding: 10px"><span style="display: block; font-size: 12px; color: var(--fg3)">Past 19 days</span><span style="font-size: 18px; font-weight: 650">{{dr.late}}</span></div>
+</div>
+<div style="background: var(--inset); border: 1px solid var(--line-strong); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="font-weight: 650; min-width: 0">{{dr.sel.title}}</span>
+<span style="flex: none; font-weight: 650; color: {{dr.sel.fg}}">{{dr.sel.age}}</span>
+</div>
+<span style="font-size: 12px; color: var(--fg2)">{{dr.sel.meta}}</span>
+<div aria-hidden="true" style="display: flex; gap: 2px; height: 28px; border-radius: 5px; overflow: hidden">
+<sc-for list="{{dr.sel.segs}}" as="s" hint-placeholder-count="3">
+<div style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: var(--fg2)">{{dr.sel.story}}</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 0; background: var(--primary); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Open card</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; cursor: pointer">Movement history</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.06em">Oldest first</span>
+<sc-for list="{{dr.cards}}" as="c" hint-placeholder-count="5">
+<button type="button" style="min-height: 48px; text-align: left; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1 1 0; min-width: 0"><span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.title}}</span><span style="display: block; color: var(--fg3); font-size: 12px">{{c.meta}}</span></span>
+<span style="flex: none; font-weight: 650; color: {{c.fg}}; font-variant-numeric: tabular-nums">{{c.age}}</span>
+</button>
+</sc-for>
+<span style="font-size: 12px; color: var(--fg3)">{{dr.more}}</span>
+</div>
+</aside>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"breakdown":{"editor":"enum","options":["none","swimlane","label","field"],"default":"none"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"drawer":{"editor":"enum","options":["closed","review"],"default":"closed"},"$preview":{"width":1440,"height":2200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { breakdown: null, drill: undefined, hl: 0 };
+  }
+  renderVals() {
+    const bd = this.state.breakdown || this.props.breakdown || 'none';
+    const grouped = bd !== 'none';
+    const hl = this.state.hl || 0;
+    const drill = this.state.drill !== undefined ? this.state.drill : (this.props.drawer === 'review' ? 2 : null);
+    const hue = (a) => 'rgba(var(--h), ' + a + ')';
+    const LANES = ['Platform', 'Growth', 'Mobile', 'Support'];
+    const STAGES = [
+      { name: 'Ready', bg: 'var(--s-ready)', limit: 8, dwell: 1.4, net: 0, rate: 8.4, inNote: 'started' },
+      { name: 'In progress', bg: 'var(--s-prog)', limit: 8, dwell: 3.1, net: 0, rate: 8.4, inNote: 'move on' },
+      { name: 'Review', bg: 'var(--s-review)', limit: 5, dwell: 6.2, net: 7, rate: 8.4, inNote: 'move on' },
+      { name: 'QA', bg: 'var(--s-qa)', limit: 4, dwell: 1.8, net: 0, rate: 7.8, inNote: 'fewer leave' },
+    ];
+    const SETS = {
+      none: { names: ['All cards'], vals: [[1.4, 3.1, 6.2, 1.8]] },
+      swimlane: {
+        names: LANES,
+        vals: [[1.2, 2.8, 8.9, 1.6], [1.5, 3.4, 4.1, 2.2], [1.3, 3.6, 7.4, 1.9], [1.6, 2.2, 2.3, 1.4]],
+      },
+      label: {
+        names: ['Bug', 'Feature', 'Tech debt', 'Customer'],
+        vals: [[0.8, 1.9, 3.2, 1.5], [1.6, 3.8, 7.6, 2.0], [1.9, 3.3, 8.1, 1.7], [1.1, 2.6, 4.4, 1.8]],
+      },
+      field: {
+        names: ['Size S', 'Size M', 'Size L', 'Size XL'],
+        vals: [[1.0, 1.6, 3.0, 1.2], [1.3, 2.9, 5.6, 1.7], [1.8, 4.4, 8.8, 2.3], [2.2, 6.1, 11.4, 2.9]],
+      },
+    };
+    const set = SETS[bd];
+    const hlName = set.names[hl] || set.names[0];
+    const totals = set.vals.map((v) => v.reduce((a, b) => a + b, 0));
+    const max = Math.max.apply(null, totals);
+    const rows = set.names.map((name, i) => ({
+      name,
+      vis: grouped && i === hl ? 'visible' : 'hidden',
+      weight: !grouped || i === hl ? 650 : 400,
+      w: Math.round((totals[i] / max) * 100),
+      total: totals[i].toFixed(1) + 'd',
+      segs: set.vals[i].map((v, j) => ({
+        v,
+        label: v.toFixed(1) + 'd',
+        tip: STAGES[j].name + ': ' + v.toFixed(1) + ' days (median)',
+        bg: STAGES[j].bg,
+      })),
+    }));
+    const groups = grouped
+      ? set.names.map((name, i) => ({
+          name,
+          on: i === hl,
+          vis: i === hl ? 'visible' : 'hidden',
+          weight: i === hl ? 600 : 400,
+          bg: i === hl ? hue(0.2) : 'transparent',
+          border: i === hl ? hue(0.9) : 'var(--line-strong)',
+          pick: () => this.setState({ hl: i }),
+        }))
+      : [];
+
+    const OPTS = [['none', 'None'], ['swimlane', 'Swimlane'], ['label', 'Label'], ['field', 'Size']];
+    const options = OPTS.map(([id, label]) => ({
+      label,
+      on: bd === id,
+      vis: bd === id ? 'visible' : 'hidden',
+      bg: bd === id ? 'var(--primary)' : 'transparent',
+      fg: bd === id ? '#ffffff' : 'var(--fg2)',
+      weight: bd === id ? 600 : 400,
+      pick: () => this.setState({ breakdown: id, hl: 0 }),
+    }));
+
+    const TITLES = [
+      ['Bulk archive from list view', 'Saved filter sharing', 'Column WIP limit warnings', 'Dark mode contrast pass', 'Webhook retry backoff', 'Invite link expiry setting'],
+      ['Card relation graph', 'Attachment virus scan hook', 'Keyboard move between lanes', 'Health status on lane header', 'Import mapping preview', 'Notification digest email', 'Offline card edits sync conflict'],
+      ['Label color picker', 'Checklist reorder', 'Board template gallery', 'Custom field date math', 'Search result ranking', 'SSO group mapping docs', 'Activity drawer pagination', 'Onboarding checklist copy pass', 'Swimlane health history drawer', 'Move audit export to background jobs', 'Rotate signing keys for the mobile release'],
+      ['Mention autocomplete', 'CSV export of blocked time', 'Card cover images'],
+    ];
+    const AGES = [
+      [[1, 0], [1, 0], [2, 0], [2, 0], [3, 0], [4, 0]],
+      [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [8, 0], [12, 1]],
+      [[2, 0], [4, 0], [5, 0], [7, 0], [9, 0], [11, 0], [13, 0], [16, 0], [21, 0], [24, 1], [28, 1]],
+      [[1, 0], [2, 0], [5, 0]],
+    ];
+    const ageFg = (age) => (age > 19 ? 'var(--danger-text)' : age > 11 ? 'var(--warn-text)' : 'var(--fg2)');
+
+    const pipe = STAGES.map((s, j) => {
+      const wip = AGES[j].length;
+      return {
+        name: s.name,
+        dwell: s.dwell.toFixed(1) + 'd',
+        wip,
+        limit: 'of ' + s.limit + (wip > s.limit ? ' · ' + (wip - s.limit) + ' over limit' : ''),
+        squares: AGES[j].map((_, i) => (i < s.limit ? { bg: hue(0.7), ring: 'none' } : { bg: 'transparent', ring: 'inset 0 0 0 2px ' + hue(0.9) })),
+        net: s.net > 0 ? 'Queue +' + s.net + ' since Aug 16' : 'Queue steady',
+        netFg: s.net > 0 ? 'var(--warn-text)' : 'var(--fg3)',
+        border: s.net > 0 ? 'var(--warn)' : 'var(--line)',
+        inLabel: s.rate.toFixed(1) + ' / wk',
+        inH: Math.round(s.rate * 2.5),
+        inNote: s.inNote,
+        aria: s.name + ': ' + wip + ' cards, limit ' + s.limit + ', median ' + s.dwell + ' days. Show cards.',
+        open: () => this.setState({ drill: j }),
+      };
+    });
+
+    let dr = { title: '', sub: '', wip: '', dwell: '', late: '', cards: [], more: '', sel: { title: '', age: '', meta: '', story: '', fg: 'var(--fg)', segs: [] } };
+    if (drill !== null) {
+      const s = STAGES[drill];
+      const list = AGES[drill]
+        .map(([age, blocked], i) => ({ age, blocked, title: TITLES[drill][i], lane: LANES[i % 4] }))
+        .sort((a, b) => b.age - a.age);
+      const top = list[0];
+      const PRE = [1.5, 3, 4];
+      const segs = [];
+      let used = 0;
+      for (let i = 0; i < drill; i++) {
+        const v = Math.min(top.age * 0.15, PRE[i]);
+        used += v;
+        segs.push({ v, label: v.toFixed(1) + 'd', bg: STAGES[i].bg });
+      }
+      const here = top.age - used;
+      segs.push({ v: here, label: s.name + ' ' + here.toFixed(1) + 'd', bg: s.bg });
+      dr = {
+        title: s.name,
+        sub: list.length + ' cards in this column now, limit ' + s.limit + '.',
+        wip: list.length + ' of ' + s.limit,
+        dwell: s.dwell.toFixed(1) + 'd',
+        late: String(list.filter((c) => c.age > 19).length),
+        sel: {
+          title: top.title,
+          age: top.age + 'd',
+          fg: ageFg(top.age),
+          meta: top.lane + (top.blocked ? ' · blocked now' : '') + ' · started ' + top.age + ' days ago',
+          story: here.toFixed(1) + ' of its ' + top.age + ' days have been spent in ' + s.name + '.',
+          segs,
+        },
+        cards: list.slice(1, 6).map((c) => ({
+          title: c.title,
+          meta: c.lane + (c.blocked ? ' · blocked now' : c.age > 19 ? ' · past 19 days' : ''),
+          age: c.age + 'd',
+          fg: ageFg(c.age),
+        })),
+        more: list.length > 6 ? 'And ' + (list.length - 6) + ' more.' : '',
+      };
+    }
+
+    const cfd = [];
+    const TOP = 150;
+    let last = null;
+    for (let i = 0; i < 30; i++) {
+      const v = {
+        done: 4 + i * 3.4,
+        qa: 3 + (i % 3),
+        review: 4 + i * 0.25,
+        prog: 6 + ((i * 7) % 3),
+        ready: 5 + ((i * 5) % 3),
+      };
+      last = v;
+      cfd.push({
+        segs: [
+          { h: (v.done / TOP) * 100, bg: 'var(--s-done)' },
+          { h: (v.qa / TOP) * 100, bg: 'var(--s-qa)' },
+          { h: (v.review / TOP) * 100, bg: 'var(--s-review)' },
+          { h: (v.prog / TOP) * 100, bg: 'var(--s-prog)' },
+          { h: (v.ready / TOP) * 100, bg: 'var(--s-ready)' },
+        ],
+      });
+    }
+    const BANDS = [['Done', last.done], ['QA', last.qa], ['Review', last.review], ['In progress', last.prog], ['Ready', last.ready]];
+    const cfdLabels = [];
+    let base = 0;
+    let floor = -100;
+    BANDS.forEach(([name, val]) => {
+      const px = (val / TOP) * 240;
+      let b = base + px / 2 - 7;
+      if (b < floor + 15) b = floor + 15;
+      floor = b;
+      base += px;
+      cfdLabels.push({ name, b: Math.round(b) });
+    });
+
+    const WEEKS = [6, 9, 7, 8, 10, 8, 5, 9, 8, 11, 7, 8, 6];
+    const STARTED = [7, 9, 8, 8, 10, 9, 6, 9, 9, 11, 8, 8, 7];
+    const weeks = WEEKS.map((t, wi) => {
+      const arr = STARTED[wi] * 20;
+      if (!grouped) return { arr, segs: [{ h: t * 20, bg: hue(0.6) }] };
+      const a = Math.round(t * 0.35);
+      const b = Math.round(t * 0.3);
+      const c = Math.round(t * 0.2);
+      const d = Math.max(0, t - a - b - c);
+      const mine = [a, b, c, d][hl];
+      return {
+        arr,
+        segs: [{ h: mine * 20 - 1, bg: hue(0.7) }, { h: (t - mine) * 20, bg: hue(0.22) }].filter((s) => s.h > 0),
+      };
+    });
+
+    const ageCols = AGES.map((list) => ({
+      dots: list.map(([age, blocked], i) => {
+        const a = !grouped ? 0.85 : i % 4 === hl ? 0.95 : 0.22;
+        return {
+          x: 22 + ((i * 37) % 56),
+          y: (age / 30) * 100,
+          bg: hue(a),
+          r: blocked ? '2px' : '50%',
+          ring: age > 19 ? '0 0 0 2px var(--panel), 0 0 0 4px ' + hue(a) : 'none',
+          tip: age + ' days in progress' + (blocked ? ', blocked' : ''),
+        };
+      }),
+    }));
+
+    let seed = 7;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const scatter = [];
+    for (let i = 0; i < 56; i++) {
+      const r = rnd();
+      const days = 3 + r * r * 25;
+      const x = 2 + rnd() * 96;
+      const g = Math.floor(rnd() * 4);
+      scatter.push({ x, y: (days / 30) * 100, bg: hue(!grouped ? 0.8 : g === hl ? 0.95 : 0.2) });
+    }
+
+    const WORD = { none: '', swimlane: 'swimlane', label: 'label', field: 'the Size field' };
+    return {
+      themeClass: this.props.theme === 'light' ? 'vb-light' : 'vb-dark',
+      grouped,
+      groups,
+      rows,
+      options,
+      pipe,
+      dr,
+      drawerOpen: drill !== null,
+      openReview: () => this.setState({ drill: 2 }),
+      closeDrawer: () => this.setState({ drill: null }),
+      cfd,
+      cfdLabels,
+      weeks,
+      ageCols,
+      scatter,
+      legendNote:
+        'Solid marks are the highlighted group; the rest are dimmed.' +
+        (bd === 'label' ? ' A card with several labels counts once in each.' : bd === 'field' ? ' Cards with no Size are left out.' : ''),
+      flowSub: grouped
+        ? 'Median days in each column, split by ' + WORD[bd] + '. The longest bar is the slowest group.'
+        : 'Median days a card spends in each column on the way to Done.',
+      tpSub: grouped
+        ? 'Cards finished per week. The solid part of each bar is ' + hlName + '.'
+        : '102 finished, 109 started. Output is steady, but work in progress grew by 7 cards.',
+      ageSub: grouped
+        ? 'Every card in progress, by column and age. Solid marks are ' + hlName + '.'
+        : 'Every card in progress, by column and age. 3 cards in Review are already older than 85% of finished cards.',
+      ctSub: grouped
+        ? 'Each dot is a finished card. Solid dots are ' + hlName + '.'
+        : 'Each dot is a finished card. Most land under 11 days, with a long tail of cards held up in Review.',
+    };
+  }
+}
+</script>
+</body>
+</html>

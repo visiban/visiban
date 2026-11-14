@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Analytics page states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 24px 20px 48px; box-sizing: border-box; font-size: 14px; line-height: 1.45">
+<div style="max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px">
+
+<section aria-labelledby="st-load" style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="st-load" style="margin: 0; font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em">Loading</h2>
+<div aria-busy="true" style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-height: 420px; flex: 1 1 auto">
+<p style="margin: 0; color: #cbd5e1; font-size: 13px">Loading flow metrics…</p>
+<div aria-hidden="true" style="height: 20px; width: 40%; border-radius: 4px; background: #334155"></div>
+<div aria-hidden="true" style="height: 14px; width: 85%; border-radius: 4px; background: #334155"></div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="height: 64px; border-radius: 6px; background: #334155"></div>
+<div style="height: 64px; border-radius: 6px; background: #334155"></div>
+</div>
+<div aria-hidden="true" style="flex: 1 1 0; min-height: 160px; border-radius: 6px; background: #334155"></div>
+<p style="margin: 0; color: #94a3b8; font-size: 12px">Filters stay usable. Panels keep their size, so nothing jumps when the numbers arrive.</p>
+</div>
+</section>
+
+<section aria-labelledby="st-empty" style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="st-empty" style="margin: 0; font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em">No history yet</h2>
+<div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; min-height: 420px; flex: 1 1 auto">
+<svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>
+<h3 style="margin: 0; font-size: 20px; font-weight: 650">Nothing has moved yet</h3>
+<p style="margin: 0; color: #cbd5e1">Analytics are built from cards moving between columns. Once a few cards reach Done, this page shows where they spent their time.</p>
+<div aria-hidden="true" style="align-self: stretch; display: flex; gap: 2px; height: 28px; border-radius: 5px; overflow: hidden; opacity: 0.8">
+<div style="flex: 1.4 1 0; background: rgba(59,130,246,0.22)"></div>
+<div style="flex: 3.1 1 0; background: rgba(59,130,246,0.42)"></div>
+<div style="flex: 6.2 1 0; background: repeating-linear-gradient(135deg, rgba(59,130,246,0.62) 0 8px, rgba(59,130,246,0.3) 8px 10px)"></div>
+<div style="flex: 1.8 1 0; background: rgba(59,130,246,0.7)"></div>
+</div>
+<p style="margin: 0; color: #94a3b8; font-size: 12px">Example of what you will see.</p>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 6px; border: 0; background: #2563eb; color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Go to board</button>
+</div>
+</section>
+
+<section aria-labelledby="st-sparse" style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="st-sparse" style="margin: 0; font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em">Too little data</h2>
+<div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-height: 420px; flex: 1 1 auto">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em">Bottleneck</span>
+<h3 style="margin: 0; font-size: 20px; font-weight: 650">Too early to say</h3>
+<p style="margin: 0; color: #cbd5e1">6 cards have finished. A bottleneck is named once a column's queue has grown over at least two weeks.</p>
+</div>
+<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: #94a3b8; font-size: 13px">Cycle time</span>
+<span style="font-size: 26px; font-weight: 650">7<span style="font-size: 15px; font-weight: 500; color: #94a3b8"> days</span> <span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(148,163,184,0.2); color: #cbd5e1; vertical-align: middle">Provisional</span></span>
+<span style="color: #cbd5e1; font-size: 13px">Median of 6 cards. The 85% figure appears after 10.</span>
+</div>
+<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: #94a3b8; font-size: 13px">Throughput</span>
+<span style="font-size: 26px; font-weight: 650">6<span style="font-size: 15px; font-weight: 500; color: #94a3b8"> cards so far</span></span>
+<span style="color: #cbd5e1; font-size: 13px">A weekly median needs 4 whole weeks. 2 so far.</span>
+</div>
+<p style="margin: 0; color: #94a3b8; font-size: 12px">Charts still draw what exists. Lines and claims that need more cards are left off, with the reason stated.</p>
+</div>
+</section>
+
+<section aria-labelledby="st-none" style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="st-none" style="margin: 0; font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em">Filters match nothing</h2>
+<div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; min-height: 420px; flex: 1 1 auto">
+<h3 style="margin: 0; font-size: 20px; font-weight: 650">No cards match these filters</h3>
+<p style="margin: 0; color: #cbd5e1">No card in the Support swimlane with the label Tech debt moved in the last 30 days.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 8px">Support <svg aria-hidden="true" width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 8px">Tech debt <svg aria-hidden="true" width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 8px">Last 30 days <svg aria-hidden="true" width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+</div>
+<p style="margin: 0; color: #94a3b8; font-size: 13px">Widening to 90 days would match 3 cards.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 6px; border: 0; background: #2563eb; color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Show last 90 days</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 6px; border: 1px solid #475569; background: transparent; color: #cbd5e1; font: inherit; cursor: pointer">Clear all filters</button>
+</div>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
