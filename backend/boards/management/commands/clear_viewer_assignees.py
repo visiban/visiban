@@ -66,7 +66,9 @@ class Command(BaseCommand):
         total_cards = 0
         total_items = 0
 
-        for board in boards_qs.prefetch_related("memberships"):
+        # No prefetch: the member-set helpers read ``_prefetched_memberships``
+        # (set by get_board_for_user), not the ``memberships`` prefetch cache.
+        for board in boards_qs.order_by("pk"):
             # Same sets as the card serializer, so the backfill agrees with the
             # role-resolution ladder (explicit board rows override group
             # inheritance). Only users who still hold board access but are not
