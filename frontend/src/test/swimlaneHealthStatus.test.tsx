@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
+import HealthStatusControl from '../components/Common/HealthStatusControl'
 import type { Card, Column, Swimlane } from '../types'
 
 vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn() }))
@@ -103,6 +104,55 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     expect(within(dialog).queryByText(/Inherit/)).toBeNull()
     expect(within(dialog).getByText('No status set.', { selector: 'p' })).toBeInTheDocument()
     expect(within(dialog).getByText("This lane's status is separate from the board's status.")).toBeInTheDocument()
+  })
+
+  // #2242 added a note, Confirm status and History to the board/group editor;
+  // a lane has no history, so its editor stays basic (frontend/CLAUDE.md).
+  const expectBasicEditor = (dialog: HTMLElement) => {
+    expect(within(dialog).queryByRole('textbox')).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Confirm status' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: /History/ })).toBeNull()
+    expect(within(dialog).queryByTestId('health-set-line')).toBeNull()
+  }
+
+  it('the lane editor is basic: no note, no Confirm status and no History, set or unset (#2242)', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<SwimlaneRow {...defaultProps()} />)
+    await user.click(screen.getByRole('button', { name: 'Set health status for lane Customer A' }))
+    expectBasicEditor(await screen.findByRole('dialog', { name: 'Health status for lane Customer A' }))
+    unmount()
+
+    render(<SwimlaneRow {...defaultProps()} swimlane={lane('at_risk')} />)
+    await user.click(screen.getByRole('button', { name: /Health status for lane Customer A: At risk/ }))
+    expectBasicEditor(await screen.findByRole('dialog', { name: 'Health status for lane Customer A' }))
+  })
+
+  it('a swimlane control stays basic even if a caller asks for detailed mode (#2242)', async () => {
+    const user = userEvent.setup()
+    const fetchHistory = vi.fn().mockResolvedValue({ results: [], has_more: false })
+    render(
+      <HealthStatusControl
+        entityKind="swimlane"
+        mode="detailed"
+        entityName="Customer A"
+        parentName={null}
+        canEdit
+        onSave={vi.fn()}
+        onConfirm={vi.fn()}
+        fetchHistory={fetchHistory}
+        health_status="at_risk"
+        effective_health_status="at_risk"
+        health_status_source={null}
+        health_status_changed_at="2026-11-10T12:00:00Z"
+        health_status_changed_by={null}
+        health_status_note="vendor slipped"
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /Health status for lane Customer A: At risk/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Health status for lane Customer A' })
+    expectBasicEditor(dialog)
+    expect(within(dialog).queryByText('vendor slipped')).toBeNull()
+    expect(fetchHistory).not.toHaveBeenCalled()
   })
 
   it('admin sets a status: PATCHes only health_status, merges, announces and focuses the new pill', async () => {
