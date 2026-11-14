@@ -486,14 +486,15 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 2. Pick a field, then a value or range:
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
+    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
 3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
 4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
 
 Rules apply as soon as they are complete; **Done** just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.
 
-- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is** and **between** and passes **is not**.
+- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, and **between** and passes **is not**.
 - **Admin-only fields** are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.
-- **Text, URL, checkbox, and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, or date swimlane field you can see, **Lanes** is hidden.
+- **Checkbox and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, **Lanes** is hidden.
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
 - **Lanes with no matching cards** stay visible, as they do with card filters alone.
 - **When every lane is hidden,** the board says "No lanes match your lane filters." with a **Clear lane filters** button.

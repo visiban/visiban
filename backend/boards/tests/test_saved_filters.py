@@ -584,7 +584,7 @@ class SavedFilterLaneFilterStateTests(TestCase):
             "items not list": {"items": {}},
             "rule not dict": {"items": ["a"]},
             "unknown rule key": {"items": [_lane_rule(extra=1)]},
-            "bad op": {"items": [_lane_rule(op="contains")]},
+            "bad op": {"items": [_lane_rule(op="starts_with")]},
             "bad join": {"items": [_lane_rule(join="xor")]},
             "id negative": {"items": [_lane_rule(-1)]},
             "id bool": {"items": [_lane_rule(True)]},
@@ -606,6 +606,34 @@ class SavedFilterLaneFilterStateTests(TestCase):
         for label, lane_filter in cases.items():
             with self.subTest(label):
                 self._assert_400(lane_filter)
+
+    def test_contains_rule_round_trips(self):
+        """#2226 — `contains` is accepted on a value string, including the
+        empty string an untouched input saves (the client ignores it)."""
+        lane_filter = {
+            "items": [
+                _lane_rule(1, op="contains", value="ross"),
+                _lane_rule(2, join="or", op="contains", value=""),
+                _lane_rule(3, op="contains", value="x" * 500),
+            ]
+        }
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+
+    def test_contains_rule_rejected_outside_its_bounds(self):
+        cases = {
+            "value too long": _lane_rule(op="contains", value="x" * 501),
+            "no value": {k: v for k, v in _lane_rule(op="contains").items() if k != "value"},
+            "value not str": _lane_rule(op="contains", value=["ross"]),
+            "with min": _lane_rule(op="contains", min="1"),
+            "with max": _lane_rule(op="contains", max="9"),
+            "value with NUL": _lane_rule(op="contains", value="ro\x00ss"),
+        }
+        for label, rule in cases.items():
+            with self.subTest(label):
+                self._assert_400({"items": [rule]})
 
     def test_oversized_lane_filter_rejected(self):
         with self.subTest("too many items"):
