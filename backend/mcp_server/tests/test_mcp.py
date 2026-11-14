@@ -684,7 +684,7 @@ class BoardSnapshotTruncationTests(McpTestCase):
 
 
 class CardResourceTests(McpTestCase):
-    """`card://{card_id}` — detail + full audit history, content + RBAC (#513)."""
+    """`card://{card_id}` — detail + bounded audit history, content + RBAC (#513)."""
 
     def _read_card(self, card_id, token=None):
         status, body = self._read_resource(f"card://{card_id}", token or self.raw_token)
@@ -726,6 +726,8 @@ class CardResourceTests(McpTestCase):
                 "activities", "comments",
                 # #1149, additive.
                 "blocked_at", "blocked_reason",
+                # #1963, additive: set when activities/comments hit the cap.
+                "activities_truncated", "comments_truncated",
             },
         )
         self.assertEqual(data["uid"], card.uid)
@@ -1347,6 +1349,9 @@ class UserFieldParityTests(McpTestCase):
 
         # Card-level keys: everything except the audit-history lists, which
         # REST serves from their own per-card endpoints.
-        history = {"movements", "checklist_items", "activities", "comments"}
+        history = {
+            "movements", "checklist_items", "activities", "comments",
+            "activities_truncated", "comments_truncated",
+        }
         for card in (*self._list_cards(), detail):
             self.assertLessEqual(set(card) - history, rest_card_keys)
