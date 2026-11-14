@@ -5,6 +5,7 @@ import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
 import { useGroupSocket } from "../hooks/useGroupSocket";
 import type { BoardEvent } from "../hooks/useBoardSocket";
 import ConnectionStatus from "../components/Common/ConnectionStatus";
@@ -238,6 +239,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [confirmRemoveLabelId, setConfirmRemoveLabelId] = useState<number | null>(null);
   const removeMemberTriggerRef = useConfirmFocusReturn(confirmRemoveMemberId);
   const removeLabelTriggerRef = useConfirmFocusReturn(confirmRemoveLabelId);
+  const confirmingMember = confirmRemoveMemberId === null ? undefined : members.find((m) => m.user.id === confirmRemoveMemberId);
+  const confirmingLabel = confirmRemoveLabelId === null ? undefined : group?.shared_labels?.find((l) => l.id === confirmRemoveLabelId);
+  useConfirmAnnouncement(
+    confirmingMember
+      ? confirmingMember.has_all_content_access === true
+        ? "Remove this group role? Full access is not affected."
+        : `Remove ${confirmingMember.user.display_name || confirmingMember.user.username} from this group?`
+      : confirmingLabel
+        ? `Remove ${confirmingLabel.name} from this group?`
+        : null,
+  );
 
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");

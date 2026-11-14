@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { WebhookResumeFrom } from "../../../api/webhooks";
 import type { WebhookStatus, WebhookSubscription, WebhookTestResult } from "../../../types";
 import { useConfirmFocusReturn } from "../../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../../hooks/useConfirmAnnouncement";
 import { relativeTime } from "../../../utils/relativeTime";
 import {
   ROTATE_OVERLAP_SECONDS,
@@ -98,6 +99,16 @@ export default function WebhookDetail(props: Props) {
   const changeAddressRef = useRef<HTMLButtonElement>(null);
   const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
+  useConfirmAnnouncement(
+    confirm === null
+      ? null
+      : {
+          disable: "Turn off this webhook? Visiban stops sending to this address until an admin turns it back on.",
+          delete: "Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.",
+          reenable: reenableConfirmCopy(sub),
+          rotate: "Rotate the secret? Choose what happens to the current one.",
+        }[confirm],
+  );
   // One entry per action, not one slot: a test send finishing must not re-arm a
   // rotate still running, which would let a second rotate replace its secret.
   const [inFlight, setInFlight] = useState<ReadonlySet<InFlightKind>>(() => new Set());

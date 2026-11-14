@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Ref } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { listInviteLinks, createInviteLink, revokeInviteLink, sendInviteLinkEmail } from "../../api/groups";
 import {
   createBoardInviteLink,
@@ -227,6 +228,14 @@ export default function InviteLinkPanel({
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
+  const confirmingLink = confirmRevokeId === null ? undefined : links.find((l) => l.id === confirmRevokeId);
+  useConfirmAnnouncement(
+    !confirmingLink
+      ? null
+      : isBoard && confirmingLink.delivery === "email"
+        ? "Revoke this invite? The person it was emailed to will no longer be able to join."
+        : "Revoke this invite link? Anyone holding it will no longer be able to join.",
+  );
   const [loadError, setLoadError] = useState(false);
   const [copyErrorId, setCopyErrorId] = useState<number | null>(null);
   // #1421: one revoke in flight at a time, and its failure reported in place.

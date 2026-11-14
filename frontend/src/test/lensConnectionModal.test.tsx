@@ -10,6 +10,7 @@ vi.mock('../api/gitLens', () => ({
 }))
 
 import { putLensConnection, deleteLensConnection } from '../api/gitLens'
+import { announced } from './confirmAnnouncer'
 
 const mockPut = putLensConnection as ReturnType<typeof vi.fn>
 const mockDelete = deleteLensConnection as ReturnType<typeof vi.fn>
@@ -124,6 +125,7 @@ describe('LensConnectionModal', () => {
     await user.click(screen.getByRole('button', { name: 'Remove lens' }))
     expect(mockDelete).not.toHaveBeenCalled()
     expect(screen.getByText('Remove this connection?')).toBeInTheDocument()
+    expect(announced()).toBe('Remove this connection?')
 
     // Confirm commits the removal.
     await user.click(screen.getByRole('button', { name: 'Confirm' }))

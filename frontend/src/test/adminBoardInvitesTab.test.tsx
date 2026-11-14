@@ -13,6 +13,7 @@ vi.mock('../api/auth', () => ({
 }))
 
 import { getAdminBoardInviteLinks, revokeAdminBoardInviteLink } from '../api/auth'
+import { announced } from './confirmAnnouncer'
 
 const mockList = getAdminBoardInviteLinks as ReturnType<typeof vi.fn>
 const mockRevoke = revokeAdminBoardInviteLink as ReturnType<typeof vi.fn>
@@ -127,6 +128,9 @@ describe('BoardInvitesTab (#439)', () => {
       'Revoke this invite link to Launch Plan? Anyone holding it will no longer be able to join.',
     )
     expect(prompt.closest('td')).toHaveAttribute('colspan', '7')
+    expect(announced()).toBe(
+      'Revoke this invite link to Launch Plan? Anyone holding it will no longer be able to join.',
+    )
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(mockRevoke).toHaveBeenCalledWith(1))
     await waitFor(() => expect(screen.queryByText('Launch Plan')).not.toBeInTheDocument())

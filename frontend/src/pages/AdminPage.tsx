@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
 import {
   clearAdminUserLockout,
   createAdminUser,
@@ -257,6 +258,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
   const [revokeConfirm, setRevokeConfirm] = useState<number | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(revokeConfirm);
+  useConfirmAnnouncement(revokeConfirm === null ? null : "Revoke this invite link? Anyone holding it will no longer be able to join.");
 
   // Escape cancels an open inline revoke confirm before the page-level
   // Escape-to-navigate handler (priority 0) can leave the page (#1238).
@@ -711,6 +713,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
   // OFF just restores normal service and needs no confirmation.
   const [confirmingEnable, setConfirmingEnable] = useState(false);
   const maintenanceTriggerRef = useConfirmFocusReturn(confirmingEnable ? "maintenance" : null);
+  useConfirmAnnouncement(confirmingEnable ? "Enable maintenance mode? All non-admin users will immediately lose write access." : null);
 
   useEffect(() => {
     return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) };

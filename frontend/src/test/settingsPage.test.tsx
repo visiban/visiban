@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { useState } from 'react'
 import SettingsPage from '../pages/SettingsPage'
 import type { User } from '../types'
+import { announced } from './confirmAnnouncer'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1040,6 +1041,7 @@ describe('SecurityTab — connected accounts', () => {
     await ue.click(screen.getByTestId('disconnect-google'))
     expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
     expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
+    expect(announced()).toBe('Disconnect Google? You will no longer be able to sign in with it.')
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
     expect(mockDisconnectAccount).toHaveBeenCalledWith('google')

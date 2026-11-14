@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import axios from "axios";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -50,6 +51,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
   // hides the Lens tab for everyone, so it must be confirmed first.
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const removeTriggerRef = useConfirmFocusReturn(confirmingRemove ? "remove" : null);
+  useConfirmAnnouncement(confirmingRemove ? "Remove this connection?" : null);
   const [error, setError] = useState<string | null>(null);
 
   const trimmedSlug = repoSlug.trim().replace(/^\/+|\/+$/g, "");

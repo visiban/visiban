@@ -117,6 +117,7 @@ vi.mock('../api/auth', () => ({
 import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
 import { importBoard } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
+import { announced } from './confirmAnnouncer'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -1952,6 +1953,7 @@ describe('GroupDetail', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
 
       expect(screen.getByText(/from this group\?/).textContent).toBe('Remove Alice Smith from this group?')
+      expect(announced()).toBe('Remove Alice Smith from this group?')
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
 

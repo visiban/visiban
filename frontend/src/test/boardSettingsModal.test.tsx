@@ -49,6 +49,7 @@ vi.mock('../api/auth', () => ({
 
 import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from '../api/boards'
 import { searchUsers } from '../api/auth'
+import { announced } from './confirmAnnouncer'
 
 const mockSetBoardMember = setBoardMember as ReturnType<typeof vi.fn>
 const mockRemoveBoardMember = removeBoardMember as ReturnType<typeof vi.fn>
@@ -409,9 +410,11 @@ describe('BoardSettingsModal — Members tab', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} />)
 
     await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+    expect(announced()).toBe('Enable hard mode? No one, including admins, will be able to bypass WIP limits.')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(announced()).toBe('')
     expect(screen.getByRole('switch', { name: 'Hard mode (no admin override)' })).toHaveFocus()
   })
 
@@ -552,6 +555,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     const prompt = screen.getByText('Remove this board role? Full access is not affected.')
     expect(prompt.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
     expect(screen.queryByText(/from this board\?/)).toBeNull()
+    expect(announced()).toBe('Remove this board role? Full access is not affected.')
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => {
       expect(mockRemoveBoardMember).toHaveBeenCalledWith(storedBoard.id, storedViewerAllContent.user.id)

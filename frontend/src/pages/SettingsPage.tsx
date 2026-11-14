@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
 import type { Location } from "react-router-dom";
 import { getCurrentUser, updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
@@ -477,6 +478,7 @@ function ConnectedAccountRow({
 }) {
   const connected = !!account?.connected;
   const disconnectTriggerRef = useConfirmFocusReturn(confirming ? "disconnect" : null);
+  useConfirmAnnouncement(confirming ? `Disconnect ${label}? You will no longer be able to sign in with it.` : null);
   const hintId = `disconnect-hint-${provider}`;
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition" data-testid={`connected-account-${provider}`}>
@@ -878,6 +880,8 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
+  const confirmingToken = confirmRevokeId === null ? undefined : tokens.find((t) => t.id === confirmRevokeId);
+  useConfirmAnnouncement(confirmingToken ? `Revoke ${confirmingToken.name}? Anything using this token will lose access.` : null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 

@@ -21,6 +21,7 @@ import {
   getWebhookStatus, listWebhooks, createWebhook, updateWebhook, deleteWebhook,
   disableWebhook, reenableWebhook, rotateWebhookSecret, testWebhook,
 } from '../api/webhooks'
+import { announced } from './confirmAnnouncer'
 
 const m = {
   status: getWebhookStatus as ReturnType<typeof vi.fn>,
@@ -387,6 +388,7 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Turn off' }))
     expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to this address/)).toBeInTheDocument()
+    expect(announced()).toMatch(/^Turn off this webhook\? Visiban stops sending to this address/)
     await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
     expect(m.disable).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toHaveFocus())
