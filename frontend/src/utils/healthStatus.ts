@@ -53,7 +53,10 @@ export function getHealthDisplay(fields: HealthFields): HealthDisplay {
 export function healthTitle(
   display: HealthDisplay, mode: "interactive" | "static" | "demo", entityKind: HealthEntityKind = "board",
 ): string {
-  if (mode === "demo") return `Health status: ${display.label}. ${DEMO_HEALTH_STATUS_REASON}`;
+  if (mode === "demo") {
+    const prefix = entityKind === "swimlane" ? "Lane health status" : "Health status";
+    return `${prefix}: ${display.label}. ${DEMO_HEALTH_STATUS_REASON}`;
+  }
   if (entityKind === "swimlane") {
     // Lanes (#2243): the title says the value is the lane's own, so a lane
     // pill next to the board's is never read as the board's status.

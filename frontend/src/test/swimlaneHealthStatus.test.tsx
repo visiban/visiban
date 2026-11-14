@@ -7,6 +7,7 @@ import type { Card, Column, Swimlane } from '../types'
 vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn() }))
 import { patchSwimlane } from '../api/boards'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
+import { InstanceFlagsContext } from '../contexts/InstanceFlagsContext'
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDndContext: () => ({ active: null }),
@@ -226,5 +227,54 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     rerender(<SwimlaneRow {...defaultProps()} swimlane={merged} />)
     expect(screen.getByRole('button', { name: 'Health status for lane Customer A: Off track' })).not.toHaveFocus()
     expect(screen.queryByText(/health status set to/)).toBeNull()
+  })
+
+  it('clearing on a collapsed lane hands focus to the name and leaves no pending icon focus', async () => {
+    const user = userEvent.setup()
+    const cleared = lane(null)
+    patchMock.mockResolvedValue(cleared)
+    const props = { ...defaultProps(), collapsed: true, swimlane: lane('at_risk') }
+    const { rerender } = render(<SwimlaneRow {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Health status for lane Customer A: At risk' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('radio', { name: /No status/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(props.onSwimlaneUpdated).toHaveBeenCalledWith(cleared))
+    rerender(<SwimlaneRow {...props} swimlane={cleared} />)
+    expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
+    // Expanding later must not steal focus to the icon.
+    rerender(<SwimlaneRow {...props} swimlane={cleared} collapsed={false} />)
+    expect(screen.getByRole('button', { name: 'Set health status for lane Customer A' })).not.toHaveFocus()
+  })
+
+  it('a remote clear while the pill popover is open keeps the popover and its draft', async () => {
+    const user = userEvent.setup()
+    const props = { ...defaultProps(), swimlane: lane('at_risk') }
+    const { rerender } = render(<SwimlaneRow {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Health status for lane Customer A: At risk' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('radio', { name: /Off track/ }))
+    rerender(<SwimlaneRow {...props} swimlane={lane(null)} />)
+    const still = screen.getByRole('dialog', { name: 'Health status for lane Customer A' })
+    expect(within(still).getByRole('radio', { name: /Off track/ })).toBeChecked()
+    expect(within(still).getByText('No status set.', { selector: 'p' })).toBeInTheDocument()
+    await user.click(within(still).getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Set health status for lane Customer A' })).toBeInTheDocument()
+  })
+
+  it('demo mode: the icon is focusable, aria-disabled, has a 24px target and never opens', async () => {
+    const user = userEvent.setup()
+    render(
+      <InstanceFlagsContext.Provider value={{ demo_mode: true } as React.ContextType<typeof InstanceFlagsContext>}>
+        <SwimlaneRow {...defaultProps()} />
+      </InstanceFlagsContext.Provider>,
+    )
+    const icon = screen.getByRole('button', { name: 'Set health status for lane Customer A' })
+    expect(icon).toHaveAttribute('aria-disabled', 'true')
+    expect(icon).not.toHaveAttribute('aria-haspopup')
+    expect(icon.className).toContain('min-w-6')
+    expect(icon.className).toContain('min-h-6')
+    await user.click(icon)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

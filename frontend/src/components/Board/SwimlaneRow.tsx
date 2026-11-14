@@ -245,14 +245,33 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   // them hands focus to the new one explicitly, and the announcement lives
   // here because the control that saved may unmount.
   const [healthFocus, setHealthFocus] = useState<"pill" | "icon" | null>(null);
+  // Which trigger's popover is open: that trigger stays mounted until it
+  // closes, even if a remote swimlane.updated flips the value meanwhile.
+  const [healthOpen, setHealthOpen] = useState<"pill" | "icon" | null>(null);
+  const onPillOpenChange = useCallback((o: boolean) => setHealthOpen(o ? "pill" : null), []);
+  const onIconOpenChange = useCallback((o: boolean) => setHealthOpen(o ? "icon" : null), []);
+  // A collapsed lane has no unset icon, so clearing it there hands focus to
+  // the name (rename trigger) instead; a ref, read after the next render.
+  const focusNameAfterHealthClear = useRef(false);
+  useEffect(() => {
+    if (!focusNameAfterHealthClear.current) return;
+    focusNameAfterHealthClear.current = false;
+    renameTriggerRef.current?.focus();
+  });
   const [healthAnnouncement, setHealthAnnouncement] = useState("");
   const clearHealthFocus = useCallback(() => setHealthFocus(null), []);
   const saveHealth = useCallback(async (next: HealthStatus | null) => {
     const updated = await patchSwimlane(boardId, swimlane.id, { health_status: next });
     onSwimlaneUpdated(updated);
-    if ((swimlane.health_status === null) !== (next === null)) setHealthFocus(next === null ? "icon" : "pill");
+    if ((swimlane.health_status === null) !== (next === null)) {
+      if (next !== null) setHealthFocus("pill");
+      else if (collapsed) focusNameAfterHealthClear.current = true;
+      else setHealthFocus("icon");
+    }
     return { effective_health_status: updated.health_status };
-  }, [boardId, swimlane.id, swimlane.health_status, onSwimlaneUpdated]);
+  }, [boardId, swimlane.id, swimlane.health_status, onSwimlaneUpdated, collapsed]);
+  const showHealthPill = !!swimlane.health_status || healthOpen === "pill";
+  const showHealthIcon = !collapsed && isAdmin && (!swimlane.health_status || healthOpen === "icon");
   const healthFields = laneHealthFields(swimlane.health_status);
 
   const commitRename = async (restoreFocus = false) => {
@@ -391,7 +410,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             )}
             {/* Collapsed lane (#2243): a set status rides inline, shape only, so
                 the py-1 row does not grow; an unset one shows nothing here. */}
-            {collapsed && swimlane.health_status && (
+            {collapsed && showHealthPill && (
               <span className="shrink-0 inline-flex" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
@@ -404,6 +423,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   onAnnounce={setHealthAnnouncement}
                   autoFocus={healthFocus === "pill"}
                   onAutoFocused={clearHealthFocus}
+                  onOpenChange={onPillOpenChange}
                   {...healthFields}
                 />
               </span>
@@ -413,7 +433,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 name. The stop is required: the panel's double-click opens the
                 edit modal for admins, and the portaled popover's events bubble
                 through React to it. */}
-            {!collapsed && swimlane.health_status && (
+            {!collapsed && showHealthPill && (
               <div className="mt-1 flex min-w-0" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
@@ -426,6 +446,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   onAnnounce={setHealthAnnouncement}
                   autoFocus={healthFocus === "pill"}
                   onAutoFocused={clearHealthFocus}
+                  onOpenChange={onPillOpenChange}
                   {...healthFields}
                 />
               </div>
@@ -479,7 +500,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           <div className="flex items-center gap-1 shrink-0">
             {/* Unset lane, admins only (#2243): a hover/focus-revealed icon,
                 always in the DOM so Tab reaches it. Non-admins get nothing. */}
-            {!collapsed && isAdmin && !swimlane.health_status && (
+            {showHealthIcon && (
               <span className="inline-flex shrink-0" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
@@ -491,6 +512,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   onAnnounce={setHealthAnnouncement}
                   autoFocus={healthFocus === "icon"}
                   onAutoFocused={clearHealthFocus}
+                  onOpenChange={onIconOpenChange}
                   {...healthFields}
                 />
               </span>

@@ -47,6 +47,12 @@ interface Props extends HealthFields {
    * unmounted live region announces nothing.
    */
   onAnnounce?: (message: string) => void;
+  /**
+   * Told when the popover opens or closes. A lane's caller keeps the open
+   * trigger mounted until it closes, so a remote update that would swap the
+   * trigger (set <-> unset) never destroys an open editor and its draft.
+   */
+  onOpenChange?: (open: boolean) => void;
 }
 
 /** 16px half-filled circle: "a status could go here", in currentColor. */
@@ -68,7 +74,7 @@ function UnsetHealthIcon() {
  */
 export default function HealthStatusControl({
   entityKind, entityName, parentName, canEdit, collapseLabel, showCaption, onSave, className = "",
-  trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce,
+  trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce, onOpenChange,
   health_status, effective_health_status, health_status_source,
 }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
@@ -78,6 +84,15 @@ export default function HealthStatusControl({
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const isLane = entityKind === "swimlane";
+  const isOpen = anchorRect !== null;
+  // Changes only, never on mount: a sibling trigger mounting closed must not
+  // report "closed" over the one whose popover is open.
+  const wasOpen = useRef(isOpen);
+  useEffect(() => {
+    if (wasOpen.current === isOpen) return;
+    wasOpen.current = isOpen;
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
   const srPrefix = isLane ? `Health status for lane ${entityName}: ` : undefined;
 
   useEffect(() => {
@@ -150,7 +165,8 @@ export default function HealthStatusControl({
           aria-haspopup={demoMode ? undefined : "dialog"}
           aria-expanded={demoMode ? undefined : open}
           aria-disabled={demoMode ? true : undefined}
-          className={`text-fg-tertiary hover:text-fg rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition ${open ? "opacity-100" : ""} ${demoMode ? "cursor-not-allowed" : ""} ${className}`}
+          // 24px hit target (WCAG 2.5.8) around the 16px glyph.
+          className={`inline-flex items-center justify-center min-w-6 min-h-6 text-fg-tertiary hover:text-fg rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition ${open ? "opacity-100" : ""} ${demoMode ? "cursor-not-allowed" : ""} ${className}`}
         >
           <UnsetHealthIcon />
         </button>

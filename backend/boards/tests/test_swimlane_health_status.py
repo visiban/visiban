@@ -179,7 +179,9 @@ class SwimlaneHealthStatusTests(TestCase):
                 callback()
         updates = [f for f in frames if f["event"] == "swimlane.updated"]
         self.assertEqual(len(updates), 1, frames)
-        self.assertEqual(set(updates[0]), {"event", "data"} | (set(updates[0]) - {"event", "data"}))
+        # The frozen {event, data} envelope, never the flat {type, ...} shape.
+        self.assertLessEqual({"event", "data"}, set(updates[0]))
+        self.assertNotIn("health_status", updates[0])
         self.assertEqual(updates[0]["data"]["id"], self.lane.id)
         self.assertEqual(updates[0]["data"]["health_status"], "at_risk")
         # The broadcast is built from the public serializer: no PII.
