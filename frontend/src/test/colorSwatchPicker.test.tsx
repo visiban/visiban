@@ -84,7 +84,7 @@ describe('ColorSwatchPicker custom popover mousedown guard (#2224)', () => {
     expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Cancel' }))).toBe(true)
   })
 
-  it('stays open when focus would have gone to the host, and closes when focus truly leaves', () => {
+  it('still closes when focus truly leaves to the host (Tab out)', () => {
     const panel = renderInFocusableHost()
     const host = screen.getByRole('region', { name: 'Host scroll region' })
     // The guard is what stops this blur from happening on a real press; a blur that does

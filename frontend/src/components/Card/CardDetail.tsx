@@ -1428,6 +1428,30 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     movePopoverRef.current?.querySelector<HTMLElement>("button, [tabindex]")?.focus();
   }, [showMovePopover]);
 
+  // #1171: the popover is anchored once, from the Move button's rect at toggle
+  // time. The card sheet moves itself on resize (#1914), so dismiss rather than
+  // re-measure (frontend/CLAUDE.md, anchored-popover rule). A scroll inside the
+  // popover itself is not a dismissal. Focus returns to the opener only when it
+  // was inside the popover, so a page scroll never steals it.
+  useEffect(() => {
+    if (!showMovePopover) return;
+    const dismiss = () => {
+      const active = document.activeElement;
+      closeMovePopover(!!active && movePopoverRef.current?.contains(active) === true);
+    };
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && movePopoverRef.current?.contains(e.target)) return;
+      dismiss();
+    };
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeMovePopover only touches refs and a stable setter
+  }, [showMovePopover]);
+
   const keyFacts = buildKeyFacts({ card: localCard, board, userTimezone, userDateFormat });
 
   const anchored = placement.mode === "anchored";

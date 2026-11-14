@@ -2028,6 +2028,23 @@ describe('CardDetail', () => {
       expect(screen.getByText('Swimlane')).toBeInTheDocument()
     })
 
+    it('dismisses the Move popover on window resize and outside scroll, not on scroll inside it (#1171)', async () => {
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn().mockResolvedValue(undefined)} />)
+      const open = async () => {
+        await user.click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+        expect(screen.getByText('Move to')).toBeInTheDocument()
+      }
+      await open()
+      fireEvent.scroll(screen.getByText('Move to'))
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      fireEvent.scroll(window)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      await open()
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+    })
+
     it('Move button is disabled when current location is pre-selected', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)

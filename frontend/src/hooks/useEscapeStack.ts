@@ -42,7 +42,7 @@ function dispatch(e: KeyboardEvent): void {
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
- *   40.7 — a choice-row keyboard drag in a Board Settings field editor (SortableChoiceList, #2190): consumed only mid-drag, else false
+ *   40.7 — a choice-row keyboard drag in a Board Settings field editor (SortableChoiceList and, via useSortableFieldDrag, the card-field and swimlane-field lists, #2190): consumed only mid-drag, else false; both share the level because only one drag is active at a time
  *   40.6 — Board Settings column-policy discard prompt (BoardSettingsPoliciesSection, #2156): cancels the prompt, else false
  *   40.5 — Board Settings Danger Zone delete confirmation (BoardSettingsModal, #2034): swallowed while the request runs, clears a typed name, else false
  *   40 — modals and overlays
