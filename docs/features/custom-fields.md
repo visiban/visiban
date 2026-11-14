@@ -57,7 +57,7 @@ Click **+ Add field**, or **✎** on a field, to open the inline editor:
 Click **Save field** to commit, or **Cancel** to discard.
 
 !!! warning "A field's type locks once it holds a value"
-    Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. **Deleting a field permanently deletes all of its values.** They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.
+    Once any card on the board has a stored value for a field, archived cards included, the API blocks changing that field's type. *Since 1.3*, the field editor disables the other type buttons up front and explains why: add a new field of the type you want, then delete the old one. **Deleting a field permanently deletes all of its values.** They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.
 
     To delete a field from its editor, click **Delete field** at the bottom left. It opens the same type-the-name confirmation as the ✕ on the field's row. Only admins can edit or delete fields.
 
@@ -258,7 +258,7 @@ The editor matches the card field editor (name, type, help text, choices for dro
 - **Admin only:** toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely. Members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.
 
 !!! note "Field type is locked once a swimlane holds a value"
-    Unlike a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. **Delete field** at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.
+    As with a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. **Delete field** at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.
 
 ### Pinned fields in the swimlane label panel
 

@@ -168,16 +168,24 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     setPasteListText("");
   };
 
+  /**
+   * Whether the server would refuse a type change for this field (#2202):
+   * `has_values` from the definition (archived cards count), or a value on a
+   * card already on screen, which covers a value set after the definitions
+   * were loaded. The type picker locks up front, as the swimlane tab does.
+   */
+  const fieldHasValues = (def: CustomFieldDefinition) =>
+    def.has_values === true ||
+    board.cards.some((c) => c.custom_field_values.some((v) => v.field_definition === def.id && v.value !== ""));
+
   const handleTypeSelect = (nextType: CustomFieldType) => {
-    // Confirm before changing an *existing, already-persisted* field's type —
-    // The server refuses a retype once cards hold values, but this tab has no
-    // client-side value count to lock up front (see #2202), so it warns first
-    // and the refusal is explained on save. A brand-new unsaved field ("new")
-    // has nothing to protect yet, so it commits the selection directly.
-    // Returning to the *saved* type needs no prompt: the server accepts a save
-    // whose type equals the stored one.
-    const savedType = fields.find((f) => f.id === editingId)?.field_type;
-    if (editingId !== "new" && nextType !== form.field_type && nextType !== savedType) {
+    // A field with values has its other types disabled (#2202), so this only
+    // runs for a type the server accepts. The "Change type" prompt is kept for
+    // a definition whose payload has no `has_values` (a server before 1.3),
+    // where the refusal can only be explained after the save. A brand-new
+    // field ("new") and a return to the *saved* type never prompt.
+    const saved = fields.find((f) => f.id === editingId);
+    if (editingId !== "new" && saved?.has_values === undefined && nextType !== form.field_type && nextType !== saved?.field_type) {
       setPendingTypeChange(nextType);
       return;
     }
@@ -370,10 +378,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       }
       cancelEdit();
     } catch (err: unknown) {
-      // The card tab has no client-side value count (the definition payload
-      // carries none, and archived cards still count server-side), so the
-      // server's `field_type` rejection is the source of truth. Explain it
-      // rather than showing the generic failure.
+      // The type picker locks up front from `has_values` (#2202), but a value
+      // can land after the definitions were loaded (another user, another
+      // tab), so the server's `field_type` rejection stays the source of
+      // truth. Explain it rather than showing the generic failure.
       const detail = (err as { response?: { data?: { field_type?: unknown } } })?.response?.data?.field_type;
       setFormError(detail ? TYPE_LOCKED_MESSAGE : "Couldn't save this field. Check the values and try again.");
     } finally {
@@ -507,6 +515,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                     setPasteListText={setPasteListText}
                     applyPastedChoices={applyPastedChoices}
                     pinnedCount={pinnedCount}
+                    typeLocked={fieldHasValues(def)}
                     isNew={false}
                     formError={formError}
                     saving={saving}
@@ -540,6 +549,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
             setPasteListText={setPasteListText}
             applyPastedChoices={applyPastedChoices}
             pinnedCount={pinnedCount}
+            typeLocked={false}
             isNew
             formError={formError}
             saving={saving}
@@ -742,6 +752,8 @@ interface FieldEditPanelProps {
   setPasteListText: (text: string) => void;
   applyPastedChoices: () => void;
   pinnedCount: number;
+  /** The field has values, so every other type is disabled (#2202). */
+  typeLocked: boolean;
   isNew: boolean;
   formError: string | null;
   saving: boolean;
@@ -755,7 +767,7 @@ function FieldEditPanel({
   form, setForm, onTypeSelect, pendingTypeChange, onConfirmTypeChange, onCancelTypeChange,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
+  pinnedCount, typeLocked, isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
@@ -781,20 +793,33 @@ function FieldEditPanel({
       />
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Type</p>
-      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type">
-        {FIELD_TYPE_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            ref={typeTriggerRef(opt.value)}
-            onClick={() => onTypeSelect(opt.value)}
-            className={`border rounded px-2.5 py-1 text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-              form.field_type === opt.value ? "border-primary-emphasis text-fg bg-primary/10 font-medium" : "border-line text-fg-secondary hover:border-line-strong"
-            }`}
-          >
-            <span className="font-semibold">{opt.glyph}</span>{opt.label}
-          </button>
-        ))}
+      <div className="flex gap-1.5 flex-wrap mb-2" role="group" aria-label="Field type" aria-describedby={typeLocked ? "card-field-type-lock" : undefined}>
+        {FIELD_TYPE_OPTIONS.map((opt) => {
+          const selected = form.field_type === opt.value;
+          // Same lock as the swimlane tab (#2202): the server refuses the
+          // change for every user, so the click is not offered at all.
+          const locked = typeLocked && !selected;
+          return (
+            <button
+              key={opt.value}
+              ref={typeTriggerRef(opt.value)}
+              disabled={locked}
+              onClick={locked ? undefined : () => onTypeSelect(opt.value)}
+              className={`border rounded px-2.5 py-1 text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
+                selected ? "border-primary-emphasis text-fg bg-primary/10 font-medium" : "border-line text-fg-secondary hover:border-line-strong"
+              }`}
+            >
+              <span className="font-semibold">{opt.glyph}</span>{opt.label}
+            </button>
+          );
+        })}
       </div>
+
+      {typeLocked && (
+        <p id="card-field-type-lock" className="text-xs text-fg-muted mb-3 max-w-prose">
+          {TYPE_LOCKED_MESSAGE}
+        </p>
+      )}
 
       {form.field_type === "multi_select" && (
         <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>

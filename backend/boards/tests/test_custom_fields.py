@@ -26,6 +26,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -2562,3 +2563,94 @@ class CustomFieldThresholdTests(CustomFieldTestBase):
         from boards.serializers import SwimlaneCustomFieldDefinitionSerializer
         fields = SwimlaneCustomFieldDefinitionSerializer.Meta.fields
         self.assertFalse([f for f in fields if f.startswith("threshold_")])
+
+
+# ---------------------------------------------------------------------------
+# has_values (#2202)
+# ---------------------------------------------------------------------------
+
+class CustomFieldHasValuesTests(CustomFieldTestBase):
+    """``has_values`` follows ``validate_field_type``'s rule, so the editor can
+    lock the type picker before a save the server would refuse."""
+
+    def setUp(self):
+        super().setUp()
+        self.used = _definition(self.board, name="Used", position=0)
+        self.unused = _definition(self.board, name="Unused", position=1)
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.used, value="x"
+        )
+
+    def _by_name(self, rows):
+        return {row["name"]: row["has_values"] for row in rows}
+
+    def test_list_and_full_report_has_values(self):
+        r = self.client.get(self._fields_url())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        rows = r.data["results"] if isinstance(r.data, dict) else r.data
+        self.assertEqual(self._by_name(rows), {"Used": True, "Unused": False})
+        full = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        self.assertEqual(
+            self._by_name(full.data["custom_field_definitions"]),
+            {"Used": True, "Unused": False},
+        )
+
+    def test_retrieve_create_update_and_reorder_carry_has_values(self):
+        self.assertTrue(self.client.get(self._field_url(self.used)).data["has_values"])
+        created = self.client.post(
+            self._fields_url(), {"name": "New", "field_type": "text"}, format="json"
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertIs(created.data["has_values"], False)
+        updated = self.client.patch(
+            self._field_url(self.used), {"help_text": "hi"}, format="json"
+        )
+        self.assertIs(updated.data["has_values"], True)
+        reordered = self.client.post(
+            f"{self._fields_url()}reorder/",
+            {"order": [self.unused.id, self.used.id]}, format="json",
+        )
+        self.assertEqual(self._by_name(reordered.data)["Used"], True)
+
+    def test_an_archived_cards_value_counts(self):
+        # Same rule as validate_field_type: archived cards still lock the type.
+        CustomFieldValue.objects.all().delete()
+        archived = _make_card(
+            self.column, self.lane, title="Old", position=1, archived_at=timezone.now()
+        )
+        CustomFieldValue.objects.create(
+            card=archived, field_definition=self.used, value="x"
+        )
+        self.assertTrue(self.client.get(self._field_url(self.used)).data["has_values"])
+
+    def test_clearing_the_last_value_unlocks_the_type(self):
+        r = self._set_values([{"field_definition": self.used.id, "value": ""}])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertIs(self.client.get(self._field_url(self.used)).data["has_values"], False)
+        retyped = self.client.patch(
+            self._field_url(self.used), {"field_type": "number"}, format="json"
+        )
+        self.assertEqual(retyped.status_code, status.HTTP_200_OK, retyped.data)
+
+    def test_list_query_count_does_not_grow_with_definitions(self):
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                self.client.get(self._fields_url())
+            return len(ctx.captured_queries)
+
+        baseline = count()
+        for i in range(5):
+            d = _definition(self.board, name=f"Extra {i}", position=10 + i)
+            CustomFieldValue.objects.create(card=self.card, field_definition=d, value="v")
+        self.assertEqual(count(), baseline)
+
+    def test_full_query_count_does_not_grow_with_definitions(self):
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+            return len(ctx.captured_queries)
+
+        baseline = count()
+        for i in range(5):
+            _definition(self.board, name=f"Extra {i}", position=10 + i)
+        self.assertEqual(count(), baseline)

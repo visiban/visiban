@@ -34,13 +34,15 @@ from rest_framework.exceptions import (
 
 from visiban.request_shape import id_in_db_range
 
-from ..models import Board, BoardFavorite, BoardMembership, Card, Column
+from ..models import (
+    Board, BoardFavorite, BoardMembership, Card, Column, CustomFieldDefinition,
+)
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
     can_modify_others_content as _can_modify_others_content,  # noqa: F401
     get_board_role,
 )
-from ..serializers import CardSerializer, _card_queryset
+from ..serializers import CardSerializer, _card_queryset, annotate_has_values
 from ..services import cards as _card_services
 from ..services.errors import ContainerChanged
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
@@ -464,7 +466,14 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
             # against the #1212 rule ("every relation on BoardFullSerializer
             # needs a matching prefetch") and costs nothing extra — these two
             # queries were already being issued live.
-            "custom_field_definitions",
+            #
+            # The card-field prefetch carries the ``has_values`` annotation
+            # (#2202) so the serializer reads it instead of issuing one
+            # EXISTS query per definition.
+            Prefetch(
+                "custom_field_definitions",
+                queryset=annotate_has_values(CustomFieldDefinition.objects.all()),
+            ),
             "swimlane_custom_field_definitions",
             # ``columns`` (#1351) follows the same rule: BoardFullSerializer
             # declares ColumnSerializer(many=True) with no filter/order_by,

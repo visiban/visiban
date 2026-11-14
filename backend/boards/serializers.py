@@ -1438,6 +1438,24 @@ class ChoicesField(serializers.JSONField):
     """
 
 
+#: Attribute :func:`annotate_has_values` sets and
+#: ``CustomFieldDefinitionSerializer.get_has_values`` reads (#2202).
+HAS_VALUES_ANNOTATION = "_has_values"
+
+
+def annotate_has_values(queryset):
+    """Annotate card-field definitions with whether any card holds a value.
+
+    One correlated ``EXISTS`` per row inside the list query, so serializing a
+    board's definitions costs no query per definition (#2202).
+    """
+    return queryset.annotate(**{
+        HAS_VALUES_ANNOTATION: _db_models.Exists(
+            CustomFieldValue.objects.filter(field_definition=_db_models.OuterRef("pk"))
+        )
+    })
+
+
 class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     """The board-scoped schema half of a custom field.
 
@@ -1464,6 +1482,12 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     threshold_alert = threshold_value_field()
     threshold_warn_days = threshold_days_field()
     threshold_alert_days = threshold_days_field()
+    has_values = serializers.SerializerMethodField(
+        help_text=(
+            "True when at least one card, archived cards included, holds a value "
+            "for this field. While it is true the field's type cannot be changed."
+        ),
+    )
 
     class Meta:
         model = CustomFieldDefinition
@@ -1473,7 +1497,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "number_prefix", "number_suffix", "number_decimals", "choice_colors",
             "threshold_direction", "threshold_warn", "threshold_alert",
             "threshold_warn_days", "threshold_alert_days",
-            "created_at",
+            "created_at", "has_values",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
         # Schema-only (#1077): class token without a model help_text migration.
@@ -1489,6 +1513,24 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
 
     def validate_help_text(self, value):
         return reject_nul_byte(value, field_label="Help text")
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_has_values(self, obj):
+        """Whether ``validate_field_type`` below would refuse a type change (#2202).
+
+        Same rule as that check (``values.exists()``, so archived cards count),
+        exposed so the field editor can lock the type picker up front instead
+        of offering a click the server refuses. List reads annotate it with
+        :func:`annotate_has_values` (one query for the whole list); a single
+        instance without the annotation (a create or update response, a
+        broadcast payload) pays one ``EXISTS`` query.
+        """
+        annotated = getattr(obj, HAS_VALUES_ANNOTATION, None)
+        if annotated is not None:
+            return bool(annotated)
+        if obj.pk is None:
+            return False
+        return obj.values.exists()
 
     def validate_field_type(self, value):
         """Freeze ``field_type`` once a card already holds a value for it (#1121).

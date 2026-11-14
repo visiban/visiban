@@ -35,7 +35,11 @@ from visiban.request_shape import id_in_db_range, require_json_object
 from .. import broadcast as _broadcast
 from ..models import BoardMembership, CustomFieldDefinition
 from ..permissions import SITE_ADMIN
-from ..serializers import CustomFieldDefinitionSerializer, assert_definition_caps
+from ..serializers import (
+    CustomFieldDefinitionSerializer,
+    annotate_has_values,
+    assert_definition_caps,
+)
 from ._helpers import (
     get_board_for_user,
     lock_board_and_row_or_404,
@@ -89,8 +93,12 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Board-scoped, so a definition id from another board is a 404 on this
-        # URL rather than a cross-board read or write (IDOR).
-        return CustomFieldDefinition.objects.filter(board=self._board())
+        # URL rather than a cross-board read or write (IDOR). ``has_values``
+        # is annotated here so a list read costs one query, not one per
+        # definition (#2202).
+        return annotate_has_values(
+            CustomFieldDefinition.objects.filter(board=self._board())
+        )
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -273,7 +281,10 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             CustomFieldDefinition.objects.bulk_update(ordered, ["position"])
 
             data = CustomFieldDefinitionSerializer(
-                board.custom_field_definitions.order_by("position", "id"), many=True
+                annotate_has_values(
+                    board.custom_field_definitions.order_by("position", "id")
+                ),
+                many=True,
             ).data
             board_id = board.id
 

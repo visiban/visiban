@@ -269,6 +269,8 @@ _CUSTOM_FIELD_DEFINITION_SPEC = {
     "threshold_warn_days": _FieldSpec((int,), nullable=True),
     "threshold_alert_days": _FieldSpec((int,), nullable=True),
     "created_at": _FieldSpec((str,)),
+    # Type-lock flag (#2202): card fields only so far.
+    "has_values": _FieldSpec((bool,)),
 }
 
 # Row-field (swimlane custom field) equivalents of the two specs above.

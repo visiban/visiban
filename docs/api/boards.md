@@ -1992,8 +1992,9 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `threshold_warn_days` | integer \| null | no | *Since 1.3.* Warning threshold as a signed day offset from today; `null` (default) for none. `"date"` fields only |
 | `threshold_alert_days` | integer \| null | no | *Since 1.3.* Alert threshold as a signed day offset from today; `null` (default) for none. `"date"` fields only |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
+| `has_values` | boolean | yes | *Since 1.3.* `true` when at least one card, archived cards included, holds a value for this field. While it is `true`, `field_type` cannot be changed |
 
-\* `field_type` is writable only while the definition has zero values — see the `PATCH`
+\* `field_type` is writable only while the definition has zero values (`has_values` is `false`) — see the `PATCH`
 errors below.
 
 #### URL fields
