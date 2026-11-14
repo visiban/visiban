@@ -2028,30 +2028,37 @@ class CardViewSet(viewsets.ModelViewSet):
                 # The activity row is a card-FK insert, same race as a child
                 # create (#1587) — see lock_card_for_write.
                 card_services.lock_card_for_write(card.pk)
+                # Work from the row as it is under the lock (#2196): a delete
+                # that already committed answers 404 instead of recording a
+                # second deletion, and History carries the current text.
+                locked = get_object_or_404(CardChecklist, pk=item.pk, card=card)
                 CardActivity.objects.create(
                     card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
-                    from_value=item.text, to_value="", actor=request.user,
+                    from_value=locked.text, to_value="", actor=request.user,
                 )
-                item.delete()
+                locked.delete()
                 card_data = self._refetch_card_data(card)
                 board_id = board.id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        old_checked = item.is_checked
-        serializer = CardChecklistSerializer(item, data=request.data, partial=True, context={"board": board})
-        serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             # May insert a card-FK activity row below (#1587).
             card_services.lock_card_for_write(card.pk)
-            # Read the "old" assignee and due date only now, under the card lock
-            # (#2196): values read before it can be stale, so two concurrent
-            # PATCHes assigning the same user would both see the previous
-            # assignee and double up History rows and notifications. The
-            # card-assign path reads after its lock for the same reason.
+            # Build the PATCH from the row as it is under the card lock (#2196).
+            # The serializer saves every field of its instance, not only the
+            # ones the request sent, so an instance read before the lock would
+            # write its stale values back over a concurrent change, and the
+            # old/new comparisons below would record changes nobody made. The
+            # "old" values come from the same locked row. Validated here, once,
+            # so the response is unchanged for an uncontended request (a 400
+            # rolls back before anything is written).
             locked = get_object_or_404(CardChecklist.objects.select_related("assignee"), pk=item.pk, card=card)
+            old_checked = locked.is_checked
             old_assignee = locked.assignee
             old_due = locked.due_date
-            serializer.save()
+            serializer = CardChecklistSerializer(locked, data=request.data, partial=True, context={"board": board})
+            serializer.is_valid(raise_exception=True)
+            item = serializer.save()
             if "is_checked" in request.data and request.data["is_checked"] != old_checked:
                 checklist_event_type = (
                     CardActivity.EventType.CHECKLIST_ITEM_CHECKED

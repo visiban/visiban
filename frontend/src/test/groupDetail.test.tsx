@@ -30,9 +30,10 @@ vi.mock('../components/Board/CreateBoardModal', () => ({
 }))
 
 vi.mock('../components/Board/ImportBoardModal', () => ({
-  default: ({ onImport, onCancel, onSwitchToTrello }: { onImport: (file: File, name?: string, options?: Record<string, boolean>) => void; onCancel: () => void; onSwitchToTrello?: () => void }) => (
+  default: ({ onImport, onCancel, onSwitchToTrello }: { onImport: (file: File, name?: string, options?: Record<string, boolean>, meta?: { sample?: boolean }) => void; onCancel: () => void; onSwitchToTrello?: () => void }) => (
     <div data-testid="import-board-modal">
       <button onClick={() => onImport(new File(['{}'], 'board.json'), 'Imported Board')}>Confirm import board</button>
+      <button onClick={() => onImport(new File(['{}'], 'simple_kanban.json'), 'Simple Kanban', undefined, { sample: true })}>Confirm sample import board</button>
       <button onClick={() => onImport(new File(['{}'], 'board.json'), undefined, { labels: false, cards: true, comments: true, checklist: true, history: true })}>Confirm selective import board</button>
       <button onClick={onCancel}>Cancel import board</button>
       {onSwitchToTrello && <button onClick={onSwitchToTrello}>Switch to Trello</button>}
@@ -2523,6 +2524,31 @@ describe('GroupDetail — navigation (#1374)', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/boards/59', { state: { importSummary } })
     })
+  })
+
+  // #2198: a sample's demo1-demo5 assignees never match, so a sample import must
+  // not hand the board an unmatched-assignee notice; a user's file still does.
+  it.each([
+    ['a sample', 0, 'Confirm sample import board'],
+    ['a user file', 96, 'Confirm import board'],
+  ])('%s import forwards an unmatched-assignee count of %i (#2198)', async (_label, expected, button) => {
+    setupAdmin()
+    const importSummary = {
+      options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0, assignees: 96 },
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 59, name: 'Imported Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('Import'))
+    fireEvent.click(screen.getByText(button))
+    await waitFor(() => expect(mockNavigate.mock.calls.some(([to]) => to === '/boards/59')).toBe(true))
+    const [, state] = mockNavigate.mock.calls.find(([to]) => to === '/boards/59') as [string, { state?: { importSummary: typeof importSummary } }?]
+    if (expected === 0) expect(state).toBeUndefined()
+    else expect(state?.state?.importSummary.skipped.assignees).toBe(expected)
   })
 
   // #119: a selective import passes its options through with the group id,
