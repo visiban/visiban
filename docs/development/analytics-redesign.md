@@ -11,7 +11,7 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 
 ## What wins when sources disagree
 
-1. `frontend/CLAUDE.md`, including § Charts. The design was revised to follow it; if a conflict remains, the rule wins and the conflict is a bug in this page.
+1. `frontend/CLAUDE.md`, including § Charts. The design follows it, with the three color exceptions that § Charts now lists for this tab; if another conflict remains, the rule wins and the conflict is a bug in this page.
 2. This page.
 3. The screenshots in `docs/development/analytics-redesign/`.
 4. The artboard sources in `docs/development/analytics-redesign/artboards/`, for exact copy, order and spacing.
@@ -23,7 +23,7 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 | `overview-dark.png` | Overview tab, dark theme, 1440px |
 | `overview-light.png` | Overview tab, light theme |
 | `overview-drawer.png` | Overview with the Review column drawer open |
-| `overview-by-swimlane.png` | Overview broken down by swimlane, first group highlighted |
+| `overview-by-swimlane.png` | Overview broken down by swimlane |
 | `overview-phone.png` | Overview at 390px |
 | `swimlanes.png` | Swimlanes tab |
 | `states.png` | Loading, no history, too little data, filters match nothing |
@@ -48,7 +48,7 @@ Overview, top to bottom:
 | 1 | Title row: "Analytics", Beta badge, board name and date range | full | #2257 |
 | 2 | View tabs: Overview, Swimlanes | full | #458 adds Swimlanes |
 | 3 | Filter bar | full | #2257 |
-| 4 | Highlight picker (only when a breakdown is on) | full | #458 |
+| 4 | Group legend (only when a breakdown is on) | full | #458 |
 | 5 | Bottleneck panel and four headline tiles | 2 : 3 | #2257 |
 | 6 | How work flows, with Where the time goes | full | #2257 |
 | 7 | Cumulative flow and Throughput | 1 : 1 | #2257 |
@@ -132,12 +132,12 @@ All four charts keep the `ChartPanel` behavior they have today: summary sentence
 
 | Chart | What changes |
 |---|---|
-| Cumulative flow | Layout position only. Bands in one hue with alpha steps, 1px separators, direct labels at the right edge, hatched bottleneck. |
+| Cumulative flow | Layout position, and the bottleneck band is hatched in the warning color. Bands keep 1px separators and direct labels at the right edge; Done is neutral. |
 | Throughput | Adds a "started" marker per week next to the finished bar. Median dashed, labeled in the right margin. |
-| Aging work in progress | Layout position only. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. |
+| Aging work in progress | Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. |
 | Cycle time | Layout position only. Same reference-line vocabulary. |
 
-No chart uses a status color or a categorical palette.
+Color follows [Chart colors](#chart-colors). Shape and position still carry every meaning that color carries.
 
 ## Needs attention
 
@@ -152,7 +152,7 @@ One list that replaces the stalled-cards table.
 ## Why cards get blocked
 
 - A ranked list of block reasons, longest total first.
-- Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked.
+- Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked, in the danger color.
 - A footnote says where most blocks started.
 - Renders nothing when no block overlapped the period, as today.
 
@@ -171,14 +171,17 @@ Opens from a column box or from the bottleneck panel's primary button. Reuse `Fl
 
 ## Breakdowns (#458)
 
-Charts stay one hue. A breakdown never colors marks by group.
+A breakdown colors marks by group, using the five categorical chart colors.
 
-- **Where the time goes** shows one bar per group.
-- A **Highlight** picker appears under the filter bar: one chip per group, exactly one active, marked with `ActiveMark`. It defaults to the first group.
-- In Throughput, Aging and Cycle time, the highlighted group's marks are at full strength and the rest are dimmed. In Throughput the highlighted group is the bottom part of each bar.
-- Each chart's summary sentence names the highlighted group.
-- Cumulative flow does not change with a breakdown.
-- **Labels:** a card with several labels counts once in each group; the picker's note says so. More than six groups collapse to the six largest plus "Other".
+- **Where the time goes** shows one bar per group, with the group's color dot beside its name. The segments keep their column colors.
+- A **group legend** appears under the filter bar: "Colored by swimlane" (or label, or the field name) and one chip per group with its color dot.
+- Selecting a chip isolates that group: its marks stay at full strength and the rest drop to 20%. Selecting it again shows every group. The selected chip carries `ActiveMark`.
+- **Throughput** bars stack by group. **Aging** marks and **Cycle time** dots take the group color; aging marks keep the ring and the square.
+- Each chart's summary sentence says what the color means ("stacked by swimlane", "colored by label").
+- Each chart's table view gains a group column, so color is never the only carrier.
+- Cumulative flow does not change with a breakdown, because its color already means column.
+- **Labels:** a card with several labels counts once in each group; the legend's note says so.
+- **More than five groups** collapse to the five largest plus "Other", drawn in a neutral color.
 - **Custom fields:** card fields of type dropdown or checkbox only. Cards with no value are left out, and the note says so.
 - Breakdowns and filters use each card's current swimlane, labels and field values.
 
@@ -202,7 +205,8 @@ Charts stay one hue. A breakdown never colors marks by group.
 - A swimlane with fewer than five finished cards shows no median, no bar and no trend. Its cycle-time text says how many cards have finished and its trend text is "Not enough cards".
 - A swimlane with five or six finished cards shows the median but no 85th-percentile line.
 - A legend under the rows explains the board-median tick, the solid bar, the thin line and the trend.
-- Status is carried by the words, not by color.
+- Status is stated in words. Color repeats it: a slower swimlane's bar, status and trend use the warning color, and a faster one's status uses the success color.
+- The time-blocked bar uses the danger color.
 - Below 1024px each row's cells wrap under the name.
 
 ## States
@@ -234,27 +238,40 @@ The screenshots use literal colors. Build with the tokens.
 | Link | `text-info` |
 | Bottleneck border, over-limit and queue-growth text | `border-warning`, `text-warning` |
 | Age past the 85th percentile in a list | `text-danger` |
-| Every chart mark, bar and square | `CHART_HUE` and `chartTint(alpha)` |
+| Chart marks | See [Chart colors](#chart-colors) |
 | Bar track | `bg-surface-hover` |
 
 Smallest text is 12px everywhere.
 
-### Alpha steps
+### Chart colors
 
-Every mark is `chartTint(alpha)`. The design uses these values; keep the order of strengths even if `ux-review` adjusts a number.
+`frontend/CLAUDE.md` § Charts keeps one hue as the default and lists three exceptions for this tab. This table is the full mapping.
 
-| Mark | Alpha |
+| Mark | Color |
 |---|---|
-| Cumulative flow and time bars: Done | 0.12 |
-| Ready | 0.22 |
-| In progress | 0.42 |
-| QA | 0.7 |
-| Bottleneck column (hatched) | 0.62 with 0.3 stripes |
-| Throughput bars | 0.6; highlighted group 0.7, the rest 0.22 |
-| Aging marks | 0.85; highlighted group 0.95, the rest 0.22 |
-| Cycle time dots | 0.8; highlighted group 0.95, the rest 0.2 |
-| Flow-row squares | 0.7; over the limit, hollow with a 0.9 outline |
-| Blocked-reason and Swimlanes bars | 0.7 |
+| In-progress columns, in bands, time-bar segments and flow-row squares | The chart hue from light to dark in board order (in the design: blue-300, blue-500, blue-700) |
+| Done band | Neutral (`border-line-strong` tone) |
+| Bottleneck column, everywhere it is drawn | `warning`, hatched |
+| Squares over the WIP limit | Hollow, outlined in `danger` |
+| Connectors in the flow row | Neutral; `warning` after the bottleneck |
+| Throughput bars and Cycle time dots, no breakdown | The chart hue |
+| Aging marks, no breakdown | Neutral up to the 50th percentile, `warning` past it, `danger` and ringed past the 85th |
+| Blocked-reason bars, time-blocked bars | `danger` |
+| Swimlanes cycle-time bars | The chart hue; `warning` when the swimlane is slower than the board |
+| Marks under a breakdown | Five new tokens, `--chart-cat-1` to `--chart-cat-5`, plus neutral for "Other" |
+| Zones above the 50th and 85th percentile lines | Neutral tint, 5% and 10% |
+
+The categorical tokens are new and belong in `frontend/src/index.css` with a dark and a light value each. The design uses:
+
+| Token | Dark | Light |
+|---|---|---|
+| `--chart-cat-1` | blue-400 | blue-600 |
+| `--chart-cat-2` | violet-400 | violet-600 |
+| `--chart-cat-3` | teal-400 | teal-700 |
+| `--chart-cat-4` | pink-300 | pink-700 |
+| `--chart-cat-5` | yellow-300 | yellow-700 |
+
+None of them is orange, red or green, which stay reserved for the signals above. `ux-review` confirms each against the contrast rules.
 
 Cumulative flow bands stack bottom to top in board order from Done back to the first in-progress column.
 
@@ -300,7 +317,7 @@ These are UI removals only. The analytics endpoint keeps every field it returns 
 
 - `docs/features/analytics.md`: it describes the heatmap, the Age/Throughput toggle, the 7/30/90 pills, the stalled table and the blocked table, and uses "Throughput" for dwell time. After the change "Throughput" means cards finished per week everywhere.
 - `docs/api/`: every added field and parameter.
-- `frontend/CLAUDE.md` § Charts: any new rule `ux-review` surfaces, and a pointer to this page.
+- `frontend/CLAUDE.md` § Charts: any new rule `ux-review` surfaces. It already lists this tab's three color exceptions and points here.
 
 ## Open decisions
 
@@ -317,7 +334,7 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 - [ ] Region order and column split match [Page structure](#page-structure) and the screenshots
 - [ ] The bottleneck panel names the returned column and opens its drawer
 - [ ] Every percentile states its sample size or the reason it is withheld
-- [ ] No chart uses a status color or a per-group color
+- [ ] Chart colors match [Chart colors](#chart-colors): orange only on the bottleneck and slower swimlanes, red only on over-limit, blocked and past-85th marks, group colors only under a breakdown
 - [ ] Every segmented control and chip marks its active member with `ActiveMark`
 - [ ] Each chart keeps its table, notes and drill-down
 - [ ] All four states render as in `states.png`

@@ -11,9 +11,9 @@
 <style>
 body{margin:0}
 a{color:var(--link)}a:hover{color:var(--strong)}
-.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--danger-text:#fca5a5;--h:59,130,246;--mark:#f8fafc;--shadow:0 20px 50px rgba(0,0,0,0.55)}
-.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--danger-text:#991b1b;--h:59,130,246;--mark:#0f172a;--shadow:0 20px 50px rgba(15,23,42,0.25)}
-.vb-dark,.vb-light{--s-ready:rgba(var(--h),0.22);--s-prog:rgba(var(--h),0.42);--s-review:repeating-linear-gradient(135deg,rgba(var(--h),0.62) 0 8px,rgba(var(--h),0.3) 8px 10px);--s-qa:rgba(var(--h),0.7);--s-done:rgba(var(--h),0.12)}
+.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--danger-text:#fca5a5;--danger:#f87171;--dot:#cbd5e1;--scatter:#60a5fa;--g1:#60a5fa;--g2:#a78bfa;--g3:#2dd4bf;--g4:#f9a8d4;--g5:#fde047;--s-ready:#93c5fd;--s-prog:#3b82f6;--s-qa:#1d4ed8;--s-done:#475569;--mark:#f8fafc;--shadow:0 20px 50px rgba(0,0,0,0.55)}
+.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--danger-text:#991b1b;--danger:#dc2626;--dot:#64748b;--scatter:#2563eb;--g1:#2563eb;--g2:#7c3aed;--g3:#0f766e;--g4:#be185d;--g5:#a16207;--s-ready:#93c5fd;--s-prog:#3b82f6;--s-qa:#1e40af;--s-done:#94a3b8;--mark:#0f172a;--shadow:0 20px 50px rgba(15,23,42,0.25)}
+.vb-dark,.vb-light{--s-review:repeating-linear-gradient(135deg,#fb923c 0 8px,#f97316 8px 10px);--zone:148,163,184}
 </style>
 </helmet>
 <div class="{{themeClass}}" style="position: relative; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 24px 20px 48px; box-sizing: border-box; font-size: 14px; line-height: 1.45">
@@ -45,9 +45,9 @@ a{color:var(--link)}a:hover{color:var(--strong)}
 </div>
 <sc-if value="{{grouped}}" hint-placeholder-val="{{false}}">
 <div role="group" aria-labelledby="hl-label" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); font-size: 13px">
-<span id="hl-label" style="color: var(--fg3)">Highlight</span>
+<span id="hl-label" style="color: var(--fg3)">{{legendTitle}}</span>
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
-<button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: var(--fg); font: inherit; font-weight: {{g.weight}}; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="visibility: {{g.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{g.name}}</button>
+<button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: var(--fg); font: inherit; font-weight: {{g.weight}}; display: inline-flex; align-items: center; gap: 4px; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="visibility: {{g.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 50%; background: {{g.c}}"></span>{{g.name}}</button>
 </sc-for>
 <span style="color: var(--fg3)">{{legendNote}}</span>
 </div>
@@ -101,8 +101,8 @@ Bottleneck
 <sc-for list="{{pipe}}" as="p" hint-placeholder-count="4">
 <div style="flex: 1 1 0; min-width: 0; display: flex; align-items: center">
 <div style="flex: 1 1 0; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px">
-<span style="font-size: 12px; font-weight: 600; color: var(--fg2); white-space: nowrap">{{p.inLabel}}</span>
-<div aria-hidden="true" style="align-self: stretch; height: {{p.inH}}px; background: var(--line-strong)"></div>
+<span style="font-size: 12px; font-weight: 600; color: {{p.inFg}}; white-space: nowrap">{{p.inLabel}}</span>
+<div aria-hidden="true" style="align-self: stretch; height: {{p.inH}}px; background: {{p.inBg}}"></div>
 <span style="font-size: 12px; color: var(--fg3); white-space: nowrap">{{p.inNote}}</span>
 </div>
 <button type="button" onClick="{{p.open}}" aria-label="{{p.aria}}" style="flex: 0 0 168px; box-sizing: border-box; text-align: left; background: var(--inset); border: 1px solid {{p.border}}; border-radius: 8px; padding: 12px; color: var(--fg); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 8px">
@@ -119,8 +119,8 @@ Bottleneck
 </div>
 </sc-for>
 <div style="flex: 0.8 1 0; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px">
-<span style="font-size: 12px; font-weight: 600; color: var(--fg2); white-space: nowrap">7.8 / wk</span>
-<div aria-hidden="true" style="align-self: stretch; height: 19px; background: var(--line-strong)"></div>
+<span style="font-size: 12px; font-weight: 600; color: var(--warn-text); white-space: nowrap">7.8 / wk</span>
+<div aria-hidden="true" style="align-self: stretch; height: 19px; background: var(--warn)"></div>
 <span style="font-size: 12px; color: var(--fg3); white-space: nowrap">finished</span>
 </div>
 <div style="flex: 0 0 120px; box-sizing: border-box; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
@@ -137,11 +137,11 @@ Bottleneck
 </div>
 <sc-for list="{{rows}}" as="row" hint-placeholder-count="1">
 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px">
-<div style="flex: 0 0 120px; display: flex; align-items: center; gap: 4px; font-weight: {{row.weight}}; min-width: 0"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="flex: none; visibility: {{row.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{row.name}}</div>
+<div style="flex: 0 0 120px; display: flex; align-items: center; gap: 8px; font-weight: {{row.weight}}; opacity: {{row.op}}; min-width: 0"><span aria-hidden="true" style="flex: none; width: 10px; height: 10px; border-radius: 50%; background: {{row.c}}"></span>{{row.name}}</div>
 <div style="flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 10px">
 <div style="width: {{row.w}}%; display: flex; gap: 2px; height: 36px; border-radius: 6px; overflow: hidden">
 <sc-for list="{{row.segs}}" as="s" hint-placeholder-count="4">
-<div title="{{s.tip}}" style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
+<div title="{{s.tip}}" style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: {{s.fg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
 </sc-for>
 </div>
 <span style="flex: none; color: var(--fg2); font-size: 13px; font-variant-numeric: tabular-nums">{{row.total}}</span>
@@ -206,7 +206,7 @@ Bottleneck
 <sc-for list="{{weeks}}" as="w" hint-placeholder-count="13">
 <div style="flex: 1 1 0; min-width: 0; position: relative; display: flex; flex-direction: column-reverse; gap: 1px">
 <sc-for list="{{w.segs}}" as="s" hint-placeholder-count="1">
-<div style="height: {{s.h}}px; background: {{s.bg}}"></div>
+<div style="height: {{s.h}}px; background: {{s.bg}}; opacity: {{s.op}}"></div>
 </sc-for>
 <span style="position: absolute; left: -1px; right: -1px; bottom: {{w.arr}}px; height: 3px; background: var(--mark)"></span>
 </div>
@@ -218,7 +218,7 @@ Bottleneck
 </div>
 <div style="display: flex; justify-content: space-between; color: var(--fg3); font-size: 12px; padding-right: 72px"><span>Aug 17</span><span>Nov 9</span></div>
 <div style="display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--fg2); font-size: 12px">
-<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: rgba(var(--h), 0.6)"></span>Finished</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: var(--s-prog)"></span>Finished</span>
 <span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 3px; background: var(--mark)"></span>Started</span>
 </div>
 </section>
@@ -242,14 +242,14 @@ Bottleneck
 <span style="position: absolute; right: 0; bottom: -7px">0</span>
 </div>
 <div role="img" aria-label="Dot plot of 27 cards in progress by column and age in days. Review holds the oldest cards, three of them past the 85th percentile of 19 days." style="flex: 1 1 0; min-width: 0; height: 240px; position: relative; display: flex; border-bottom: 1px solid var(--line-strong)">
-<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 36.7%; background: rgba(var(--h), 0.10)"></div>
-<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; height: 26.6%; background: rgba(var(--h), 0.05)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 36.7%; background: rgba(var(--zone), 0.10)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; height: 26.6%; background: rgba(var(--zone), 0.05)"></div>
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 63.3%; border-top: 2px solid var(--fg3)"></div>
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; border-top: 1px dashed var(--fg3)"></div>
 <sc-for list="{{ageCols}}" as="col" hint-placeholder-count="4">
 <div style="flex: 1 1 0; min-width: 0; position: relative; border-left: 1px solid var(--line)">
 <sc-for list="{{col.dots}}" as="d" hint-placeholder-count="6">
-<span title="{{d.tip}}" style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 12px; height: 12px; margin: 0 0 -6px -6px; background: {{d.bg}}; border-radius: {{d.r}}; box-shadow: {{d.ring}}"></span>
+<span title="{{d.tip}}" style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 12px; height: 12px; margin: 0 0 -6px -6px; background: {{d.bg}}; border-radius: {{d.r}}; box-shadow: {{d.ring}}; opacity: {{d.op}}"></span>
 </sc-for>
 </div>
 </sc-for>
@@ -266,7 +266,7 @@ Bottleneck
 <span style="flex: 1 1 0; text-align: center; min-width: 0">Review</span>
 <span style="flex: 1 1 0; text-align: center; min-width: 0">QA</span>
 </div>
-<p style="margin: 0; color: var(--fg3); font-size: 12px">Ringed cards are past the 85th percentile. Squares are blocked cards.</p>
+<p style="margin: 0; color: var(--fg3); font-size: 12px">{{ageNote}}</p>
 </section>
 <section aria-labelledby="att-h" style="flex: 1 1 480px; min-width: 0; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
 <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
@@ -320,7 +320,7 @@ Bottleneck
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 63.3%; border-top: 2px solid var(--fg3)"></div>
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 36.7%; border-top: 1px dashed var(--fg3)"></div>
 <sc-for list="{{scatter}}" as="d" hint-placeholder-count="40">
-<span style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 8px; height: 8px; margin: 0 0 -4px -4px; border-radius: 50%; background: {{d.bg}}"></span>
+<span style="position: absolute; left: {{d.x}}%; bottom: {{d.y}}%; width: 8px; height: 8px; margin: 0 0 -4px -4px; border-radius: 50%; background: {{d.bg}}; opacity: {{d.op}}"></span>
 </sc-for>
 </div>
 <div aria-hidden="true" style="flex: none; width: 76px; height: 220px; position: relative; font-size: 12px; color: var(--fg2)">
@@ -338,19 +338,19 @@ Bottleneck
 <div style="display: flex; flex-direction: column; gap: 12px">
 <div style="display: flex; flex-direction: column; gap: 4px">
 <div style="display: flex; justify-content: space-between; gap: 12px"><span>Waiting on security review</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">6.5d · 5</span></div>
-<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 100%; height: 8px; border-radius: 4px; background: var(--danger)"></div></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 4px">
 <div style="display: flex; justify-content: space-between; gap: 12px"><span>External dependency</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">4d · 2</span></div>
-<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 62%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 62%; height: 8px; border-radius: 4px; background: var(--danger)"></div></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 4px">
 <div style="display: flex; justify-content: space-between; gap: 12px"><span>Needs product decision</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">2.5d · 2</span></div>
-<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 38%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 38%; height: 8px; border-radius: 4px; background: var(--danger)"></div></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 4px">
 <div style="display: flex; justify-content: space-between; gap: 12px"><span>Environment down</span><span style="flex: none; color: var(--fg2); font-variant-numeric: tabular-nums">1.5d · 1</span></div>
-<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 23%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: 23%; height: 8px; border-radius: 4px; background: var(--danger)"></div></div>
 </div>
 </div>
 <p style="margin: 0; color: var(--fg3); font-size: 12px">Days blocked · number of blocks. 8 of 10 blocks started in Review.</p>
@@ -382,7 +382,7 @@ Bottleneck
 <span style="font-size: 12px; color: var(--fg2)">{{dr.sel.meta}}</span>
 <div aria-hidden="true" style="display: flex; gap: 2px; height: 28px; border-radius: 5px; overflow: hidden">
 <sc-for list="{{dr.sel.segs}}" as="s" hint-placeholder-count="3">
-<div style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
+<div style="flex: {{s.v}} 1 0; min-width: 0; background: {{s.bg}}; color: {{s.fg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.label}}</div>
 </sc-for>
 </div>
 <span style="font-size: 12px; color: var(--fg2)">{{dr.sel.story}}</span>
@@ -409,20 +409,21 @@ Bottleneck
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { breakdown: null, drill: undefined, hl: 0 };
+    this.state = { breakdown: null, drill: undefined, hl: null };
   }
   renderVals() {
     const bd = this.state.breakdown || this.props.breakdown || 'none';
     const grouped = bd !== 'none';
-    const hl = this.state.hl || 0;
+    const hl = this.state.hl;
+    const G = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--g4)', 'var(--g5)'];
+    const dim = (g) => (hl === null || g === hl ? 1 : 0.2);
     const drill = this.state.drill !== undefined ? this.state.drill : (this.props.drawer === 'review' ? 2 : null);
-    const hue = (a) => 'rgba(var(--h), ' + a + ')';
     const LANES = ['Platform', 'Growth', 'Mobile', 'Support'];
     const STAGES = [
-      { name: 'Ready', bg: 'var(--s-ready)', limit: 8, dwell: 1.4, net: 0, rate: 8.4, inNote: 'started' },
-      { name: 'In progress', bg: 'var(--s-prog)', limit: 8, dwell: 3.1, net: 0, rate: 8.4, inNote: 'move on' },
-      { name: 'Review', bg: 'var(--s-review)', limit: 5, dwell: 6.2, net: 7, rate: 8.4, inNote: 'move on' },
-      { name: 'QA', bg: 'var(--s-qa)', limit: 4, dwell: 1.8, net: 0, rate: 7.8, inNote: 'fewer leave' },
+      { name: 'Ready', bg: 'var(--s-ready)', fg: '#0f172a', sq: 'var(--s-ready)', limit: 8, dwell: 1.4, net: 0, rate: 8.4, inNote: 'started' },
+      { name: 'In progress', bg: 'var(--s-prog)', fg: '#020617', sq: 'var(--s-prog)', limit: 8, dwell: 3.1, net: 0, rate: 8.4, inNote: 'move on' },
+      { name: 'Review', bg: 'var(--s-review)', fg: '#0f172a', sq: 'var(--warn)', limit: 5, dwell: 6.2, net: 7, rate: 8.4, inNote: 'move on' },
+      { name: 'QA', bg: 'var(--s-qa)', fg: '#ffffff', sq: 'var(--s-qa)', limit: 4, dwell: 1.8, net: 0, rate: 7.8, inNote: 'fewer leave' },
     ];
     const SETS = {
       none: { names: ['All cards'], vals: [[1.4, 3.1, 6.2, 1.8]] },
@@ -440,13 +441,13 @@ class Component extends DCLogic {
       },
     };
     const set = SETS[bd];
-    const hlName = set.names[hl] || set.names[0];
     const totals = set.vals.map((v) => v.reduce((a, b) => a + b, 0));
     const max = Math.max.apply(null, totals);
     const rows = set.names.map((name, i) => ({
       name,
-      vis: grouped && i === hl ? 'visible' : 'hidden',
-      weight: !grouped || i === hl ? 650 : 400,
+      c: grouped ? G[i] : 'transparent',
+      weight: 650,
+      op: dim(i),
       w: Math.round((totals[i] / max) * 100),
       total: totals[i].toFixed(1) + 'd',
       segs: set.vals[i].map((v, j) => ({
@@ -454,6 +455,7 @@ class Component extends DCLogic {
         label: v.toFixed(1) + 'd',
         tip: STAGES[j].name + ': ' + v.toFixed(1) + ' days (median)',
         bg: STAGES[j].bg,
+        fg: STAGES[j].fg,
       })),
     }));
     const groups = grouped
@@ -462,9 +464,10 @@ class Component extends DCLogic {
           on: i === hl,
           vis: i === hl ? 'visible' : 'hidden',
           weight: i === hl ? 600 : 400,
-          bg: i === hl ? hue(0.2) : 'transparent',
-          border: i === hl ? hue(0.9) : 'var(--line-strong)',
-          pick: () => this.setState({ hl: i }),
+          c: G[i],
+          bg: i === hl ? 'var(--track)' : 'transparent',
+          border: i === hl ? 'var(--fg3)' : 'var(--line-strong)',
+          pick: () => this.setState({ hl: i === hl ? null : i }),
         }))
       : [];
 
@@ -476,7 +479,7 @@ class Component extends DCLogic {
       bg: bd === id ? 'var(--primary)' : 'transparent',
       fg: bd === id ? '#ffffff' : 'var(--fg2)',
       weight: bd === id ? 600 : 400,
-      pick: () => this.setState({ breakdown: id, hl: 0 }),
+      pick: () => this.setState({ breakdown: id, hl: null }),
     }));
 
     const TITLES = [
@@ -500,13 +503,15 @@ class Component extends DCLogic {
         dwell: s.dwell.toFixed(1) + 'd',
         wip,
         limit: 'of ' + s.limit + (wip > s.limit ? ' · ' + (wip - s.limit) + ' over limit' : ''),
-        squares: AGES[j].map((_, i) => (i < s.limit ? { bg: hue(0.7), ring: 'none' } : { bg: 'transparent', ring: 'inset 0 0 0 2px ' + hue(0.9) })),
+        squares: AGES[j].map((_, i) => (i < s.limit ? { bg: s.sq, ring: 'none' } : { bg: 'transparent', ring: 'inset 0 0 0 2px var(--danger)' })),
         net: s.net > 0 ? 'Queue +' + s.net + ' since Aug 16' : 'Queue steady',
         netFg: s.net > 0 ? 'var(--warn-text)' : 'var(--fg3)',
         border: s.net > 0 ? 'var(--warn)' : 'var(--line)',
         inLabel: s.rate.toFixed(1) + ' / wk',
         inH: Math.round(s.rate * 2.5),
         inNote: s.inNote,
+        inBg: j === 3 ? 'var(--warn)' : 'var(--line-strong)',
+        inFg: j === 3 ? 'var(--warn-text)' : 'var(--fg2)',
         aria: s.name + ': ' + wip + ' cards, limit ' + s.limit + ', median ' + s.dwell + ' days. Show cards.',
         open: () => this.setState({ drill: j }),
       };
@@ -525,10 +530,10 @@ class Component extends DCLogic {
       for (let i = 0; i < drill; i++) {
         const v = Math.min(top.age * 0.15, PRE[i]);
         used += v;
-        segs.push({ v, label: v.toFixed(1) + 'd', bg: STAGES[i].bg });
+        segs.push({ v, label: v.toFixed(1) + 'd', bg: STAGES[i].bg, fg: STAGES[i].fg });
       }
       const here = top.age - used;
-      segs.push({ v: here, label: s.name + ' ' + here.toFixed(1) + 'd', bg: s.bg });
+      segs.push({ v: here, label: s.name + ' ' + here.toFixed(1) + 'd', bg: s.bg, fg: s.fg });
       dr = {
         title: s.name,
         sub: list.length + ' cards in this column now, limit ' + s.limit + '.',
@@ -592,27 +597,24 @@ class Component extends DCLogic {
     const STARTED = [7, 9, 8, 8, 10, 9, 6, 9, 9, 11, 8, 8, 7];
     const weeks = WEEKS.map((t, wi) => {
       const arr = STARTED[wi] * 20;
-      if (!grouped) return { arr, segs: [{ h: t * 20, bg: hue(0.6) }] };
+      if (!grouped) return { arr, segs: [{ h: t * 20, bg: 'var(--s-prog)', op: 1 }] };
       const a = Math.round(t * 0.35);
       const b = Math.round(t * 0.3);
       const c = Math.round(t * 0.2);
       const d = Math.max(0, t - a - b - c);
-      const mine = [a, b, c, d][hl];
-      return {
-        arr,
-        segs: [{ h: mine * 20 - 1, bg: hue(0.7) }, { h: (t - mine) * 20, bg: hue(0.22) }].filter((s) => s.h > 0),
-      };
+      return { arr, segs: [a, b, c, d].map((n, i) => ({ h: n * 20 - 1, bg: G[i], op: dim(i) })).filter((s) => s.h > 0) };
     });
 
     const ageCols = AGES.map((list) => ({
       dots: list.map(([age, blocked], i) => {
-        const a = !grouped ? 0.85 : i % 4 === hl ? 0.95 : 0.22;
+        const base = age > 19 ? 'var(--danger)' : age > 11 ? 'var(--warn)' : 'var(--dot)';
         return {
           x: 22 + ((i * 37) % 56),
           y: (age / 30) * 100,
-          bg: hue(a),
+          bg: grouped ? G[i % 4] : base,
+          op: grouped ? dim(i % 4) : 1,
           r: blocked ? '2px' : '50%',
-          ring: age > 19 ? '0 0 0 2px var(--panel), 0 0 0 4px ' + hue(a) : 'none',
+          ring: age > 19 ? '0 0 0 2px var(--panel), 0 0 0 4px var(--danger)' : 'none',
           tip: age + ' days in progress' + (blocked ? ', blocked' : ''),
         };
       }),
@@ -629,7 +631,7 @@ class Component extends DCLogic {
       const days = 3 + r * r * 25;
       const x = 2 + rnd() * 96;
       const g = Math.floor(rnd() * 4);
-      scatter.push({ x, y: (days / 30) * 100, bg: hue(!grouped ? 0.8 : g === hl ? 0.95 : 0.2) });
+      scatter.push({ x, y: (days / 30) * 100, bg: grouped ? G[g] : 'var(--scatter)', op: grouped ? dim(g) : 0.9 });
     }
 
     const WORD = { none: '', swimlane: 'swimlane', label: 'label', field: 'the Size field' };
@@ -649,20 +651,24 @@ class Component extends DCLogic {
       weeks,
       ageCols,
       scatter,
+      legendTitle: 'Colored by ' + WORD[bd],
+      ageNote: grouped
+        ? 'Ringed cards are past the 85th percentile. Squares are blocked cards.'
+        : 'Orange cards are past the median, red and ringed past the 85th percentile. Squares are blocked cards.',
       legendNote:
-        'Solid marks are the highlighted group; the rest are dimmed.' +
+        'Select a group to isolate it.' +
         (bd === 'label' ? ' A card with several labels counts once in each.' : bd === 'field' ? ' Cards with no Size are left out.' : ''),
       flowSub: grouped
         ? 'Median days in each column, split by ' + WORD[bd] + '. The longest bar is the slowest group.'
         : 'Median days a card spends in each column on the way to Done.',
       tpSub: grouped
-        ? 'Cards finished per week. The solid part of each bar is ' + hlName + '.'
+        ? 'Cards finished per week, stacked by ' + WORD[bd] + '.'
         : '102 finished, 109 started. Output is steady, but work in progress grew by 7 cards.',
       ageSub: grouped
-        ? 'Every card in progress, by column and age. Solid marks are ' + hlName + '.'
+        ? 'Every card in progress, by column and age, colored by ' + WORD[bd] + '.'
         : 'Every card in progress, by column and age. 3 cards in Review are already older than 85% of finished cards.',
       ctSub: grouped
-        ? 'Each dot is a finished card. Solid dots are ' + hlName + '.'
+        ? 'Each dot is a finished card, colored by ' + WORD[bd] + '.'
         : 'Each dot is a finished card. Most land under 11 days, with a long tail of cards held up in Review.',
     };
   }

@@ -11,8 +11,8 @@
 <style>
 body{margin:0}
 a{color:var(--link)}a:hover{color:var(--strong)}
-.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--h:59,130,246;--mark:#f8fafc}
-.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--h:59,130,246;--mark:#0f172a}
+.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--danger:#f87171;--ok-text:#86efac;--bar:#60a5fa;--mark:#f8fafc}
+.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--danger:#dc2626;--ok-text:#166534;--bar:#2563eb;--mark:#0f172a}
 </style>
 </helmet>
 <div class="{{themeClass}}" style="background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 24px 20px 48px; box-sizing: border-box; font-size: 14px; line-height: 1.45">
@@ -70,7 +70,7 @@ a{color:var(--link)}a:hover{color:var(--strong)}
 </div>
 <div style="flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
 <span style="font-size: 12px; color: var(--fg3)">Time blocked</span>
-<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: {{l.blockedw}}%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: {{l.blockedw}}%; height: 8px; border-radius: 4px; background: var(--danger)"></div></div>
 <span style="font-size: 13px; color: var(--fg2)">{{l.blocked}}</span>
 </div>
 <div style="flex: 0 0 132px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--fg2)">
@@ -101,20 +101,20 @@ class Component extends DCLogic {
       { name: 'Design', p50: null, p85: null, blocked: 0, wip: 1, done: 4, spark: [], trend: 'Not enough cards' },
     ];
     const lanes = DATA.map((d) => {
-      const slow = d.p50 !== null && d.p50 > 13;
+      const slow = d.p50 !== null && d.p50 > 11 * 1.15;
       const slower = d.trend.indexOf('Slower') === 0;
       const faster = d.trend.indexOf('Faster') === 0;
       return {
         name: d.name,
-        status: d.p50 === null ? 'Too few finished cards' : slow ? 'Slower than the board' : d.p50 < 10 ? 'Faster than the board' : 'In line with the board',
-        statusFg: slow ? 'var(--fg)' : 'var(--fg3)',
-        barBg: 'rgba(var(--h), 0.7)',
+        status: d.p50 === null ? 'Too few finished cards' : slow ? 'Slower than the board' : d.p50 < 11 * 0.85 ? 'Faster than the board' : 'In line with the board',
+        statusFg: slow ? 'var(--warn-text)' : d.p50 !== null && d.p50 < 11 * 0.85 ? 'var(--ok-text)' : 'var(--fg3)',
+        barBg: slow ? 'var(--warn)' : 'var(--bar)',
         p50w: d.p50 === null ? 0 : (d.p50 / 30) * 100,
         tailw: d.p50 === null ? 0 : ((d.p85 - d.p50) / 30) * 100,
         cycle: d.p50 === null ? 'No median yet: only ' + d.done + ' cards finished.' : d.p50.toFixed(1) + ' days median · 85% within ' + d.p85 + ' days',
         spark: d.spark.map((v) => ({ h: Math.round(v * 1.7) })),
         trend: d.trend,
-        trendFg: slower ? 'var(--fg)' : 'var(--fg2)',
+        trendFg: slower ? 'var(--warn-text)' : faster ? 'var(--ok-text)' : 'var(--fg2)',
         blockedw: Math.min(100, d.blocked * 2.5),
         blocked: d.blocked + '% of elapsed time',
         wip: d.wip,
