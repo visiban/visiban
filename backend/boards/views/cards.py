@@ -464,12 +464,21 @@ _CARD_UPDATE_SCHEMA = extend_schema(
 # CardViewSet
 # ---------------------------------------------------------------------------
 
+# Activity types whose ``item_text`` names the checklist item (#2199). The
+# other checklist events already carry the item text in from/to.
+_ITEM_TEXT_EVENT_TYPES = frozenset({
+    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
+})
+
+
 def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
     """Record History rows for a checklist item's assignee and due-date changes (#445).
 
     Called inside the write's transaction, after the card row lock, like the
     other checklist activity rows (#1587). from/to carry the username and the
-    ISO date so the row stays readable after the user or the item is gone.
+    ISO date, and ``item_text`` the item's text (#2199), so the row stays
+    readable, and says which item changed, after the user or the item is gone.
     """
     new_assignee = item.assignee
     if (old_assignee.pk if old_assignee else None) != (new_assignee.pk if new_assignee else None):
@@ -477,14 +486,14 @@ def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
             from_value=old_assignee.username if old_assignee else "",
             to_value=new_assignee.username if new_assignee else "",
-            actor=actor,
+            item_text=item.text, actor=actor,
         )
     if old_due != item.due_date:
         CardActivity.objects.create(
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
             from_value=old_due.isoformat() if old_due else "",
             to_value=item.due_date.isoformat() if item.due_date else "",
-            actor=actor,
+            item_text=item.text, actor=actor,
         )
 
 
@@ -1553,6 +1562,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 "from_value": a.from_value,
                 "to_value": a.to_value,
             }
+            if a.event_type in _ITEM_TEXT_EVENT_TYPES:
+                # Additive key (#2199), present only on checklist assignee and
+                # due-date entries; null on rows written before 1.3.
+                data["item_text"] = a.item_text
             if a.event_type == CardActivity.EventType.UNBLOCKED:
                 # Additive key (#1149), present only on unblocked entries;
                 # null when no closed block matches (e.g. an imported entry

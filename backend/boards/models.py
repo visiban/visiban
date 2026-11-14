@@ -1210,6 +1210,17 @@ class CardActivity(models.Model):
         null=True,
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
     )
+    # #2199: the checklist item's text when the row was written, on
+    # ``checklist_item_assigned`` and ``checklist_item_due_changed`` rows, whose
+    # from/to already carry the username or date, so History can say which item
+    # changed. A snapshot, like from/to: it stays readable after the item is
+    # renamed or deleted. NULL on every other event type and on rows written
+    # before 1.3, which the History label shows without an item name.
+    item_text = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (CardChecklist.text)
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
 
     class Meta:
         db_table = "card_activities"

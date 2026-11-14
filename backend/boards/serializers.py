@@ -2233,8 +2233,11 @@ class CardActivitySerializer(serializers.ModelSerializer):
             "id", "event_type", "from_value", "to_value", "actor", "created_at",
             # Additive (#1675): see CardMovementSerializer.
             "imported_from_username",
+            # Additive (#2199): the checklist item's text on checklist assignee
+            # and due-date rows; null on other rows and on rows before 1.3.
+            "item_text",
         ]
-        read_only_fields = ["imported_from_username"]
+        read_only_fields = ["imported_from_username", "item_text"]
 
 
 # Reason and resolution share CardBlock's column length (#1149). Read from the

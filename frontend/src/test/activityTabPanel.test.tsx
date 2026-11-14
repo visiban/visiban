@@ -406,4 +406,19 @@ describe("ActivityTabPanel checklist assignee and due labels (#445)", () => {
     expect(screen.getByText(/Checklist item due: \(none\) → \S*2026\S*/)).toBeInTheDocument();
     expect(screen.getByText(/Checklist item due: \S*2026\S* → \(none\)/)).toBeInTheDocument();
   });
+
+  it("names the checklist item when the row carries item_text (#2199)", async () => {
+    (getCardTimeline as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({ id: 1, event_type: "checklist_item_assigned", data: { from_value: "", to_value: "alex", item_text: "Write tests", event_type: "checklist_item_assigned" } }),
+        makeEntry({ id: 2, event_type: "checklist_item_due_changed", data: { from_value: "", to_value: "2026-11-18", item_text: "Ship it", event_type: "checklist_item_due_changed" } }),
+        // An old row (pre-1.3) with item_text null keeps the unnamed label.
+        makeEntry({ id: 3, event_type: "checklist_item_assigned", data: { from_value: "alex", to_value: "sam", item_text: null, event_type: "checklist_item_assigned" } }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(await screen.findByText('Checklist item "Write tests" assignee: (none) → alex')).toBeInTheDocument();
+    expect(screen.getByText(/^Checklist item "Ship it" due: \(none\) → \S*2026\S*$/)).toBeInTheDocument();
+    expect(screen.getByText("Checklist item assignee: alex → sam")).toBeInTheDocument();
+  });
 });

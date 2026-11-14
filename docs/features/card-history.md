@@ -43,9 +43,11 @@ Each movement entry shows how long the card stayed in that column before the nex
 ### Checklist assignees and due dates
 
 New in 1.3. Each checklist row has an assignee button and a due-date button,
-always visible. Assigning someone records "Checklist item assignee: old → new" and
-changing the date records "Checklist item due: old → new" in History, under the
-Checklist filter. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon outside the Classic preset)
+always visible. Assigning someone records "Checklist item "Write tests" assignee: old → new" and
+changing the date records "Checklist item "Write tests" due: old → new" in History, under the
+Checklist filter. The row names the item as it was worded at the time, so it stays
+readable after the item is renamed or removed. Rows recorded before that was added
+read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon outside the Classic preset)
 (in red) when unchecked items are past due in your timezone, otherwise `· mine 2`
 when unchecked items are assigned to you. Overdue checklist items do not change
 the card's own urgency badge or border. **Hide completed** in the checklist

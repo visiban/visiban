@@ -627,6 +627,7 @@ Activity log (field changes, comments, attachments, checklist events, and since 
 | `actor` | object \| `null` | User who triggered the event, or `null` if that user has since been deleted |
 | `created_at` | string | ISO 8601 timestamp |
 | `imported_from_username` | string \| `null` | *Since 1.2.* `null` unless the entry was created by a board import with history; then `actor` is the importing user and this is the username the import file named (`""` when it named nobody). History imported by earlier versions carries `null`, since the original name was not kept. See [Imported history](../features/card-history.md#imported-history) |
+| `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. `null` on every other event type and on entries recorded before 1.3. Read-only |
 
 ```json
 [
@@ -637,7 +638,8 @@ Activity log (field changes, comments, attachments, checklist events, and since 
     "to_value": "In Progress",
     "actor": { "id": 3, "username": "jordan", "display_name": "Jordan Lee", "avatar_url": null },
     "created_at": "2026-09-20T14:03:11Z",
-    "imported_from_username": null
+    "imported_from_username": null,
+    "item_text": null
   }
 ]
 ```
@@ -753,7 +755,7 @@ One integer per `event_types` group, always all six keys. The totals ignore `eve
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`. |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned` and `checklist_item_due_changed` entries also carry `item_text` (the activity's `item_text`, `null` on entries recorded before 1.3). |
 
 **Errors**
 
@@ -1002,7 +1004,8 @@ complete card payload. See [WebSockets](websockets.md).
     An assignee who later leaves the board stays assigned, as on cards.
     Each change records a History event: `checklist_item_assigned` (from/to are
     usernames, blank for none) and `checklist_item_due_changed` (from/to are ISO
-    dates), both in the timeline's `checklist` group. Cards add two read-only
+    dates), both in the timeline's `checklist` group. Since 1.3 (#2199) both also
+    carry `item_text`, the item's text at the time of the change. Cards add two read-only
     fields for the card-face suffix: `checklist_open_due_dates` (sorted due dates
     of unchecked items) and `checklist_open_assignee_ids` (one entry per unchecked
     assigned item). The public share link omits both. A checklist due date never

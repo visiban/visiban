@@ -643,6 +643,8 @@ def _serialize_activity(activity):
         "actor": _serialize_user(activity.actor) if activity.actor_id else None,
         "created_at": activity.created_at.isoformat(),
         "imported_from_username": activity.imported_from_username,
+        # Additive (#2199): see CardActivitySerializer.item_text.
+        "item_text": activity.item_text,
     }
 
 
