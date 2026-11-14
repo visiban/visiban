@@ -63,6 +63,15 @@ DEFINITIONS = {
     "throughput": "the number of cards whose first entry into a done column falls in a period.",
     "wip": "the number of cards, not archived, currently in each column that is not done.",
     "cumulative_flow": "for each day, the number of cards in each column at the end of that day.",
+    "blocked_time": (
+        "the time cards spent blocked, reported as its own metric: total, per column and per reason. "
+        "It is never subtracted from lead time, cycle time, dwell time or age."
+    ),
+    "needs_attention": (
+        "the cards, not archived and not in a done column, that are blocked, have been in progress "
+        "longer than the 85th percentile of cycle time, or have not moved for longer than the "
+        "board's stalled threshold."
+    ),
 }
 
 _UTC = datetime.timezone.utc
@@ -267,6 +276,9 @@ class CardFlow:
     # it is reported as excluded rather than disappearing silently.
     completion_is_future: bool = False
     cycle_start: datetime.datetime | None = None
+    # The card's latest movement of any kind that is not dated after the
+    # request, for "needs attention" (#2260). None when it has none.
+    last_moved_at: datetime.datetime | None = None
     reopens: list = field(default_factory=list)
     visits: list = field(default_factory=list)
     placements: list = field(default_factory=list)
@@ -410,6 +422,7 @@ def _analyze_card(flow, rows, done_uids, now):
         else None
     )
     flow.has_creation = creation is not None
+    flow.last_moved_at = live[-1].moved_at if live else None
     flow.created_in_done = creation is not None and creation.to_key in done_uids
     flow.lead_start = creation.moved_at if creation is not None else flow.created_at
     if flow.created_in_done:
@@ -740,6 +753,21 @@ def completed_dwell(flow, flow_range):
     return _dwell_response(flow, samples, excluded)
 
 
+def column_dwell(flow, flow_range):
+    """Completed dwell per current not-done column, without the samples (#2260).
+
+    The Analytics redesign's "Where the time goes" reads only the per-column
+    percentiles; the visits themselves stay on ``completed_dwell`` (and MCP).
+    """
+    dwell = completed_dwell(flow, flow_range)
+    return {
+        "definition": dwell["definition"],
+        "sample_size": dwell["sample_size"],
+        "excluded_incomplete_history": dwell["excluded_incomplete_history"],
+        "columns": dwell["columns"],
+    }
+
+
 def current_dwell(flow):
     """Open visits, measured now. A snapshot: no range."""
     open_visits, excluded = [], 0
@@ -809,8 +837,8 @@ def blocked_card_ids(flow, cards):
     return by_relation | {card.id for card in cards if card.blocked_at is not None}
 
 
-def blocked_time(flow, flow_range):
-    """Blocked time per column and the most common reasons, inside the range (#1149).
+def _block_intervals(flow, flow_range):
+    """``(card_id, column_id, reason, seconds)`` for each block's part inside the range (#1149, #2260).
 
     ADR "Blocked time": reported as its own metric, never subtracted. One query
     over ``CardBlock`` (indexed by board). A block counts for the part of it that
@@ -819,55 +847,67 @@ def blocked_time(flow, flow_range):
     to now again). An open block whose card was hard-deleted has no end anyone can
     observe, so it is left out rather than accruing time forever.
 
-    Time is attributed to the column the card was in when it was blocked
-    (``CardBlock.column``), by identity and never by name: a column deleted and
-    recreated under the same name is a different column (ADR "Current column"). A
-    block in a column that no longer exists has no per-column line, but it counts
-    toward ``total`` and ``top_reasons``.
+    Every end is clipped to the end of the range, and never later than now: an
+    imported block can carry a future timestamp, and it must not inflate anyone's
+    numbers, and a date range that ended in the past must not count time after it
+    (#2260). A rolling range ends at now, so it is unaffected by the second clip.
 
-    Reasons are grouped case- and whitespace-insensitively, since the same cause
-    typed twice ("Waiting on customer" / "waiting on customer ") is one cluster;
-    the newest spelling is the one shown. Every end is clipped to now: an imported
-    block can carry a future timestamp, and it must not inflate anyone's numbers.
-
-    Rows are summed in Python rather than in SQL because of the reason clustering.
-    The row count is the blocks overlapping the range on one board, which stays
-    small next to the movement rows the same request already loaded.
-
+    Rows come newest first, so the first spelling of a reason seen is the newest.
     Under a swimlane or label filter only blocks of live cards it selects count:
-    a hard-deleted card has no current swimlane or labels to match.
+    a hard-deleted card has no current swimlane or labels to match. ``flow.cards``
+    is never read, so a narrowed load gives the same intervals as a full one.
     """
-    now = flow.now
+    range_end = min(flow.now, flow_range.end)
     start = flow_range.start
-    col_id_to_name = {c.id: c.name for c in flow.columns}
-    seconds_per_column = {c.name: 0.0 for c in flow.columns}
-    blocks_per_column = {c.name: 0 for c in flow.columns}
-    reasons: dict[str, dict] = {}
-    total_seconds = 0.0
-    total_blocks = 0
     rows = (
-        CardBlock.objects.filter(board=flow.board, blocked_at__lte=now)
+        CardBlock.objects.filter(board=flow.board, blocked_at__lt=range_end)
         .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=start))
         .exclude(card__isnull=True, unblocked_at__isnull=True)
     )
     if flow.swimlane_id is not None or flow.label_id is not None:
         rows = rows.filter(card__in=_base_cards(flow.board, flow.swimlane_id, flow.label_id).order_by().values("id"))
     for row in rows.order_by("-blocked_at", "-id").values(
-        "column_id", "reason", "blocked_at", "unblocked_at", "card__archived_at",
+        "card_id", "column_id", "reason", "blocked_at", "unblocked_at", "card__archived_at",
     ):
-        end = min(row["unblocked_at"] or row["card__archived_at"] or now, now)
+        end = min(row["unblocked_at"] or row["card__archived_at"] or flow.now, range_end)
         begin = max(row["blocked_at"], start)
         if end <= begin:
             continue
-        seconds = (end - begin).total_seconds()
+        yield row["card_id"], row["column_id"], row["reason"], (end - begin).total_seconds()
+
+
+def _reason_key(reason):
+    """Reasons cluster case- and whitespace-insensitively: one cause typed twice is one reason."""
+    return " ".join(reason.split()).casefold()
+
+
+def blocked_time(flow, flow_range):
+    """Blocked time per column name and the most common reasons, for ``/analytics/`` and MCP (#1149).
+
+    Time is attributed to the column the card was in when it was blocked
+    (``CardBlock.column``), by identity and never by name: a column deleted and
+    recreated under the same name is a different column (ADR "Current column"). A
+    block in a column that no longer exists has no per-column line, but it counts
+    toward ``total`` and ``top_reasons``.
+
+    Rows are summed in Python rather than in SQL because of the reason clustering.
+    The row count is the blocks overlapping the range on one board, which stays
+    small next to the movement rows the same request already loaded.
+    """
+    col_id_to_name = {c.id: c.name for c in flow.columns}
+    seconds_per_column = {c.name: 0.0 for c in flow.columns}
+    blocks_per_column = {c.name: 0 for c in flow.columns}
+    reasons: dict[str, dict] = {}
+    total_seconds = 0.0
+    total_blocks = 0
+    for _card_id, column_id, reason, seconds in _block_intervals(flow, flow_range):
         total_seconds += seconds
         total_blocks += 1
-        name = col_id_to_name.get(row["column_id"])
+        name = col_id_to_name.get(column_id)
         if name is not None:
             seconds_per_column[name] += seconds
             blocks_per_column[name] += 1
-        key = " ".join(row["reason"].split()).casefold()
-        bucket = reasons.setdefault(key, {"reason": row["reason"].strip(), "count": 0, "seconds": 0.0})
+        bucket = reasons.setdefault(_reason_key(reason), {"reason": reason.strip(), "count": 0, "seconds": 0.0})
         bucket["count"] += 1
         bucket["seconds"] += seconds
     top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["seconds"], r["reason"]))
@@ -889,6 +929,64 @@ def blocked_time(flow, flow_range):
             }
             for r in top[:TOP_BLOCK_REASONS]
         ],
+    }
+
+
+def load_live_wip(board, *, swimlane_id=None, label_id=None, now=None):
+    """Only the cards ``blocked_summary`` reads: not archived and not in a done column.
+
+    ``_block_intervals`` never reads ``flow.cards``, and ``blocked_now`` counts
+    only these cards, so loading the rest could not change the answer.
+    """
+    return load_board_flow(
+        board, swimlane_id=swimlane_id, label_id=label_id, now=now,
+        cards_matching=Q(archived_at__isnull=True) & ~Q(column__is_done=True),
+    )
+
+
+def _live_wip(flow):
+    return [card for card in flow.cards if card.archived_at is None and card.column_uid not in flow.done_uids]
+
+
+def blocked_summary(flow, flow_range):
+    """Blocked time for the Analytics redesign: by column uid and by reason, unrounded (#2260).
+
+    The same intervals as ``blocked_time``, keyed by ``column_uid`` rather than
+    name, with reasons ranked by time rather than count: the redesign asks "why
+    do cards get blocked", and a reason that holds cards longest answers it.
+    """
+    per_column = {c.id: [0.0, 0] for c in flow.columns}
+    reasons: dict[str, dict] = {}
+    total_seconds = 0.0
+    total_blocks = 0
+    for _card_id, column_id, reason, seconds in _block_intervals(flow, flow_range):
+        total_seconds += seconds
+        total_blocks += 1
+        if column_id in per_column:
+            per_column[column_id][0] += seconds
+            per_column[column_id][1] += 1
+        bucket = reasons.setdefault(_reason_key(reason), {"reason": reason.strip(), "seconds": 0.0, "blocks": 0})
+        bucket["seconds"] += seconds
+        bucket["blocks"] += 1
+    ranked = sorted(reasons.values(), key=lambda r: (-r["seconds"], -r["blocks"], r["reason"]))
+    return {
+        "definition": DEFINITIONS["blocked_time"],
+        "total": {"days": total_seconds / SECONDS_PER_DAY, "blocks": total_blocks},
+        "blocked_now": len(blocked_card_ids(flow, _live_wip(flow))),
+        "columns": [
+            {
+                "column_uid": c.uid,
+                "column_name": c.name,
+                "days": per_column[c.id][0] / SECONDS_PER_DAY,
+                "blocks": per_column[c.id][1],
+            }
+            for c in flow.columns
+        ],
+        "reasons": [
+            {"reason": r["reason"], "days": r["seconds"] / SECONDS_PER_DAY, "blocks": r["blocks"]}
+            for r in ranked[:TOP_BLOCK_REASONS]
+        ],
+        "reason_count": len(reasons),
     }
 
 
@@ -960,6 +1058,58 @@ def age(flow, flow_range):
     }
 
 
+ATTENTION_REASONS = ("blocked", "past_p85", "stalled")
+
+
+def needs_attention(flow, flow_range, *, stalled_days):
+    """Live cards outside done that are blocked, past the cycle-time p85, or stalled (#2260).
+
+    The base is every card not archived and not in a done column, the old
+    stalled-cards table's base, not only cards in progress: a backlog card that
+    has sat for weeks is stalled whether or not it has started. ``past_p85``
+    needs an age, so it applies only to cards in progress (ADR "Age"), and only
+    when p85 exists under the sample-size rule. Both comparisons are strict.
+    One pass over the cards, so each card is listed once with all its reasons.
+    The range moves only the p85, as on wip-age.
+    """
+    ct_percentiles = cycle_time(flow, flow_range)["percentiles"]
+    p85 = ct_percentiles["p85"]
+    candidates = _live_wip(flow)
+    blocked = blocked_card_ids(flow, candidates)
+    entries = []
+    for card in candidates:
+        age_days = (
+            _days_between(card.age_start, flow.now) if card.is_in_progress(flow.done_uids) else None
+        )
+        unmoved_days = _days_between(card.last_moved_at, flow.now) if card.last_moved_at is not None else None
+        reasons = []
+        if card.id in blocked:
+            reasons.append("blocked")
+        if age_days is not None and p85 is not None and age_days > p85:
+            reasons.append("past_p85")
+        if unmoved_days is not None and unmoved_days > stalled_days:
+            reasons.append("stalled")
+        if reasons:
+            entries.append((card, age_days, unmoved_days, reasons))
+    entries.sort(key=lambda e: (e[1] is None, -(e[1] or 0.0), e[2] is None, -(e[2] or 0.0), e[0].id))
+    return {
+        "definition": DEFINITIONS["needs_attention"],
+        "stalled_threshold_days": stalled_days,
+        "cycle_time_percentiles": ct_percentiles,
+        "items": [
+            {
+                "card_uid": card.uid,
+                "column_uid": card.column_uid,
+                "swimlane_id": card.swimlane_id,
+                "age_days": age_days,
+                "unmoved_days": unmoved_days,
+                "reasons": reasons,
+            }
+            for card, age_days, unmoved_days, reasons in entries
+        ],
+    }
+
+
 # ── Counts ─────────────────────────────────────────────────────────────────
 
 
@@ -1004,6 +1154,14 @@ def throughput(flow, flow_range, period="week"):
         for offset in range((last - first).days + 1):
             index_of_day[first + datetime.timedelta(days=offset)] = index
     buckets: list[list] = [[] for _ in periods]
+    # Starts are counted by cycle start, the same anchor cycle time uses: a
+    # reopen is not a start, and a card with no creation movement never starts.
+    started = [0] * len(periods)
+    for card in flow.cards:
+        if card.cycle_start is not None:
+            index = index_of_day.get(_utc_date(card.cycle_start))
+            if index is not None:
+                started[index] += 1
     completed = sorted(
         (card for card in flow.cards if card.completion_at is not None),
         key=lambda card: card.completion_at,
@@ -1013,8 +1171,8 @@ def throughput(flow, flow_range, period="week"):
         if index is not None:
             buckets[index].append(card.uid)
     samples = [
-        {"start": first.isoformat(), "count": len(uids), "card_uids": uids}
-        for (first, _), uids in zip(periods, buckets)
+        {"start": first.isoformat(), "count": len(uids), "card_uids": uids, "started": begun}
+        for (first, _), uids, begun in zip(periods, buckets, started)
     ]
     counts = sorted(len(uids) for uids in buckets)
     return {
@@ -1054,11 +1212,19 @@ def cumulative_flow(flow, flow_range):
     Each card contributes one ``+1``/``-1`` pair per placement to a difference
     array, and one pass turns those into daily counts. So the cost grows with
     movements plus days × columns, never with days × cards (no per-day loop).
+
+    Each column also carries its flow across the window (#2260): ``entered`` and
+    ``left`` count band changes dated after the first day and up to the last, so
+    ``end_count - start_count == entered - left`` holds exactly for every band,
+    and the bottleneck, which reads the same first and last day, is unchanged.
+    Archiving outside done leaves a band; archiving in done does not.
     """
     days = flow_range.days
     index = {day: i for i, day in enumerate(days)}
     bands = [c.uid for c in flow.columns] + [NULL_BAND_KEY]
     deltas = {band: [0] * (len(days) + 1) for band in bands}
+    entered = dict.fromkeys(bands, 0)
+    left = dict.fromkeys(bands, 0)
 
     def to_index(day):
         if day <= flow_range.first_day:
@@ -1067,13 +1233,21 @@ def cumulative_flow(flow, flow_range):
 
     for card in flow.cards:
         stops = card.placements
+        prev_band = None
         for i, (moment, placement) in enumerate(stops):
-            if placement is _OFF_DIAGRAM:
+            band = None if placement is _OFF_DIAGRAM else _band(flow, placement)
+            if band != prev_band:
+                if days and flow_range.first_day < _utc_date(moment) <= flow_range.last_day:
+                    if prev_band is not None:
+                        left[prev_band] += 1
+                    if band is not None:
+                        entered[band] += 1
+                prev_band = band
+            if band is None:
                 continue
             start = to_index(_utc_date(moment))
             end = to_index(_utc_date(stops[i + 1][0])) if i + 1 < len(stops) else len(days)
             if start < end:
-                band = _band(flow, placement)
                 deltas[band][start] += 1
                 deltas[band][end] -= 1
 
@@ -1085,9 +1259,22 @@ def cumulative_flow(flow, flow_range):
             running[band] += deltas[band][i]
             counts[band] = running[band]
         rows.append({"date": day.isoformat(), "counts": counts})
+    # The window holds len(days) - 1 whole days of change (it opens at the end of the first).
+    span = len(days) - 1
+    columns = _cfd_columns(flow)
+    for column in columns:
+        band = column["column_uid"] if column["column_uid"] is not None else NULL_BAND_KEY
+        column.update({
+            "start_count": rows[0]["counts"][band] if rows else None,
+            "end_count": rows[-1]["counts"][band] if rows else None,
+            "entered": entered[band],
+            "left": left[band],
+            "entered_per_week": entered[band] * 7 / span if span >= 1 else None,
+            "left_per_week": left[band] * 7 / span if span >= 1 else None,
+        })
     return {
         "definition": DEFINITIONS["cumulative_flow"],
-        "columns": _cfd_columns(flow),
+        "columns": columns,
         "days": rows,
         "bottleneck_column_uid": (
             _bottleneck(flow, rows[0]["counts"], rows[-1]["counts"]) if rows else None

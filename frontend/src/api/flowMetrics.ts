@@ -1,8 +1,11 @@
 import client from "./client";
 import type {
+  FlowAttention,
+  FlowBlocked,
   FlowCumulativeDayCards,
   FlowCumulativeFlow,
   FlowCycleTime,
+  FlowDwell,
   FlowThroughput,
   FlowWipAge,
 } from "../types";
@@ -47,4 +50,19 @@ export const getFlowCumulativeDay = (boardId: number, filters: FlowFilters, date
 export const getFlowWipAge = (boardId: number, filters: FlowFilters) =>
   client
     .get<FlowWipAge>(`/api/v1/boards/${boardId}/metrics/wip-age/`, { params: flowParams(filters) })
+    .then((r) => r.data);
+
+export const getFlowDwell = (boardId: number, filters: FlowFilters) =>
+  client
+    .get<FlowDwell>(`/api/v1/boards/${boardId}/metrics/dwell/`, { params: flowParams(filters) })
+    .then((r) => r.data);
+
+export const getFlowBlocked = (boardId: number, filters: FlowFilters) =>
+  client
+    .get<FlowBlocked>(`/api/v1/boards/${boardId}/metrics/blocked/`, { params: flowParams(filters) })
+    .then((r) => r.data);
+
+export const getFlowAttention = (boardId: number, filters: FlowFilters) =>
+  client
+    .get<FlowAttention>(`/api/v1/boards/${boardId}/metrics/attention/`, { params: flowParams(filters) })
     .then((r) => r.data);

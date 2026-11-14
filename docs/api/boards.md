@@ -507,9 +507,9 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/` and `.../wip-age/` return the charts on the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return the charts on the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
 
-**Query parameters, on all four:**
+**Query parameters, on all seven:**
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
@@ -563,7 +563,7 @@ Adds an optional `period`, `week` (the default) or `day`.
   "total": 9,
   "median": 2,
   "samples": [
-    { "start": "2026-06-01", "count": 3, "card_uids": ["3a9f1c2d7e4b8a05"] }
+    { "start": "2026-06-01", "count": 3, "card_uids": ["3a9f1c2d7e4b8a05"], "started": 4 }
   ],
   "cards": []
 }
@@ -571,15 +571,21 @@ Adds an optional `period`, `week` (the default) or `day`.
 
 `median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
 
+`started` *(added in 1.3, #2260)* counts the cards whose cycle started in the period: their first move out of the column they were created in, to a column that is not done. Archived cards count, as in `count`. A reopen is not a start. A card with no creation movement, such as one imported without its history, can finish but never starts, so on an imported board `started` under-reports next to `count`.
+
 #### `GET /api/v1/boards/{id}/metrics/cumulative-flow/`
 
 ```json
 {
   "definition": "for each day, the number of cards in each column at the end of that day.",
   "columns": [
-    { "column_uid": "col0000001", "column_name": "Doing", "is_done": false },
-    { "column_uid": "col0000002", "column_name": "Done", "is_done": true },
-    { "column_uid": null, "column_name": null, "is_done": false }
+    {
+      "column_uid": "col0000001", "column_name": "Doing", "is_done": false,
+      "start_count": 4, "end_count": 6, "entered": 14, "left": 12,
+      "entered_per_week": 1.1, "left_per_week": 0.94
+    },
+    { "column_uid": "col0000002", "column_name": "Done", "is_done": true, "...": "..." },
+    { "column_uid": null, "column_name": null, "is_done": false, "...": "..." }
   ],
   "days": [
     { "date": "2026-06-01", "counts": { "col0000001": 4, "col0000002": 7, "null": 0 } }
@@ -589,6 +595,14 @@ Adds an optional `period`, `week` (the default) or `day`.
 ```
 
 The last column, `column_uid: null`, is one band for every deleted column; in `counts` it is the key `"null"`. `bottleneck_column_uid` is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie), or `null` when none grew.
+
+Each column also carries its flow across the range *(added in 1.3, #2260)*, the done columns and the `null` band included:
+
+| Field | Meaning |
+|---|---|
+| `start_count`, `end_count` | Its count at the end of the first and the last day. `null` when the range has no whole day. |
+| `entered`, `left` | How many times a card entered or left it after the first day and up to the end of the last, so `end_count - start_count == entered - left` always. A card that moves out and back the same day counts both ways. Archiving a card outside a done column leaves the column; restoring it enters it again. |
+| `entered_per_week`, `left_per_week` | `entered × 7 ÷ (days − 1)` and the same for `left`, unrounded. `null` with fewer than two whole days. |
 
 Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's counts instead:
 
@@ -632,6 +646,78 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
 ```
 
 `columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
+
+#### `GET /api/v1/boards/{id}/metrics/dwell/`
+
+*Added in 1.3 (#2260).* Completed dwell time per column: the visits that closed in the range, each at its full length.
+
+```json
+{
+  "definition": "how long a card stayed in one column, ...",
+  "sample_size": 41,
+  "excluded_incomplete_history": 0,
+  "columns": [
+    {
+      "column_uid": "col0000001", "column_name": "Doing", "sample_size": 18,
+      "percentiles": { "p50": 2.3, "p85": 6.1, "p95": null }
+    }
+  ]
+}
+```
+
+`columns` lists the columns that are not done, in position order, each with its own sample size and percentiles under the same sample-size rule. The individual visits are not returned.
+
+#### `GET /api/v1/boards/{id}/metrics/blocked/`
+
+*Added in 1.3 (#2260).* Blocked time inside the range, under the same filters as every other metric.
+
+```json
+{
+  "definition": "the time cards spent blocked, reported as its own metric: ...",
+  "total": { "days": 12.75, "blocks": 9 },
+  "blocked_now": 3,
+  "columns": [
+    { "column_uid": "col0000001", "column_name": "Doing", "days": 8.5, "blocks": 6 }
+  ],
+  "reasons": [
+    { "reason": "Waiting on vendor", "days": 7.25, "blocks": 4 }
+  ],
+  "reason_count": 5
+}
+```
+
+- `total` holds every block in the range, including blocks in a column that was since deleted, which no `columns` entry holds.
+- `columns` lists every current column in position order, by the column the card was in when it was blocked.
+- `reasons` lists the top ten reasons by days, then blocks, then name. Reasons that differ only in capitals or spacing are one reason, shown with its newest spelling. `reason_count` is how many distinct reasons there were before the cap.
+- `blocked_now` is the cards, not archived and not in a done column, that are blocked now, manually or by a relation.
+- Days are unrounded. A block counts for its part inside the range: an open block runs to now, or to the card's archive while it is archived, and every end stops at the end of the range.
+
+The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsidanalytics) keeps its own shape, rounded and keyed by column name.
+
+#### `GET /api/v1/boards/{id}/metrics/attention/`
+
+*Added in 1.3 (#2260).* The cards that need attention now. The range moves only `cycle_time_percentiles`, as on `wip-age`.
+
+```json
+{
+  "definition": "the cards, not archived and not in a done column, that are blocked, ...",
+  "stalled_threshold_days": 7,
+  "cycle_time_percentiles": { "p50": 4.21, "p85": 8.14, "p95": null },
+  "items": [
+    {
+      "card_uid": "3a9f1c2d7e4b8a05", "column_uid": "col0000001", "swimlane_id": 3,
+      "age_days": 15.4, "unmoved_days": 9.2, "reasons": ["blocked", "past_p85", "stalled"]
+    }
+  ],
+  "cards": []
+}
+```
+
+- Each card not archived and not in a done column appears once, with every reason that applies, in this order: `blocked` (manually or by a relation), `past_p85` (in progress, and its age is greater than `cycle_time_percentiles.p85`; never when that is `null`), `stalled` (its last movement of any kind is more than `stalled_threshold_days` ago, the board's `staleness_threshold_days`).
+- `age_days` is `null` for a card that is not in progress, such as one that has not left its first column or has incomplete history. `unmoved_days` is `null` for a card with no movement.
+- Items run oldest first by `age_days`, then by `unmoved_days`, `null` last in both, then by card.
+
+It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed.
 
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.

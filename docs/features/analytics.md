@@ -24,6 +24,8 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **Throughput:** the number of cards whose first entry into a done column falls in a period.
 - **WIP:** the number of cards, not archived, currently in each column that is not done.
 - **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
+- **Blocked time:** the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.
+- **Needs attention:** the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.
 
 ## Summary view
 

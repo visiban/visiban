@@ -4,7 +4,8 @@ vi.mock('../api/client', () => ({ default: { get: vi.fn() } }))
 
 import client from '../api/client'
 import {
-  getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowThroughput, getFlowWipAge,
+  getFlowAttention, getFlowBlocked, getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell,
+  getFlowThroughput, getFlowWipAge,
 } from '../api/flowMetrics'
 
 const get = vi.mocked(client.get)
@@ -20,6 +21,9 @@ describe('flow metrics API', () => {
     ['throughput', getFlowThroughput],
     ['cumulative-flow', getFlowCumulativeFlow],
     ['wip-age', getFlowWipAge],
+    ['dwell', getFlowDwell],
+    ['blocked', getFlowBlocked],
+    ['attention', getFlowAttention],
   ])('%s sends only the filters that are set', async (metric, call) => {
     await expect(call(3, { days: 90, swimlaneId: null, labelId: null })).resolves.toEqual({ ok: true })
     expect(get).toHaveBeenLastCalledWith(`/api/v1/boards/3/metrics/${metric}/`, { params: { days: 90 } })

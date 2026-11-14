@@ -1922,6 +1922,8 @@ export interface FlowThroughputSample {
   start: string;
   count: number;
   card_uids: string[];
+  /** Cards whose cycle started in the period (#2260). Under-reports on imported boards. */
+  started: number;
 }
 
 export interface FlowThroughput {
@@ -1938,6 +1940,15 @@ export interface FlowCumulativeColumn {
   column_uid: string | null;
   column_name: string | null;
   is_done: boolean;
+  /** Cards at the end of the first / last whole day; null with no whole day (#2260). */
+  start_count: number | null;
+  end_count: number | null;
+  /** Band changes after the first day: `end_count - start_count === entered - left`. */
+  entered: number;
+  left: number;
+  /** `entered × 7 ÷ (days − 1)`; null under two whole days. */
+  entered_per_week: number | null;
+  left_per_week: number | null;
 }
 
 export interface FlowCumulativeFlow {
@@ -1972,6 +1983,68 @@ export interface FlowWipAge {
   cycle_time_percentiles: FlowPercentiles;
   columns: { column_uid: string; column_name: string }[];
   samples: FlowAgeSample[];
+  cards: FlowCard[];
+}
+
+/** `GET /boards/{id}/metrics/dwell/` (#2260): completed dwell per not-done column. */
+export interface FlowDwellColumn {
+  column_uid: string;
+  column_name: string;
+  sample_size: number;
+  percentiles: FlowPercentiles;
+}
+
+export interface FlowDwell {
+  definition: string;
+  sample_size: number;
+  excluded_incomplete_history: number;
+  columns: FlowDwellColumn[];
+}
+
+/** `GET /boards/{id}/metrics/blocked/` (#2260). Days are unrounded. */
+export interface FlowBlockedColumn {
+  column_uid: string;
+  column_name: string;
+  days: number;
+  blocks: number;
+}
+
+export interface FlowBlockedReason {
+  reason: string;
+  days: number;
+  blocks: number;
+}
+
+export interface FlowBlocked {
+  definition: string;
+  total: { days: number; blocks: number };
+  blocked_now: number;
+  columns: FlowBlockedColumn[];
+  reasons: FlowBlockedReason[];
+  /** Distinct reasons before `reasons` was capped. */
+  reason_count: number;
+}
+
+/** `GET /boards/{id}/metrics/attention/` (#2260). */
+export type FlowAttentionReason = "blocked" | "past_p85" | "stalled";
+
+export interface FlowAttentionItem {
+  card_uid: string;
+  column_uid: string;
+  swimlane_id: number;
+  /** Null when the card is not in progress. */
+  age_days: number | null;
+  /** Null when the card has no movement. */
+  unmoved_days: number | null;
+  /** Never empty, in the order blocked, past_p85, stalled. */
+  reasons: FlowAttentionReason[];
+}
+
+export interface FlowAttention {
+  definition: string;
+  stalled_threshold_days: number;
+  cycle_time_percentiles: FlowPercentiles;
+  items: FlowAttentionItem[];
   cards: FlowCard[];
 }
 

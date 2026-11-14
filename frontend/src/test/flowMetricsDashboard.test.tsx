@@ -51,17 +51,17 @@ const throughput: FlowThroughput = {
   total: 2,
   median: 1,
   samples: [
-    { start: '2026-06-01', count: 2, card_uids: [cardA.uid, cardB.uid] },
-    { start: '2026-06-08', count: 0, card_uids: [] },
+    { start: '2026-06-01', count: 2, card_uids: [cardA.uid, cardB.uid], started: 0 },
+    { start: '2026-06-08', count: 0, card_uids: [], started: 0 },
   ],
   cards: [cardA, cardB],
 }
 const cumulative: FlowCumulativeFlow = {
   definition: 'cumulative definition',
   columns: [
-    { column_uid: 'col-doing', column_name: 'Doing', is_done: false },
-    { column_uid: 'col-done', column_name: 'Done', is_done: true },
-    { column_uid: null, column_name: null, is_done: false },
+    { column_uid: 'col-doing', column_name: 'Doing', is_done: false, start_count: 0, end_count: 0, entered: 0, left: 0, entered_per_week: 0, left_per_week: 0 },
+    { column_uid: 'col-done', column_name: 'Done', is_done: true, start_count: 0, end_count: 0, entered: 0, left: 0, entered_per_week: 0, left_per_week: 0 },
+    { column_uid: null, column_name: null, is_done: false, start_count: 0, end_count: 0, entered: 0, left: 0, entered_per_week: 0, left_per_week: 0 },
   ],
   days: [
     { date: '2026-06-01', counts: { 'col-doing': 1, 'col-done': 0, null: 0 } },
@@ -101,7 +101,7 @@ function mockAll(overrides: Partial<{
 
 const empty = {
   cycle: { ...cycle, sample_size: 0, excluded_incomplete_history: 0, percentiles: { p50: null, p85: null, p95: null }, samples: [], cards: [] },
-  throughput: { ...throughput, total: 0, median: 0, samples: [{ start: '2026-06-01', count: 0, card_uids: [] }], cards: [] },
+  throughput: { ...throughput, total: 0, median: 0, samples: [{ start: '2026-06-01', count: 0, card_uids: [], started: 0 }], cards: [] },
   cumulative: { ...cumulative, days: [{ date: '2026-06-01', counts: { 'col-doing': 0, 'col-done': 0, null: 0 } }], bottleneck_column_uid: null },
   age: { ...age, sample_size: 0, samples: [], cards: [], cycle_time_percentiles: { p50: null, p85: null, p95: null } },
 }
@@ -572,7 +572,7 @@ describe('flow summaries', () => {
   it('throughput handles no periods, no completions, and a null median', () => {
     expect(throughputSummary({ ...throughput, samples: [] })).toBe('No whole week in this range yet.')
     expect(throughputSummary({ ...throughput, total: 0 })).toBe('No cards finished in the whole weeks of this range.')
-    expect(throughputSummary({ ...throughput, median: null, samples: [{ start: 'x', count: 1, card_uids: [] }] }))
+    expect(throughputSummary({ ...throughput, median: null, samples: [{ start: 'x', count: 1, card_uids: [], started: 0 }] }))
       .toBe('1 card finished in the last whole week.')
     expect(throughputSummary(throughput)).toBe('0 cards finished in the last whole week, against a median of 1.')
   })

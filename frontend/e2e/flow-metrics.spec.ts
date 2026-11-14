@@ -34,18 +34,24 @@ const throughput = {
   total: 24,
   median: 2,
   samples: Array.from({ length: 12 }, (_, n) => ({
-    start: dateDaysAgo(84 - 7 * n), count: n % 4, card_uids: cards.slice(n, n + n % 4).map((c) => c.uid),
+    start: dateDaysAgo(84 - 7 * n), count: n % 4, card_uids: cards.slice(n, n + n % 4).map((c) => c.uid), started: n % 3,
   })),
   cards,
 }
+// The #2260 column-flow fields: a net change only, so entered - left matches the counts below.
+const columnFlow = (start: number, end: number) => ({
+  start_count: start, end_count: end,
+  entered: Math.max(end - start, 0), left: Math.max(start - end, 0),
+  entered_per_week: (Math.max(end - start, 0) * 7) / 89, left_per_week: (Math.max(start - end, 0) * 7) / 89,
+})
 const cumulativeFlow = {
   definition: 'for each day, the number of cards in each column at the end of that day.',
   columns: [
-    { column_uid: 'col-backlog', column_name: 'Backlog', is_done: false },
-    { column_uid: 'col-doing', column_name: 'Doing', is_done: false },
-    { column_uid: 'col-review', column_name: 'Review', is_done: false },
-    { column_uid: 'col-done', column_name: 'Done', is_done: true },
-    { column_uid: null, column_name: null, is_done: false },
+    { column_uid: 'col-backlog', column_name: 'Backlog', is_done: false, ...columnFlow(8, 8) },
+    { column_uid: 'col-doing', column_name: 'Doing', is_done: false, ...columnFlow(2, 9) },
+    { column_uid: 'col-review', column_name: 'Review', is_done: false, ...columnFlow(3, 3) },
+    { column_uid: 'col-done', column_name: 'Done', is_done: true, ...columnFlow(0, 22) },
+    { column_uid: null, column_name: null, is_done: false, ...columnFlow(0, 0) },
   ],
   days: Array.from({ length: 90 }, (_, n) => ({
     date: dateDaysAgo(90 - n),
