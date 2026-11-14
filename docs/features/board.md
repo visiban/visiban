@@ -486,13 +486,13 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 2. Pick a field, then a value or range:
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
-    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
+    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or one of three operators that take text you type (up to 500 characters): **contains**, **does not contain**, and **matches wildcard**, for example *AE is Ethan Ross*, *AE contains ross*, or *AE matches wildcard Ethan\**. Matching ignores case and leading or trailing spaces. See [Text operators and wildcards](#text-operators-and-wildcards). A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty text box is an incomplete filter.
 3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
 4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
 
 Rules apply as soon as they are complete; **Done** just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.
 
-- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, and **between** and passes **is not**.
+- **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, **matches wildcard**, and **between**, and passes **is not** and **does not contain**.
 - **Admin-only fields** are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.
 - **Checkbox and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, **Lanes** is hidden.
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
@@ -501,6 +501,34 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 - **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
 
 Lane filters are saved with the rest of the filter state in your browser, in the URL (`f_lanes`), and in [saved filters](saved-filters.md).
+
+#### Text operators and wildcards
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Text and URL swimlane fields offer five operators in a lane filter:
+
+| Operator | Matches a lane when its value... |
+|---|---|
+| **is** / **is not** | equals the value you pick, exactly |
+| **contains** | has your text anywhere inside it. `*` and `?` are ordinary characters here |
+| **does not contain** | does not have your text inside it (the opposite of **contains**) |
+| **matches wildcard** | has a part that matches your pattern, where `*` stands for any run of characters (including none) and `?` for exactly one character |
+
+All of them ignore case and leading or trailing spaces. A **contains**, **does not contain**, or **matches wildcard** filter with a blank box is incomplete and is ignored.
+
+With **matches wildcard** the pattern may match any part of the value, just as **contains** does, so a `*` at either end is unnecessary: `ethan` and `*ethan*` behave the same. A lone `*` matches any lane that has a value. There is no "starts with" or "ends with" yet (see [#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
+
+| You type | Matches | Doesn't match |
+|---|---|---|
+| `e*ross` | Ethan Ross, Eve Gross | Ross Ethan |
+| `j?n` | Jan, Jon, Jan Smith | Jean, Jn |
+| `ethan` | Ethan Ross, Seth Ethan | Eth |
+| `a*c` | abc, xxabbcxx | cba |
+
+- **A literal `*` or `?`:** use **contains**, where they are plain characters.
+- **Lanes with no value** fail **matches wildcard** and **contains**, and pass **does not contain** (as they pass **is not**).
+- Wildcard patterns are never treated as regular expressions, so no other character has a special meaning.
 
 #### URL-serialized filter state
 
