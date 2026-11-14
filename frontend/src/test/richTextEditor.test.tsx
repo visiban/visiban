@@ -34,7 +34,7 @@ vi.mock('@tiptap/starter-kit', () => ({
 vi.mock('@tiptap/extensions', () => ({
   Placeholder: { configure: vi.fn(() => ({})) },
 }))
-vi.mock('@tiptap/extension-text-style', () => ({ TextStyle: {}, Color: {} }))
+vi.mock('@tiptap/extension-text-style', () => ({ TextStyle: {}, Color: { extend: vi.fn(() => ({})) } }))
 vi.mock('@tiptap/extension-mention', () => ({
   default: {
     extend: vi.fn((spec) => ({ ...spec, configure: vi.fn(() => ({})) })),
