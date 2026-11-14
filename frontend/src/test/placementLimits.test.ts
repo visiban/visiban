@@ -19,7 +19,7 @@ function col(id: number, name: string, overrides: Partial<Column> = {}): Column 
 function lane(id: number, name: string, overrides: Partial<Swimlane> = {}): Swimlane {
   return {
     id, uid: `s${id}`, name, position: id, color: '#000000', is_collapsed: false, created_at: '',
-    wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, ...overrides,
+    wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, ...overrides,
   }
 }
 

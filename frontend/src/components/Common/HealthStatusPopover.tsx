@@ -6,7 +6,9 @@ import {
   HEALTH_STATUS_DESCRIPTIONS, HEALTH_STATUS_LABELS, HEALTH_STATUS_TEXT, HEALTH_STATUS_VALUES,
   NO_STATUS_LABEL, type HealthDisplayValue, type HealthStatus,
 } from "../../constants/healthStatus";
-import { getHealthDisplay, healthStatusErrorMessage, type HealthFields } from "../../utils/healthStatus";
+import {
+  getHealthDisplay, healthStatusErrorMessage, type HealthEntityKind, type HealthFields,
+} from "../../utils/healthStatus";
 import HealthStatusShape from "./HealthStatusShape";
 import { isImeComposing } from "../../utils/imeComposition";
 
@@ -14,7 +16,13 @@ import { isImeComposing } from "../../utils/imeComposition";
 type Draft = HealthStatus | "inherit";
 
 export interface HealthStatusPopoverProps extends HealthFields {
-  entityKind: "board" | "group";
+  /**
+   * `"swimlane"` (#2243): no Inherit choice (parentName is always null, so the
+   * reset is "No status"), a line saying the lane is separate from the board,
+   * and none of the board/group extras: a lane has no note or history yet, so
+   * anything added here for boards and groups (#2242) must stay off for it.
+   */
+  entityKind: HealthEntityKind;
   entityName: string;
   /** Name of the group above the entity; null at the root (a personal board or a top-level group). */
   parentName: string | null;
@@ -31,8 +39,13 @@ const CARD = "flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer 
 const CARD_SELECTED = "border-primary-emphasis bg-primary-emphasis/10";
 const CARD_IDLE = "border-line-strong hover:bg-surface-hover/40";
 
-function stateLine(fields: HealthFields, entityKind: "board" | "group", parentName: string | null): string {
-  if (fields.health_status !== null) return entityKind === "board" ? "Set on this board." : "Set on this group.";
+const SET_HERE: Record<HealthEntityKind, string> = {
+  board: "Set on this board.", group: "Set on this group.", swimlane: "Set on this lane.",
+};
+
+function stateLine(fields: HealthFields, entityKind: HealthEntityKind, parentName: string | null): string {
+  if (fields.health_status !== null) return SET_HERE[entityKind];
+  if (entityKind === "swimlane") return "No status set.";
   const display = getHealthDisplay(fields);
   if (display.inheritedFrom) return `Inherited from ${display.inheritedFrom}.`;
   return parentName !== null ? "No status set here or in a group above." : "No status set.";
@@ -163,8 +176,10 @@ export default function HealthStatusPopover({
     // The parent closes the popover and returns focus on success.
   };
 
-  const resetLabel = parentName !== null ? `Inherit from ${parentName}` : NO_STATUS_LABEL;
-  const resetDescription = parentName !== null
+  // A lane never inherits (#2243), whatever parentName the caller passes.
+  const inherits = parentName !== null && entityKind !== "swimlane";
+  const resetLabel = inherits ? `Inherit from ${parentName}` : NO_STATUS_LABEL;
+  const resetDescription = inherits
     ? `Follow ${parentName}, or the nearest group above it that has a status.`
     : "Clear the status. Nothing is shown as set.";
   const left = clampLeftToVisible(anchorRect.left, PANEL_WIDTH);
@@ -174,7 +189,7 @@ export default function HealthStatusPopover({
       ref={panelRef}
       role="dialog"
       tabIndex={-1}
-      aria-label={`Health status for ${entityName}`}
+      aria-label={entityKind === "swimlane" ? `Health status for lane ${entityName}` : `Health status for ${entityName}`}
       className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl focus:outline-none"
       style={{
         top: top ?? 0,
@@ -229,6 +244,11 @@ export default function HealthStatusPopover({
         {entityKind === "group" && (
           <p className="px-3 mt-2 text-xs text-fg-tertiary">
             Boards and subgroups that don't set their own status follow this one.
+          </p>
+        )}
+        {entityKind === "swimlane" && (
+          <p className="px-3 mt-2 text-xs text-fg-tertiary">
+            This lane&apos;s status is separate from the board&apos;s status.
           </p>
         )}
         <p role="status" aria-live="polite" className="px-3 mt-1 text-xs min-h-4">

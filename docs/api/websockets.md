@@ -201,7 +201,7 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `swimlane.created` | New swimlane created | `SwimlaneSerializer` object (public fields only — `contact_email` and `notes` are omitted regardless of role) |
-| `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above). Since 1.3 the object also carries `wip_limit`, `weight_limit`, `limit_enforcement` and `limit_column_ids` (#1150), additive. A column delete that removes the column from a swimlane's `limit_column_ids` sends a `swimlane.updated` for that swimlane (before `column.deleted`); a list left empty becomes `null` |
+| `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above). Since 1.3 the object also carries `wip_limit`, `weight_limit`, `limit_enforcement` and `limit_column_ids` (#1150), and `health_status` (#2243, the lane's manual health status; a change to it arrives as this event), additive. A column delete that removes the column from a swimlane's `limit_column_ids` sends a `swimlane.updated` for that swimlane (before `column.deleted`); a list left empty becomes `null` |
 | `swimlane.deleted` | Swimlane deleted, with every card in it (archived cards included). No `card.deleted` frames are sent for those cards; see [Deleting a container deletes its cards](#deleting-a-container-deletes-its-cards) | `{ "swimlane_uid": <string> }` |
 | `swimlane.reordered` | Swimlane order changed (since 1.1) | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
 

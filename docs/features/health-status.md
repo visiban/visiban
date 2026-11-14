@@ -59,6 +59,23 @@ There is no roll-up in the other direction: a group is never marked *Off track* 
 
 Lists show a status only where one applies; they never show **No status**. A group you can see only because it is on the path to one of your groups (shown without its counts) shows no status either.
 
+## Lane status
+
+<a id="lane-status"></a>
+
+A board admin can also give a single swimlane its own status. On a board with one lane per customer, project or candidate, that marks the one lane in trouble (the **Acme** lane is **At risk**) while the rest of the board is fine.
+
+- **Set it:** hover the lane's label panel and choose the half-filled circle icon (on a touch screen it is always visible), or Tab to it. Pick **On track**, **At risk** or **Off track** and choose **Save**. To change or clear it, choose the lane's status pill; **No status** clears it. Only board admins can set or clear a lane's status.
+- **Where it shows:** on its own line under the lane's name. On a collapsed lane only the shape shows, next to the name; the word is still read out by screen readers. A lane with no status shows nothing to anyone who is not a board admin.
+- **It is independent of the board:** a lane's status never comes from the board's, and the board's status is never worked out from its lanes. Changing one never changes the other. A lane with no status means just that, *no status*: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed.
+- **Who sees it:** everyone who can see the board, and a change reaches everyone with the board open at once. A public share link does not show lane status.
+- **Export and import:** a board's JSON export carries each lane's status, and importing the file restores it.
+
+!!! note "If you already track health with a lane field"
+    A board that built its own **Health** dropdown as a [swimlane custom field](custom-fields.md#swimlane-row-custom-fields) now has two: that field and the lane status. Nothing moves the field's values into the lane status. Lane status is the one that shares the board and group pills' shapes and words, and that later lane features will build on; you can delete the custom field once you have set the statuses by hand.
+
+The lane status is the lane's **manual** status: a value an admin pins. Like every 1.0+ field it follows the API stability rules, so it will not be renamed or removed.
+
 ## When other people see a change
 
 A change to a board's status reaches everyone who has that board open, at once.
@@ -68,3 +85,5 @@ A change to a group's status updates that group's page for everyone who has it o
 ## For API clients
 
 Boards and groups carry three fields: `health_status` (the entity's own value, or `null` to inherit), `effective_health_status` (the value that applies) and `health_status_source` (the `{id, name}` of the group the value comes from, or `null`). Values are `on_track`, `at_risk` and `off_track`. See the [Boards API](../api/boards.md#get-apiv1boardsid) and the [Groups API](../api/groups.md#get-apiv1groupsid).
+
+Swimlanes carry one field, `health_status` (the lane's manual status, or `null` for no status; there is no inheritance, so there is no `effective_health_status` or `health_status_source`). Board admins write it with `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`; see the [Swimlanes API](../api/boards.md#swimlanes).

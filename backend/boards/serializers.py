@@ -748,6 +748,14 @@ def _swimlane_custom_field_prefetch():
     )
 
 
+SWIMLANE_HEALTH_STATUS_HELP = (
+    "This lane's manual health status (#2243): on_track, at_risk or "
+    "off_track, or null for no status. Independent of the board's status: "
+    "null does not inherit the board's value, and a lane's value never rolls "
+    "up to the board. Writable by board admins."
+)
+
+
 class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
     """Public swimlane representation — omits contact_email and notes.
 
@@ -779,6 +787,16 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
 
+    # Lane health status (#2243). A plain ChoiceField, not
+    # HealthStatusFieldsMixin: a lane never inherits, so it has no
+    # effective_/source fields. On this serializer (not only the admin one)
+    # because every member reads it; writes are admin-gated in the viewset.
+    # PublicSwimlaneSerializer lists its fields explicitly and omits it.
+    health_status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True, required=False,
+        help_text=SWIMLANE_HEALTH_STATUS_HELP,
+    )
+
     MAX_LIMIT_COLUMN_IDS = 90
 
     class Meta:
@@ -787,6 +805,7 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "id", "uid", "name", "position", "color", "is_collapsed",
             "created_at", "custom_field_values",
             "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
+            "health_status",
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -891,6 +910,7 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             "id", "uid", "name", "contact_email", "notes", "position", "color",
             "is_collapsed", "created_at", "custom_field_values",
             "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
+            "health_status",
         ]
 
 

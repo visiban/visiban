@@ -283,7 +283,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
       { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
     ],
     swimlanes: [
-      { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+      { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
     ],
     cards: [],
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
@@ -1487,8 +1487,8 @@ describe('BoardView', () => {
     it('reads the cell and the limit it would trip', () => {
       const board = makeBoard({
         swimlanes: [
-          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
-          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'block', limit_column_ids: null },
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
+          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'block', limit_column_ids: null, health_status: null },
         ],
         cards: [card(1, 10, 20), card(2, 11, 21)],
       })
@@ -1501,8 +1501,8 @@ describe('BoardView', () => {
     it('a quick second hover onto a blocked cell still announces its verdict', () => {
       const board = makeBoard({
         swimlanes: [
-          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
-          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: null },
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
+          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: null, health_status: null },
         ],
         cards: [card(1, 10, 20), card(2, 11, 21)],
       })
@@ -3166,7 +3166,7 @@ describe('BoardView lane filters (#2205)', () => {
   }
   const lane = (id: number, name: string, ae?: string) => ({
     id, uid: `laneuid0000${id}`, name, contact_email: '', notes: '', position: id, color: '#6B7280', is_collapsed: false,
-    created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
+    created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
     custom_field_values: ae ? [{ field_definition: 7, value: ae }] : [],
   })
   const boardWith = (lanes: ReturnType<typeof lane>[], extra: Partial<BoardFull> = {}) =>

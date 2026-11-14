@@ -1,11 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import SeparatorPlus from "./SeparatorPlus";
 import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
-import { updateSwimlane } from "../../api/boards";
+import { patchSwimlane, updateSwimlane } from "../../api/boards";
+import HealthStatusControl from "../Common/HealthStatusControl";
+import type { HealthStatus } from "../../constants/healthStatus";
+import { laneHealthFields } from "../../utils/healthStatus";
 import BoardCell from "./BoardCell";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
@@ -237,6 +240,21 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     setRenaming(true);
   };
 
+  // Lane health status (#2243). The set pill (under the name) and the unset
+  // icon (right-hand cluster) are different elements, so a save that swaps
+  // them hands focus to the new one explicitly, and the announcement lives
+  // here because the control that saved may unmount.
+  const [healthFocus, setHealthFocus] = useState<"pill" | "icon" | null>(null);
+  const [healthAnnouncement, setHealthAnnouncement] = useState("");
+  const clearHealthFocus = useCallback(() => setHealthFocus(null), []);
+  const saveHealth = useCallback(async (next: HealthStatus | null) => {
+    const updated = await patchSwimlane(boardId, swimlane.id, { health_status: next });
+    onSwimlaneUpdated(updated);
+    if ((swimlane.health_status === null) !== (next === null)) setHealthFocus(next === null ? "icon" : "pill");
+    return { effective_health_status: updated.health_status };
+  }, [boardId, swimlane.id, swimlane.health_status, onSwimlaneUpdated]);
+  const healthFields = laneHealthFields(swimlane.health_status);
+
   const commitRename = async (restoreFocus = false) => {
     const trimmed = draft.trim();
     if (restoreFocus) focusTriggerRef.current = true;
@@ -336,6 +354,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           )}
 
           <div className="flex-1 min-w-0">
+            <div className={collapsed ? "flex items-center gap-1.5 min-w-0" : "min-w-0"}>
             {renaming ? (
               <input
                 ref={inputRef}
@@ -370,6 +389,48 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 )}
               </p>
             )}
+            {/* Collapsed lane (#2243): a set status rides inline, shape only, so
+                the py-1 row does not grow; an unset one shows nothing here. */}
+            {collapsed && swimlane.health_status && (
+              <span className="shrink-0 inline-flex" onDoubleClick={(e) => e.stopPropagation()}>
+                <HealthStatusControl
+                  entityKind="swimlane"
+                  entityName={swimlane.name}
+                  parentName={null}
+                  canEdit={isAdmin}
+                  scope="lane"
+                  shapeOnly
+                  onSave={saveHealth}
+                  onAnnounce={setHealthAnnouncement}
+                  autoFocus={healthFocus === "pill"}
+                  onAutoFocused={clearHealthFocus}
+                  {...healthFields}
+                />
+              </span>
+            )}
+            </div>
+            {/* Expanded lane (#2243): a set status is its own line under the
+                name. The stop is required: the panel's double-click opens the
+                edit modal for admins, and the portaled popover's events bubble
+                through React to it. */}
+            {!collapsed && swimlane.health_status && (
+              <div className="mt-1 flex min-w-0" onDoubleClick={(e) => e.stopPropagation()}>
+                <HealthStatusControl
+                  entityKind="swimlane"
+                  entityName={swimlane.name}
+                  parentName={null}
+                  canEdit={isAdmin}
+                  scope="lane"
+                  collapseLabel
+                  onSave={saveHealth}
+                  onAnnounce={setHealthAnnouncement}
+                  autoFocus={healthFocus === "pill"}
+                  onAutoFocused={clearHealthFocus}
+                  {...healthFields}
+                />
+              </div>
+            )}
+            <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
             {showLimitStat && limitReading !== null && (
               <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
@@ -416,6 +477,24 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {/* Unset lane, admins only (#2243): a hover/focus-revealed icon,
+                always in the DOM so Tab reaches it. Non-admins get nothing. */}
+            {!collapsed && isAdmin && !swimlane.health_status && (
+              <span className="inline-flex shrink-0" onDoubleClick={(e) => e.stopPropagation()}>
+                <HealthStatusControl
+                  entityKind="swimlane"
+                  entityName={swimlane.name}
+                  parentName={null}
+                  canEdit
+                  trigger="icon"
+                  onSave={saveHealth}
+                  onAnnounce={setHealthAnnouncement}
+                  autoFocus={healthFocus === "icon"}
+                  onAutoFocused={clearHealthFocus}
+                  {...healthFields}
+                />
+              </span>
+            )}
             {!collapsed && isAdmin && (
               <button type="button"
                 onClick={() => setEditing(true)}

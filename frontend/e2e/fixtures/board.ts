@@ -90,6 +90,7 @@ export const SWIMLANE = {
   weight_limit: null,
   limit_enforcement: null,
   limit_column_ids: null,
+  health_status: null,
 }
 
 export const LABEL_BUG = {

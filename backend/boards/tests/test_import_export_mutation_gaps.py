@@ -307,6 +307,17 @@ class ImportJsonValidationTests(ImportBase):
             "Invalid JSON: expected an object at the top level.",
         )
 
+    def test_swimlane_health_status_must_be_a_known_value(self):
+        # #2243: null or a HealthStatus value, the same error shape as limits.
+        for value in ("bogus", "inherit", 1):
+            with self.subTest(value=value):
+                resp = self.post(_minimal(swimlanes=[{"name": "Lane", "health_status": value}]))
+                self.assertEqual(resp.status_code, 400, resp.content)
+                self.assertIn("health_status", resp.json()["detail"])
+                self.assertIn('must be null, "on_track", "at_risk" or "off_track"', resp.json()["detail"])
+        resp = self.post(_minimal(swimlanes=[{"name": "Lane", "health_status": None}]))
+        self.assertEqual(resp.status_code, 201, resp.content)
+
     def test_collection_keys_must_be_lists(self):
         for key in ("cards", "columns", "swimlanes", "labels"):
             with self.subTest(key=key):
@@ -1792,6 +1803,8 @@ class ExportJsonShapeTests(ExportBase):
                 "weight_limit",
                 "limit_enforcement",
                 "limit_columns",
+                # Lane health status (#2243), additive.
+                "health_status",
             ],
         )
         self.assertEqual(
@@ -1807,6 +1820,7 @@ class ExportJsonShapeTests(ExportBase):
                 "weight_limit": None,
                 "limit_enforcement": None,
                 "limit_columns": None,
+                "health_status": None,
             },
         )
         self.assertEqual(data["labels"], [{"name": "Bug", "color": "#FF0000"}])
@@ -2625,6 +2639,26 @@ class ExportHelperUnitTests(TestCase):
 
 
 class ExportImportRoundTripTests(ExportBase):
+    def test_lane_health_status_survives_a_round_trip(self):
+        # #2243: the lane's manual pin is exported and restored as is; a lane
+        # without one stays "no status".
+        self.sw.health_status = "at_risk"
+        self.sw.save(update_fields=["health_status"])
+        Swimlane.objects.create(board=self.board, name="Unpinned 2243", position=5)
+        exported = self.export("json").content
+        cache.clear()
+        resp = self.client.post(
+            IMPORT_URL,
+            {"file": SimpleUploadedFile("x.json", exported, content_type="application/json")},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        new_board = Board.objects.get(pk=resp.json()["id"])
+        self.assertEqual(
+            dict(new_board.swimlanes.values_list("name", "health_status")),
+            {self.sw.name: "at_risk", "Unpinned 2243": None},
+        )
+
     def test_history_survives_a_round_trip(self):
         card = self.make_card("T", weight=3)
         t0 = timezone.now().replace(microsecond=0) - datetime.timedelta(days=2)

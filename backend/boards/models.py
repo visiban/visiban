@@ -687,6 +687,15 @@ class Swimlane(models.Model):
     # so a rename or reorder never changes what counts. A column delete
     # removes its id (``boards.signals.prune_swimlane_limit_columns``).
     limit_column_ids = models.JSONField(null=True, blank=True, default=None)
+    # Lane health status (#2243): the lane's manual pin, same HealthStatus
+    # enum as Board.health_status. Unlike a board, null here means "no
+    # status", NOT "inherit": a lane's status is independent of its board's
+    # (no cascade down, no rollup up). A computed lane status (#2245) will sit
+    # beside this column, which is why it holds only what an admin pinned.
+    # Nullable with no default, so ADD COLUMN is catalog-only; no index.
+    health_status = models.CharField(
+        max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
+    )
 
     class Meta:
         db_table = "swimlanes"

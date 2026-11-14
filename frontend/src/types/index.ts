@@ -388,6 +388,11 @@ export interface Swimlane {
    * null means every column whose `is_done` is false (#1150).
    */
   limit_column_ids: number[] | null;
+  /**
+   * The lane's manual health status (#2243), or null for no status. Never
+   * inherited from the board and never rolled up to it.
+   */
+  health_status: HealthStatus | null;
 }
 
 export type SwimlaneLimitEnforcement = "block" | "hard";

@@ -208,6 +208,8 @@ _SWIMLANE_ADMIN_SPEC = {
     "is_collapsed": _FieldSpec((bool,)),
     "created_at": _FieldSpec((str,)),
     "custom_field_values": _FieldSpec((list,)),
+    # Lane health status (#2243): the manual pin, null = no status.
+    "health_status": _FieldSpec((str,), nullable=True, enum={"on_track", "at_risk", "off_track"}),
 }
 
 _CARD_SPEC = {

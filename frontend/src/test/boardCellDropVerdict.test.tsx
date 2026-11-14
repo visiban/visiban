@@ -23,7 +23,7 @@ vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 
 const column: Column = { id: 10, uid: 'c10', name: 'Ready', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }
-const swimlane: Swimlane = { id: 20, uid: 's20', name: 'Payouts', position: 0, color: '#000000', is_collapsed: false, created_at: '', wip_limit: 5, weight_limit: null, limit_enforcement: null, limit_column_ids: null }
+const swimlane: Swimlane = { id: 20, uid: 's20', name: 'Payouts', position: 0, color: '#000000', is_collapsed: false, created_at: '', wip_limit: 5, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null }
 
 const tripped = (mode: 'hard' | 'block'): TrippedLimit => ({ scope: 'swimlane', kind: 'wip', mode, name: 'Payouts', current: 5, limit: 5, cardWeight: 1 })
 

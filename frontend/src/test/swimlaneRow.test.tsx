@@ -7,7 +7,7 @@ import type { Card, Column, Swimlane } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
 
-vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn() }))
+vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn() }))
 import { updateSwimlane } from '../api/boards'
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -46,7 +46,7 @@ const columns: Column[] = [
 
 const swimlane: Swimlane = {
   id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: 'a@test.com', notes: '', position: 0,
-  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
+  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
 }
 
 function makeCard(overrides: Partial<Card> = {}): Card {

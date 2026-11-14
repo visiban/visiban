@@ -99,7 +99,7 @@ function SwimlanePopoverUnderTest({ entries, foldedPinnedIds }: { entries: Swiml
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
     id: 20, uid: 'laneuid00001', name: 'Acme Corp', contact_email: 'ops@acme.test', notes: '',
-    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
+    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
     custom_field_values: [], ...overrides,
   }
 }

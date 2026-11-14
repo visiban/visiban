@@ -26,7 +26,7 @@ const fakeBoard: BoardFull = {
     { id: 10, uid: 'coluid000001', name: 'Backlog', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
   ],
   swimlanes: [
-    { id: 20, uid: 'laneuid00001', name: 'General', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+    { id: 20, uid: 'laneuid00001', name: 'General', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
   ],
   cards: [],
   labels: [],
