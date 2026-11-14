@@ -264,7 +264,7 @@ The editor matches the card field editor (name, type, help text, choices for dro
 
 Up to 8 fields can be pinned, and how many show as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name) follows the board's [card density](board.md#card-density): **3** at Comfortable, **5** at Standard, **8** at Dense. Chips are stacked below the row name, and they're hidden while the swimlane is collapsed, like the rest of the panel's detail. The same limits apply under the Classic preset.
 
-Pinned values past the visible count fold into a trailing `+N` chip, together with any unpinned values. It opens a read-only popover listing every value the current viewer may see, so nothing is lost.
+Pinned values past the visible count fold into a trailing `+N` chip, together with any unpinned values. It opens a read-only popover listing every value the current viewer may see, so nothing is lost. Until you resize it yourself, the label column starts wide enough for the chips actually on the row, so a long value folded behind `+N` does not widen it.
 
 - **Order:** the N values counted by `+N` come first (folded pinned values in pin order, then unpinned ones), then the chips actually on the row under an **On row** heading.
 - **Size:** the popover grows to fit its values up to the window height. When it must scroll, a fade at the bottom edge shows there is more, and keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.
