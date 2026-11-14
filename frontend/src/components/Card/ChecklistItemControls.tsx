@@ -43,7 +43,7 @@ export function formatChecklistDue(iso: string, long = false): string {
 const CONTROL_BASE =
   "shrink-0 inline-flex items-center justify-center gap-1 rounded px-1 h-6 min-w-6 text-xs transition " +
   "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
-const NEUTRAL_TONE = "text-fg-tertiary hover:text-fg hover:bg-surface-hover";
+const NEUTRAL_TONE = "text-fg-tertiary group-hover:text-fg-secondary hover:text-fg hover:bg-surface-hover";
 const DANGER_TONE = "text-danger hover:bg-surface-hover";
 
 export default function ChecklistItemControls({ item, members, canEdit, today, onSave }: Props) {
@@ -119,7 +119,7 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
           </span>
         )}
         {dueContent && dueText && (
-          <span className={`shrink-0 inline-flex items-center h-6 px-1 text-xs ${overdue ? "text-danger" : "text-fg-tertiary"}`} title={dueText}>
+          <span className={`shrink-0 inline-flex items-center h-6 px-1 text-xs ${overdue ? "text-danger" : "text-fg-tertiary group-hover:text-fg-secondary"}`} title={dueText}>
             <span aria-hidden="true">{dueContent}</span>
             <span className="sr-only">{dueText}</span>
           </span>

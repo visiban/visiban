@@ -898,6 +898,11 @@ describe('child text tones on a resting bg-surface-hover track (#2030)', () => {
     const mention = readFileSync('src/components/Card/MentionTextarea.tsx', 'utf8')
     expect(mention).toContain('i === selectedIndex ? "text-fg-secondary" : "text-fg-tertiary"')
     expect(mention).toContain('group-hover:text-fg-secondary')
+    expect(mention).toContain('py-2 text-sm group flex flex-col')
+    // The checklist row is the group (CardDetail); its due text must brighten on hover.
+    const ctl = readFileSync('src/components/Card/ChecklistItemControls.tsx', 'utf8')
+    expect(ctl).toContain('NEUTRAL_TONE = "text-fg-tertiary group-hover:text-fg-secondary')
+    expect(ctl).toContain('"text-danger" : "text-fg-tertiary group-hover:text-fg-secondary"')
   })
 
   it.each([
