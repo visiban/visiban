@@ -251,7 +251,7 @@ export default function MultiSelectDropdown({
           "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
           isSelected ? "bg-primary-emphasis/20" : "hover:bg-surface-hover",
           isActive ? "ring-2 ring-inset ring-primary-emphasis" : "",
-          orphan ? "text-fg-muted" : "text-fg-secondary",
+          orphan ? "text-fg-muted hover:text-fg-secondary" : "text-fg-secondary",
         ].join(" ")}
       >
         <input

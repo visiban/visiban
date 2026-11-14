@@ -690,9 +690,9 @@ export default function InviteLinkPanel({
       const isRevealing = revealId === link.id && !!link.token;
       const rowClasses =
         isRevealing ? "border-warning/50 bg-sunken"
-        : linkStatus === "revoked" ? "border-line bg-sunken/50 opacity-60"
-        : linkStatus === "used" ? "border-line bg-sunken/50 opacity-75"
-        : linkStatus === "expired" ? "border-danger/40 bg-sunken/50 opacity-70"
+        : linkStatus === "revoked" ? "border-line bg-sunken"
+        : linkStatus === "used" ? "border-line bg-sunken"
+        : linkStatus === "expired" ? "border-danger/40 bg-sunken"
         : "border-line bg-sunken";
       return (
         <li key={link.id} className={`flex flex-col gap-1.5 p-3 rounded-lg border transition-all duration-150 ${rowClasses}`}>
@@ -852,9 +852,9 @@ export default function InviteLinkPanel({
 
             const rowClasses = (() => {
               if (isRevealing) return "border-warning/50 bg-sunken";
-              if (linkStatus === "revoked") return "border-line bg-sunken/50 opacity-60";
-              if (linkStatus === "used") return "border-line bg-sunken/50 opacity-75";
-              if (linkStatus === "expired") return "border-danger/40 bg-sunken/50 opacity-70";
+              if (linkStatus === "revoked") return "border-line bg-sunken";
+              if (linkStatus === "used") return "border-line bg-sunken";
+              if (linkStatus === "expired") return "border-danger/40 bg-sunken";
               // pending
               if (link.single_use ?? false) return "border-warning/40 bg-sunken";
               return "border-line bg-sunken";

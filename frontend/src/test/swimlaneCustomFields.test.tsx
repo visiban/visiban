@@ -457,7 +457,7 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     renderRow(laneWith('J. Rivera'), [owner])
     const label = screen.getByText('Owner:')
     expect(label).not.toHaveClass('sr-only')
-    expect(label).toHaveClass('text-fg-tertiary') // #1862: fg-muted is sub-AA on bg-surface in dark
+    expect(label).toHaveClass('text-fg-tertiary') // #1862: before #2030 fg-muted was sub-AA on bg-surface in dark
   })
 
   it('drops the visible name but keeps it for screen readers and in the title when hidden', () => {
@@ -503,7 +503,7 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     expect(trigger).toHaveTextContent('All fields')
     expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
     expect(trigger).toHaveClass('min-h-6')
-    // #1862: same untinted floor as the row chips beside it; fg-muted is 3.07:1 on bg-surface in dark.
+    // #1862: same untinted floor as the row chips beside it; before #2030 fg-muted was 3.07:1 on bg-surface in dark.
     expect(trigger).toHaveClass('text-fg-tertiary', 'hover:text-fg-secondary')
     expect(trigger).not.toHaveClass('text-fg-muted')
     await user.click(trigger)

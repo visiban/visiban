@@ -2069,7 +2069,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Decrease weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >−</button>
                   <span className="text-sm font-semibold text-fg w-6 text-center">{localCard.weight}</span>
                   <button type="button"
@@ -2081,7 +2081,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Increase weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >+</button>
                 </div>
                 <AutosaveIndicator

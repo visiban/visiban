@@ -21,7 +21,7 @@ interface ListProps {
 }
 
 const ICON_BASE =
-  "w-7 h-7 shrink-0 flex items-center justify-center rounded text-fg-tertiary hover:bg-surface-hover transition focus:outline-none focus:ring-2 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
+  "w-7 h-7 shrink-0 flex items-center justify-center rounded text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition focus:outline-none focus:ring-2 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const ICON_BUTTON = `${ICON_BASE} hover:text-fg focus:ring-primary-emphasis`;
 const ICON_BUTTON_DANGER = `${ICON_BASE} hover:text-danger focus:ring-danger-emphasis`;
 

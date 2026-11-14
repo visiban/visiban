@@ -860,3 +860,59 @@ describe('fg-muted retune and fg-faint scope (#2030)', () => {
     expect([...listedSeen].sort()).toEqual(Object.keys(LISTED).sort())
   })
 })
+
+// #2030: a parent fill with child text. The resting-fill scan above reads one class literal at a time, so
+// it cannot see a track (`bg-surface-hover`) whose children set their own text tone. Limit: a general
+// parent/child scan would need JSX parsing; these pins cover the two known tracks (the ViewToggle and the
+// RichTextEditor toolbar) by reading the tone each child class string uses.
+describe('child text tones on a resting bg-surface-hover track (#2030)', () => {
+  const view = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const editor = readFileSync('src/components/Card/RichTextEditor.tsx', 'utf8')
+
+  it('ViewToggle: every tab rests at fg-secondary on the bg-surface-hover track', () => {
+    const toggle = view.slice(view.indexOf('const btn = '), view.indexOf('Tooltip content="Analytics (A)"') + 1200)
+    expect(toggle).toContain('flex items-center gap-0.5 bg-surface-hover rounded p-0.5')
+    const rest = [...toggle.matchAll(/: muted\s*\? "([^"]*)"\s*: "([^"]*)"|: "(text-fg-[a-z]+ [^"]*)"/g)]
+    expect(rest.length).toBeGreaterThanOrEqual(2)
+    expect(toggle).not.toMatch(/"text-fg-(tertiary|muted|faint)[ "]/)
+    expect(toggle).not.toMatch(/"text-fg-(tertiary|muted|faint) italic/)
+    expect(toggle.match(/"text-fg-secondary[ "]/g)?.length ?? 0).toBeGreaterThanOrEqual(3)
+  })
+
+  it('RichTextEditor: toolbar glyph buttons rest at fg-secondary on the bg-surface-hover toolbar', () => {
+    expect(editor).toContain('bg-surface-hover rounded-t-lg border border-line-strong border-b-0')
+    expect(editor).not.toMatch(/: "text-fg-(tertiary|muted|faint) hover:bg-surface-hover/)
+    expect(editor.match(/: "text-fg-secondary hover:bg-surface-hover hover:text-fg"/g)?.length).toBe(2)
+  })
+
+  it.each([
+    ['dark', darkBlock, 6.97, 4.04],
+    ["light", lightBlock, 9.45, 6.92],
+  ])('%s theme: fg-secondary clears AA on the track where fg-tertiary does not', (_n, block, secondary, tertiary) => {
+    expect(ratio(rgbOf(block, 'fg-secondary'), rgbOf(block, 'surface-hover'))).toBeCloseTo(secondary, 2)
+    expect(ratio(rgbOf(block, 'fg-tertiary'), rgbOf(block, 'surface-hover'))).toBeCloseTo(tertiary, 2)
+  })
+})
+
+// #2030: revoked, used and expired invite rows used to dim with whole-row opacity-60/75/70, which blends
+// every tone toward the backdrop (the "never whole-card opacity" rule, #2238). They now keep the bg-sunken face
+// with undimmed tones; the status pill, not the dim, carries the state.
+describe('InviteLinkPanel dimmed rows (#2030)', () => {
+  const panel = readFileSync('src/components/Group/InviteLinkPanel.tsx', 'utf8')
+
+  it('uses no opacity class on a row', () => {
+    expect(panel).not.toMatch(/opacity-(60|70|75)/)
+    expect(panel.match(/"border-danger\/40 bg-sunken"/g)?.length).toBe(2)
+  })
+
+  it.each([
+    ["dark", darkBlock, 5.72, 4.5],
+    ["light", lightBlock, 5.11, 4.5],
+  ])('%s theme: fg-muted metadata holds AA on the bg-sunken row face', (_n, block, pinned, min) => {
+    const r = ratio(rgbOf(block, 'fg-muted'), rgbOf(block, "surface-sunken"))
+    expect(r).toBeCloseTo(pinned, 2)
+    expect(r).toBeGreaterThanOrEqual(min)
+    expect(ratio(rgbOf(block, 'fg-tertiary'), rgbOf(block, "surface-sunken"))).toBeGreaterThanOrEqual(min)
+    expect(ratio(rgbOf(block, 'danger'), rgbOf(block, "surface-sunken"))).toBeGreaterThanOrEqual(min)
+  })
+})

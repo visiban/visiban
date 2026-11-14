@@ -31,6 +31,7 @@ describe('ViewToggle Board tab', () => {
     expect(board).not.toBeDisabled()
     expect(board.className).toContain('italic')
     expect(board.className).not.toContain('text-fg-muted') // fails AA on the bg-surface-hover track in dark mode
+    expect(board.className).toContain('text-fg-secondary') // #2030: fg-tertiary is 4.04:1 on that track in dark
     expect(board.className).not.toContain('pointer-events-none')
     // Tooltip (300ms delay) explains the muted state on focus/hover.
     fireEvent.focus(board)
@@ -43,7 +44,7 @@ describe('ViewToggle Board tab', () => {
     render(<ViewToggle view="lens" onChange={vi.fn()} showLens deemphasizeBoard={false} />)
     const board = screen.getByRole('button', { name: 'Board' })
     expect(board).not.toHaveAttribute('data-deemphasized')
-    expect(board.className).toContain('text-fg-tertiary')
+    expect(board.className).toContain('text-fg-secondary')
   })
 
   it('never mutes when the lens tab is not shown', () => {

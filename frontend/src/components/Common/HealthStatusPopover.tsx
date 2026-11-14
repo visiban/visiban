@@ -159,7 +159,7 @@ function RadioCard({ name, value, checked, onSelect, shape, label, description, 
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-medium text-fg">{label}</span>
-        {/* fg-tertiary, not the radio rule's fg-muted: fg-muted is sub-AA on surface (#1862). */}
+        {/* fg-tertiary, not the radio rule's fg-muted: before #2030 fg-muted was sub-AA on surface (#1862). */}
         <span className="block text-xs text-fg-tertiary mt-0.5">{description}</span>
       </span>
     </label>
