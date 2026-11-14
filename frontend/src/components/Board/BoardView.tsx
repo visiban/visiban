@@ -215,13 +215,11 @@ export function ViewToggle({
         >
           <span className="flex items-center gap-1.5">
             Analytics
-            <span
-              className={`px-1 py-0 text-xs font-medium rounded leading-4 ${
-                view === "analytics"
-                  ? "bg-warning/30 text-warning-on-tint"
-                  : "bg-warning/20 text-warning-on-tint"
-              }`}
-            >
+            {/* #2236: one opaque bg-surface chip in every tab state. A translucent fill took its
+                contrast from the tab underneath (1.17:1 on the active bg-primary in light mode,
+                3.55 dark on the hover bg-surface-active); an opaque fill makes the ratio
+                independent of the tab: 8.67 dark / 7.31 light. See frontend/CLAUDE.md § Color tokens. */}
+            <span className="px-1 py-0 text-xs font-medium rounded leading-4 bg-surface text-warning-on-tint ring-1 ring-inset ring-warning/40">
               Beta
             </span>
           </span>

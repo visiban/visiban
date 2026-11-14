@@ -660,3 +660,36 @@ describe('focus banner text on its primary tint (#2252)', () => {
     expect(ratio(rgbOf(block, 'fg'), rgbOf(block, 'surface-hover'))).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+// #2236: the Analytics tab's Beta badge sits inside a tab whose fill changes with state: the
+// ViewToggle track (bg-surface-hover) at rest, hover:bg-surface-active, and bg-primary when active.
+// A translucent bg-warning/N fill took its contrast from that tab (1.17:1 active in light mode,
+// 3.55 dark on the hover fill), so the badge is one opaque bg-surface chip in every state.
+describe('Analytics tab Beta badge (#2236)', () => {
+  const src = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const badge = /<span className="([^"]*)">\s*Beta\s*<\/span>/.exec(src)?.[1] ?? ''
+
+  it('is one static class string with an opaque fill, not a per-state translucent tint', () => {
+    expect(badge).toContain('bg-surface ')
+    expect(badge).not.toMatch(/\bbg-[a-z-]+\/\d+/)
+    const colors = [...badge.matchAll(TEXT_UTILITY)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t))
+    expect(colors).toEqual(['warning-on-tint'])
+  })
+
+  it.each([
+    ['dark', darkBlock, 8.67],
+    ['light', lightBlock, 7.31],
+  ])('%s theme: warning-on-tint on the opaque chip holds the pinned ratio in every tab state', (_n, block, pinned) => {
+    expect(ratio(rgbOf(block, 'warning-on-tint'), rgbOf(block, 'surface'))).toBeCloseTo(pinned, 2)
+  })
+
+  it('the old translucent fills fail on the tab states, which is why the chip is opaque', () => {
+    const won = (b: string) => rgbOf(b, 'warning-on-tint')
+    const on = (b: string, a: number, bg: string) => ratio(won(b), blend(rgbOf(b, 'warning'), rgbOf(b, bg), a))
+    expect(on(lightBlock, 0.3, 'primary')).toBeCloseTo(1.17, 2)
+    expect(on(darkBlock, 0.2, 'surface-active')).toBeCloseTo(3.55, 2)
+    expect(on(lightBlock, 0.2, 'surface-active')).toBeCloseTo(4.5, 2)
+    // Even with no fill at all, dark warning-on-tint on the hover bg-surface-active is 4.49.
+    expect(ratio(won(darkBlock), rgbOf(darkBlock, 'surface-active'))).toBeLessThan(4.5)
+  })
+})
