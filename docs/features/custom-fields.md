@@ -226,7 +226,7 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.
 
-**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel.
+**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's [card density](board.md#card-density) (Comfortable, Standard, Dense); the rest fold into a `+N` chip.
 
 Dropdown, number, and date swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Admin-only fields are offered there to board admins only.
 
@@ -247,11 +247,11 @@ The editor matches the card field editor (name, type, help text, choices for dro
 
 ### Pinned fields in the swimlane label panel
 
-Up to 8 pinned fields render as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name), stacked below the row name. They're hidden while the swimlane is collapsed, like the rest of the panel's detail.
+Up to 8 fields can be pinned, and how many show as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name) follows the board's [card density](board.md#card-density): **3** at Comfortable, **5** at Standard, **8** at Dense. Chips are stacked below the row name, and they're hidden while the swimlane is collapsed, like the rest of the panel's detail. The same limits apply under the Classic preset.
 
-If the swimlane has further, unpinned values, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see.
+Pinned values past the visible count fold into a trailing `+N` chip, together with any unpinned values. It opens a read-only popover listing every value the current viewer may see, so nothing is lost.
 
-- **Order:** the N unpinned values come first, then the pinned ones under an **On row** heading.
+- **Order:** the N values counted by `+N` come first (folded pinned values in pin order, then unpinned ones), then the chips actually on the row under an **On row** heading.
 - **Size:** the popover grows to fit its values up to the window height. When it must scroll, a fade at the bottom edge shows there is more, and keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.
 
 #### Hiding field names on row chips
@@ -264,7 +264,7 @@ With names hidden, a chip shows only its value (`Diane Foster`) and, unless you 
 
 - **On hover:** the chip's tooltip reads `Field name: value`, as before.
 - **For screen readers:** the chip is still announced as `Field name: value`.
-- **In the row's field list:** the row's field popover lists every field with its name. It opens from the `+N` button when the row has unpinned values, or from an **All fields** button when every value is pinned, so touch and keyboard users can always reach the names.
+- **In the row's field list:** the row's field popover lists every field with its name. It opens from the `+N` button when some values are folded or unpinned, or from an **All fields** button when every value is already on the row, so touch and keyboard users can always reach the names.
 
 **Checkbox fields always show their name**, because a bare **Yes** or **No** means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting affects only swimlane rows.
 

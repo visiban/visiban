@@ -447,6 +447,10 @@ FEATURES = {
     ],
     "swimlane_fields": [
         _lane_field("AD", "text", show=True, help_text="Account director who owns the strategic relationship."),
+        # Coverage is pinned second so it survives the Comfortable (3-chip) swimlane row cap (#1417).
+        _lane_field("Coverage", "dropdown", ["Full", "Partial", "Gap"], show=True,
+                    help_text="Whether the overlay pod is fully staffed on the account.",
+                    choice_colors={"Full": "green", "Partial": "amber", "Gap": "red"}),
         _lane_field("AE", "text", show=True, help_text="Account executive who owns the commercial relationship."),
         _lane_field("SA", "text", show=True, help_text="Solutions architect aligned to the account team."),
         _lane_field("OAE", "text", show=True, help_text="Overlay account executive running the overlay sales motion."),
@@ -454,9 +458,6 @@ FEATURES = {
         _lane_field("SVC", "text", show=True, help_text="Services lead aligned to the account director."),
         _lane_field("Region", "dropdown", ["AMER East", "AMER West", "EMEA"], show=True,
                     help_text="Sales region.", choice_colors={"AMER East": "blue", "AMER West": "teal", "EMEA": "violet"}),
-        _lane_field("Coverage", "dropdown", ["Full", "Partial", "Gap"], show=True,
-                    help_text="Whether the overlay pod is fully staffed on the account.",
-                    choice_colors={"Full": "green", "Partial": "amber", "Gap": "red"}),
         _lane_field("Segment", "dropdown", ["Financial services", "Energy and utilities", "Telecommunications",
                                             "Public sector", "Healthcare", "Manufacturing", "Insurance",
                                             "Life sciences", "Transportation", "Retail"],

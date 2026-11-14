@@ -557,10 +557,32 @@
       "choice_colors": {}
     },
     {
+      "name": "Coverage",
+      "field_type": "dropdown",
+      "choices": [
+        "Full",
+        "Partial",
+        "Gap"
+      ],
+      "position": 1,
+      "show_on_row": true,
+      "is_admin_only": false,
+      "is_required": false,
+      "help_text": "Whether the overlay pod is fully staffed on the account.",
+      "number_prefix": "",
+      "number_suffix": "",
+      "number_decimals": null,
+      "choice_colors": {
+        "Full": "green",
+        "Partial": "amber",
+        "Gap": "red"
+      }
+    },
+    {
       "name": "AE",
       "field_type": "text",
       "choices": [],
-      "position": 1,
+      "position": 2,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -574,7 +596,7 @@
       "name": "SA",
       "field_type": "text",
       "choices": [],
-      "position": 2,
+      "position": 3,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -588,7 +610,7 @@
       "name": "OAE",
       "field_type": "text",
       "choices": [],
-      "position": 3,
+      "position": 4,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -602,7 +624,7 @@
       "name": "OSA",
       "field_type": "text",
       "choices": [],
-      "position": 4,
+      "position": 5,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -616,7 +638,7 @@
       "name": "SVC",
       "field_type": "text",
       "choices": [],
-      "position": 5,
+      "position": 6,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -634,7 +656,7 @@
         "AMER West",
         "EMEA"
       ],
-      "position": 6,
+      "position": 7,
       "show_on_row": true,
       "is_admin_only": false,
       "is_required": false,
@@ -646,28 +668,6 @@
         "AMER East": "blue",
         "AMER West": "teal",
         "EMEA": "violet"
-      }
-    },
-    {
-      "name": "Coverage",
-      "field_type": "dropdown",
-      "choices": [
-        "Full",
-        "Partial",
-        "Gap"
-      ],
-      "position": 7,
-      "show_on_row": true,
-      "is_admin_only": false,
-      "is_required": false,
-      "help_text": "Whether the overlay pod is fully staffed on the account.",
-      "number_prefix": "",
-      "number_suffix": "",
-      "number_decimals": null,
-      "choice_colors": {
-        "Full": "green",
-        "Partial": "amber",
-        "Gap": "red"
       }
     },
     {

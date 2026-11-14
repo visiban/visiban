@@ -11,6 +11,7 @@ import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
+import { PINNED_ROW_CAP, visibleRowChipCount } from "../../utils/swimlaneRowChips";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
@@ -208,11 +209,19 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     .map((v) => ({ def: swimlaneFieldsById.get(v.field_definition), value: v.value }))
     .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def)
     .sort((a, b) => a.def.position - b.def.position);
-  const pinnedRowFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, 8);
+  const cappedPinnedFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, PINNED_ROW_CAP);
+  // Visible chips follow card density (#1417): the pin cap is a data contract,
+  // but each chip costs a line of row height, so denser tiers show more. The
+  // pins past the visible count fold into the +N popover rather than vanish.
+  const visibleChipCount = visibleRowChipCount(density);
+  const pinnedRowFields = cappedPinnedFields.slice(0, visibleChipCount);
+  const foldedPinnedFields = cappedPinnedFields.slice(visibleChipCount);
+  const foldedPinnedIds = new Set(foldedPinnedFields.map((x) => x.def.id));
   const unpinnedRowFields = rowFieldEntries.filter((x) => !x.def.show_on_row);
-  const triggerLabel = unpinnedRowFields.length === 0
+  const hiddenCount = foldedPinnedFields.length + unpinnedRowFields.length;
+  const triggerLabel = hiddenCount === 0
     ? 'All fields'
-    : pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`;
+    : pinnedRowFields.length > 0 ? `+${hiddenCount}` : `+${hiddenCount} more`;
 
   // Row limit state (#1150), from the row's active cards in its counted columns.
   const limitUsage = laneUsage(swimlane, columns, cards);
@@ -385,7 +394,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 ))}
                 {/* With names hidden, the popover is the only touch/keyboard path to a
                     value's field name, so an all-pinned row keeps a trigger too (#1509). */}
-                {(unpinnedRowFields.length > 0 || (hideRowChipFieldNames && pinnedRowFields.length > 0)) && (
+                {(hiddenCount > 0 || (hideRowChipFieldNames && pinnedRowFields.length > 0)) && (
                   <button
                     ref={overflowRef}
                     onClick={(e) => {
@@ -631,6 +640,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         <SwimlaneFieldsPopover
           swimlaneName={swimlane.name}
           entries={rowFieldEntries}
+          foldedPinnedIds={foldedPinnedIds}
           anchorRect={fieldsPopoverRect}
           userDateFormat={userDateFormat}
           onEdit={isAdmin ? () => setEditing(true) : undefined}
