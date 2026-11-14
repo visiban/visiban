@@ -89,9 +89,15 @@ def record_if_changed(entity, *, change_model, from_status, user):
     )
 
 
-def history_page(queryset):
-    """``(rows, has_more)`` for the newest ``HEALTH_HISTORY_LIMIT`` rows, in one query."""
+def history_page(queryset, offset=0):
+    """``(rows, has_more)`` for ``HEALTH_HISTORY_LIMIT`` rows from ``offset``, newest first, in one query.
+
+    ``offset`` lets a client reach rows older than the first page; ``has_more``
+    is what tells it to ask again.
+    """
     rows = list(
-        queryset.select_related("changed_by").order_by("-changed_at", "-id")[: HEALTH_HISTORY_LIMIT + 1]
+        queryset.select_related("changed_by").order_by("-changed_at", "-id")[
+            offset : offset + HEALTH_HISTORY_LIMIT + 1
+        ]
     )
     return rows[:HEALTH_HISTORY_LIMIT], len(rows) > HEALTH_HISTORY_LIMIT

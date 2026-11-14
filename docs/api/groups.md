@@ -177,7 +177,7 @@ An update that arrives while the group is being deleted waits for the delete to 
 
 ### `GET /api/v1/groups/{id}/health-history/`
 
-*(1.3+, #2242)* The group's own health status changes, newest first, at most 20. Needs access to the group itself (a membership in it or a group above it): a group you see only on the path to one of yours (`navigation_only`), or one you cannot see, answers `404 Not Found`.
+*(1.3+, #2242)* The group's own health status changes, newest first, at most 20 per request. When `has_more` is `true`, repeat the request with `?offset=20`, `?offset=40`, and so on to reach older changes (optional; default 0). Needs access to the group itself (a membership in it or a group above it): a group you see only on the path to one of yours (`navigation_only`), or one you cannot see, answers `404 Not Found`.
 
 ```json
 {

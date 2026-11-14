@@ -27,7 +27,13 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
-from visiban.request_shape import coerce_int_id, optional_text, require_json_object
+from visiban.request_shape import (
+    OFFSET_QUERY_PARAMETER,
+    coerce_int_id,
+    optional_text,
+    parse_offset,
+    require_json_object,
+)
 
 from .. import broadcast as _broadcast
 from ..models import (
@@ -569,6 +575,7 @@ class BoardViewSet(
             "from_status equals to_status is a reconfirm. changed_by is null "
             "for a removed account or a system change. Any board role may read."
         ),
+        parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: HealthHistorySerializer},
     )
     @action(detail=True, methods=["get"], url_path="health-history", pagination_class=None)
@@ -576,7 +583,7 @@ class BoardViewSet(
         # get_object() is scoped to boards the caller can read (any role);
         # anyone else gets 404, not 403 (IDOR).
         board = self.get_object()
-        rows, has_more = history_page(BoardHealthChange.objects.filter(board=board))
+        rows, has_more = history_page(BoardHealthChange.objects.filter(board=board), parse_offset(request))
         return Response({
             "results": HealthStatusChangeSerializer(rows, many=True).data,
             "has_more": has_more,

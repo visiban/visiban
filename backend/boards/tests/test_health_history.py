@@ -158,6 +158,22 @@ class BoardHealthHistoryTests(TestCase):
             set(body["results"][0]), {"from_status", "to_status", "changed_by", "changed_at", "note"},
         )
 
+    def test_offset_reaches_older_rows(self):
+        """The envelope is pageable: offset walks past the first page (#2242)."""
+        for i in range(HEALTH_HISTORY_LIMIT + 1):
+            self._post({"status": "at_risk" if i % 2 else "on_track", "note": f"n{i}"})
+        r = _client(self.admin).get(f"{self.url}health-history/?offset={HEALTH_HISTORY_LIMIT}")
+        body = r.json()
+        self.assertEqual([row["note"] for row in body["results"]], ["n0"])
+        self.assertFalse(body["has_more"])
+        # Lenient like every other hand-paged read: junk and negatives are page one.
+        for junk in ("abc", "-5"):
+            got = _client(self.admin).get(f"{self.url}health-history/?offset={junk}").json()
+            self.assertEqual(len(got["results"]), HEALTH_HISTORY_LIMIT)
+        self.assertEqual(
+            _client(self.admin).get(f"{self.url}health-history/?offset={2**63}").status_code, 400,
+        )
+
     def _history_query_budget(self):
         # Measure the fixed cost (auth + board lookup + role) on an empty
         # history, so the assertion pins "one query for the rows".

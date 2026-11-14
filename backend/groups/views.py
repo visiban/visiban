@@ -17,7 +17,13 @@ from accounts.permissions import TokenHasScope
 from visiban.authorization import invite_creator_is_valid, principal_is_active
 from visiban.pagination import OffsetCountPagination
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
-from visiban.request_shape import coerce_int_id, optional_text, require_json_object
+from visiban.request_shape import (
+    OFFSET_QUERY_PARAMETER,
+    coerce_int_id,
+    optional_text,
+    parse_offset,
+    require_json_object,
+)
 from visiban.utils import get_client_ip
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -690,6 +696,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             "group itself: a navigation-only ancestor or a group the caller "
             "cannot see answers 404."
         ),
+        parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: HealthHistorySerializer},
     )
     @action(detail=True, methods=["get"], url_path="health-history", pagination_class=None)
@@ -703,7 +710,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         # is withheld like their description, so 404 rather than 403 (IDOR).
         if not user_has_group_access(request.user, group):
             raise NotFound
-        rows, has_more = history_page(GroupHealthChange.objects.filter(group=group))
+        rows, has_more = history_page(GroupHealthChange.objects.filter(group=group), parse_offset(request))
         return Response({
             "results": HealthStatusChangeSerializer(rows, many=True).data,
             "has_more": has_more,

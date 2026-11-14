@@ -156,7 +156,7 @@ See [Change Feed](events.md) for the full contract, retention, and the reconnect
 
 ### `GET /api/v1/boards/{id}/health-history/`
 
-*(1.3+, #2242)* The board's own health status changes, newest first, at most 20. Any board role (viewer and up) may read; anyone else gets `404 Not Found`.
+*(1.3+, #2242)* The board's own health status changes, newest first, at most 20 per request. When `has_more` is `true`, repeat the request with `?offset=20`, `?offset=40`, and so on to reach older changes (optional; default 0). Any board role (viewer and up) may read; anyone else gets `404 Not Found`.
 
 ```json
 {
