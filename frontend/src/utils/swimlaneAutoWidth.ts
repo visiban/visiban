@@ -1,4 +1,5 @@
-import type { Swimlane, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardDensity, Swimlane, SwimlaneCustomFieldDefinition } from "../types";
+import { visibleRowChipCount } from "./swimlaneRowChips";
 
 export const DEFAULT_SWIMLANE_WIDTH = 220;
 export const MAX_AUTO_SWIMLANE_WIDTH = 400;
@@ -15,7 +16,7 @@ const MAX_PINNED = 8; // mirrors SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BO
 
 /**
  * Initial width of the swimlane label column when the user has not resized it:
- * wide enough that the longest lane name and every pinned custom-field chip
+ * wide enough that the longest lane name and every visible pinned custom-field chip
  * (one per line) read without truncation, within the column's resize bounds.
  * An estimate from character counts, not a DOM measurement — it only picks the
  * starting width, and the user can drag the separator from there.
@@ -23,12 +24,20 @@ const MAX_PINNED = 8; // mirrors SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BO
  * `showFieldNames` mirrors the board's `show_row_chip_field_names` (#1418): when
  * names are hidden, a non-checkbox chip renders only its value, so the name's
  * characters must not widen the column (checkbox chips always keep the name).
+ *
+ * `density` is the board's effective card density (#2216). A row shows only
+ * `visibleRowChipCount(density)` of its pinned chips and folds the rest into
+ * `+N` (#1417), so only those visible chips size the column: a wide pinned
+ * value folded behind `+N` must not widen it. The pin cap (`MAX_PINNED`) still
+ * bounds the list first, exactly as `SwimlaneRow` slices it.
  */
 export function computeAutoSwimlaneWidth(
   swimlanes: Pick<Swimlane, "name" | "custom_field_values">[],
   definitions: SwimlaneCustomFieldDefinition[] | undefined,
   showFieldNames = true,
+  density?: CardDensity,
 ): number {
+  const visible = visibleRowChipCount(density);
   const defsById = new Map((definitions ?? []).map((d) => [d.id, d]));
   let width = DEFAULT_SWIMLANE_WIDTH;
   for (const lane of swimlanes) {
@@ -38,7 +47,8 @@ export function computeAutoSwimlaneWidth(
       .map((v) => ({ def: defsById.get(v.field_definition), value: v.value }))
       .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def && x.def.show_on_row)
       .sort((a, b) => a.def.position - b.def.position)
-      .slice(0, MAX_PINNED);
+      .slice(0, MAX_PINNED)
+      .slice(0, visible);
     for (const { def, value } of pinned) {
       const nameChars = showFieldNames || def.field_type === "checkbox" ? def.name.length + 2 : 0;
       const chars = nameChars + Math.min(value.length, CHIP_VALUE_MAX_CHARS);

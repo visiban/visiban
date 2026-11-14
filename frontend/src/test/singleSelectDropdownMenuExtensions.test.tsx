@@ -5,7 +5,7 @@
  * optional; a caller that passes none renders exactly as before.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
 
@@ -136,5 +136,44 @@ describe('SingleSelectDropdown selected-option semantics (#2108)', () => {
     render(<SingleSelectDropdown label="Pick" options={opts} selected={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: 'Pick' }))
     expect(screen.queryByTestId('singleselect-selected-mark')).toBeNull()
+  })
+})
+
+// #1171: the portal menu's anchor is measured once at open, so a resize (which can
+// cross a breakpoint and shift the trigger) or an outside scroll closes it rather
+// than leaving a `fixed` menu behind its trigger. A scroll inside the menu does not.
+describe('SingleSelectDropdown portalMenu viewport dismissals (#1171)', () => {
+  const open = async () => {
+    const onOpenChange = vi.fn()
+    render(<SingleSelectDropdown label="Pick" options={OPTIONS} selected={null} onChange={vi.fn()} portalMenu onOpenChange={onOpenChange} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Pick' }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    return onOpenChange
+  }
+
+  it('closes on window resize', async () => {
+    const onOpenChange = await open()
+    fireEvent(window, new Event('resize'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('closes on a scroll outside the menu, not on one inside it', async () => {
+    await open()
+    fireEvent.scroll(screen.getByRole('menu').firstElementChild as Element)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.scroll(document)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('opens again anchored to a fresh measurement of the trigger', async () => {
+    await open()
+    const trigger = screen.getByRole('button', { name: 'Pick' })
+    fireEvent(window, new Event('resize'))
+    trigger.getBoundingClientRect = () => ({ top: 100, bottom: 120, left: 40, right: 200, width: 160, height: 20, x: 40, y: 100, toJSON: () => ({}) })
+    await userEvent.click(trigger)
+    const menu = screen.getByRole('menu')
+    expect(menu.style.left).toBe('40px')
+    expect(menu.style.top).toBe('124px')
   })
 })

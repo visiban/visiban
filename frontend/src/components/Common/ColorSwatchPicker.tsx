@@ -287,6 +287,16 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
         const next = e.relatedTarget as Node | null;
         if (next && !e.currentTarget.contains(next)) onClose(false);
       }}
+      // A press on a non-focusable part of the panel (the preview swatch, the padding,
+      // a label) would move focus to the nearest focusable ancestor, such as a host
+      // modal's tabIndex=0 scroll region, and the blur above would close the panel and
+      // drop the draft. Only a control INSIDE the panel keeps its own focus behavior:
+      // closest() also climbs past the panel, so an unscoped match would find that
+      // ancestor and let the press through again (#2224, same class as #2223).
+      onMouseDown={(e) => {
+        const control = (e.target as Element).closest("input,button,select,textarea,[tabindex]");
+        if (!control || !e.currentTarget.contains(control)) e.preventDefault();
+      }}
       className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 overflow-y-auto scroll-pb-11"
       style={{ top: top ?? 0, left, maxHeight: visibleMaxHeight(), visibility: top === null ? "hidden" : undefined }}
     >

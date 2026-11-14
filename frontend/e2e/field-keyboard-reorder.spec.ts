@@ -44,7 +44,7 @@ async function reorderFirstToLast(page: Page, names: [string, string, string]) {
   await page.keyboard.press('Space')
   // KeyboardSensor attaches its arrow-key listener on a later tick than the
   // pick-up, so an arrow pressed before the pick-up announcement is dropped.
-  await expect(page.getByText(/Draggable item 1 was moved over droppable area 1/)).toBeAttached()
+  await expect(page.getByText(`Field ${first} moved to position 1 of 3.`)).toBeAttached()
   // Each press is gated on its own announcement (never on timing). With
   // dnd-kit's default ~25px coordinate getter the item moves a fixed distance
   // and needs many presses to cross a neighbor, so the press budget below is
@@ -56,14 +56,14 @@ async function reorderFirstToLast(page: Page, names: [string, string, string]) {
   await expect(async () => {
     presses += 1
     await page.keyboard.press('ArrowDown')
-    await expect(page.getByText(/Draggable item 1 was moved over droppable area 2/)).toBeAttached({ timeout: 1_000 })
+    await expect(page.getByText(`Field ${first} moved to position 2 of 3.`)).toBeAttached({ timeout: 1_000 })
   }).toPass({ timeout: 15_000 })
   expect(presses, 'one ArrowDown must move over the next item (a dropped first key allows one retry)').toBeLessThanOrEqual(2)
   // The listener is live by now, so the second neighbor takes exactly one press.
   await page.keyboard.press('ArrowDown')
-  await expect(page.getByText(/Draggable item 1 was moved over droppable area 3/)).toBeAttached()
+  await expect(page.getByText(`Field ${first} moved to position 3 of 3.`)).toBeAttached()
   await page.keyboard.press('Space')
-  await expect(page.getByText(/Draggable item 1 was dropped over droppable area 3/)).toBeAttached()
+  await expect(page.getByText(`Field ${first} dropped at position 3 of 3.`)).toBeAttached()
   const handles = page.getByRole('button', { name: /^Drag to reorder / })
   await expect(handles.nth(0)).toHaveAccessibleName(`Drag to reorder ${second}`)
   await expect(handles.nth(1)).toHaveAccessibleName(`Drag to reorder ${third}`)

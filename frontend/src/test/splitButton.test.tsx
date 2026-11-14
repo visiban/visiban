@@ -240,3 +240,28 @@ describe('SplitButton', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 })
+
+// #1171: the menu's anchor is measured once at open, so it closes on window resize
+// and on an outside scroll instead of staying behind a trigger that moved.
+describe('SplitButton viewport dismissals (#1171)', () => {
+  const openMenu = async () => {
+    render(<SplitButton primaryLabel="Collapse" onPrimary={() => {}} renderMenu={() => <Menu onSelect={() => {}} />} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  }
+
+  it('closes on window resize', async () => {
+    await openMenu()
+    fireEvent(window, new Event('resize'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('closes on a scroll outside the menu, not on one inside it', async () => {
+    await openMenu()
+    fireEvent.scroll(screen.getByRole('menu'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.scroll(document)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+

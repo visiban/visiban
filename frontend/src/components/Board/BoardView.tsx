@@ -2159,8 +2159,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       board.swimlanes,
       board.swimlane_custom_field_definitions,
       board.show_row_chip_field_names !== false,
+      // The density the rows render with, so folded chips do not size the column (#2216).
+      effectiveCardDensity,
     ),
-    [board.swimlanes, board.swimlane_custom_field_definitions, board.show_row_chip_field_names],
+    [board.swimlanes, board.swimlane_custom_field_definitions, board.show_row_chip_field_names, effectiveCardDensity],
   );
   const swimlaneColWidth = viewPrefs.swimlaneColumnWidth ?? autoSwimlaneWidth;
 

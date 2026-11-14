@@ -37,6 +37,12 @@ export interface SplitButtonProps {
  * `overflow-y: visible` promotes the y-axis to `auto` too, clipping any
  * descendant dropdown). Position is captured at click time via
  * `getBoundingClientRect` and used for `position: fixed` rendering.
+ *
+ * Because that anchor is measured once, the menu closes on window `resize` and
+ * on any scroll outside it (#1171), as `SingleSelectDropdown`'s `portalMenu`
+ * does: a resize that crosses a breakpoint can shift the chevron (toolbar
+ * controls fold below `lg`), and scrolling the Row 2 strip moves it, either of
+ * which would leave a `fixed` menu behind its trigger.
  */
 export default function SplitButton({
   primaryLabel,
@@ -77,6 +83,23 @@ export default function SplitButton({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // #1171: dismiss rather than re-measure, matching the anchored-popover rule
+  // (frontend/CLAUDE.md). A scroll inside the panel itself is not a dismissal.
+  useEffect(() => {
+    if (!open) return;
+    const onResize = () => close();
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
+      close();
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
 
   const openMenu = () => {

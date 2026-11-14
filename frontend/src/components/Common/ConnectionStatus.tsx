@@ -69,6 +69,27 @@ export default function ConnectionStatus({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  // #1171: the panel is anchored once, at click time, and the trigger label is
+  // `hidden lg:inline`, so crossing the lg breakpoint moves the trigger. Dismiss
+  // rather than re-measure (frontend/CLAUDE.md); a scroll inside the panel is not one.
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = () => {
+      setOpen(false);
+      setAnchor(null);
+    };
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && popoverRef.current?.contains(e.target)) return;
+      dismiss();
+    };
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
   const toggleOpen = () => {
     if (open) {
       setOpen(false);

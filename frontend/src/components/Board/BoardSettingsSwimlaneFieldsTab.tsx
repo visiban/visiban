@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldType, SwimlaneCustomFieldDefinition } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
+import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
 import { Toggle, ToggleField } from "../Common/Toggle";
 import {
   createSwimlaneCustomFieldDefinition,
@@ -16,6 +17,7 @@ import {
 import NumberFormatFields from "./NumberFormatFields";
 import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
+import SortableChoiceList from "./SortableChoiceList";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import { typeLockedMessage } from "../../constants/customFields";
@@ -158,6 +160,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [saving, setSaving] = useState(false);
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
+  const fieldDrag = useSortableFieldDrag(fields);
 
   // Re-sync from the parent when the board's definitions change for a reason
   // other than this component's own edits (another admin, over the WS
@@ -484,7 +487,13 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
       ) : (
-        <DndContext sensors={dragSensors} onDragEnd={(e) => void handleDragEnd(e)}>
+        <DndContext
+          sensors={dragSensors}
+          accessibility={fieldDrag.accessibility}
+          onDragStart={fieldDrag.onDragStart}
+          onDragCancel={fieldDrag.onDragCancel}
+          onDragEnd={fieldDrag.wrapDragEnd((e) => void handleDragEnd(e))}
+        >
           <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
             {fields.map((def) => (
               <FieldRow
@@ -835,32 +844,29 @@ function FieldEditPanel({
         <div className="mb-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Choices</p>
           <div className="flex flex-col gap-1 mb-1.5">
-            {form.choices.map((choice, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span
-                  className="text-fg-faint text-xs cursor-grab shrink-0"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData("text/plain", String(i))}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); moveChoice(Number(e.dataTransfer.getData("text/plain")), i); }}
-                >⋮⋮</span>
-                <ChoiceColorPicker
-                  choice={choice}
-                  colorKey={draftChoiceColor(form.choice_colors, choice)}
-                  onChange={(key) => setForm((f) => ({
-                    ...f,
-                    choice_colors: withChoiceColor(f.choice_colors, choice, key),
-                  }))}
-                />
-                <input
-                  type="text"
-                  value={choice}
-                  onChange={(e) => updateChoice(i, e.target.value)}
-                  className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg-secondary flex-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                />
-                <button type="button" onClick={() => removeChoice(i)} aria-label={choice.trim() ? `Remove choice ${choice.trim()}` : `Remove choice ${i + 1}`} className="text-fg-faint hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
-              </div>
-            ))}
+            <SortableChoiceList
+              choices={form.choices}
+              onMove={moveChoice}
+              renderRow={(choice, i) => (
+                <>
+                  <ChoiceColorPicker
+                    choice={choice}
+                    colorKey={draftChoiceColor(form.choice_colors, choice)}
+                    onChange={(key) => setForm((f) => ({
+                      ...f,
+                      choice_colors: withChoiceColor(f.choice_colors, choice, key),
+                    }))}
+                  />
+                  <input
+                    type="text"
+                    value={choice}
+                    onChange={(e) => updateChoice(i, e.target.value)}
+                    className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg-secondary flex-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  />
+                  <button type="button" onClick={() => removeChoice(i)} aria-label={choice.trim() ? `Remove choice ${choice.trim()}` : `Remove choice ${i + 1}`} className="text-fg-faint hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
+                </>
+              )}
+            />
           </div>
           {/* Shown only once a choice actually has a color to lose. */}
           {form.choices.some((c) => isChoiceColorKey(draftChoiceColor(form.choice_colors, c))) && (

@@ -2028,6 +2028,31 @@ describe('CardDetail', () => {
       expect(screen.getByText('Swimlane')).toBeInTheDocument()
     })
 
+    it('dismisses the Move popover on window resize and outside scroll, not on scroll inside it (#1171)', async () => {
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn().mockResolvedValue(undefined)} />)
+      const open = async () => {
+        await user.click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+        expect(screen.getByText('Move to')).toBeInTheDocument()
+      }
+      await open()
+      fireEvent.scroll(screen.getByText('Move to'))
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      // A scroll that leaves the Move button in place (the sheet body, or the
+      // tail of a key-fact jump's smooth scroll) keeps the popover open.
+      fireEvent.scroll(window)
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      // One that displaces the anchor dismisses it.
+      const moveButton = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      const rect = vi.spyOn(moveButton, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 40, 80, 24))
+      fireEvent.scroll(window)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      rect.mockRestore()
+      await open()
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+    })
+
     it('Move button is disabled when current location is pre-selected', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
@@ -3643,8 +3668,14 @@ describe('CardDetail focus trap (#1732)', () => {
     // Tab through the panel until a popover control takes focus. Stop there: 200
     // unconditional Tabs cost ~1s locally and passed the 5s timeout on a slower CI
     // runner. The bound is only the "never reached" failure path.
+    // #2177: also stop once this test's panel is gone. Vitest does not cancel a
+    // timed-out test's body, so when this loop timed out on a loaded runner it kept
+    // pressing Tab on `document.activeElement` while later tests ran, and a Tab on
+    // the #1840 custom-field dropdown's trigger closed its portaled menu (both
+    // attempts, since the retry's loop leaked the same way). Cleanup unmounts the
+    // panel, so `isConnected` ends an abandoned loop at its next step.
     let reached = false
-    for (let i = 0; i < 200 && !reached; i++) {
+    for (let i = 0; i < 200 && !reached && panel.isConnected; i++) {
       await user.tab()
       reached = popover.contains(document.activeElement)
     }

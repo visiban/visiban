@@ -56,6 +56,44 @@ describe('ColorSwatchPicker', () => {
   })
 })
 
+describe('ColorSwatchPicker custom popover mousedown guard (#2224)', () => {
+  // The hosts (AddColumnModal, EditSwimlaneModal, GroupDetail, the card sheet...) put the
+  // picker inside a focusable scroll region or dialog. A press on a non-control part of
+  // the panel must not move focus there, or the panel's blur closes it and drops the draft.
+  const renderInFocusableHost = () => {
+    render(
+      <div role="region" aria-label="Host scroll region" tabIndex={0}>
+        <ColorSwatchPicker colors={COLUMN_COLORS} value={null} onChange={vi.fn()} allowCustom />
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Choose custom color' }))
+    return screen.getByRole('dialog', { name: 'Custom color' })
+  }
+
+  it('default-prevents a press on the preview swatch and on the panel padding', () => {
+    const panel = renderInFocusableHost()
+    // fireEvent returns false when the handler called preventDefault().
+    expect(fireEvent.mouseDown(screen.getByTestId('custom-color-preview'))).toBe(false)
+    expect(fireEvent.mouseDown(panel)).toBe(false)
+    expect(screen.getByRole('dialog', { name: 'Custom color' })).toBeInTheDocument()
+  })
+
+  it('lets a control inside the panel keep its own focus behavior', () => {
+    renderInFocusableHost()
+    expect(fireEvent.mouseDown(screen.getByRole('textbox', { name: 'Hex value' }))).toBe(true)
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Cancel' }))).toBe(true)
+  })
+
+  it('still closes when focus truly leaves to the host (Tab out)', () => {
+    const panel = renderInFocusableHost()
+    const host = screen.getByRole('region', { name: 'Host scroll region' })
+    // The guard is what stops this blur from happening on a real press; a blur that does
+    // reach the host (Tab out) still closes the panel.
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Hex value' }), { relatedTarget: host })
+    expect(panel).not.toBeInTheDocument()
+  })
+})
+
 describe('colorName', () => {
   it('names every palette color and falls back for unknown or lowercase hex', () => {
     PALETTE_COLORS.forEach(c => expect(COLOR_NAMES[c]).toBeTruthy())

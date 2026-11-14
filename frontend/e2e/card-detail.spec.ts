@@ -217,6 +217,14 @@ test.describe('card detail', () => {
     await facts.getByRole('button', { name: /Go to Move/ }).click()
     await expect(page.locator('[data-move-popover]')).toBeVisible()
     await expect(page.locator('[data-move-popover] :focus')).toHaveCount(1)
+    // A body scroll leaves the header's Move button in place, so it must not
+    // dismiss the popover (#1171). On a slow runner the Assignee jump's smooth
+    // scroll is still firing here; this makes that race deterministic.
+    await dialog.locator('[role="tabpanel"]').evaluate((el) => {
+      el.scrollTop += 50
+      el.dispatchEvent(new Event('scroll'))
+    })
+    await expect(page.locator('[data-move-popover]')).toBeVisible()
   })
 
   test.describe('key facts row on a short window (#1916)', () => {

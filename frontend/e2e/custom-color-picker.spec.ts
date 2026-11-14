@@ -143,6 +143,25 @@ test.describe('Custom color picker in a modal (#2095)', () => {
     await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()
   })
 
+  test('a press on the preview or the panel padding keeps the panel and its draft (#2224)', async ({ page }) => {
+    await openEditModal(page)
+    await trigger(page).click()
+    await expect(panel(page)).toBeVisible()
+    const hex = page.getByRole('textbox', { name: 'Hex value' })
+    await hex.fill('#a0c')
+
+    // The modal's field list is a tabIndex=0 scroll region: without the guard the press
+    // focused it, the panel's blur closed it, and the draft was lost. Assert the cause
+    // (focus never leaves the panel) as well as the effect.
+    await page.getByTestId('custom-color-preview').click()
+    expect(await panel(page).evaluate((n) => n.contains(document.activeElement))).toBe(true)
+    await expect(panel(page)).toBeVisible()
+    await panel(page).click({ position: { x: 4, y: 4 } })
+    expect(await panel(page).evaluate((n) => n.contains(document.activeElement))).toBe(true)
+    await expect(panel(page)).toBeVisible()
+    await expect(page.getByTestId('custom-color-preview')).toHaveCSS('background-color', 'rgb(170, 0, 204)')
+  })
+
   test('a square drag released on the backdrop keeps the modal and the panel open', async ({ page }) => {
     await openEditModal(page)
     await trigger(page).click()
