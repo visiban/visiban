@@ -186,8 +186,8 @@ export function ViewToggle({
           view === val
             ? "bg-primary text-on-primary font-medium"
             : muted
-              ? "text-fg-tertiary italic hover:text-fg hover:bg-surface-active"
-              : "text-fg-tertiary hover:text-fg hover:bg-surface-active"
+              ? "text-fg-secondary italic hover:text-fg hover:bg-surface-active"
+              : "text-fg-secondary hover:text-fg hover:bg-surface-active"
         }`}
         aria-keyshortcuts={shortcut.toUpperCase()}
         {...(muted ? { "data-deemphasized": "true" } : {})}
@@ -209,19 +209,17 @@ export function ViewToggle({
           className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             view === "analytics"
               ? "bg-primary text-on-primary font-medium"
-              : "text-fg-tertiary hover:text-fg hover:bg-surface-active"
+              : "text-fg-secondary hover:text-fg hover:bg-surface-active"
           }`}
           aria-keyshortcuts="A"
         >
           <span className="flex items-center gap-1.5">
             Analytics
-            <span
-              className={`px-1 py-0 text-xs font-medium rounded leading-4 ${
-                view === "analytics"
-                  ? "bg-warning/30 text-warning-on-tint"
-                  : "bg-warning/20 text-warning-on-tint"
-              }`}
-            >
+            {/* #2236: one opaque bg-surface chip in every tab state. A translucent fill took its
+                contrast from the tab underneath (1.17:1 on the active bg-primary in light mode,
+                3.55 dark on the hover bg-surface-active); an opaque fill makes the ratio
+                independent of the tab: 8.67 dark / 7.31 light. See frontend/CLAUDE.md § Color tokens. */}
+            <span className="px-1 py-0 text-xs font-medium rounded leading-4 bg-surface text-warning-on-tint ring-1 ring-inset ring-warning/40">
               Beta
             </span>
           </span>
@@ -3233,7 +3231,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               <span className="text-xs text-fg-muted font-medium tabular-nums">
                 {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
               </span>
-              <span className="text-xs text-fg-faint tabular-nums">
+              <span className="text-xs text-fg-muted tabular-nums">
                 {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
               </span>
             </div>

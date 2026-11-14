@@ -150,7 +150,7 @@ function ToolbarButton({
       className={`relative px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
-          : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
+          : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
       }`}
     >
       {children}
@@ -290,7 +290,7 @@ function ColorPicker({
         aria-label="Text color"
         aria-expanded={open}
         className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis relative flex items-center gap-1 ${
-          active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
+          active ? "bg-surface-active text-fg" : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
         }`}
       >
         <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "rgb(var(--fg-tertiary))"}` }}>A</span>

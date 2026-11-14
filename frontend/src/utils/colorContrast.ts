@@ -95,8 +95,8 @@ export function cssColorToHex(value: unknown): string | null {
 /**
  * Surfaces that render a chip through an ancestor's `opacity` (#2102): the card
  * aging stages (`AGING_STAGE_CLASSES[stage].bodyOpacityClass` over the stage's
- * overlay on `bg-surface`) and the closed Lens issue card (`opacity-70` on the
- * card root over the lane's `bg-canvas`). Opacity blends the chip's fg and bg
+ * overlay on `bg-surface`). The closed Lens issue card was one too until #2238
+ * replaced its `opacity-70` with a `bg-sunken` face, so its chips are opaque. Opacity blends the chip's fg and bg
  * toward the backdrop after the fact, so a pair that is 6:1 opaque can drop
  * below 4.5:1 on screen. `backdrop` is the color under the dimmed layer, per
  * theme. Values mirror index.css and agingTint.ts; `onTintTokens.test.ts`
@@ -107,7 +107,6 @@ export const DIMMED_CHIP_SURFACES = {
   stale: { opacity: 0.85, light: "#FCE6DB", dark: "#3F393B" },
   stale2x: { opacity: 0.85, light: "#FADEDE", dark: "#3F3443" },
   stale3x: { opacity: 0.85, light: "#E5D2D2", dark: "#482E3D" },
-  "lens-closed": { opacity: 0.7, light: "#F1F5F9", dark: "#020617" },
 } as const;
 
 export type DimmedChipSurface = keyof typeof DIMMED_CHIP_SURFACES;
@@ -128,7 +127,7 @@ function pairFor(base: string, surface: string, alpha: number, extreme: string, 
   let fg = base;
   // 2% steps toward the extreme; t = 1 is pure black/white, which always clears 6:1
   // opaque. Under a dim the target is the rendered ratio; where pure black/white
-  // cannot reach 6:1 there (dark closed Lens card, dark stale stages at 5.91), the loop ends at the extreme,
+  // cannot reach 6:1 there (dark stale stages at 5.91), the loop ends at the extreme,
   // the most the chip can do, and the pinned floor in colorContrast.test.ts applies.
   for (let t = 0; t <= 1.0001 && renderedRatio(fg, bg, dim) < MIN_CHIP_CONTRAST; t += 0.02) {
     fg = mix(extreme, base, Math.min(t, 1));

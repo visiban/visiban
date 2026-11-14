@@ -183,7 +183,7 @@ export default function ColumnHeader({ boardColors, column, cards, boardId, isAd
               ? "text-danger font-semibold"
               : overWeight
               ? "text-warning font-semibold"
-              : "bg-surface-hover text-fg-tertiary"
+              : "bg-surface-hover text-fg-secondary"
           }`}
         >
           {cardCount}

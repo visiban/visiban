@@ -273,13 +273,13 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
               role="option"
               aria-selected={i === selectedIndex}
               onMouseDown={(e) => { e.preventDefault(); insertMention(u.username); }}
-              className={`w-full text-left px-3 py-2 text-sm flex flex-col cursor-pointer hover:bg-surface-hover transition ${
+              className={`w-full text-left px-3 py-2 text-sm group flex flex-col cursor-pointer hover:bg-surface-hover transition ${
                 i === selectedIndex ? "bg-surface-hover" : ""
               }`}
             >
               <span className="font-medium text-fg truncate">@{u.username}</span>
               {userDisplayName(u) !== u.username && (
-                <span className="text-xs text-fg-tertiary truncate">{userDisplayName(u)}</span>
+                <span className={`text-xs truncate ${i === selectedIndex ? "text-fg-secondary" : "text-fg-tertiary"} group-hover:text-fg-secondary`}>{userDisplayName(u)}</span>
               )}
             </div>
           ))}

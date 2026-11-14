@@ -82,13 +82,13 @@ describe("dimmed chips (#2102)", () => {
   }
   // Worst rendered ratio per surface [light, dark]. 6:1 in light mode and on the dark warning
   // stage; on the other dark surfaces pure white is the most the fg can do (dark stale stages
-  // 5.91-5.92, dark closed Lens card 5.08 at opacity 0.7). Every floor clears AA.
+  // 5.91-5.92). Every floor clears AA. The closed Lens card had a dim here (opacity 0.7, dark
+  // floor 5.08) until #2238 replaced its whole-card opacity with a bg-sunken face.
   const FLOORS: Record<DimmedChipSurface, [number, number]> = {
     warning: [6, 6],
     stale: [6, 5.91],
     stale2x: [6, 5.91],
     stale3x: [6, 5.92],
-    "lens-closed": [6, 5.08],
   }
   it.each(Object.keys(FLOORS) as DimmedChipSurface[])("%s: every chip holds its pinned floor as rendered, in both themes", (dim) => {
     for (const [i, theme] of (["light", "dark"] as const).entries()) {
@@ -98,13 +98,16 @@ describe("dimmed chips (#2102)", () => {
     }
   })
 
-  it("without the dim the same chips fall below AA on a closed Lens card, which is the #2102 defect", () => {
-    const { opacity, light } = DIMMED_CHIP_SURFACES["lens-closed"]
+  // The #2102 defect this dim fixed: an undimmed chip under the closed Lens card's opacity-70
+  // over bg-canvas fell below AA. #2238 removed that opacity, so the closed card no longer dims.
+  it("an undimmed chip under the old closed-Lens opacity-70 over light canvas falls below AA", () => {
+    const [opacity, light] = [0.7, "#F1F5F9"]
     const undimmed = Math.min(...cube.map((c) => {
       const p = chipColors(c).light
       return contrastRatio(hexMix(p.fg, light, opacity), hexMix(p.bg, light, opacity))
     }))
     expect(undimmed).toBeLessThan(4.5)
+    expect(Object.keys(DIMMED_CHIP_SURFACES)).not.toContain("lens-closed")
   })
 
   it("keeps the hue: only the fg moves, further toward black/white, so the opaque pair still clears 6:1", () => {
@@ -123,7 +126,7 @@ describe("dimmed chips (#2102)", () => {
     expect(chipColors("#3B82F6", "none")).toBe(chipColors("#3B82F6"))
     expect(chipColors("#3B82F6", null)).toBe(chipColors("#3B82F6"))
     expect(chipColors("#3B82F6", "stale")).toBe(chipColors("#3b82f6", "stale"))
-    expect(colorChipStyle("#3B82F6", "lens-closed")).toMatchObject({ "--cf-fg-light": chipColors("#3B82F6", "lens-closed").light.fg })
+    expect(colorChipStyle("#3B82F6", "stale3x")).toMatchObject({ "--cf-fg-light": chipColors("#3B82F6", "stale3x").light.fg })
   })
 })
 

@@ -349,7 +349,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       return (
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 cursor-pointer rounded focus-within:ring-2 focus-within:ring-primary-emphasis">
-            <div className={`text-sm border rounded px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${local ? "bg-surface-hover border-line-strong text-fg" : "bg-surface-hover border-line-strong text-fg-muted"}`}>
+            <div className={`text-sm border rounded px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${local ? "bg-surface-hover border-line-strong text-fg" : "bg-surface-hover border-line-strong text-fg-secondary"}`}>
               <span>{local ? formatDateStr(local, userDateFormat) : "Select a date"}</span>
               <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" /><path d="M5 1v3M11 1v3M1.5 6h13" /></svg>
             </div>
@@ -367,7 +367,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           {local && !disabled && (
             <button type="button"
               onClick={() => onCommit("")}
-              className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+              className="text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
               title="Clear date"
               aria-label="Clear date"
             >

@@ -450,7 +450,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                 <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[f.field_type]}</span>
                 {f.is_admin_only && <AdminOnlyFieldGlyph />}
                 {f.show_on_row && (
-                  <span className="text-xs text-fg-muted bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
+                  <span className="text-xs text-fg-secondary bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
                 )}
               </div>
             ))}
@@ -863,7 +863,7 @@ function FieldEditPanel({
                     onChange={(e) => updateChoice(i, e.target.value)}
                     className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg-secondary flex-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   />
-                  <button type="button" onClick={() => removeChoice(i)} aria-label={choice.trim() ? `Remove choice ${choice.trim()}` : `Remove choice ${i + 1}`} className="text-fg-faint hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
+                  <button type="button" onClick={() => removeChoice(i)} aria-label={choice.trim() ? `Remove choice ${choice.trim()}` : `Remove choice ${i + 1}`} className="text-fg-muted hover:text-danger text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded">✕</button>
                 </>
               )}
             />

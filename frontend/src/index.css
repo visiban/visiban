@@ -37,8 +37,11 @@
   --fg: 226 232 240;               /* slate-200 — body content, card titles */
   --fg-secondary: 203 213 225;     /* slate-300 — secondary content */
   --fg-tertiary: 148 163 184;      /* slate-400 — labels, inactive tabs, metadata */
-  --fg-muted: 100 116 139;         /* slate-500 — stats, captions, placeholders */
-  --fg-faint: 71 85 105;           /* slate-600 — hover-reveal affordances, separator highlight */
+  /* #2030: two-thirds from slate-500 toward slate-400, so muted text clears AA on every dark resting
+     surface: 4.69 surface/raised, 5.72 sunken, 6.46 canvas. Still below AA on surface-hover (3.32) and
+     surface-active (2.43); text on those fills uses fg-secondary. 1.22:1 below fg-tertiary. */
+  --fg-muted: 132 147 169;         /* stats, captions, placeholders, quiet informative text */
+  --fg-faint: 71 85 105;           /* slate-600 — decorative only: separators, icons, hover-reveal, disabled (1.93 on surface) */
 
   /* Semantic — dark mode keeps bright -400 shades for text/icon use */
   --danger: 248 113 113;           /* red-400 — text/icon */
@@ -134,8 +137,10 @@
   --fg: 15 23 42;                  /* slate-900 */
   --fg-secondary: 51 65 85;        /* slate-700 */
   --fg-tertiary: 71 85 105;        /* slate-600 */
-  --fg-muted: 100 116 139;         /* slate-500 — same; passes AA on white */
-  --fg-faint: 148 163 184;         /* slate-400 */
+  /* #2030: between slate-500 and slate-600, so muted text clears AA on canvas and surface-hover too (slate-500
+     was 4.34 there): 4.88 canvas/surface-hover, 5.11 sunken, 5.35 surface. 1.42:1 below fg-tertiary. */
+  --fg-muted: 92 108 131;
+  --fg-faint: 148 163 184;         /* slate-400 — decorative only (2.56 on white) */
 
   /* Semantic text/icon colors — shifted darker for WCAG AA contrast on white.
      #2029: warning/success are the -700 step; the -600 step was 3.56 / 3.30:1 on white.
@@ -259,8 +264,8 @@ body {
   exception, frontend/CLAUDE.md § Card aging ramp). Each referenced token flips with [data-theme], so no
   light-mode copy is needed. Untinted cards never get the class.
   onTintTokens.test.ts parses this block and pins the resulting ratios.
-  Since #1862 the row itself never uses fg-muted or fg-faint (both are sub-AA
-  on an untinted dark card; the dense empty-field ghost is fg-tertiary). Their
+  Since #1862 the row itself never uses fg-muted or fg-faint (fg-tertiary is
+  the card face's floor, and fg-faint is decorative-only, #2030). Their
   entries stay so the scope keeps mapping every fg tone below fg-secondary to
   muted-on-tint, whatever a child component inherits.
 */

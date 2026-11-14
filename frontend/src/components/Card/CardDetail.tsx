@@ -1873,7 +1873,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </div>
                         <button type="button"
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
-                          className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                          className="text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           title="Clear due date"
                           aria-label="Clear due date"
                         >
@@ -1883,7 +1883,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     );
                   })() : (
                     <div className="relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                      <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-muted select-none flex items-center justify-between pointer-events-none">
+                      <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-secondary select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
@@ -2069,7 +2069,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Decrease weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >−</button>
                   <span className="text-sm font-semibold text-fg w-6 text-center">{localCard.weight}</span>
                   <button type="button"
@@ -2081,7 +2081,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Increase weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >+</button>
                 </div>
                 <AutosaveIndicator
@@ -2158,7 +2158,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {pendingSections.checklist && <SectionSkeleton rows={2} testId="checklist-skeleton" />}
                 {checklistOpen && checklist.length === 0 && !pendingSections.checklist && (
                   // Design § 5 empty state (#445).
-                  <p className="text-xs text-fg-faint italic px-1 mb-2">No checklist items.</p>
+                  <p className="text-xs text-fg-muted italic px-1 mb-2">No checklist items.</p>
                 )}
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
@@ -2215,7 +2215,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             }
                             className={`w-3.5 h-3.5 rounded accent-primary shrink-0 ${canComment && canModifyChecklistItem(item) ? "cursor-pointer" : "cursor-default"}`}
                           />
-                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-faint" : "text-fg-secondary"}`}>
+                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-muted group-hover:text-fg-secondary" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
                           <ChecklistItemControls
@@ -2353,7 +2353,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {attachmentsOpen && (pendingSections.attachments ? (
                   <SectionSkeleton rows={1} testId="attachments-skeleton" />
                 ) : attachments.length === 0 ? (
-                  <p className="text-xs text-fg-faint italic">No attachments.</p>
+                  <p className="text-xs text-fg-muted italic">No attachments.</p>
                 ) : (<>
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((a) => (
@@ -2366,7 +2366,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <a href={a.url} download={a.filename} target="_blank" rel="noreferrer" className="text-sm text-info hover:underline truncate block">
                             {a.filename}
                           </a>
-                          <p className="text-xs text-fg-muted">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
+                          <p className="text-xs text-fg-secondary">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
                         {canDeleteAttachment(a) && (
                           // #1193: attachment DELETE is not on DEMO_ALLOWED_WRITES,
@@ -2593,7 +2593,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             {canDelete && (
               <button
                 onClick={handleDelete}
-                className="text-xs text-fg-faint hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                className="text-xs text-fg-muted hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
               >
                 Delete card
               </button>

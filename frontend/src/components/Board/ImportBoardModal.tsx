@@ -515,7 +515,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
           {/* Optional name override */}
           <div>
             <label htmlFor={nameInputId} className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
-              Board name <span className="text-fg-faint normal-case">(optional override)</span>
+              Board name <span className="text-fg-muted normal-case">(optional override)</span>
             </label>
             <input
               id={nameInputId}

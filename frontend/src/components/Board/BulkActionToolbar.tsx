@@ -321,7 +321,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   role="menuitem"
                   onClick={() => handleAssign(m.value as number | null)}
                   onKeyDown={(e) => handleAssignItemKeyDown(e, i)}
-                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover ${m.italic ? "text-fg-tertiary italic" : "text-fg"} ${MENU_ITEM_FOCUS_RING}`}
+                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover ${m.italic ? "text-fg-tertiary italic hover:text-fg-secondary" : "text-fg"} ${MENU_ITEM_FOCUS_RING}`}
                 >
                   {m.label}
                 </button>

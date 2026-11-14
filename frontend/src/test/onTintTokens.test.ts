@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import tw from '../../tailwind.config.js?raw'
 import { describe, expect, it } from 'vitest'
 import { INVITE_STATUS_STYLES } from '../constants/invites'
@@ -209,18 +209,17 @@ describe('dimmed chip surfaces mirror the stage classes and tokens (#2102)', () 
     expect(s.dark).toBe(hex(blend(rgbOf(darkBlock, hue), rgbOf(darkBlock, 'surface'), alpha)))
   })
 
-  it('lens-closed: opacity-70 on the card root over the lane bg-canvas', () => {
-    const s = DIMMED_CHIP_SURFACES['lens-closed']
-    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('${closed ? "opacity-70" : ""}')
-    expect(readFileSync('src/components/Board/Lens/LensSwimlaneRow.tsx', 'utf8')).toMatch(/className="shrink-0 bg-canvas /)
-    expect(s.opacity).toBe(0.7)
-    expect(s.light).toBe(hex(rgbOf(lightBlock, 'canvas')))
-    expect(s.dark).toBe(hex(rgbOf(darkBlock, 'canvas')))
+  // #2238: the closed Lens card no longer dims (it was opacity-70 over the lane bg-canvas), so its
+  // label chips are opaque and need no dim entry. Its text is guarded by the #1862 describe below.
+  it('the closed Lens card has no whole-card opacity and no chip dim', () => {
+    const lens = readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')
+    expect(lens).not.toMatch(/\bopacity-\d/)
+    expect(lens).toContain('colorChipStyle(`#${label.color}`)')
+    expect(Object.keys(DIMMED_CHIP_SURFACES)).toEqual(['warning', 'stale', 'stale2x', 'stale3x'])
   })
 
-  it('both dimmed label-chip sites pass their dim', () => {
+  it('the dimmed label-chip site passes its dim', () => {
     expect(readFileSync('src/components/Card/CardItem.tsx', 'utf8')).toContain('colorChipStyle(label.color, aging.stage)')
-    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('closed ? "lens-closed" : null)')
   })
 })
 
@@ -343,8 +342,11 @@ describe('card metadata on an aging tint (#1844)', () => {
 
   // Still true of the token (#1862 changed the card face, not the token): this is why the row's
   // untinted text moved to fg-tertiary rather than the tint being retuned.
-  it('fg-muted is already sub-AA on an untinted dark card, so no overlay or opacity tuning could fix it', () => {
-    expect(ratio(rgbOf(darkBlock, 'fg-muted'), rgbOf(darkBlock, 'surface'))).toBeCloseTo(3.07, 2)
+  // #2030 retuned dark fg-muted (3.07 -> 4.69 on an untinted card), but plain fg-muted is still sub-AA
+  // on every tint (the test above), so the rescope stays.
+  it('fg-muted clears AA on an untinted dark card since #2030, and only the rescope clears it on a tint', () => {
+    expect(ratio(rgbOf(darkBlock, 'fg-muted'), rgbOf(darkBlock, 'surface'))).toBeCloseTo(4.69, 2)
+    for (const st of TINTED) expect(metaRatio(darkBlock, st, rgbOf(darkBlock, 'fg-muted')), st).toBeLessThan(4.5)
   })
 
   it('choice badges and multi-select chips keep >= 4.5:1 under the stage opacity', () => {
@@ -416,7 +418,7 @@ describe('card metadata on an aging tint (#1844)', () => {
 })
 
 // #1862: the same card face with no tint, where every text element sits directly on bg-surface.
-// fg-muted (3.07:1 dark) and the dense empty-field ghost's fg-faint (1.93 dark / 2.56 light) were
+// fg-muted (3.07:1 dark before #2030) and the dense empty-field ghost's fg-faint (1.93 dark / 2.56 light) were
 // below 4.5:1 there, so those elements moved to fg-tertiary, and so did the sibling surfaces that
 // carry the same metadata or the same custom-field names:
 // - CustomFieldValueDisplay: its chip and row-chip variants are the same chip on the swimlane label
@@ -425,8 +427,10 @@ describe('card metadata on an aging tint (#1844)', () => {
 // - SwimlaneFieldsPopover, SwimlaneFieldEditRow: the swimlane field names outside the row chip.
 // - ArchivedCardsPanel: archived cards are bg-sunken rows inside a bg-surface panel.
 // Each file lists every background its text sits on; the check takes the worst. The values are the
-// ones recorded in frontend/CLAUDE.md § Card aging ramp. LensIssueCard is deferred to #2030 (its
-// hover:bg-surface-hover puts even fg-tertiary at 4.04:1 dark, so it needs a design call).
+// ones recorded in frontend/CLAUDE.md § Card aging ramp.
+// - LensIssueCard (#2238): open cards are bg-surface, closed cards bg-sunken, and hover is a border
+//   step (hover:border-line-emphasis), never a fill, because on bg-surface-hover even fg-tertiary is
+//   4.04:1 dark. Its text therefore only ever sits on those two backgrounds.
 describe('untinted card face text (#1862)', () => {
   const FILES: Record<string, string[]> = {
     ...Object.fromEntries(CARD_FACE_FILES.map((f) => [`Card/${f}`, ['surface']])),
@@ -436,6 +440,7 @@ describe('untinted card face text (#1862)', () => {
     'Board/SwimlaneFieldsPopover': ['surface'],
     'Board/SwimlaneFieldEditRow': ['surface'],
     'Board/ArchivedCardsPanel': ['surface', 'surface-sunken'],
+    'Board/Lens/LensIssueCard': ['surface', 'surface-sunken'],
   }
   // A token that may sit below 4.5:1 on its file's backgrounds, with its reason.
   const EXEMPT: Record<string, string> = {
@@ -473,9 +478,10 @@ describe('untinted card face text (#1862)', () => {
       expect(tokens.has('fg-muted'), `${f} uses text-fg-muted`).toBe(false)
       expect(tokens.has('fg-faint'), `${f} uses text-fg-faint`).toBe(false)
     }
-    // The ratios the issue reported, which is why: the tokens themselves are unchanged.
-    expect(onBg(darkBlock, 'fg-muted')).toBeCloseTo(3.07, 2)
-    expect(onBg(darkBlock, 'fg-muted', 'surface-sunken')).toBeCloseTo(3.75, 2)
+    // fg-faint is unchanged and decorative-only. #2030 retuned dark fg-muted from 3.07 / 3.75 to the
+    // values below, but the card face keeps fg-tertiary as its floor (one tone with the tinted rendering).
+    expect(onBg(darkBlock, 'fg-muted')).toBeCloseTo(4.69, 2)
+    expect(onBg(darkBlock, 'fg-muted', 'surface-sunken')).toBeCloseTo(5.72, 2)
     expect(onBg(darkBlock, 'fg-faint')).toBeCloseTo(1.93, 2)
     expect(onBg(lightBlock, 'fg-faint')).toBeCloseTo(2.56, 2)
   })
@@ -617,5 +623,316 @@ describe('health status pairings (#1133)', () => {
         expect(ratio(rgbOf(block, text), tint), `${state} on ${surf}`).toBeGreaterThanOrEqual(5.0)
       }
     }
+  })
+})
+
+// #2252: the swimlane focus banner (BoardView) is a `bg-primary/<alpha>` tint. Its text, including the
+// secondary `text-fg-tertiary` status cue ("· doesn't match lane filters", #2251), sits on that tint.
+// The tint's backdrop is the board page, so the check takes the worst of canvas, sunken and surface.
+// Every text color in the banner is parsed from the source, so a new tone or a changed alpha re-runs.
+describe('focus banner text on its primary tint (#2252)', () => {
+  const src = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const start = src.indexOf('{/* Focus mode banner')
+  const banner = src.slice(start, src.indexOf('Exit focus', start))
+  const alpha = Number(/\bbg-primary\/(\d+)\b/.exec(banner)?.[1]) / 100
+  // Rest-state text colors only; `hover:text-*` sits on the button's own opaque hover fill (checked below).
+  const tones = new Set(
+    [...banner.matchAll(/(?<![a-z:-])text-([a-z][a-z-]*)\b/g)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t)),
+  )
+
+  it('parses the banner: a /15 primary tint carrying info-on-tint, the fg-tertiary cue and the fg-secondary button', () => {
+    expect(start).toBeGreaterThan(-1)
+    expect(alpha).toBe(0.15)
+    expect([...tones].sort()).toEqual(['fg-secondary', 'fg-tertiary', 'info-on-tint'])
+    expect(banner).toMatch(/role="status" className="text-xs text-fg-tertiary /)
+  })
+
+  // Worst: dark fg-tertiary over a surface backdrop, 4.99. No tint-scoped token is needed.
+  it.each([
+    ['dark', darkBlock, 4.99],
+    ['light', lightBlock, 5.65],
+  ])('%s theme: every banner text tone holds >= 4.5:1 on the tint over canvas, sunken and surface', (_n, block, floor) => {
+    const ratios: number[] = []
+    for (const t of tones) {
+      for (const base of ['canvas', 'surface-sunken', 'surface']) {
+        const r = ratio(rgbOf(block, t), blend(rgbOf(block, 'primary'), rgbOf(block, base), alpha))
+        expect(r, `${t} over ${base}`).toBeGreaterThanOrEqual(4.5)
+        ratios.push(r)
+      }
+    }
+    expect(Math.min(...ratios)).toBeCloseTo(floor, 2)
+    // The Exit focus hover state: hover:text-fg on its own opaque hover:bg-surface-hover fill.
+    expect(banner).toContain('hover:text-fg hover:bg-surface-hover')
+    expect(ratio(rgbOf(block, 'fg'), rgbOf(block, 'surface-hover'))).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+// #2236: the Analytics tab's Beta badge sits inside a tab whose fill changes with state: the
+// ViewToggle track (bg-surface-hover) at rest, hover:bg-surface-active, and bg-primary when active.
+// A translucent bg-warning/N fill took its contrast from that tab (1.17:1 active in light mode,
+// 3.55 dark on the hover fill), so the badge is one opaque bg-surface chip in every state.
+describe('Analytics tab Beta badge (#2236)', () => {
+  const src = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const badge = /<span className="([^"]*)">\s*Beta\s*<\/span>/.exec(src)?.[1] ?? ''
+
+  it('is one static class string with an opaque fill, not a per-state translucent tint', () => {
+    expect(badge).toContain('bg-surface ')
+    expect(badge).not.toMatch(/\bbg-[a-z-]+\/\d+/)
+    const colors = [...badge.matchAll(TEXT_UTILITY)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t))
+    expect(colors).toEqual(['warning-on-tint'])
+  })
+
+  it.each([
+    ['dark', darkBlock, 8.67],
+    ['light', lightBlock, 7.31],
+  ])('%s theme: warning-on-tint on the opaque chip holds the pinned ratio in every tab state', (_n, block, pinned) => {
+    expect(ratio(rgbOf(block, 'warning-on-tint'), rgbOf(block, 'surface'))).toBeCloseTo(pinned, 2)
+  })
+
+  it('the old translucent fills fail on the tab states, which is why the chip is opaque', () => {
+    const won = (b: string) => rgbOf(b, 'warning-on-tint')
+    const on = (b: string, a: number, bg: string) => ratio(won(b), blend(rgbOf(b, 'warning'), rgbOf(b, bg), a))
+    expect(on(lightBlock, 0.3, 'primary')).toBeCloseTo(1.17, 2)
+    expect(on(darkBlock, 0.2, 'surface-active')).toBeCloseTo(3.55, 2)
+    expect(on(lightBlock, 0.2, 'surface-active')).toBeCloseTo(4.5, 2)
+    // Even with no fill at all, dark warning-on-tint on the hover bg-surface-active is 4.49.
+    expect(ratio(won(darkBlock), rgbOf(darkBlock, 'surface-active'))).toBeLessThan(4.5)
+  })
+})
+
+// #2238: the closed Lens card was opacity-70 over the lane's bg-canvas, which blended its text toward
+// the canvas: the Closed pill (fg-muted on bg-surface-hover) and the #number (fg-muted on bg-surface).
+// It now recedes on bg-sunken with a bordered fg-tertiary pill and a fg-secondary title, at full opacity.
+describe('closed Lens card text (#2238)', () => {
+  const lens = readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')
+  const dimmed = (b: string, fg: string, bg: string) =>
+    ratio(blend(rgbOf(b, fg), rgbOf(b, 'canvas'), 0.7), blend(rgbOf(b, bg), rgbOf(b, 'canvas'), 0.7))
+
+  it('the old opacity-70 put the pill and #number below AA in both themes', () => {
+    // Measured with the pre-#2030 fg-muted (slate-500 in both themes), which is what shipped with the dim.
+    const [oldDark, oldLight] = [darkBlock, lightBlock].map((b) => b.replace(/--fg-muted: [\d ]+;/, '--fg-muted: 100 116 139;'))
+    expect(dimmed(oldDark, 'fg-muted', 'surface-hover')).toBeCloseTo(1.72, 2)
+    expect(dimmed(oldLight, 'fg-muted', 'surface-hover')).toBeCloseTo(2.58, 2)
+    expect(dimmed(oldDark, 'fg-muted', 'surface')).toBeCloseTo(2.13, 2)
+    expect(dimmed(oldLight, 'fg-muted', 'surface')).toBeCloseTo(2.75, 2)
+  })
+
+  it('closed state is a bg-sunken face, a bordered fg-tertiary pill and a fg-secondary title', () => {
+    expect(lens).toContain('${closed ? "bg-sunken" : "bg-surface"}')
+    expect(lens).toContain('"border-line text-fg-tertiary"')
+    expect(lens).toContain('${closed ? "text-fg-secondary" : "text-fg"}')
+  })
+
+  it.each([
+    ['dark', darkBlock, 6.96, 5.71, 12.02],
+    ['light', lightBlock, 7.24, 7.58, 9.9],
+  ])('%s theme: pill on sunken, #number on surface and closed title on sunken hold the pinned ratios', (_n, b, pill, num, title) => {
+    expect(ratio(rgbOf(b, 'fg-tertiary'), rgbOf(b, 'surface-sunken'))).toBeCloseTo(pill, 2)
+    expect(ratio(rgbOf(b, 'fg-tertiary'), rgbOf(b, 'surface'))).toBeCloseTo(num, 2)
+    expect(ratio(rgbOf(b, 'fg-secondary'), rgbOf(b, 'surface-sunken'))).toBeCloseTo(title, 2)
+  })
+})
+
+// #2030: fg-muted is AA text on every resting surface in both themes; fg-faint is decorative-only.
+// Dark fg-muted was slate-500 (3.07 surface / 3.75 sunken / 4.24 canvas) and light slate-500 was 4.34
+// on canvas and surface-hover. Both were retuned rather than promoting ~500 uses one by one.
+describe('fg-muted retune and fg-faint scope (#2030)', () => {
+  const themes = [
+    ['dark', darkBlock],
+    ['light', lightBlock],
+  ] as const
+  const on = (b: string, t: string, bg: string) => ratio(rgbOf(b, t), rgbOf(b, bg))
+  const RESTING = ['canvas', 'surface-sunken', 'surface', 'surface-raised']
+
+  it('pins the retuned fg-muted values', () => {
+    expect(rgbOf(darkBlock, 'fg-muted')).toEqual([132, 147, 169])
+    expect(rgbOf(lightBlock, 'fg-muted')).toEqual([92, 108, 131])
+  })
+
+  it.each([
+    ['dark', darkBlock, { canvas: 6.46, 'surface-sunken': 5.72, surface: 4.69, 'surface-raised': 4.69 }],
+    ['light', lightBlock, { canvas: 4.88, 'surface-sunken': 5.11, surface: 5.35, 'surface-raised': 5.35 }],
+  ])('%s theme: fg-muted holds >= 4.5:1 on every resting surface', (_n, b, pinned) => {
+    for (const bg of RESTING) {
+      expect(on(b, 'fg-muted', bg), bg).toBeGreaterThanOrEqual(4.5)
+      expect(on(b, 'fg-muted', bg), bg).toBeCloseTo(pinned[bg as keyof typeof pinned], 2)
+    }
+  })
+
+  // On the hover and pressed fills dark fg-muted (3.32 / 2.43) and even fg-tertiary (4.04 / 2.96) are
+  // below AA, which is why text on a static bg-surface-hover / bg-surface-active fill is fg-secondary.
+  it('hover and pressed fills: fg-muted and fg-tertiary are sub-AA in dark, fg-secondary holds in both themes', () => {
+    expect(on(darkBlock, 'fg-muted', 'surface-hover')).toBeCloseTo(3.32, 2)
+    expect(on(darkBlock, 'fg-muted', 'surface-active')).toBeCloseTo(2.43, 2)
+    expect(on(darkBlock, 'fg-tertiary', 'surface-hover')).toBeCloseTo(4.04, 2)
+    expect(on(lightBlock, 'fg-muted', 'surface-hover')).toBeCloseTo(4.88, 2)
+    expect(on(lightBlock, 'fg-muted', 'surface-active')).toBeLessThan(4.5)
+    // fg-secondary on surface-hover: the Pinned chips, the date placeholders and the #2083 Superuser chip.
+    expect(on(darkBlock, 'fg-secondary', 'surface-hover')).toBeCloseTo(6.97, 2)
+    expect(on(lightBlock, 'fg-secondary', 'surface-hover')).toBeCloseTo(9.45, 2)
+    for (const [, b] of themes) expect(on(b, 'fg-secondary', 'surface-active')).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it.each(themes)('%s theme: the text hierarchy stays ordered and each step stays visible', (_n, b) => {
+    const order = ['fg', 'fg-secondary', 'fg-tertiary', 'fg-muted', 'fg-faint'].map((t) => lum(rgbOf(b, t)))
+    const descending = b === darkBlock
+    for (let i = 1; i < order.length; i++) expect(descending ? order[i] < order[i - 1] : order[i] > order[i - 1]).toBe(true)
+    // muted/tertiary is the compressed step: 1.22 dark, 1.42 light.
+    expect(ratio(rgbOf(b, 'fg-tertiary'), rgbOf(b, 'fg-muted'))).toBeGreaterThanOrEqual(1.2)
+    expect(ratio(rgbOf(b, 'fg-muted'), rgbOf(b, 'fg-faint'))).toBeGreaterThanOrEqual(1.8)
+  })
+
+  // Avatar `?` fallback: white on the brighter dark fg-muted would be 3.12, so the glyph is knocked out
+  // in the surface color: 4.69 dark / 5.35 light.
+  it('Avatar fallback glyph holds AA on its bg-fg-muted disc in both themes', () => {
+    expect(readFileSync('src/components/Common/Avatar.tsx', 'utf8')).toContain('bg-fg-muted text-surface')
+    expect(ratio(rgbOf(darkBlock, 'on-primary'), rgbOf(darkBlock, 'fg-muted'))).toBeLessThan(4.5)
+    expect(on(darkBlock, 'surface', 'fg-muted')).toBeCloseTo(4.69, 2)
+    expect(on(lightBlock, 'surface', 'fg-muted')).toBeCloseTo(5.35, 2)
+  })
+
+  // Every source file, for the class-literal guards below.
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? (e.name === 'test' ? [] : walk(`${dir}/${e.name}`)) : /\.tsx?$/.test(e.name) ? [`${dir}/${e.name}`] : [],
+    )
+  const sources = walk('src').map((f) => [f, readFileSync(f, 'utf8')] as const)
+  const literals = (src: string) => [...src.matchAll(/["'`]([^"'`\n]*)["'`]/g)].map((m) => m[1])
+
+  // A fg-muted tint fill (bg-fg-muted/N) brightens with the retune, so fg-tertiary text on it fell to
+  // 4.20:1 dark over surface; every such pill now carries muted-on-tint. Checked over each resting surface.
+  it('every bg-fg-muted/N pill carries text that holds AA on the fill in both themes', () => {
+    let seen = 0
+    for (const [f, src] of sources) {
+      for (const lit of literals(src)) {
+        const fill = /(?<![:\w-])bg-fg-muted\/(\d+)\b/.exec(lit)
+        if (!fill) continue
+        const texts = [...lit.matchAll(/(?<![:\w-])text-([a-z][a-z-]*)\b/g)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t))
+        expect(texts, `${f}: ${lit}`).toEqual(['muted-on-tint'])
+        for (const [, b] of themes) {
+          for (const bg of ['canvas', 'surface-sunken', 'surface']) {
+            const tint = blend(rgbOf(b, 'fg-muted'), rgbOf(b, bg), Number(fill[1]) / 100)
+            expect(ratio(rgbOf(b, 'muted-on-tint'), tint), `${f} over ${bg}`).toBeGreaterThanOrEqual(5.0)
+          }
+        }
+        seen++
+      }
+    }
+    expect(seen).toBeGreaterThanOrEqual(4)
+    // The pairing it replaced.
+    expect(ratio(rgbOf(darkBlock, 'fg-tertiary'), blend(rgbOf(darkBlock, 'fg-muted'), rgbOf(darkBlock, 'surface'), 0.2))).toBeCloseTo(4.2, 2)
+  })
+
+  // A class literal that paints a resting hover/pressed fill must not put fg-muted, fg-faint or
+  // fg-tertiary text on it (sub-AA in dark). `hover:bg-surface-hover` is a state, not a resting fill.
+  it('no class literal puts fg-tertiary, fg-muted or fg-faint text on a resting surface-hover or surface-active fill', () => {
+    const bad: string[] = []
+    for (const [f, src] of sources) {
+      for (const lit of literals(src)) {
+        if (!/(?<![:\w/-])bg-surface-(hover|active)(?![\w/-])/.test(lit)) continue
+        if (/(?<![:\w-])text-fg-(tertiary|muted|faint)\b/.test(lit)) bad.push(`${f}: ${lit}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
+
+  // fg-faint (1.93 dark / 2.56 light on surface) is decorative-only: separators, icons, emoji, hover-reveal
+  // and disabled controls. A line using it must show one of those markers, or be listed with its reason.
+  it('fg-faint is used only for decorative, hover-reveal or disabled elements', () => {
+    const DECORATIVE = /aria-hidden|<svg|opacity-0|opacity-40|cursor-not-allowed|^\s*(\/\/|\*|\{\/\*)/
+    const LISTED: Record<string, string> = {
+      'src/components/Card/CardRelationsSection.tsx:className={`w-3.5 h-3.5 text-fg-faint group-hover/rel:text-fg-tertiary': 'disclosure chevron <svg>, attribute on its own line',
+      'src/components/Board/ArchivedCardsPanel.tsx:<span className="text-fg-faint text-2xl">📦</span>': 'empty-state emoji, which paints its own colors',
+      'src/components/Board/Lens/LensSwimlaneRow.tsx:className="col-span-full flex items-center justify-center py-2 text-xs text-fg-faint select-none"': 'aria-hidden empty-lane dash (next line); the count lives in the column header',
+      'src/components/Dashboard/OnboardingEmptyState.tsx:<div className="mb-6 text-fg-faint">': 'wrapper of the decorative onboarding illustration <svg>',
+    }
+    const bad: string[] = []
+    const listedSeen = new Set<string>()
+    for (const [f, src] of sources) {
+      for (const line of src.split('\n')) {
+        if (!/(?<![:\w-])text-fg-faint\b/.test(line) || DECORATIVE.test(line)) continue
+        const key = Object.keys(LISTED).find((k) => k.startsWith(`${f}:`) && line.includes(k.slice(f.length + 1)))
+        if (key) listedSeen.add(key)
+        else bad.push(`${f}: ${line.trim()}`)
+      }
+    }
+    expect(bad).toEqual([])
+    expect([...listedSeen].sort()).toEqual(Object.keys(LISTED).sort())
+  })
+})
+
+// #2030: a parent fill with child text. The resting-fill scan above reads one class literal at a time, so
+// it cannot see a track (`bg-surface-hover`) whose children set their own text tone. Limit: a general
+// parent/child scan would need JSX parsing; these pins cover the two known tracks (the ViewToggle and the
+// RichTextEditor toolbar) by reading the tone each child class string uses.
+describe('child text tones on a resting bg-surface-hover track (#2030)', () => {
+  const view = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const editor = readFileSync('src/components/Card/RichTextEditor.tsx', 'utf8')
+
+  it('ViewToggle: every tab rests at fg-secondary on the bg-surface-hover track', () => {
+    const toggle = view.slice(view.indexOf('const btn = '), view.indexOf('Tooltip content="Analytics (A)"') + 1200)
+    expect(toggle).toContain('flex items-center gap-0.5 bg-surface-hover rounded p-0.5')
+    const rest = [...toggle.matchAll(/: muted\s*\? "([^"]*)"\s*: "([^"]*)"|: "(text-fg-[a-z]+ [^"]*)"/g)]
+    expect(rest.length).toBeGreaterThanOrEqual(2)
+    expect(toggle).not.toMatch(/"text-fg-(tertiary|muted|faint)[ "]/)
+    expect(toggle).not.toMatch(/"text-fg-(tertiary|muted|faint) italic/)
+    expect(toggle.match(/"text-fg-secondary[ "]/g)?.length ?? 0).toBeGreaterThanOrEqual(3)
+  })
+
+  it('RichTextEditor: toolbar glyph buttons rest at fg-secondary on the bg-surface-hover toolbar', () => {
+    expect(editor).toContain('bg-surface-hover rounded-t-lg border border-line-strong border-b-0')
+    expect(editor).not.toMatch(/: "text-fg-(tertiary|muted|faint) hover:bg-surface-hover/)
+    expect(editor.match(/: "text-fg-secondary hover:bg-surface-hover hover:text-fg"/g)?.length).toBe(2)
+  })
+
+  it('hover-row and selected-fill children rest at fg-secondary or brighten on hover (#2030 round 2)', () => {
+    const card = readFileSync('src/components/Card/CardDetail.tsx', 'utf8')
+    expect(card).toContain('bg-surface-hover rounded-lg px-3 py-2 group')
+    expect(card).toContain('<p className="text-xs text-fg-secondary">{(a.size')
+    expect(card).toContain('line-through text-fg-muted group-hover:text-fg-secondary')
+    const rel = readFileSync('src/components/Card/CardRelationsSection.tsx', 'utf8')
+    expect(rel.match(/text-fg-muted group-hover:text-fg-secondary/g)?.length).toBe(3)
+    const settings = readFileSync('src/components/Board/BoardSettingsModal.tsx', 'utf8')
+    expect(settings).toContain('text-fg-muted group-hover:text-fg-secondary truncate">{u.email}')
+    expect(settings).toContain('className="group w-full text-left px-3 py-2.5 hover:bg-surface-hover')
+    const mention = readFileSync('src/components/Card/MentionTextarea.tsx', 'utf8')
+    expect(mention).toContain('i === selectedIndex ? "text-fg-secondary" : "text-fg-tertiary"')
+    expect(mention).toContain('group-hover:text-fg-secondary')
+    expect(mention).toContain('py-2 text-sm group flex flex-col')
+    // The checklist row is the group (CardDetail); its due text must brighten on hover.
+    const ctl = readFileSync('src/components/Card/ChecklistItemControls.tsx', 'utf8')
+    expect(ctl).toContain('NEUTRAL_TONE = "text-fg-tertiary group-hover:text-fg-secondary')
+    expect(ctl).toContain('"text-danger" : "text-fg-tertiary group-hover:text-fg-secondary"')
+  })
+
+  it.each([
+    ['dark', darkBlock, 6.97, 4.04],
+    ["light", lightBlock, 9.45, 6.92],
+  ])('%s theme: fg-secondary clears AA on the track where fg-tertiary does not', (_n, block, secondary, tertiary) => {
+    expect(ratio(rgbOf(block, 'fg-secondary'), rgbOf(block, 'surface-hover'))).toBeCloseTo(secondary, 2)
+    expect(ratio(rgbOf(block, 'fg-tertiary'), rgbOf(block, 'surface-hover'))).toBeCloseTo(tertiary, 2)
+  })
+})
+
+// #2030: revoked, used and expired invite rows used to dim with whole-row opacity-60/75/70, which blends
+// every tone toward the backdrop (the "never whole-card opacity" rule, #2238). They now keep the bg-sunken face
+// with undimmed tones; the status pill, not the dim, carries the state.
+describe('InviteLinkPanel dimmed rows (#2030)', () => {
+  const panel = readFileSync('src/components/Group/InviteLinkPanel.tsx', 'utf8')
+
+  it('uses no opacity class on a row', () => {
+    expect(panel).not.toMatch(/opacity-(60|70|75)/)
+    expect(panel.match(/"border-danger\/40 bg-sunken"/g)?.length).toBe(2)
+  })
+
+  it.each([
+    ["dark", darkBlock, 5.72, 4.5],
+    ["light", lightBlock, 5.11, 4.5],
+  ])('%s theme: fg-muted metadata holds AA on the bg-sunken row face', (_n, block, pinned, min) => {
+    const r = ratio(rgbOf(block, 'fg-muted'), rgbOf(block, "surface-sunken"))
+    expect(r).toBeCloseTo(pinned, 2)
+    expect(r).toBeGreaterThanOrEqual(min)
+    expect(ratio(rgbOf(block, 'fg-tertiary'), rgbOf(block, "surface-sunken"))).toBeGreaterThanOrEqual(min)
+    expect(ratio(rgbOf(block, 'danger'), rgbOf(block, "surface-sunken"))).toBeGreaterThanOrEqual(min)
   })
 })

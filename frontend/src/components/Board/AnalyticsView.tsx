@@ -314,7 +314,7 @@ function HeatmapSection({ data, days, onDaysChange, mode, onModeChange, currentU
           {(currentUserRole === "admin" || currentUserRole === "site_admin") && (
             <button
               onClick={() => data && exportCsv(data, mode)}
-              className="ml-auto text-xs px-3 py-1 rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="ml-auto text-xs px-3 py-1 rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Export CSV
             </button>
@@ -451,7 +451,7 @@ function StalledCardsSection({ data, page: requestedPage, onPageChange, onOpenCa
                           {c.days_since_move}d
                         </td>
                         {onOpenCard && (
-                          <td className="py-1.5 pl-3 text-fg-faint text-xs text-center">↗</td>
+                          <td className="py-1.5 pl-3 text-fg-muted text-xs text-center">↗</td>
                         )}
                       </tr>
                     ))}
@@ -467,7 +467,7 @@ function StalledCardsSection({ data, page: requestedPage, onPageChange, onOpenCa
                     <button
                       onClick={() => onPageChange(p => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       ← Prev
                     </button>
@@ -475,7 +475,7 @@ function StalledCardsSection({ data, page: requestedPage, onPageChange, onOpenCa
                     <button
                       onClick={() => onPageChange(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Next →
                     </button>

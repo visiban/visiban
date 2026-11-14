@@ -103,7 +103,7 @@ export default function CustomFieldQuickEditPopover({ anchorRect, choices, selec
         role="option"
         aria-selected={selected === ""}
         onClick={() => { onSelect(""); onDismiss(); }}
-        className={`w-full text-left px-2.5 py-1 text-xs rounded transition flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${selected === "" ? "bg-surface-hover text-fg" : "text-fg-muted hover:bg-surface-hover"}`}
+        className={`w-full text-left px-2.5 py-1 text-xs rounded transition flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${selected === "" ? "bg-surface-hover text-fg" : "text-fg-muted hover:bg-surface-hover hover:text-fg-secondary"}`}
       >
         <span className="truncate">— No value —</span>
         {/* Non-color selection cue (#2171), the same check the choice rows carry. */}

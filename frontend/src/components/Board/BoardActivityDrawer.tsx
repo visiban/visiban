@@ -136,7 +136,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
               {entry.detail && (
                 <div className="text-fg-muted">{entry.detail}</div>
               )}
-              <div className="text-fg-faint mt-0.5">
+              <div className="text-fg-muted mt-0.5">
                 {formatRelativeTime(entry.timestamp.toISOString())}
               </div>
             </div>
@@ -152,7 +152,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
         >
           Open full history →
         </button>
-        <span className="text-fg-faint">{formatShortcut({ mod: true, key: "\\" })} to close</span>
+        <span className="text-fg-muted">{formatShortcut({ mod: true, key: "\\" })} to close</span>
       </div>
     </aside>
   );

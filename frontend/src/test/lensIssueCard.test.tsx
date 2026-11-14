@@ -35,19 +35,35 @@ describe('LensIssueCard', () => {
     openSpy.mockRestore()
   })
 
-  it('renders an open issue with the Open state pill (no opacity dimming)', () => {
+  it('renders an open issue with the Open state pill on bg-surface', () => {
     render(<LensIssueCard issue={makeIssue({ state: 'open' })} />)
     expect(screen.getByText('Open')).toBeInTheDocument()
-    expect(screen.getByText('#42')).toBeInTheDocument()
+    expect(screen.getByText('#42')).toHaveClass('text-fg-tertiary')
     const card = screen.getByRole('button')
-    expect(card.className).not.toContain('opacity-70')
+    expect(card).toHaveClass('bg-surface')
+    expect(card.className).not.toMatch(/\bopacity-\d/)
+    expect(screen.getByText('Fix the flux capacitor')).toHaveClass('text-fg')
   })
 
-  it('renders a closed issue dimmed with a Closed pill', () => {
+  // #2238: closed recedes by surface, pill and title tone, never whole-card opacity, so every
+  // text tone keeps its measured ratio (pinned in onTintTokens.test.ts).
+  it('renders a closed issue on bg-sunken with a bordered Closed pill and no opacity', () => {
     render(<LensIssueCard issue={makeIssue({ state: 'closed' })} />)
-    expect(screen.getByText('Closed')).toBeInTheDocument()
+    const pill = screen.getByText('Closed')
+    expect(pill).toHaveClass('border', 'border-line', 'text-fg-tertiary')
+    expect(pill.className).not.toContain('bg-surface-hover')
     const card = screen.getByRole('button')
-    expect(card.className).toContain('opacity-70')
+    expect(card).toHaveClass('bg-sunken')
+    expect(card).not.toHaveClass('bg-surface')
+    expect(card.className).not.toMatch(/\bopacity-\d/)
+    expect(screen.getByText('Fix the flux capacitor')).toHaveClass('text-fg-secondary')
+  })
+
+  it('hovers with a border step, never a fill', () => {
+    render(<LensIssueCard issue={makeIssue({ state: 'open' })} />)
+    const card = screen.getByRole('button')
+    expect(card).toHaveClass('hover:border-line-emphasis')
+    expect(card.className).not.toMatch(/hover:bg-/)
   })
 
   it('shows the multi-lane indicator only when laneCount > 1', () => {

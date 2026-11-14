@@ -213,7 +213,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           {loadingGroups ? (
             <Spinner />
           ) : groups.length === 0 ? (
-            <p className="text-fg-faint text-sm">No groups yet. Create one to collaborate with others.</p>
+            <p className="text-fg-muted text-sm">No groups yet. Create one to collaborate with others.</p>
           ) : (
             <div className="bg-surface/50 rounded-lg border border-line/50 px-2 py-1">
               <GroupTree
@@ -272,7 +272,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           ) : (
             <div className="flex flex-col gap-2">
               {personalBoards.length === 0 && (
-                <p className="text-fg-faint text-sm">No personal boards yet.</p>
+                <p className="text-fg-muted text-sm">No personal boards yet.</p>
               )}
               {personalBoards.map(renderBoardRow)}
             </div>

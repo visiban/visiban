@@ -636,7 +636,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 {sep}
                 <div className="w-10 shrink-0 flex items-center justify-center py-1">
                   {cellCount > 0 && (
-                    <span className="text-xs text-fg-faint font-medium">{cellCount}</span>
+                    <span className="text-xs text-fg-muted font-medium">{cellCount}</span>
                   )}
                 </div>
               </div>

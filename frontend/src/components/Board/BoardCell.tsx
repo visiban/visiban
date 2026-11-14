@@ -219,7 +219,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         // z-[5]: CardItem's root is `relative z-0`, so a z-auto badge paints under the
         // first card (#1162). Same value and reasoning as the overlay badge; see
         // frontend/CLAUDE.md (grid overlay stacking).
-        <span data-testid="cell-card-count" className="absolute top-1.5 right-2 z-[5] text-xs font-medium text-fg-faint select-none pointer-events-none">
+        <span data-testid="cell-card-count" className="absolute top-1.5 right-2 z-[5] text-xs font-medium text-fg-muted select-none pointer-events-none">
           {cards.length}
         </span>
       )}
@@ -321,7 +321,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           onClick={() => setAdding(true)}
           // On an overlay tint fg-faint sinks out of sight, and this button sits on the
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
-          className={`relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-faint"} hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+          className={`relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
           + Add card
         </button>

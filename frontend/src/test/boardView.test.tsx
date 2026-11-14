@@ -2193,21 +2193,17 @@ describe('BoardView', () => {
       expect(historyBtn.textContent).not.toContain('Beta')
     })
 
-    it('badge has inactive amber classes when Analytics is not the active tab', () => {
-      // Default view is "board", so the Analytics tab is inactive.
-      mockSearchParams = new URLSearchParams()
+    // #2236: one opaque chip in every tab state, so the badge never takes its contrast from
+    // the tab underneath (the old active bg-warning/30 on bg-primary was 1.17:1 in light mode).
+    it.each([
+      ['inactive', ''],
+      ['active', 'view=analytics'],
+    ])('badge is the same opaque bg-surface chip with warning-on-tint text when %s', (_s, qs) => {
+      mockSearchParams = new URLSearchParams(qs)
       render(<BoardView {...defaultProps()} />)
       const badge = screen.getByText('Beta')
-      expect(badge.className).toContain('bg-warning/20')
-      expect(badge.className).toContain('text-warning-on-tint')
-    })
-
-    it('badge has active amber classes when Analytics IS the active tab', () => {
-      mockSearchParams = new URLSearchParams('view=analytics')
-      render(<BoardView {...defaultProps()} />)
-      const badge = screen.getByText('Beta')
-      expect(badge.className).toContain('bg-warning/30')
-      expect(badge.className).toContain('text-warning-on-tint')
+      expect(badge).toHaveClass('bg-surface', 'text-warning-on-tint')
+      expect(badge.className).not.toMatch(/\bbg-warning\//)
     })
   })
 

@@ -319,7 +319,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
               onClick={() => onAction(submenu.id, item.value)}
               onKeyDown={(e) => onSubKeyDown(e, i)}
               className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover flex items-center gap-2 ${
-                item.italic ? "italic text-fg-tertiary" : "text-fg-secondary"
+                item.italic ? "italic text-fg-tertiary hover:text-fg-secondary" : "text-fg-secondary"
               } ${MENU_ITEM_FOCUS_RING}`}
             >
               {item.dot && <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.dot }} />}

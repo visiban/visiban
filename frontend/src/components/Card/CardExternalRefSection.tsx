@@ -210,7 +210,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                     }${
                       selected
                         ? "border-primary-emphasis bg-primary-emphasis/10 text-fg-secondary"
-                        : "border-line-strong hover:bg-surface-hover/40 text-fg-muted"
+                        : "border-line-strong hover:bg-surface-hover/40 text-fg-muted hover:text-fg-secondary"
                     }`}
                   >
                     <input
@@ -266,8 +266,8 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
           </form>
         ) : current ? (
           <>
-            <div className="flex items-center gap-3 px-1 py-0.5 rounded hover:bg-surface-hover">
-              <span className="text-xs text-fg-muted shrink-0">{PROVIDER_LABELS[current.provider] ?? current.provider}</span>
+            <div className="flex items-center gap-3 px-1 py-0.5 rounded group hover:bg-surface-hover">
+              <span className="text-xs text-fg-muted group-hover:text-fg-secondary shrink-0">{PROVIDER_LABELS[current.provider] ?? current.provider}</span>
               {isHttpUrl(current.url) ? (
                 <a
                   href={current.url}
