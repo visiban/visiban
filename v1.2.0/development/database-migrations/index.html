@@ -5212,6 +5212,28 @@ installs have already run them; these are documented instead.</p>
   <code>ADD CONSTRAINT ... FOREIGN KEY</code>, which takes <code>SHARE ROW EXCLUSIVE</code> on <code>users</code> and
   <code>account_emailaddress</code> briefly. With every row <code>NULL</code> this is fast. For future FKs on large
   tables use the <code>NOT VALID</code> then <code>VALIDATE</code> pattern above.</li>
+<li><strong><code>boards/0078_cardmovement_board_snapshots</code> adds a foreign key without <code>NOT VALID</code>.</strong> It
+  adds a nullable <code>board</code> FK to <code>card_movements</code>, an append-only table that grows without
+  bound. On PostgreSQL the <code>ADD CONSTRAINT ... FOREIGN KEY</code> validates the new column against
+  <code>boards</code> under a lock on both tables. With every row <code>NULL</code> the scan finds nothing to
+  check, so it is quick, but its cost still tracks the table's size. <code>boards/0079</code> shows the
+  class of fix for the sibling problem: its <code>DropNotNullKeepingForeignKey</code> changes
+  nullability without rebuilding (and re-validating) the existing <code>card_id</code> FK. <code>0078</code> has
+  no such equivalent and has shipped, so it is documented here rather than edited. For a
+  future FK on a large table, use the <a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code>
+  recipe</a> even if the column starts all
+  <code>NULL</code>. No checker enforces this today: <code>check_migration_concurrency</code> does not inspect
+  foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
+  considered (#1894) and declined for now: a lint cannot tell a large table from a small
+  one, so it would either flag every FK on a small table or miss the ones that matter.</li>
+<li><strong>NOT NULL columns first shipped with a Python-only <code>default=</code>.</strong> <code>accounts/0027</code>,
+  <code>accounts/0030</code>, <code>accounts/0034</code> and <code>boards/0052</code> added <code>NOT NULL</code> columns with
+  <code>default=</code> but no <code>db_default=</code>, which is the rolling-deploy hazard described under
+  <a href="#a-not-null-column-with-a-default">A NOT NULL column with a default</a>. Later additive
+  migrations restored the database default (<code>accounts/0038</code> and <code>boards/0072</code>), so a 1.2 GA
+  install has it. Both migrations first shipped in <code>1.2.0-beta.2</code>, so only an install that
+  ran <code>1.2.0-beta.1</code> or a 1.2 alpha and has not yet applied them lacks the default, which matters only if an old-release pod inserts rows during the
+  rollout. See the <a href="../../administration/upgrade/#12-migrations-and-database-defaults">upgrade guide</a>.</li>
 <li><strong><code>RunPython</code> UPDATE shares a transaction with <code>ADD COLUMN</code>.</strong> <code>accounts/0030</code> updates
   <code>users</code> in the same transaction as its column additions, so the UPDATE runs while
   <code>ACCESS EXCLUSIVE</code> is held. (<code>accounts/0036</code> is a standalone <code>RunPython</code> with no schema

@@ -4075,6 +4075,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="1.2 migrations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#12-migrations-and-database-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 migrations and database defaults
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -5488,6 +5505,20 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Migration <code>boards/0055_add_card_board_updated_idx</code> adds a partial index on <code>Card(board,
 -updated_at)</code> backing the new <a href="../../api/cards/"><code>GET /api/v1/cards/</code></a> cross-board query
 endpoint (#1112). It touches the existing, likely-large <code>cards</code> table, so it uses <code>CREATE INDEX CONCURRENTLY</code> (via <code>visiban.db_operations</code>, <code>atomic = False</code>) and takes no blocking lock, per the <a href="#zero-downtime-migration-rules">zero-downtime migration rules</a> above.</p>
+<h5 id="12-migrations-and-database-defaults">1.2 migrations and database defaults<a class="headerlink" href="#12-migrations-and-database-defaults" title="Permanent link">&para;</a></h5>
+<p><code>accounts/0027</code>, <code>accounts/0030</code>, <code>accounts/0034</code> and <code>boards/0052</code> add <code>NOT NULL</code> columns
+that, in the betas, carried a Django-level default only. PostgreSQL then drops the column
+default after the <code>ALTER</code> (Django's schema editor issues the <code>DROP DEFAULT</code>), so a pod still
+running the old release that inserts a row without naming the column fails with a <code>NOT NULL</code>
+violation until it drains. <code>accounts/0038</code> and
+<code>boards/0072</code> restore the database-level default with an additive <code>AlterField</code> (metadata
+only, no table rewrite). What this means for you:</p>
+<ul>
+<li><strong>Upgrading from 1.1.x straight to GA:</strong> nothing to do. Every migration runs in order, and the database ends with the default in place.</li>
+<li><strong>Upgrading from <code>1.2.0-beta.1</code> or any 1.2 alpha:</strong> these tags have none of the database defaults restored (<code>0038</code> and <code>0072</code> first ship in <code>1.2.0-beta.2</code>). Apply the whole GA migration set as usual; <code>0038</code> and <code>0072</code> run with it and close the gap. Between the earlier schema and that point, an old pod inserting a <code>users</code>, <code>sitesetting</code> or <code>boards</code> row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the <a href="../maintenance-mode/">maintenance window</a>.</li>
+<li><strong>Upgrading from <code>1.2.0-beta.2</code> or later (including <code>beta.3</code> and <code>rc.1</code>):</strong> <code>accounts/0038</code> and <code>boards/0072</code> are already applied. Nothing to do.</li>
+<li><strong>Nothing needs a manual fix</strong> and no data changes.</li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Notification side effect of <code>accounts/0030</code></p>
 <p>Because <code>email_notif_due_soon</code> now drives the real due-date email, anyone who previously had <strong>Due date approaching</strong> on (which historically only produced staleness alerts) starts receiving the 24-hour due-date email too. See the note in <a href="../../features/notifications/">Notifications</a> if you need to tell your users.</p>
