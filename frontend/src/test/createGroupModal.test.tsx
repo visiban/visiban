@@ -14,7 +14,7 @@ const mockCreateGroup = createGroup as ReturnType<typeof vi.fn>
 
 function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null,
+    health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
     id: 1,
     name: 'Engineering',
     description: '',

@@ -28,7 +28,7 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # does, but lazily, inside its methods).
 from groups.health import HealthStatus
 from groups.serializers import (
-    HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
+    HEALTH_HISTORY_FIELDS, HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
 )
 
 from .broadcast import (
@@ -3658,7 +3658,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", "default_preset"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4070,6 +4070,7 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count", "share_link_active",
             "health_status", "effective_health_status", "health_status_source",
+            *HEALTH_HISTORY_FIELDS,
             "default_preset",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a

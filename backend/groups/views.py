@@ -32,12 +32,15 @@ from visiban.invite_recipient import (
 from . import broadcast as _group_broadcast
 from .counts import annotate_group_counts
 from .invite_registration import link_can_register, lock_invite_group
+from .health import valid_health_status
+from .health_history import history_page, record_health_change, record_if_changed
 from .models import (
-    GROUP_PARENT_CHAIN, Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink,
+    GROUP_PARENT_CHAIN, Group, GroupFavorite, GroupHealthChange, GroupLabel, GroupMembership, GroupInviteLink,
     group_access_resolver, group_admin_resolver,
 )
 from .serializers import (
     GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer,
+    HealthHistorySerializer, HealthStatusChangeSerializer, HealthStatusWriteSerializer,
     GroupBoardDefaultsSerializer, GroupMemberRoleUpdateSerializer, full_group_access,
     GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer, GroupInviteLinkEmailSerializer,
     _ALLOWED_PRIORITY_SLUGS, _MAX_ALLOWED_PRIORITIES_LENGTH,
@@ -469,7 +472,8 @@ class GroupViewSet(viewsets.ModelViewSet):
         # so _require_group_admin() and _require_group_member() read from already-
         # loaded parent objects instead of issuing up to 5 lazy FK queries per
         # write action on nested groups. Six levels matches _GROUP_TRAVERSAL_MAX_DEPTH.
-        related = ["owner"] + ["__".join(["parent"] * d) for d in range(1, 7)]
+        # health_status_changed_by (#2242): a join for the last-change setter.
+        related = ["owner", "health_status_changed_by"] + ["__".join(["parent"] * d) for d in range(1, 7)]
         # Annotate counts so GroupSerializer can read _member_count etc. directly
         # from the object instead of issuing 3-4 extra queries per group.
         return annotate_group_counts(
@@ -526,6 +530,8 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # validation and save (#1690).
                 parent = serializer.recheck_create_parent_under_lock(parent)
             group = serializer.save(owner=self.request.user)
+            # A status sent on create is a change from nothing (#2242).
+            record_if_changed(group, change_model=GroupHealthChange, from_status=None, user=self.request.user)
             if parent is not None:
                 # The chain-loaded parent, so the response's can_place_boards
                 # check walks loaded rows at any depth (#1692).
@@ -574,7 +580,13 @@ class GroupViewSet(viewsets.ModelViewSet):
         # Runs inside _update_with_broadcast's transaction: lock and reload the
         # row, and re-check a parent change against the locked state.
         serializer.recheck_parent_under_lock(serializer.instance)
+        # Read from the locked, reloaded row (#2242): PATCH/PUT record a
+        # history row only when the value changes, with no note.
+        old_health_status = serializer.instance.health_status
         group = serializer.save()
+        record_if_changed(
+            group, change_model=GroupHealthChange, from_status=old_health_status, user=self.request.user,
+        )
         if group.parent_id is not None:
             # The reload above drops the select_related ancestor chain; load
             # it again (one query) so the response's can_place_boards check
@@ -600,20 +612,100 @@ class GroupViewSet(viewsets.ModelViewSet):
                 _revoke_lapsed_subtree_invite_links(group)
                 # So did the standing behind share links on its boards (#1865).
                 _revoke_lapsed_subtree_share_links(group.pk)
-            annotated = self._annotated_groups().get(pk=group.pk)
-            # Full detail: the caller passed _require_group_admin, and the
-            # payload goes to this group's own channel, whose subscribers are
-            # its members (ancestor-or-self).
-            group_data = GroupSerializer(
-                annotated, context={"request": request, "group_access": full_group_access},
-            ).data
-
-            def _broadcast_updated(gid=group.pk, data=group_data, aid=request.user.id):
-                from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data, actor_id=aid)
-
-            transaction.on_commit(_broadcast_updated)
+            self._broadcast_group_updated(request, group.pk)
         return response
+
+    def _broadcast_group_updated(self, request, group_pk):
+        """Schedule ``group.updated`` on commit; return the payload.
+
+        Shared by ``_update_with_broadcast`` and the ``health-status`` action
+        (#2242). Call inside the write's transaction, after the write.
+        """
+        annotated = self._annotated_groups().get(pk=group_pk)
+        # Full detail: the caller passed _require_group_admin, and the
+        # payload goes to this group's own channel, whose subscribers are
+        # its members (ancestor-or-self).
+        group_data = GroupSerializer(
+            annotated, context={"request": request, "group_access": full_group_access},
+        ).data
+
+        def _broadcast_updated(gid=group_pk, data=group_data, aid=request.user.id):
+            from .broadcast import broadcast_group_event
+            broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data, actor_id=aid)
+
+        transaction.on_commit(_broadcast_updated)
+        return group_data
+
+    @extend_schema(
+        summary="Set or confirm the group's health status",
+        description=(
+            "The explicit set-or-confirm action (#2242). Records a history row "
+            "even when the status is unchanged (a reconfirm, which refreshes "
+            "health_status_changed_at), and is the only writer that stores a "
+            "note. status null clears the group's own value (inherit); clearing "
+            "when nothing is set here is a 400. Group admins only. Broadcasts "
+            "group.updated. Response: the group, as in the group list."
+        ),
+        request=HealthStatusWriteSerializer,
+        responses={200: GroupSerializer},
+    )
+    @action(detail=True, methods=["post"], url_path="health-status")
+    def health_status(self, request, pk=None):
+        group = self.get_object()
+        # Admin check before the body is validated, as PATCH does.
+        _require_group_admin(request.user, group)
+        body = HealthStatusWriteSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        status_value = body.validated_data["status"]
+        note = body.validated_data.get("note")
+        with transaction.atomic():
+            # The same group-row lock a PATCH takes (recheck_parent_under_lock),
+            # then ``from`` read from the reloaded row.
+            if not Group.objects.select_for_update().filter(pk=group.pk).exists():
+                from rest_framework.exceptions import NotFound
+
+                raise NotFound
+            group.refresh_from_db(fields=[
+                "health_status", "health_status_changed_at", "health_status_changed_by", "health_status_note",
+            ])
+            current = valid_health_status(group.health_status)
+            if status_value is None and current is None:
+                raise drf_serializers.ValidationError({"status": ["Nothing set here to confirm."]})
+            record_health_change(
+                group, change_model=GroupHealthChange, from_status=current,
+                to_status=status_value, user=request.user, note=note,
+            )
+            group_data = self._broadcast_group_updated(request, group.pk)
+        return Response(group_data)
+
+    @extend_schema(
+        summary="List the group's health status changes",
+        description=(
+            "The group's own health status changes (#2242), newest first, at "
+            "most 20; has_more is true when older ones exist. A row whose "
+            "from_status equals to_status is a reconfirm. changed_by is null "
+            "for a removed account or a system change. Needs access to the "
+            "group itself: a navigation-only ancestor or a group the caller "
+            "cannot see answers 404."
+        ),
+        responses={200: HealthHistorySerializer},
+    )
+    @action(detail=True, methods=["get"], url_path="health-history", pagination_class=None)
+    def health_history(self, request, pk=None):
+        from rest_framework.exceptions import NotFound
+
+        from .models import user_has_group_access
+
+        group = self.get_object()
+        # get_queryset() also returns navigation-only ancestors; their health
+        # is withheld like their description, so 404 rather than 403 (IDOR).
+        if not user_has_group_access(request.user, group):
+            raise NotFound
+        rows, has_more = history_page(GroupHealthChange.objects.filter(group=group))
+        return Response({
+            "results": HealthStatusChangeSerializer(rows, many=True).data,
+            "has_more": has_more,
+        })
 
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
@@ -1094,7 +1186,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         # that walk would issue lazy queries per subgroup.
         related = ["owner"] + ["__".join(["parent"] * d) for d in range(1, 7)]
         subgroups = annotate_group_counts(
-            subgroups.select_related(*related).prefetch_related("labels")
+            subgroups.select_related(*related, "health_status_changed_by").prefetch_related("labels")
         ).annotate(
             _is_starred=Exists(
                 GroupFavorite.objects.filter(user=request.user, group=OuterRef("pk"))
@@ -1159,7 +1251,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # list the board here either (#1769).
                 boards = boards.filter(board_access_q(request.user))
             boards = annotate_board_counts(
-                boards.select_related("owner", "group", "group__parent")
+                boards.select_related("owner", "group", "group__parent", "health_status_changed_by")
             ).annotate(
                 _is_starred=Exists(
                     BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
@@ -1346,7 +1438,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             # doesn't issue a per-board lookup when the response is serialized.
             # #845 adds ancestors via a dedicated bulk map, but parent_name
             # is a separate field path that has its own N+1 if not joined here.
-            .select_related("owner", "group", "group__parent")
+            .select_related("owner", "group", "group__parent", "health_status_changed_by")
         )
         if not request.user.can_access_all_content:
             boards = boards.filter(board_access_q(request.user))

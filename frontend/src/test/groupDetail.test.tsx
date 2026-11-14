@@ -143,7 +143,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
-  health_status: null, effective_health_status: null, health_status_source: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
   id: 1, name: 'Engineering', description: '', owner: fakeUser,
   parent: null, parent_name: null,
   member_count: 2, board_count: 1, subgroup_count: 0, created_at: '',
@@ -2583,7 +2583,7 @@ describe('GroupDetail — navigation (#1374)', () => {
 describe('GroupDetail — health status (#1133)', () => {
   const sub: Group = {
     ...fakeGroup, id: 2, name: 'Platform', parent: 1, parent_name: 'Engineering',
-    health_status: null, effective_health_status: 'at_risk', health_status_source: { id: 1, name: 'Engineering' },
+    health_status: null, effective_health_status: 'at_risk', health_status_source: { id: 1, name: 'Engineering', changed_at: null },
   }
   const board = {
     id: 5, uid: 'b5', name: 'Roadmap', description: '', owner: fakeUser, group: 1, group_name: 'Engineering',

@@ -29,11 +29,15 @@ from .models import Group, HealthStatus, _GROUP_TRAVERSAL_MAX_DEPTH
 
 
 class HealthNode(NamedTuple):
-    """The three columns of a group the resolver reads."""
+    """The columns of a group the resolver reads."""
 
     name: str
     parent_id: int | None
     health_status: str | None
+    # When the group's own status was last set (#2242); published on an
+    # inherited ``health_status_source`` (no setter or note: those stay on the
+    # group itself).
+    health_status_changed_at: object = None
 
 
 def valid_health_status(value):
@@ -48,7 +52,7 @@ def valid_health_status(value):
 
 
 def _node_from_group(group) -> HealthNode:
-    return HealthNode(group.name, group.parent_id, group.health_status)
+    return HealthNode(group.name, group.parent_id, group.health_status, group.health_status_changed_at)
 
 
 def _chain_values(group_ids):
@@ -63,14 +67,17 @@ def _chain_values(group_ids):
     columns = []
     for prefix in prefixes:
         lead = f"{prefix}__" if prefix else ""
-        columns += [f"{lead}id", f"{lead}name", f"{lead}parent_id", f"{lead}health_status"]
+        columns += [
+            f"{lead}id", f"{lead}name", f"{lead}parent_id", f"{lead}health_status",
+            f"{lead}health_status_changed_at",
+        ]
     found = {}
     for row in Group.objects.filter(pk__in=group_ids).values_list(*columns):
-        for i in range(0, len(row), 4):
-            gid, name, parent_id, health = row[i:i + 4]
+        for i in range(0, len(row), 5):
+            gid, name, parent_id, health, changed_at = row[i:i + 5]
             if gid is None:
                 break
-            found[gid] = HealthNode(name, parent_id, health)
+            found[gid] = HealthNode(name, parent_id, health, changed_at)
     return found
 
 
@@ -119,8 +126,9 @@ def resolve_health(own, start_group_id, health_map):
     effective value and the source is ``None`` (set here). Otherwise the
     nearest group from ``start_group_id`` upward (at most
     ``_GROUP_TRAVERSAL_MAX_DEPTH`` groups) that sets one supplies it, and the
-    source is that group's ``{id, name}``. With no such group, both are
-    ``None``.
+    source is that group's ``{id, name, changed_at}`` (when that group's
+    status was last set, #2242; null if before history existed). With no such
+    group, both are ``None``.
     """
     own = valid_health_status(own)
     if own:
@@ -133,7 +141,7 @@ def resolve_health(own, start_group_id, health_map):
             break
         value = valid_health_status(entry.health_status)
         if value:
-            return value, {"id": node_id, "name": entry.name}
+            return value, {"id": node_id, "name": entry.name, "changed_at": entry.health_status_changed_at}
         node_id = entry.parent_id
         depth += 1
     return None, None

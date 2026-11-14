@@ -12,7 +12,7 @@ import {
 } from '../utils/healthStatus'
 import type { HealthStatus, HealthStatusSource } from '../types'
 
-const ENG: HealthStatusSource = { id: 7, name: 'Engineering' }
+const ENG: HealthStatusSource = { id: 7, name: 'Engineering', changed_at: null }
 
 type Fields = {
   health_status: HealthStatus | null

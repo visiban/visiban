@@ -12,7 +12,7 @@ from groups.broadcast import broadcast_group_event as _broadcast_group_event
 
 from . import broadcast as _broadcast
 from .models import (
-    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
+    Board, BoardHealthChange, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
     CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, Notification,
 )
 from .serializers import (
@@ -939,6 +939,8 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
     """
 
     form = BoardAdminForm
+    # #2242: written only by groups.health_history (with the history row).
+    readonly_fields = ("health_status_changed_at", "health_status_changed_by", "health_status_note")
     stale_save_message = (
         "This board was changed after this page was opened, so nothing was saved. "
         "The page now shows the current state of the board; make your changes again."
@@ -947,6 +949,7 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
     def save_model(self, request, obj, form, change):
         old_group_id = None
         stored = None
+        old_health_status = None
         if obj.group_id is not None:
             # The target group before the board row (#1719), the group ->
             # board order every board placement takes (#1638): a save into a
@@ -980,7 +983,20 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                 stored = Board.objects.get(pk=obj.pk)
                 self.check_row_version(form, stored)
                 self.keep_unchanged_fields(obj, form, stored)
+        if change:
+            # Read from the locked row (#2242), like old_group_id above.
+            old_health_status = (
+                Board.objects.filter(pk=obj.pk).values_list("health_status", flat=True).first()
+            )
         super().save_model(request, obj, form, change)
+        if form is None or "health_status" in form.changed_data:
+            # An admin edit records a change only when the value differs, with
+            # no note, attributed to the administrator (#2242).
+            from groups.health_history import record_if_changed
+
+            record_if_changed(
+                obj, change_model=BoardHealthChange, from_status=old_health_status, user=request.user,
+            )
         if change:
             # An owner or group change can end the admin standing of the
             # share link's enabler (#1865). The refresh is defensive: it keeps

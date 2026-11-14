@@ -1023,6 +1023,16 @@ export interface Board {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /**
+   * Last set or confirm of this entity's own `health_status` (#2242), read-only:
+   * written by the explicit `POST .../health-status/` action (and by a PATCH
+   * that changes the value). All three are null when never recorded; a null
+   * `health_status_changed_by` with a timestamp is a removed account or a
+   * system change. Render the attribution only with `healthSetLine`.
+   */
+  health_status_changed_at: string | null;
+  health_status_changed_by: BoardUser | null;
+  health_status_note: string | null;
   /** #1146 — the board's default preset id, or null for none. Board admins write it with `patchBoard`. */
   default_preset: BoardPresetId | null;
 }
@@ -1040,6 +1050,24 @@ export type HealthStatus = "on_track" | "at_risk" | "off_track";
 export interface HealthStatusSource {
   id: number;
   name: string;
+  /** When the source group's own status was last set (#2242); null if never recorded. */
+  changed_at: string | null;
+}
+
+/** One row of `GET .../health-history/` (#2242). `from_status === to_status` is a reconfirm. */
+export interface HealthStatusChange {
+  from_status: HealthStatus | null;
+  to_status: HealthStatus | null;
+  /** Null: a removed account or a system change. */
+  changed_by: BoardUser | null;
+  changed_at: string;
+  note: string | null;
+}
+
+/** `GET .../health-history/` (#2242): newest first, at most 20; `has_more` when older rows exist. */
+export interface HealthHistory {
+  results: HealthStatusChange[];
+  has_more: boolean;
 }
 
 export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
@@ -1131,6 +1159,16 @@ export interface BoardFull {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /**
+   * Last set or confirm of this entity's own `health_status` (#2242), read-only:
+   * written by the explicit `POST .../health-status/` action (and by a PATCH
+   * that changes the value). All three are null when never recorded; a null
+   * `health_status_changed_by` with a timestamp is a removed account or a
+   * system change. Render the attribution only with `healthSetLine`.
+   */
+  health_status_changed_at: string | null;
+  health_status_changed_by: BoardUser | null;
+  health_status_note: string | null;
   /** #1146 — the board's default preset id, or null for none. Read-only here (written with `patchBoard`). */
   default_preset: BoardPresetId | null;
 
@@ -1204,6 +1242,16 @@ export interface Group {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /**
+   * Last set or confirm of this entity's own `health_status` (#2242), read-only:
+   * written by the explicit `POST .../health-status/` action (and by a PATCH
+   * that changes the value). All three are null when never recorded; a null
+   * `health_status_changed_by` with a timestamp is a removed account or a
+   * system change. Render the attribution only with `healthSetLine`.
+   */
+  health_status_changed_at: string | null;
+  health_status_changed_by: BoardUser | null;
+  health_status_note: string | null;
   // Only present on the retrieve endpoint (GroupDetailSerializer); absent on list.
   ancestors?: { id: number; name: string }[];
 }

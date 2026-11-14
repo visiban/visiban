@@ -18,6 +18,9 @@ from drf_spectacular.utils import (
 from accounts.models import User
 from accounts.permissions import TokenHasScope
 from groups.broadcast import broadcast_group_event as _broadcast_group_event
+from groups.health import valid_health_status
+from groups.health_history import history_page, record_health_change, record_if_changed
+from groups.serializers import HealthHistorySerializer, HealthStatusChangeSerializer, HealthStatusWriteSerializer
 from groups.services import lock_group_for_board_placement
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
@@ -28,7 +31,7 @@ from visiban.request_shape import coerce_int_id, optional_text, require_json_obj
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
+    Board, BoardFavorite, BoardHealthChange, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
 from ..permissions import (
@@ -330,7 +333,10 @@ class BoardViewSet(
             group_related = "__".join(["group"] + ["parent"] * 6)
         else:
             group_related = "group"
-        return annotate_board_counts(qs.select_related("owner", group_related)).annotate(
+        # health_status_changed_by (#2242): a join, so the list stays one query.
+        return annotate_board_counts(
+            qs.select_related("owner", group_related, "health_status_changed_by")
+        ).annotate(
             _is_starred=Exists(
                 BoardFavorite.objects.filter(board=OuterRef("pk"), user=user)
             ),
@@ -356,6 +362,8 @@ class BoardViewSet(
             # not a wait: see security-invariants Rule 6.
             serializer.recheck_group_under_lock(None)
             board = serializer.save(owner=self.request.user)
+            # A status sent on create is a change from nothing (#2242).
+            record_if_changed(board, change_model=BoardHealthChange, from_status=None, user=self.request.user)
             BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
             # `template` was already validated by BoardSerializer (unknown
@@ -469,8 +477,15 @@ class BoardViewSet(
             # locked, refreshed row (as move_group does): a PATCH/PUT that
             # changes ``group`` is a group move to group subscribers (#1684).
             old_group_id = board.group_id
+            # Read from the locked, refreshed row (#2242): a PATCH/PUT records
+            # a history row only when the value changes, with no note. A
+            # reconfirm or a note goes through POST health-status/.
+            old_health_status = board.health_status
             serializer.save()
             board = serializer.instance
+            record_if_changed(
+                board, change_model=BoardHealthChange, from_status=old_health_status, user=self.request.user,
+            )
             board_id = board.id
             if board.group_id != old_group_id:
                 # A group-derived admin role can end with the group change; a
@@ -478,24 +493,92 @@ class BoardViewSet(
                 # move-group.
                 from ..services.share_links import revoke_lapsed_share_links
                 revoke_lapsed_share_links(board_ids=[board_id])
-            # Re-fetch through get_queryset() so the serializer response includes
-            # annotations (_member_count, _card_count, _is_starred) rather than
-            # triggering per-field subqueries from the bare post-save instance (#647).
-            annotated = self.get_queryset().get(pk=board_id)
-            board_data = BoardSerializer(annotated, context={"request": self.request}).data
-            new_group_id = annotated.group_id
-            event_id = _broadcast.persist_board_event(
-                board_id, _broadcast.EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
+            self._persist_and_broadcast_board_updated(board_id, old_group_id)
+
+    def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
+        """Persist ``board.updated`` and schedule its fanout on commit; return the payload.
+
+        Shared by ``perform_update`` and the ``health-status`` action (#2242) so
+        the event sequence is written once. Call inside the write's
+        transaction, after the write.
+        """
+        # Re-fetch through get_queryset() so the serializer response includes
+        # annotations (_member_count, _card_count, _is_starred) rather than
+        # triggering per-field subqueries from the bare post-save instance (#647).
+        annotated = self.get_queryset().get(pk=board_id)
+        board_data = BoardSerializer(annotated, context={"request": self.request}).data
+        new_group_id = annotated.group_id
+        event_id = _broadcast.persist_board_event(
+            board_id, _broadcast.EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
+        )
+        def _broadcast_updated(
+            bid=board_id, bd=board_data,
+            og=old_group_id, ng=new_group_id, eid=event_id, aid=self.request.user.id,
+        ):
+            _broadcast.broadcast_board_event(
+                bid, _broadcast.EVT_BOARD_UPDATED, bd, event_id=eid, actor_id=aid,
             )
-            def _broadcast_updated(
-                bid=board_id, bd=board_data,
-                og=old_group_id, ng=new_group_id, eid=event_id, aid=self.request.user.id,
-            ):
-                _broadcast.broadcast_board_event(
-                    bid, _broadcast.EVT_BOARD_UPDATED, bd, event_id=eid, actor_id=aid,
-                )
-                _broadcast_board_group_change(bid, bd, og, ng, actor_id=aid)
-            transaction.on_commit(_broadcast_updated)
+            _broadcast_board_group_change(bid, bd, og, ng, actor_id=aid)
+        transaction.on_commit(_broadcast_updated)
+        return board_data
+
+    @extend_schema(
+        summary="Set or confirm the board's health status",
+        description=(
+            "The explicit set-or-confirm action (#2242). Records a history row "
+            "even when the status is unchanged (a reconfirm, which refreshes "
+            "health_status_changed_at), and is the only writer that stores a "
+            "note. status null clears the board's own value (inherit); clearing "
+            "when nothing is set here is a 400. Board admins only. Broadcasts "
+            "board.updated. Response: the board, as GET /boards/{id}/."
+        ),
+        request=HealthStatusWriteSerializer,
+        responses={200: BoardSerializer},
+    )
+    @action(detail=True, methods=["post"], url_path="health-status")
+    def health_status(self, request, pk=None):
+        board = self.get_object()
+        # Admin check before the body is validated, as update() does (#2009).
+        self._require_board_settings_admin(board)
+        body = HealthStatusWriteSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        status_value = body.validated_data["status"]
+        note = body.validated_data.get("note")
+        with transaction.atomic():
+            # Board row first (#1602), then read ``from`` from the locked,
+            # refreshed row so concurrent writers record a consistent chain.
+            lock_board_row_or_404(board, no_key=True)
+            board.refresh_from_db()
+            current = valid_health_status(board.health_status)
+            if status_value is None and current is None:
+                raise ValidationError({"status": ["Nothing set here to confirm."]})
+            record_health_change(
+                board, change_model=BoardHealthChange, from_status=current,
+                to_status=status_value, user=request.user, note=note,
+            )
+            board_data = self._persist_and_broadcast_board_updated(board.pk, board.group_id)
+        return Response(board_data)
+
+    @extend_schema(
+        summary="List the board's health status changes",
+        description=(
+            "The board's own health status changes (#2242), newest first, at "
+            "most 20; has_more is true when older ones exist. A row whose "
+            "from_status equals to_status is a reconfirm. changed_by is null "
+            "for a removed account or a system change. Any board role may read."
+        ),
+        responses={200: HealthHistorySerializer},
+    )
+    @action(detail=True, methods=["get"], url_path="health-history", pagination_class=None)
+    def health_history(self, request, pk=None):
+        # get_object() is scoped to boards the caller can read (any role);
+        # anyone else gets 404, not 403 (IDOR).
+        board = self.get_object()
+        rows, has_more = history_page(BoardHealthChange.objects.filter(board=board))
+        return Response({
+            "results": HealthStatusChangeSerializer(rows, many=True).data,
+            "has_more": has_more,
+        })
 
     @extend_schema(responses={204: None, 409: CONTAINER_CHANGED_409})
     def destroy(self, request, *args, **kwargs):

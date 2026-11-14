@@ -407,6 +407,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "share_link_active",
             # Additive (#1133): own, effective and source health status.
             "health_status", "effective_health_status", "health_status_source",
+            # #2242: additive last-change fields.
+            "health_status_changed_at", "health_status_changed_by", "health_status_note",
             # Additive (#1146): the board's default preset id.
             "default_preset",
         ])

@@ -58,7 +58,7 @@ class HealthResolverUnitTests(TestCase):
         health_map = build_health_map([(None, child.pk)])
         self.assertEqual(
             resolve_health("bogus", child.pk, health_map),
-            ("on_track", {"id": root.pk, "name": root.name}),
+            ("on_track", {"id": root.pk, "name": root.name, "changed_at": None}),
         )
 
     def test_loaded_chain_costs_no_query(self):
@@ -78,8 +78,8 @@ class HealthResolverUnitTests(TestCase):
         _set(b[1], "on_track")
         with self.assertNumQueries(1):
             health_map = build_health_map([(None, a[-1].pk), (None, b[-1].pk)])
-        self.assertEqual(resolve_health(None, a[-1].pk, health_map), ("at_risk", {"id": a[0].pk, "name": "A1"}))
-        self.assertEqual(resolve_health(None, b[-1].pk, health_map), ("on_track", {"id": b[1].pk, "name": "B2"}))
+        self.assertEqual(resolve_health(None, a[-1].pk, health_map), ("at_risk", {"id": a[0].pk, "name": "A1", "changed_at": None}))
+        self.assertEqual(resolve_health(None, b[-1].pk, health_map), ("on_track", {"id": b[1].pk, "name": "B2", "changed_at": None}))
 
 
 class BoardHealthStatusTests(TestCase):
@@ -156,7 +156,7 @@ class BoardHealthStatusTests(TestCase):
                 body = self._detail()
                 self.assertIsNone(body["health_status"])
                 self.assertEqual(body["effective_health_status"], "at_risk")
-                self.assertEqual(body["health_status_source"], {"id": source.pk, "name": source.name})
+                self.assertEqual(body["health_status_source"], {"id": source.pk, "name": source.name, "changed_at": None})
 
     def test_nearest_ancestor_wins(self):
         _set(self.groups[0], "off_track")
@@ -209,7 +209,7 @@ class BoardHealthStatusTests(TestCase):
         body = self.client.get(f"/api/v1/boards/{self.board.pk}/full/").json()
         self.assertIsNone(body["health_status"])
         self.assertEqual(body["effective_health_status"], "at_risk")
-        self.assertEqual(body["health_status_source"], {"id": self.groups[1].pk, "name": "G2"})
+        self.assertEqual(body["health_status_source"], {"id": self.groups[1].pk, "name": "G2", "changed_at": None})
 
     def test_list_endpoints_carry_fields(self):
         _set(self.groups[0], "off_track")
@@ -226,7 +226,7 @@ class BoardHealthStatusTests(TestCase):
                 rows = body["results"] if isinstance(body, dict) else body
                 row = next(r for r in rows if r["id"] == self.board.pk)
                 self.assertEqual(row["effective_health_status"], "off_track")
-                self.assertEqual(row["health_status_source"], {"id": self.groups[0].pk, "name": "G1"})
+                self.assertEqual(row["health_status_source"], {"id": self.groups[0].pk, "name": "G1", "changed_at": None})
 
     # ── permissions ─────────────────────────────────────────────────────────
 
@@ -326,7 +326,7 @@ class BoardHealthStatusTests(TestCase):
         payload = [c[0][2] for c in mock_broadcast.call_args_list if c[0][1] == "board.updated"][0]
         self.assertIsNone(payload["health_status"])
         self.assertEqual(payload["effective_health_status"], "on_track")
-        self.assertEqual(payload["health_status_source"], {"id": self.groups[0].pk, "name": "G1"})
+        self.assertEqual(payload["health_status_source"], {"id": self.groups[0].pk, "name": "G1", "changed_at": None})
 
 
 class GroupHealthStatusTests(TestCase):
@@ -380,7 +380,7 @@ class GroupHealthStatusTests(TestCase):
                 body = self._get(leaf)
                 self.assertIsNone(body["health_status"])
                 self.assertEqual(body["effective_health_status"], "off_track")
-                self.assertEqual(body["health_status_source"], {"id": source.pk, "name": source.name})
+                self.assertEqual(body["health_status_source"], {"id": source.pk, "name": source.name, "changed_at": None})
 
     def test_root_with_nothing_set_is_null(self):
         body = self._get(self.groups[0])
@@ -409,7 +409,7 @@ class GroupHealthStatusTests(TestCase):
         rows = {g["id"]: g for g in self.client.get("/api/v1/groups/").json()["results"]}
         self.assertEqual(rows[self.groups[0].pk]["health_status"], "at_risk")
         self.assertEqual(rows[self.groups[4].pk]["effective_health_status"], "at_risk")
-        self.assertEqual(rows[self.groups[4].pk]["health_status_source"], {"id": self.groups[0].pk, "name": "G1"})
+        self.assertEqual(rows[self.groups[4].pk]["health_status_source"], {"id": self.groups[0].pk, "name": "G1", "changed_at": None})
         sub = self.client.get(f"/api/v1/groups/{self.groups[1].pk}/subgroups/").json()
         self.assertEqual(sub[0]["id"], self.groups[2].pk)
         self.assertEqual(sub[0]["effective_health_status"], "at_risk")
