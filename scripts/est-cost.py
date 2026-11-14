@@ -573,7 +573,7 @@ def _cases(tmp, check):
     # The shipped table must itself load, with every model this repo's transcripts name.
     try:
         shipped, _ = load_prices(DEFAULT_PRICES, datetime.date.fromisoformat(json.load(open(DEFAULT_PRICES))["checked"]))
-        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1",
+        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1", "claude-fable-5-2",
                                            "claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5"))
     except (Omit, OSError, ValueError):
         have = False
