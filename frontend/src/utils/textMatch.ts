@@ -36,20 +36,33 @@ export function isRegexOperand(trimmed: string): boolean {
   return trimmed.length >= 3 && trimmed.startsWith("/") && trimmed.endsWith("/");
 }
 
+const MAX_UNBOUNDED = 2;
+const MAX_QUANTIFIERS = 8;
+/** Values are cut to this length before a user regex runs, bounding polynomial cases. */
+const MAX_VALUE = 1000;
+
 /**
  * Reason a regex source is unsafe to run, or null. Walks the source tracking
- * escapes and character classes; a group is risky when it is followed by an
- * unbounded quantifier and contains a quantifier or an alternation.
+ * escapes and character classes. Rejected: backreferences; a group holding a
+ * quantifier or alternation that is itself repeated (`*`, `+`, `{n}`, `{n,m}`;
+ * a lone `?` is fine); and too many quantifiers overall (adjacent overlapping
+ * `a*a*a*b` and sequential `(a+)?(a+)?...` are polynomial or exponential
+ * without nesting).
  */
 export function unsafeRegexReason(src: string): string | null {
   if (/\\(?:[1-9]|k<)/.test(src.replace(/\\\\/g, ""))) return "Backreferences are not supported";
   const stack: { quant: boolean; alt: boolean }[] = [{ quant: false, alt: false }];
   let inClass = false;
-  const isQuantAt = (i: number): boolean => {
+  let unbounded = 0;
+  let total = 0;
+  const quantLen = (i: number): { len: number; unbounded: boolean; repeat: boolean } | null => {
     const c = src[i];
-    if (c === "*" || c === "+") return true;
-    // {n,} and {n,m} repeat; {n} is bounded and harmless.
-    return c === "{" && /^\{\d+,\d*\}/.test(src.slice(i));
+    if (c === "*" || c === "+") return { len: 1, unbounded: true, repeat: true };
+    if (c === "?") return { len: 1, unbounded: false, repeat: false };
+    if (c !== "{") return null;
+    const m = /^\{(\d+)(,(\d*))?\}/.exec(src.slice(i));
+    if (!m) return null;
+    return { len: m[0].length, unbounded: m[2] !== undefined && m[3] === "", repeat: true };
   };
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -58,22 +71,44 @@ export function unsafeRegexReason(src: string): string | null {
     if (c === "[") { inClass = true; continue; }
     if (c === "(") { stack.push({ quant: false, alt: false }); continue; }
     if (c === "|") { stack[stack.length - 1].alt = true; continue; }
+    const q = c === ")" ? null : quantLen(i);
+    if (q) {
+      total++;
+      if (q.unbounded) unbounded++;
+      stack[stack.length - 1].quant = true;
+      i += q.len - 1;
+      continue;
+    }
     if (c === ")") {
       if (stack.length === 1) return null; // unbalanced; RegExp rejects it
       const g = stack.pop() as { quant: boolean; alt: boolean };
-      const quantified = isQuantAt(i + 1);
-      if (quantified && (g.quant || g.alt)) return "Nested quantifiers are not supported";
+      const next = quantLen(i + 1);
+      if (next?.repeat && (g.quant || g.alt)) return "Nested quantifiers are not supported";
       // A group that holds a quantifier counts as one for its parent.
-      if (g.quant || quantified) stack[stack.length - 1].quant = true;
-      continue;
+      if (g.quant) stack[stack.length - 1].quant = true;
     }
-    if (isQuantAt(i)) stack[stack.length - 1].quant = true;
   }
+  if (unbounded > MAX_UNBOUNDED || total > MAX_QUANTIFIERS) return "Too many repeats in one pattern";
   return null;
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");
+/**
+ * Linear-ish glob matcher for `*` / `?` patterns, anchored nowhere: the
+ * pattern is wrapped in an implicit `*` on both sides. Two-pointer with a
+ * single backtrack point, so it is O(n*m) worst case and never exponential
+ * (a RegExp built from `*a*a*a*b` is not).
+ */
+function globContains(pattern: string, value: string): boolean {
+  const p = `*${pattern}*`;
+  let pi = 0, vi = 0, star = -1, mark = 0;
+  while (vi < value.length) {
+    if (pi < p.length && p[pi] === "*") { star = pi++; mark = vi; }
+    else if (pi < p.length && (p[pi] === "?" || p[pi] === value[vi])) { pi++; vi++; }
+    else if (star >= 0) { pi = star + 1; vi = ++mark; }
+    else return false;
+  }
+  while (pi < p.length && p[pi] === "*") pi++;
+  return pi === p.length;
 }
 
 function compile(operand: string): TextMatcher {
@@ -89,22 +124,15 @@ function compile(operand: string): TextMatcher {
     try {
       // eslint-disable-next-line security/detect-non-literal-regexp -- user pattern by design; rejected above when it nests quantifiers or backreferences, capped at 500 chars upstream
       const re = new RegExp(src, "i");
-      return { kind: "ok", test: (v) => re.test(v.trim()) };
+      return { kind: "ok", test: (v) => re.test(v.trim().slice(0, MAX_VALUE)) };
     } catch (e) {
       return { kind: "invalid", reason: e instanceof Error ? e.message : "Invalid regular expression" };
     }
   }
 
   if (/[*?]/.test(trimmed)) {
-    // Collapse runs of `*` so a long run cannot multiply backtracking paths.
-    const src = trimmed
-      .replace(/\*+/g, "*")
-      .split(/([*?])/)
-      .map((part) => (part === "*" ? "[\\s\\S]*" : part === "?" ? "[\\s\\S]" : escapeRegex(part)))
-      .join("");
-    // eslint-disable-next-line security/detect-non-literal-regexp -- every literal part is escaped; only the fixed [\s\S]* / [\s\S] wildcards are injected
-    const re = new RegExp(src, "i");
-    return { kind: "ok", test: (v) => re.test(v.trim()) };
+    const pat = trimmed.toLowerCase();
+    return { kind: "ok", test: (v) => globContains(pat, v.trim().toLowerCase()) };
   }
 
   const want = trimmed.toLowerCase();

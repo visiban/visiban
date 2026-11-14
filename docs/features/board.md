@@ -512,7 +512,7 @@ The lane filter **contains** rule and the text box of a [text or URL custom fiel
 - **`*`** matches any run of characters, including none. **`?`** matches exactly one character. Wildcards are not anchored: `e*ross` still matches inside a longer value. Every other character, including `.`, `+`, `(`, and `[`, is literal.
 - **`/pattern/`** (starts and ends with a slash, with at least one character between) is a regular expression. It is always case-insensitive. Anchor it yourself with `^` and `$`.
 - **A literal `*` or `?`:** use a regular expression, for example `/\*/` for an asterisk.
-- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`) and backreferences (such as `\1`) are treated as invalid.
+- **An invalid pattern is ignored.** The box shows "Invalid regular expression — this filter is ignored", and the filter hides nothing and does not count as active. To keep patterns from freezing the page, regular expressions with a repeated group that itself repeats or branches (such as `(a+)+` or `(a|aa)+`), backreferences (such as `\1`), or more than a few repeat operators (such as `a*a*a*b`) are treated as invalid, and patterns over 500 characters are too. Regular expressions are tested against the first 1,000 characters of a value.
 
 | You type | Matches | Doesn't match |
 |---|---|---|

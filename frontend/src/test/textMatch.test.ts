@@ -76,7 +76,7 @@ describe('compileTextMatcher (#2227)', () => {
   })
 
   it('rejects nested quantifiers and backreferences instead of running them', () => {
-    for (const p of ['/(a+)+$/', '/(a*)*/', '/(a|aa)+/', '/(a+){2,}/', '/((a+))+/', '/(x+x+)+y/', '/(a)\\1/', '/(?<n>a)\\k<n>/']) {
+    for (const p of ['/(a+)+$/', '/(a*)*/', '/(a|aa)+/', '/(a+){2,}/', '/((a+))+/', '/(x+x+)+y/', '/(?:a*){30}b/', '/(a|a){30}b/', '/a*a*a*a*b/', '/(a+)?(a+)?(a+)?(a+)?(a+)?b/', '/(a)\\1/', '/(?<n>a)\\k<n>/']) {
       expect(compileTextMatcher(p).kind, p).toBe('invalid')
     }
     // The classic catastrophic input would hang if it ran; it is rejected up front.
@@ -90,6 +90,19 @@ describe('compileTextMatcher (#2227)', () => {
       expect(compileTextMatcher(p).kind, p).toBe('ok')
     }
     expect(unsafeRegexReason('a+b*')).toBeNull()
+  })
+
+  it('wildcards run in bounded time on adversarial input', () => {
+    const start = Date.now()
+    expect(t('*a*a*a*a*a*a*a*a*b', 'a'.repeat(3000))).toBe(false)
+    expect(t('*a*a*a*a*a*a*a*a*b', 'a'.repeat(3000) + 'b')).toBe(true)
+    expect(Date.now() - start).toBeLessThan(2000)
+  })
+
+  it('bounds regex runtime by capping the tested value', () => {
+    const start = Date.now()
+    expect(t('/a*a*b/', 'a'.repeat(100000))).toBe(false)
+    expect(Date.now() - start).toBeLessThan(2000)
   })
 
   it('rejects an operand over the 500-character cap', () => {
