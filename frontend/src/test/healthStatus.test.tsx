@@ -170,7 +170,7 @@ describe('HealthStatusControl (#1133)', () => {
     expect(atRisk).toBeChecked()
     expect(onSave).not.toHaveBeenCalled()
     await user.keyboard('{Enter}')
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith('at_risk'))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('at_risk', null))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(trigger()).toHaveFocus()
     expect(screen.getByText('Health status set to At risk.')).toBeInTheDocument()
@@ -196,7 +196,7 @@ describe('HealthStatusControl (#1133)', () => {
     await user.click(trigger())
     await user.click(await screen.findByRole('radio', { name: /Inherit from Engineering/ }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(null))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(null, null))
     expect(await screen.findByText('Health status now follows Engineering: Off track.')).toBeInTheDocument()
   })
 

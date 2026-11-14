@@ -284,7 +284,7 @@ export const DETAIL_CARD = CARDS.find((c) => c.id === 2) as Card
 export const BOARD_FULL: BoardFull = {
   health_status: null,
   effective_health_status: null,
-  health_status_source: null,
+  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
   default_preset: null,
   id: BOARD_ID,
   uid: BOARD_UID,
@@ -446,7 +446,7 @@ const boardItem = (
 ): Board => ({
   health_status: null,
   effective_health_status: null,
-  health_status_source: null,
+  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
   default_preset: null,
   id,
   uid: `bd${String(id).padStart(10, '0')}`,
@@ -498,7 +498,7 @@ export const BOARDS: Board[] = [
 const groupItem = (id: number, name: string, description: string, extra: Partial<Group> = {}): Group => ({
   health_status: null,
   effective_health_status: null,
-  health_status_source: null,
+  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
   id,
   name,
   description,

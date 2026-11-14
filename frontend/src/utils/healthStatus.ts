@@ -8,7 +8,8 @@
  */
 import { healthLabel, type HealthDisplayValue, type HealthStatus } from "../constants/healthStatus";
 import { DEMO_HEALTH_STATUS_REASON } from "../constants/demoCopy";
-import type { HealthStatusSource } from "../types";
+import type { BoardUser, HealthStatusSource } from "../types";
+import { formatRelativeTime } from "./date";
 
 export interface HealthFields {
   health_status: HealthStatus | null;
@@ -49,9 +50,57 @@ export function getHealthDisplay(fields: HealthFields): HealthDisplay {
   return { value, label: healthLabel(value), inheritedFrom };
 }
 
-/** `title` for a health pill: the trigger (interactive), a read-only pill, or the demo refusal. */
+/** The last set or confirm of an entity's own status (#2242); all null when never recorded. */
+export interface HealthAttribution {
+  health_status_changed_at: string | null;
+  health_status_changed_by: BoardUser | null;
+  health_status_note: string | null;
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** "3d ago" within a week, else "on Sep 14" (formatRelativeTime's date form). "" when unknown. */
+export function healthSetWhen(changedAt: string | null): string {
+  if (!changedAt) return "";
+  const rel = formatRelativeTime(changedAt);
+  if (!rel) return "";
+  const age = Date.now() - new Date(changedAt).getTime();
+  return age < WEEK_MS ? rel : `on ${rel}`;
+}
+
+/** Who set it: display name, else username; null (removed account or automatic) reads "System". */
+export function healthSetterName(user: BoardUser | null): string {
+  if (!user) return "System";
+  return user.display_name || user.username;
+}
+
+/**
+ * The ONLY builder of the health attribution copy (#2242; frontend/CLAUDE.md):
+ * "Set 3d ago by Priya", "Set on Sep 14 by Priya", "Set 2h ago by System".
+ * "" when `changedAt` is null (a status set before history existed): callers
+ * omit the clause.
+ */
+export function healthSetLine(changedAt: string | null, changedBy: BoardUser | null): string {
+  const when = healthSetWhen(changedAt);
+  if (!when) return "";
+  return `Set ${when} by ${healthSetterName(changedBy)}`;
+}
+
+const TOOLTIP_NOTE_MAX = 120;
+
+/**
+ * `title` for a health pill: the trigger (interactive), a read-only pill, a
+ * read-only trigger that opens the history (readonly), or the demo refusal.
+ * `attribution` adds "Set 3d ago by Priya. Note: …" for a status set here,
+ * and the source's time for an inherited one (#2242). `entityKind`
+ * "swimlane" gives the lane wording (#2243).
+ */
 export function healthTitle(
-  display: HealthDisplay, mode: "interactive" | "static" | "demo", entityKind: HealthEntityKind = "board",
+  display: HealthDisplay,
+  mode: "interactive" | "static" | "readonly" | "demo",
+  attribution?: HealthAttribution | null,
+  source?: HealthStatusSource | null,
+  entityKind: HealthEntityKind = "board",
 ): string {
   if (mode === "demo") {
     const prefix = entityKind === "swimlane" ? "Lane health status" : "Health status";
@@ -59,7 +108,9 @@ export function healthTitle(
   }
   if (entityKind === "swimlane") {
     // Lanes (#2243): the title says the value is the lane's own, so a lane
-    // pill next to the board's is never read as the board's status.
+    // pill next to the board's is never read as the board's status. Lanes
+    // carry no attribution or history (#2242 is board/group only), so a
+    // "readonly" lane reads exactly as a "static" one.
     if (display.value === "none") return "Set health status";
     const base = `Lane health status: ${display.label}. Separate from the board's status.`;
     return mode === "interactive" ? `${base} Click to change.` : base;
@@ -67,10 +118,40 @@ export function healthTitle(
   if (display.value === "none") {
     return mode === "interactive" ? "No status set. Click to set one." : "No status set.";
   }
-  const base = display.inheritedFrom
-    ? `Health status: ${display.label} (inherited from ${display.inheritedFrom}).`
-    : `Health status: ${display.label}.`;
-  return mode === "interactive" ? `${base} Click to change.` : base;
+  let base: string;
+  if (display.inheritedFrom) {
+    const when = healthSetWhen(source?.changed_at ?? null);
+    base = when
+      ? `Health status: ${display.label} (inherited from ${display.inheritedFrom}, set ${when}).`
+      : `Health status: ${display.label} (inherited from ${display.inheritedFrom}).`;
+  } else {
+    base = `Health status: ${display.label}.`;
+    if (attribution) {
+      const line = healthSetLine(attribution.health_status_changed_at, attribution.health_status_changed_by);
+      if (line) base += ` ${line}.`;
+      const note = attribution.health_status_note;
+      if (note) {
+        base += ` Note: ${note.length > TOOLTIP_NOTE_MAX ? `${note.slice(0, TOOLTIP_NOTE_MAX)}…` : note}.`;
+      }
+    }
+  }
+  if (mode === "interactive") return `${base} Click to change.`;
+  if (mode === "readonly") return `${base} Click for history.`;
+  return base;
+}
+
+/** The group page caption (#2242): "Set 3d ago by Priya", or "Inherited from Eng · 3d ago". */
+export function healthCaption(
+  display: HealthDisplay,
+  attribution: HealthAttribution | null | undefined,
+  source: HealthStatusSource | null,
+): string {
+  if (display.inheritedFrom) {
+    const when = healthSetWhen(source?.changed_at ?? null);
+    return when ? `Inherited from ${display.inheritedFrom} · ${when}` : `Inherited from ${display.inheritedFrom}`;
+  }
+  if (display.value === "none" || !attribution) return "";
+  return healthSetLine(attribution.health_status_changed_at, attribution.health_status_changed_by);
 }
 
 /** The message shown in the popover's error slot when a save fails. */
@@ -78,8 +159,13 @@ export function healthStatusErrorMessage(err: unknown): string {
   const response = (err as { response?: { status?: number; data?: unknown } } | null)?.response;
   if (response?.status === 403) return "Only admins can change health status.";
   if (response?.status === 400) {
-    const detail = (response.data as { detail?: unknown } | null | undefined)?.detail;
+    const data = response.data as { detail?: unknown; note?: unknown; status?: unknown } | null | undefined;
+    const detail = data?.detail;
     if (typeof detail === "string" && detail.trim()) return detail;
+    // POST health-status/ field errors (#2242): the first message of note or status.
+    for (const field of [data?.note, data?.status]) {
+      if (Array.isArray(field) && typeof field[0] === "string") return field[0];
+    }
   }
   return "Could not save health status. Try again.";
 }

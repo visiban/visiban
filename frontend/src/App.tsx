@@ -35,7 +35,7 @@ import AdminPage from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import UnavailablePage from "./pages/UnavailablePage";
 import type { HealthStatus, ImportSummary, User } from "./types";
-import { patchBoard, starBoard, unstarBoard } from "./api/boards";
+import { getBoardHealthHistory, setBoardHealthStatus, starBoard, unstarBoard } from "./api/boards";
 import { inviteKindOf, joinInvite } from "./api/inviteKinds";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
@@ -324,18 +324,27 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 
   // Health status (#1133). Not updateBoardSettings: that one is optimistic and
   // swallows failures, while the popover must show a failed save, and only the
-  // server can resolve the new effective value and its source.
+  // server can resolve the new effective value and its source. Save and
+  // Confirm both use the explicit POST health-status/ action (#2242): the only
+  // write that records a note or a reconfirm.
   const boardId = board?.id;
-  const handleHealthSave = useCallback(async (next: HealthStatus | null) => {
+  const handleHealthSave = useCallback(async (next: HealthStatus | null, note?: string | null) => {
     if (boardId === undefined) throw new Error("Board not loaded");
-    const updated = await patchBoard(boardId, { health_status: next });
+    const updated = await setBoardHealthStatus(boardId, { status: next, note: note ?? null });
     mergeBoardState({
       health_status: updated.health_status,
       effective_health_status: updated.effective_health_status,
       health_status_source: updated.health_status_source,
+      health_status_changed_at: updated.health_status_changed_at,
+      health_status_changed_by: updated.health_status_changed_by,
+      health_status_note: updated.health_status_note,
     });
     return updated;
   }, [boardId, mergeBoardState]);
+  const fetchBoardHealthHistory = useCallback(() => {
+    if (boardId === undefined) return Promise.reject(new Error("Board not loaded"));
+    return getBoardHealthHistory(boardId);
+  }, [boardId]);
 
   const handleBack = () => {
     if (board?.group) {
@@ -407,7 +416,13 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                   health_status={board.health_status}
                   effective_health_status={board.effective_health_status}
                   health_status_source={board.health_status_source}
+                  health_status_changed_at={board.health_status_changed_at}
+                  health_status_changed_by={board.health_status_changed_by}
+                  health_status_note={board.health_status_note}
                   onSave={handleHealthSave}
+                  onConfirm={handleHealthSave}
+                  fetchHistory={fetchBoardHealthHistory}
+                  datePrefs={user}
                 />
               </>
             ) : null,

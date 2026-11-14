@@ -76,6 +76,8 @@ vi.mock('../api/groups', () => ({
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
   updateGroup: vi.fn(),
+  setGroupHealthStatus: vi.fn(),
+  getGroupHealthHistory: vi.fn(),
   deleteGroup: vi.fn(),
   listInviteLinks: vi.fn().mockResolvedValue([]),
   createInviteLink: vi.fn(),
@@ -114,7 +116,7 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, setGroupHealthStatus, getGroupHealthHistory, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
 import { importBoard } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
 import { announced } from './confirmAnnouncer'
@@ -125,6 +127,8 @@ const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
 const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
+const mockSetGroupHealthStatus = setGroupHealthStatus as ReturnType<typeof vi.fn>
+const mockGetGroupHealthHistory = getGroupHealthHistory as ReturnType<typeof vi.fn>
 const mockStarGroup = starGroup as ReturnType<typeof vi.fn>
 const mockUnstarGroup = unstarGroup as ReturnType<typeof vi.fn>
 const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
@@ -2621,7 +2625,7 @@ describe('GroupDetail — health status (#1133)', () => {
     expect(document.querySelector('[data-health-status]')).toBeNull()
   })
 
-  it('a non-admin sees no header control when nothing is set, and a plain pill when inherited', async () => {
+  it('a non-admin sees no header control when nothing is set, and a history trigger when inherited', async () => {
     const member = { ...fakeUser, id: 99 }
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: member, role: 'member', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
@@ -2635,7 +2639,8 @@ describe('GroupDetail — health status (#1133)', () => {
     mockGetGroup.mockResolvedValue({ ...sub, owner: fakeUser })
     renderGroupDetail(undefined, member)
     await screen.findByText('Platform', { selector: 'h1' })
-    expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
+    // A read-only trigger for the history (#2242), never a greyed-out control.
+    expect(screen.getByRole('button', { name: /Health status/ })).toHaveAttribute('aria-haspopup', 'dialog')
     expect(screen.getByText('Inherited from Engineering')).toBeInTheDocument()
   })
 
@@ -2646,10 +2651,15 @@ describe('GroupDetail — health status (#1133)', () => {
     expect(screen.queryByRole('button', { name: /^Health status:/ })).not.toBeInTheDocument()
   })
 
-  it('an admin saves through updateGroup, merges the response and refetches the lists', async () => {
+  it('an admin saves through the health-status action, merges the response and refetches the lists', async () => {
     const user = userEvent.setup()
     mockGetGroup.mockResolvedValue(fakeGroup)
-    mockUpdateGroup.mockResolvedValue({ ...fakeGroup, health_status: 'off_track', effective_health_status: 'off_track' })
+    mockSetGroupHealthStatus.mockResolvedValue({
+      ...fakeGroup, health_status: 'off_track', effective_health_status: 'off_track',
+      health_status_changed_at: new Date().toISOString(),
+      health_status_changed_by: { id: 9, username: 'priya', display_name: 'Priya', avatar_url: '' },
+      health_status_note: 'vendor slipped',
+    })
     renderGroupDetail()
     await screen.findByText('Roadmap')
     expect(mockGetSubgroups).toHaveBeenCalledTimes(1)
@@ -2657,8 +2667,15 @@ describe('GroupDetail — health status (#1133)', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Health status for Engineering' })
     await user.click(within(dialog).getByRole('radio', { name: /Off track/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(mockUpdateGroup).toHaveBeenCalledWith(1, { health_status: 'off_track' }))
+    await waitFor(() => expect(mockSetGroupHealthStatus).toHaveBeenCalledWith(1, { status: 'off_track', note: null }))
     expect(await screen.findByRole('button', { name: /^Health status: Off track/ })).toBeInTheDocument()
+    // The caption carries the attribution (#2242).
+    expect(screen.getByText('Set just now by Priya')).toHaveAttribute('title', 'Set just now by Priya. Note: vendor slipped')
+    mockGetGroupHealthHistory.mockResolvedValue({ results: [], has_more: false })
+    await user.click(screen.getByRole('button', { name: /^Health status: Off track/ }))
+    const reopened = await screen.findByRole('dialog', { name: 'Health status for Engineering' })
+    await user.click(within(reopened).getByRole('button', { name: 'History' }))
+    await waitFor(() => expect(mockGetGroupHealthHistory).toHaveBeenCalledWith(1))
     await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
     expect(mockGetGroupBoards).toHaveBeenCalledTimes(2)
   })
