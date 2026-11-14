@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
-import type { HealthStatus } from "../../constants/healthStatus";
+import { HEALTH_STATUS_LABELS, type HealthStatus } from "../../constants/healthStatus";
 import {
-  getHealthDisplay, healthStatusAnnouncement, healthTitle, type HealthEntityKind, type HealthFields,
+  getHealthDisplay, healthCaption, healthStatusAnnouncement, healthTitle,
+  type HealthAttribution, type HealthEntityKind, type HealthFields,
 } from "../../utils/healthStatus";
+import { formatDateTimeUser, type UserDatePrefs } from "../../utils/date";
+import type { HealthHistory } from "../../types";
 import HealthStatusPill from "./HealthStatusPill";
 import HealthStatusPopover from "./HealthStatusPopover";
 
-interface Props extends HealthFields {
+interface Props extends HealthFields, Partial<HealthAttribution> {
   entityKind: HealthEntityKind;
   entityName: string;
   /** Name of the group above the entity; null at the root (personal board, top-level group). */
@@ -21,7 +24,18 @@ interface Props extends HealthFields {
    * Persist `next` (null = inherit / clear) and merge the server's response
    * into the parent's state. Reject to keep the popover open with a message.
    */
-  onSave: (next: HealthStatus | null) => Promise<{ effective_health_status: HealthStatus | null }>;
+  onSave: (next: HealthStatus | null, note?: string | null) => Promise<{ effective_health_status: HealthStatus | null }>;
+  /**
+   * "detailed" (default for boards and groups, #2242) or "basic" (no note,
+   * Confirm or History). A swimlane (#2243) is always "basic": lanes keep no
+   * history, so `entityKind="swimlane"` ignores a "detailed" request.
+   */
+  mode?: "detailed" | "basic";
+  /** Reconfirm the unchanged status with an optional note (POST .../health-status/). */
+  onConfirm?: (status: HealthStatus, note: string | null) => Promise<unknown>;
+  /** Load the history; given, non-admins get a read-only popover with it. */
+  fetchHistory?: () => Promise<HealthHistory>;
+  datePrefs?: UserDatePrefs | null;
   className?: string;
   /**
    * Swimlane label panel (#2243). `"icon"`: the admin's trigger for an unset
@@ -67,23 +81,34 @@ function UnsetHealthIcon() {
 
 /**
  * Health status in a header (#1133): the board page's Row 1 and the group
- * page's meta line. An admin gets a pill that opens `HealthStatusPopover`;
- * everyone else gets a plain pill, or nothing at all when no status applies
- * (never a greyed-out control). In the hosted demo the admin trigger stays
- * focusable but `aria-disabled` and never opens.
+ * page's meta line, and a swimlane's label panel (#2243). An admin gets a
+ * pill (or, for an unset lane, an icon) that opens `HealthStatusPopover`;
+ * everyone else gets a pill that opens it read-only with the history (#2242;
+ * a plain pill in basic mode, for a lane, or without `fetchHistory`), or
+ * nothing at all when no status applies (never a greyed-out control). In the
+ * hosted demo the admin trigger stays focusable but `aria-disabled` and never
+ * opens.
  */
 export default function HealthStatusControl({
   entityKind, entityName, parentName, canEdit, collapseLabel, showCaption, onSave, className = "",
+  mode: requestedMode = "detailed", onConfirm, fetchHistory, datePrefs,
   trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce, onOpenChange,
   health_status, effective_health_status, health_status_source,
+  health_status_changed_at = null, health_status_changed_by = null, health_status_note = null,
 }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
   const fields = { health_status, effective_health_status, health_status_source };
+  const isLane = entityKind === "swimlane";
+  // Lanes are basic whatever the caller asks for (#2242 is board/group only).
+  const mode = isLane ? "basic" : requestedMode;
+  const detailed = mode === "detailed";
+  const attribution: HealthAttribution | null = detailed
+    ? { health_status_changed_at, health_status_changed_by, health_status_note }
+    : null;
   const display = getHealthDisplay(fields);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const isLane = entityKind === "swimlane";
   const isOpen = anchorRect !== null;
   // Changes only, never on mount: a sibling trigger mounting closed must not
   // report "closed" over the one whose popover is open.
@@ -102,32 +127,105 @@ export default function HealthStatusControl({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: a later re-render must not steal focus again
   }, []);
 
+  const announce = useCallback((message: string) => {
+    if (onAnnounce) onAnnounce(message);
+    else setAnnouncement(message);
+  }, [onAnnounce]);
+
   const close = useCallback((refocus: boolean) => {
     setAnchorRect(null);
     if (refocus) triggerRef.current?.focus();
   }, []);
 
-  const save = useCallback(async (next: HealthStatus | null) => {
-    const result = await onSave(next);
+  const save = useCallback(async (next: HealthStatus | null, note?: string | null) => {
+    // basic mode keeps the one-argument call (#1133 callers, lanes).
+    const result = note === undefined ? await onSave(next) : await onSave(next, note);
     setAnchorRect(null);
     triggerRef.current?.focus();
-    const message = healthStatusAnnouncement(
+    announce(healthStatusAnnouncement(
       next, result.effective_health_status, parentName, isLane ? { name: entityName } : undefined,
-    );
-    if (onAnnounce) onAnnounce(message);
-    else setAnnouncement(message);
-  }, [onSave, parentName, isLane, entityName, onAnnounce]);
+    ));
+  }, [onSave, parentName, isLane, entityName, announce]);
 
-  const caption = showCaption && display.inheritedFrom ? (
-    <span className="text-xs text-fg-tertiary max-w-[14rem] truncate" title={`Inherited from ${display.inheritedFrom}`}>
-      Inherited from {display.inheritedFrom}
+  const confirm = useCallback(async (status: HealthStatus, note: string | null) => {
+    if (!onConfirm) return;
+    await onConfirm(status, note);
+    setAnchorRect(null);
+    triggerRef.current?.focus();
+    announce(`Health status confirmed: ${HEALTH_STATUS_LABELS[status]}.`);
+  }, [onConfirm, announce]);
+
+  // Group page caption (#2242): "Set 3d ago by Priya" / "Inherited from Eng · 3d ago".
+  const captionText = showCaption
+    ? (detailed ? healthCaption(display, attribution, health_status_source) : (display.inheritedFrom ? `Inherited from ${display.inheritedFrom}` : ""))
+    : "";
+  // Exact time on hover (#2242), then the note for a status set here.
+  const captionTime = display.inheritedFrom ? health_status_source?.changed_at ?? null : health_status_changed_at;
+  const captionExact = captionText && captionTime ? ` (${formatDateTimeUser(captionTime, datePrefs)})` : "";
+  const captionTitle = captionText && !display.inheritedFrom && health_status_note
+    ? `${captionText}${captionExact}. Note: ${health_status_note}`
+    : `${captionText}${captionExact}`;
+  const caption = captionText ? (
+    <span className="text-xs text-fg-tertiary truncate max-w-[14rem] max-sm:max-w-full" title={captionTitle}>
+      {captionText}
     </span>
   ) : null;
   // Always mounted, so a change of its text is announced (frontend/CLAUDE.md § Inline status messages).
   const liveRegion = <span role="status" aria-live="polite" className="sr-only">{announcement}</span>;
 
+  const open = anchorRect !== null;
+  const openFromTrigger = () => {
+    if (open) { close(false); return; }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) setAnchorRect(rect);
+  };
+  const popover = (readOnly: boolean) => open && (
+    <HealthStatusPopover
+      entityKind={entityKind}
+      entityName={entityName}
+      parentName={parentName}
+      anchorRect={anchorRect}
+      triggerRef={triggerRef}
+      onDismiss={close}
+      onSave={save}
+      mode={mode}
+      onConfirm={detailed && onConfirm ? confirm : undefined}
+      fetchHistory={detailed ? fetchHistory : undefined}
+      readOnly={readOnly}
+      datePrefs={datePrefs}
+      {...fields}
+      health_status_changed_at={health_status_changed_at}
+      health_status_changed_by={health_status_changed_by}
+      health_status_note={health_status_note}
+    />
+  );
+
   if (!canEdit) {
     if (display.value === "none") return liveRegion;
+    if (detailed && fetchHistory) {
+      // Non-admins get a trigger that opens a read-only popover with the
+      // history (#2242), never a greyed-out control.
+      return (
+        <>
+          <HealthStatusPill
+            ref={triggerRef}
+            value={display.value}
+            inheritedFrom={display.inheritedFrom}
+            collapseLabel={collapseLabel}
+            scope={scope}
+            shapeOnly={shapeOnly}
+            srPrefix={srPrefix}
+            expanded={open}
+            title={healthTitle(display, "readonly", attribution, health_status_source, entityKind)}
+            className={className}
+            onClick={openFromTrigger}
+          />
+          {caption}
+          {liveRegion}
+          {popover(true)}
+        </>
+      );
+    }
     return (
       <>
         <HealthStatusPill
@@ -137,7 +235,7 @@ export default function HealthStatusControl({
           scope={scope}
           shapeOnly={shapeOnly}
           srPrefix={srPrefix}
-          title={healthTitle(display, "static", entityKind)}
+          title={healthTitle(display, "static", attribution, health_status_source, entityKind)}
           className={className}
         />
         {caption}
@@ -146,12 +244,9 @@ export default function HealthStatusControl({
     );
   }
 
-  const open = anchorRect !== null;
   const toggle = () => {
     if (demoMode) return;
-    if (open) { close(false); return; }
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) setAnchorRect(rect);
+    openFromTrigger();
   };
   return (
     <>
@@ -181,25 +276,14 @@ export default function HealthStatusControl({
           srPrefix={srPrefix}
           expanded={open}
           ariaDisabled={demoMode}
-          title={healthTitle(display, demoMode ? "demo" : "interactive", entityKind)}
+          title={healthTitle(display, demoMode ? "demo" : "interactive", attribution, health_status_source, entityKind)}
           className={className}
           onClick={toggle}
         />
       )}
       {caption}
       {liveRegion}
-      {open && (
-        <HealthStatusPopover
-          entityKind={entityKind}
-          entityName={entityName}
-          parentName={parentName}
-          anchorRect={anchorRect}
-          triggerRef={triggerRef}
-          onDismiss={close}
-          onSave={save}
-          {...fields}
-        />
-      )}
+      {popover(false)}
     </>
   );
 }

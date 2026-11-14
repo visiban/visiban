@@ -286,7 +286,9 @@ def serialize_boards_for_broadcast(board_ids, request):
 
     boards = (
         annotate_board_counts(
-            Board.objects.filter(pk__in=list(board_ids)).select_related("owner", "group", "group__parent")
+            Board.objects.filter(pk__in=list(board_ids)).select_related(
+                "owner", "group", "group__parent", "health_status_changed_by",
+            )
         )
         .annotate(
             _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
@@ -417,6 +419,8 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
     """
     queryset = Board.objects.select_related(
         "owner",
+        # #2242: BoardFullSerializer's health_status_changed_by, as a join.
+        "health_status_changed_by",
         # Shared with get_board_roles() rather than spelled out here, so a
         # change to _GROUP_TRAVERSAL_MAX_DEPTH cannot leave one copy of the
         # ancestor chain shorter than the ladder that walks it (#1107).

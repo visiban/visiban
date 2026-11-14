@@ -415,6 +415,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <span className="shrink-0 inline-flex -my-0.5" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
+                  mode="basic"
                   entityName={swimlane.name}
                   parentName={null}
                   canEdit={isAdmin}
@@ -438,6 +439,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div className="mt-1 flex min-w-0" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
+                  mode="basic"
                   entityName={swimlane.name}
                   parentName={null}
                   canEdit={isAdmin}
@@ -505,6 +507,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <span className="inline-flex shrink-0" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
+                  mode="basic"
                   entityName={swimlane.name}
                   parentName={null}
                   canEdit

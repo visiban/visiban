@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -336,3 +336,15 @@ export const enableBoardSharing = (boardId: number, expiresInDays: ShareTtlDays 
 
 export const disableBoardSharing = (boardId: number) =>
   client.delete(`/api/v1/boards/${boardId}/share/`);
+
+/**
+ * Set or confirm the board's health status (#2242): the explicit action, the
+ * only write that records a reconfirm (same status) or a note. `status` null
+ * clears the board's own value (inherit). Board admin only.
+ */
+export const setBoardHealthStatus = (id: number, data: { status: HealthStatus | null; note?: string | null }) =>
+  client.post<Board>(`/api/v1/boards/${id}/health-status/`, data).then((r) => r.data);
+
+/** The board's last 20 health status changes, newest first (#2242). Any board role. */
+export const getBoardHealthHistory = (id: number) =>
+  client.get<HealthHistory>(`/api/v1/boards/${id}/health-history/`).then((r) => r.data);

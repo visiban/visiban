@@ -85,6 +85,8 @@ vi.mock('../api/boards', () => ({
   starBoard: vi.fn().mockResolvedValue({}),
   unstarBoard: vi.fn().mockResolvedValue({}),
   patchBoard: vi.fn(),
+  setBoardHealthStatus: vi.fn(),
+  getBoardHealthHistory: vi.fn(),
 }))
 vi.mock('../api/groups', () => ({
   joinGroup: vi.fn(),
@@ -92,11 +94,12 @@ vi.mock('../api/groups', () => ({
 
 import { useAuth } from '../hooks/useAuth'
 import { useBoardContext } from '../contexts/BoardContext'
-import { patchBoard } from '../api/boards'
+import { getBoardHealthHistory, setBoardHealthStatus } from '../api/boards'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseBoardContext = useBoardContext as ReturnType<typeof vi.fn>
-const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
+const mockSetBoardHealthStatus = setBoardHealthStatus as ReturnType<typeof vi.fn>
+const mockGetBoardHealthHistory = getBoardHealthHistory as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -146,7 +149,7 @@ describe('BoardPage Row 1 health status (#1133)', () => {
     expect(buttons[1]).toHaveClass('ml-2')
   })
 
-  it('a non-admin with no status sees nothing, and a plain pill when one is inherited', () => {
+  it('a non-admin with no status sees nothing, and a history trigger when one is inherited (#2242)', () => {
     const viewer = { ...fakeBoard, current_user_role: 'viewer' as const }
     const { unmount } = renderBoardPage(viewer)
     expect(screen.queryByText('No status')).not.toBeInTheDocument()
@@ -155,14 +158,18 @@ describe('BoardPage Row 1 health status (#1133)', () => {
       ...viewer, group: 4, group_name: 'Platform',
       effective_health_status: 'at_risk', health_status_source: { id: 4, name: 'Platform' },
     })
-    expect(screen.queryByRole('button', { name: /^Health status/ })).not.toBeInTheDocument()
-    expect(screen.getByTitle('Health status: At risk (inherited from Platform).')).toBeInTheDocument()
+    // Non-admins open a read-only popover with the history (amends health-pill rule 4).
+    expect(screen.getByRole('button', { name: /^Health status/ })).toHaveAttribute(
+      'title', 'Health status: At risk (inherited from Platform). Click for history.',
+    )
   })
 
-  it('saves with patchBoard and merges the three fields from the response', async () => {
+  it('saves with the health-status action and merges the six fields from the response (#2242)', async () => {
     const user = userEvent.setup()
-    mockPatchBoard.mockResolvedValue({
+    const setter = { id: 3, username: 'priya', display_name: 'Priya', avatar_url: '' }
+    mockSetBoardHealthStatus.mockResolvedValue({
       ...fakeBoard, health_status: 'off_track', effective_health_status: 'off_track', health_status_source: null,
+      health_status_changed_at: '2026-11-14T10:00:00Z', health_status_changed_by: setter, health_status_note: 'late',
     })
     renderBoardPage({ ...fakeBoard, group: 4, group_name: 'Platform' })
     await user.click(screen.getByRole('button', { name: /^Health status/ }))
@@ -170,10 +177,22 @@ describe('BoardPage Row 1 health status (#1133)', () => {
     expect(within(dialog).getByText('No status set here or in a group above.')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('radio', { name: /Off track/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(mockPatchBoard).toHaveBeenCalledWith(1, { health_status: 'off_track' }))
+    await waitFor(() => expect(mockSetBoardHealthStatus).toHaveBeenCalledWith(1, { status: 'off_track', note: null }))
     expect(mergeBoardState).toHaveBeenCalledWith({
       health_status: 'off_track', effective_health_status: 'off_track', health_status_source: null,
+      health_status_changed_at: '2026-11-14T10:00:00Z', health_status_changed_by: setter, health_status_note: 'late',
     })
+  })
+
+  it('opens the history from the board pill (#2242)', async () => {
+    const user = userEvent.setup()
+    mockGetBoardHealthHistory.mockResolvedValue({ results: [], has_more: false })
+    renderBoardPage()
+    await user.click(screen.getByRole('button', { name: /^Health status/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Health status for Sprint Board' })
+    await user.click(within(dialog).getByRole('button', { name: 'History' }))
+    expect(await within(dialog).findByText(/No changes recorded yet/)).toBeInTheDocument()
+    expect(mockGetBoardHealthHistory).toHaveBeenCalledWith(1)
   })
 
   it('a merged board.updated changes the Row 1 pill', () => {

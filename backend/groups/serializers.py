@@ -9,6 +9,7 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 from visiban.invite_email import InviteEmailField
 from visiban.query_fallbacks import fk_chain_loaded, note_fallback
 from .models import (
+    HEALTH_NOTE_MAX_LENGTH,
     Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite,
     _GROUP_TRAVERSAL_MAX_DEPTH, user_has_group_access,
     user_is_group_admin,
@@ -226,11 +227,32 @@ _HEALTH_STATUS_SOURCE_HELP = (
 )
 
 
+_HEALTH_CHANGED_AT_HELP = (
+    "When this entity's own health_status was last set or confirmed (#2242), "
+    "or null if never recorded (including a status set before history existed)."
+)
+_HEALTH_CHANGED_BY_HELP = (
+    "Who last set or confirmed this entity's own health_status (#2242), or "
+    "null for a removed account, a system change, or no recorded change."
+)
+_HEALTH_NOTE_HELP = (
+    "The optional note given with the last set or confirm (#2242), at most "
+    "280 characters, or null."
+)
+
+#: The three read-only last-change fields (#2242), for Meta.fields lists.
+HEALTH_HISTORY_FIELDS = ["health_status_changed_at", "health_status_changed_by", "health_status_note"]
+
+
 class HealthStatusSourceSerializer(serializers.Serializer):
     """Schema of ``health_status_source`` (#1133): the ancestor group supplying the value."""
 
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(read_only=True)
+    changed_at = serializers.DateTimeField(
+        read_only=True, allow_null=True,
+        help_text="When the source group's own status was last set (#2242); null if never recorded.",
+    )
 
 
 class HealthStatusListSerializer(serializers.ListSerializer):
@@ -269,6 +291,17 @@ class HealthStatusFieldsMixin(serializers.Serializer):
     )
     effective_health_status = serializers.SerializerMethodField(help_text=_EFFECTIVE_HEALTH_STATUS_HELP)
     health_status_source = serializers.SerializerMethodField(help_text=_HEALTH_STATUS_SOURCE_HELP)
+    # Last change of this entity's own health_status (#2242). Read-only: only
+    # groups.health_history writes them. Null when never recorded.
+    health_status_changed_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text=_HEALTH_CHANGED_AT_HELP,
+    )
+    health_status_changed_by = BoardUserSerializer(
+        read_only=True, allow_null=True, help_text=_HEALTH_CHANGED_BY_HELP,
+    )
+    health_status_note = serializers.CharField(
+        read_only=True, allow_null=True, help_text=_HEALTH_NOTE_HELP,
+    )
 
     def _health_start(self, obj):  # pragma: no cover - abstract
         raise NotImplementedError
@@ -450,6 +483,7 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "default_board_member_role", "allowed_priorities", "shared_labels",
             "is_starred", "navigation_only", "can_place_boards",
             "health_status", "effective_health_status", "health_status_source",
+            *HEALTH_HISTORY_FIELDS,
         ]
         read_only_fields = [
             "owner", "created_at", "shared_labels", "is_starred", "navigation_only",
@@ -502,6 +536,9 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         "health_status": None,
         "effective_health_status": None,
         "health_status_source": None,
+        "health_status_changed_at": None,
+        "health_status_changed_by": None,
+        "health_status_note": None,
     }
 
     def _is_navigation_only(self, obj) -> bool:
@@ -1064,4 +1101,49 @@ class GroupInviteLinkEmailSerializer(serializers.Serializer):
         default=GROUP_INVITE_LINK_DEFAULT_EXPIRY_DAYS,
         min_value=1,
         max_value=GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS,
+    )
+
+
+class HealthStatusWriteSerializer(serializers.Serializer):
+    """Body of ``POST /boards/{id}/health-status/`` and ``/groups/{id}/health-status/`` (#2242).
+
+    The explicit set-or-confirm action: the only writer that records a
+    reconfirm (same value) or a note. ``status`` null clears the entity's own
+    value (inherit). The note is validated here, at the boundary: stripped,
+    newlines flattened to spaces, empty becomes null, at most 280 characters.
+    """
+
+    status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True,
+        help_text="The status to set or confirm, or null to clear it (inherit).",
+    )
+    note = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, trim_whitespace=True,
+        max_length=HEALTH_NOTE_MAX_LENGTH,
+        help_text="Optional reason, shown in the tooltip and history. At most 280 characters.",
+    )
+
+    def validate_note(self, value):
+        if value is None:
+            return None
+        value = " ".join(value.split())
+        return value or None
+
+
+class HealthStatusChangeSerializer(serializers.Serializer):
+    """One row of ``GET .../health-history/`` (#2242). ``changed_by`` null: removed account or system."""
+
+    from_status = serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True, read_only=True)
+    to_status = serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True, read_only=True)
+    changed_by = BoardUserSerializer(read_only=True, allow_null=True)
+    changed_at = serializers.DateTimeField(read_only=True)
+    note = serializers.CharField(read_only=True, allow_null=True)
+
+
+class HealthHistorySerializer(serializers.Serializer):
+    """Response of ``GET .../health-history/`` (#2242): newest first, at most 20 rows."""
+
+    results = HealthStatusChangeSerializer(many=True, read_only=True)
+    has_more = serializers.BooleanField(
+        read_only=True, help_text="True when older changes exist beyond the 20 returned.",
     )

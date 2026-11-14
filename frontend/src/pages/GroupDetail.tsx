@@ -15,7 +15,7 @@ import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
   transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
-  starGroup, unstarGroup, updateGroup,
+  starGroup, unstarGroup, updateGroup, setGroupHealthStatus, getGroupHealthHistory,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import UnavailablePage from "./UnavailablePage";
@@ -1036,19 +1036,24 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Health status (#1133). Not optimistic: the response carries the effective
   // value and its source, which only the server resolves. Children inherit
   // the new value, so their lists are refetched too.
-  const handleHealthSave = useCallback(async (next: HealthStatus | null) => {
-    const updated = await updateGroup(groupId, { health_status: next });
+  // Save and Confirm both use the explicit POST health-status/ action (#2242).
+  const handleHealthSave = useCallback(async (next: HealthStatus | null, note?: string | null) => {
+    const updated = await setGroupHealthStatus(groupId, { status: next, note: note ?? null });
     writeGroup((prev) => prev ? {
       ...prev,
       health_status: updated.health_status,
       effective_health_status: updated.effective_health_status,
       health_status_source: updated.health_status_source,
+      health_status_changed_at: updated.health_status_changed_at,
+      health_status_changed_by: updated.health_status_changed_by,
+      health_status_note: updated.health_status_note,
     } : prev);
     // Also refetched by this save's own group.updated event; done here as
     // well so the actor's page converges even when the socket is down.
     refreshHealthListings();
     return updated;
   }, [groupId, refreshHealthListings, writeGroup]);
+  const fetchGroupHealthHistory = useCallback(() => getGroupHealthHistory(groupId), [groupId]);
 
   const adminMembers = members.filter(
     (m) => m.role === "admin" && m.user.id !== user.id
@@ -1240,7 +1245,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   health_status={group.health_status}
                   effective_health_status={group.effective_health_status}
                   health_status_source={group.health_status_source}
+                  health_status_changed_at={group.health_status_changed_at}
+                  health_status_changed_by={group.health_status_changed_by}
+                  health_status_note={group.health_status_note}
                   onSave={handleHealthSave}
+                  onConfirm={handleHealthSave}
+                  fetchHistory={fetchGroupHealthHistory}
+                  datePrefs={user}
                 />
                 <span>
                   {group.member_count} member{group.member_count !== 1 ? "s" : ""}

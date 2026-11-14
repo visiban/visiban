@@ -13,7 +13,8 @@ from django.utils import timezone
 from django.conf import settings
 
 from boards.uid import _generate_uid
-from groups.models import HealthStatus
+from groups.models import HealthStatus, HealthStatusChangeBase
+from groups.models import HEALTH_NOTE_MAX_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,17 @@ class Board(models.Model):
     health_status = models.CharField(
         max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
     )
+    # Last change of health_status (#2242), denormalized from the history so
+    # list endpoints read it with a join, not a query per row. Written only by
+    # groups.health_history in the same transaction as the history row; null
+    # when the status was never set through it (set before #2242, or never).
+    # db_index=False: the FK index is built concurrently (boards/0103).
+    health_status_changed_at = models.DateTimeField(null=True, blank=True)
+    health_status_changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", db_index=False,
+    )
+    health_status_note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board
@@ -265,6 +277,13 @@ class Board(models.Model):
                 fields=["share_enabled_by"],
                 name="board_share_enabled_by_idx",
                 condition=models.Q(share_enabled_by__isnull=False),
+            ),
+            # #2242: the FK index, built concurrently (boards/0103). Partial:
+            # serves the user-delete SET NULL, and most rows have no value.
+            models.Index(
+                fields=["health_status_changed_by"],
+                name="board_health_changed_by_idx",
+                condition=models.Q(health_status_changed_by__isnull=False),
             ),
         ]
         constraints = [
@@ -2509,3 +2528,15 @@ def revoke_board_invite_links_of_deleted_creator(sender, instance, **kwargs):
         _board_broadcast.record_board_event(
             board_id, _board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},
         )
+
+
+class BoardHealthChange(HealthStatusChangeBase):
+    """A board's health status change (#2242); see ``groups.models.HealthStatusChangeBase``."""
+
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="health_changes")
+
+    class Meta:
+        db_table = "board_health_changes"
+        indexes = [
+            models.Index(fields=["board", "-changed_at", "-id"], name="board_health_change_idx"),
+        ]

@@ -120,7 +120,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
-  health_status: null, effective_health_status: null, health_status_source: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
   id: 1, name: 'Engineering', description: '', owner: fakeUser,
   parent: null, parent_name: null,
   member_count: 2, board_count: 1, subgroup_count: 0, created_at: '',

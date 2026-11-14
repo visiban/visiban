@@ -99,9 +99,12 @@ Get group details.
 | `can_place_boards` | boolean | *(1.2+)* `true` when the requesting user may place a board in this group — create one through [`POST /groups/{id}/boards/`](#post-apiv1groupsidboards), move one in with `POST /boards/{id}/move-group/`, or import one into it. See [Board placement](#board-placement-can_place_boards). |
 | `health_status` | string\|null | *(1.3+)* The group's own health status: `"on_track"`, `"at_risk"` or `"off_track"`, or `null` to inherit from the nearest ancestor group that sets one (default: `null`). Writable by a group admin; any other value returns `400 Bad Request`. See [Health Status](../features/health-status.md). |
 | `effective_health_status` | string\|null | *(1.3+)* Read-only. `health_status` when set, otherwise the `health_status` of the nearest ancestor that sets one (at most six groups up), otherwise `null`. Computed on every read: a change to a group applies at once to every subgroup and board below it that does not set its own value. |
-| `health_status_source` | object\|null | *(1.3+)* Read-only. `{ "id", "name" }` of the ancestor group that supplies `effective_health_status`; `null` when `health_status` is set on this group or nothing applies. |
+| `health_status_source` | object\|null | *(1.3+)* Read-only. `{ "id", "name", "changed_at" }` of the ancestor group that supplies `effective_health_status`; `null` when `health_status` is set on this group or nothing applies. `changed_at` (#2242) is when that group's own status was last set, or `null`. |
+| `health_status_changed_at` | string / null | Read-only. When the group's own `health_status` was last set or confirmed (ISO 8601), or `null` if never recorded (including a status set before 1.3's history existed). Added in 1.3 (#2242). |
+| `health_status_changed_by` | object / null | Read-only. Who last set or confirmed it, as `{ "id", "username", "display_name", "avatar_url" }` (the `owner` shape), or `null` for a removed account, an automatic change or no recorded change. Added in 1.3 (#2242). |
+| `health_status_note` | string / null | Read-only. The note given with the last set or confirm (at most 280 characters), or `null`. Added in 1.3 (#2242). |
 
-The three health fields are returned on every group payload (list, retrieve, `/subgroups/`, create, update, `board-defaults`, `transfer-ownership`, the invite join response and the `group.created` / `group.updated` events). Changing a group's `health_status` sends `group.updated` on that group's channel only. *(1.3, v1 limit)* It sends nothing to the channels of its subgroups or of the boards below it, even though their `effective_health_status` changes: a client showing one of them sees the new value on its next read. In the web client an open subgroup page shows it after a reload; an open board page after a reload or a reconnect, which refetches the whole board.
+The health fields are returned on every group payload (list, retrieve, `/subgroups/`, create, update, `board-defaults`, `transfer-ownership`, the invite join response and the `group.created` / `group.updated` events). Changing a group's `health_status` sends `group.updated` on that group's channel only. *(1.3, v1 limit)* It sends nothing to the channels of its subgroups or of the boards below it, even though their `effective_health_status` changes: a client showing one of them sees the new value on its next read. In the web client an open subgroup page shows it after a reload; an open board page after a reload or a reconnect, which refetches the whole board.
 
 #### Board placement (`can_place_boards`)
 
@@ -130,7 +133,7 @@ Group access is inherited downward only: membership in a subgroup grants nothing
 | `member_count`, `board_count`, `subgroup_count` | `0` |
 | `shared_labels` | `[]` |
 | `allowed_priorities` | `[]` |
-| `health_status`, `effective_health_status`, `health_status_source` | `null` *(1.3+)* |
+| `health_status`, `effective_health_status`, `health_status_source`, `health_status_changed_at`, `health_status_changed_by`, `health_status_note` | `null` *(1.3+)* |
 
 `id`, `name`, `parent`, `parent_name`, `owner`, `created_at`, `default_board_member_role`, `is_starred` and (on retrieve) `ancestors` are returned as for a member. `default_board_member_role` is returned intentionally: it is a required enum with no empty value, it is deprecated with no effect, and it is not sensitive. Ownership alone does not count as membership here, the same as for the nested routes and *(1.2+)* the list itself, which no longer returns a group only because the caller owns it (#1829). `owner` (public profile fields only, no email) is returned because clients require it; an ancestor's owner is normally also a member there, but an owner whose membership was removed is still named. Every key stays in the response with a value of its documented type, so existing clients keep parsing it; read `navigation_only` to tell withheld values from real zeros. This matches the nested routes, which already answer `403` to such a user (`/members/`, `/boards/`, `/subgroups/`, `/labels/`, `/descendant-boards/`, `/descendant-boards/paged/`, `/star/`), and the group WebSocket channel, which does not admit them. Users with access to all content always receive every field.
 
@@ -160,6 +163,32 @@ Changing `parent` revokes unused invite links in the moved subtree whose creator
 > **Added in 1.2**
 
 An update that arrives while the group is being deleted waits for the delete to finish and then answers `404`, with nothing written (#1719). A `parent` that is deleted meanwhile answers the unknown-parent `400`.
+
+### `POST /api/v1/groups/{id}/health-status/`
+
+*(1.3+, #2242)* Set or confirm the group's own health status. This is the explicit action behind the editor's **Save** and **Confirm status**: it always records a history row, even when `status` equals the current value (a *reconfirm*, which refreshes `health_status_changed_at`), and it is the only write that stores a note. A `PATCH`/`PUT` of `health_status` (and a create, or a Django admin edit) records a row only when the value changes, with no note. Group admin only (`403 Forbidden` otherwise; `404 Not Found` for a group you cannot see).
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | string / null | Required. `"on_track"`, `"at_risk"` or `"off_track"`, or `null` to clear the group's own value (inherit). Clearing when nothing is set here returns `400` (`{"status": ["Nothing set here to confirm."]}`). |
+| `note` | string / null | Optional. The reason, at most 280 characters (`400` if longer). Surrounding whitespace is trimmed, line breaks become spaces, and an empty note is stored as `null`. |
+
+**Response `200 OK`:** the group, with the same fields as a `PATCH` response. Sends `group.updated`, like any group edit.
+
+### `GET /api/v1/groups/{id}/health-history/`
+
+*(1.3+, #2242)* The group's own health status changes, newest first, at most 20 per request. When `has_more` is `true`, repeat the request with `?offset=20`, `?offset=40`, and so on to reach older changes (optional; default 0). Needs access to the group itself (a membership in it or a group above it): a group you see only on the path to one of yours (`navigation_only`), or one you cannot see, answers `404 Not Found`.
+
+```json
+{
+  "results": [
+    {"from_status": "on_track", "to_status": "at_risk", "changed_by": {"id": 3, "username": "priya", "display_name": "Priya", "avatar_url": ""}, "changed_at": "2026-11-14T10:00:00Z", "note": "vendor slipped API delivery"}
+  ],
+  "has_more": false
+}
+```
+
+A row whose `from_status` equals `to_status` is a reconfirm. A `null` status means "nothing set here" (inherit). `changed_by` is `null` for a removed account or an automatic change. `has_more` is `true` when older changes exist; they are kept (they are deleted only with the group) but this endpoint does not page past the 20 most recent. History is never imported or exported. These endpoints and fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
 
 ### `DELETE /api/v1/groups/{id}/`
 Delete a group. Requires the group owner, who must also hold an admin membership on the group itself, or a site admin. *(1.3+)* The owner must hold an admin membership on the group itself; ownership alone, or a membership on a subgroup or an ancestor, is not enough, and the caller gets the same `403`. A group member who is not the owner gets `403 Forbidden` with `{"detail": "Only the group owner can delete this group."}`; a caller who cannot see the group at all gets `404`.

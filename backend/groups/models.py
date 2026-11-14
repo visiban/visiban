@@ -5,6 +5,7 @@ from django.db import models, transaction
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.db.models import CheckConstraint, Q
+from django.db.models.functions import Now
 from django.conf import settings
 from django.utils import timezone
 
@@ -344,6 +345,36 @@ class HealthStatus(models.TextChoices):
     OFF_TRACK = "off_track", "Off track"
 
 
+#: Longest note a health status change may carry (#2242). Enforced by the
+#: serializers (the boundary); the column is sized to match.
+HEALTH_NOTE_MAX_LENGTH = 280
+
+
+class HealthStatusChangeBase(models.Model):
+    """One set of a board's or group's health status (#2242); abstract.
+
+    Concrete tables (``groups.GroupHealthChange``, ``boards.BoardHealthChange``)
+    add the entity FK. Written only by ``groups.health_history``, under the
+    entity's row lock, in the same transaction as the entity's denormalized
+    last-change columns. A row with ``from_status == to_status`` is a
+    reconfirm (the explicit "Confirm status" action); there is no separate
+    flag. ``changed_by`` is null for a removed account or a system change
+    (#2245). Never imported or exported: attribution must not be forgeable
+    (docs/development/security-invariants.md, Rule 5).
+    """
+
+    from_status = models.CharField(max_length=16, null=True, blank=True, choices=HealthStatus.choices)
+    to_status = models.CharField(max_length=16, null=True, blank=True, choices=HealthStatus.choices)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    changed_at = models.DateTimeField(db_default=Now())
+    note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+
 class Group(models.Model):
     """A workspace that groups boards and members; supports nested subgroups up to 6 levels deep.
 
@@ -382,10 +413,30 @@ class Group(models.Model):
     health_status = models.CharField(
         max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
     )
+    # Last change of health_status (#2242), denormalized from the history so
+    # list endpoints read it with a join, not a query per row. Written only by
+    # groups.health_history in the same transaction as the history row; null
+    # when the status was never set through it (set before #2242, or never).
+    # db_index=False: the FK index is built concurrently (groups/0026).
+    health_status_changed_at = models.DateTimeField(null=True, blank=True)
+    health_status_changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", db_index=False,
+    )
+    health_status_note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "groups"
+        indexes = [
+            # #2242: the FK index, built concurrently (groups/0026). Partial:
+            # serves the user-delete SET NULL, and most rows have no value.
+            models.Index(
+                fields=["health_status_changed_by"],
+                name="group_health_changed_by_idx",
+                condition=models.Q(health_status_changed_by__isnull=False),
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -713,3 +764,15 @@ def revoke_invite_links_of_deleted_creator(sender, instance, **kwargs):
             )
 
     transaction.on_commit(_announce)
+
+
+class GroupHealthChange(HealthStatusChangeBase):
+    """A group's health status change (#2242); see :class:`HealthStatusChangeBase`."""
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="health_changes")
+
+    class Meta:
+        db_table = "group_health_changes"
+        indexes = [
+            models.Index(fields=["group", "-changed_at", "-id"], name="group_health_change_idx"),
+        ]

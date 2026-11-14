@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken } from "./joinToken";
-import type { Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, HealthStatus, Priority } from "../types";
+import type { HealthHistory, Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, HealthStatus, Priority } from "../types";
 
 export const listGroups = () =>
   client.get<{ results: Group[] }>("/api/v1/groups/").then((r) => r.data.results);
@@ -124,3 +124,15 @@ export const unstarGroup = (id: number) =>
 
 export const listStarredGroups = () =>
   client.get<{ results: Group[] }>("/api/v1/groups/?starred=true").then((r) => r.data.results);
+
+/**
+ * Set or confirm the group's health status (#2242): the explicit action, the
+ * only write that records a reconfirm (same status) or a note. `status` null
+ * clears the group's own value (inherit). Group admin only.
+ */
+export const setGroupHealthStatus = (id: number, data: { status: HealthStatus | null; note?: string | null }) =>
+  client.post<Group>(`/api/v1/groups/${id}/health-status/`, data).then((r) => r.data);
+
+/** The group's last 20 health status changes, newest first (#2242). Needs access to the group itself. */
+export const getGroupHealthHistory = (id: number) =>
+  client.get<HealthHistory>(`/api/v1/groups/${id}/health-history/`).then((r) => r.data);
