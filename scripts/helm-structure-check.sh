@@ -2487,7 +2487,7 @@ self_test() {
     # 11b: the backend loses the password env (a rename settings.py never reads).
     "11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
     # 11b: a crackable hash of the password comes back as a pod annotation.
-    "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
+    "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: .*/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
     # 11b2 (#1130): the ceiling stops rendering, so Valkey grows until OOM-killed.
     "11b2 valkey maxmemory line not rendered|templates/valkey.yaml|s/^    maxmemory {{ . }}/    # maxmemory removed {{ . }}/"
     # 11b2 (#1130): the eviction policy stops rendering.
