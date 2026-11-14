@@ -64,8 +64,6 @@ interface Props {
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
 
-/** Room an open inner menu needs inside the scrolling rule list (#2231). */
-
 /**
  * Clears a rule's open-menu keys when the rule row unmounts. A select inside
  * the row that unmounts alone (field change swaps the value select) is covered
