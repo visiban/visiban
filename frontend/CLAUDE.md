@@ -1706,3 +1706,7 @@ The Analytics tab scrolls as one page since #448: it no longer pins the heatmap,
 - **Text-only face indicators need `sr-only` text.** The face suffix glyphs are `aria-hidden` and a sibling `sr-only` span carries the sentence ("1 overdue checklist item"); a `title` alone is not an accessible name.
 - **Native date input commit/cancel.** Enter commits (by blurring), Escape abandons the edit; a cancel ref guards the blur that some browsers fire on unmount.
 
+
+## Transient state cues (#2251)
+
+A cue that appears in response to a user filter or setting change (for example "doesn't match lane filters" in the focus banner) renders inside a persistent `role="status"` element with only its text conditional; a live region mounted together with its content is not reliably announced. Keep the cue at `text-xs` or larger, mark separator glyphs `aria-hidden`, and add `shrink-0 whitespace-nowrap` so a truncating neighbor shrinks instead.

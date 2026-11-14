@@ -3172,12 +3172,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </svg>
           <span className="text-info-on-tint">Focused on:</span>
           <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
-          {focusedLaneFailsRules && (
-            <>
-              <span aria-hidden="true" className="text-xs text-fg-tertiary">·</span>
-              <span className="text-xs text-fg-tertiary">doesn't match lane filters</span>
-            </>
-          )}
+          {/* Persistent live region (only its text is conditional) so the cue is announced when rules change. */}
+          <span role="status" className="text-xs text-fg-tertiary shrink-0 whitespace-nowrap">
+            {focusedLaneFailsRules && (
+              <>
+                <span aria-hidden="true">·</span> doesn't match lane filters
+              </>
+            )}
+          </span>
           <div className="flex-1" />
           <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus

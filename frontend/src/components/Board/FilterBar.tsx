@@ -142,7 +142,7 @@ interface Props {
   onScopeChange?: (scope: "board" | "all") => void;
   /** The user's `date_format` preference, for date custom-field chips (#1993). */
   userDateFormat?: string;
-  /** #2205 — lanes the lane filter hides (0 while focus mode pauses it). */
+  /** #2205 — lanes the lane filter hides (excludes the focused lane, which always shows). */
   hiddenLaneCount?: number;
   /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
   lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
