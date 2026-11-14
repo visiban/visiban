@@ -1956,6 +1956,32 @@ class CustomFieldDefinition(models.Model):
     choice_colors = models.JSONField(
         default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
     )
+
+    # Threshold marking (#1122). Display-only, like number formatting: the
+    # card face marks a value that crosses a threshold with a shape and bold
+    # weight (never a hue; red/amber are reserved for urgency and priority).
+    # ``threshold_direction`` "" means off. Number fields use the float pair;
+    # date fields use the signed day-offset pair (value date minus today, in
+    # the viewer's timezone), so the two types never share a column whose
+    # meaning depends on the type. Every rule (direction/value coupling,
+    # strict warn/alert ordering, bounds) is serializer-level, like the rest
+    # of this model, so there is no CheckConstraint. Float rather than
+    # Decimal so DRF serializes a JSON number, which the client compares
+    # directly. ``db_default`` keeps a DEFAULT so pre-0101 code mid-deploy
+    # can INSERT; the four value columns are nullable for the same reason.
+    class ThresholdDirection(models.TextChoices):
+        OFF = "", "Off"
+        ABOVE = "above", "Above"
+        BELOW = "below", "Below"
+
+    threshold_direction = models.CharField(
+        max_length=5, choices=ThresholdDirection.choices, blank=True,
+        default="", db_default="",
+    )
+    threshold_warn = models.FloatField(null=True, blank=True)
+    threshold_alert = models.FloatField(null=True, blank=True)
+    threshold_warn_days = models.SmallIntegerField(null=True, blank=True)
+    threshold_alert_days = models.SmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

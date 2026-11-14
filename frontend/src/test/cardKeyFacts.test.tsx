@@ -63,7 +63,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 const dealField: CustomFieldDefinition = {
   id: 55, uid: 'cfuid000055', name: 'Deal value', field_type: 'text', choices: [], position: 0, show_on_card: true,
   is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
-  created_at: '2026-01-01T00:00:00Z',
+  threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
 }
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
@@ -130,6 +130,33 @@ describe('buildKeyFacts (#1916)', () => {
     const card = makeCard({ custom_field_values: [{ field_definition: 56, value: 'Won' }] })
     const facts = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [dealField, unpinned] })))
     expect(facts.map((f) => f.key)).toEqual(['column'])
+  })
+
+  it('carries a crossed threshold as the chip does: mark data plus the words in name and title (#1122)', () => {
+    const spend = {
+      ...dealField, name: 'Spend', field_type: 'number' as const, number_prefix: '$', number_decimals: 0,
+      threshold_direction: 'above' as const, threshold_warn: 5000, threshold_alert: 6000,
+    }
+    const card = makeCard({ custom_field_values: [{ field_definition: 55, value: '6100' }] })
+    const [, fact] = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [spend] })))
+    expect(fact.threshold).toEqual({ level: 'alert', direction: 'above' })
+    expect(fact.label).toBe('Spend $6,100, Alert: at or above $6,000. Go to Spend')
+    expect(fact.staticLabel).toBe('Spend: $6,100, Alert: at or above $6,000')
+    expect(fact.title).toBe('Spend: $6,100 (Alert: at or above $6,000)')
+
+    render(<CardKeyFacts facts={[fact]} onJump={vi.fn()} />)
+    const button = screen.getByRole('button', { name: /Alert: at or above \$6,000/ })
+    expect(button.querySelector('svg[data-threshold-mark="alert"]')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('leaves a pinned value short of its threshold unmarked (#1122)', () => {
+    const spend = { ...dealField, field_type: 'number' as const, threshold_direction: 'above' as const, threshold_warn: 50 }
+    const card = makeCard({ custom_field_values: [{ field_definition: 55, value: '10' }] })
+    const [, fact] = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [spend] })))
+    expect(fact.threshold).toBeUndefined()
+    expect(fact.label).toBe('Deal value 10. Go to Deal value')
+    render(<CardKeyFacts facts={[fact]} onJump={vi.fn()} />)
+    expect(document.querySelector('svg[data-threshold-mark]')).toBeNull()
   })
 })
 

@@ -2173,6 +2173,11 @@ class ExportJsonShapeTests(ExportBase):
                 "number_suffix",
                 "number_decimals",
                 "choice_colors",
+                "threshold_direction",
+                "threshold_warn",
+                "threshold_alert",
+                "threshold_warn_days",
+                "threshold_alert_days",
             ],
         )
         self.assertEqual(
@@ -2189,6 +2194,11 @@ class ExportJsonShapeTests(ExportBase):
                 "number_suffix": "",
                 "number_decimals": None,
                 "choice_colors": {"Open": "blue"},
+                "threshold_direction": "",
+                "threshold_warn": None,
+                "threshold_alert": None,
+                "threshold_warn_days": None,
+                "threshold_alert_days": None,
             },
         )
         self.assertEqual(

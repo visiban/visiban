@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+import math
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
@@ -1157,6 +1158,140 @@ def validate_number_format(attrs, instance, field_type):
     attrs.update(NUMBER_FORMAT_DEFAULTS)
 
 
+#: Threshold marking (#1122). The number pair applies to ``number`` fields,
+#: the signed day-offset pair to ``date`` fields; the direction is shared.
+THRESHOLD_NUMBER_KEYS = ("threshold_warn", "threshold_alert")
+THRESHOLD_DATE_KEYS = ("threshold_warn_days", "threshold_alert_days")
+THRESHOLD_DEFAULTS = {
+    "threshold_direction": "",
+    "threshold_warn": None,
+    "threshold_alert": None,
+    "threshold_warn_days": None,
+    "threshold_alert_days": None,
+}
+#: Bounds: far past any real display need, and inside what a JS number and
+#: the client's ``Date`` arithmetic handle exactly. Days span about ten years.
+THRESHOLD_VALUE_MAX = 1e15
+THRESHOLD_DAYS_MAX = 3650
+
+
+def threshold_value_field():
+    """``threshold_warn`` / ``threshold_alert`` (#1122): a finite float or null.
+
+    ``min_value``/``max_value`` put the bound in the API schema. DRF's
+    ``FloatField`` already rejects NaN and infinity ("A valid number is
+    required."), which is the message a client sees; NaN would pass both
+    bound comparisons, so :func:`validate_thresholds` keeps its own finite
+    check as defense in depth in case that DRF behavior ever changes.
+    """
+    return serializers.FloatField(
+        min_value=-THRESHOLD_VALUE_MAX, max_value=THRESHOLD_VALUE_MAX,
+        allow_null=True, required=False,
+    )
+
+
+def threshold_days_field():
+    """``threshold_warn_days`` / ``threshold_alert_days`` (#1122): a signed
+    day offset from today (negative = before today), or null."""
+    return serializers.IntegerField(
+        min_value=-THRESHOLD_DAYS_MAX, max_value=THRESHOLD_DAYS_MAX,
+        allow_null=True, required=False,
+    )
+
+
+def validate_thresholds(attrs, instance, field_type):
+    """The threshold-marking rules for card field definitions (#1122).
+
+    Display-only config: the card face marks a value at or beyond a
+    threshold. Card fields only; swimlane (row) fields have no thresholds.
+    The rules mirror :func:`validate_number_format`:
+
+    * **Partial PATCH reads through.** Keys the caller did not submit come
+      from *instance*, so a PATCH that changes only ``threshold_alert`` is
+      checked against the stored direction and warning value. A retype
+      (only possible while the field has no values, #1121) does not read
+      through: thresholds never carry across a type change.
+    * **Wrong type is a 400**, keyed on the field: a non-null number value on
+      a date field, a day value on a number field, or any non-default value
+      on a type without thresholds. The other type's pair (or, on a type
+      without thresholds, every key) is then reset to its default, which is
+      what clears stored values when an empty field is retyped.
+    * **Direction and values are coupled.** Direction ``""`` (off) requires
+      every value to be null, so an "off" field never carries a hidden
+      threshold that would reappear when switched on. A set direction needs
+      at least one value of the type's pair.
+    * **Strict ordering.** With both set, the alert threshold must lie
+      strictly beyond the warning in the direction (above: alert > warn;
+      below: alert < warn). Equal values would make the warning level
+      unreachable. A direction change re-checks the stored pair.
+    * **Finite bounds.** NaN and infinity are refused, not stored.
+
+    Boundaries are inclusive (above means value >= threshold) and date
+    offsets are evaluated in the viewer's timezone; both are client-side
+    rendering rules, documented in docs/api/boards.md. Mutates *attrs*: on
+    return it holds all five keys with their effective values.
+    """
+    for key in THRESHOLD_NUMBER_KEYS:
+        value = attrs.get(key)
+        # Defense in depth: FloatField rejects NaN/infinity first, so this is
+        # unreachable through the serializer today (see threshold_value_field).
+        if value is not None and not math.isfinite(value):
+            raise serializers.ValidationError({key: "Thresholds must be finite numbers."})
+
+    field_types = CustomFieldDefinition.FieldType
+    if field_type == field_types.NUMBER:
+        own, other, own_label = THRESHOLD_NUMBER_KEYS, THRESHOLD_DATE_KEYS, "number"
+    elif field_type == field_types.DATE:
+        own, other, own_label = THRESHOLD_DATE_KEYS, THRESHOLD_NUMBER_KEYS, "date"
+    else:
+        for key, default in THRESHOLD_DEFAULTS.items():
+            if key in attrs and attrs[key] != default:
+                raise serializers.ValidationError({
+                    key: "Thresholds can only be set on a number or date field."
+                })
+        attrs.update(THRESHOLD_DEFAULTS)
+        return
+
+    for key in other:
+        if attrs.get(key) is not None:
+            raise serializers.ValidationError({
+                key: f"This threshold does not apply to a {own_label} field."
+            })
+
+    read_through = instance is not None and instance.field_type == field_type
+
+    def effective(key):
+        if key in attrs:
+            return attrs[key]
+        if read_through:
+            return getattr(instance, key)
+        return THRESHOLD_DEFAULTS[key]
+
+    direction = effective("threshold_direction")
+    warn, alert = effective(own[0]), effective(own[1])
+    if direction == "":
+        if warn is not None or alert is not None:
+            raise serializers.ValidationError({
+                "threshold_direction": (
+                    "Choose a direction (above or below), or clear the threshold values."
+                )
+            })
+    elif warn is None and alert is None:
+        raise serializers.ValidationError({
+            own[0]: "Set a warning or an alert threshold, or turn thresholds off."
+        })
+    elif warn is not None and alert is not None:
+        beyond = alert > warn if direction == "above" else alert < warn
+        if not beyond:
+            raise serializers.ValidationError({
+                own[1]: f"The alert threshold must be {direction} the warning threshold."
+            })
+
+    attrs["threshold_direction"] = direction
+    attrs[own[0]], attrs[own[1]] = warn, alert
+    attrs.update({key: None for key in other})
+
+
 #: Upper bound on ``choice_colors`` entries: one per choice, and a choice-bearing
 #: field may have at most 100 choices (``validate_definition_choices``). Checked
 #: before anything else so an oversized map is refused without walking it.
@@ -1301,6 +1436,14 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     number_suffix = number_affix_field()
     number_decimals = number_decimals_field()
     choice_colors = ChoiceColorsField(required=False)
+    threshold_direction = serializers.ChoiceField(
+        choices=CustomFieldDefinition.ThresholdDirection.choices,
+        allow_blank=True, required=False,
+    )
+    threshold_warn = threshold_value_field()
+    threshold_alert = threshold_value_field()
+    threshold_warn_days = threshold_days_field()
+    threshold_alert_days = threshold_days_field()
 
     class Meta:
         model = CustomFieldDefinition
@@ -1308,6 +1451,8 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "id", "uid", "name", "field_type", "choices", "position",
             "show_on_card", "is_required", "help_text",
             "number_prefix", "number_suffix", "number_decimals", "choice_colors",
+            "threshold_direction", "threshold_warn", "threshold_alert",
+            "threshold_warn_days", "threshold_alert_days",
             "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
@@ -1368,6 +1513,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         validate_definition_choices(attrs, instance, field_type)
         validate_number_format(attrs, instance, field_type)
         validate_choice_colors(attrs, instance, field_type)
+        validate_thresholds(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:

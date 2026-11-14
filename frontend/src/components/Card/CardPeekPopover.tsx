@@ -2,7 +2,8 @@ import { useRef } from "react";
 import type { Card, CustomFieldDefinition } from "../../types";
 import { colorForPriority } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
-import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
+import { formatCustomFieldValue, isValidForType, thresholdLevel, thresholdPhrase } from "../../utils/customFieldValue";
+import ThresholdMark from "./ThresholdMark";
 import { PROVIDER_LABELS } from "../../utils/externalRef";
 import { getVisibleViewport, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 
@@ -17,12 +18,14 @@ interface CardPeekPopoverProps {
    *  pinned ones to decide whether to label its line "Other fields" (#1308). */
   customFieldDefinitions?: CustomFieldDefinition[];
   userDateFormat?: string;
+  /** The viewer's timezone, for "today" in date thresholds (#1122); blank = the browser's. */
+  userTimezone?: string;
 }
 
 const POPOVER_WIDTH = 288; // w-72 = 288px
 const POPOVER_GAP = 8;
 
-export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY" }: CardPeekPopoverProps) {
+export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY", userTimezone = "" }: CardPeekPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   // Top-aligned with the card, sliding up only as far as its measured height
   // needs to stay on screen (#1457): a card near the bottom of the board would
@@ -166,6 +169,34 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
           never blow past readability. "+N more" replaces the 6th entry
           rather than being appended after it, keeping the hard cap at 6
           visible slots; its title names the hidden fields. */}
+      {/* #1122: the pinned chips carry a threshold only as a chevron and
+          bold weight, so the peek spells out what each crossed threshold
+          means — the visible words a hover reader gets. One line, pinned
+          order; absent when no pinned value is marked. */}
+      {(() => {
+        const marked = customFieldDefinitions
+          .filter((d) => d.show_on_card)
+          .sort((a, b) => a.position - b.position)
+          .map((d) => {
+            const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
+            if (!v || v.value === "") return null;
+            const level = thresholdLevel(d, v.value, new Date(), userTimezone);
+            return level === "none" ? null : { id: d.id, level, direction: d.threshold_direction, text: `${d.name}: ${thresholdPhrase(d, level)}` };
+          })
+          .filter((m): m is NonNullable<typeof m> => m !== null);
+        if (marked.length === 0) return null;
+        return (
+          <p className="mt-3 text-xs text-fg-secondary" data-testid="card-peek-thresholds">
+            {marked.map((m, i) => (
+              <span key={m.id} className="inline-flex items-center gap-1">
+                {i > 0 && <span aria-hidden="true">·</span>}
+                <ThresholdMark level={m.level} direction={m.direction} />
+                {m.text}
+              </span>
+            ))}
+          </p>
+        );
+      })()}
       {(() => {
         const hasPinned = customFieldDefinitions.some((d) => d.show_on_card);
         const populated = [...customFieldDefinitions]
@@ -174,7 +205,10 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
           .map((d) => {
             const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
             if (!v || v.value === "") return null;
-            const text = isValidForType(d, v.value) ? formatCustomFieldValue(d, v.value, userDateFormat) : v.value;
+            const raw = isValidForType(d, v.value) ? formatCustomFieldValue(d, v.value, userDateFormat) : v.value;
+            // #1122: a crossed threshold is spelled out in words here.
+            const phrase = thresholdPhrase(d, thresholdLevel(d, v.value, new Date(), userTimezone));
+            const text = phrase ? `${raw} (${phrase})` : raw;
             const help = (d.help_text || "").trim();
             return {
               id: d.id,

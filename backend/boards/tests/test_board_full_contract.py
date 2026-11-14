@@ -260,6 +260,12 @@ _CUSTOM_FIELD_DEFINITION_SPEC = {
     "number_prefix": _FieldSpec((str,)),
     "number_suffix": _FieldSpec((str,)),
     "number_decimals": _FieldSpec((int,), nullable=True),
+    # Threshold marking (#1122): card fields only, no swimlane equivalent.
+    "threshold_direction": _FieldSpec((str,), enum={"", "above", "below"}),
+    "threshold_warn": _FieldSpec((float, int), nullable=True),
+    "threshold_alert": _FieldSpec((float, int), nullable=True),
+    "threshold_warn_days": _FieldSpec((int,), nullable=True),
+    "threshold_alert_days": _FieldSpec((int,), nullable=True),
     "created_at": _FieldSpec((str,)),
 }
 

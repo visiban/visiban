@@ -1185,7 +1185,7 @@ describe('CardDetail', () => {
       custom_field_definitions: [{
         id: 6, uid: 'cfuid006', name: 'Notes', field_type: 'text',
         choices: [], position: 0, show_on_card: false, is_required: false,
-        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '' as const, threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
       }],
     })
     props.card = makeCard({ custom_field_values: [{ field_definition: 6, value: 'saved' }] })
@@ -1262,7 +1262,7 @@ describe('CardDetail', () => {
       custom_field_definitions: [{
         id: 5, uid: 'cfuid005', name: 'Platforms', field_type: 'multi_select',
         choices: ['web', 'ios'], position: 0, show_on_card: false, is_required: false,
-        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '' as const, threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
       }],
     })
     // A stored value opens the Custom fields section automatically.
@@ -3150,7 +3150,7 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
   const statusField = {
     id: 500, uid: 'cfduid00001', name: 'Status', field_type: 'dropdown' as const,
     choices: ['Red', 'Green', 'Blue'], position: 0, show_on_card: false,
-    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01T00:00:00Z',
+    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '' as const, threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
   }
 
   // #1236 — CustomFieldEditRow wraps CustomFieldValueInput with no
@@ -3923,7 +3923,7 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
   const field = (id: number, name: string) => ({
     id, uid: `cfduid0000${id}`, name, field_type: 'dropdown' as const,
     choices: ['Red', 'Green', 'Blue'], position: id, show_on_card: false,
-    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01T00:00:00Z',
+    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '' as const, threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
   })
 
   beforeEach(() => {

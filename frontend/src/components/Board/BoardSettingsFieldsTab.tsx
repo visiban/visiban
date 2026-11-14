@@ -15,7 +15,8 @@ import {
   reorderCustomFields,
 } from "../../api/boards";
 import NumberFormatFields from "./NumberFormatFields";
-import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
+import ThresholdFields from "./ThresholdFields";
+import { EMPTY_NUMBER_FORMAT, EMPTY_THRESHOLD_DRAFT, thresholdDraftFrom, thresholdPayload, type ThresholdDraft, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import { isChoiceColorKey } from "../../constants/choiceColors";
 import { typeLockedMessage } from "../../constants/customFields";
@@ -76,15 +77,17 @@ interface FormState {
   number_format: NumberFormatDraft;
   /** #1391: per-choice colors keyed by the choice text as typed; sent only for choice types. */
   choice_colors: Record<string, string>;
+  /** #1122: threshold marking; sent only for number and date fields. */
+  thresholds: ThresholdDraft;
   show_on_card: boolean;
 }
 
 function emptyForm(): FormState {
-  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, show_on_card: false };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, thresholds: EMPTY_THRESHOLD_DRAFT, show_on_card: false };
 }
 
 function formFromDefinition(d: CustomFieldDefinition): FormState {
-  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, show_on_card: d.show_on_card };
+  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, thresholds: thresholdDraftFrom(d), show_on_card: d.show_on_card };
 }
 
 const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
@@ -174,11 +177,12 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       setPendingTypeChange(nextType);
       return;
     }
-    setForm((f) => ({ ...f, field_type: nextType }));
+    // #1122: thresholds never carry across a type change (the server clears them too).
+    setForm((f) => ({ ...f, field_type: nextType, thresholds: EMPTY_THRESHOLD_DRAFT }));
   };
 
   const confirmTypeChange = () => {
-    if (pendingTypeChange) setForm((f) => ({ ...f, field_type: pendingTypeChange }));
+    if (pendingTypeChange) setForm((f) => ({ ...f, field_type: pendingTypeChange, thresholds: EMPTY_THRESHOLD_DRAFT }));
     setPendingTypeChange(null);
   };
 
@@ -299,6 +303,9 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     // Format block; refuse to save rather than send something the server 400s.
     const numberFormat = numberFormatPayload(form.field_type === "number", form.number_format);
     if (!numberFormat) return;
+    // #1122: same rule for an invalid Thresholds block.
+    const thresholds = thresholdPayload(form.field_type, form.thresholds);
+    if (!thresholds) return;
 
     setSaving(true);
     setFormError(null);
@@ -312,6 +319,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
+          ...thresholds,
         });
         // Commit the created field first: if the follow-up pin is refused the
         // field still exists server-side, and a second Save would re-create it.
@@ -350,6 +358,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
+          ...thresholds,
           ...(pinChanged && !needsSwap ? { show_on_card: form.show_on_card } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
@@ -789,6 +798,14 @@ function FieldEditPanel({
         <NumberFormatFields
           draft={form.number_format}
           onChange={(next) => setForm((f) => ({ ...f, number_format: next }))}
+        />
+      )}
+
+      {(form.field_type === "number" || form.field_type === "date") && (
+        <ThresholdFields
+          isDate={form.field_type === "date"}
+          draft={form.thresholds}
+          onChange={(next) => setForm((f) => ({ ...f, thresholds: next }))}
         />
       )}
 

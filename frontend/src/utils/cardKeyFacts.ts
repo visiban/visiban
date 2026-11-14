@@ -11,7 +11,9 @@
  */
 import type { BoardFull, Card, CustomFieldDefinition } from "../types";
 import { userDisplayName } from "../types";
-import { chipValueText, formatCustomFieldValue, isValidForType } from "./customFieldValue";
+import { chipValueText, formatCustomFieldValue, isValidForType, thresholdLevel, thresholdPhrase } from "./customFieldValue";
+import type { ThresholdLevel } from "./customFieldValue";
+import type { ThresholdDirection } from "../types";
 import { formatDueDate } from "./date";
 
 /** What a fact jumps to. A `field:<id>` target is a pinned custom field's row. */
@@ -35,6 +37,12 @@ export interface KeyFact {
   tone?: "danger";
   /** Assignee facts show a small avatar. */
   avatarUser?: Card["assignee"];
+  /**
+   * A pinned number/date field past its warning or alert value (#1122): the
+   * renderer draws the same `ThresholdMark` as the card-face chip. The words
+   * are already in `label`, `staticLabel` and `title`.
+   */
+  threshold?: { level: Exclude<ThresholdLevel, "none">; direction: ThresholdDirection };
 }
 
 export interface KeyFactsInput {
@@ -42,6 +50,8 @@ export interface KeyFactsInput {
   board: BoardFull;
   userTimezone: string;
   userDateFormat: string;
+  /** "Now" for date thresholds; injectable for tests. */
+  now?: Date;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -58,7 +68,7 @@ function firstName(user: NonNullable<Card["assignee"]>): string {
   return name.split(/\s+/)[0] || name;
 }
 
-export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: KeyFactsInput): KeyFact[] {
+export function buildKeyFacts({ card, board, userTimezone, userDateFormat, now = new Date() }: KeyFactsInput): KeyFact[] {
   const facts: KeyFact[] = [];
 
   // Column: always shown. The swimlane is appended only when it disambiguates.
@@ -112,13 +122,21 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat }: Key
     const shown = isValidForType(def, entry.value) ? formatCustomFieldValue(def, entry.value, userDateFormat) : entry.value;
     const shortValue = chipValueText(def, shown, 16);
     const visible = `${def.name} ${shortValue}`;
+    // Same level and words as the card-face chip (#1122), so a threshold reads
+    // the same on the board and in the sheet.
+    const level = thresholdLevel(def, entry.value, now, userTimezone);
+    const phrase = thresholdPhrase(def, level);
+    const words = phrase ? `, ${phrase}` : "";
     facts.push({
       key: `field-${def.id}`,
       target: `field:${def.id}`,
       text: visible,
-      label: `${visible}${shown === shortValue ? "" : `, full value ${shown}`}. Go to ${def.name}`,
-      staticLabel: `${def.name}: ${shown}`,
-      title: `${def.name}: ${shown}`,
+      label: `${visible}${words}${shown === shortValue ? "" : `, full value ${shown}`}. Go to ${def.name}`,
+      staticLabel: `${def.name}: ${shown}${words}`,
+      title: phrase ? `${def.name}: ${shown} (${phrase})` : `${def.name}: ${shown}`,
+      ...(level !== "none" && def.threshold_direction
+        ? { threshold: { level, direction: def.threshold_direction } }
+        : {}),
     });
   }
 

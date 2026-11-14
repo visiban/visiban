@@ -4,7 +4,8 @@ import CustomFieldValueInput from "./CustomFieldValueInput";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
-import { urlErrorFromServer } from "../../utils/customFieldValue";
+import { thresholdLevel, thresholdPhrase, urlErrorFromServer } from "../../utils/customFieldValue";
+import ThresholdMark from "./ThresholdMark";
 
 const CARD_DETAIL_FIELD_ESCAPE_PRIORITY = 41;
 
@@ -15,6 +16,8 @@ interface Props {
   disabled: boolean;
   onSave: (value: string) => Promise<void>;
   userDateFormat?: string;
+  /** The viewer's timezone, for "today" in date thresholds (#1122); blank = the browser's. */
+  userTimezone?: string;
 }
 
 /**
@@ -26,7 +29,7 @@ interface Props {
  * "extract a component so the hook isn't called in a loop" shape as
  * `CardDetail`'s single Weight field, just repeated per row here.
  */
-export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat }: Props) {
+export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat, userTimezone = "" }: Props) {
   const { status, fadingOut, runSave } = useAutosaveStatus();
   // #1390: a URL the server refused (400) gets the editor's inline copy next
   // to the input, not just the row's generic "Failed to save".
@@ -54,6 +57,8 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
   // checkbox's ToggleField renders the field name + help text internally —
   // duplicating them in this row's own label would show the name twice.
   const isCheckbox = definition.field_type === "checkbox";
+  const level = value ? thresholdLevel(definition, value, new Date(), userTimezone) : "none";
+  const phrase = thresholdPhrase(definition, level);
 
   return (
     <div>
@@ -74,6 +79,14 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
           escapePriority={CARD_DETAIL_FIELD_ESCAPE_PRIORITY}
           serverError={isUrl ? urlServerError : undefined}
         />
+      )}
+      {/* #1122: a crossed threshold in words, beside the read-only display
+          and the editable input alike. Neutral text: no hue. */}
+      {phrase && (
+        <p className="text-xs text-fg-secondary font-medium mt-1 inline-flex items-center gap-1" data-testid="custom-field-threshold">
+          <ThresholdMark level={level} direction={definition.threshold_direction} />
+          {phrase}
+        </p>
       )}
       {!isCheckbox && definition.help_text && (
         <p className="text-xs text-fg-muted mt-1">{definition.help_text}</p>

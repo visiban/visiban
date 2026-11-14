@@ -9,7 +9,7 @@
 import type { FieldDefinitionShape } from "../types";
 import { PALETTE_COLORS } from "../constants/colors";
 import { isChoiceColorKey, type ChoiceColorKey } from "../constants/choiceColors";
-import { formatDateStr } from "./date";
+import { formatDateStr, todayInTimezone } from "./date";
 
 /**
  * Deterministic string → palette color, same hashing technique as
@@ -480,4 +480,217 @@ export function numberFormatPayload(
   const decimals = parseDecimalsInput(draft.number_decimals);
   if (decimals === undefined) return null;
   return { number_prefix: draft.number_prefix, number_suffix: draft.number_suffix, number_decimals: decimals };
+}
+
+// ---------------------------------------------------------------------------
+// Threshold marking (#1122)
+// ---------------------------------------------------------------------------
+
+/** How far a value has crossed its field's thresholds. */
+export type ThresholdLevel = "none" | "warn" | "alert";
+
+const DAY_MS = 86_400_000;
+
+/**
+ * `YYYY-MM-DD` for the calendar day `now` falls on in `timeZone`. This is
+ * `todayInTimezone`, the function due dates use, so the two can never
+ * disagree: a blank timezone (the user never set one) and an unknown one
+ * both fall back to UTC, not the browser's zone. `todayInTimezone` keeps a
+ * formatter per timezone, which matters because this runs once per card
+ * per custom field on every render of a board.
+ */
+function dayInTimeZone(now: Date, timeZone: string): string {
+  return todayInTimezone(timeZone, now);
+}
+
+/**
+ * A stored date value as a UTC day number, or `null`. Defensive on purpose:
+ * the server keeps a date as typed once Python's `date.fromisoformat`
+ * accepts it, which on 3.11+ includes `20260101` and ISO week dates
+ * (`2026-W01-1`, `2026W011`) as well as `YYYY-MM-DD` (#2218). Anything
+ * else, or an impossible calendar date, is `null` (no mark).
+ */
+function utcDayOf(raw: string): number | null {
+  const t = raw.trim();
+  let m = /^(\d{4})-?(\d{2})-?(\d{2})$/.exec(t);
+  if (m) {
+    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const ms = Date.UTC(y, mo - 1, d);
+    const back = new Date(ms);
+    if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
+    return ms / DAY_MS;
+  }
+  m = /^(\d{4})-?W(\d{2})-?([1-7])$/.exec(t);
+  if (m) {
+    const [y, week, weekday] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (week < 1 || week > 53) return null;
+    // ISO week 1 is the week holding 4 January; its Monday anchors the rest.
+    const jan4 = Date.UTC(y, 0, 4) / DAY_MS;
+    const jan4Weekday = new Date(jan4 * DAY_MS).getUTCDay() || 7;
+    return jan4 - (jan4Weekday - 1) + (week - 1) * 7 + (weekday - 1);
+  }
+  return null;
+}
+
+/**
+ * The value's position against the field's thresholds (#1122), or `null`
+ * when it cannot be measured: a number that is not finite (same rule as the
+ * server: `"1e3"`, `"+5"`, `"1.50"` all parse), or an unparseable date.
+ * For a date it is the signed day offset from today in `timeZone`.
+ */
+function thresholdMeasure(def: FieldDefinitionShape, rawValue: string, now: Date, timeZone: string): number | null {
+  if (def.field_type === "number") {
+    const t = rawValue.trim();
+    if (t === "") return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (def.field_type === "date") {
+    const day = utcDayOf(rawValue);
+    const today = utcDayOf(dayInTimeZone(now, timeZone));
+    return day === null || today === null ? null : day - today;
+  }
+  return null;
+}
+
+/** The field's warning and alert thresholds for its type, each `null` when unset. */
+function thresholdPair(def: FieldDefinitionShape): [number | null, number | null] {
+  if (def.field_type === "number") return [def.threshold_warn ?? null, def.threshold_alert ?? null];
+  if (def.field_type === "date") return [def.threshold_warn_days ?? null, def.threshold_alert_days ?? null];
+  return [null, null];
+}
+
+/**
+ * Which threshold a card's value has reached (#1122). Pure: the caller
+ * passes `now` and the viewer's timezone, the same "today" `dueState` uses.
+ *
+ * Boundaries are inclusive: `above` marks a value at or over a threshold,
+ * `below` one at or under it. Alert wins over warning. For a date field the
+ * thresholds are signed day offsets from today, so `below` with alert `0`
+ * marks a date that is today or already past.
+ */
+export function thresholdLevel(def: FieldDefinitionShape, rawValue: string, now: Date, timeZone: string): ThresholdLevel {
+  const direction = def.threshold_direction ?? "";
+  if (direction === "") return "none";
+  const [warn, alert] = thresholdPair(def);
+  if (warn === null && alert === null) return "none";
+  const measure = thresholdMeasure(def, rawValue, now, timeZone);
+  if (measure === null) return "none";
+  const reached = (t: number | null) => t !== null && (direction === "above" ? measure >= t : measure <= t);
+  if (reached(alert)) return "alert";
+  if (reached(warn)) return "warn";
+  return "none";
+}
+
+/** A signed day offset in words: `today`, `3 days from today`, `1 day ago`. */
+function dayOffsetWords(days: number): string {
+  if (days === 0) return "today";
+  const n = Math.abs(days);
+  const unit = n === 1 ? "day" : "days";
+  return days > 0 ? `${n} ${unit} from today` : `${n} ${unit} ago`;
+}
+
+/**
+ * The words for a crossed threshold (#1122), or `""` at level `none`:
+ * `Alert: at or above $6,000`, `Warning: 3 days from today or earlier`.
+ * The card chip carries them in its `title` and an `sr-only` suffix (the
+ * chevron glyph is `aria-hidden`); the peek and card detail show them.
+ * Number thresholds use the field's own prefix / suffix / decimals.
+ */
+export function thresholdPhrase(def: FieldDefinitionShape, level: ThresholdLevel): string {
+  if (level === "none") return "";
+  const [warn, alert] = thresholdPair(def);
+  const t = level === "alert" ? alert : warn;
+  if (t === null) return "";
+  const label = level === "alert" ? "Alert" : "Warning";
+  const above = def.threshold_direction === "above";
+  if (def.field_type === "date") {
+    return `${label}: ${dayOffsetWords(t)} or ${above ? "later" : "earlier"}`;
+  }
+  const shown = formatNumberValue(String(t), {
+    prefix: def.number_prefix, suffix: def.number_suffix, decimals: def.number_decimals,
+  });
+  return `${label}: at or ${above ? "above" : "below"} ${shown}`;
+}
+
+/** The Thresholds block of a settings field form (#1122): inputs kept as typed text so an invalid entry can be shown and corrected. */
+export interface ThresholdDraft {
+  direction: "" | "above" | "below";
+  warn: string;
+  alert: string;
+}
+
+export const EMPTY_THRESHOLD_DRAFT: ThresholdDraft = { direction: "", warn: "", alert: "" };
+
+export function thresholdDraftFrom(d: FieldDefinitionShape): ThresholdDraft {
+  const [warn, alert] = thresholdPair(d);
+  return {
+    direction: d.threshold_direction ?? "",
+    warn: warn === null ? "" : String(warn),
+    alert: alert === null ? "" : String(alert),
+  };
+}
+
+/** Bounds shared with the server (`THRESHOLD_VALUE_MAX`, `THRESHOLD_DAYS_MAX`). */
+export const THRESHOLD_VALUE_MAX = 1e15;
+export const THRESHOLD_DAYS_MAX = 3650;
+
+/**
+ * Check a threshold draft against the server's rules; returns the message to
+ * show, or `null` when the draft is valid. Mirrors `validate_thresholds`, so
+ * an invalid entry blocks Save instead of round-tripping to a 400.
+ */
+export function thresholdDraftError(isDate: boolean, draft: ThresholdDraft): string | null {
+  if (draft.direction === "") return null;
+  const parse = (text: string): number | null | undefined => {
+    const t = text.trim();
+    if (t === "") return null;
+    if (isDate && !/^[-+]?\d+$/.test(t)) return undefined;
+    const n = Number(t);
+    if (!Number.isFinite(n)) return undefined;
+    const max = isDate ? THRESHOLD_DAYS_MAX : THRESHOLD_VALUE_MAX;
+    return Math.abs(n) <= max ? n : undefined;
+  };
+  const warn = parse(draft.warn);
+  const alert = parse(draft.alert);
+  if (warn === undefined || alert === undefined) {
+    return isDate ? `Enter whole days from -${THRESHOLD_DAYS_MAX} to ${THRESHOLD_DAYS_MAX}.` : "Enter a number.";
+  }
+  if (warn === null && alert === null) return "Enter a warning or an alert threshold.";
+  if (warn !== null && alert !== null) {
+    const beyond = draft.direction === "above" ? alert > warn : alert < warn;
+    if (!beyond) return `The alert threshold must be ${draft.direction} the warning threshold.`;
+  }
+  return null;
+}
+
+/**
+ * The threshold half of a settings save. Off sends the direction and four
+ * nulls (so turning thresholds off clears stored values); a non-number /
+ * non-date type sends no keys, keeping those requests exactly as before
+ * #1122. Returns `null` when the draft is invalid — the caller refuses to save.
+ */
+export function thresholdPayload(
+  fieldType: string,
+  draft: ThresholdDraft
+): {
+  threshold_direction?: "" | "above" | "below";
+  threshold_warn?: number | null;
+  threshold_alert?: number | null;
+  threshold_warn_days?: number | null;
+  threshold_alert_days?: number | null;
+} | null {
+  const isNumber = fieldType === "number";
+  const isDate = fieldType === "date";
+  if (!isNumber && !isDate) return {};
+  if (thresholdDraftError(isDate, draft) !== null) return null;
+  const on = draft.direction !== "";
+  const num = (text: string) => (on && text.trim() !== "" ? Number(text.trim()) : null);
+  return {
+    threshold_direction: draft.direction,
+    threshold_warn: isNumber ? num(draft.warn) : null,
+    threshold_alert: isNumber ? num(draft.alert) : null,
+    threshold_warn_days: isDate ? num(draft.warn) : null,
+    threshold_alert_days: isDate ? num(draft.alert) : null,
+  };
 }

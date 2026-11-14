@@ -1954,6 +1954,11 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
 | `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
+| `threshold_direction` | string | no | *Since 1.3.* `""` (default, off), `"above"` or `"below"`. `"number"` and `"date"` fields only — see [Threshold marking](#threshold-marking) |
+| `threshold_warn` | number \| null | no | *Since 1.3.* Warning threshold; `null` (default) for none. `"number"` fields only |
+| `threshold_alert` | number \| null | no | *Since 1.3.* Alert threshold; `null` (default) for none. `"number"` fields only |
+| `threshold_warn_days` | integer \| null | no | *Since 1.3.* Warning threshold as a signed day offset from today; `null` (default) for none. `"date"` fields only |
+| `threshold_alert_days` | integer \| null | no | *Since 1.3.* Alert threshold as a signed day offset from today; `null` (default) for none. `"date"` fields only |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 \* `field_type` is writable only while the definition has zero values — see the `PATCH`
@@ -2077,6 +2082,57 @@ Three optional, **display-only** settings on a `"number"` definition, on card an
 - **Events.** `custom_field.created` / `custom_field.updated` and
   `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
   definition, so the three fields arrive with them.
+
+#### Threshold marking
+
+> **Added in 1.3**
+
+Optional, **display-only** thresholds on a card custom field of type `"number"` or `"date"`. A client marks a card's value once it reaches a threshold; the value itself never changes. Swimlane (row) custom fields have no thresholds (#2217). These are new fields on an existing endpoint: they are **stable and additive**, and a client that ignores them is unaffected.
+
+```json
+{ "name": "Spend", "field_type": "number", "threshold_direction": "above", "threshold_warn": 5000, "threshold_alert": 6000 }
+{ "name": "Renewal", "field_type": "date", "threshold_direction": "below", "threshold_warn_days": 14, "threshold_alert_days": 0 }
+```
+
+| Field | Type | Default | Rule |
+|---|---|---|---|
+| `threshold_direction` | string | `""` | `""` (off), `"above"` or `"below"`. |
+| `threshold_warn`, `threshold_alert` | number or `null` | `null` | `"number"` fields only. Finite, between `-1e15` and `1e15`. |
+| `threshold_warn_days`, `threshold_alert_days` | integer or `null` | `null` | `"date"` fields only. A signed day offset from today (`-3` = three days ago), between `-3650` and `3650`. |
+
+- **All five are optional** on create and `PATCH`. Omitted keys keep their current values
+  (or the defaults on create). A `PATCH` is checked against the stored values for any key
+  it does not send, and against the stored type when `field_type` is not in the body.
+- **Direction and values go together.** With `threshold_direction` `""`, every threshold
+  must be `null` (`400` keyed `threshold_direction`). With a direction set, at least one
+  threshold of the field's type is required (`400` keyed `threshold_warn` or
+  `threshold_warn_days`). Turning thresholds off therefore means sending `""` and the
+  `null`s together.
+- **Ordering.** When both are set, the alert threshold must be strictly beyond the warning
+  in the direction: above, `alert > warn`; below, `alert < warn`. Otherwise `400` keyed
+  `threshold_alert` / `threshold_alert_days`. Changing only the direction re-checks the
+  stored pair.
+- **Wrong type.** A non-null number threshold on a `"date"` field, a day threshold on a
+  `"number"` field, or any non-default threshold on another type is a `400` keyed by the
+  offending field. Sending the defaults (`""` and `null`s) is always accepted.
+- **Changing the type clears them.** Retyping a definition (possible only while it has no
+  values) resets all five to their defaults unless the same request sets thresholds valid
+  for the new type.
+- **Other `400`s:** `NaN` or infinity (`A valid number is required.`), a value out of
+  range (`Ensure this value is less than or equal to …`), a non-integer day offset
+  (`A valid integer is required.`), an unknown direction (`"sideways" is not a valid choice.`).
+  Errors are plain field-keyed lists, like [number formatting](#number-formatting).
+- **Evaluation (the web UI's rule, recommended for other clients):** boundaries are
+  **inclusive**. `"above"` marks a value at or over a threshold, `"below"` one at or under
+  it, and the alert level wins over the warning. A number value is compared as a finite
+  number (`"1e3"`, `"+5"`, `"1.50"` all parse); one that does not parse is not marked. A
+  date value is compared by its day offset from **today in the viewer's timezone** (the
+  same "today" as due dates); a value that is not a calendar date is not marked.
+- **Export and import.** The JSON export's `custom_fields` entries carry the five keys
+  (additive — `schema_version` is unchanged), and import validates them with the same
+  rules. An older server ignores them on import.
+- **Events.** `custom_field.created` / `custom_field.updated` carry the full definition, so
+  the five fields arrive with them.
 
 #### Choice colors
 

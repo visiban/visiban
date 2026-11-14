@@ -18,7 +18,8 @@ import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
-import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
+import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, thresholdLevel, thresholdPhrase, withCustomFieldValue } from "../../utils/customFieldValue";
+import ThresholdMark from "./ThresholdMark";
 import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
@@ -979,6 +980,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   // otherwise the automatic hash dot, exactly as before.
                   const colorKey = valid && def.field_type === "dropdown" ? explicitChoiceColor(def, value) : null;
                   const dot = valid && def.field_type === "dropdown" && !colorKey ? <ChoiceDot choice={value} /> : null;
+                  // #1122: threshold mark — shape and weight only, never a
+                  // hue (red/amber mean urgency on the card face). The words
+                  // ride in `title` and an sr-only suffix; the chevron is
+                  // aria-hidden.
+                  const level = thresholdLevel(def, value, new Date(), userTimezone);
+                  const phrase = thresholdPhrase(def, level);
 
                   return (
                     <span
@@ -1000,9 +1007,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
                         }
                       } : undefined}
-                      aria-label={interactive ? `${def.name}: ${displayText}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                      // An aria-label replaces the subtree's text, so the
+                      // sr-only threshold phrase below would not be read on
+                      // an editable chip; carry it in the label too (#1122).
+                      // Today only checkbox/dropdown are editable and only
+                      // number/date carry thresholds, so `phrase` is empty
+                      // here; this keeps the words if number/date ever gain
+                      // quick edit.
+                      aria-label={interactive ? `${def.name}: ${displayText}${phrase ? `, ${phrase}` : ""}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                      data-threshold-level={level === "none" ? undefined : level}
                       className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-[4rem]" : "max-w-[10rem] min-w-[3.5rem]"} ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
-                      title={`${def.name}: ${displayText}`}
+                      title={phrase ? `${def.name}: ${displayText} (${phrase})` : `${def.name}: ${displayText}`}
                     >
                       {dot}
                       {/* #1391: on a multi-select chip the name yields width before the value chips do. */}
@@ -1034,10 +1049,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           ) : chipValueText(def, displayText, 16)}
                         </ChoiceBadge>
                       ) : (
-                        <span className={`text-fg-secondary truncate min-w-0 ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
-                          {chipValueText(def, displayText, 16)}
-                        </span>
+                        <>
+                          <ThresholdMark level={level} direction={def.threshold_direction ?? ""} />
+                          <span className={`truncate min-w-0 ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
+                            {chipValueText(def, displayText, 16)}
+                          </span>
+                        </>
                       )}
+                      {phrase && <span className="sr-only">, {phrase}</span>}
                     </span>
                   );
                 })}
@@ -1167,6 +1186,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         onMouseLeave={() => setPeekVisible(false)}
         customFieldDefinitions={customFieldDefinitions}
         userDateFormat={userDateFormat}
+        userTimezone={userTimezone}
       />,
       document.body,
     )}

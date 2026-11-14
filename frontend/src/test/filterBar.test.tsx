@@ -648,7 +648,7 @@ describe('FilterBar — URL custom fields (#1390)', () => {
     const board = makeBoard()
     board.custom_field_definitions = [{
       id: 7, uid: 'cfuid007', name: 'Docs', field_type: 'url', choices: [], position: 0,
-      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
     }]
     const onChange = vi.fn()
     render(
@@ -672,7 +672,7 @@ describe('FilterBar — multi-select custom fields (#1391)', () => {
     board.custom_field_definitions = [{
       id: 8, uid: 'cfuid008', name: 'Platforms', field_type: 'multi_select',
       choices: ['web', 'ios'], position: 0, show_on_card: true, is_required: false,
-      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
     }]
     return board
   }
@@ -727,7 +727,7 @@ describe('FilterBar — choice color dots (#1391)', () => {
       id: 9, uid: 'cfuid009', name: 'Severity', field_type: fieldType,
       choices: ['Low', 'High'], position: 0, show_on_card: true, is_required: false,
       help_text: '', number_prefix: '', number_suffix: '', number_decimals: null,
-      choice_colors: { High: 'red' }, created_at: '',
+      choice_colors: { High: 'red' }, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
     }]
     return b
   }

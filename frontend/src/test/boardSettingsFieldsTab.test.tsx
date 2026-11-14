@@ -24,7 +24,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
     id: 1, uid: "cfuid001", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: false, is_required: false, help_text: "",
     number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
-    created_at: "2026-01-01T00:00:00Z",
+    threshold_direction: "", threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -794,6 +794,12 @@ describe("BoardSettingsFieldsTab — number format (#1391)", () => {
         number_prefix: "$",
         number_suffix: " USD",
         number_decimals: 2,
+        // #1122: a number field always sends its (here: off) thresholds.
+        threshold_direction: "",
+        threshold_warn: null,
+        threshold_alert: null,
+        threshold_warn_days: null,
+        threshold_alert_days: null,
       });
     });
   });
@@ -986,5 +992,66 @@ describe("BoardSettingsFieldsTab — Paste a list (#2192)", () => {
     await user.paste("Old A\nOld B");
     expect(screen.queryByRole("button", { name: /^Add \d/ })).not.toBeInTheDocument();
     expect(screen.getByText("Every pasted choice is already in the list.")).toBeInTheDocument();
+  });
+});
+
+
+describe("BoardSettingsFieldsTab — thresholds (#1122)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("offers Thresholds for number and date fields only, blocks an invalid draft, and sends the values", async () => {
+    const user = userEvent.setup();
+    vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(makeDefinition({ id: 9, name: "Spend", field_type: "number" }));
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Spend");
+    expect(screen.queryByText("Thresholds")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "# Number" }));
+    expect(screen.getByText("Thresholds")).toBeInTheDocument();
+    expect(screen.getByTestId("threshold-legend")).toHaveTextContent(/warning,\s*alert, shown in bold on cards\./);
+    expect(screen.getByLabelText("Warn at")).toBeDisabled();
+
+    // A type switch starts the draft fresh.
+    await user.click(screen.getByRole("radio", { name: "Below" }));
+    await user.click(screen.getByRole("button", { name: "📅 Date" }));
+    expect(screen.getByRole("radio", { name: "Off" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "# Number" }));
+
+    await user.click(screen.getByRole("radio", { name: "Above" }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Enter a warning or an alert threshold.");
+    expect(boardsApi.createCustomFieldDefinition).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Warn at"), "5000");
+    await user.type(screen.getByLabelText("Alert at"), "4000");
+    expect(screen.getByRole("alert")).toHaveTextContent("The alert threshold must be above the warning threshold.");
+    await user.clear(screen.getByLabelText("Alert at"));
+    await user.type(screen.getByLabelText("Alert at"), "6000");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => {
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledWith(1, expect.objectContaining({
+        field_type: "number",
+        threshold_direction: "above",
+        threshold_warn: 5000,
+        threshold_alert: 6000,
+        threshold_warn_days: null,
+        threshold_alert_days: null,
+      }));
+    });
+  });
+
+  it("loads stored date thresholds into the editor", async () => {
+    const user = userEvent.setup();
+    const field = makeDefinition({ id: 4, name: "Renewal", field_type: "date", threshold_direction: "below", threshold_warn_days: 14, threshold_alert_days: 0 });
+    render(<BoardSettingsFieldsTab board={makeBoard([field])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit Renewal" }));
+    expect(screen.getByRole("radio", { name: "On or before" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "Below" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Warn at (days from today)")).toHaveValue(14);
+    expect(screen.getByLabelText("Alert at (days from today)")).toHaveValue(0);
+    expect(screen.getByTestId("threshold-legend")).toHaveTextContent("Negative days are in the past.");
   });
 });

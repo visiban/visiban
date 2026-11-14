@@ -301,7 +301,7 @@ function makeDef(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDef
     id: 1, uid: 'cfuid001', name: 'Field', field_type: 'text', choices: [],
     position: 0, show_on_card: false, is_required: false, help_text: '',
     number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
-    created_at: '2026-01-01T00:00:00Z',
+    threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }
 }
@@ -434,5 +434,38 @@ describe('CardPeekPopover viewport fit (#1457)', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
     mount(window.innerHeight - 80)
     expect(screen.getByRole('tooltip').style.top).toBe(`${window.innerHeight - 8 - 200}px`)
+  })
+})
+
+
+describe('CardPeekPopover — threshold words (#1122)', () => {
+  const rect = { top: 100, left: 50, bottom: 160, right: 250, width: 200, height: 60, x: 50, y: 100, toJSON: () => {} } as DOMRect
+  const spend = (overrides: Partial<CustomFieldDefinition> = {}) => makeDef({
+    id: 1, name: 'Spend', field_type: 'number', threshold_direction: 'above', threshold_warn: 10, threshold_alert: 20, ...overrides,
+  })
+
+  it('spells out a crossed threshold on a pinned field in its own line', () => {
+    render(
+      <CardPeekPopover
+        card={makeCard({ custom_field_values: [{ field_definition: 1, value: '25' }] })}
+        anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}}
+        customFieldDefinitions={[spend({ show_on_card: true })]}
+      />,
+    )
+    const line = screen.getByTestId('card-peek-thresholds')
+    expect(line).toHaveTextContent('Spend: Alert: at or above 20')
+    expect(line.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('adds the words to a non-pinned value and shows no threshold line when nothing pinned is marked', () => {
+    render(
+      <CardPeekPopover
+        card={makeCard({ custom_field_values: [{ field_definition: 1, value: '12' }] })}
+        anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}}
+        customFieldDefinitions={[spend({ show_on_card: false })]}
+      />,
+    )
+    expect(screen.queryByTestId('card-peek-thresholds')).toBeNull()
+    expect(screen.getByTestId('card-peek-custom-fields')).toHaveTextContent('Spend: 12 (Warning: at or above 10)')
   })
 })

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyFact, KeyFactTarget } from "../../utils/cardKeyFacts";
 import Avatar from "../Common/Avatar";
+import ThresholdMark from "./ThresholdMark";
 
 interface Props {
   facts: KeyFact[];
@@ -110,7 +111,8 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [], maxLine
           <>
             {fact.avatarUser && <Avatar user={fact.avatarUser} size="xs" />}
             {fact.glyph && <span aria-hidden="true">{fact.glyph}</span>}
-            <span className="truncate">{fact.text}</span>
+            {fact.threshold && <ThresholdMark level={fact.threshold.level} direction={fact.threshold.direction} />}
+            <span className={`truncate ${fact.threshold ? "font-semibold text-fg" : ""}`}>{fact.text}</span>
           </>
         );
         const chip = `inline-flex items-center gap-1 max-w-[14rem] min-h-6 border border-line rounded px-1.5 py-0.5 text-xs ${toneClass}`;

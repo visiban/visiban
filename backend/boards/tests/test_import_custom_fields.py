@@ -156,6 +156,32 @@ class CustomFieldImportTests(TestCase):
         self.assertEqual(self._card_values(b), self._card_values(a))
         self.assertEqual(self._lane_values(b, "East"), self._lane_values(a, "East"))
 
+    def test_thresholds_round_trip_through_export_and_import(self, *_):
+        """#1122: the JSON export lists the threshold keys and import restores them."""
+        data = _board()
+        data["custom_fields"][0].update(threshold_direction="above", threshold_warn=5000, threshold_alert=6000)
+        data["custom_fields"][2].update(threshold_direction="below", threshold_warn_days=7, threshold_alert_days=0)
+        first = self._post(data)
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.data)
+        exported = json.loads(
+            self.client.get(f"/api/v1/boards/{first.data['id']}/export/?format=json").content
+        )
+        second = self._post(exported)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
+        defs = list(CustomFieldDefinition.objects.filter(board_id=second.data["id"]).order_by("position"))
+        self.assertEqual(
+            (defs[0].threshold_direction, defs[0].threshold_warn, defs[0].threshold_alert), ("above", 5000.0, 6000.0)
+        )
+        self.assertEqual(
+            (defs[2].threshold_direction, defs[2].threshold_warn_days, defs[2].threshold_alert_days), ("below", 7, 0)
+        )
+
+    def test_invalid_threshold_on_import_is_refused(self, *_):
+        data = _board()
+        data["custom_fields"][0].update(threshold_direction="above", threshold_warn=10, threshold_alert=5)
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_invalid_or_unknown_values_are_dropped_not_fatal(self, *_):
         data = _board()
         data["cards"][0]["custom_field_values"].update({

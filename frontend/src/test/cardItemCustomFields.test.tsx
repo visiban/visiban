@@ -36,7 +36,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
     id: 5, uid: "cfuid005", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: true, is_required: false, help_text: "",
     number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
-    created_at: "2026-01-01T00:00:00Z",
+    threshold_direction: "", threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -630,5 +630,83 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(row).not.toBeNull();
     expect(row).not.toHaveClass("min-h-5");
     expect(row).not.toHaveClass("pr-7");
+  });
+});
+
+
+describe("CardItem — threshold marks (#1122)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("marks a crossed number threshold with a chevron, bold weight and words, never a hue", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "6100" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number", number_prefix: "$", number_decimals: 0,
+          threshold_direction: "above", threshold_warn: 5000, threshold_alert: 6000,
+        })]}
+      />
+    );
+    const chip = screen.getByTitle("Spend: $6,100 (Alert: at or above $6,000)");
+    expect(chip).toHaveAttribute("data-threshold-level", "alert");
+    const mark = chip.querySelector("svg[data-threshold-mark]");
+    expect(mark).toHaveAttribute("aria-hidden", "true");
+    expect(mark).toHaveAttribute("data-threshold-mark", "alert");
+    expect(screen.getByText("$6,100")).toHaveClass("font-semibold", "text-fg");
+    expect(screen.getByText(", Alert: at or above $6,000")).toHaveClass("sr-only");
+    expect(chip.className).not.toMatch(/text-(danger|warning)|bg-(danger|warning)|cursor-pointer/);
+  });
+
+  it("marks a date at warning level relative to the viewer's today", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-10T12:00:00Z"));
+    render(
+      <CardItem
+        userTimezone="UTC"
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "2026-03-12" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Renewal", field_type: "date",
+          threshold_direction: "below", threshold_warn_days: 3, threshold_alert_days: 0,
+        })]}
+      />
+    );
+    const chip = document.querySelector("[data-threshold-level]");
+    expect(chip).toHaveAttribute("data-threshold-level", "warn");
+    expect(screen.getByText(", Warning: 3 days from today or earlier")).toHaveClass("sr-only");
+  });
+
+  it("keeps the threshold words in the accessible text when quick edit is enabled", () => {
+    // Quick edit puts an aria-label on editable chips, which would hide the
+    // sr-only phrase. A number chip is not quick-editable, so it must carry no
+    // aria-label and keep the phrase as part of its readable text.
+    render(
+      <CardItem
+        boardId={7}
+        onCardUpdated={vi.fn()}
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "6100" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number",
+          threshold_direction: "above", threshold_warn: 5000, threshold_alert: 6000,
+        })]}
+      />
+    );
+    const chip = document.querySelector("[data-threshold-level]") as HTMLElement;
+    expect(chip).not.toHaveAttribute("aria-label");
+    expect(screen.queryByRole("button", { name: /Spend/ })).toBeNull();
+    expect(chip).toHaveTextContent("Alert: at or above 6000");
+  });
+
+  it("leaves a value below its threshold, or a field without thresholds, exactly as before", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "10" }] })}
+        customFieldDefinitions={[makeDefinition({
+          name: "Spend", field_type: "number", threshold_direction: "above", threshold_warn: 50,
+        })]}
+      />
+    );
+    expect(screen.getByTitle("Spend: 10")).not.toHaveAttribute("data-threshold-level");
+    expect(document.querySelector("svg[data-threshold-mark]")).toBeNull();
+    expect(screen.getByText("10")).toHaveClass("text-fg-secondary");
   });
 });
