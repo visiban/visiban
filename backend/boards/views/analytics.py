@@ -5,7 +5,7 @@ import json
 import logging
 import statistics
 
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery, Window
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
@@ -197,6 +197,22 @@ _MAX_ID = 2**63 - 1
 
 def _invalid_query_param(detail):
     return Response({"detail": detail, "code": _INVALID_QUERY_PARAM}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _local_day_start(day):
+    """Midnight starting ``day`` in the current time zone, as an aware datetime.
+
+    ``moved_at__date__gte/lte`` wraps the column in a time-zone cast that cannot
+    use an index on ``moved_at`` (#1961). A half-open range on the raw column
+    selects exactly the same rows, because ``__date`` also converts in the
+    current time zone. Returns None when the boundary is outside the
+    representable range (``date.max`` plus a day); the caller then omits that
+    bound, which matches every row anyway.
+    """
+    try:
+        return timezone.make_aware(datetime.datetime.combine(day, datetime.time.min))
+    except OverflowError:
+        return None
 
 
 def _parse_iso_date(value):
@@ -1131,12 +1147,20 @@ class BoardAnalyticsMixin:
             after_date = _parse_iso_date(moved_after)
             if after_date is None:
                 return _invalid_query_param("moved_after must be a valid ISO date.")
-            qs = qs.filter(moved_at__date__gte=after_date)
+            after_start = _local_day_start(after_date)
+            if after_start is not None:
+                qs = qs.filter(moved_at__gte=after_start)
         if moved_before:
             before_date = _parse_iso_date(moved_before)
             if before_date is None:
                 return _invalid_query_param("moved_before must be a valid ISO date.")
-            qs = qs.filter(moved_at__date__lte=before_date)
+            # Inclusive end date: strictly before the next local midnight.
+            before_end = (
+                _local_day_start(before_date + datetime.timedelta(days=1))
+                if before_date < datetime.date.max else None
+            )
+            if before_end is not None:
+                qs = qs.filter(moved_at__lt=before_end)
 
         # Validated before filtering: a non-integer would raise ValueError
         # inside the ORM and surface as a 500.
@@ -1214,13 +1238,16 @@ class BoardAnalyticsMixin:
                 )
             return response
 
-        # Annotate `_total` via window function so the page fetch returns the
-        # full count alongside each row — saves a second `COUNT(*)` round-trip
-        # on boards with long movement history (#798).
-        page = list(
-            qs.annotate(_total=Window(Count("id")))[offset: offset + PAGE_SIZE]
-        )
-        total = page[0]._total if page else qs.count()
+        # Page fetched without a window function (#1961): Window(Count) is
+        # evaluated over every matching row before OFFSET/LIMIT, so each page
+        # read the board's whole history. A short page already tells us the
+        # total; otherwise a bare COUNT(*) runs (Django drops select_related and
+        # ordering from count(), so it touches only the board filter's index).
+        page = list(qs[offset: offset + PAGE_SIZE])
+        if page and len(page) < PAGE_SIZE:
+            total = offset + len(page)
+        else:
+            total = qs.count()
 
         serializer = CardMovementSerializer(page, many=True, context={"request": request})
         return Response({
