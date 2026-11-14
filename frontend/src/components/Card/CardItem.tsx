@@ -267,10 +267,18 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // the intent; growing or leaving the cell is not.
   // `rowFocused` tracks focus inside the metadata row (a chip's quick-edit
   // button, the MR/PR link), the former `focus-within:` case.
+  // `cardFocused` (#1414) is the keyboard twin of `hovered`: keyboard focus on
+  // the card itself. Without it a card whose overflow is all non-interactive
+  // (labels, text chips, checklist/due pills) had no keyboard path to the
+  // expansion, while a mouse user got it by resting anywhere on the card.
+  // Pointer-click focus does not count (the pointer is already hovering), and
+  // focus on another control on the card (checkbox, ⋯) does not either, the
+  // same gate as the aging tooltip.
   const [rowFocused, setRowFocused] = useState(false);
+  const [cardFocused, setCardFocused] = useState(false);
   const [expandBase, setExpandBase] = useState<number | null>(null);
   const [expandClamp, setExpandClamp] = useState<{ top: number; maxHeight: number } | null>(null);
-  const wantExpand = (hovered || rowFocused) && !isDragging && !overlay;
+  const wantExpand = (hovered || rowFocused || cardFocused) && !isDragging && !overlay;
   const expanded = wantExpand && expandBase !== null;
 
   // #1305 — mouseleave/drag-start already clear this timer during normal
@@ -631,9 +639,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       // The aging tooltip states the idle days (#1841), so keyboard users get it
-      // too: shown on keyboard focus, never on a pointer click's focus.
-      onFocus={(e) => { if (e.target === e.currentTarget && isKeyboardFocus(e.currentTarget)) setShowTooltip(true); }}
-      onBlur={() => setShowTooltip(false)}
+      // too: shown on keyboard focus, never on a pointer click's focus. The same
+      // gate expands the metadata row (#1414), the keyboard twin of hover.
+      onFocus={(e) => {
+        if (e.target === e.currentTarget && isKeyboardFocus(e.currentTarget)) {
+          setShowTooltip(true);
+          setCardFocused(true);
+        }
+      }}
+      onBlur={() => { setShowTooltip(false); setCardFocused(false); }}
       style={{
         // The open card's border is the primary-emphasis class above; the
         // -m-px offsets its extra pixel so the card stack does not shift.

@@ -59,4 +59,26 @@ test.describe('card hover expansion', () => {
     expect((await cell.boundingBox())!.height).toBe(cellBefore.height)
     await expect.poll(() => mateWrapper.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
   })
+
+  // #1414: keyboard focus on the card itself is the twin of hover, so a keyboard user reaches the
+  // expansion even when the row's overflow is non-interactive. Pointer-click focus does not count.
+  test('keyboard focus on the card expands it the same way, and blur collapses it', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_DENSE.id}`)
+    const busy = page.locator('[data-card-id]').filter({ hasText: CARD_BUSY.title })
+    await expect(busy).toBeVisible({ timeout: 10_000 })
+    const cell = page.locator('[data-board-cell]').filter({ has: busy })
+    const row = busy.getByTestId('card-metadata-row')
+    await expect(row).toHaveClass(/overflow-hidden/)
+    const cellBefore = (await cell.boundingBox())!
+
+    // A key press first, so the scripted focus counts as keyboard (:focus-visible).
+    await page.keyboard.press('Shift')
+    await busy.focus()
+    expect(await busy.evaluate((el) => el.matches(':focus-visible'))).toBe(true)
+    await expect(row).toHaveClass(/flex-wrap/)
+    expect((await cell.boundingBox())!.height).toBe(cellBefore.height)
+
+    await busy.evaluate((el) => (el as HTMLElement).blur())
+    await expect(row).toHaveClass(/overflow-hidden/)
+  })
 })
