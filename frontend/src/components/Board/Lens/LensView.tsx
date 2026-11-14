@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
@@ -164,6 +164,16 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   const exitFocus = () =>
     setSearchParams((prev) => { prev.delete("lens_focus"); return prev; }, { replace: true });
 
+  // Stable-identity wrappers (#1088). `setSearchParams` changes identity with every
+  // URL change, so the handlers above are new functions each render; passing them
+  // straight down would defeat LensSwimlaneRow's React.memo. The wrappers never
+  // change and always call the latest handler through a ref.
+  const handlersRef = useRef({ toggleCollapse, enterFocus, exitFocus });
+  handlersRef.current = { toggleCollapse, enterFocus, exitFocus };
+  const stableToggleCollapse = useCallback((key: string) => handlersRef.current.toggleCollapse(key), []);
+  const stableEnterFocus = useCallback((key: string) => handlersRef.current.enterFocus(key), []);
+  const stableExitFocus = useCallback(() => handlersRef.current.exitFocus(), []);
+
   // Priority 12 mirrors the native board's focus-exit slot (the board and lens
   // are sibling tab views, never mounted together).
   useEscapeStack(() => {
@@ -293,9 +303,9 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
           data={filteredData}
           collapsedKeys={collapsedKeys}
           focusKey={focusKey}
-          onToggleCollapse={toggleCollapse}
-          onFocus={enterFocus}
-          onExitFocus={exitFocus}
+          onToggleCollapse={stableToggleCollapse}
+          onFocus={stableEnterFocus}
+          onExitFocus={stableExitFocus}
           compact={compact}
           sidebarWidth={lensViewPrefs.sidebarWidth}
           columnWidths={lensViewPrefs.columnWidths}

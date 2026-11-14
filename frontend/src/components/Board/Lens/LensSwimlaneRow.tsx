@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { LensAxis, NormalizedIssue } from "../../../types";
 import LensIssueCard from "./LensIssueCard";
 import { DEFAULT_LENS_COL_WIDTH } from "./lensDims";
@@ -17,7 +18,8 @@ interface Props {
   issues: NormalizedIssue[];
   /** Controlled collapse — hides this lane's cells, showing a count stub. */
   collapsed: boolean;
-  onToggleCollapse: () => void;
+  /** Called with this lane's key, so the parent can pass one stable callback to every row (#1088). */
+  onToggleCollapse: (key: string) => void;
   /** True when this lane is the active focus target. */
   isFocused: boolean;
   onFocus: (key: string) => void;
@@ -33,7 +35,7 @@ interface Props {
  * LensView's useLensViewPrefs) — this row has no resize handles of its own;
  * see LensResizeHandle for why the handles live only in the header.
  */
-export default function LensSwimlaneRow({
+function LensSwimlaneRow({
   swimlane,
   columns,
   sidebarWidth,
@@ -89,7 +91,7 @@ export default function LensSwimlaneRow({
         {/* Collapse chevron — always visible (must communicate interactivity) */}
         <button
           type="button"
-          onClick={onToggleCollapse}
+          onClick={() => onToggleCollapse(swimlane.key)}
           aria-pressed={collapsed}
           aria-label={collapsed ? `Expand ${swimlane.label}` : `Collapse ${swimlane.label}`}
           title={collapsed ? `Expand ${swimlane.label}` : `Collapse ${swimlane.label}`}
@@ -153,3 +155,7 @@ export default function LensSwimlaneRow({
     </div>
   );
 }
+
+// Memoized (#1088): with stable callbacks and per-lane issue buckets from LensGrid, a
+// toggle on one lane no longer re-runs every other lane's per-cell filter.
+export default memo(LensSwimlaneRow);
