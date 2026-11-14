@@ -2038,8 +2038,16 @@ describe('CardDetail', () => {
       await open()
       fireEvent.scroll(screen.getByText('Move to'))
       expect(screen.getByText('Move to')).toBeInTheDocument()
+      // A scroll that leaves the Move button in place (the sheet body, or the
+      // tail of a key-fact jump's smooth scroll) keeps the popover open.
+      fireEvent.scroll(window)
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      // One that displaces the anchor dismisses it.
+      const moveButton = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      const rect = vi.spyOn(moveButton, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 40, 80, 24))
       fireEvent.scroll(window)
       expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      rect.mockRestore()
       await open()
       fireEvent(window, new Event('resize'))
       expect(screen.queryByText('Move to')).not.toBeInTheDocument()

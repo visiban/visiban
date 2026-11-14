@@ -455,6 +455,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     moveOpenerRef.current = null;
   };
   const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);
+  // The Move button's viewport position when the popover was anchored, so a
+  // scroll dismisses only when it actually displaced the anchor (#1171).
+  const moveAnchorRectRef = useRef<{ top: number; left: number } | null>(null);
   const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
@@ -1368,6 +1371,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Calculate fixed position from the button's viewport rect so the
     // popover isn't clipped by the panel's overflow-hidden container.
     const rect = moveButtonRef.current?.getBoundingClientRect();
+    moveAnchorRectRef.current = rect ? { top: rect.top, left: rect.left } : null;
     if (rect) {
       // Right-align to button, clamped so the popover never clips the left edge.
       const popoverWidth = 256; // w-64
@@ -1431,8 +1435,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // #1171: the popover is anchored once, from the Move button's rect at toggle
   // time. The card sheet moves itself on resize (#1914), so dismiss rather than
   // re-measure (frontend/CLAUDE.md, anchored-popover rule). A scroll inside the
-  // popover itself is not a dismissal. Focus returns to the opener only when it
-  // was inside the popover, so a page scroll never steals it.
+  // popover itself is not a dismissal, and neither is one that leaves the Move
+  // button where it was: the button sits in the sheet header, so a body scroll
+  // (including the tail of a key-fact jump's smooth scroll, which can still be
+  // firing when the Column fact opens this popover) does not move the anchor.
+  // Focus returns to the opener only when it was inside the popover, so a page
+  // scroll never steals it.
   useEffect(() => {
     if (!showMovePopover) return;
     const dismiss = () => {
@@ -1441,6 +1449,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     };
     const onScroll = (e: Event) => {
       if (e.target instanceof Node && movePopoverRef.current?.contains(e.target)) return;
+      const was = moveAnchorRectRef.current;
+      const now = moveButtonRef.current?.getBoundingClientRect();
+      if (was && now && Math.abs(now.top - was.top) < 1 && Math.abs(now.left - was.left) < 1) return;
       dismiss();
     };
     window.addEventListener("resize", dismiss);
@@ -1449,7 +1460,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       window.removeEventListener("resize", dismiss);
       window.removeEventListener("scroll", onScroll, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeMovePopover only touches refs and a stable setter
   }, [showMovePopover]);
 
   const keyFacts = buildKeyFacts({ card: localCard, board, userTimezone, userDateFormat });
