@@ -83,10 +83,13 @@ Get board summary. Response includes:
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 | `health_status` | string / null | The board's own health status: `"on_track"`, `"at_risk"` or `"off_track"`, or `null` to inherit from the nearest group above it that sets one (default: `null`). Admin-only when writing; any other value (including `""`) returns `400 Bad Request`. See [Health Status](../features/health-status.md). Added in 1.3 (#1133). |
 | `effective_health_status` | string / null | Read-only. The status that applies: `health_status` when set, otherwise the `health_status` of the nearest ancestor group that sets one, walking up from the board's group through at most six groups; `null` when none does. Computed on every read, so a group change applies to every board that does not set its own value. Added in 1.3 (#1133). |
-| `health_status_source` | object / null | Read-only. `{ "id", "name" }` of the group that supplies `effective_health_status`; `null` when `health_status` is set on the board itself or when nothing applies. Added in 1.3 (#1133). |
+| `health_status_source` | object / null | Read-only. `{ "id", "name", "changed_at" }` of the group that supplies `effective_health_status`; `null` when `health_status` is set on the board itself or when nothing applies. `changed_at` (1.3+, #2242) is when that group's own status was last set, or `null`; the group's setter and note are not included. Added in 1.3 (#1133). |
+| `health_status_changed_at` | string / null | Read-only. When the board's own `health_status` was last set or confirmed (ISO 8601), or `null` if never recorded (including a status set before 1.3's history existed). Added in 1.3 (#2242). |
+| `health_status_changed_by` | object / null | Read-only. Who last set or confirmed it, as `{ "id", "username", "display_name", "avatar_url" }` (the `owner` shape), or `null` for a removed account, an automatic change or no recorded change. Added in 1.3 (#2242). |
+| `health_status_note` | string / null | Read-only. The note given with the last set or confirm (at most 280 characters), or `null`. Added in 1.3 (#2242). |
 | `default_preset` | string / null | The [board preset](../features/board.md#board-presets) members see until they pick one themselves: `"classic"` (the board exactly as it rendered before presets) or `"default"`, or `null` for no board default (default: `null`). Presets are defined by the web client in 1.3; this field stores only the id. A member's own choice and a `?preset=` link take precedence over it. Admin-only when writing; any other value (including `""`) returns `400 Bad Request`. On every board payload, including `/full/` (read-only there), the group board lists and the `board.created` / `board.updated` [WebSocket events](websockets.md). Added in 1.3 (#1146). |
 
-The three health fields are on every board payload: list, retrieve, create and update responses, `/full/`, [`GET /api/v1/groups/{id}/boards/`](groups.md#get-apiv1groupsidboards), `descendant-boards/` and its paged form, and the `board.created` / `board.updated` [WebSocket events](websockets.md). A list resolves every row's inherited value from one ancestor lookup for the whole page.
+The health fields are on every board payload: list, retrieve, create and update responses, `/full/`, [`GET /api/v1/groups/{id}/boards/`](groups.md#get-apiv1groupsidboards), `descendant-boards/` and its paged form, and the `board.created` / `board.updated` [WebSocket events](websockets.md). A list resolves every row's inherited value from one ancestor lookup for the whole page.
 
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.
@@ -139,6 +142,32 @@ Board change feed: committed board mutations in ascending `id` order, so a consu
 ```
 
 See [Change Feed](events.md) for the full contract, retention, and the reconnect flow.
+
+### `POST /api/v1/boards/{id}/health-status/`
+
+*(1.3+, #2242)* Set or confirm the board's own health status. This is the explicit action behind the editor's **Save** and **Confirm status**: it always records a history row, even when `status` equals the current value (a *reconfirm*, which refreshes `health_status_changed_at`), and it is the only write that stores a note. A `PATCH`/`PUT` of `health_status` (and a create, or a Django admin edit) records a row only when the value changes, with no note. Board admin only (`403 Forbidden` otherwise; `404 Not Found` for a board you cannot see).
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | string / null | Required. `"on_track"`, `"at_risk"` or `"off_track"`, or `null` to clear the board's own value (inherit). Clearing when nothing is set here returns `400` (`{"status": ["Nothing set here to confirm."]}`). |
+| `note` | string / null | Optional. The reason, at most 280 characters (`400` if longer). Surrounding whitespace is trimmed, line breaks become spaces, and an empty note is stored as `null`. |
+
+**Response `200 OK`:** the board, with the same fields as a `PATCH` response. Sends `board.updated`, like any board edit.
+
+### `GET /api/v1/boards/{id}/health-history/`
+
+*(1.3+, #2242)* The board's own health status changes, newest first, at most 20. Any board role (viewer and up) may read; anyone else gets `404 Not Found`.
+
+```json
+{
+  "results": [
+    {"from_status": "on_track", "to_status": "at_risk", "changed_by": {"id": 3, "username": "priya", "display_name": "Priya", "avatar_url": ""}, "changed_at": "2026-11-14T10:00:00Z", "note": "vendor slipped API delivery"}
+  ],
+  "has_more": false
+}
+```
+
+A row whose `from_status` equals `to_status` is a reconfirm. A `null` status means "nothing set here" (inherit). `changed_by` is `null` for a removed account or an automatic change. `has_more` is `true` when older changes exist; they are kept (they are deleted only with the board) but this endpoint does not page past the 20 most recent. History is never imported or exported. These endpoints and fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
 
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Takes no body. Returns `200 OK` with the updated board object, whether or not it was already starred.

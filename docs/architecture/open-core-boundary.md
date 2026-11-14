@@ -23,6 +23,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | OIDC authentication (generic) | OSS | Extension of existing OAuth stack; no new dependency | #349 |
 | SSO / SAML | Enterprise | See OIDC vs SAML ruling below | — |
 | Card-level activity (CardMovement) | OSS | Core collaborative feature — teams need their own card history | — |
+| Board / group health status history | OSS | Per-entity history shown in-product to members; same class as card movement history | #2242 |
 | AdminActionLog (instance admin control-plane actions) | OSS | Fixed, narrow record of a closed set of admin toggles (maintenance mode, registration mode, uploads, email config); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #1126 |
 | BoardExportLog (board export history) | OSS | Fixed, narrow record of successful board exports (actor, role, format, row count); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #842 |
 | Issue Board Lens (read-only GitHub/GitLab issue board) | OSS | A small team's own visibility into the external GitHub/GitLab work it tracks outside Visiban; `GIT_LENS_ENABLED`-gated, read-only, no write-back to the provider. See [Issue Board Lens](#issue-board-lens-oss) below | #1062 |
@@ -143,6 +144,14 @@ A `VISIBAN_AUDIT_BACKEND` setting (defaulting to `NullAuditBackend`) is planned 
 WIP limits (`wip_limit` on Column) and the enforcement mode, soft (advisory toast) vs hard (blocked move), are OSS. A small team cannot manage capacity with soft-only enforcement. The board setting `enforce_wip_hard` (boolean, default `false`) toggles the mode. No enterprise extension point is needed.
 
 **Issue:** #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.
+
+---
+
+### Health status history (OSS)
+
+Per-entity health status history (who set or confirmed a board's or group's status, when, from what, with an optional note; the last 20 shown in the product) is OSS: it is the same class as card movement history, scoped to one entity and visible to that entity's members, and a team cannot judge whether a status is current without it. A site-wide audit log of every change across the instance stays enterprise (see the audit log ruling above). History is never imported or exported, and no retention setting exists in OSS (rows are deleted with their board or group).
+
+**Issue:** #2242
 
 ---
 
