@@ -10,6 +10,7 @@ broadcast, and an entry-point pin of every writer.
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
+from django.utils import timezone
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
@@ -37,11 +38,13 @@ class BoardHealthHistoryTests(TestCase):
         self.admin = User.objects.create_user(username="priya", password="pw", display_name="Priya")
         self.member = User.objects.create_user(username="mem", password="pw")
         self.viewer = User.objects.create_user(username="view", password="pw")
+        self.collab = User.objects.create_user(username="collab", password="pw")
         self.outsider = User.objects.create_user(username="out", password="pw")
         self.board = Board.objects.create(name="B", owner=self.admin)
         BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
         BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
         BoardMembership.objects.create(board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER)
+        BoardMembership.objects.create(board=self.board, user=self.collab, role=BoardMembership.Role.COLLABORATOR)
         self.url = f"/api/v1/boards/{self.board.pk}/"
 
     def _post(self, body, user=None):
@@ -130,7 +133,7 @@ class BoardHealthHistoryTests(TestCase):
 
     def test_roles_read_but_only_admins_write_and_outsiders_get_404(self):
         self._post({"status": "at_risk"})
-        for user in (self.member, self.viewer):
+        for user in (self.member, self.viewer, self.collab):
             with self.subTest(user=user.username):
                 self.assertEqual(self._post({"status": "on_track"}, user).status_code, 403)
                 r = self._history(user)
@@ -293,10 +296,82 @@ HEALTH_WRITER_PINS = {
     "boards.views.boards.BoardViewSet.perform_update": frozenset({"record_if_changed", "lock_board_row_or_404"}),
     "boards.views.boards.BoardViewSet.health_status": frozenset({"record_health_change", "lock_board_row_or_404"}),
     "boards.admin.BoardAdmin.save_model": frozenset({"record_if_changed"}),
+    "groups.views.GroupViewSet.boards": frozenset({"record_if_changed"}),
     "groups.views.GroupViewSet.perform_create": frozenset({"record_if_changed"}),
     "groups.views.GroupViewSet.perform_update": frozenset({"record_if_changed", "recheck_parent_under_lock"}),
     "groups.views.GroupViewSet.health_status": frozenset({"record_health_change", "select_for_update"}),
 }
+
+
+class GroupBoardCreateHealthHistoryTests(TestCase):
+    """POST /groups/{id}/boards/ is a health_status writer too (#2242)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="gbc", password="pw")
+        self.group = Group.objects.create(name="G", owner=self.user)
+        GroupMembership.objects.create(group=self.group, user=self.user, role=GroupMembership.Role.ADMIN)
+        self.url = f"/api/v1/groups/{self.group.pk}/boards/"
+
+    def test_create_with_status_records_one_change_from_nothing(self):
+        r = _client(self.user).post(self.url, {"name": "B", "health_status": "at_risk"}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["health_status_changed_by"]["id"], self.user.pk)
+        change = BoardHealthChange.objects.get(board_id=r.json()["id"])
+        self.assertEqual((change.from_status, change.to_status), (None, "at_risk"))
+        self.assertEqual(change.changed_by, self.user)
+        self.assertIsNone(change.note)
+        board = Board.objects.get(pk=r.json()["id"])
+        self.assertEqual(board.health_status_changed_at, change.changed_at)
+
+    def test_create_without_status_records_nothing(self):
+        r = _client(self.user).post(self.url, {"name": "B"}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(BoardHealthChange.objects.count(), 0)
+        self.assertIsNone(r.json()["health_status_changed_at"])
+
+
+class HealthListQueryCountTests(TestCase):
+    """Setters must not add queries to the list endpoints (#2242).
+
+    A null changed_by FK costs no query, so only fixtures with distinct
+    setters prove the ``select_related("health_status_changed_by")`` calls.
+    """
+
+    def _build(self, n):
+        admin = User.objects.create_user(username=f"qadmin{n}", password="pw")
+        parent = Group.objects.create(name=f"P{n}", owner=admin)
+        GroupMembership.objects.create(group=parent, user=admin, role=GroupMembership.Role.ADMIN)
+        setters = [User.objects.create_user(username=f"qs{n}_{i}", password="pw") for i in range(3)]
+        for i in range(n):
+            group = Group.objects.create(name=f"C{n}_{i}", owner=admin, parent=parent)
+            board = Board.objects.create(name=f"B{n}_{i}", owner=admin, group=parent)
+            BoardMembership.objects.create(board=board, user=admin, role=BoardMembership.Role.ADMIN)
+            Group.objects.filter(pk=group.pk).update(
+                health_status="at_risk", health_status_changed_by=setters[i], health_status_changed_at=timezone.now(),
+            )
+            Board.objects.filter(pk=board.pk).update(
+                health_status="at_risk", health_status_changed_by=setters[i], health_status_changed_at=timezone.now(),
+            )
+        return admin, parent
+
+    def _counts(self, admin, parent):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        urls = ["/api/v1/boards/", "/api/v1/groups/", f"/api/v1/groups/{parent.pk}/boards/",
+                f"/api/v1/groups/{parent.pk}/descendant-boards/"]
+        counts = {}
+        for url in urls:
+            with CaptureQueriesContext(connection) as ctx:
+                r = _client(admin).get(url)
+            self.assertEqual(r.status_code, 200, url)
+            counts[url.replace(f"/groups/{parent.pk}/", "/groups/<id>/")] = len(ctx.captured_queries)
+        return counts
+
+    def test_query_counts_do_not_grow_with_distinct_setters(self):
+        one = self._counts(*self._build(1))
+        three = self._counts(*self._build(3))
+        self.assertEqual(one, three)
 
 
 class HealthWriterEntryPointTests(SimpleTestCase):

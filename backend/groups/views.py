@@ -1302,6 +1302,10 @@ class GroupViewSet(viewsets.ModelViewSet):
             # make a demotion wait, see security-invariants Rule 6).
             require_group_admin_reread(request.user, group)
             board = serializer.save(owner=request.user, group=group)
+            # A status sent on create is a change from nothing (#2242); same call
+            # as BoardViewSet.perform_create, inside this transaction.
+            from boards.models import BoardHealthChange
+            record_if_changed(board, change_model=BoardHealthChange, from_status=None, user=request.user)
             # Create an explicit BoardMembership for the owner so they appear in the
             # board's member list. BoardViewSet.perform_create() does this too; without
             # it the owner relies on the implicit owner check in get_board_role(), but
