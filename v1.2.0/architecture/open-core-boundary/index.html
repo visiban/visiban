@@ -2719,6 +2719,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#health-status-history-oss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health status history (OSS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#movement-history-view-oss-vs-export-enterprise" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4428,6 +4439,12 @@
 <td>—</td>
 </tr>
 <tr>
+<td>Board / group health status history</td>
+<td>OSS</td>
+<td>Per-entity history shown in-product to members; same class as card movement history</td>
+<td>#2242</td>
+</tr>
+<tr>
 <td>AdminActionLog (instance admin control-plane actions)</td>
 <td>OSS</td>
 <td>Fixed, narrow record of a closed set of admin toggles (maintenance mode, registration mode, uploads, email config); no configurable retention or SIEM export. See <a href="#audit-log-split">Audit log (split)</a></td>
@@ -4813,6 +4830,10 @@
 <h3 id="wip-enforcement-oss">WIP enforcement (OSS)<a class="headerlink" href="#wip-enforcement-oss" title="Permanent link">&para;</a></h3>
 <p>WIP limits (<code>wip_limit</code> on Column) and the enforcement mode, soft (advisory toast) vs hard (blocked move), are OSS. A small team cannot manage capacity with soft-only enforcement. The board setting <code>enforce_wip_hard</code> (boolean, default <code>false</code>) toggles the mode. No enterprise extension point is needed.</p>
 <p><strong>Issue:</strong> #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.</p>
+<hr />
+<h3 id="health-status-history-oss">Health status history (OSS)<a class="headerlink" href="#health-status-history-oss" title="Permanent link">&para;</a></h3>
+<p>Per-entity health status history (who set or confirmed a board's or group's status, when, from what, with an optional note; the last 20 shown in the product) is OSS: it is the same class as card movement history, scoped to one entity and visible to that entity's members, and a team cannot judge whether a status is current without it. A site-wide audit log of every change across the instance stays enterprise (see the audit log ruling above). History is never imported or exported, and no retention setting exists in OSS (rows are deleted with their board or group).</p>
+<p><strong>Issue:</strong> #2242</p>
 <hr />
 <h3 id="movement-history-view-oss-vs-export-enterprise">Movement history: view (OSS) vs export (Enterprise)<a class="headerlink" href="#movement-history-view-oss-vs-export-enterprise" title="Permanent link">&para;</a></h3>
 <p>The board-level movement history view, filterable by swimlane, column, date range, and assignee, is OSS: without it, teams cannot query their own audit trail.</p>

@@ -1470,6 +1470,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-set-it-and-the-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who set it, and the history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lane-status" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4265,7 +4276,7 @@
 <p>A board or group admin can mark a board or a group <strong>On track</strong>, <strong>At risk</strong> or <strong>Off track</strong>. A group's status carries down to its subgroups and boards, so one status on a group covers a whole workstream, and any board or subgroup can set its own instead.</p>
 <p><strong>Why it matters:</strong> cards tell you how each piece of work is going, but not whether the workstream as a whole is in trouble. A health status gives a project manager that answer at a glance, on the dashboard, in the group tree and on every board.</p>
 <p><strong>How it works:</strong> the status is set by hand. Visiban never works it out from the cards, and a group's status is never worked out from its boards. When a board or subgroup has no status of its own, it shows the status of the nearest group above it that has one. That inherited status is drawn with a dashed border and says where it comes from.</p>
-<p><strong>Yes, but:</strong> a status is a judgment someone keeps up to date. Nothing reminds anyone to review it, and an old status keeps showing until someone changes it.</p>
+<p><strong>Yes, but:</strong> a status is a judgment someone keeps up to date. Visiban shows when it was last set or confirmed and by whom ("Set 3d ago by Priya"), so an old status is visible as old, but nothing reminds anyone to review it.</p>
 <hr />
 <h2 id="the-four-states">The four states<a class="headerlink" href="#the-four-states" title="Permanent link">&para;</a></h2>
 <table>
@@ -4306,11 +4317,13 @@
 <li>On a board, find the status next to the star after the board's name, at the top of the page. On a group page, it is next to the member and board counts under the group's name.</li>
 <li>Click it (or Tab to it and press Enter).</li>
 <li>Choose <strong>On track</strong>, <strong>At risk</strong> or <strong>Off track</strong>. The arrow keys move between them.</li>
+<li>Optionally add a <strong>Note</strong> (up to 280 characters), the reason for the status, such as "vendor slipped API delivery". It is shown in the tooltip and the history.</li>
 <li>Press Enter or click <strong>Save</strong>.</li>
 </ol>
+<p><strong>Confirm a status that is still right.</strong> Open the editor without changing the choice, optionally add a note, and click <strong>Confirm status</strong>. That records that someone checked, refreshes "Set … ago", and adds a "confirmed" line to the history. <strong>Save</strong> with an unchanged choice just closes the editor; only <strong>Confirm status</strong> records a check. A note is saved only with <strong>Save</strong> or <strong>Confirm status</strong>; Cancel, Escape or clicking elsewhere discards it.</p>
 <p>To go back to the inherited status, choose <strong>Inherit from</strong> <em>group name</em> and save. On a top-level group or a personal board, which has nothing above it, that choice is <strong>No status</strong>, which clears the status.</p>
 <p>Escape, <strong>Cancel</strong>, or clicking elsewhere closes the editor without saving. A status that is not saved shows an error in the editor, and your choice stays selected so you can try again.</p>
-<p>Members, collaborators and viewers see the status but cannot change it. When nothing applies, they see nothing.</p>
+<p>Members, collaborators and viewers see the status but cannot change it. Clicking it opens a read-only view with who set it, the note and the history. When nothing applies, they see nothing.</p>
 <p>In the hosted demo the status cannot be changed.</p>
 <h2 id="how-a-status-carries-down">How a status carries down<a class="headerlink" href="#how-a-status-carries-down" title="Permanent link">&para;</a></h2>
 <ul>
@@ -4327,6 +4340,9 @@
 <li><strong>Dashboard:</strong> next to each board's name, and in the groups tree.</li>
 </ul>
 <p>Lists show a status only where one applies; they never show <strong>No status</strong>. A group you can see only because it is on the path to one of your groups (shown without its counts) shows no status either.</p>
+<h2 id="who-set-it-and-the-history">Who set it, and the history<a class="headerlink" href="#who-set-it-and-the-history" title="Permanent link">&para;</a></h2>
+<p>The status's tooltip says when it was set and by whom, with the note if there is one: <em>Health status: At risk. Set 3d ago by Priya. Note: vendor slipped API delivery.</em> Within a week the time is relative ("3d ago"); after that it is a date ("on Sep 14"). Hover a time for the exact date and time. On a group page the same line shows under the group's name. An inherited status shows when its group set it: <em>inherited from Eng, set 3d ago</em>.</p>
+<p><strong>History</strong> in the editor lists the 20 most recent changes, newest first: from and to, who, when, and the note. A confirm shows as one status followed by "confirmed". <strong>System</strong> means the account was removed or the change was automatic. A status set before this history existed has no "Set …" line and no history until it is next set or confirmed. Older changes are kept but not listed.</p>
 <h2 id="lane-status">Lane status<a class="headerlink" href="#lane-status" title="Permanent link">&para;</a></h2>
 <p><a id="lane-status"></a></p>
 <p>A board admin can also give a single swimlane its own status. On a board with one lane per customer, project or candidate, that marks the one lane in trouble (the <strong>Acme</strong> lane is <strong>At risk</strong>) while the rest of the board is fine.</p>
@@ -4336,6 +4352,7 @@
 <li><strong>It is independent of the board:</strong> a lane's status never comes from the board's, and the board's status is never worked out from its lanes. Changing one never changes the other. A lane with no status means just that, <em>no status</em>: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed.</li>
 <li><strong>Who sees it:</strong> everyone who can see the board, and a change reaches everyone with the board open at once. A public share link does not show lane status.</li>
 <li><strong>Export and import:</strong> a board's JSON export carries each lane's status, and importing the file restores it.</li>
+<li><strong>No note or history:</strong> a lane's status has no note, no <strong>Confirm status</strong> and no <strong>History</strong>; those are for boards and groups.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">If you already track health with a lane field</p>
@@ -4346,7 +4363,7 @@
 <p>A change to a board's status reaches everyone who has that board open, at once.</p>
 <p>A change to a group's status updates that group's page for everyone who has it open, including the subgroups and boards listed on it. The pages of its subgroups and boards that are already open do <strong>not</strong> update: they show the new inherited status after a reload (a board page also catches up after a lost connection). The dashboard shows the new status the next time it loads.</p>
 <h2 id="for-api-clients">For API clients<a class="headerlink" href="#for-api-clients" title="Permanent link">&para;</a></h2>
-<p>Boards and groups carry three fields: <code>health_status</code> (the entity's own value, or <code>null</code> to inherit), <code>effective_health_status</code> (the value that applies) and <code>health_status_source</code> (the <code>{id, name}</code> of the group the value comes from, or <code>null</code>). Values are <code>on_track</code>, <code>at_risk</code> and <code>off_track</code>. See the <a href="../../api/boards/#get-apiv1boardsid">Boards API</a> and the <a href="../../api/groups/#get-apiv1groupsid">Groups API</a>.</p>
+<p>Boards and groups carry <code>health_status_changed_at</code>, <code>health_status_changed_by</code> and <code>health_status_note</code> (the last set or confirm; 1.3+) and <code>POST .../health-status/</code> / <code>GET .../health-history/</code> endpoints for setting, confirming and reading the history. They also carry three fields: <code>health_status</code> (the entity's own value, or <code>null</code> to inherit), <code>effective_health_status</code> (the value that applies) and <code>health_status_source</code> (the <code>{id, name, changed_at}</code> of the group the value comes from, or <code>null</code>). Values are <code>on_track</code>, <code>at_risk</code> and <code>off_track</code>. See the <a href="../../api/boards/#get-apiv1boardsid">Boards API</a> and the <a href="../../api/groups/#get-apiv1groupsid">Groups API</a>.</p>
 <p>Swimlanes carry one field, <code>health_status</code> (the lane's manual status, or <code>null</code> for no status; there is no inheritance, so there is no <code>effective_health_status</code> or <code>health_status_source</code>). Board admins write it with <code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>; see the <a href="../../api/boards/#swimlanes">Swimlanes API</a>.</p>
 
 
