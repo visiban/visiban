@@ -108,7 +108,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { isLaneFilterActive, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
+import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
 interface Props {
@@ -2018,12 +2018,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return next;
   }, [filters, boardLabels, boardCustomFieldDefs, laneFields]);
 
-  // #2205 — lanes hidden by lane rules. Focus mode pauses them: the focused
-  // lane always shows, and so does every other lane, collapsed as before.
-  const laneFilterHiddenIds = useMemo(
-    () => (focusedSwimlaneId !== null ? new Set<number>() : laneIdsHiddenByFilter(board.swimlanes, effectiveFilters.laneFilter, laneFields)),
-    [focusedSwimlaneId, board.swimlanes, effectiveFilters.laneFilter, laneFields],
+  // #2205 / #2251 — lanes the lane rules reject. The rules decide WHICH lanes show; focus
+  // mode decides which one is expanded. The focused lane always shows, even when it fails
+  // the rules, so it is dropped from the hidden set (and from the "N lanes hidden" count).
+  const laneRuleRejectedIds = useMemo(
+    () => laneIdsHiddenByFilter(board.swimlanes, effectiveFilters.laneFilter, laneFields),
+    [board.swimlanes, effectiveFilters.laneFilter, laneFields],
   );
+  const focusedLaneFailsRules = focusedSwimlaneId !== null && laneRuleRejectedIds.has(focusedSwimlaneId);
+  const laneFilterHiddenIds = useMemo(() => {
+    if (!focusedLaneFailsRules) return laneRuleRejectedIds;
+    const next = new Set(laneRuleRejectedIds);
+    next.delete(focusedSwimlaneId as number);
+    return next;
+  }, [laneRuleRejectedIds, focusedLaneFailsRules, focusedSwimlaneId]);
   const renderHiddenSwimlaneIds = useMemo(
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
@@ -3078,7 +3086,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               currentUser={currentUser}
               hiddenCount={hiddenCount}
               hiddenLaneCount={laneFilterHiddenIds.size}
-              laneFiltersPaused={focusedSwimlaneId !== null}
               lanesTriggerRef={lanesTriggerRef}
               scope={scope}
               onScopeChange={setScope}
@@ -3165,10 +3172,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </svg>
           <span className="text-info-on-tint">Focused on:</span>
           <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
-          {isLaneFilterActive(effectiveFilters.laneFilter) && (
+          {focusedLaneFailsRules && (
             <>
               <span aria-hidden="true" className="text-xs text-fg-tertiary">·</span>
-              <span className="text-xs text-fg-tertiary">Lane filters paused</span>
+              <span className="text-xs text-fg-tertiary">doesn't match lane filters</span>
             </>
           )}
           <div className="flex-1" />

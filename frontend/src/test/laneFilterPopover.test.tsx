@@ -51,14 +51,13 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[] = [AE, DEAL, MARGIN], r
 const rule = (id: number, field: number | null, op: 'is' | 'is_not' | 'between' | 'contains', extra: Record<string, unknown> = {}) =>
   ({ kind: 'rule' as const, id, join: 'and' as const, field, op, ...extra })
 
-function Harness({ initial, board = makeBoard(), onState, paused = false }: { initial?: LaneFilter; board?: BoardFull; onState?: (f: FilterState) => void; paused?: boolean }) {
+function Harness({ initial, board = makeBoard(), onState }: { initial?: LaneFilter; board?: BoardFull; onState?: (f: FilterState) => void }) {
   const [filters, setFilters] = useState<FilterState>(initial ? { ...EMPTY_FILTER, laneFilter: initial } : EMPTY_FILTER)
   return (
     <FilterBar
       board={board}
       filters={filters}
       onChange={(f) => { setFilters(f); onState?.(f) }}
-      laneFiltersPaused={paused}
       hiddenLaneCount={2}
       hiddenCount={3}
     />
@@ -346,12 +345,11 @@ describe('LaneFilterPopover', () => {
     document.removeEventListener('keydown', docKey)
   })
 
-  it('shows the paused note in focus mode and clears every lane rule', async () => {
+  it('clears every lane rule from the footer', async () => {
     const user = userEvent.setup()
     const onState = vi.fn()
-    render(<Harness paused initial={{ items: [rule(1, 1, 'is', { value: 'Priya' })] }} onState={onState} />)
+    render(<Harness initial={{ items: [rule(1, 1, 'is', { value: 'Priya' })] }} onState={onState} />)
     const dialog = await openPopover(user)
-    expect(within(dialog).getByText('Paused while a lane is focused. Changes apply when you exit focus.')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Clear lane filters' }))
     expect(onState.mock.calls.at(-1)![0]).not.toHaveProperty('laneFilter')
   })

@@ -151,23 +151,22 @@ test.describe('lane filters', () => {
     await expect(globex).toHaveCount(0)
   })
 
-  // The list's max-height reserves 9rem (10.5rem with the paused note) for the
+  // The list's max-height reserves 9rem for the
   // header, Reads-as and footer. Verify the whole panel, Done included, fits a
   // short viewport with a long rule list, with and without focus mode.
-  for (const paused of [false, true]) {
-    test(`fits a short viewport with many rules${paused ? ' while paused' : ''}`, async ({ page }) => {
+  for (const focused of [false, true]) {
+    test(`fits a short viewport with many rules${focused ? ' while a lane is focused' : ''}`, async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 520 })
       await routeAuth(page)
       await routeBoard(page, BOARD as unknown as typeof BOARD_FULL)
       const rules = Array.from({ length: 12 }, (_, i) => ({ ...(i ? { j: 'o' } : {}), f: AE_FIELD.id, o: 'is', v: i % 2 ? 'Sam' : 'Priya' }))
       const params = new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` })
-      if (paused) params.set('focus', '2')
+      if (focused) params.set('focus', '2')
       await page.goto(`/boards/${BOARD.id}?${params.toString()}`)
       await page.getByRole('button', { name: /^filters/i }).click()
       await page.getByRole('button', { name: 'Lanes, 12 active' }).click()
       const dialog = page.getByRole('dialog', { name: 'Lane filters' })
       await expect(dialog).toBeVisible()
-      if (paused) await expect(dialog.getByText(/^Paused while a lane is focused/)).toBeVisible()
       const box = (await dialog.boundingBox())!
       expect(box.y).toBeGreaterThanOrEqual(0)
       expect(box.y + box.height).toBeLessThanOrEqual(520)

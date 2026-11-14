@@ -8,7 +8,7 @@ interface LaneLike {
 
 interface Options {
   swimlanes: readonly LaneLike[];
-  /** Lanes the lane filter hides right now (empty while focus mode pauses it). */
+  /** Lanes the lane filter hides right now (the focused lane is never in it: focus keeps it visible). */
   hiddenIds: ReadonlySet<number>;
   /** Identity of the effective lane rules; a change means the user edited them. */
   filterKey: string;

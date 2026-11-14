@@ -54,8 +54,6 @@ interface Props {
   triggerRef: RefObject<HTMLButtonElement | null>;
   /** refocus = true returns focus to the trigger (Escape, Done). */
   onClose: (refocus: boolean) => void;
-  /** Focus mode is on: lane filters are paused. */
-  paused: boolean;
   fmt: LaneValueFormatter;
   id: string;
   /** Text/url field id to the lanes' distinct values (laneTextValueChoices). */
@@ -87,7 +85,7 @@ function MenuUnmountGuard({ ruleId, onGone }: { ruleId: number; onGone: (key: st
  * closes. Inner menus are deliberately not portaled: a portaled menu would sit
  * outside the panel and the focusin-outside close would fire on it.
  */
-export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, paused, fmt, id, textChoices }: Props) {
+export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // #2231 — the inner menus are in-flow (not portaled, see frontend/CLAUDE.md
@@ -138,7 +136,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const top = useAnchoredPlacement(panelRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
-    deps: [ruleCount, items.length, paused, menuReserve],
+    deps: [ruleCount, items.length, menuReserve],
     onResize: () => onClose(false),
     onOutsideScroll: () => onClose(false),
   });
@@ -277,7 +275,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     updateRule(r.id, { op });
   };
 
-  const listMaxHeight = visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, paused ? "10.5rem" : "9rem");
+  const listMaxHeight = visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, "9rem");
 
   const renderRule = (r: LaneRule) => {
     const n = leafNumber.get(r.id) as number;
@@ -447,16 +445,13 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           </button>
         )}
       </div>
-      {paused && (
-        <p className="px-3 py-1.5 text-xs text-fg-tertiary">Paused while a lane is focused. Changes apply when you exit focus.</p>
-      )}
       <div className="relative">
         <div
           ref={listRef}
           onScroll={onScroll}
           className="overflow-y-auto px-3 py-2 flex flex-col gap-1.5 scroll-pb-10"
           // Viewport minus margins and the header, Reads-as and footer chrome
-          // (and the paused note, which takes about one line more).
+          // chrome.
           style={{
             maxHeight: listMaxHeight,
             // While a menu is open, keep the list tall enough to show it (#2231).
@@ -570,7 +565,6 @@ interface ControlProps {
   filter: LaneFilter | undefined;
   fields: SwimlaneCustomFieldDefinition[];
   onChange: (next: LaneFilter | undefined) => void;
-  paused: boolean;
   fmt: LaneValueFormatter;
   /** Complete leaf rules, for the badge. */
   activeRuleCount: number;
@@ -580,7 +574,7 @@ interface ControlProps {
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */
-export function LaneFilterControl({ filter, fields, onChange, paused, fmt, activeRuleCount, triggerRef: externalRef, textChoices }: ControlProps) {
+export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -627,7 +621,6 @@ export function LaneFilterControl({ filter, fields, onChange, paused, fmt, activ
           anchorRect={anchor}
           triggerRef={triggerRef}
           onClose={onClose}
-          paused={paused}
           fmt={fmt}
           textChoices={textChoices}
         />

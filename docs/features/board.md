@@ -123,7 +123,7 @@ Focus mode collapses all other swimlane rows so you can work with a single swiml
 - All other swimlane rows are collapsed and their cards are hidden.
 - A blue banner appears between the board toolbar and the scroll area: "Focused on: *[swimlane name]*".
 - The URL updates to include `?focus=<swimlane_id>`, so focus mode can be bookmarked and shared.
-- [Lane filters](#lane-filters) pause while a lane is focused: the focused lane shows even if it doesn't match them, and the banner adds "Lane filters paused". They apply again when you exit focus.
+- [Lane filters](#lane-filters) keep applying while a lane is focused: the rules decide which lanes show, and focus decides which one is expanded. Other lanes that match stay as collapsed rows with their counts, and lanes that don't match stay hidden. The focused lane always shows; if it doesn't match the rules, the banner adds "· doesn't match lane filters". With no lane filters, other lanes are simply collapsed. Editing or clearing the rules takes effect immediately, and on exit the collapse state is restored while the rules keep applying.
 
 **Exiting focus mode:**
 
@@ -499,6 +499,7 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 - **Checkbox and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, **Lanes** is hidden.
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
 - **Lanes with no matching cards** stay visible, as they do with card filters alone.
+- **In focus mode** the rules still apply: see [Swimlane focus mode](#swimlane-focus-mode). The focused lane always shows, even if it doesn't match.
 - **When every lane is hidden,** the board says "No lanes match your lane filters." with a **Clear lane filters** button.
 - **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
 
