@@ -4583,7 +4583,7 @@
 <p>Click <strong>Save field</strong> to commit, or <strong>Cancel</strong> to discard.</p>
 <div class="admonition warning">
 <p class="admonition-title">A field's type locks once it holds a value</p>
-<p>Once any card on the board has a stored value for a field, the API blocks changing that field's type. If you try, the editor tells you why and what to do instead: add a new field of the type you want, then delete the old one. <strong>Deleting a field permanently deletes all of its values.</strong> They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.</p>
+<p>Once any card on the board has a stored value for a field, archived cards included, the API blocks changing that field's type. <em>Since 1.3</em>, the field editor disables the other type buttons up front and explains why: add a new field of the type you want, then delete the old one. <strong>Deleting a field permanently deletes all of its values.</strong> They can't be recovered. A brand-new, unsaved field has no values yet, so its type can be changed freely.</p>
 <p>To delete a field from its editor, click <strong>Delete field</strong> at the bottom left. It opens the same type-the-name confirmation as the ✕ on the field's row. Only admins can edit or delete fields.</p>
 </div>
 <h3 id="field-limits">Field limits<a class="headerlink" href="#field-limits" title="Permanent link">&para;</a></h3>
@@ -4613,7 +4613,12 @@
 <li><strong>Multi-select:</strong> up to two picks as small chips, with a <code>+N</code> marker for the rest (hover it to see them all).</li>
 <li><strong>Long values:</strong> truncated with an ellipsis; hover the chip for the full value.</li>
 </ul>
-<p><strong>Unset pinned fields:</strong> hidden at <strong>Comfortable</strong> and <strong>Standard</strong> card density (see <a href="../board/#card-density">Card density</a>) to keep the face uncluttered. At <strong>Dense</strong> density they show as a dashed "ghost" chip, so power users always see the full set of pinned fields.</p>
+<p><strong>Unset pinned fields:</strong> a pinned field with no value shows as a dashed "ghost" chip (the field name and a dash) instead of disappearing:</p>
+<ul>
+<li><strong>Checkbox and dropdown</strong> fields show the ghost at every <a href="../board/#card-density">card density</a> when you can edit the board. Click it, or focus it and press Enter, to set the value straight from the card, the same as a chip that has one. Clearing a pinned dropdown with <strong>— No value —</strong> leaves its ghost on the card, so you can pick a value again without opening the card.</li>
+<li><strong>Other types</strong> (text, number, date, URL, multi-select) show the ghost only at <strong>Dense</strong> density, so power users always see the full set of pinned fields. At <strong>Comfortable</strong> and <strong>Standard</strong> they stay hidden until they have a value, because they are set from the card detail, not the card face.</li>
+</ul>
+<p><em>Changed in 1.3:</em> before 1.3, an unset checkbox or dropdown was hidden at Comfortable and Standard density too, so clearing one removed it from the card face.</p>
 <h3 id="quick-edit-from-the-card-face">Quick edit from the card face<a class="headerlink" href="#quick-edit-from-the-card-face" title="Permanent link">&para;</a></h3>
 <p>Checkbox and dropdown chips are editable without opening the card. Click a checkbox chip to toggle it; click a dropdown chip to open a popover and pick a value. A dotted underline under the value marks it editable, always visible rather than only on hover.</p>
 <p>Text, number, date, URL, and multi-select fields are not quick-editable; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.</p>
@@ -4795,7 +4800,7 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Field type is locked once a swimlane holds a value</p>
-<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. <strong>Delete field</strong> at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.</p>
+<p>As with a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. <strong>Delete field</strong> at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.</p>
 </div>
 <h3 id="pinned-fields-in-the-swimlane-label-panel">Pinned fields in the swimlane label panel<a class="headerlink" href="#pinned-fields-in-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
 <p>Up to 8 fields can be pinned, and how many show as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name) follows the board's <a href="../board/#card-density">card density</a>: <strong>3</strong> at Comfortable, <strong>5</strong> at Standard, <strong>8</strong> at Dense. Chips are stacked below the row name, and they're hidden while the swimlane is collapsed, like the rest of the panel's detail. The same limits apply under the Classic preset.</p>

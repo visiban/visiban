@@ -8758,9 +8758,15 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <td>yes</td>
 <td>ISO 8601 creation timestamp</td>
 </tr>
+<tr>
+<td><code>has_values</code></td>
+<td>boolean</td>
+<td>yes</td>
+<td><em>Since 1.3.</em> <code>true</code> when at least one card, archived cards included, holds a value for this field. While it is <code>true</code>, <code>field_type</code> cannot be changed</td>
+</tr>
 </tbody>
 </table>
-<p>* <code>field_type</code> is writable only while the definition has zero values — see the <code>PATCH</code>
+<p>* <code>field_type</code> is writable only while the definition has zero values (<code>has_values</code> is <code>false</code>) — see the <code>PATCH</code>
 errors below.</p>
 <h4 id="url-fields">URL fields<a class="headerlink" href="#url-fields" title="Permanent link">&para;</a></h4>
 <p>A <code>"url"</code> field stores a web address, on card and swimlane custom fields alike. Like every type it is text-backed: the value is the stored string.</p>
