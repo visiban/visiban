@@ -1827,8 +1827,10 @@ backend-schema-fuzz-git-lens:
 # `needs:` cap for the report; the self-test enforces it). That cap is now fully
 # used, so sharding can no longer absorb a hang: mutmut lets one mutant run 10x
 # the baseline, and a single timed-out mutant costs minutes no split can remove.
-# `timeout: 90m` is therefore headroom for those outliers (~3x the ~30 min
-# average shard), not a substitute for sharding. It deliberately exceeds the
+# `timeout: 150m` is therefore headroom for those outliers (~5x the ~30 min
+# average shard), not a substitute for sharding. It was 90m until #2111: the
+# slowest shard (import_export 36/50) reached 82.1 min on 2026-10-28. It
+# deliberately exceeds the
 # project's 60 m default job timeout; as of 2026-10-21 no runner caps it (all 7
 # project runners have no maximum timeout; SaaS shared runners allow up to 3 h).
 #
@@ -1863,7 +1865,7 @@ backend-mutation:
   # = sum of TARGETS' shard counts in backend/mutmut_config.py (checked by
   # `mutmut_config.py self-test --ci-file`, run in mutation-score-selftest).
   parallel: 50
-  timeout: 90m
+  timeout: 150m
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
