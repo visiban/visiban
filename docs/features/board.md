@@ -513,19 +513,18 @@ Text and URL swimlane fields offer five operators in a lane filter:
 | **is** / **is not** | equals the value you pick, exactly |
 | **contains** | has your text anywhere inside it. `*` and `?` are ordinary characters here |
 | **does not contain** | does not have your text inside it (the opposite of **contains**) |
-| **matches wildcard** | matches your pattern from start to finish, where `*` stands for any run of characters (including none) and `?` for exactly one character |
+| **matches wildcard** | has a part that matches your pattern, where `*` stands for any run of characters (including none) and `?` for exactly one character |
 
 All of them ignore case and leading or trailing spaces. A **contains**, **does not contain**, or **matches wildcard** filter with a blank box is incomplete and is ignored.
 
-With **matches wildcard** the whole value must match, so put a `*` at either end to leave that end open: `Ethan*` means "starts with Ethan" and `*ross*` means "contains ross".
+With **matches wildcard** the pattern may match any part of the value, just as **contains** does, so a `*` at either end is unnecessary: `ethan` and `*ethan*` behave the same. A lone `*` matches any lane that has a value. There is no "starts with" or "ends with" yet (see [#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
 
 | You type | Matches | Doesn't match |
 |---|---|---|
-| `Ethan*` | Ethan Ross | Seth Ethan |
-| `*ross` | Ethan Ross | Rossi |
-| `*ross*` | Ethan Ross, Rossi | Ethan R. |
-| `e*ross` | Ethan Ross | Ross Ethan |
-| `j?n` | Jan, Jon | Jean, Jan Smith |
+| `e*ross` | Ethan Ross, Eve Gross | Ross Ethan |
+| `j?n` | Jan, Jon, Jan Smith | Jean, Jn |
+| `ethan` | Ethan Ross, Seth Ethan | Eth |
+| `a*c` | abc, xxabbcxx | cba |
 
 - **A literal `*` or `?`:** use **contains**, where they are plain characters.
 - **Lanes with no value** fail **matches wildcard** and **contains**, and pass **does not contain** (as they pass **is not**).

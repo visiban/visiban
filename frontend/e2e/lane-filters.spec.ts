@@ -129,7 +129,7 @@ test.describe('lane filters', () => {
     await expect(acme).toBeVisible()
     await expect(globex).toHaveCount(0)
 
-    // #2227: switch to the wildcard operator; it matches the whole value.
+    // #2227: switch to the wildcard operator; it matches any part of the value.
     await page.getByRole('button', { name: /^filters/i }).click()
     await filters.getByRole('button', { name: /^Lanes/ }).first().click()
     const dialog2 = page.getByRole('dialog', { name: 'Lane filters' })
@@ -140,7 +140,13 @@ test.describe('lane filters', () => {
     await expect(dialog2.getByText('Reads as: Owner matches wildcard o*grant')).toBeVisible()
     await expect(globex).toBeVisible()
     await expect(acme).toHaveCount(0)
+    // Any part of the value matches, so a bare word needs no surrounding *.
     await box2.fill('grant')
+    await expect(globex).toBeVisible()
+    await expect(acme).toHaveCount(0)
+    await box2.fill('g?ant')
+    await expect(globex).toBeVisible()
+    await box2.fill('gant')
     await expect(globex).toHaveCount(0)
   })
 

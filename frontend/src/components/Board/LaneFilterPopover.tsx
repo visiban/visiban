@@ -40,7 +40,7 @@ const NO_CHOICES: string[] = [];
 /** Operators that take a typed operand instead of a choice from the lanes' values. */
 const TYPED_OPS: readonly FieldRuleOp[] = ["contains", "not_contains", "wildcard"];
 const isTypedOp = (op: FieldRuleOp) => TYPED_OPS.includes(op);
-const WILDCARD_HINT = "Use * for any text and ? for one character. The whole value must match.";
+const WILDCARD_HINT = "Use * for any text and ? for one character. It matches any part of the value.";
 
 const INPUT_CLS =
   "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";

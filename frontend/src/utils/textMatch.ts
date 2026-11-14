@@ -2,19 +2,22 @@
  * Wildcard matcher for the lane-filter "matches wildcard" operator (#2227).
  *
  * `*` matches any run of characters (including none), `?` matches exactly one,
- * everything else is literal, and the pattern must match the WHOLE value (so
- * `Ethan*` is "starts with" and `*ross*` is "contains"). Case-insensitive and
- * trimmed on both sides.
+ * everything else is literal, and the pattern may match ANY PART of the value
+ * (so `ross` behaves like "contains" and a leading or trailing `*` is
+ * redundant). There are no anchors; "starts with" / "ends with" are separate
+ * operators (#1847). Case-insensitive and trimmed on both sides.
  *
  * Deliberately not a RegExp: patterns arrive from shared links and saved
  * filters, and a two-pointer glob with a single backtrack point is O(n*m) with
  * no exponential case, so there is no ReDoS surface.
  */
 
-/** True when `value` matches the whole `pattern`. */
+/** True when `pattern` matches some contiguous part of `value`. */
 export function wildcardMatch(pattern: string, value: string): boolean {
   // Compare by code point so `?` matches one character, not one UTF-16 unit.
-  const p = Array.from(pattern.trim().toLowerCase());
+  // Any-part matching is whole-value matching of `*pattern*`, so the linear
+  // matcher below needs no change and keeps its O(n*m) bound.
+  const p = ["*", ...Array.from(pattern.trim().toLowerCase()), "*"];
   const v = Array.from(value.trim().toLowerCase());
   let pi = 0, vi = 0, star = -1, mark = 0;
   while (vi < v.length) {

@@ -159,7 +159,7 @@ describe('fieldRules — text and url (#2226)', () => {
     expect(matchRule(tr('contains', 'ross'), 'text', 'Olivia Grant')).toBe(false)
   })
 
-  it('not_contains is the inverse of contains; wildcard matches the whole value (#2227)', () => {
+  it('not_contains is the inverse of contains; wildcard matches any part of the value (#2227)', () => {
     const nc = (v: string, raw: string | undefined) => matchRule(tr('not_contains', v), 'text', raw)
     const wc = (v: string, raw: string | undefined) => matchRule(tr('wildcard', v), 'text', raw)
     expect(nc('ross', 'Ethan Ross')).toBe(false)
@@ -175,11 +175,12 @@ describe('fieldRules — text and url (#2226)', () => {
     }
     // Every documented example row.
     const rows: [string, string[], string[]][] = [
-      ['Ethan*', ['Ethan Ross'], ['Seth Ethan']],
-      ['*ross', ['Ethan Ross'], ['Rossi']],
-      ['*ross*', ['Ethan Ross', 'Rossi'], ['Ethan R.']],
-      ['e*ross', ['Ethan Ross'], ['Ross Ethan']],
-      ['j?n', ['Jan', 'Jon'], ['Jean', 'Jan Smith']],
+      ['e*ross', ['Ethan Ross', 'Eve Gross'], ['Ross Ethan']],
+      ['j?n', ['Jan', 'Jon', 'Jan Smith'], ['Jean', 'Jn']],
+      ['ethan', ['Ethan Ross', 'Seth Ethan'], ['Eth']],
+      ['Ethan*', ['Ethan Ross', 'Seth Ethan'], ['Eth']],
+      ['a*c', ['abc', 'xxabbcxx'], ['cba']],
+      ['*', ['x'], []],
     ]
     for (const [pat, yes, no] of rows) {
       for (const v of yes) expect(wc(pat, v), `${pat} ~ ${v}`).toBe(true)

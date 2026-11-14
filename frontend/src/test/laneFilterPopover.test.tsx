@@ -227,7 +227,7 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('menuitem', { name: 'matches wildcard' }))
     const wbox = within(dialog).getByRole('textbox', { name: 'Filter 1 Notes matches wildcard' })
     expect(wbox).toHaveValue('ross')
-    expect(wbox).toHaveAccessibleDescription(/for any text.*whole value must match/)
+    expect(wbox).toHaveAccessibleDescription(/for any text.*matches any part of the value/)
     expect(screen.getByText('Reads as: Notes matches wildcard ross')).toBeInTheDocument()
     expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ op: 'wildcard', value: 'ross' })
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
