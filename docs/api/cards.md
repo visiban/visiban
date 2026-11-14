@@ -138,6 +138,8 @@ Create a card. Requires member or above. The target column must have `allow_card
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
+Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets `403` even when the body is invalid, where they previously got `400` with field errors for an invalid body. Members still get `400` for an invalid body, and a caller with no access to the board gets `404`.
+
 Since 1.2, a create returns `404 Not Found` (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).
 
 **Request**
