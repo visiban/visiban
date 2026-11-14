@@ -486,7 +486,7 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 2. Pick a field, then a value or range:
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
-    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type, for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. An empty **contains** box is an incomplete filter.
+    - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or **contains** text you type (up to 500 characters), for example *AE is Ethan Ross* or *AE contains ross*. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty **contains** box is an incomplete filter.
 3. Add more filters, or **+ Add group** to bracket several together. Between every two filters or groups, an **And / Or** toggle sets how they combine. **And** binds tighter than **Or**, the way it does in arithmetic, and groups go one level deep.
 4. The **Reads as** line spells out the result in words, for example: *Reads as: (AE is Priya and Deal value 50,000 or more) or Client Director is Jo*.
 

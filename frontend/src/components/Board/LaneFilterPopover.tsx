@@ -229,6 +229,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     const ops = t ? opsForFieldType(t) : [];
     const textType = t !== null && isTextRuleType(t);
     const valueChoices = textType && r.op !== "contains" ? choicesFor(r) : NO_CHOICES;
+    const laneValues = new Set(((r.field !== null && textChoices?.get(r.field)) || NO_CHOICES).map((c) => c.toLowerCase()));
     const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
     return (
       <div key={r.id} data-lane-row={r.id} className="flex flex-wrap items-center gap-2">
@@ -283,7 +284,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             <input
               type="text"
               value={r.value ?? ""}
-              placeholder="Type text"
+              placeholder="Text to match"
               maxLength={LANE_FILTER_MAX_STRING}
               aria-label={`Filter ${n} ${def.name} contains`}
               onChange={(e) => updateRule(r.id, { value: e.target.value })}
@@ -300,7 +301,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
                 className="w-full justify-between"
                 labelClassName="truncate"
                 escapePriority={INNER_ESCAPE_PRIORITY}
-                options={valueChoices.map((c) => ({ value: c, label: c }))}
+                // A kept stored value says why it matches nothing (#2226 ux-review).
+                options={valueChoices.map((c) => ({ value: c, label: laneValues.has(c.toLowerCase()) ? c : `${c} (no lane has this)` }))}
                 selected={valueChoices.find((c) => c.toLowerCase() === r.value?.trim().toLowerCase()) ?? null}
                 onChange={(v) => updateRule(r.id, { value: v ?? "" })}
               />
