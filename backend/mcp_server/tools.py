@@ -1213,6 +1213,11 @@ def board_snapshot(*, board_id):
     }
 
 
+# Rows of each per-card history list (activities, comments) that the
+# ``card://{card_id}`` resource returns (#1963); matches REST's history cap.
+_CARD_DETAIL_HISTORY_MAX = 200
+
+
 def card_detail(*, card_id):
     """Card detail + full audit history for the ``card://{card_id}`` MCP resource.
 
@@ -1227,7 +1232,9 @@ def card_detail(*, card_id):
     NOT part of that
     chain (it is built for listing many cards on a board at once, and most
     board reads never need a card's full comment/activity history), so they
-    are fetched here as two additional queries scoped to this one card —
+    are fetched here as two additional queries scoped to this one card, each
+    capped at its newest ``_CARD_DETAIL_HISTORY_MAX`` rows with a
+    ``*_truncated`` flag (#1963) —
     matching the exact ``select_related`` shape the REST
     ``activities``/``comments`` actions already use
     (``boards/views/cards.py``) — each covered by an existing
@@ -1256,14 +1263,25 @@ def card_detail(*, card_id):
     movements = CardMovement.objects.filter(card=card).select_related("moved_by").order_by("-moved_at")
     data["movements"] = [_serialize_movement(m) for m in movements]
     data["checklist_items"] = [_serialize_checklist_item(i) for i in _card_checklist_items(card)]
-    data["activities"] = [
-        _serialize_activity(a)
-        for a in card.activities.select_related("actor").order_by("-created_at")
-    ]
-    data["comments"] = [
-        _serialize_comment(c)
-        for c in card.comments.select_related("author").order_by("created_at")
-    ]
+    # Activities and comments are capped (#1963): a long-lived card writes an
+    # activity on every field edit, and the whole history in one resource read
+    # grows without bound. Each list keeps its newest _CARD_DETAIL_HISTORY_MAX
+    # rows; one extra row is fetched to tell a capped list from a complete one,
+    # so the cap costs no COUNT. ``*_truncated`` are additive keys.
+    activities = list(
+        card.activities.select_related("actor")
+        .order_by("-created_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
+    )
+    data["activities"] = [_serialize_activity(a) for a in activities[:_CARD_DETAIL_HISTORY_MAX]]
+    data["activities_truncated"] = len(activities) > _CARD_DETAIL_HISTORY_MAX
+    # Comments read oldest first, so the newest ones are fetched and reversed:
+    # a capped list drops the oldest comments, never the latest discussion.
+    comments = list(
+        card.comments.select_related("author")
+        .order_by("-created_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
+    )
+    data["comments"] = [_serialize_comment(c) for c in reversed(comments[:_CARD_DETAIL_HISTORY_MAX])]
+    data["comments_truncated"] = len(comments) > _CARD_DETAIL_HISTORY_MAX
     return data
 
 

@@ -427,6 +427,89 @@ def _parse_card_limit(request, maximum):
     return min(int(raw), maximum) if len(raw) <= 19 else maximum
 
 
+# Per-card history lists (#1963): GET comments/, attachments/ and activities/.
+# Their 1.0 response is the card's whole list as a bare array, and the web app
+# reads it that way, so the default stays the whole list. ``limit``/``offset``
+# are opt-in, and every response carries the card list's X-Total-Count /
+# X-Truncated headers (#1724), so a client can bound the read without the
+# response type changing.
+_CARD_HISTORY_MAX_ROWS = 200
+
+
+def _card_history_paging_parameters(noun):
+    return [
+        OpenApiParameter(
+            name="limit",
+            type={"type": "integer", "minimum": 0},
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description=(
+                f"Since 1.3. Maximum {noun} to return (at most {_CARD_HISTORY_MAX_ROWS}; larger "
+                f"values are clamped). Omit it to get every {noun[:-1]} on the card, as before. "
+                "A negative or non-integer value is a 400 with "
+                '`{"detail": ..., "code": "invalid_query_param"}`.'
+            ),
+        ),
+        OpenApiParameter(
+            name="offset",
+            type={"type": "integer", "minimum": 0, "maximum": MAX_OFFSET},
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description=(
+                f"Since 1.3. Number of {noun} to skip (default 0). A negative or non-integer "
+                'value is treated as 0; a value above 2^62 is a 400 (`invalid_query_param`).'
+            ),
+        ),
+        OpenApiParameter(
+            name=CARD_LIST_TOTAL_HEADER,
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.HEADER,
+            response=[200],
+            description=f"Since 1.3. Total number of {noun} on the card, ignoring `limit`/`offset`.",
+        ),
+        OpenApiParameter(
+            name=CARD_LIST_TRUNCATED_HEADER,
+            type=OpenApiTypes.STR,
+            enum=["true", "false"],
+            location=OpenApiParameter.HEADER,
+            response=[200],
+            description=(
+                f"Since 1.3. `true` when more {noun} exist after the returned ones "
+                "(fetch them with a larger `offset`), otherwise `false`."
+            ),
+        ),
+    ]
+
+
+def _card_history_response(request, queryset, serialize):
+    """Serve one card history list with opt-in paging (#1963).
+
+    *queryset* must be totally ordered (a ``pk`` tiebreaker) so offset paging
+    neither skips nor repeats a row. Without ``limit`` the whole list (from
+    ``offset``) is returned exactly as before, and the total comes from the
+    rows already read, so the default request still costs one query. With
+    ``limit`` the page goes through ``fetch_page_and_total`` (#2239), which
+    counts only when the page is full.
+    """
+    limit = (
+        _parse_card_limit(request, _CARD_HISTORY_MAX_ROWS)
+        if request.query_params.get("limit", "") != "" else None
+    )
+    offset = parse_offset(request)
+    if limit is None:
+        rows = list(queryset[offset:])
+        if rows or offset == 0:
+            total = offset + len(rows)
+        else:
+            total = queryset.order_by().count()
+    else:
+        rows, total = fetch_page_and_total(queryset, offset, limit)
+    response = Response(serialize(rows))
+    response[CARD_LIST_TOTAL_HEADER] = str(total)
+    response[CARD_LIST_TRUNCATED_HEADER] = "true" if offset + len(rows) < total else "false"
+    return response
+
+
 _ENTER_COLUMN_409 = (
     "`wip_limit_exceeded` / `wip_hard_blocked` — the column is at its WIP limit; "
     "`weight_limit_exceeded` — the card's weight would push the column over its "
@@ -1264,15 +1347,28 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List field-change activity for a card",
-        responses=CardActivitySerializer(many=True),
+        description=(
+            "Newest first, as a bare array. Every activity by default; `limit`/`offset` "
+            "(since 1.3) bound the read, with the total in `X-Total-Count`."
+        ),
+        parameters=_card_history_paging_parameters("activities"),
+        responses={
+            200: CardActivitySerializer(many=True),
+            400: OpenApiResponse(
+                description="A bad `limit` or an `offset` above 2^62 (`invalid_query_param`).",
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
     )
     @action(detail=True, methods=["get"])
     def activities(self, request, board_pk=None, pk=None):
-        """Return the field-change activity log for a card."""
+        """Return the field-change activity log for a card (opt-in paging, #1963)."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
-        serializer = CardActivitySerializer(card.activities.select_related("actor"), many=True)
-        return Response(serializer.data)
+        qs = card.activities.select_related("actor").order_by("-created_at", "-pk")
+        return _card_history_response(
+            request, qs, lambda rows: CardActivitySerializer(rows, many=True).data,
+        )
 
     # ---------------------------------------------------------------------------
     # Unified timeline endpoint (#746)
@@ -1596,8 +1692,19 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List comments on a card",
+        description=(
+            "Oldest first, as a bare array. Every comment by default; `limit`/`offset` "
+            "(since 1.3) bound the read, with the total in `X-Total-Count`."
+        ),
         methods=["GET"],
-        responses=CardCommentSerializer(many=True),
+        parameters=_card_history_paging_parameters("comments"),
+        responses={
+            200: CardCommentSerializer(many=True),
+            400: OpenApiResponse(
+                description="A bad `limit` or an `offset` above 2^62 (`invalid_query_param`).",
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
     )
     @extend_schema(
         summary="Add a comment on a card",
@@ -1618,7 +1725,10 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
-            return Response(CardCommentSerializer(card.comments.select_related("author"), many=True).data)
+            qs = card.comments.select_related("author").order_by("created_at", "pk")
+            return _card_history_response(
+                request, qs, lambda rows: CardCommentSerializer(rows, many=True).data,
+            )
         # Collaborators are intentionally allowed to comment on cards; viewers
         # are not. See docs/features/rbac/roles.md permission table.
         denied = _annotation_denied(role)
@@ -1736,8 +1846,19 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List attachments on a card",
+        description=(
+            "Newest first, as a bare array. Every attachment by default; `limit`/`offset` "
+            "(since 1.3) bound the read, with the total in `X-Total-Count`."
+        ),
         methods=["GET"],
-        responses=CardAttachmentSerializer(many=True),
+        parameters=_card_history_paging_parameters("attachments"),
+        responses={
+            200: CardAttachmentSerializer(many=True),
+            400: OpenApiResponse(
+                description="A bad `limit` or an `offset` above 2^62 (`invalid_query_param`).",
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
     )
     @extend_schema(
         summary="Upload an attachment to a card",
@@ -1766,10 +1887,11 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
 
         if request.method == "GET":
-            serializer = CardAttachmentSerializer(
-                card.attachments.select_related("uploaded_by"), many=True, context={"request": request}
+            qs = card.attachments.select_related("uploaded_by").order_by("-uploaded_at", "-pk")
+            return _card_history_response(
+                request, qs,
+                lambda rows: CardAttachmentSerializer(rows, many=True, context={"request": request}).data,
             )
-            return Response(serializer.data)
 
         # Collaborators are intentionally allowed to upload attachments;
         # viewers are not. See docs/features/rbac/roles.md permission table.

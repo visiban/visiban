@@ -111,7 +111,7 @@ The two flow tools answer "how is work moving?" from the flow service behind the
 | Resource | URI | Description |
 |---|---|---|
 | Board snapshot | `board://{board_id}` | Read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards, and labels — one round trip instead of three `list_*` calls. `cards_total` and `cards_truncated` flag a board with more than 200 active cards. Any board role. |
-| Card detail | `card://{card_id}` | Card detail plus full audit history (movements, activities, comments, checklist items). Requires board membership, any role. |
+| Card detail | `card://{card_id}` | Card detail plus audit history (movements, activities, comments, checklist items; since 1.3 the 200 newest activities and comments, with a truncation flag). Requires board membership, any role. |
 
 Both resources are read-only and require only the `mcp:read` scope. See [API Reference — MCP Server — Resources](../api/mcp.md#resources) for the exact response shape.
 
