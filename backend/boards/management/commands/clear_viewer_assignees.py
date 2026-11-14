@@ -181,6 +181,7 @@ class Command(BaseCommand):
                     CardActivity(
                         card_id=item.card_id, event_type=ET.CHECKLIST_ITEM_ASSIGNED,
                         from_value=item.assignee.username, to_value="",
+                        item_text=item.text,
                     )
                     for item in items
                 ]

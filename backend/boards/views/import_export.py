@@ -862,6 +862,17 @@ def _text(max_length=None):
     return functools.partial(_text_error, max_length=max_length)
 
 
+def _nullable_item_text(value):
+    """``CardActivity.item_text`` (#2199): null, or text that fits the column.
+
+    Not a ``_TEXT_CHECKS`` checker, so a number is refused rather than coerced:
+    the key is new in 1.3 and no exporter ever wrote anything but a string.
+    """
+    if value is None:
+        return None
+    return _text_error(value, CardActivity._meta.get_field("item_text").max_length)
+
+
 def _validate_json_import_values(data):
     """Value-level checks for a JSON import, run before the transaction (#1507).
 
@@ -972,6 +983,8 @@ def _validate_json_import_values(data):
         "activities": ("activity", (
             ("from_value", _text()), ("to_value", _text()),
             ("imported_from_username", imported_name),
+            # #2199: null (or absent, as in files from before 1.3) is no item name.
+            ("item_text", _nullable_item_text),
         )),
         # Manual block history (#1149).
         "blocks": ("block", (
@@ -2176,6 +2189,7 @@ class BoardImportExportMixin:
                             to_value=act_data.get("to_value", ""),
                             actor=request.user,
                             imported_from_username=_imported_from_username(act_data, "actor"),
+                            item_text=act_data.get("item_text"),
                         ),
                         act_data.get("created_at"),
                     ))
@@ -3203,6 +3217,9 @@ class BoardImportExportMixin:
                             "actor": act.actor.username if act.actor else None,
                             "created_at": act.created_at.isoformat(),
                             "imported_from_username": act.imported_from_username,
+                            # Additive (#2199): null except on checklist
+                            # assignee and due-date entries.
+                            "item_text": act.item_text,
                         }
                         for act in sorted(card.activities.all(), key=lambda a: a.created_at)
                     ],

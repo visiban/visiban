@@ -2080,6 +2080,7 @@ class ExportJsonShapeTests(ExportBase):
                     "actor": None,
                     "created_at": t0.isoformat(),
                     "imported_from_username": None,
+                    "item_text": None,
                 },
                 {
                     "event_type": "title_change",
@@ -2088,6 +2089,7 @@ class ExportJsonShapeTests(ExportBase):
                     "actor": "owner",
                     "created_at": a_late.created_at.isoformat(),
                     "imported_from_username": None,
+                    "item_text": None,
                 },
             ],
         )
@@ -2100,6 +2102,8 @@ class ExportJsonShapeTests(ExportBase):
                 "actor",
                 "created_at",
                 "imported_from_username",
+                # Additive (#2199).
+                "item_text",
             ],
         )
 
