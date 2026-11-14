@@ -129,7 +129,7 @@ describe('fieldRules', () => {
 describe('fieldRules — text and url (#2226)', () => {
   const tr = (op: FieldRule['op'], value?: string): FieldRule => ({ field: 6, op, value })
 
-  it('offers is / is not / contains on text and url fields', () => {
+  it('offers is / is not / contains / does not contain / matches wildcard on text and url fields', () => {
     expect(opsForFieldType('text')).toEqual(['is', 'is_not', 'contains', 'not_contains', 'wildcard'])
     expect(opsForFieldType('url')).toEqual(['is', 'is_not', 'contains', 'not_contains', 'wildcard'])
     expect(normalizeText('  Ethan Ross ')).toBe('ethan ross')

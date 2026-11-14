@@ -13,8 +13,9 @@
 
 /** True when `value` matches the whole `pattern`. */
 export function wildcardMatch(pattern: string, value: string): boolean {
-  const p = pattern.trim().toLowerCase();
-  const v = value.trim().toLowerCase();
+  // Compare by code point so `?` matches one character, not one UTF-16 unit.
+  const p = Array.from(pattern.trim().toLowerCase());
+  const v = Array.from(value.trim().toLowerCase());
   let pi = 0, vi = 0, star = -1, mark = 0;
   while (vi < v.length) {
     if (pi < p.length && p[pi] === "*") { star = pi++; mark = vi; }

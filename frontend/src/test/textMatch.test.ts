@@ -43,4 +43,11 @@ describe('wildcardMatch (#2227)', () => {
     expect(wildcardMatch('*a*a*a*a*a*a*a*a*b', 'a'.repeat(100000) + 'b')).toBe(true)
     expect(Date.now() - start).toBeLessThan(2000)
   })
+
+  it('counts ? as one character (code point), not one UTF-16 unit', () => {
+    expect(wildcardMatch('j?n', 'j\u{1F600}n')).toBe(true)
+    expect(wildcardMatch('j??n', 'j\u{1F600}n')).toBe(false)
+    expect(wildcardMatch('j*n', 'j\u{1F600}\u{1F600}n')).toBe(true)
+    expect(wildcardMatch('j??n', 'j\u{1F600}\u{1F600}n')).toBe(true)
+  })
 })
