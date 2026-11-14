@@ -1651,6 +1651,23 @@ def _normalize_multi_select_value(definition, raw, stored=""):
     return encoded
 
 
+def canonical_number_text(text, parsed):
+    """The stored form of a number custom-field value (#2218).
+
+    Kept as typed (``"1.50"`` keeps its trailing zero, ``"1e3"`` its
+    exponent) when it is plain ASCII without ``_``: every client parses that
+    the way ``Decimal`` does. ``Decimal`` also accepts digit-group
+    underscores (``1_000``) and non-ASCII digits (``"١٢"``), which
+    JavaScript's ``Number()`` reads as ``NaN``, so those are stored as the
+    ``Decimal``'s own string instead (``"1000"``, ``"12"``). Migration
+    ``0102_canonicalize_custom_field_values`` applies the same rule to rows
+    stored before it (inlined there: a migration must not import app code).
+    """
+    if text.isascii() and "_" not in text:
+        return text
+    return str(parsed)
+
+
 def _normalize_custom_field_value(definition, raw, stored=""):
     """Cast and validate one submitted value for *definition*.
 
@@ -1711,7 +1728,7 @@ def _normalize_custom_field_value(definition, raw, stored=""):
             raise serializers.ValidationError(
                 f"'{definition.name}' must be a finite number."
             )
-        return text
+        return canonical_number_text(text, parsed)
 
     if definition.field_type == T.DATE:
         try:
@@ -1724,7 +1741,12 @@ def _normalize_custom_field_value(definition, raw, stored=""):
             raise serializers.ValidationError(
                 f"'{definition.name}' must be a date in YYYY-MM-DD format."
             )
-        return text
+        # Stored as YYYY-MM-DD whatever form parse_date accepted (#2218):
+        # on Python 3.11+ that includes ``20260101``, ISO week dates with or
+        # without a weekday (``2026-W01-1``, ``2026-W01``) and, through its
+        # regex fallback, ``2026-1-5``. Clients read the value back as a
+        # calendar date, so one spelling means no client has to parse them all.
+        return parsed_date.isoformat()
 
     if definition.field_type == T.CHECKBOX:
         lowered = text.lower()

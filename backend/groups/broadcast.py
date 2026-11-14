@@ -153,8 +153,11 @@ def broadcast_group_event(
         )
 
 
-def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, actor_id: int | None = None) -> None:
-    """Publish ``member.removed`` for a group membership removal (#1051, #2168).
+def broadcast_member_removed(
+    group_id: int, user_id: int, descendant_ids=(), *, actor_id: int | None = None,
+    removed_role: str | None = None,
+) -> None:
+    """Publish ``member.removed`` for a group membership removal (#1051, #2168, #2175).
 
     Call post-commit (``transaction.on_commit``). The frame always goes to
     ``group_{group_id}``, the group the membership was in. It also goes to the
@@ -176,14 +179,23 @@ def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, 
     user's inherited row would otherwise stay on the subgroup page, and the
     removed group's own channel already sends them this frame (#1051).
 
-    Known gap (#2175): on a descendant that keeps listing the
-    user through a different, farther membership, the inherited row's role
-    and source change, but no frame is sent, so that page shows the old ones
-    until its next refetch.
+    A descendant that keeps listing the user only through an inherited row
+    from an ancestor *above* the removed group (#2175) gets ``member.updated``
+    instead, carrying that row as the members endpoint lists it (``id: null``,
+    ``is_inherited: true``, ``inherited_from`` the source group's name, its
+    role and ``joined_at``): the removed row was nearer, so it was the row's
+    source and role before, and now the farther one is. ``member.updated``
+    does not close any socket, and the group page already refetches its
+    members list on it. Its payload never carries the admin-only
+    ``has_all_content_access`` key, since the frame goes to every subscriber.
+    ``removed_role`` is the deleted row's stored role: one outside
+    ``GroupMembership.Role`` listed nothing (#1829), so it was nobody's source
+    and no ``member.updated`` is sent for it. ``None`` (unknown) sends it.
 
     Cost is constant in the size of the subtree: one query for the
     descendant groups with their ancestor chain, one for the user's
-    memberships. Best-effort like ``broadcast_group_event`` (#1462): a failed
+    memberships, and, only when a ``member.updated`` is due, one for the
+    user. Best-effort like ``broadcast_group_event`` (#1462): a failed
     lookup is logged and swallowed, since the transaction has already
     committed; the subgroup page converges on its next refetch.
     """
@@ -200,7 +212,9 @@ def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, 
         ))
         # A deleted user's memberships are gone with them, so every descendant
         # is announced.
-        rows = list(GroupMembership.objects.filter(user_id=user_id).values_list("group_id", "role"))
+        rows = list(
+            GroupMembership.objects.filter(user_id=user_id).values_list("group_id", "role", "joined_at")
+        )
     except Exception as exc:  # noqa: BLE001 — best-effort, see docstring
         logger.warning(
             "group member.removed subtree fan-out dropped: group_id=%s error=%s",
@@ -209,22 +223,69 @@ def broadcast_member_removed(group_id: int, user_id: int, descendant_ids=(), *, 
         )
         return
     # Direct rows are listed as stored; inherited ones only with a valid role.
-    direct_ids = {gid for gid, _ in rows}
-    inherited_ids = {gid for gid, role in rows if role in GroupMembership.Role.values}
+    direct_ids = {gid for gid, _, _ in rows}
+    inherited = {
+        gid: (role, joined_at) for gid, role, joined_at in rows if role in GroupMembership.Role.values
+    }
 
-    def still_listed(group):
+    def listing_source(group):
+        """How ``group``'s members panel lists the user now.
+
+        ``"direct"`` for a membership on the group itself, the nearest
+        ancestor holding a listed (valid-role) membership for an inherited
+        row, or ``None`` when the user is not listed. The second value says
+        whether the walk passed the removed group on the way up: an inherited
+        source above it replaced the removed row.
+        """
         if group.pk in direct_ids:
-            return True
+            return "direct", False
         node = group
+        passed_removed = False
         # Same cap as Group.ancestors(), walking only the select_related chain.
         for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
             if node.parent_id is None:
-                return False
+                return None, passed_removed
             node = node.parent
-            if node.pk in inherited_ids:
-                return True
-        return False
+            if node.pk in inherited:
+                return node, passed_removed
+            if node.pk == group_id:
+                passed_removed = True
+        return None, passed_removed
 
-    targets = sorted(g.pk for g in groups if not still_listed(g))
-    for gid in targets:
+    removed_targets = []
+    updated_targets = []
+    for g in groups:
+        source, passed_removed = listing_source(g)
+        if source is None:
+            removed_targets.append(g.pk)
+        elif source != "direct" and passed_removed:
+            updated_targets.append((g.pk, source))
+    for gid in sorted(removed_targets):
         broadcast_group_event(gid, EVT_MEMBER_REMOVED, payload, actor_id=actor_id)
+    if not updated_targets or (
+        removed_role is not None and removed_role not in GroupMembership.Role.values
+    ):
+        return
+    try:
+        from accounts.models import User
+        from accounts.serializers import BoardUserSerializer
+
+        user_data = BoardUserSerializer(User.objects.get(pk=user_id)).data
+    except Exception as exc:  # noqa: BLE001 — best-effort, see docstring
+        logger.warning(
+            "group member.updated subtree fan-out dropped: group_id=%s error=%s",
+            group_id,
+            type(exc).__name__,
+        )
+        return
+    for gid, source in sorted(updated_targets, key=lambda t: t[0]):
+        role, joined_at = inherited[source.pk]
+        row = {
+            "id": None,
+            "user": user_data,
+            "role": role,
+            "joined_at": joined_at,
+            "is_inherited": True,
+            "inherited_from": source.name,
+        }
+        broadcast_group_event(gid, EVT_MEMBER_UPDATED, row, actor_id=actor_id)

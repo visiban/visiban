@@ -17,15 +17,12 @@ Role boundary, identical to the card-level viewset and for the same reason:
 * create / update / delete / reorder — board admin, site admin, or owner. The
   schema is board configuration, the same boundary as columns and labels.
 
-**Broadcast convention:** this module uses ``record_board_event``, matching
-``views/swimlanes.py``, *not* the ``transaction.on_commit(broadcast_board_event)``
-idiom still used by ``views/custom_fields.py``. ``record_board_event`` is the
-documented replacement for that idiom and additionally persists a ``BoardEvent``
-row, which is what makes an event resumable through
-``GET /boards/<id>/events/?after=``. The card-level module predates the
-migration by three minutes (``d4acd5e4`` vs ``7e1a5e07``) and is the stale one;
-migrating it is tracked separately rather than smuggled in here, because it
-changes card-level WebSocket behavior.
+**Broadcast convention:** this module uses ``record_board_event``, as do
+``views/swimlanes.py`` and ``views/custom_fields.py`` (which has since moved
+off the older ``transaction.on_commit(broadcast_board_event)`` idiom).
+``record_board_event`` is the documented replacement for that idiom and
+additionally persists a ``BoardEvent`` row, which is what makes an event
+resumable through ``GET /boards/<id>/events/?after=``.
 """
 
 from django.db import transaction

@@ -990,11 +990,14 @@ class GroupViewSet(viewsets.ModelViewSet):
 
                 def _broadcast_group_member_removed(
                     gid=group_id, uid=removed_user_id, sub_ids=frozenset(subtree_ids),
+                    role=locked.role,
                 ):
                     from .broadcast import broadcast_member_removed
                     # member.* mirrors the board channel's member.added/updated/
                     # removed naming so one frontend socket layer handles both.
-                    broadcast_member_removed(gid, uid, sub_ids)
+                    # A subgroup that keeps the user through a farther ancestor
+                    # gets member.updated with its new inherited row (#2175).
+                    broadcast_member_removed(gid, uid, sub_ids, removed_role=role)
 
                 transaction.on_commit(_broadcast_group_member_removed)
 
@@ -1498,16 +1501,21 @@ class GroupViewSet(viewsets.ModelViewSet):
         # unhandled 500 instead of the documented 400 (#1120 baseline finding
         # — same class as CardViewSet.move's fix, found separately by
         # schemathesis's negative-data fuzzing on this endpoint).
-        if not isinstance(request.data, dict):
-            return Response(
-                {"detail": "Request body must be a JSON object."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        #
+        # Checked after the object lookup (404) and the owner check (403), not
+        # before them (#2225, security-invariants Rule 18): a caller who may not
+        # touch this group learns that before learning about their body.
         group = self.get_object()
 
         # Only current owner can transfer
         if not _is_owner_with_admin_membership(request.user, group):
             raise PermissionDenied("Only the group owner can transfer ownership.")
+
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         new_owner_id = request.data.get("new_owner_id")
         if new_owner_id is not None:
@@ -1966,9 +1974,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         # an object" check for a bare ``request.data`` mapping access the way a
         # serializer's ``is_valid()`` would.
         #
-        # Deliberately placed *after* the admin check, not before it as in
-        # ``transfer_ownership``: a caller who may not touch this group should
-        # learn that before learning anything about their body being well-formed.
+        # Deliberately placed *after* the admin check, as in
+        # ``transfer_ownership`` (#2225): a caller who may not touch this group
+        # should learn that before learning anything about their body.
         if not isinstance(request.data, dict):
             return Response(
                 {"detail": "Request body must be a JSON object."},

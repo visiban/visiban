@@ -298,12 +298,14 @@ describe("thresholdLevel / thresholdPhrase (#1122)", () => {
     }
   });
 
-  it("parses the non-canonical date forms the server accepts, and ignores garbage", () => {
-    expect(thresholdLevel(date(), "20260310", NOW, "UTC")).toBe("alert");
-    // ISO week 2026-W11-2 is Tuesday 2026-03-10.
-    expect(thresholdLevel(date(), "2026-W11-2", NOW, "UTC")).toBe("alert");
-    expect(thresholdLevel(date(), "2026W112", NOW, "UTC")).toBe("alert");
-    expect(thresholdLevel(date(), "2026-W99-1", NOW, "UTC")).toBe("none");
+  it("reads only the canonical YYYY-MM-DD form the server stores, and ignores garbage", () => {
+    // The server canonicalizes every date value to YYYY-MM-DD (#2218), so
+    // the compact and ISO-week spellings it used to keep are no longer read.
+    expect(thresholdLevel(date(), "2026-03-10", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(date(), " 2026-03-10 ", NOW, "UTC")).toBe("alert");
+    expect(thresholdLevel(date(), "20260310", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "2026-W11-2", NOW, "UTC")).toBe("none");
+    expect(thresholdLevel(date(), "2026-3-10", NOW, "UTC")).toBe("none");
     expect(thresholdLevel(date(), "2026-02-30", NOW, "UTC")).toBe("none");
     expect(thresholdLevel(date(), "next week", NOW, "UTC")).toBe("none");
     expect(thresholdLevel(date(), "2026-03-10", NOW, "Not/AZone")).toBe("alert");

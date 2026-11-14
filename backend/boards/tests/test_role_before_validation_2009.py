@@ -265,3 +265,87 @@ class RoleBeforeValidationCardCreateTests(TestCase):
             with CaptureQueriesContext(connection) as without_check:
                 member.post(self.url, body, format="json")
         self.assertEqual(len(with_check), len(without_check))
+
+
+class RoleBeforeValidationCardMoveTests(TestCase):
+    """POST on a card's move action checks the role before the body shape (#2225)."""
+
+    def setUp(self):
+        from boards.models import Card
+
+        self.owner = User.objects.create_user(username="rbv4_owner", password="pass")
+        self.board = Board.objects.create(name="RBV4", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        self.column = Column.objects.create(board=self.board, name="Todo", position=0)
+        self.done = Column.objects.create(board=self.board, name="Done", position=1)
+        self.lane = Swimlane.objects.create(board=self.board, name="S", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=self.column, swimlane=self.lane, title="Move me",
+            created_by=self.owner, position=0,
+        )
+        self.users = {}
+        for role in (
+            BoardMembership.Role.VIEWER,
+            BoardMembership.Role.COLLABORATOR,
+            BoardMembership.Role.MEMBER,
+        ):
+            user = User.objects.create_user(username=f"rbv4_{role}", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            self.users[role] = user
+        self.url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/"
+        self.bad = [1, 2]
+
+    def _client(self, user):
+        c = APIClient()
+        c.force_authenticate(user)
+        return c
+
+    def _valid(self, column):
+        return {"column_id": column.pk, "swimlane_id": self.lane.pk, "position": 0}
+
+    def test_below_member_non_object_body_is_403(self):
+        for role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            with self.subTest(role=role):
+                r = self._client(self.users[role]).post(self.url, self.bad, format="json")
+                self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.content)
+                self.assertNotIn("JSON object", r.content.decode())
+
+    def test_non_member_non_object_body_is_404(self):
+        outsider = self._client(User.objects.create_user(username="rbv4_out", password="pass"))
+        self.assertEqual(outsider.post(self.url, self.bad, format="json").status_code, 404)
+
+    def test_member_non_object_body_is_still_400(self):
+        r = self._client(self.users[BoardMembership.Role.MEMBER]).post(self.url, self.bad, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertEqual(r.json()["detail"], "Request body must be a JSON object.")
+
+    def test_member_valid_move_is_200_and_viewer_valid_is_403(self):
+        viewer = self._client(self.users[BoardMembership.Role.VIEWER])
+        self.assertEqual(viewer.post(self.url, self._valid(self.done), format="json").status_code, 403)
+        member = self._client(self.users[BoardMembership.Role.MEMBER])
+        r = member.post(self.url, self._valid(self.done), format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.done.pk)
+
+    def test_check_adds_no_query_to_valid_move(self):
+        """The early role check costs no query beyond the cached lookup (#2225).
+
+        As in the card-create test above, only ``require_mutation_role`` is
+        stubbed, so this guards the check itself, not the lookup cache.
+        """
+        from unittest import mock
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from boards.services import cards as card_services
+
+        member = self._client(self.users[BoardMembership.Role.MEMBER])
+        member.post(self.url, self._valid(self.done), format="json")  # warm caches
+        with CaptureQueriesContext(connection) as with_check:
+            member.post(self.url, self._valid(self.column), format="json")
+        with mock.patch.object(card_services, "require_mutation_role", return_value=None):
+            with CaptureQueriesContext(connection) as without_check:
+                member.post(self.url, self._valid(self.done), format="json")
+        self.assertEqual(len(with_check), len(without_check))

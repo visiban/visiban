@@ -1304,6 +1304,17 @@ class CardChecklistAdmin(_CardChildBroadcastAdminMixin, admin.ModelAdmin):
     """Admin for CardChecklist that broadcasts mutations (see CardAdmin for rationale)."""
 
 
+@admin.register(CardAttachment)
+class CardAttachmentAdmin(_CardChildBroadcastAdminMixin, admin.ModelAdmin):
+    """Admin for CardAttachment that broadcasts mutations (#1744).
+
+    The REST attachment endpoints re-broadcast the parent card's
+    ``card.updated`` (its ``attachment_count`` and open card panel change), so
+    an admin add, edit or delete does the same instead of leaving connected
+    clients on the old attachment list until reload.
+    """
+
+
 @admin.register(CardMovement)
 class CardMovementAdmin(admin.ModelAdmin):
     """The movement audit trail, view-only (#1469).
@@ -1342,10 +1353,7 @@ class CardMovementAdmin(admin.ModelAdmin):
 # deletion is not part of any documented workflow) — the #1241 audit flagged
 # it and CardMovement as the same gap in principle but lower priority than the
 # six models above; CardMovement is read-only above since #1469.
-# CardAttachment and Notification were not flagged by the audit. The three
-# remain plain registrations; broadcasting admin mutations to them can follow
-# the same _BoardEventAdminMixin/_CardChildBroadcastAdminMixin pattern if a
-# future audit asks for it.
+# Notification is per-user, not board-scoped, so it has no board frame to
+# send. CardAttachment has its own admin above since #1744.
 admin.site.register(CardActivity)
-admin.site.register(CardAttachment)
 admin.site.register(Notification)

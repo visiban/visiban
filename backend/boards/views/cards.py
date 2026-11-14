@@ -1207,12 +1207,19 @@ class CardViewSet(viewsets.ModelViewSet):
         # schemathesis's negative-data fuzzing sends exactly this). DRF has no
         # built-in "request body must be an object" check for a bare
         # `request.data.get()` call the way a serializer's `is_valid()` would.
+        #
+        # The board, role and mutation-role check run first (#2225), as in
+        # ``create`` (#2191) and ``update``: a viewer or non-member sending a
+        # non-object body got this 400 where a valid body gets 403 or 404. The
+        # board and role are cached per request and the check takes no lock, so
+        # it adds no query and issues nothing ahead of the service's locks.
+        board, role = self._board_and_role()
+        card_services.require_mutation_role(actor=request.user, board=board, role=role)
         if not isinstance(request.data, dict):
             return Response(
                 {"detail": "Request body must be a JSON object."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        board, role = self._board_and_role()
 
         def render(card, movement):
             # Re-fetch through _card_queryset so CardSerializer has every

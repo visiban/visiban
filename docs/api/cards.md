@@ -278,6 +278,13 @@ Update card fields. Requires member or above. Returns `404 Not Found` if the car
   the card — see [Multi-select fields](boards.md#multi-select-fields). A value may be at
   most 500 characters; a longer one (a long URL or a long multi-select included) is
   rejected, not truncated.
+- *(Since 1.3, #2218)* A `date` value is stored and read back as `YYYY-MM-DD`, whichever
+  other spelling of the same day the server also accepts (`20260105`, `2026-1-5`, or an ISO
+  week date such as `2026-W02-1` or `2026-W02`, which is that week's Monday). A `number` value
+  keeps the spelling you sent (`"1.50"`, `"1e3"`), except that digit-group underscores and
+  non-ASCII digits are rewritten (`"1_000"` is stored as `"1000"`). The value is still a
+  string. Values stored by earlier versions are rewritten the same way by the upgrade's
+  migration, so a value you read back may differ in spelling from the one you wrote.
 - A `field_definition` id that does not belong to this card's board is rejected with `400`,
   as is the same field appearing twice in one payload.
 - Setting a value is a card edit: it uses the same role allow-list and ownership gate as any other field, bumps `version`, and appears in the `card.updated` WebSocket payload.
@@ -489,6 +496,8 @@ Hard-deleting a card keeps its block history for the board's analytics; deleting
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/move/`
 Move a card to a new column/swimlane/position. Creates a `CardMovement` record if column or swimlane changes. Requires member or above. Returns `404 Not Found` if the card was deleted concurrently; the move is not saved (#1585). Since 1.2 it also returns `404` when the destination column or swimlane, or the board, was deleted while the request was in flight (#1602).
+
+Since 1.3 (#2225), the role is checked before the body's shape: a caller below member (a viewer or collaborator) gets `403` even when the body is not a JSON object, where they previously got `400` with `{"detail": "Request body must be a JSON object."}`. Members still get that `400`, and a caller with no access to the board gets `404`.
 
 > **Ownership gate:** Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to a different user and that the member did not create requires the `is_moderator` entitlement or Admin role. In that case, non-moderator members receive `403 Forbidden` with body `{"code": "permission_denied", "detail": "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."}`.
 

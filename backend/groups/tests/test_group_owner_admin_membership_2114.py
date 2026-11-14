@@ -109,3 +109,36 @@ class AncestorMembershipDoesNotQualifyTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.child.refresh_from_db()
         self.assertEqual(self.child.owner_id, self.owner.id)
+
+
+class TransferOwnershipRoleBeforeBodyShape2225Tests(TestCase):
+    """403/404 precede the 400 for a non-object body (#2225, Rule 18)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="own2225", password="pass")
+        self.admin = User.objects.create_user(username="adm2225", password="pass")
+        self.stranger = User.objects.create_user(username="str2225", password="pass")
+        self.group = Group.objects.create(name="G2225", owner=self.owner)
+        GroupMembership.objects.create(group=self.group, user=self.owner, role="admin")
+        GroupMembership.objects.create(group=self.group, user=self.admin, role="admin")
+        self.url = f"/api/v1/groups/{self.group.id}/transfer-ownership/"
+
+    def _post(self, user, body):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client.post(self.url, body, format="json")
+
+    def test_non_owner_member_with_non_object_body_gets_403(self):
+        self.assertEqual(self._post(self.admin, [1, 2]).status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_no_access_caller_with_non_object_body_gets_404(self):
+        self.assertEqual(self._post(self.stranger, [1, 2]).status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_owner_with_non_object_body_gets_400(self):
+        self.assertEqual(self._post(self.owner, [1, 2]).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_owner_valid_transfer_unchanged(self):
+        r = self._post(self.owner, {"new_owner_id": self.admin.id, "confirmation": "G2225"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.owner_id, self.admin.id)
