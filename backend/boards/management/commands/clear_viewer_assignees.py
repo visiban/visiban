@@ -150,7 +150,9 @@ class Command(BaseCommand):
         card or its checklist does (#1587), so the History rows name the
         assignee actually cleared and a concurrent reassignment is either
         seen here or lands after. The rows to clear are read again after the
-        lock, so an assignee changed in the meantime is not cleared.
+        lock, limited to the cards that were locked: an assignee changed in
+        the meantime is not cleared, and an assignment that landed on a card
+        that was not locked is left for the next run.
         ``version`` is not bumped, as before (see ``_move_relevant_state``).
         """
         with transaction.atomic():
@@ -164,8 +166,8 @@ class Command(BaseCommand):
                 .select_for_update()
                 .values_list("pk", flat=True)
             )
-            cards = list(cards_qs.order_by("pk"))
-            items = list(items_qs.order_by("card_id", "pk"))
+            cards = list(cards_qs.filter(pk__in=card_ids).order_by("pk"))
+            items = list(items_qs.filter(card_id__in=card_ids).order_by("card_id", "pk"))
             self._report(board, cards, items)
             CardActivity.objects.bulk_create(
                 [

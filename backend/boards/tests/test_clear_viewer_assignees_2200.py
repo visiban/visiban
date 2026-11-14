@@ -131,3 +131,33 @@ class ClearViewerChecklistAssigneesTests(TestCase):
         self._call()
         item.refresh_from_db()
         self.assertEqual(item.assignee_id, former.id)
+
+    def test_assignment_landing_between_first_read_and_lock_is_not_cleared(self):
+        """The re-read after the lock is limited to the locked cards (#2200).
+
+        An item assigned to a viewer after the first read has its card unlocked,
+        so clearing it (and writing History from an unlocked read) would break
+        the lock's guarantee. It is left for the next run instead.
+        """
+        from django.db.models.query import QuerySet
+
+        late_card = self._card("Late", assignee=self.member, position=1)
+        late_item = CardChecklist.objects.create(card=late_card, text="late", position=0)
+        original = QuerySet.select_for_update
+        injected = []
+
+        def inject_then_lock(qs, *a, **kw):
+            if not injected:
+                injected.append(True)
+                CardChecklist.objects.filter(pk=late_item.pk).update(assignee=self.viewer)
+            return original(qs, *a, **kw)
+
+        with patch.object(QuerySet, "select_for_update", inject_then_lock):
+            output, _ = self._call()
+        self.assertTrue(injected)
+        late_item.refresh_from_db()
+        self.stale_item.refresh_from_db()
+        self.assertEqual(late_item.assignee_id, self.viewer.id)
+        self.assertIsNone(self.stale_item.assignee_id)
+        self.assertIn("and 1 checklist item(s).", output)
+        self.assertFalse(CardActivity.objects.filter(card=late_card).exists())
