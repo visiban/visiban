@@ -883,7 +883,8 @@ naming the column fails with a `NOT NULL` violation until it drains. `accounts/0
 only, no table rewrite). What this means for you:
 
 - **Upgrading from 1.1.x straight to GA:** nothing to do. Every migration runs in order, and the database ends with the default in place.
-- **Upgrading from `1.2.0-beta.1` or `beta.2`:** apply the whole GA migration set as usual. `0038` and `0072` run with it and close the gap. Between the beta schema and that point, an old pod inserting a `users` or `boards` row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the [maintenance window](maintenance-mode.md).
+- **Upgrading from `1.2.0-beta.1` or any 1.2 alpha:** these tags have none of the database defaults restored (`0038` and `0072` first ship in `1.2.0-beta.2`). Apply the whole GA migration set as usual; `0038` and `0072` run with it and close the gap. Between the earlier schema and that point, an old pod inserting a `users` or `boards` row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the [maintenance window](maintenance-mode.md).
+- **Upgrading from `1.2.0-beta.2` or later (including `beta.3` and `rc.1`):** `accounts/0038` and `boards/0072` are already applied. Nothing to do.
 - **Nothing needs a manual fix** and no data changes.
 
 !!! note "Notification side effect of `accounts/0030`"

@@ -47,15 +47,38 @@ class Command(BaseCommand):
             User.objects.filter(can_access_all_content=True).values_list("id", flat=True)
         )
 
-        # .iterator() streams boards instead of materializing every board (and,
-        # formerly, every membership and user) on the instance (#1960). Only the
-        # columns this command reads are loaded; _get_effective_member_ids needs
-        # owner_id and group_id.
-        boards = Board.objects.only(
+        # Boards are read in pk-ordered keyset chunks, not materialized all at
+        # once (#1960) and not via .iterator(): that opens a PostgreSQL
+        # server-side cursor, which breaks under pgBouncer transaction pooling
+        # (docs/architecture/scaling.md). Only the columns this command reads are
+        # loaded; _get_effective_member_ids needs owner_id and group_id.
+        board_qs = Board.objects.only(
             "id", "name", "owner_id", "group_id", "staleness_threshold_days"
-        ).iterator(chunk_size=BOARD_CHUNK_SIZE)
+        ).order_by("pk")
 
-        for board in boards:
+        def iter_boards():
+            last_pk = 0
+            while True:
+                chunk = list(board_qs.filter(pk__gt=last_pk)[:BOARD_CHUNK_SIZE])
+                yield from chunk
+                if len(chunk) < BOARD_CHUNK_SIZE:
+                    return
+                last_pk = chunk[-1].pk
+
+        # Notifications are buffered across boards and flushed in one
+        # create_notifications call per NOTIFICATION_CHUNK_SIZE rows. Each call
+        # starts its own email-delivery thread, SMTP session and DB connection,
+        # so flushing per board would be unbounded and concurrent. Count rows the
+        # funnel wrote, not rows offered to it.
+        buffer = []
+
+        def flush():
+            nonlocal created_count
+            if buffer:
+                created_count += len(create_notifications(list(buffer)))
+                buffer.clear()
+
+        for board in iter_boards():
             cutoff = now - datetime.timedelta(days=board.staleness_threshold_days)
 
             # Finished work is never stale (#1845): the board UI shows no aging
@@ -117,8 +140,6 @@ class Command(BaseCommand):
                 ).values_list("card_id", "recipient_id")
             )
 
-            notifications_to_create = []
-
             for card in stale_cards:
                 # A never-moved card falls back to its creation time, matching
                 # the SQL stale predicate.
@@ -142,7 +163,7 @@ class Command(BaseCommand):
                     if (card.pk, user_id) in already_notified:
                         skipped_count += 1
                         continue
-                    notifications_to_create.append(
+                    buffer.append(
                         Notification(
                             recipient_id=user_id,
                             action_type=Notification.ActionType.STALE,
@@ -151,14 +172,10 @@ class Command(BaseCommand):
                             board=board,
                         )
                     )
+                    if len(buffer) >= NOTIFICATION_CHUNK_SIZE:
+                        flush()
 
-            # Dispatched per board in bounded chunks so memory stays flat as the
-            # instance grows, instead of one list and one bulk_create for every
-            # notification on every board (#1960). Count rows the funnel wrote,
-            # not rows offered to it.
-            for start in range(0, len(notifications_to_create), NOTIFICATION_CHUNK_SIZE):
-                chunk = notifications_to_create[start:start + NOTIFICATION_CHUNK_SIZE]
-                created_count += len(create_notifications(chunk))
+        flush()
 
         self.stdout.write(
             self.style.SUCCESS(

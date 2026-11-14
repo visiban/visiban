@@ -743,14 +743,16 @@ installs have already run them; these are documented instead.
   future FK on a large table, use the [`NOT VALID` then `VALIDATE`
   recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
   `NULL`. No checker enforces this today: `check_migration_concurrency` does not inspect
-  foreign-key validation (see above), so it is a review rule, not a CI gate.
+  foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
+  considered (#1894) and declined for now: a lint cannot tell a large table from a small
+  one, so it would either flag every FK on a small table or miss the ones that matter.
 - **NOT NULL columns first shipped with a Python-only `default=`.** `accounts/0027`,
   `accounts/0030`, `accounts/0034` and `boards/0052` added `NOT NULL` columns with
   `default=` but no `db_default=`, which is the rolling-deploy hazard described under
   [A NOT NULL column with a default](#a-not-null-column-with-a-default). Later additive
   migrations restored the database default (`accounts/0038` and `boards/0072`), so a 1.2 GA
-  install has it. Only an install that ran a 1.2 beta and has not yet applied those two
-  migrations lacked it, which matters only if an old-release pod inserts rows during the
+  install has it. Both migrations first shipped in `1.2.0-beta.2`, so only an install that
+  ran `1.2.0-beta.1` or a 1.2 alpha and has not yet applied them lacks the default, which matters only if an old-release pod inserts rows during the
   rollout. See the [upgrade guide](../administration/upgrade.md#12-migrations-and-database-defaults).
 - **`RunPython` UPDATE shares a transaction with `ADD COLUMN`.** `accounts/0030` updates
   `users` in the same transaction as its column additions, so the UPDATE runs while

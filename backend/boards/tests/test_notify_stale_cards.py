@@ -519,17 +519,23 @@ class NotifyStaleCardsScalingTest(TestCase):
 
     def test_movement_history_does_not_add_queries_or_change_result(self):
         _, light = self._board_with_card("light", 0)
-        light_queries = self._count_queries()
+        one_board = self._count_queries()
         Notification.objects.all().delete()
 
-        # A second stale board whose card has 40 extra movements must cost
-        # exactly what the first did: history depth adds no queries.
-        _, deep = self._board_with_card("deep", 40)
-        Notification.objects.all().delete()
+        # Adding a second stale board costs a fixed per-board amount (the flush
+        # is shared across boards, so it is not repeated).
+        _, light2 = self._board_with_card("light2", 0)
         two_boards = self._count_queries()
-        self.assertEqual(two_boards - light_queries, light_queries - 2)
+        Notification.objects.all().delete()
+
+        # A third whose card has 40 extra movements must cost exactly the same
+        # as the second: history depth adds no queries.
+        _, deep = self._board_with_card("deep", 40)
+        three_boards = self._count_queries()
+        self.assertEqual(three_boards - two_boards, two_boards - one_board)
         self.assertEqual(Notification.objects.filter(card=deep).count(), 1)
         self.assertEqual(Notification.objects.filter(card=light).count(), 1)
+        self.assertEqual(Notification.objects.filter(card=light2).count(), 1)
 
     def test_board_with_no_stale_cards_costs_one_board_query(self):
         board, card = self._board_with_card("fresh", 3, days_ago=1)
@@ -551,6 +557,39 @@ class NotifyStaleCardsScalingTest(TestCase):
             )
             _make_stale_movement(c, board.owner, col, swim, days_ago=30)
 
-        with mock.patch.object(cmd, "NOTIFICATION_CHUNK_SIZE", 2):
+        real = cmd.create_notifications
+        with mock.patch.object(cmd, "NOTIFICATION_CHUNK_SIZE", 2), \
+                mock.patch.object(cmd, "create_notifications", side_effect=real) as funnel:
             call_command("notify_stale_cards", verbosity=0)
         self.assertEqual(Notification.objects.filter(board=board).count(), 5)
+        # 5 rows at 2 per flush: 2 + 2 + 1.
+        self.assertEqual([len(c.args[0]) for c in funnel.call_args_list], [2, 2, 1])
+
+    def test_many_small_boards_dispatch_once(self):
+        """Per-board dispatch would start one email thread/SMTP/DB connection per board."""
+        from unittest import mock
+        from boards.management.commands import notify_stale_cards as cmd
+
+        for i in range(6):
+            self._board_with_card(f"small{i}", 0)
+
+        real = cmd.create_notifications
+        with mock.patch.object(cmd, "create_notifications", side_effect=real) as funnel:
+            call_command("notify_stale_cards", verbosity=0)
+        self.assertEqual(Notification.objects.filter(action_type=Notification.ActionType.STALE).count(), 6)
+        self.assertEqual(funnel.call_count, 1)
+
+    def test_boards_read_in_multiple_keyset_chunks(self):
+        from unittest import mock
+        from boards.management.commands import notify_stale_cards as cmd
+
+        for i in range(5):
+            self._board_with_card(f"keyset{i}", 0)
+
+        with mock.patch.object(cmd, "BOARD_CHUNK_SIZE", 2):
+            call_command("notify_stale_cards", verbosity=0)
+        # Every board is visited exactly once across the 3 chunks (2 + 2 + 1).
+        self.assertEqual(Notification.objects.filter(action_type=Notification.ActionType.STALE).count(), 5)
+        self.assertEqual(
+            len(set(Notification.objects.values_list("board_id", flat=True))), 5
+        )
