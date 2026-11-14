@@ -173,4 +173,27 @@ test.describe('lane filters', () => {
       await expect(dialog.getByRole('button', { name: 'Done' })).toBeInViewport({ ratio: 1 })
     })
   }
+
+  // #2231 — the inner menus are in-flow, so on a short rule list an opened menu
+  // used to be clipped by the list's overflow-y-auto and could not be chosen.
+  test('an opened field menu is fully visible and selectable on a short list', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, BOARD as unknown as typeof BOARD_FULL)
+    const rules = [{ f: AE_FIELD.id, o: 'is', v: 'Priya' }]
+    await page.goto(`/boards/${BOARD.id}?${new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` }).toString()}`)
+    await page.getByRole('button', { name: /^filters/i }).click()
+    await page.getByRole('button', { name: 'Lanes, 1 active' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Lane filters' })
+    await dialog.getByRole('button', { name: '+ Add filter' }).click()
+    await dialog.getByRole('button', { name: /^Filter 2 field/ }).click()
+    const items = dialog.getByRole('menuitem')
+    const last = items.last()
+    await expect(last).toBeVisible()
+    const list = (await dialog.locator('.overflow-y-auto').first().boundingBox())!
+    const item = (await last.boundingBox())!
+    expect(item.y).toBeGreaterThanOrEqual(list.y)
+    expect(item.y + item.height).toBeLessThanOrEqual(list.y + list.height + 1)
+    await last.click()
+    await expect(dialog.getByRole('button', { name: /^Filter 2 field/ })).toContainText(AE_FIELD.name)
+  })
 })

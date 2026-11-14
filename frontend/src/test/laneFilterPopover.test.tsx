@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
-import { render, screen, within, act, waitFor } from '@testing-library/react'
+import { render, screen, within, act, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER, countActiveFilters, type FilterState } from '../components/Board/FilterBar'
 import type { BoardFull, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
@@ -278,6 +278,60 @@ describe('LaneFilterPopover', () => {
     await user.keyboard('{Escape}')
     expect(within(dialog).queryByRole('menuitem', { name: 'AE' })).not.toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Lane filters' })).toBeInTheDocument()
+  })
+
+  // #2231 — inner menus are in-flow, so an open one needs room in the scrolling list.
+  describe('reserves room for an open inner menu (#2231)', () => {
+    const listOf = (dialog: HTMLElement) => dialog.querySelector('.overflow-y-auto') as HTMLElement
+
+    it('field menu on a short list: reserved min-height while open, dropped on close', async () => {
+      const user = userEvent.setup()
+      render(<Harness initial={{ items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, null, 'is')] }} />)
+      const dialog = await openPopover(user)
+      expect(listOf(dialog).style.minHeight).toBe('')
+      await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
+      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      await user.keyboard('{Escape}')
+      expect(listOf(dialog).style.minHeight).toBe('')
+    })
+
+    it('covers the operator and value menus, and rows inside a group', async () => {
+      const user = userEvent.setup()
+      const lf: LaneFilter = { items: [{ kind: 'group' as const, id: 9, join: 'and' as const, rules: [rule(1, 1, 'is', { value: 'Priya' })] }] }
+      render(<Harness initial={lf} />)
+      const dialog = await openPopover(user)
+      for (const name of [/^Filter 1 operator/, /^Filter 1 value/, /^Filter 1 field/]) {
+        await user.click(within(dialog).getByRole('button', { name }))
+        expect(listOf(dialog).style.minHeight).toContain('16rem')
+        await user.keyboard('{Escape}')
+        expect(listOf(dialog).style.minHeight).toBe('')
+      }
+    })
+
+    it('stays reserved until the last of two open menus closes', async () => {
+      const user = userEvent.setup()
+      render(<Harness initial={{ items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, null, 'is')] }} />)
+      const dialog = await openPopover(user)
+      await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
+      // fireEvent skips the mousedown a real click sends, so the first menu stays open.
+      fireEvent.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      await user.keyboard('{Escape}')
+      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      await user.keyboard('{Escape}')
+      expect(listOf(dialog).style.minHeight).toBe('')
+    })
+
+    it('does not stay reserved when the row of an open menu is removed', async () => {
+      const user = userEvent.setup()
+      render(<Harness initial={{ items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, null, 'is')] }} />)
+      const dialog = await openPopover(user)
+      await user.click(within(dialog).getByRole('button', { name: /^Filter 2 field/ }))
+      expect(listOf(dialog).style.minHeight).toContain('16rem')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remove filter 2: incomplete' }))
+      await waitFor(() => expect(within(dialog).queryByRole('button', { name: /^Filter 2 field/ })).not.toBeInTheDocument())
+      expect(listOf(dialog).style.minHeight).toBe('')
+    })
   })
 
   it('stops single-key board shortcuts from firing inside the dialog', async () => {
