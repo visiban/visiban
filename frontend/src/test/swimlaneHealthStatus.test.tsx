@@ -220,6 +220,12 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     expect(screen.queryByTestId('edit-swimlane-modal')).toBeNull()
   })
 
+  it('double-clicking the collapsed pill never opens the edit modal', () => {
+    render(<SwimlaneRow {...defaultProps()} collapsed swimlane={lane('at_risk')} />)
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'Health status for lane Customer A: At risk' }))
+    expect(screen.queryByTestId('edit-swimlane-modal')).toBeNull()
+  })
+
   it('a remote swimlane.updated merge changes the pill without an announcement', () => {
     const merged = mergeSwimlaneFromBroadcast([lane(null)], lane('off_track'), [])
     expect(merged.health_status).toBe('off_track')
@@ -244,6 +250,27 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     expect(screen.getByRole('button', { name: 'Customer A' })).toHaveFocus()
     // Expanding later must not steal focus to the icon.
     rerender(<SwimlaneRow {...props} swimlane={cleared} collapsed={false} />)
+    expect(screen.getByRole('button', { name: 'Set health status for lane Customer A' })).not.toHaveFocus()
+  })
+
+  it('changing one set status to another keeps focus on the pill and leaves no pending focus request', async () => {
+    const user = userEvent.setup()
+    const next = lane('off_track')
+    patchMock.mockResolvedValue(next)
+    const props = { ...defaultProps(), swimlane: lane('at_risk') }
+    const { rerender } = render(<SwimlaneRow {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Health status for lane Customer A: At risk' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('radio', { name: /Off track/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(props.onSwimlaneUpdated).toHaveBeenCalledWith(next))
+    rerender(<SwimlaneRow {...props} swimlane={next} />)
+    const pill = screen.getByRole('button', { name: 'Health status for lane Customer A: Off track' })
+    await waitFor(() => expect(pill).toHaveFocus())
+    // No trigger swap: the icon never appears for a set lane.
+    expect(screen.queryByRole('button', { name: 'Set health status for lane Customer A' })).toBeNull()
+    // A stray request would steal focus to the icon once the lane is cleared remotely.
+    rerender(<SwimlaneRow {...props} swimlane={lane(null)} />)
     expect(screen.getByRole('button', { name: 'Set health status for lane Customer A' })).not.toHaveFocus()
   })
 
