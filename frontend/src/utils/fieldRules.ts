@@ -121,8 +121,8 @@ export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undef
     if (rule.op === "not_contains") return v === null || !v.includes(want);
     if (v === null) return false;
     // `contains` stays a literal substring (`*` / `?` are plain characters), so
-    // no saved or shared filter changes meaning; `wildcard` (#2227) matches the
-    // whole value. A lane with no value (handled above) passes not_contains.
+    // no saved or shared filter changes meaning; `wildcard` (#2227) matches any
+    // part of the value. A lane with no value (handled above) passes not_contains.
     if (rule.op === "wildcard") return wildcardMatch(want, v);
     return rule.op === "contains" ? v.includes(want) : v === want;
   }
