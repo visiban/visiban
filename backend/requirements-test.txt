@@ -1,8 +1,10 @@
-coverage
-factory-boy>=3.3.0
-pytest
-pytest-django
-pytest-split
+# Exact pins (#1898): unpinned test deps let a new upstream release change CI
+# behavior with no diff. Bump deliberately; schemathesis below needs pytest>=9,<10.
+coverage==7.13.4
+factory-boy==3.3.3
+pytest==9.0.2
+pytest-django==4.12.0
+pytest-split==0.11.0
 # Drives the backend-schema-fuzz CI job (#1080): generates requests from the
 # live OpenAPI schema and asserts real responses conform to it. MIT license,
 # no known CVEs as of 2026-09-15 (checked via `pip-audit` / OSV before adding —

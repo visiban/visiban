@@ -1,5 +1,4 @@
 Django>=5.2.15,<6
-zipp==3.19.1
 daphne==4.2.2
 # Floor ujson to clear GHSA-c38f-wx89-p2xg / GHSA-c8rr-9gxc-jprv / GHSA-wgvc-ghv9-3pmm /
 # GHSA-3j69-69wj-xqx2. Pulled transitively via daphne -> autobahn, which requires only
