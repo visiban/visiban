@@ -176,6 +176,7 @@ The following list endpoints use the standard envelope and accept `offset` and `
 - `GET /boards/`, `GET /groups/`
 - `GET /boards/{id}/columns/`, `swimlanes/`, `labels/`, `custom-fields/`, `swimlane-custom-fields/`, and `export-history/`
 - `GET /groups/{id}/descendant-boards/paged/` (see [Groups API](groups.md#get-apiv1groupsiddescendant-boardspaged))
+- `GET /groups/{id}/members/paged/`, `subgroups/paged/` and `boards/paged/` *(1.3+)* (see [Groups API](groups.md))
 - `GET /admin/users/`, `GET /admin/action-log/`, and `GET /admin/board-invite-links/` (see the [Admin API](admin.md))
 
 Some list endpoints deliberately **do not** use it. Check the endpoint's own page before parsing the response:
@@ -188,7 +189,11 @@ Some list endpoints deliberately **do not** use it. Check the endpoint's own pag
 | `GET /boards/{id}/cards/{card_id}/timeline/` | `limit` (default 50, max 200) and `offset`, with `next` / `previous` links. See [Cards API](cards.md) |
 | `GET /boards/{id}/events/` | `{results, next_cursor}` cursor feed; `next_cursor` is an integer event id (pass it as `after`), and the deprecated `next` is also returned with the same value. See [Change Feed](events.md) |
 | `GET /groups/{id}/descendant-boards/` | Bare JSON array, not paginated and **not bounded**: it returns every board in the group's subtree that the caller can access, which for a top-level group can be the whole organization. Use `GET /groups/{id}/descendant-boards/paged/` for bounded pages |
-| Small, bounded lists (group members, subgroups, boards, labels, and invite links of a group; board invite links and saved filters; `GET /admin/invite-links/`; `GET /users/` (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's comments, attachments, checklist, and relations) | Bare JSON array, not paginated |
+| `GET /groups/{id}/members/`, `GET /groups/{id}/subgroups/`, `GET /groups/{id}/boards/` | Bare JSON array, not paginated and **not bounded**: `members` includes every inherited ancestor member, so a subgroup under a large root returns the root's whole membership, and `boards` can be every board in a flat organization. Use the `/paged/` sibling of each (since 1.3: `members/paged/`, `subgroups/paged/`, `boards/paged/`) for `{count, offset, page_size, results}` pages. See [Groups API](groups.md) |
+| `GET /boards/{id}/cards/{card_id}/activities/`, `comments/`, `attachments/` | Bare JSON array of every row by default. Since 1.3, optional `limit` (max 200) and `offset`, and `X-Total-Count` / `X-Truncated` headers on every response. See [Cards API](cards.md#paging-a-cards-history-lists) |
+| `GET /boards/{id}/invite-links/`, `GET /admin/invite-links/` | Bare JSON array: every pending invite plus at most the 50 most recent past ones. Since 1.3, `X-Total-Count` counts every invite and `X-Truncated` is `true` when older past ones were left out |
+| Group invite links and group labels | Bare JSON array, not paginated and not capped. Invite links hold at most 5 active shareable links and 50 pending emailed invites per group, but also every consumed single-use link, so the list grows with use; labels grow only as admins add them |
+| Small, bounded lists (board saved filters; `GET /users/` (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's checklist and relations) | Bare JSON array, not paginated |
 
 ### Maintenance mode (503)
 

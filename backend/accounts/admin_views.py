@@ -14,7 +14,9 @@ from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
-from visiban.pagination import OffsetCountPagination
+from visiban.pagination import (
+    OffsetCountPagination, capped_history, count_header_parameters, set_count_headers,
+)
 from visiban.query_fallbacks import note_fallback
 from visiban.request_shape import query_text
 from rest_framework.response import Response
@@ -1485,7 +1487,14 @@ class AdminInviteLinkListCreateView(APIView):
     """
     permission_classes = _ADMIN_PERMISSIONS
 
-    @extend_schema(responses=InviteLinkSerializer(many=True))
+    @extend_schema(
+        responses=InviteLinkSerializer(many=True),
+        parameters=count_header_parameters(
+            "Since 1.3. Number of site invite links: every pending one plus every past one.",
+            f"Since 1.3. `true` when more than {SITE_INVITE_LIST_MAX_PAST} past links exist "
+            "and the oldest were left out, otherwise `false`.",
+        ),
+    )
     def get(self, request):
         # Every pending link (bounded by the active-link caps) plus only the
         # most recent past ones (#1966): revoked, used and expired rows are
@@ -1500,9 +1509,16 @@ class AdminInviteLinkListCreateView(APIView):
             Q(expires_at__isnull=True) | Q(expires_at__gte=now)
         )
         pending = list(base.filter(pending_q).order_by("-created_at", "-pk"))
-        past = list(base.exclude(pending_q).order_by("-created_at", "-pk")[:SITE_INVITE_LIST_MAX_PAST])
+        # The cap used to be silent (#1885): the headers now say how many
+        # links exist and whether older past ones were left out.
+        past, past_total = capped_history(
+            base.exclude(pending_q).order_by("-created_at", "-pk"), SITE_INVITE_LIST_MAX_PAST,
+        )
         links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
-        return Response(InviteLinkSerializer(links, many=True, context={"creator_memo": {}}).data)
+        return set_count_headers(
+            Response(InviteLinkSerializer(links, many=True, context={"creator_memo": {}}).data),
+            total=len(pending) + past_total, returned=len(links),
+        )
 
     @extend_schema(request=InviteLinkCreateSerializer, responses={201: InviteLinkCreateResponseSerializer})
     @transaction.atomic

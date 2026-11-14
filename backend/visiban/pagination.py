@@ -182,3 +182,47 @@ class CardQueryCursorPagination(CursorPagination):
                 },
             },
         }
+
+
+# Count/truncation headers for capped bare-array lists (#1885). The body of
+# such a list is a 1.0 bare array, so the signal travels in headers, the same
+# names the board card list uses (#1724, boards/views/cards.py).
+TOTAL_COUNT_HEADER = "X-Total-Count"
+TRUNCATED_HEADER = "X-Truncated"
+
+
+def capped_history(queryset, cap):
+    """Return ``(rows, total)``: at most *cap* rows of an ordered *queryset*.
+
+    One row past the cap is fetched to tell a capped history from a complete
+    one, so an uncapped list costs no COUNT; only an over-cap list runs a bare
+    ``COUNT(*)`` for the total (never reported below the rows seen).
+    """
+    rows = list(queryset[:cap + 1])
+    if len(rows) <= cap:
+        return rows, len(rows)
+    return rows[:cap], max(queryset.order_by().count(), cap + 1)
+
+
+def set_count_headers(response, *, total, returned):
+    """Set ``X-Total-Count`` / ``X-Truncated`` for a list that returned *returned* of *total* rows."""
+    response[TOTAL_COUNT_HEADER] = str(total)
+    response[TRUNCATED_HEADER] = "true" if returned < total else "false"
+    return response
+
+
+def count_header_parameters(total_description, truncated_description):
+    """OpenAPI response-header parameters for ``set_count_headers`` (#1885)."""
+    from drf_spectacular.types import OpenApiTypes
+    from drf_spectacular.utils import OpenApiParameter
+
+    return [
+        OpenApiParameter(
+            name=TOTAL_COUNT_HEADER, type=OpenApiTypes.INT, location=OpenApiParameter.HEADER,
+            response=[200], description=total_description,
+        ),
+        OpenApiParameter(
+            name=TRUNCATED_HEADER, type=OpenApiTypes.STR, enum=["true", "false"],
+            location=OpenApiParameter.HEADER, response=[200], description=truncated_description,
+        ),
+    ]

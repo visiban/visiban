@@ -601,7 +601,9 @@ List the instance's invite links, newest first: every pending link, plus the 50
 most recent revoked, used or expired ones. *(1.3+, #1966)* Before 1.3 every
 link ever created was returned. Older past links are not deleted; they are only
 left out of this list. The response is still a bare array, not a paginated
-object.
+object. *(1.3+, #1885)* The `X-Total-Count` response header gives the number of
+links including the ones left out, and `X-Truncated` is `true` when older past
+links were left out (`false` otherwise).
 
 **Permission:** `IsSiteAdmin`.
 

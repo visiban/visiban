@@ -807,6 +807,35 @@ class BoardInviteListScalingTests(_BoardFixture, TestCase):
         self.assertEqual(set(ids) & set(past_ids), set(past_ids[-BOARD_INVITE_LIST_MAX_PAST:]))
         created = [row["created_at"] for row in rows]
         self.assertEqual(created, sorted(created, reverse=True))
+        # The cap is no longer silent (#1885): headers carry the full total.
+        cache.clear()
+        r = self.client.get(list_url(self.board))
+        self.assertEqual(r["X-Total-Count"], str(2 + BOARD_INVITE_LIST_MAX_PAST + 5))
+        self.assertEqual(r["X-Truncated"], "true")
+
+    def test_count_headers_under_cap_cost_no_count_query(self):
+        # #1885: under the cap the total comes from the rows read, so the
+        # headers add no query; over it, exactly one bare COUNT is added.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from boards.views.invites import BOARD_INVITE_LIST_MAX_PAST
+
+        def counts():
+            cache.clear()
+            with CaptureQueriesContext(connection) as ctx:
+                r = self.client.get(list_url(self.board))
+            sql = [q["sql"].upper() for q in ctx.captured_queries]
+            return r, sum(s.startswith("SELECT COUNT(") for s in sql)
+
+        self.make_invite()
+        r, n = counts()
+        self.assertEqual((r["X-Total-Count"], r["X-Truncated"], n), ("1", "false", 0))
+        for _ in range(BOARD_INVITE_LIST_MAX_PAST + 1):
+            link, _ = self.make_invite()
+            BoardInviteLink.objects.filter(pk=link.pk).update(revoked_at=timezone.now())
+        r, n = counts()
+        self.assertEqual((r["X-Total-Count"], r["X-Truncated"], n), (str(BOARD_INVITE_LIST_MAX_PAST + 2), "true", 1))
 
 
 # ---------------------------------------------------------------------------

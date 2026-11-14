@@ -3,7 +3,7 @@ import logging
 import datetime
 
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Case, Exists, IntegerField, OuterRef, Q, Subquery, Value, When
 
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
@@ -430,6 +430,40 @@ _GROUPS_STARRED_PARAMETER = OpenApiParameter(
 
 
 # list is the inherited ModelViewSet action, so its schema is set here.
+
+def _group_member_row(m, *, inherited_from, include_all_content):
+    """One row of ``GroupViewSet.members`` / ``members_paged`` (#1780).
+
+    Shared so the bare list and its paged sibling can never disagree on a
+    row's shape. ``inherited_from`` is None for a direct membership.
+
+    Effective-access signal for the Members panel (#2075): all-content access
+    resolves to full access ahead of any membership, so a stored role on such
+    a row is not in effect and must not be offered as an editable picker.
+    Sent only to group admins (``include_all_content``), so an ordinary
+    member cannot learn who holds instance-wide access. ``is_site_admin`` is
+    on direct rows only: they carry the role and Remove controls, which
+    update_member refuses on a site admin's row unless the caller is a site
+    admin (#2164).
+    """
+    from accounts.serializers import BoardUserSerializer
+
+    direct = inherited_from is None
+    row = {
+        "id": m.id if direct else None,
+        "user": BoardUserSerializer(m.user).data,
+        "role": m.role,
+        "joined_at": m.joined_at,
+        "is_inherited": not direct,
+        "inherited_from": inherited_from,
+    }
+    if include_all_content:
+        row["has_all_content_access"] = bool(m.user.can_access_all_content)
+        if direct:
+            row["is_site_admin"] = bool(m.user.is_site_admin)
+    return row
+
+
 @extend_schema_view(list=extend_schema(parameters=[_GROUPS_STARRED_PARAMETER]))
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
@@ -832,7 +866,6 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
         _require_group_member(request.user, group)
 
-        from accounts.serializers import BoardUserSerializer
         from .models import user_is_group_admin
 
         # Effective-access signal for the Members panel (#2075). All-content
@@ -849,23 +882,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         seen_user_ids = {m.user_id for m in direct}
 
         result = [
-            {
-                "id": m.id,
-                "user": BoardUserSerializer(m.user).data,
-                "role": m.role,
-                "joined_at": m.joined_at,
-                "is_inherited": False,
-                "inherited_from": None,
-            }
+            _group_member_row(m, inherited_from=None, include_all_content=include_all_content)
             for m in direct
         ]
-        if include_all_content:
-            for row, m in zip(result, direct):
-                row["has_all_content_access"] = bool(m.user.can_access_all_content)
-                # Direct rows only: they are the ones with role and Remove
-                # controls, which update_member refuses on a site admin's row
-                # unless the caller is a site admin (#2164).
-                row["is_site_admin"] = bool(m.user.is_site_admin)
 
         # Inherited memberships from ancestor groups (nearest ancestor wins,
         # ancestors() returns nearest-first).
@@ -891,22 +910,89 @@ class GroupViewSet(viewsets.ModelViewSet):
             sorted_memberships = sorted(inherited_memberships, key=lambda m: ancestor_rank.get(m.group_id, 999))
             for m in sorted_memberships:
                 if m.user_id not in seen_user_ids:
-                    ancestor = ancestor_map[m.group_id]
-                    result.append({
-                        "id": None,
-                        "user": BoardUserSerializer(m.user).data,
-                        "role": m.role,
-                        "joined_at": m.joined_at,
-                        "is_inherited": True,
-                        "inherited_from": ancestor.name,
-                        **(
-                            {"has_all_content_access": bool(m.user.can_access_all_content)}
-                            if include_all_content else {}
-                        ),
-                    })
+                    result.append(_group_member_row(
+                        m, inherited_from=ancestor_map[m.group_id].name,
+                        include_all_content=include_all_content,
+                    ))
                     seen_user_ids.add(m.user_id)
 
         return Response(result)
+
+    # Paged sibling of ``members`` (#1780), the same shape of fix #1317 made
+    # for descendant-boards: a subgroup under a company-level root otherwise
+    # returns the root's whole membership in one array. A separate operation,
+    # not a ``?page_size`` switch, so the bare route's published type stays an
+    # array (see descendant_boards_paged).
+    @extend_schema(
+        summary="Page through a group's direct and inherited members",
+        description=(
+            "Same member set and per-row shape as `GET /api/v1/groups/{id}/members/`, "
+            "returned in pages. Direct members come first, then inherited members by "
+            "ancestor distance (nearest first); within each, by membership `id` ascending. "
+            "A user who is both a direct and an inherited member is listed once, as "
+            "direct; one inherited from several ancestors is listed once, from the "
+            "nearest. A membership added or removed during a walk can shift later rows."
+        ),
+        responses=GroupMembershipSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="members/paged",
+        url_name="members-paged",
+        pagination_class=OffsetCountPagination,
+        filter_backends=[],
+    )
+    def members_paged(self, request, pk=None):
+        """Paginated view of ``members`` (#1780), deduplicated in SQL.
+
+        The bare list builds its deduplicated set in Python after reading
+        every ancestor membership, which is the unbounded read. Here each
+        membership gets a rank (0 for the group itself, 1 + distance for an
+        ancestor) and only a user's lowest-rank row survives, chosen by a
+        correlated subquery, so the database returns one page of winners and
+        a COUNT of them. The eligibility rule is the bare list's exactly: any
+        direct row (listed as stored, so an admin can remove one with a bad
+        role), and ancestor rows only with a valid role (#1829).
+        """
+        group = self.get_object()
+        _require_group_member(request.user, group)
+
+        from .models import user_is_group_admin
+        include_all_content = user_is_group_admin(request.user, group)
+
+        ancestors = group.ancestors()
+        ancestor_ids = [a.pk for a in ancestors]
+        ancestor_names = {a.pk: a.name for a in ancestors}
+        rank = Case(
+            When(group_id=group.pk, then=Value(0)),
+            *[When(group_id=aid, then=Value(i + 1)) for i, aid in enumerate(ancestor_ids)],
+            output_field=IntegerField(),
+        )
+        eligible = GroupMembership.objects.filter(
+            Q(group_id=group.pk)
+            | Q(group_id__in=ancestor_ids, role__in=GroupMembership.Role.values)
+        )
+        best_rank = (
+            eligible.filter(user_id=OuterRef("user_id"))
+            .annotate(_r=rank).order_by("_r").values("_r")[:1]
+        )
+        winners = (
+            eligible.annotate(_rank=rank)
+            .filter(_rank=Subquery(best_rank))
+            .select_related("user")
+            .order_by("_rank", "id")
+        )
+        page = self.paginate_queryset(winners)
+        rows = [
+            _group_member_row(
+                m,
+                inherited_from=None if m.group_id == group.pk else ancestor_names[m.group_id],
+                include_all_content=include_all_content,
+            )
+            for m in page
+        ]
+        return self.get_paginated_response(rows)
 
     @extend_schema(
         summary="Update a member's role", methods=["PATCH"],
@@ -1166,15 +1252,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Subgroups
     # ------------------------------------------------------------------
 
-    # pagination_class=None: returns the full subgroup list in one payload, never paginated.
-    @extend_schema(
-        summary="List direct subgroups of a group",
-        responses=GroupSerializer(many=True),
-    )
-    @action(detail=True, methods=["get"], pagination_class=None)
-    def subgroups(self, request, pk=None):
-        group = self.get_object()
-        _require_group_member(request.user, group)
+    def _subgroups_queryset(self, request, group):
+        """Return ``(subgroups, serializer_context)`` for ``subgroups`` and ``subgroups_paged``.
+
+        Shared (#1885) so the paged sibling is a window over exactly the bare
+        list's set and row shape, the same split as ``_descendant_boards_queryset``.
+        """
         # Subgroup visibility follows the documented RBAC inheritance model:
         # parent-group membership implies visibility into descendant groups.
         # This aligns `subgroups` with `descendant_boards`, the sidebar tree,
@@ -1214,15 +1297,107 @@ class GroupViewSet(viewsets.ModelViewSet):
             "group_access": group_access_resolver(request.user),
             "group_admin": group_admin_resolver(request.user),
         }
+        return subgroups, context
+
+    # pagination_class=None: returns the full subgroup list in one payload,
+    # never paginated; the bare array is the 1.0 contract. Bounded pages are
+    # the additive ``subgroups/paged/`` sibling below (#1885).
+    @extend_schema(
+        summary="List direct subgroups of a group",
+        description=(
+            "Returns every accessible direct subgroup as one array. To read them in "
+            "pages, use `GET /api/v1/groups/{id}/subgroups/paged/`."
+        ),
+        responses=GroupSerializer(many=True),
+    )
+    @action(detail=True, methods=["get"], pagination_class=None)
+    def subgroups(self, request, pk=None):
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        subgroups, context = self._subgroups_queryset(request, group)
         return Response(GroupSerializer(subgroups, many=True, context=context).data)
+
+    @extend_schema(
+        summary="Page through the direct subgroups of a group",
+        description=(
+            "Same subgroup set and per-row shape as `GET /api/v1/groups/{id}/subgroups/`, "
+            "returned in pages ordered by subgroup `id` ascending, so a rename or other "
+            "edit does not move a row and a new subgroup is appended at the end."
+        ),
+        responses=GroupSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="subgroups/paged",
+        url_name="subgroups-paged",
+        pagination_class=OffsetCountPagination,
+        filter_backends=[],
+    )
+    def subgroups_paged(self, request, pk=None):
+        """Paginated view of ``subgroups`` (#1885); same gate, same set."""
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        subgroups, context = self._subgroups_queryset(request, group)
+        # Order by a plain column so the paginator's COUNT drops the
+        # annotations (see descendant_boards_paged).
+        page = self.paginate_queryset(subgroups.order_by("id"))
+        return self.get_paginated_response(GroupSerializer(page, many=True, context=context).data)
 
     # ------------------------------------------------------------------
     # Boards
     # ------------------------------------------------------------------
 
-    # pagination_class=None: GET returns the full board list in one payload, never paginated.
+    def _group_boards_queryset(self, request, group):
+        """Return ``(boards, serializer_context)`` for ``boards`` GET and ``boards_paged``.
+
+        Shared (#1784) so the paged sibling is a window over exactly the bare
+        list's set and row shape.
+        """
+        # Group membership implies access to the boards in the group —
+        # no separate BoardMembership required. This means a viewer-role
+        # group member can see all board names and metadata in the group
+        # even without an explicit BoardMembership row. This is intentional:
+        # adding someone to a group grants visibility into that group's
+        # boards. Operators should document this in their onboarding guides
+        # (see docs/features/rbac/roles.md).
+        # Annotations mirror BoardViewSet.get_queryset() so BoardSerializer
+        # can use the cached values instead of issuing 3 extra queries per board.
+        from boards.models import Board, BoardFavorite
+        from boards.views._helpers import annotate_board_counts, board_access_q
+        boards = Board.objects.filter(group=group)
+        if not request.user.can_access_all_content:
+            # Same role validation as board detail: a stored role outside
+            # the allowed set resolves to no access there, so it does not
+            # list the board here either (#1769).
+            boards = boards.filter(board_access_q(request.user))
+        boards = annotate_board_counts(
+            boards.select_related("owner", "group", "group__parent", "health_status_changed_by")
+        ).annotate(
+            _is_starred=Exists(
+                BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
+            ),
+        )
+        # ``?expand=group`` makes BoardSerializer.get_group_detail render a
+        # GroupBriefSerializer per board; every board shares this one group,
+        # so a single bulk ancestor map (same pattern as descendant_boards)
+        # keeps get_ancestors from walking parent pointers per board (#1316).
+        map_ids = {g.pk for g in group.ancestors()} | {group.pk}
+        group_ancestor_map = {
+            g["id"]: {"name": g["name"], "parent_id": g["parent_id"]}
+            for g in Group.objects.filter(pk__in=map_ids).values("id", "name", "parent_id")
+        }
+        return boards, {"request": request, "group_ancestor_map": group_ancestor_map}
+
+    # pagination_class=None: GET returns the full board list in one payload,
+    # never paginated; the bare array is the 1.0 contract. Bounded pages are
+    # the additive ``boards/paged/`` sibling below (#1784).
     @extend_schema(
         summary="List boards directly in a group",
+        description=(
+            "Returns every accessible board directly in the group as one array. To read "
+            "them in pages, use `GET /api/v1/groups/{id}/boards/paged/`."
+        ),
         methods=["GET"],
         responses=_BoardSerializer(many=True),
         parameters=[_EXPAND_QUERY_PARAMETER],
@@ -1242,40 +1417,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_member(request.user, group)
 
         if request.method == "GET":
-            # Group membership implies access to the boards in the group —
-            # no separate BoardMembership required. This means a viewer-role
-            # group member can see all board names and metadata in the group
-            # even without an explicit BoardMembership row. This is intentional:
-            # adding someone to a group grants visibility into that group's
-            # boards. Operators should document this in their onboarding guides
-            # (see docs/features/rbac/roles.md).
-            # Annotations mirror BoardViewSet.get_queryset() so BoardSerializer
-            # can use the cached values instead of issuing 3 extra queries per board.
-            from boards.models import BoardFavorite
-            from boards.views._helpers import annotate_board_counts, board_access_q
-            boards = Board.objects.filter(group=group)
-            if not request.user.can_access_all_content:
-                # Same role validation as board detail: a stored role outside
-                # the allowed set resolves to no access there, so it does not
-                # list the board here either (#1769).
-                boards = boards.filter(board_access_q(request.user))
-            boards = annotate_board_counts(
-                boards.select_related("owner", "group", "group__parent", "health_status_changed_by")
-            ).annotate(
-                _is_starred=Exists(
-                    BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
-                ),
-            )
-            # ``?expand=group`` makes BoardSerializer.get_group_detail render a
-            # GroupBriefSerializer per board; every board shares this one group,
-            # so a single bulk ancestor map (same pattern as descendant_boards)
-            # keeps get_ancestors from walking parent pointers per board (#1316).
-            map_ids = {g.pk for g in group.ancestors()} | {group.pk}
-            group_ancestor_map = {
-                g["id"]: {"name": g["name"], "parent_id": g["parent_id"]}
-                for g in Group.objects.filter(pk__in=map_ids).values("id", "name", "parent_id")
-            }
-            context = {"request": request, "group_ancestor_map": group_ancestor_map}
+            boards, context = self._group_boards_queryset(request, group)
             return Response(BoardSerializer(boards, many=True, context=context).data)
 
         # POST — create a new board inside this group
@@ -1390,6 +1532,41 @@ class GroupViewSet(viewsets.ModelViewSet):
             transaction.on_commit(_broadcast_created)
 
         return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Page through the boards directly in a group",
+        description=(
+            "Same board set and per-board shape as `GET /api/v1/groups/{id}/boards/`, "
+            "returned in pages ordered by board `id` ascending: an in-place edit does not "
+            "move a board, and a board created in the group is appended at the end. A "
+            "board moved into the group or newly granted access can insert an earlier "
+            "row; a deletion, a move out, or removed access can skip one."
+        ),
+        responses=_BoardSerializer(many=True),
+        parameters=[_EXPAND_QUERY_PARAMETER],
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="boards/paged",
+        url_name="boards-paged",
+        pagination_class=OffsetCountPagination,
+        filter_backends=[],
+    )
+    def boards_paged(self, request, pk=None):
+        """Paginated view of ``boards`` GET (#1784); same gate, same set.
+
+        Ordered by ``id`` rather than ``Board.Meta.ordering`` (``-updated_at``)
+        for the reason descendant_boards_paged gives: offset paging over a key
+        that changes on every edit moves boards between pages mid-walk.
+        """
+        from boards.serializers import BoardSerializer
+
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        boards, context = self._group_boards_queryset(request, group)
+        page = self.paginate_queryset(boards.order_by("id"))
+        return self.get_paginated_response(BoardSerializer(page, many=True, context=context).data)
 
     # ------------------------------------------------------------------
     # Descendant boards
