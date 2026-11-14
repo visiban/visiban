@@ -40,7 +40,7 @@ const NO_CHOICES: string[] = [];
 /** Operators that take a typed operand instead of a choice from the lanes' values. */
 const TYPED_OPS: readonly FieldRuleOp[] = ["contains", "not_contains", "wildcard"];
 const isTypedOp = (op: FieldRuleOp) => TYPED_OPS.includes(op);
-const WILDCARD_HINT = "* matches any text, ? one character; the whole value must match";
+const WILDCARD_HINT = "Use * for any text and ? for one character. The whole value must match.";
 
 const INPUT_CLS =
   "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
@@ -261,14 +261,14 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           <SingleSelectDropdown<FieldRuleOp>
             label="is"
             ariaLabel={`Filter ${n} operator`}
-            className="w-28 justify-between"
+            className="w-40 justify-between"
             escapePriority={INNER_ESCAPE_PRIORITY}
             options={ops.map((op) => ({ value: op, label: OP_LABELS[op] }))}
             selected={ops.includes(r.op) ? r.op : ops[0]}
             onChange={(op) => { if (op) changeOp(r, op); }}
           />
         ) : (
-          <span className="text-sm text-fg-tertiary w-28">{t ? OP_LABELS[ops[0]] : ""}</span>
+          <span className="text-sm text-fg-tertiary w-40">{t ? OP_LABELS[ops[0]] : ""}</span>
         )}
         {t === "dropdown" && def && (
           <div className="flex-1 min-w-[10rem]">
@@ -316,7 +316,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
                 onChange={(v) => updateRule(r.id, { value: v ?? "" })}
               />
             ) : (
-              <span className="text-xs text-fg-tertiary">No lane has a value yet. Use contains to match text.</span>
+              <span className="text-xs text-fg-tertiary">No lane has a value yet. Use contains or matches wildcard to match text.</span>
             )}
           </div>
         )}
