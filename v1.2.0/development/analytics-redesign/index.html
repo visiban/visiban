@@ -3547,10 +3547,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-is-removed-from-the-tab" class="md-nav__link">
+  <a href="#what-changes-for-existing-features" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What is removed from the tab
+        What changes for existing features
       
     </span>
   </a>
@@ -4611,7 +4611,7 @@
 <li><strong>Period options:</strong> last 30, 90, 180 and 365 days. Default 90.</li>
 <li><strong>Break down by:</strong> a segmented group with None, Swimlane, Label, and one entry per eligible card custom field (#458). The active segment carries <code>ActiveMark</code>.</li>
 <li><strong>Export CSV</strong>, admin and site admin only, as today.</li>
-<li>The heatmap's own period pills and Age/Throughput toggle are removed.</li>
+<li>The heatmap's own period pills are removed. Its mode toggle moves into the table view of "Where the time goes".</li>
 </ul>
 <h2 id="bottleneck-panel">Bottleneck panel<a class="headerlink" href="#bottleneck-panel" title="Permanent link">&para;</a></h2>
 <ul>
@@ -4716,7 +4716,9 @@
 <li>Each bar is segmented by in-progress column; a segment's width is the median days in that column and it is labeled with that number.</li>
 <li>The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The total is printed at the end.</li>
 <li>The bottleneck column's segment is hatched.</li>
-<li>This replaces the dwell heatmap on this tab. The board overlay keeps the per-cell view.</li>
+<li>This replaces the dwell heatmap as the lead visual. The heatmap is not deleted: it becomes this panel's <strong>Table</strong> view, behind the same Chart | Table switch the charts have. The screenshots do not draw that switch.</li>
+<li>The table is today's heatmap table: swimlane rows, column cells with the three-level cue, the velocity column, and the admin-only CSV export. Its period follows the filter bar.</li>
+<li>Its two modes stay but are renamed, because "Throughput" now means cards finished per week: "Age" becomes <strong>Current</strong> and "Throughput" becomes <strong>In period</strong>.</li>
 </ul>
 <h2 id="charts">Charts<a class="headerlink" href="#charts" title="Permanent link">&para;</a></h2>
 <p>All four charts keep the <code>ChartPanel</code> behavior they have today: summary sentence, Chart | Table switch, notes, table alternative, and drill-down.</p>
@@ -4752,6 +4754,7 @@
 <ul>
 <li><strong>Membership:</strong> a card is listed once if it is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile.</li>
 <li><strong>Order:</strong> oldest first.</li>
+<li>Membership and order come from one backend service, so the attention queue (#1358) can reuse it.</li>
 <li><strong>Row:</strong> card title, then column, swimlane and the reason; age in days on the right. Selecting a row opens the card.</li>
 <li><strong>Age color:</strong> <code>text-danger</code> when the card is past the 85th percentile, <code>text-warning</code> otherwise. Every card on this list is already flagged, so there is no neutral tier.</li>
 <li>Shows five rows. "All N cards" expands the list in place, 25 per page, like the stalled table today.</li>
@@ -4826,8 +4829,8 @@
 </tbody>
 </table>
 <ul>
-<li><strong>Status</strong> compares the swimlane's median with the board median: "Slower than the board" when more than 15% above, "Faster than the board" when more than 15% below, otherwise "In line with the board". The 15% is a proposed threshold for <code>architect</code> to confirm. The artboard source hard-codes 13 and 10 days for its sample data; the 15% rule governs.</li>
-<li><strong>Trend</strong> compares the first and last rolling medians in the period with the same 15% threshold: "Slower, A to B days", "Faster, A to B days" or "Steady".</li>
+<li><strong>Status</strong> compares the swimlane's median with the board median: "Slower than the board" when more than 20% above, "Faster than the board" when more than 20% below, otherwise "In line with the board". A swimlane needs at least 10 finished cards to get a slower or faster status; with 5 to 9 it shows its median and no status line. Both numbers are constants, not settings.</li>
+<li><strong>Trend</strong> compares the first and last rolling medians in the period with the same 20% threshold: "Slower, A to B days", "Faster, A to B days" or "Steady".</li>
 <li><strong>Bar scale</strong> is shared by every row and runs from 0 to the largest 85th percentile on the page, rounded up to a round number. The board-median tick sits on that scale.</li>
 <li>A swimlane with fewer than five finished cards shows no median, no bar and no trend. Its cycle-time text says how many cards have finished and its trend text is "Not enough cards".</li>
 <li>A swimlane with five or six finished cards shows the median but no 85th-percentile line.</li>
@@ -4860,7 +4863,7 @@
 </tr>
 <tr>
 <td>Filters match nothing</td>
-<td>Heading, a sentence naming the active filters, a removable chip per filter, a suggestion when widening the period would match cards, and "Clear all filters".</td>
+<td>Heading, a sentence naming the active filters, a removable chip per filter, a "Show last 90 days" button when the period is shorter than that, and "Clear all filters".</td>
 </tr>
 </tbody>
 </table>
@@ -5094,13 +5097,38 @@
 </tbody>
 </table>
 <p>Percentiles and medians come from the server. The browser never computes one.</p>
-<h2 id="what-is-removed-from-the-tab">What is removed from the tab<a class="headerlink" href="#what-is-removed-from-the-tab" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The dwell heatmap and its Age/Throughput toggle.</li>
-<li>The stalled-cards table.</li>
-<li>The blocked-time table per column.</li>
-</ul>
-<p>These are UI removals only. The analytics endpoint keeps every field it returns today. Run <code>sunset-check</code> on the heatmap before removing it.</p>
+<h2 id="what-changes-for-existing-features">What changes for existing features<a class="headerlink" href="#what-changes-for-existing-features" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Today</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dwell heatmap as the first section</td>
+<td>Table view of "Where the time goes"; same data, modes renamed, period from the filter bar</td>
+</tr>
+<tr>
+<td>Heatmap CSV export</td>
+<td>Unchanged, admin and site admin only</td>
+</tr>
+<tr>
+<td>Stalled-cards table</td>
+<td>Folded into "Needs attention"</td>
+</tr>
+<tr>
+<td>Blocked-time table per column</td>
+<td>Replaced by "Why cards get blocked"; the per-column figures stay in the cumulative flow and column drawer</td>
+</tr>
+<tr>
+<td>Heatmap period pills (7, 30, 90 days)</td>
+<td>Removed; the filter bar's period applies</td>
+</tr>
+</tbody>
+</table>
+<p>No shipped analytics feature is removed, which keeps the page inside the open-core ruling (#1750). The analytics endpoint keeps every field it returns today.</p>
 <h2 id="not-part-of-this-design">Not part of this design<a class="headerlink" href="#not-part-of-this-design" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
@@ -5113,12 +5141,14 @@
 <li><code>docs/api/</code>: every added field and parameter.</li>
 <li><code>frontend/CLAUDE.md</code> § Charts: any new rule <code>ux-review</code> surfaces. It already lists this tab's three color exceptions and points here.</li>
 </ul>
-<h2 id="open-decisions">Open decisions<a class="headerlink" href="#open-decisions" title="Permanent link">&para;</a></h2>
+<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
+<p>Settled by the project owner on 2026-11-14.</p>
 <ul>
-<li><strong>Trend and the open-core boundary.</strong> The Swimlanes trend compares rolling medians inside the selected period. Confirm this is not "cross-period comparison", which is enterprise.</li>
-<li><strong>Heatmap removal.</strong> Pending <code>sunset-check</code>.</li>
-<li><strong>Needs attention and the attention queue.</strong> If #1358 ships first, this list should use its ranking.</li>
-<li><strong>"Widening would match N cards".</strong> Needs a second, cheap count query; drop the hint if it is not worth one.</li>
+<li><strong>The Swimlanes trend is OSS.</strong> It is a trend inside the selected period, like the throughput run chart. It never shows or implies an earlier period; comparing periods stays Enterprise. <code>docs/architecture/open-core-boundary.md</code> records this.</li>
+<li><strong>The heatmap is demoted, not removed.</strong> See <a href="#what-changes-for-existing-features">What changes for existing features</a>.</li>
+<li><strong>Slower and faster need a 20% difference and at least 10 finished cards.</strong></li>
+<li><strong>Needs attention does not wait for #1358.</strong> #2257 builds the rule as a service; #1358 reuses it.</li>
+<li><strong>No "would match N cards" count.</strong> The no-match state offers to widen the period without promising a number.</li>
 </ul>
 <h2 id="review-checklist">Review checklist<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h2>
 <p>For <code>ux-review</code> and <code>completeness-check</code> on the implementing MRs:</p>
