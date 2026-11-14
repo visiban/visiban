@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Swimlane comparison</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:var(--link)}a:hover{color:var(--strong)}
+.vb-dark{--bg:#0f172a;--panel:#1e293b;--inset:#0f172a;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.18);--h:59,130,246;--mark:#f8fafc}
+.vb-light{--bg:#f1f5f9;--panel:#ffffff;--inset:#f8fafc;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#e2e8f0;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.12);--h:59,130,246;--mark:#0f172a}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 24px 20px 48px; box-sizing: border-box; font-size: 14px; line-height: 1.45">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.01em">Analytics</h1>
+<span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warn-tint); color: var(--warn-text)">Beta</span>
+<span style="color: var(--fg3); font-size: 13px">Platform roadmap · Aug 16 – Nov 14 · sample data</span>
+</div>
+<nav aria-label="Analytics views" style="display: flex; gap: 4px; border-bottom: 1px solid var(--line)">
+<a href="Main.dc.html" style="min-height: 44px; display: flex; align-items: center; padding: 0 14px; color: var(--fg2); text-decoration: none">Overview</a>
+<span aria-current="page" style="min-height: 44px; display: flex; align-items: center; padding: 0 14px; font-weight: 600; color: var(--strong); border-bottom: 2px solid var(--primary); margin-bottom: -1px">Swimlanes</span>
+</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">Last 90 days <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">All labels <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">Group lanes by: None <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer">Sort: Slowest first <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+</div>
+</div>
+</header>
+
+<section aria-labelledby="lv-h" style="background: var(--panel); border: 1px solid var(--warn); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 6px">
+<h2 id="lv-h" style="margin: 0; font-size: 20px; font-weight: 650">Platform and Mobile are where cards slow down</h2>
+<p style="margin: 0; color: var(--fg2); font-size: 15px; max-width: 80ch">Both take more than 14 days against a board median of 11. Platform is also getting slower: its median rose from 10 to 16 days across the period, and almost a third of that time was spent blocked.</p>
+</section>
+
+<section aria-label="Swimlanes ranked by cycle time" style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 20px; display: flex; flex-direction: column">
+<sc-for list="{{lanes}}" as="l" hint-placeholder-count="6">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 16px 0; border-bottom: 1px solid var(--line)">
+<div style="flex: 1 1 170px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<a href="Main.dc.html" style="font-size: 16px; font-weight: 650; color: var(--fg); text-decoration: none">{{l.name}}</a>
+<span style="font-size: 12px; font-weight: 600; color: {{l.statusFg}}">{{l.status}}</span>
+</div>
+<div style="flex: 3 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: var(--fg3)">Cycle time</span>
+<div aria-hidden="true" style="position: relative; height: 14px; border-radius: 4px; background: var(--track)">
+<div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{l.p50w}}%; border-radius: 4px; background: {{l.barBg}}"></div>
+<div style="position: absolute; left: {{l.p50w}}%; top: 6px; height: 2px; width: {{l.tailw}}%; background: {{l.barBg}}"></div>
+<div style="position: absolute; left: 36.7%; top: -4px; bottom: -4px; width: 2px; background: var(--mark)"></div>
+</div>
+<span style="font-size: 13px; color: var(--fg2)">{{l.cycle}}</span>
+</div>
+<div style="flex: 0 0 168px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: var(--fg3)">Trend in period</span>
+<div aria-hidden="true" style="display: flex; align-items: flex-end; gap: 3px; height: 28px">
+<sc-for list="{{l.spark}}" as="b" hint-placeholder-count="8">
+<div style="flex: 1 1 0; height: {{b.h}}px; border-radius: 1px; background: {{l.barBg}}"></div>
+</sc-for>
+</div>
+<span style="font-size: 13px; font-weight: 600; color: {{l.trendFg}}">{{l.trend}}</span>
+</div>
+<div style="flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: var(--fg3)">Time blocked</span>
+<div aria-hidden="true" style="height: 8px; border-radius: 4px; background: var(--track)"><div style="width: {{l.blockedw}}%; height: 8px; border-radius: 4px; background: rgba(var(--h), 0.7)"></div></div>
+<span style="font-size: 13px; color: var(--fg2)">{{l.blocked}}</span>
+</div>
+<div style="flex: 0 0 132px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--fg2)">
+<span><strong style="color: var(--fg)">{{l.wip}}</strong> in progress</span>
+<span><strong style="color: var(--fg)">{{l.done}}</strong> finished</span>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 14px 0; color: var(--fg3); font-size: 12px">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 2px; height: 14px; background: var(--mark)"></span>Board median, 11 days</span>
+<span>Solid bar: median. Thin line: reaches the 85% mark.</span>
+<span>Trend compares rolling medians inside the selected period.</span>
+<span>Lanes with fewer than 5 finished cards show no median.</span>
+</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const DATA = [
+      { name: 'Platform', p50: 14.5, p85: 24, blocked: 31, wip: 9, done: 26, spark: [10, 11, 11, 12, 13, 14, 15, 16], trend: 'Slower, 10 to 16 days' },
+      { name: 'Mobile', p50: 14.2, p85: 22, blocked: 24, wip: 8, done: 20, spark: [14, 15, 13, 14, 15, 14, 14, 14], trend: 'Steady' },
+      { name: 'Growth', p50: 11.2, p85: 17, blocked: 9, wip: 5, done: 24, spark: [11, 12, 11, 10, 11, 12, 11, 11], trend: 'Steady' },
+      { name: 'Data', p50: 9.0, p85: 15, blocked: 6, wip: 1, done: 10, spark: [12, 11, 11, 10, 9, 9, 8, 8], trend: 'Faster, 12 to 8 days' },
+      { name: 'Support', p50: 7.5, p85: 12, blocked: 4, wip: 3, done: 18, spark: [7, 8, 7, 8, 7, 7, 8, 7], trend: 'Steady' },
+      { name: 'Design', p50: null, p85: null, blocked: 0, wip: 1, done: 4, spark: [], trend: 'Not enough cards' },
+    ];
+    const lanes = DATA.map((d) => {
+      const slow = d.p50 !== null && d.p50 > 13;
+      const slower = d.trend.indexOf('Slower') === 0;
+      const faster = d.trend.indexOf('Faster') === 0;
+      return {
+        name: d.name,
+        status: d.p50 === null ? 'Too few finished cards' : slow ? 'Slower than the board' : d.p50 < 10 ? 'Faster than the board' : 'In line with the board',
+        statusFg: slow ? 'var(--fg)' : 'var(--fg3)',
+        barBg: 'rgba(var(--h), 0.7)',
+        p50w: d.p50 === null ? 0 : (d.p50 / 30) * 100,
+        tailw: d.p50 === null ? 0 : ((d.p85 - d.p50) / 30) * 100,
+        cycle: d.p50 === null ? 'No median yet: only ' + d.done + ' cards finished.' : d.p50.toFixed(1) + ' days median · 85% within ' + d.p85 + ' days',
+        spark: d.spark.map((v) => ({ h: Math.round(v * 1.7) })),
+        trend: d.trend,
+        trendFg: slower ? 'var(--fg)' : 'var(--fg2)',
+        blockedw: Math.min(100, d.blocked * 2.5),
+        blocked: d.blocked + '% of elapsed time',
+        wip: d.wip,
+        done: d.done,
+      };
+    });
+    return { themeClass: this.props.theme === 'light' ? 'vb-light' : 'vb-dark', lanes };
+  }
+}
+</script>
+</body>
+</html>
