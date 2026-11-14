@@ -2759,6 +2759,7 @@ script-tests:
         - .trivyignore.yaml
         - scripts/**/*
         - .claude/kaizen-yield-state.json
+        - .claude/hooks/**/*
         - backend/boards/**/*
         - backend/groups/**/*
         - backend/git_lens/**/*
@@ -2791,6 +2792,7 @@ script-tests:
     - bash scripts/tests/kaizen_yield_watch.test.sh
     - bash scripts/tests/npm-audit-gate.test.sh
     - bash scripts/tests/osv-severity-gate.test.sh
+    - bash scripts/tests/pre-tool-safety.test.sh
     - bash scripts/tests/resolve-docs-version.test.sh
     - bash scripts/tests/wt-doctor-drift.test.sh
   allow_failure: false
