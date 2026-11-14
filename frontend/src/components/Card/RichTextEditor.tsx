@@ -24,6 +24,7 @@ import ActiveUnderline from "../Common/ActiveUnderline";
 import CustomColorPanel from "../Common/CustomColorPanel";
 import { DISMISS_LAYER_ATTR } from "../../utils/dismissLayer";
 import ColorSpan from "./RichTextColorSpan";
+import { editColorPlugin } from "./richTextEditColor";
 import { cssColorToHex } from "../../utils/colorContrast";
 import { COLOR_STYLE_PATTERN } from "../../utils/richTextSanitize";
 
@@ -458,7 +459,9 @@ export default function RichTextEditor({
       // deliberate product decision — see #1105.
       StarterKit.configure({ link: false, underline: false }),
       TextStyle,
-      Color,
+      // Editing view shows each stored color through the same per-theme adjustment as
+      // view mode, as a decoration only; the stored hex is untouched (#2099).
+      Color.extend({ addProseMirrorPlugins() { return [editColorPlugin()]; } }),
       Placeholder.configure({ placeholder }),
       Markdown.configure({
         // html: true (default) is required — html: false strips <span style="color:...">

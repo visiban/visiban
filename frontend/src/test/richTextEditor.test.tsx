@@ -5,6 +5,7 @@ import type { Element as HastElement, Root } from 'hast'
 import { useEditor, ReactRenderer } from '@tiptap/react'
 import MentionExtension from '@tiptap/extension-mention'
 import RichTextEditor from '../components/Card/RichTextEditor'
+import { editColorPluginKey } from '../components/Card/richTextEditColor'
 import ColorSpan from '../components/Card/RichTextColorSpan'
 import { COLOR_STYLE_PATTERN } from '../utils/richTextSanitize'
 
@@ -34,7 +35,9 @@ vi.mock('@tiptap/starter-kit', () => ({
 vi.mock('@tiptap/extensions', () => ({
   Placeholder: { configure: vi.fn(() => ({})) },
 }))
-vi.mock('@tiptap/extension-text-style', () => ({ TextStyle: {}, Color: {} }))
+// Color.extend captures the spec so the #2099 wiring (addProseMirrorPlugins) can be asserted.
+const { colorExtend } = vi.hoisted(() => ({ colorExtend: vi.fn((_spec: unknown) => ({})) }))
+vi.mock('@tiptap/extension-text-style', () => ({ TextStyle: {}, Color: { extend: colorExtend } }))
 vi.mock('@tiptap/extension-mention', () => ({
   default: {
     extend: vi.fn((spec) => ({ ...spec, configure: vi.fn(() => ({})) })),
@@ -56,6 +59,16 @@ vi.mock('rehype-sanitize', () => ({
 
 describe('RichTextEditor', () => {
   const onSave = vi.fn()
+
+  it('extends Color with exactly one ProseMirror plugin: the color-decoration plugin (#2099)', () => {
+    colorExtend.mockClear()
+    render(<RichTextEditor value="some text" onSave={onSave} />)
+    expect(colorExtend).toHaveBeenCalled()
+    const spec = colorExtend.mock.calls[0][0] as { addProseMirrorPlugins: () => Array<{ spec: { key?: unknown } }> }
+    const plugins = spec.addProseMirrorPlugins()
+    expect(plugins).toHaveLength(1)
+    expect(plugins[0].spec.key).toBe(editColorPluginKey)
+  })
 
   describe('view mode', () => {
     it('renders markdown content via react-markdown', () => {
