@@ -86,11 +86,11 @@ describe('SortableChoiceList (#2190)', () => {
     const active = { id: 'choice-0' } as never
     const over = { id: 'choice-2' } as never
     expect(a.onDragStart({ active })).toBe('Picked up choice Red, at position 1 of 3.')
-    expect(a.onDragOver({ active, over })).toBe('choice Red moved to position 3 of 3.')
+    expect(a.onDragOver({ active, over })).toBe('Choice Red moved to position 3 of 3.')
     expect(a.onDragOver({ active, over: null })).toBeUndefined()
-    expect(a.onDragEnd({ active, over })).toBe('choice Red dropped at position 3 of 3.')
-    expect(a.onDragEnd({ active, over: null })).toBe('choice Red dropped.')
-    expect(a.onDragCancel({ active, over: null })).toBe('Reorder canceled. choice Red returned to position 1 of 3.')
+    expect(a.onDragEnd({ active, over })).toBe('Choice Red dropped at position 3 of 3.')
+    expect(a.onDragEnd({ active, over: null })).toBe('Choice Red dropped.')
+    expect(a.onDragCancel({ active, over: null })).toBe('Reorder canceled. Choice Red returned to position 1 of 3.')
   })
 
   it('Escape during a drag is not passed on to the modal below; outside a drag it is', () => {

@@ -48,18 +48,18 @@ async function moveRedToEnd(page: Page) {
   // followed at once by an over-itself announcement in the same live region, so gate
   // on that (as #1739 does) rather than on the pick-up text it replaces.
   await expect(handle).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByText('choice Red moved to position 1 of 3.')).toBeAttached()
+  await expect(page.getByText('Choice Red moved to position 1 of 3.')).toBeAttached()
   let presses = 0
   await expect(async () => {
     presses += 1
     await page.keyboard.press('ArrowDown')
-    await expect(page.getByText('choice Red moved to position 2 of 3.')).toBeAttached({ timeout: 1_000 })
+    await expect(page.getByText('Choice Red moved to position 2 of 3.')).toBeAttached({ timeout: 1_000 })
   }).toPass({ timeout: 15_000 })
   expect(presses, 'one ArrowDown must move over the next choice (a dropped first key allows one retry)').toBeLessThanOrEqual(2)
   await page.keyboard.press('ArrowDown')
-  await expect(page.getByText('choice Red moved to position 3 of 3.')).toBeAttached()
+  await expect(page.getByText('Choice Red moved to position 3 of 3.')).toBeAttached()
   await page.keyboard.press('Space')
-  await expect(page.getByText('choice Red dropped at position 3 of 3.')).toBeAttached()
+  await expect(page.getByText('Choice Red dropped at position 3 of 3.')).toBeAttached()
   await expect.poll(() => handleNames(page)).toEqual([
     'Drag to reorder choice Green', 'Drag to reorder choice Blue', 'Drag to reorder choice Red',
   ])
@@ -99,12 +99,15 @@ test.describe('custom-field choice keyboard reorder (#2190)', () => {
     const handle = page.getByRole('button', { name: 'Drag to reorder choice Red' })
     await handle.focus()
     await page.keyboard.press('Space')
-    await expect(page.getByText('choice Red moved to position 1 of 3.')).toBeAttached()
+    await expect(page.getByText('Choice Red moved to position 1 of 3.')).toBeAttached()
     await page.keyboard.press('Escape')
-    await expect(page.getByText(/Reorder canceled\. choice Red returned to position 1 of 3\./)).toBeAttached()
+    await expect(page.getByText(/Reorder canceled\. Choice Red returned to position 1 of 3\./)).toBeAttached()
     await expect(page.getByRole('button', { name: 'Save field' })).toBeVisible()
     expect(await handleNames(page)).toEqual([
       'Drag to reorder choice Red', 'Drag to reorder choice Green', 'Drag to reorder choice Blue',
     ])
+    // With no drag in progress, Escape reaches Board Settings again.
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Board Settings' })).toHaveCount(0)
   })
 })

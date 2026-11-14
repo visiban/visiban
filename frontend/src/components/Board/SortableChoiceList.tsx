@@ -53,19 +53,22 @@ export default function SortableChoiceList({ choices, onMove, renderRow }: Props
     handleRefs.current[to]?.focus();
   }, [choices]);
 
+  // The escape stack's document listener is registered before dnd-kit's (added at
+  // pick-up), so it runs first and still sees the drag; dnd-kit then cancels it.
   useEscapeStack(() => (dragging.current ? undefined : false), CHOICE_DRAG_ESCAPE_PRIORITY);
 
-  const nameAt = (id: UniqueIdentifier) => {
+  // "Choice Red" at the start of a sentence, "choice Red" inside one.
+  const nameAt = (id: UniqueIdentifier, start = false) => {
     const i = indexOf(id);
-    return `choice ${choiceRowName(choices[i] ?? "", i)}`;
+    return `${start ? "Choice" : "choice"} ${choiceRowName(choices[i] ?? "", i)}`;
   };
   const position = (id: UniqueIdentifier) => `position ${indexOf(id) + 1} of ${choices.length}`;
   // Read by choice name and position, not by dnd-kit's internal ids.
   const announcements: Announcements = {
     onDragStart: ({ active }) => `Picked up ${nameAt(active.id)}, at ${position(active.id)}.`,
-    onDragOver: ({ active, over }) => (over ? `${nameAt(active.id)} moved to ${position(over.id)}.` : undefined),
-    onDragEnd: ({ active, over }) => (over ? `${nameAt(active.id)} dropped at ${position(over.id)}.` : `${nameAt(active.id)} dropped.`),
-    onDragCancel: ({ active }) => `Reorder canceled. ${nameAt(active.id)} returned to ${position(active.id)}.`,
+    onDragOver: ({ active, over }) => (over ? `${nameAt(active.id, true)} moved to ${position(over.id)}.` : undefined),
+    onDragEnd: ({ active, over }) => (over ? `${nameAt(active.id, true)} dropped at ${position(over.id)}.` : `${nameAt(active.id, true)} dropped.`),
+    onDragCancel: ({ active }) => `Reorder canceled. ${nameAt(active.id, true)} returned to ${position(active.id)}.`,
   };
 
   const handleDragEnd = ({ active, over, activatorEvent }: DragEndEvent) => {
@@ -125,7 +128,7 @@ function SortableChoiceRow({ id, name, handleRef, children }: {
         {...attributes}
         {...listeners}
         aria-label={`Drag to reorder choice ${name}`}
-        className="w-4 text-fg-faint hover:text-fg text-xs cursor-grab shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className="w-4 text-fg-tertiary hover:text-fg text-xs cursor-grab shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         <span aria-hidden="true">⋮⋮</span>
       </button>

@@ -148,7 +148,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await user.keyboard(" ");
     expect(await screen.findByText("Picked up choice Alpha, at position 1 of 2.")).toBeInTheDocument();
     await user.keyboard("{Escape}");
-    expect(await screen.findByText(/Reorder canceled\. choice Alpha returned to position 1 of 2\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Reorder canceled\. Choice Alpha returned to position 1 of 2\./)).toBeInTheDocument();
   });
 
   it("a dropdown field requires at least one choice before it can be saved", async () => {
