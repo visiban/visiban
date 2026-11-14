@@ -64,6 +64,20 @@
       "budget_p95_ms": 60,
       "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045."
     },
+    "card_list": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/cards/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2237",
+      "note": "Board card list, default 200-row cap with X-Total-Count/X-Truncated. Page read without a window count; a full page adds one bare COUNT (#2239)."
+    },
+    "cards_archived": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/cards/archived/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2237",
+      "note": "First archived-cards page (50 rows). Page read without a window count; a full page adds one bare COUNT on the archived_at index (#2239)."
+    },
     "notifications_list": {
       "method": "GET",
       "path": "/api/v1/notifications/",

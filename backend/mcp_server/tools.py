@@ -41,7 +41,7 @@ major version bump.
 """
 import logging
 
-from django.db.models import Count, Q, Window
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as _DRFValidationError
 
@@ -64,7 +64,7 @@ from boards.services.errors import (
 )
 from boards.utils import _get_assignable_member_ids
 from boards.views._helpers import (
-    _count_subquery, card_payload_context, get_accessible_boards_queryset,
+    _count_subquery, card_payload_context, fetch_page_and_total, get_accessible_boards_queryset,
     render_card_payloads,
 )
 from visiban.parsers import first_lone_surrogate
@@ -845,20 +845,11 @@ def _cards_page(board, *, column_id=None, swimlane_id=None, assignee=None,
     # `id` makes the order total: position repeats across cells, and offset
     # paging over a non-total order can skip or repeat a card at a boundary.
     ordered = qs.order_by("column__position", "swimlane__position", "position", "id")
-    # Window COUNT rides the page query (the same pattern as REST's card list,
-    # boards/views/cards.py), so the total costs no extra query and always
-    # agrees with the rows returned: a separate COUNT could be stale by the
-    # time the page is read and report truncated=false with cards missing.
-    cards = list(ordered.annotate(_total=Window(Count("id")))[offset:offset + limit])
-    if cards:
-        total = cards[0]._total
-    elif offset == 0 and limit > 0:
-        total = 0
-    else:
-        # Empty window past the end, or limit=0: no row carries the window
-        # value, so count separately. Never hit by a no-param call on a
-        # non-empty board.
-        total = qs.order_by().count()
+    # Plain page, bare COUNT only when the page is full (#2239, the same helper
+    # REST's card list uses): a Window(Count) on the page query read every
+    # matching card before the LIMIT. A short page's total is exact; the
+    # helper keeps a racing COUNT from reporting fewer cards than returned.
+    cards, total = fetch_page_and_total(ordered, offset, limit)
     return [_serialize_card(card) for card in cards], total
 
 
@@ -1222,8 +1213,16 @@ def board_snapshot(*, board_id):
     }
 
 
+# Rows of each per-card history list (activities, comments) that the
+# ``card://{card_id}`` resource returns (#1963); matches REST's history cap.
+_CARD_DETAIL_HISTORY_MAX = 200
+
+
 def card_detail(*, card_id):
-    """Card detail + full audit history for the ``card://{card_id}`` MCP resource.
+    """Card detail + audit history for the ``card://{card_id}`` MCP resource.
+
+    Activities and comments are the 200 newest, with ``*_truncated`` flags.
+    Movements are uncapped (#2255).
 
     RBAC is enforced by ``_resolve_board_for_card`` — the same resolver every
     write tool uses — so board membership is required exactly as it is for
@@ -1236,7 +1235,9 @@ def card_detail(*, card_id):
     NOT part of that
     chain (it is built for listing many cards on a board at once, and most
     board reads never need a card's full comment/activity history), so they
-    are fetched here as two additional queries scoped to this one card —
+    are fetched here as two additional queries scoped to this one card, each
+    capped at its newest ``_CARD_DETAIL_HISTORY_MAX`` rows with a
+    ``*_truncated`` flag (#1963) —
     matching the exact ``select_related`` shape the REST
     ``activities``/``comments`` actions already use
     (``boards/views/cards.py``) — each covered by an existing
@@ -1265,14 +1266,25 @@ def card_detail(*, card_id):
     movements = CardMovement.objects.filter(card=card).select_related("moved_by").order_by("-moved_at")
     data["movements"] = [_serialize_movement(m) for m in movements]
     data["checklist_items"] = [_serialize_checklist_item(i) for i in _card_checklist_items(card)]
-    data["activities"] = [
-        _serialize_activity(a)
-        for a in card.activities.select_related("actor").order_by("-created_at")
-    ]
-    data["comments"] = [
-        _serialize_comment(c)
-        for c in card.comments.select_related("author").order_by("created_at")
-    ]
+    # Activities and comments are capped (#1963): a long-lived card writes an
+    # activity on every field edit, and the whole history in one resource read
+    # grows without bound. Each list keeps its newest _CARD_DETAIL_HISTORY_MAX
+    # rows; one extra row is fetched to tell a capped list from a complete one,
+    # so the cap costs no COUNT. ``*_truncated`` are additive keys.
+    activities = list(
+        card.activities.select_related("actor")
+        .order_by("-created_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
+    )
+    data["activities"] = [_serialize_activity(a) for a in activities[:_CARD_DETAIL_HISTORY_MAX]]
+    data["activities_truncated"] = len(activities) > _CARD_DETAIL_HISTORY_MAX
+    # Comments read oldest first, so the newest ones are fetched and reversed:
+    # a capped list drops the oldest comments, never the latest discussion.
+    comments = list(
+        card.comments.select_related("author")
+        .order_by("-created_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
+    )
+    data["comments"] = [_serialize_comment(c) for c in reversed(comments[:_CARD_DETAIL_HISTORY_MAX])]
+    data["comments_truncated"] = len(comments) > _CARD_DETAIL_HISTORY_MAX
     return data
 
 

@@ -37,6 +37,7 @@ from visiban.invite_recipient import (
     recipient_admits,
 )
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
+from visiban.pagination import capped_history, count_header_parameters, set_count_headers
 from visiban.utils import get_client_ip
 
 from .. import broadcast as _broadcast
@@ -88,8 +89,18 @@ class BoardInviteLinksMixin:
 
     @extend_schema(
         summary="List a board's invites",
+        description=(
+            "Every pending invite plus the most recent "
+            f"{BOARD_INVITE_LIST_MAX_PAST} used, expired or revoked ones, newest first. "
+            "Since 1.3, `X-Total-Count` and `X-Truncated` say whether older past invites were left out."
+        ),
         methods=["GET"],
         responses=BoardInviteLinkSerializer(many=True),
+        parameters=count_header_parameters(
+            "Since 1.3. Number of invites on the board: every pending one plus every past one.",
+            f"Since 1.3. `true` when more than {BOARD_INVITE_LIST_MAX_PAST} past invites exist "
+            "and the oldest were left out, otherwise `false`.",
+        ),
     )
     @extend_schema(
         summary="Create a shareable invite link for a board",
@@ -115,10 +126,17 @@ class BoardInviteLinksMixin:
         # Every pending invite (bounded by the send cap) plus only the most
         # recent past ones: the history otherwise grows without bound.
         pending = list(base.filter(pending_q).order_by("-created_at", "-pk"))
-        past = list(base.exclude(pending_q).order_by("-created_at", "-pk")[:BOARD_INVITE_LIST_MAX_PAST])
+        # The cap used to be silent (#1885): the headers now say how many
+        # invites the board has and whether older past ones were left out.
+        past, past_total = capped_history(
+            base.exclude(pending_q).order_by("-created_at", "-pk"), BOARD_INVITE_LIST_MAX_PAST,
+        )
         links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
         context = {"board": board, "sender_admits_memo": {}, "sender_admin_memo": {}}
-        return Response(BoardInviteLinkSerializer(links, many=True, context=context).data)
+        return set_count_headers(
+            Response(BoardInviteLinkSerializer(links, many=True, context=context).data),
+            total=len(pending) + past_total, returned=len(links),
+        )
 
     def _create_shareable_invite_link(self, request, board):
         """Mint a shareable ``delivery=link`` invite (#439).

@@ -204,7 +204,7 @@ A delete that arrives while the same group is being deleted, or while an invite 
 ## Members
 
 ### `GET /api/v1/groups/{id}/members/`
-List group members. Requires group membership.
+List group members. Requires group membership. Returns every direct and inherited member as one array; under a large root group that is the root's whole membership, so use [`members/paged/`](#get-apiv1groupsidmemberspaged) for bounded pages.
 
 **Response** — array of member objects:
 
@@ -218,6 +218,23 @@ List group members. Requires group membership.
 | `inherited_from` | string / null | Display name of the ancestor group that grants access, when `is_inherited` is `true`; `null` otherwise |
 | `has_all_content_access` | boolean | Whether the member has all-content access, which resolves to full access and overrides `role`. Present on every row only when the requesting user is a group admin; omitted otherwise. *(1.3+)* |
 | `is_site_admin` | boolean | Whether the member is a site admin. Only a site admin can change or remove a site admin's membership ([`PATCH`](#patch-apiv1groupsidmembersuser_id) and `DELETE` answer `403` for anyone else), so clients use it to withhold those controls. Present on direct rows (`is_inherited: false`) only when the requesting user is a group admin; omitted on inherited rows and for other readers. *(1.3+, #2164)* |
+
+### `GET /api/v1/groups/{id}/members/paged/`
+
+> **Added in 1.3**
+
+The same members as `GET /api/v1/groups/{id}/members/`, with the same access rule and the same per-row fields (including the admin-only `has_all_content_access` and `is_site_admin`), returned in pages (#1780). Requires group membership.
+
+**Query parameters**
+
+| Param | Notes |
+|---|---|
+| `offset` | Zero-based row offset (default `0`). An invalid or negative value is treated as `0`. |
+| `page_size` | Rows per page (default `50`, max `200`). An invalid, zero or negative value uses the default; a larger value is capped at `200`. |
+
+**Response** — `{count, offset, page_size, results}`, the standard [paginated envelope](index.md#pagination).
+
+Rows are ordered direct members first, then inherited members by ancestor distance (nearest first), and by membership `id` within each. A user is listed once: as a direct member if they have a direct row, otherwise from the nearest ancestor whose role grants access. This order differs from the bare list's, which is not guaranteed to be stable. A membership added or removed during a walk shifts the rows after it, as with any offset-paginated endpoint.
 
 ### `PATCH /api/v1/groups/{id}/members/{user_id}/`
 Change a member's role. Requires group admin. Cannot modify the membership of a site admin who is a member of the group. The target must already have a membership in the group (the role of an inactive member can be changed); otherwise the response is the same `404 Not Found` whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member.
@@ -265,6 +282,21 @@ List direct subgroups of this group that are visible to the requesting user. Req
 
 **Response** — array of `Group` summary objects (same shape as the list endpoint; `ancestors` is omitted for parity with `GET /api/v1/groups/`).
 
+### `GET /api/v1/groups/{id}/subgroups/paged/`
+
+> **Added in 1.3**
+
+The same subgroups as `GET /api/v1/groups/{id}/subgroups/`, with the same access rule and row shape, returned in pages (#1885). Ordered by subgroup `id`, oldest first, so a rename does not move a row and a new subgroup is added at the end.
+
+**Query parameters**
+
+| Param | Notes |
+|---|---|
+| `offset` | Zero-based row offset (default `0`). An invalid or negative value is treated as `0`. |
+| `page_size` | Rows per page (default `50`, max `200`). An invalid, zero or negative value uses the default; a larger value is capped at `200`. |
+
+**Response** — `{count, offset, page_size, results}`, the standard [paginated envelope](index.md#pagination).
+
 ---
 
 ## Boards
@@ -275,6 +307,23 @@ List boards in this group. Requires group membership.
 A board is listed only when the caller's role on it resolves the same way as for board detail; a board the caller cannot open is not listed.
 
 Pass `?expand=group` to populate `group_detail` on each board (see [Expanding foreign-key fields](index.md#expanding-foreign-key-fields)). *(1.2+)* The ancestor chain is resolved with one bulk fetch, so the query count does not grow with the number of boards (#1316).
+
+Returns every listed board as one array. In a flat organization with every board in one group that is every board, so use [`boards/paged/`](#get-apiv1groupsidboardspaged) for bounded pages.
+
+### `GET /api/v1/groups/{id}/boards/paged/`
+
+> **Added in 1.3**
+
+The same boards as `GET /api/v1/groups/{id}/boards/`, with the same access rule, per-board payload and `?expand=group` support, returned in pages (#1784). Ordered by board `id`, oldest first: editing a board does not move it, and a board created in the group is added at the end. A board moved into the group or newly made visible can insert an earlier row; a deletion, a move out, or lost access can skip one.
+
+**Query parameters**
+
+| Param | Notes |
+|---|---|
+| `offset` | Zero-based row offset (default `0`). An invalid or negative value is treated as `0`. |
+| `page_size` | Rows per page (default `50`, max `200`). An invalid, zero or negative value uses the default; a larger value is capped at `200`. |
+
+**Response** — `{count, offset, page_size, results}`, the standard [paginated envelope](index.md#pagination).
 
 ### `POST /api/v1/groups/{id}/boards/`
 

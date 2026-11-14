@@ -73,7 +73,7 @@ A budget may only come from a NUC run, so a new scenario can land before its bud
 It isn't a silent default. The self-test fails a scenario whose budget is null without a valid `#NNNN` reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.
 
 - When the issue assigns the budget, replace `budget_p95_ms` and delete `pending_budget` in the same whole-file re-derivation.
-- Pending now: `board_summary`, `board_analytics`, `flow_cycle_time`, `flow_throughput`, `flow_cumulative_flow` and `flow_wip_age` ([#448](https://gitlab.com/visiban/visiban/-/issues/448) added the scenarios), until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110).
+- Pending now: `board_summary`, `board_analytics`, `flow_cycle_time`, `flow_throughput`, `flow_cumulative_flow` and `flow_wip_age` ([#448](https://gitlab.com/visiban/visiban/-/issues/448) added the scenarios), until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110); `card_list` and `cards_archived` ([#2239](https://gitlab.com/visiban/visiban/-/issues/2239) added the scenarios), until [#2237](https://gitlab.com/visiban/visiban/-/issues/2237).
 - The first scenario to use this was `card_search_multi_board` ([#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added the scenario), which got its budget in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808).
 - The `suppressions-check` CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending ([#1812](https://gitlab.com/visiban/visiban/-/issues/1812); see [Suppression markers](suppressions.md#what-ci-enforces)).
 

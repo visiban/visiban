@@ -222,6 +222,14 @@ class AdminInviteLinkListTests(TestCase):
         # Newest first across both halves.
         created = [row["created_at"] for row in rows]
         self.assertEqual(created, sorted(created, reverse=True))
+        # The cap is no longer silent (#1885): headers carry the full total.
+        self.assertEqual(r["X-Total-Count"], str(3 + SITE_INVITE_LIST_MAX_PAST + 5))
+        self.assertEqual(r["X-Truncated"], "true")
+
+    def test_count_headers_when_nothing_is_capped(self):
+        r = self.client.get("/api/v1/admin/invite-links/")
+        self.assertEqual(r["X-Total-Count"], str(len(r.json())))
+        self.assertEqual(r["X-Truncated"], "false")
 
     def test_link_expiring_later_is_pending_not_past(self):
         link, _ = InviteLink.generate(

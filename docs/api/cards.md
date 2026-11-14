@@ -612,11 +612,34 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 
 ## History
 
+### Paging a card's history lists
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+`GET` on a card's `activities/`, `comments/` and `attachments/` returns a bare JSON array of **every** row on the card, as it always has. A long-lived card's activity log grows on every field edit, so since 1.3 each of the three also accepts optional paging parameters and always sends the card list's count headers. The body is the same bare array either way.
+
+| Query param | Notes |
+|---|---|
+| `limit` | Maximum rows to return, at most 200 (larger values are clamped). Omit it for every row. A negative or non-integer value is a `400` with `{"detail": ..., "code": "invalid_query_param"}` |
+| `offset` | Rows to skip (default `0`). A negative or non-integer value is treated as `0`; a value above 2^62 is a `400` (`invalid_query_param`) |
+
+| Response header | Notes |
+|---|---|
+| `X-Total-Count` | Number of rows on the card, ignoring `limit`/`offset` |
+| `X-Truncated` | `true` when more rows exist after the returned ones, otherwise `false` |
+
+Order is fixed with the row `id` as a tiebreaker (activities and attachments newest first, comments oldest first), so offset paging neither skips nor repeats a row on an unchanged card. Access checks are unchanged: a card you cannot see is a `404` whatever the query string.
+
+```
+GET /api/v1/boards/4/cards/17/activities/?limit=200            -> X-Total-Count: 450, X-Truncated: true
+GET /api/v1/boards/4/cards/17/activities/?limit=200&offset=400 -> X-Total-Count: 450, X-Truncated: false
+```
+
 ### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
-Full movement history for a card. Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
+Full movement history for a card (uncapped; tracked in #2255). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
-Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`).
+Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`). Newest first. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -769,7 +792,7 @@ One integer per `event_types` group, always all six keys. The totals ignore `eve
 ## Comments
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/comments/`
-List comments. Requires board member or above.
+List comments, oldest first. Requires board member or above. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists).
 
 | Field | Type | Description |
 |---|---|---|
@@ -793,7 +816,7 @@ Delete a comment. **Minimum role: Collaborator.** Collaborators may delete only 
 ## Attachments
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/attachments/`
-List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (absolute URL — scheme + host + path, built from the request), `uploaded_by` (user object, or `null` if the uploader has since been deleted), `uploaded_at`.
+List attachments, newest first. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists). Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (absolute URL — scheme + host + path, built from the request), `uploaded_by` (user object, or `null` if the uploader has since been deleted), `uploaded_at`.
 
 To download a file, fetch its `url` with the same `Authorization` header as API requests; attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests return `401 Unauthorized`; users without board membership get `404 Not Found`.
 
