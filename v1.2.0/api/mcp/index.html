@@ -5463,7 +5463,7 @@
 <tr>
 <td><code>activities</code></td>
 <td>array</td>
-<td><code>{id, event_type, from_value, to_value, actor, created_at, imported_from_username}</code> objects, newest first. <code>imported_from_username</code> works as on <code>movements</code>. Since 1.3, at most the 200 newest.</td>
+<td><code>{id, event_type, from_value, to_value, actor, created_at, imported_from_username, item_text}</code> objects, newest first. <code>imported_from_username</code> works as on <code>movements</code>. <code>item_text</code> (since 1.3) is the checklist item's text on <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries, and <code>null</code> on other entries and on entries recorded before 1.3. Since 1.3, at most the 200 newest.</td>
 </tr>
 <tr>
 <td><code>activities_truncated</code></td>

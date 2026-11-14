@@ -4548,7 +4548,7 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 </tr>
 <tr>
 <td>Notification producers</td>
-<td><code>boards/signals.py</code> <code>notify_on_card_moved</code>; <code>boards/management/commands/notify_stale_cards.py</code>; <code>boards/management/commands/notify_due_soon.py</code>; <code>boards/views/cards.py</code> comment mentions and watchers (<code>member_ids</code>); <code>boards/utils.py</code> <code>notify_new_mentions</code>; <code>boards/services/cards.py</code> assignment (assignee validated by <code>_get_assignable_member_ids</code> in <code>boards/serializers.py</code> before the write); <code>boards/views/boards.py</code> board-invite (recipient is the member just created)</td>
+<td><code>boards/signals.py</code> <code>notify_on_card_moved</code>; <code>boards/management/commands/notify_stale_cards.py</code>; <code>boards/management/commands/notify_due_soon.py</code>; <code>boards/views/cards.py</code> comment mentions and watchers (<code>member_ids</code>); <code>boards/utils.py</code> <code>notify_new_mentions</code>; <code>boards/services/cards.py</code> assignment (assignee validated by <code>_get_assignable_member_ids</code> in <code>boards/serializers.py</code> before the write); <code>boards/services/notifications.py</code> <code>notify_checklist_item_assigned</code>, called from <code>boards/views/cards.py</code> checklist create/PATCH (#2196; assignee validated by the same <code>_get_assignable_member_ids</code> pool in <code>CardChecklistSerializer</code> before the write, and the recipient re-checked against <code>_get_effective_member_ids</code> at send); <code>boards/views/boards.py</code> board-invite (recipient is the member just created)</td>
 <td>The invariant is split. Membership is per producer: <code>boards/services/notifications.py</code> <code>create_notifications</code> has no central membership check, so each producer limits its recipients to <code>boards/utils.py</code> <code>_get_effective_member_ids</code> before creating a row. An assignee isn't evidence of current access. An author adding a producer re-checks membership there. Active status is central: <code>create_notifications</code> drops inactive recipients in one bulk query, so every producer inherits it and no row or <code>post_notification_created</code> signal is produced for them (<code>boards/tests/test_notify_stale_cards.py</code>, <code>boards/tests/test_notifications.py</code>, <code>boards/tests/test_notification_inactive_recipients.py</code>)</td>
 </tr>
 <tr>
@@ -5090,7 +5090,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>Trello import</td>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin.import_trello</code></td>
-<td><code>boards/services/trello_import.py</code> <code>visible_users</code>, <code>match_members</code> (card members only; comments use the importer and keep the author name in <code>imported_from_username</code>; Trello import writes no movement or activity rows)</td>
+<td><code>boards/services/trello_import.py</code> <code>visible_users</code>, <code>match_members</code> (card members and, since #2197, checklist item members, both only with <code>add_matched_members</code>; comments use the importer and keep the author name in <code>imported_from_username</code>; Trello import writes no movement or activity rows)</td>
 </tr>
 <tr>
 <td>User search</td>
