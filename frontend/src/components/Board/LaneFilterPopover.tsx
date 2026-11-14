@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
@@ -65,6 +65,19 @@ interface Props {
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
 
 /**
+ * Clears a rule's open-menu keys when the rule row unmounts. A select inside
+ * the row that unmounts alone (field change swaps the value select) is covered
+ * by the dropdown closing itself; this covers whole-row removal (#2231).
+ */
+function MenuUnmountGuard({ ruleId, onGone }: { ruleId: number; onGone: (key: string, open: boolean) => void }) {
+  useEffect(
+    () => () => { for (const k of ["field", "op", "value"]) onGone(`${ruleId}:${k}`, false); },
+    [ruleId, onGone],
+  );
+  return null;
+}
+
+/**
  * Lane filter rule builder (#2205). Non-modal, untrapped `role="dialog"`
  * following ColumnPolicyPopover: placement from useAnchoredPlacement, Escape
  * at the dropdown tier (25, inner menus 26), outside click closes without
@@ -77,6 +90,44 @@ type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
 export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, paused, fmt, id, textChoices }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // #2231 — the inner menus are in-flow (not portaled, see frontend/CLAUDE.md
+  // #2205), so an `absolute` menu opened from a short rule list is clipped by
+  // the list's overflow-y-auto. Track which menus are open, by key, and reserve
+  // room for one while any is. A Set (not a counter) so a menu whose select
+  // unmounts while open (row removed, field changed) cannot leave it stuck.
+  const [openMenus, setOpenMenus] = useState<ReadonlySet<string>>(() => new Set());
+  const trackMenu = useCallback((key: string, open: boolean) => {
+    setOpenMenus((prev) => {
+      if (prev.has(key) === open) return prev;
+      const next = new Set(prev);
+      if (open) next.add(key); else next.delete(key);
+      return next;
+    });
+  }, []);
+  // Room the open menu needs below the list's top edge, measured from the menu
+  // itself: the menu has no max-height in flow, so any fixed reserve fails once
+  // the menu's row sits low in a long list. Capped by the list's max-height in
+  // CSS; the scroll effect below then brings the menu into view.
+  const [menuReserve, setMenuReserve] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const menu = openMenus.size > 0 ? list?.querySelector<HTMLElement>('[role="menu"]') : null;
+    if (!list || !menu) { setMenuReserve(null); return; }
+    const top = menu.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    setMenuReserve(Math.ceil(top + menu.offsetHeight) + 8);
+  }, [openMenus]);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const menu = menuReserve !== null ? list?.querySelector<HTMLElement>('[role="menu"]') : null;
+    if (!list || !menu) return;
+    const menuTop = menu.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    const menuBottom = menuTop + menu.offsetHeight;
+    // Show the whole menu when it fits; when it is taller than the list, start
+    // at its first option (keeping the trigger row in view) so all are reachable.
+    if (menuBottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(list.scrollTop, Math.min(menuBottom + 8 - list.clientHeight, menuTop - 40));
+    }
+  }, [menuReserve]);
   const readsAsId = `${id}-reads-as`;
   const headingId = `${id}-heading`;
   const items = filter?.items ?? [];
@@ -87,7 +138,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const top = useAnchoredPlacement(panelRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
-    deps: [ruleCount, items.length, paused],
+    deps: [ruleCount, items.length, paused, menuReserve],
     onResize: () => onClose(false),
     onOutsideScroll: () => onClose(false),
   });
@@ -226,6 +277,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     updateRule(r.id, { op });
   };
 
+  const listMaxHeight = visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, paused ? "10.5rem" : "9rem");
+
   const renderRule = (r: LaneRule) => {
     const n = leafNumber.get(r.id) as number;
     const t = typeOf(r);
@@ -238,8 +291,10 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
     return (
       <div key={r.id} data-lane-row={r.id} className="flex flex-wrap items-center gap-2">
+        <MenuUnmountGuard ruleId={r.id} onGone={trackMenu} />
         <SingleSelectDropdown<number>
           label="Choose a field"
+          onOpenChange={(o) => trackMenu(`${r.id}:field`, o)}
           ariaLabel={`Filter ${n} field`}
           className="w-40 justify-between"
           labelClassName="truncate"
@@ -260,6 +315,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
         {ops.length > 1 ? (
           <SingleSelectDropdown<FieldRuleOp>
             label="is"
+            onOpenChange={(o) => trackMenu(`${r.id}:op`, o)}
             ariaLabel={`Filter ${n} operator`}
             className="w-40 justify-between"
             escapePriority={INNER_ESCAPE_PRIORITY}
@@ -274,6 +330,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           <div className="flex-1 min-w-[10rem]">
             <SingleSelectDropdown<string>
               label="Choose a value"
+              onOpenChange={(o) => trackMenu(`${r.id}:value`, o)}
               ariaLabel={`Filter ${n} value`}
               className="w-full justify-between"
               labelClassName="truncate"
@@ -306,6 +363,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             {valueChoices.length > 0 ? (
               <SingleSelectDropdown<string>
                 label="Choose a value"
+                onOpenChange={(o) => trackMenu(`${r.id}:value`, o)}
                 ariaLabel={`Filter ${n} value`}
                 className="w-full justify-between"
                 labelClassName="truncate"
@@ -399,7 +457,11 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           className="overflow-y-auto px-3 py-2 flex flex-col gap-1.5 scroll-pb-10"
           // Viewport minus margins and the header, Reads-as and footer chrome
           // (and the paused note, which takes about one line more).
-          style={{ maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, paused ? "10.5rem" : "9rem") }}
+          style={{
+            maxHeight: listMaxHeight,
+            // While a menu is open, keep the list tall enough to show it (#2231).
+            minHeight: menuReserve !== null ? `min(${menuReserve}px, ${listMaxHeight})` : undefined,
+          }}
         >
           {items.length === 0 && <p className="text-xs text-fg-faint italic">No lane filters yet.</p>}
           {items.map((it, i) => (

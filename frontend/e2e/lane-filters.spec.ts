@@ -94,6 +94,7 @@ test.describe('lane filters', () => {
       swimlanes: [textLane(1, 'Acme', 'Ethan Ross'), textLane(2, 'Globex', 'Olivia Grant')],
       swimlane_custom_field_definitions: [AE_FIELD, OWNER],
     }
+    await page.setViewportSize({ width: 1024, height: 520 })
     await routeAuth(page)
     await routeBoard(page, board as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${board.id}`)
@@ -173,4 +174,67 @@ test.describe('lane filters', () => {
       await expect(dialog.getByRole('button', { name: 'Done' })).toBeInViewport({ ratio: 1 })
     })
   }
+
+  // #2231 — the inner menus are in-flow, so on a short rule list an opened menu
+  // used to be clipped by the list's overflow-y-auto and could not be chosen.
+  test('an opened field menu is fully visible and selectable on a short list', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, BOARD as unknown as typeof BOARD_FULL)
+    const rules = [{ f: AE_FIELD.id, o: 'is', v: 'Priya' }]
+    await page.goto(`/boards/${BOARD.id}?${new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` }).toString()}`)
+    await page.getByRole('button', { name: /^filters/i }).click()
+    await page.getByRole('button', { name: 'Lanes, 1 active' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Lane filters' })
+    await dialog.getByRole('button', { name: '+ Add filter' }).click()
+    await dialog.getByRole('button', { name: /^Filter 2 field/ }).click()
+    const items = dialog.getByRole('menuitem')
+    const last = items.last()
+    await expect(last).toBeVisible()
+    const list = (await dialog.locator('.overflow-y-auto').first().boundingBox())!
+    const item = (await last.boundingBox())!
+    expect(item.y).toBeGreaterThanOrEqual(list.y)
+    expect(item.y + item.height).toBeLessThanOrEqual(list.y + list.height + 1)
+    await last.click()
+    await expect(dialog.getByRole('button', { name: /^Filter 2 field/ })).toContainText(AE_FIELD.name)
+  })
+
+  // #2231 — the original sliver: 4 complete rules + a new empty row, 520px viewport, 8 fields.
+  // A fixed reserve cannot work here; the reserve must be measured from the menu.
+  test('every option of a field menu opened low in a long list is reachable', async ({ page }) => {
+    const MANY = Array.from({ length: 8 }, (_, i) => ({ ...AE_FIELD, id: 20 + i, uid: `slfmany${i}xx`, name: `Field ${i + 1}`, position: i }))
+    const board = { ...BOARD, swimlane_custom_field_definitions: [AE_FIELD, ...MANY] }
+    await page.setViewportSize({ width: 1024, height: 520 })
+    await routeAuth(page)
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    const rules = [0, 1, 2, 3].map((i) => ({ ...(i ? { j: 'a' } : {}), f: AE_FIELD.id, o: 'is', v: 'Priya' }))
+    await page.goto(`/boards/${BOARD.id}?${new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` }).toString()}`)
+    await page.getByRole('button', { name: /^filters/i }).click()
+    await page.getByRole('button', { name: 'Lanes, 4 active' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Lane filters' })
+    await dialog.getByRole('button', { name: '+ Add filter' }).click()
+    await dialog.getByRole('button', { name: /^Filter 5 field/ }).click()
+    const items = dialog.getByRole('menuitem')
+    const count = await items.count()
+    expect(count).toBe(9)
+    const list = (await dialog.locator('.overflow-y-auto').first().boundingBox())!
+    // The first options are visible without any scrolling by the user.
+    const first = (await items.first().boundingBox())!
+    expect(first.y).toBeGreaterThanOrEqual(list.y)
+    expect(first.y + first.height).toBeLessThanOrEqual(list.y + list.height + 1)
+    // Most of the menu is on screen at once, not a sliver (the #2231 report).
+    let visible = 0
+    for (let i = 0; i < count; i++) {
+      const b = (await items.nth(i).boundingBox())!
+      if (b.y >= list.y && b.y + b.height <= list.y + list.height + 1) visible++
+    }
+    expect(visible).toBeGreaterThanOrEqual(5)
+    // The last option is reachable: scroll it into view and click it.
+    const last = items.last()
+    await last.scrollIntoViewIfNeeded()
+    const box = (await last.boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(list.y)
+    expect(box.y + box.height).toBeLessThanOrEqual(list.y + list.height + 1)
+    await last.click()
+    await expect(dialog.getByRole('button', { name: /^Filter 5 field/ })).toContainText('Field 8')
+  })
 })
