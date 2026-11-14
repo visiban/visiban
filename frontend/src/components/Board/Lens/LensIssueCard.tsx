@@ -53,24 +53,29 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
         }
       }}
       aria-label={`Open issue #${issue.number}: ${issue.title} (opens in new tab)`}
-      className={`group block w-full text-left bg-surface rounded border border-line transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      // #2238: a closed issue recedes onto bg-sunken with a bordered "Closed" pill and a
+      // fg-secondary title, never whole-card opacity (the old 70% dim dropped the pill to 1.72:1
+      // and #number to 2.13 dark). Hover is a border step, not a fill: on bg-surface-hover
+      // even fg-tertiary is 4.04:1 dark. Every text tone here holds AA on surface and sunken
+      // (onTintTokens.test.ts); see frontend/CLAUDE.md § Card aging ramp.
+      className={`group block w-full text-left rounded border border-line transition-colors cursor-pointer hover:border-line-emphasis focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         compact ? "p-1.5" : "p-2.5"
-      } ${closed ? "opacity-70" : ""}`}
+      } ${closed ? "bg-sunken" : "bg-surface"}`}
     >
       <div className={`flex items-center gap-2 ${compact ? "mb-0.5" : "mb-1"}`}>
-        <span className="font-mono text-xs text-fg-muted shrink-0">#{issue.number}</span>
+        <span className="font-mono text-xs text-fg-tertiary shrink-0">#{issue.number}</span>
         <span
-          className={`text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
+          className={`text-xs font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${
             closed
-              ? "bg-surface-hover text-fg-muted"
-              : "bg-success/15 text-success-on-tint"
+              ? "border-line text-fg-tertiary"
+              : "border-transparent bg-success/15 text-success-on-tint"
           }`}
         >
           {closed ? "Closed" : "Open"}
         </span>
         {laneCount > 1 && (
           <span
-            className="text-xs text-fg-muted shrink-0 ml-auto"
+            className="text-xs text-fg-tertiary shrink-0 ml-auto"
             title={`This issue appears in ${laneCount} swimlanes`}
             aria-label={`Appears in ${laneCount} lanes`}
           >
@@ -79,7 +84,7 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
         )}
       </div>
 
-      <p className={`text-sm text-fg ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{issue.title}</p>
+      <p className={`text-sm ${closed ? "text-fg-secondary" : "text-fg"} ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{issue.title}</p>
 
       {!compact && issue.labels.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap mt-1.5">
@@ -87,7 +92,7 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
             <span
               key={label.name}
               className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none"
-              style={colorChipStyle(`#${label.color}`, closed ? "lens-closed" : null)}
+              style={colorChipStyle(`#${label.color}`)}
               title={label.name}
             >
               {label.name}
@@ -97,7 +102,7 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
       )}
 
       {!compact && (issue.milestone || issue.assignees.length > 0 || ev) && (
-        <div className="flex items-center gap-2 mt-1.5 text-xs text-fg-muted">
+        <div className="flex items-center gap-2 mt-1.5 text-xs text-fg-tertiary">
           {/* Left cluster: milestone + pipeline evidence. May flex-wrap — the one
               permitted exception to single-row metadata, so the branch/MR that
               explains a Doing/Review placement is never truncated away. */}

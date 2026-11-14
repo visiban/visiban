@@ -209,18 +209,17 @@ describe('dimmed chip surfaces mirror the stage classes and tokens (#2102)', () 
     expect(s.dark).toBe(hex(blend(rgbOf(darkBlock, hue), rgbOf(darkBlock, 'surface'), alpha)))
   })
 
-  it('lens-closed: opacity-70 on the card root over the lane bg-canvas', () => {
-    const s = DIMMED_CHIP_SURFACES['lens-closed']
-    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('${closed ? "opacity-70" : ""}')
-    expect(readFileSync('src/components/Board/Lens/LensSwimlaneRow.tsx', 'utf8')).toMatch(/className="shrink-0 bg-canvas /)
-    expect(s.opacity).toBe(0.7)
-    expect(s.light).toBe(hex(rgbOf(lightBlock, 'canvas')))
-    expect(s.dark).toBe(hex(rgbOf(darkBlock, 'canvas')))
+  // #2238: the closed Lens card no longer dims (it was opacity-70 over the lane bg-canvas), so its
+  // label chips are opaque and need no dim entry. Its text is guarded by the #1862 describe below.
+  it('the closed Lens card has no whole-card opacity and no chip dim', () => {
+    const lens = readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')
+    expect(lens).not.toMatch(/\bopacity-\d/)
+    expect(lens).toContain('colorChipStyle(`#${label.color}`)')
+    expect(Object.keys(DIMMED_CHIP_SURFACES)).toEqual(['warning', 'stale', 'stale2x', 'stale3x'])
   })
 
-  it('both dimmed label-chip sites pass their dim', () => {
+  it('the dimmed label-chip site passes its dim', () => {
     expect(readFileSync('src/components/Card/CardItem.tsx', 'utf8')).toContain('colorChipStyle(label.color, aging.stage)')
-    expect(readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')).toContain('closed ? "lens-closed" : null)')
   })
 })
 
@@ -425,8 +424,10 @@ describe('card metadata on an aging tint (#1844)', () => {
 // - SwimlaneFieldsPopover, SwimlaneFieldEditRow: the swimlane field names outside the row chip.
 // - ArchivedCardsPanel: archived cards are bg-sunken rows inside a bg-surface panel.
 // Each file lists every background its text sits on; the check takes the worst. The values are the
-// ones recorded in frontend/CLAUDE.md § Card aging ramp. LensIssueCard is deferred to #2030 (its
-// hover:bg-surface-hover puts even fg-tertiary at 4.04:1 dark, so it needs a design call).
+// ones recorded in frontend/CLAUDE.md § Card aging ramp.
+// - LensIssueCard (#2238): open cards are bg-surface, closed cards bg-sunken, and hover is a border
+//   step (hover:border-line-emphasis), never a fill, because on bg-surface-hover even fg-tertiary is
+//   4.04:1 dark. Its text therefore only ever sits on those two backgrounds.
 describe('untinted card face text (#1862)', () => {
   const FILES: Record<string, string[]> = {
     ...Object.fromEntries(CARD_FACE_FILES.map((f) => [`Card/${f}`, ['surface']])),
@@ -436,6 +437,7 @@ describe('untinted card face text (#1862)', () => {
     'Board/SwimlaneFieldsPopover': ['surface'],
     'Board/SwimlaneFieldEditRow': ['surface'],
     'Board/ArchivedCardsPanel': ['surface', 'surface-sunken'],
+    'Board/Lens/LensIssueCard': ['surface', 'surface-sunken'],
   }
   // A token that may sit below 4.5:1 on its file's backgrounds, with its reason.
   const EXEMPT: Record<string, string> = {
@@ -691,5 +693,38 @@ describe('Analytics tab Beta badge (#2236)', () => {
     expect(on(lightBlock, 0.2, 'surface-active')).toBeCloseTo(4.5, 2)
     // Even with no fill at all, dark warning-on-tint on the hover bg-surface-active is 4.49.
     expect(ratio(won(darkBlock), rgbOf(darkBlock, 'surface-active'))).toBeLessThan(4.5)
+  })
+})
+
+// #2238: the closed Lens card was opacity-70 over the lane's bg-canvas, which blended its text toward
+// the canvas: the Closed pill (fg-muted on bg-surface-hover) and the #number (fg-muted on bg-surface).
+// It now recedes on bg-sunken with a bordered fg-tertiary pill and a fg-secondary title, at full opacity.
+describe('closed Lens card text (#2238)', () => {
+  const lens = readFileSync('src/components/Board/Lens/LensIssueCard.tsx', 'utf8')
+  const dimmed = (b: string, fg: string, bg: string) =>
+    ratio(blend(rgbOf(b, fg), rgbOf(b, 'canvas'), 0.7), blend(rgbOf(b, bg), rgbOf(b, 'canvas'), 0.7))
+
+  it('the old opacity-70 put the pill and #number below AA in both themes', () => {
+    // Measured with the pre-#2030 dark fg-muted (slate-500), which is what shipped with the dim.
+    const old = darkBlock.replace(/--fg-muted: [\d ]+;/, '--fg-muted: 100 116 139;')
+    expect(dimmed(old, 'fg-muted', 'surface-hover')).toBeCloseTo(1.72, 2)
+    expect(dimmed(lightBlock, 'fg-muted', 'surface-hover')).toBeCloseTo(2.58, 2)
+    expect(dimmed(old, 'fg-muted', 'surface')).toBeCloseTo(2.13, 2)
+    expect(dimmed(lightBlock, 'fg-muted', 'surface')).toBeCloseTo(2.75, 2)
+  })
+
+  it('closed state is a bg-sunken face, a bordered fg-tertiary pill and a fg-secondary title', () => {
+    expect(lens).toContain('${closed ? "bg-sunken" : "bg-surface"}')
+    expect(lens).toContain('"border-line text-fg-tertiary"')
+    expect(lens).toContain('${closed ? "text-fg-secondary" : "text-fg"}')
+  })
+
+  it.each([
+    ['dark', darkBlock, 6.96, 5.71, 12.02],
+    ['light', lightBlock, 7.24, 7.58, 9.9],
+  ])('%s theme: pill on sunken, #number on surface and closed title on sunken hold the pinned ratios', (_n, b, pill, num, title) => {
+    expect(ratio(rgbOf(b, 'fg-tertiary'), rgbOf(b, 'surface-sunken'))).toBeCloseTo(pill, 2)
+    expect(ratio(rgbOf(b, 'fg-tertiary'), rgbOf(b, 'surface'))).toBeCloseTo(num, 2)
+    expect(ratio(rgbOf(b, 'fg-secondary'), rgbOf(b, 'surface-sunken'))).toBeCloseTo(title, 2)
   })
 })
