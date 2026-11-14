@@ -194,6 +194,10 @@ export const createLabel = (boardId: number, data: { name: string; color?: strin
 export const listCustomFieldDefinitions = (boardId: number) =>
   client.get<CustomFieldDefinition[]>(`/api/v1/boards/${boardId}/custom-fields/`).then((r) => r.data);
 
+/** One definition, with a fresh server-computed `has_values` (#2202). */
+export const getCustomFieldDefinition = (boardId: number, fieldId: number) =>
+  client.get<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`).then((r) => r.data);
+
 export const createCustomFieldDefinition = (boardId: number, data: {
   name: string;
   field_type: CustomFieldType;

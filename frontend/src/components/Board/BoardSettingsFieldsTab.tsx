@@ -13,6 +13,7 @@ import {
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
   listCustomFieldDefinitions,
+  getCustomFieldDefinition,
   deleteCustomFieldDefinition,
   reorderCustomFields,
 } from "../../api/boards";
@@ -152,6 +153,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     setPasteListText("");
   };
 
+  /** A non-empty value for field *id* on a card already on screen. */
+  const valueOnScreen = (id: number) =>
+    board.cards.some((c) => c.custom_field_values.some((v) => v.field_definition === id && v.value !== ""));
+
   const startEdit = (def: CustomFieldDefinition) => {
     setEditingId(def.id);
     setForm(formFromDefinition(def));
@@ -159,6 +164,22 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     setPendingTypeChange(null);
     setPasteListOpen(false);
     setPasteListText("");
+    // `has_values` only refreshes on /full/ or a custom_field.* event, so it
+    // stays true after the last value is cleared (a card value write sends
+    // neither). With no value on screen to back the lock, re-read the
+    // definition (retrieve is annotated) before trusting it. A failed read
+    // keeps the lock: the server still refuses a type change it disallows.
+    if (def.has_values === true && !valueOnScreen(def.id)) {
+      void (async () => {
+        try {
+          const fresh = await getCustomFieldDefinition(board.id, def.id);
+          if (typeof fresh?.has_values !== "boolean") return;
+          setFields((prev) => prev.map((f) => (f.id === def.id ? { ...f, has_values: fresh.has_values } : f)));
+        } catch {
+          // Keep the cached lock.
+        }
+      })();
+    }
   };
 
   const cancelEdit = () => {
@@ -174,9 +195,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
    * card already on screen, which covers a value set after the definitions
    * were loaded. The type picker locks up front, as the swimlane tab does.
    */
-  const fieldHasValues = (def: CustomFieldDefinition) =>
-    def.has_values === true ||
-    board.cards.some((c) => c.custom_field_values.some((v) => v.field_definition === def.id && v.value !== ""));
+  const fieldHasValues = (def: CustomFieldDefinition) => def.has_values === true || valueOnScreen(def.id);
 
   const handleTypeSelect = (nextType: CustomFieldType) => {
     // A field with values has its other types disabled (#2202), so this only

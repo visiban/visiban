@@ -449,12 +449,14 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
         )
     if with_archived_card_count:
         queryset = queryset.prefetch_related(
-            # Plain string prefetches: both fields are declared directly on
+            # Both field-definition relations are declared directly on
             # BoardFullSerializer (CustomFieldDefinitionSerializer(many=True)
             # / SwimlaneCustomFieldDefinitionSerializer(many=True)), so DRF's
             # ListSerializer calls .all() with no extra filter/order_by — the
             # model Meta.ordering (["position", "id"]) applies either way, so
-            # a plain prefetch matches what the serializer reads (#1334).
+            # the swimlane fields use a plain string prefetch and the card
+            # fields a Prefetch() whose queryset only adds an annotation,
+            # which matches what the serializer reads (#1334).
             #
             # Note: for this single-board fetch, prefetching does not reduce
             # the *query count* below the unprefetched baseline — Django

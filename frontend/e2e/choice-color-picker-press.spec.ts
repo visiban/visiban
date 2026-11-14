@@ -52,5 +52,10 @@ for (const [tab, fieldName] of [['Card fields', 'Priority'], ['Swimlane fields',
     // A swatch still picks and closes, and a press outside the picker still closes it.
     await popover.getByRole('radio', { name: /green/i }).click()
     await expect(popover).toBeHidden()
+
+    await page.getByRole('button', { name: /^Color for Red/ }).click()
+    await expect(popover).toBeVisible()
+    await page.getByRole('button', { name: tab }).click()
+    await expect(popover).toBeHidden()
   })
 }

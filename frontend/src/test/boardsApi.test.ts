@@ -25,6 +25,7 @@ import {
   createBoard,
   getBoard,
   getBoardFull,
+  getCustomFieldDefinition,
   updateBoard,
   patchBoard,
   deleteBoard,
@@ -619,5 +620,15 @@ describe('board invite API (#1444)', () => {
     await expect(joinBoard(t)).rejects.toThrow('Invalid join token')
     expect(api.get).not.toHaveBeenCalled()
     expect(api.post).not.toHaveBeenCalled()
+  })
+})
+
+describe('getCustomFieldDefinition (#2202)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('GETs one card field definition from the board custom-fields route', async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ data: { id: 7, has_values: false } })
+    await expect(getCustomFieldDefinition(3, 7)).resolves.toEqual({ id: 7, has_values: false })
+    expect(client.get).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/7/')
   })
 })

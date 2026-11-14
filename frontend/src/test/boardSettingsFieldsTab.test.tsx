@@ -12,6 +12,7 @@ vi.mock("../api/boards", () => ({
   deleteCustomFieldDefinition: vi.fn(),
   reorderCustomFields: vi.fn(),
   listCustomFieldDefinitions: vi.fn(),
+  getCustomFieldDefinition: vi.fn(),
 }));
 
 const fakeUser: User = {
@@ -1189,6 +1190,31 @@ describe("BoardSettingsFieldsTab — type lock from has_values (#2202)", () => {
     board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "" }] } as unknown as BoardFull["cards"][number]];
     await openEditor(board);
     expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeEnabled();
+  });
+
+  it("re-reads a stale has_values when no value is on screen, and unlocks once the last value was cleared", async () => {
+    vi.mocked(boardsApi.getCustomFieldDefinition).mockResolvedValueOnce(makeDefinition({ has_values: false }));
+    const board = makeBoard([makeDefinition({ has_values: true })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(boardsApi.getCustomFieldDefinition).toHaveBeenCalledWith(1, 1);
+    await waitFor(() => expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeEnabled());
+    expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
+  });
+
+  it("keeps the lock when the re-read fails", async () => {
+    vi.mocked(boardsApi.getCustomFieldDefinition).mockRejectedValueOnce(new Error("network"));
+    await openEditor(makeBoard([makeDefinition({ has_values: true })]));
+    await waitFor(() => expect(boardsApi.getCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeDisabled();
+    expect(screen.getByText(LOCK_RE)).toBeInTheDocument();
+  });
+
+  it("does not re-read has_values when a value on screen already backs the lock", async () => {
+    const board = makeBoard([makeDefinition({ has_values: true })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "S1" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(boardsApi.getCustomFieldDefinition).not.toHaveBeenCalled();
   });
 
   it("never locks the type of a new field", async () => {
