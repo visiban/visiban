@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
 import { updateDefaultBoard } from "../api/auth";
@@ -70,6 +70,10 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     // the board was already created and there is nothing to roll back.
     void navigate(`/boards/${board.id}`);
   };
+
+  // #2204 class: a confirmed delete unmounts the board row's Delete button (the opener), so the
+  // dialog restores focus to the stable "My Boards" heading instead of <body>.
+  const myBoardsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleDeleteBoard = async (boardId: number) => {
     const removedIndex = boards.findIndex((b) => b.id === boardId);
@@ -235,7 +239,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {/* Personal boards */}
         <section aria-labelledby="my-boards-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 id="my-boards-heading" className="text-fg text-lg font-semibold">My Boards</h2>
+            <h2 id="my-boards-heading" ref={myBoardsHeadingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">My Boards</h2>
             <div className="flex items-center gap-2">
               {/* Hosted demo (#1179): both create a whole board, which the server
                   fence refuses — aria-disabled, reason in title + aria-label. */}
@@ -367,6 +371,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             title="Delete board?"
             maxWidth="max-w-sm"
             labelId="delete-board-title"
+            restoreFocusTo={() => myBoardsHeadingRef.current}
           >
             <p className="text-fg-tertiary text-sm mb-1">
               <span className="text-fg font-medium">{board?.name}</span> and all its data, including archived cards, will be permanently deleted.

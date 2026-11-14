@@ -405,6 +405,14 @@ describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
     expect(dialog).toHaveTextContent('This board has 1 card and 3 archived cards. Type the board name to confirm deletion.')
   })
 
+  it('moves focus to the My Boards heading after a confirmed delete, not <body> (#2204)', async () => {
+    mockDeleteBoard.mockResolvedValue(undefined)
+    const { user } = await openDeleteDialog(0, 0)
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'My Boards' }))
+  })
+
   it('mentions archived cards and allows single-click delete for an empty board', async () => {
     const { dialog } = await openDeleteDialog(0, 0)
     expect(dialog).toHaveTextContent('all its data, including archived cards, will be permanently deleted')

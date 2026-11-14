@@ -185,7 +185,7 @@ describe('card aging ramp contrast (#1841)', () => {
 
   // #2029: the stale (1-2x) fill has its own token pinned to the pre-#2029 orange, so retuning the
   // light --warning text token to orange-700 cannot darken the tint. With bg-warning/15 the light
-  // stale card title fell to 4.44:1.
+  // stale badge (warning-on-tint text at opacity .85) fell to 4.44:1; the card title holds 9.71.
   it('stale-tint is declared in both themes, exposed to tailwind, and is the stale overlay hue', () => {
     expect(rgbOf(darkBlock, 'stale-tint')).toEqual([251, 146, 60])
     expect(rgbOf(lightBlock, 'stale-tint')).toEqual([234, 88, 12])

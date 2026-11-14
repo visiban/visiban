@@ -160,7 +160,7 @@
   --urgent-on-tint: 127 29 29;     /* red-900 */
   /* Stale 3x aging stage (#1841): maroon fill + ring. Ring vs its fill composite 6.91:1, vs canvas 9.15:1. */
   --stale-severe: 127 29 29;       /* red-900 */
-  /* Stale 1-2x fill (#2029): orange-600, the old light --warning. With orange-700 the card title fell to 4.44:1. */
+  /* Stale 1-2x fill (#2029): orange-600, the old light --warning. With orange-700 the stale badge (`warning-on-tint` text at opacity .85) fell to 4.44:1; the title holds 9.71. */
   --stale-tint: 234 88 12;         /* orange-600 */
 
   /* Brand-tint surfaces stay on Visiban blue-600 in light mode (avatars, active tabs, toggles). */

@@ -2669,6 +2669,22 @@ describe('BoardView', () => {
       expect(deleteBtn).toBeEnabled()
     })
 
+    it('restores focus to the board region after a confirmed column delete, not <body> (#2204)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      act(() => {
+        capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+      })
+      act(() => {
+        capturedOnDragEnd!({
+          active: { id: 'col:10' },
+          over: { id: 'trash:column' },
+        } as unknown as DragEndEvent)
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.queryByText('Delete column?')).not.toBeInTheDocument())
+      expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Board' }))
+    })
+
     it('allows direct delete (no name typing) when the column is empty', () => {
       render(<BoardView {...defaultProps()} />)
       act(() => {
