@@ -1368,6 +1368,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#text-operators-and-wildcards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Text operators and wildcards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#url-serialized-filter-state" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5649,7 +5660,7 @@
 <li>Pick a field, then a value or range:<ul>
 <li><strong>Dropdown</strong> fields: <strong>is</strong> or <strong>is not</strong> a choice.</li>
 <li><strong>Number</strong> and <strong>Date</strong> fields: <strong>between</strong> two values. Leave either end as <strong>Any</strong> for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.</li>
-<li><strong>Text</strong> and <strong>URL</strong> fields (<a href="https://gitlab.com/visiban/visiban/-/issues/2226">#2226</a>): <strong>is</strong> or <strong>is not</strong> one of the values your lanes already carry for that field (listed alphabetically), or <strong>contains</strong> text you type (up to 500 characters), for example <em>AE is Ethan Ross</em> or <em>AE contains ross</em>. Matching ignores case and leading or trailing spaces. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty <strong>contains</strong> box is an incomplete filter.</li>
+<li><strong>Text</strong> and <strong>URL</strong> fields (<a href="https://gitlab.com/visiban/visiban/-/issues/2226">#2226</a>): <strong>is</strong> or <strong>is not</strong> one of the values your lanes already carry for that field (listed alphabetically), or one of three operators that take text you type (up to 500 characters): <strong>contains</strong>, <strong>does not contain</strong>, and <strong>matches wildcard</strong>, for example <em>AE is Ethan Ross</em>, <em>AE contains ross</em>, or <em>AE matches wildcard Ethan*</em>. Matching ignores case and leading or trailing spaces. See <a href="#text-operators-and-wildcards">Text operators and wildcards</a>. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty text box is an incomplete filter.</li>
 </ul>
 </li>
 <li>Add more filters, or <strong>+ Add group</strong> to bracket several together. Between every two filters or groups, an <strong>And / Or</strong> toggle sets how they combine. <strong>And</strong> binds tighter than <strong>Or</strong>, the way it does in arithmetic, and groups go one level deep.</li>
@@ -5657,7 +5668,7 @@
 </ol>
 <p>Rules apply as soon as they are complete; <strong>Done</strong> just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.</p>
 <ul>
-<li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong>, <strong>contains</strong>, and <strong>between</strong> and passes <strong>is not</strong>.</li>
+<li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong>, <strong>contains</strong>, <strong>matches wildcard</strong>, and <strong>between</strong>, and passes <strong>is not</strong> and <strong>does not contain</strong>.</li>
 <li><strong>Admin-only fields</strong> are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.</li>
 <li><strong>Checkbox and multi-select</strong> swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, <strong>Lanes</strong> is hidden.</li>
 <li><strong>Chips:</strong> each complete filter or group shows as a chip tagged <strong>Lanes</strong>, joined by "and" / "or". Dismissing a chip removes that filter or group. The <strong>Lanes</strong> button shows how many rules are active; the Filters badge and <strong>Clear all</strong> count all lane rules together as one filter.</li>
@@ -5666,6 +5677,73 @@
 <li><strong>When a lane stops matching</strong> because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with <strong>Edit lane filters</strong> and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.</li>
 </ul>
 <p>Lane filters are saved with the rest of the filter state in your browser, in the URL (<code>f_lanes</code>), and in <a href="../saved-filters/">saved filters</a>.</p>
+<h4 id="text-operators-and-wildcards">Text operators and wildcards<a class="headerlink" href="#text-operators-and-wildcards" title="Permanent link">&para;</a></h4>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>Text and URL swimlane fields offer five operators in a lane filter:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Matches a lane when its value...</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>is</strong> / <strong>is not</strong></td>
+<td>equals the value you pick, exactly</td>
+</tr>
+<tr>
+<td><strong>contains</strong></td>
+<td>has your text anywhere inside it. <code>*</code> and <code>?</code> are ordinary characters here</td>
+</tr>
+<tr>
+<td><strong>does not contain</strong></td>
+<td>does not have your text inside it (the opposite of <strong>contains</strong>)</td>
+</tr>
+<tr>
+<td><strong>matches wildcard</strong></td>
+<td>has a part that matches your pattern, where <code>*</code> stands for any run of characters (including none) and <code>?</code> for exactly one character</td>
+</tr>
+</tbody>
+</table>
+<p>All of them ignore case and leading or trailing spaces. A <strong>contains</strong>, <strong>does not contain</strong>, or <strong>matches wildcard</strong> filter with a blank box is incomplete and is ignored.</p>
+<p>With <strong>matches wildcard</strong> the pattern may match any part of the value, just as <strong>contains</strong> does, so a <code>*</code> at either end is unnecessary: <code>ethan</code> and <code>*ethan*</code> behave the same. A lone <code>*</code> matches any lane that has a value. There is no "starts with" or "ends with" yet (see <a href="https://gitlab.com/visiban/visiban/-/issues/1847">#1847</a>).</p>
+<table>
+<thead>
+<tr>
+<th>You type</th>
+<th>Matches</th>
+<th>Doesn't match</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>e*ross</code></td>
+<td>Ethan Ross, Eve Gross</td>
+<td>Ross Ethan</td>
+</tr>
+<tr>
+<td><code>j?n</code></td>
+<td>Jan, Jon, Jan Smith</td>
+<td>Jean, Jn</td>
+</tr>
+<tr>
+<td><code>ethan</code></td>
+<td>Ethan Ross, Seth Ethan</td>
+<td>Eth</td>
+</tr>
+<tr>
+<td><code>a*c</code></td>
+<td>abc, xxabbcxx</td>
+<td>cba</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>A literal <code>*</code> or <code>?</code>:</strong> use <strong>contains</strong>, where they are plain characters.</li>
+<li><strong>Lanes with no value</strong> fail <strong>matches wildcard</strong> and <strong>contains</strong>, and pass <strong>does not contain</strong> (as they pass <strong>is not</strong>).</li>
+<li>Wildcard patterns are never treated as regular expressions, so no other character has a special meaning.</li>
+</ul>
 <h4 id="url-serialized-filter-state">URL-serialized filter state<a class="headerlink" href="#url-serialized-filter-state" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>Active filters are serialized into the page URL as query parameters, so filter combinations can be bookmarked and shared:</p>
