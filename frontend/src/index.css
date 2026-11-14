@@ -218,7 +218,8 @@ body {
 }
 
 /*
-  Rich-text color span (#2097). RichTextEditor's view mode puts --rt-fg-{light,dark}
+  Rich-text color span (#2097, #2099). RichTextEditor's view mode (and, via a
+  decoration in richTextEditColor.ts, its editing view) puts --rt-fg-{light,dark}
   (textColorStyle() in src/utils/colorContrast.ts) on each stored color span, so the
   chosen hex stays legible on both themes without a re-render on theme switch.
 */
