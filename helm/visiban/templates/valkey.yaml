@@ -52,6 +52,13 @@ data:
     # refuse every non-loopback client. Ingress is restricted by NetworkPolicy.
     {{- end }}
     protected-mode no
+    {{- with .Values.valkey.primary.maxmemory }}
+    # Memory ceiling + eviction (#1130). Kept below the pod's memory limit so
+    # Valkey evicts instead of being OOM-killed. A later maxmemory line in
+    # commonConfiguration overrides this one.
+    maxmemory {{ . }}
+    maxmemory-policy {{ $.Values.valkey.primary.maxmemoryPolicy | default "volatile-lru" }}
+    {{- end }}
     {{- with .Values.valkey.commonConfiguration }}
     {{- . | nindent 4 }}
     {{- end }}
@@ -102,7 +109,7 @@ spec:
         app.kubernetes.io/component: valkey
       annotations:
         # A changed commonConfiguration must restart the server to take effect.
-        checksum/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}
+        checksum/config: {{ printf "%s|%s|%s" (.Values.valkey.commonConfiguration | toString) (.Values.valkey.primary.maxmemory | toString) (.Values.valkey.primary.maxmemoryPolicy | toString) | sha256sum }}
     spec:
       automountServiceAccountToken: false
       securityContext:
