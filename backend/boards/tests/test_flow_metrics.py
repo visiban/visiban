@@ -1371,12 +1371,18 @@ class EndpointQueryCountTests(EndpointFixture):
             card = self.path(self.backlog, 20, self.doing, 16, self.done, 3)
             Card.objects.filter(pk=card.pk).update(assignee=owner)
             wip = self.path(self.backlog, 20, self.doing, 10 + i % 3)
+            # Assigned, so attention's directory runs its assignee query at both sizes.
+            Card.objects.filter(pk=wip.pk).update(assignee=owner if i % 2 else self.user)
             CardBlock.objects.create(card=wip, board=self.board, reason="r", blocked_at=self.ago(1))
 
     def count(self, metric):
         with CaptureQueriesContext(connection) as ctx:
             resp = self.client.get(self.url(metric))
         self.assertEqual(resp.status_code, 200)
+        if metric == "attention":
+            # An empty list would skip the relation and directory queries this guards.
+            self.assertTrue(resp.json()["items"])
+            self.assertTrue(any(card["assignee"] for card in resp.json()["cards"]))
         return len(ctx)
 
     def test_each_endpoint_stays_within_budget_and_does_not_grow(self):
