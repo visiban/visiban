@@ -96,8 +96,9 @@ certifi>=2026.10.19
 # opentelemetry-api arrives transitively via mcp (mcp 2.3.0 declares
 # opentelemetry-api>=1.28.0, no upper bound). 1.45.0 and earlier are
 # vulnerable to GHSA-xcq7-p3pf-p88h (quadratic-time `tracestate` header
-# parsing), which pip-audit flags in the lock. Floor it at the fixed release,
-# mirroring the certifi pattern above.
-opentelemetry-api>=1.45.1
+# parsing); 1.45.1 is vulnerable to CVE-2026-126360 (ReDoS in
+# TraceContextTextMapPropagator.extract()). pip-audit flags both in the lock.
+# Floor it at the fixed release, mirroring the certifi pattern above.
+opentelemetry-api>=1.45.2
 whitenoise==6.12.0
 drf-spectacular==0.29.0
