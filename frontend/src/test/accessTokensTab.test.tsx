@@ -341,6 +341,9 @@ describe('AccessTokensTab', () => {
     const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
     expect(confirm).toHaveTextContent('Revoking…')
     expect(confirm).toBeDisabled()
+    // A second click while pending sends no second request (#1435).
+    fireEvent.click(confirm)
+    expect(mockRevokeToken).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId(`revoke-${token1.id}`)).not.toBeInTheDocument()
     resolveRevoke()
     await waitFor(() => expect(screen.queryByText('CI pipeline')).not.toBeInTheDocument())

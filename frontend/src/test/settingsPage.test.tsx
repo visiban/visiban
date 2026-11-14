@@ -1109,6 +1109,17 @@ describe('SecurityTab — connected accounts', () => {
     expect(mockNavigate).toHaveBeenCalled()
   })
 
+  it('a second Confirm click while a disconnect is pending sends one request (#1435)', async () => {
+    mockDisconnectAccount.mockReturnValue(new Promise(() => {}))
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    const confirm = screen.getByTestId('confirm-disconnect-google')
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(mockDisconnectAccount).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape is inert while a disconnect is in flight (#1366)', async () => {
     mockDisconnectAccount.mockReturnValue(new Promise(() => {}))
     const ue = await open()
