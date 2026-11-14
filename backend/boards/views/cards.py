@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Window
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -49,7 +49,7 @@ from ..serializers import (
 )
 from ._helpers import (
     BoundedIdFilter, get_board_for_user, _can_modify_others_content, _refetched_card_data,
-    validate_full_reorder_order,
+    fetch_page_and_total, validate_full_reorder_order,
 )
 
 logger = logging.getLogger(__name__)
@@ -659,19 +659,11 @@ class CardViewSet(viewsets.ModelViewSet):
         if not any(f.lstrip("-") in ("pk", "id") for f in order if isinstance(f, str)):
             queryset = queryset.order_by(*order, "pk")
 
-        # Window COUNT rides the page query, so the total costs no extra round
-        # trip (same pattern as the archived action). Slice after ordering —
-        # slicing before filter_queryset() would block OrderingFilter.
-        rows = list(queryset.annotate(_total=Window(Count("id")))[offset:offset + limit])
-        if rows:
-            total = rows[0]._total
-        elif offset == 0 and limit > 0:
-            total = 0
-        else:
-            # Empty window past the end, or limit=0: the page query had no row
-            # to carry the total, so count separately. Never hit by a no-param
-            # request on a non-empty board.
-            total = queryset.count()
+        # Plain page plus a bare COUNT only when the page is full (#2239): a
+        # Window(Count) on the page query read every matching card before the
+        # LIMIT. Slice after ordering — slicing before filter_queryset() would
+        # block OrderingFilter.
+        rows, total = fetch_page_and_total(queryset, offset, limit)
 
         serializer = self.get_serializer(rows, many=True)
         response = Response(serializer.data)
@@ -1001,22 +993,11 @@ class CardViewSet(viewsets.ModelViewSet):
         board = self._board()
         qs = _card_queryset(Card.objects.filter(board=board, archived_at__isnull=False)).order_by("-archived_at")
         offset = parse_offset(request)
-        # Annotate `_total` via window function so the page fetch returns the
-        # total count alongside each row — saves a second `COUNT(*)` round-trip
-        # on boards with long archived history (#929).  analytics.py:movements
-        # no longer uses this pattern; the remaining Window(Count) sites are
-        # tracked in #2239.
-        page_qs = list(
-            qs.annotate(_total=Window(Count("id")))[offset: offset + self._ARCHIVED_PAGE_SIZE]
-        )
-        if page_qs:
-            total = page_qs[0]._total
-        elif offset == 0:
-            total = 0
-        else:
-            # Empty page past the end: no row carries the window value, so
-            # count separately (#2032). Never hit by a first-page request.
-            total = qs.order_by().count()
+        # No window count on the page query (#2239, as #1961 did for the
+        # movements history): it read the board's whole archived history to
+        # serve 50 rows. A short page carries the total; a full one runs a
+        # bare COUNT(*) on the archived_at index.
+        page_qs, total = fetch_page_and_total(qs, offset, self._ARCHIVED_PAGE_SIZE)
         # Pre-compute shared context values so CardSerializer does not call
         # _get_effective_member_ids() once per card instance (O(n) queries).
         member_ids = _get_effective_member_ids(board)
@@ -1453,26 +1434,17 @@ class CardViewSet(viewsets.ModelViewSet):
 
         fetch_cap = offset + limit
 
-        # Annotate `_total` via window function so the page fetch carries the
-        # full count alongside each row — avoids a separate COUNT(*) round-trip
-        # for movements and activities (#798).
+        # Each source is read plain from row 0 to fetch_cap; a short read is
+        # the source's exact total, and only a full one runs a bare COUNT(*)
+        # (#2239). The Window(Count) these replaced read the card's whole
+        # history on every page (#798's round-trip saving cost more than it saved).
         if include_moves:
             movements_qs = (
                 CardMovement.objects.filter(card=card)
                 .select_related("moved_by")
                 .order_by("-moved_at")
             )
-            capped_movements = list(
-                movements_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
-            )
-            if capped_movements:
-                move_count = capped_movements[0]._total
-            elif fetch_cap == 0:
-                # limit=0 (or negative, clamped) with offset=0 slices to
-                # nothing, so no row carries the window total (#2032).
-                move_count = movements_qs.order_by().count()
-            else:
-                move_count = 0
+            capped_movements, move_count = fetch_page_and_total(movements_qs, 0, fetch_cap)
         else:
             move_count = 0
             capped_movements = []
@@ -1483,15 +1455,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 .select_related("actor")
                 .order_by("-created_at")
             )
-            capped_activities = list(
-                activities_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
-            )
-            if capped_activities:
-                activity_count = capped_activities[0]._total
-            elif fetch_cap == 0:
-                activity_count = activities_qs.order_by().count()
-            else:
-                activity_count = 0
+            capped_activities, activity_count = fetch_page_and_total(activities_qs, 0, fetch_cap)
         else:
             activity_count = 0
             capped_activities = []

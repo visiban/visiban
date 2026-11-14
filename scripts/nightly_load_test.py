@@ -22,6 +22,8 @@ cursor page, as a one-board user (#1805).
   - card_search             GET  /api/v1/cards/?search=...          (#1805)
   - card_search_multi_board GET  /api/v1/cards/?search=...          (#1810, as demo3, 200 boards)
   - card_timeline           GET  /api/v1/boards/{id}/cards/{id}/timeline/  (0045)
+  - card_list               GET  /api/v1/boards/{id}/cards/         (#2239, budget: #2237)
+  - cards_archived          GET  /api/v1/boards/{id}/cards/archived/ (#2239, budget: #2237)
   - notifications_list      GET  /api/v1/notifications/
   - notifications_unread    GET  /api/v1/notifications/unread-count/
 
@@ -292,6 +294,10 @@ def _endpoints(base_url, board_id, sample_card_id):
         # ~200 boards, so the card SELECT gets the scan-and-sort plan (#1810).
         "card_search_multi_board": f"{base_url}/api/v1/cards/?search=the",
         "card_timeline": f"{base_url}/api/v1/boards/{board_id}/cards/{sample_card_id}/timeline/",
+        # Page queries that dropped their Window(Count) total for a plain page
+        # plus a bare COUNT when the page is full (#2239).
+        "card_list": f"{base_url}/api/v1/boards/{board_id}/cards/",
+        "cards_archived": f"{base_url}/api/v1/boards/{board_id}/cards/archived/",
         "notifications_list": f"{base_url}/api/v1/notifications/",
         "notifications_unread": f"{base_url}/api/v1/notifications/unread-count/",
         # Both replay movement history since #448: summary for the cards completed

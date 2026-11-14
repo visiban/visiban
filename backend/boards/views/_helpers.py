@@ -692,3 +692,33 @@ def validate_full_reorder_order(order, existing_ids, *, item_label, scope_label)
             }
         )
     return order_ints
+
+
+def fetch_page_and_total(queryset, offset, limit):
+    """Return ``(rows, total)`` for one offset page of an ordered *queryset*.
+
+    Replaces the ``annotate(_total=Window(Count("id")))`` page query (#2239,
+    the pattern #1961 removed from the movements history page). A window
+    count is evaluated over every matching row before OFFSET/LIMIT apply, so
+    each page read the whole history behind it; measured on Postgres with
+    20,000 rows it turned a 0.04 ms index read of an archived-cards page into
+    7 ms, and a card timeline page from 0.06 ms into 15 ms.
+
+    The page is fetched plain. A short non-empty page already gives the exact
+    total (``offset + len(rows)``), and an empty first page means there are
+    no rows at all, so the common small-result request still costs one query.
+    Only a full page, an empty page past the end, or ``limit == 0`` runs a
+    separate bare ``COUNT(*)`` (``count()`` drops ordering and unused
+    select_related, so it reads only the filter's index). The two statements
+    can see different snapshots under READ COMMITTED; for a full page the
+    total is never reported below the rows it proves exist.
+    """
+    rows = list(queryset[offset:offset + limit]) if limit > 0 else []
+    if rows and len(rows) < limit:
+        return rows, offset + len(rows)
+    if not rows and offset == 0 and limit > 0:
+        return rows, 0
+    total = queryset.order_by().count()
+    # A full page proves at least offset + len(rows) rows exist; an empty page
+    # past the end proves nothing, so its total is the COUNT alone.
+    return rows, max(total, offset + len(rows)) if rows else total

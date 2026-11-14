@@ -913,9 +913,9 @@ class CardListTruncationSignalTests(TestCase):
         self.assertEqual(len(set(seen)), 6)
 
     def test_query_count_extra_count_only_for_empty_window(self):
-        # The total rides the page query as a window COUNT; only a window with
-        # no row to carry it (offset past the end, limit=0) costs one more
-        # query for a separate COUNT.
+        # No window COUNT on the page query (#2239): a short non-empty page
+        # carries its own total, so it costs no extra query. A full page, an
+        # offset past the end, or limit=0 costs one bare COUNT.
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
@@ -927,8 +927,10 @@ class CardListTruncationSignalTests(TestCase):
             self.assertEqual(r.status_code, 200)
             return len(ctx.captured_queries)
 
-        base = count({})
-        self.assertEqual(count({"limit": 2, "offset": 1}), base)
+        base = count({})  # 5 cards under the 200 cap: a short page
+        self.assertEqual(count({"limit": 10, "offset": 1}), base)
+        # A full page cannot tell whether more rows follow: one COUNT more.
+        self.assertEqual(count({"limit": 2, "offset": 1}), base + 1)
         # An empty page skips the prefetch queries, so the empty-window cases
         # compare against an empty first page (filter matching nothing), whose
         # total is known to be 0 without a COUNT.

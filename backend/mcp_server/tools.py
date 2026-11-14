@@ -41,7 +41,7 @@ major version bump.
 """
 import logging
 
-from django.db.models import Count, Q, Window
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as _DRFValidationError
 
@@ -64,7 +64,7 @@ from boards.services.errors import (
 )
 from boards.utils import _get_assignable_member_ids
 from boards.views._helpers import (
-    _count_subquery, card_payload_context, get_accessible_boards_queryset,
+    _count_subquery, card_payload_context, fetch_page_and_total, get_accessible_boards_queryset,
     render_card_payloads,
 )
 from visiban.parsers import first_lone_surrogate
@@ -845,20 +845,11 @@ def _cards_page(board, *, column_id=None, swimlane_id=None, assignee=None,
     # `id` makes the order total: position repeats across cells, and offset
     # paging over a non-total order can skip or repeat a card at a boundary.
     ordered = qs.order_by("column__position", "swimlane__position", "position", "id")
-    # Window COUNT rides the page query (the same pattern as REST's card list,
-    # boards/views/cards.py), so the total costs no extra query and always
-    # agrees with the rows returned: a separate COUNT could be stale by the
-    # time the page is read and report truncated=false with cards missing.
-    cards = list(ordered.annotate(_total=Window(Count("id")))[offset:offset + limit])
-    if cards:
-        total = cards[0]._total
-    elif offset == 0 and limit > 0:
-        total = 0
-    else:
-        # Empty window past the end, or limit=0: no row carries the window
-        # value, so count separately. Never hit by a no-param call on a
-        # non-empty board.
-        total = qs.order_by().count()
+    # Plain page, bare COUNT only when the page is full (#2239, the same helper
+    # REST's card list uses): a Window(Count) on the page query read every
+    # matching card before the LIMIT. A short page's total is exact; the
+    # helper keeps a racing COUNT from reporting fewer cards than returned.
+    cards, total = fetch_page_and_total(ordered, offset, limit)
     return [_serialize_card(card) for card in cards], total
 
 
