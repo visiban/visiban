@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
 import {
   DEMO_BLOCK_REASON, MAINTENANCE_REASON, MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, PALETTE_COMMAND_LABELS, SELECT_ONE_REASON,
-  archiveCards, assignCards, cardActionEntries, cardIdFromElement, cardLink, cardTargetSummary,
+  REFUSAL_CLAUSE, archiveCards, assignCards, cardActionEntries, cardRefusal, partitionRefused, cardIdFromElement, cardLink, cardTargetSummary,
   contextMenuTargetIds, focusedCardFaceId, moveCardsToColumn, paletteCardActions, resolveCardTarget, setCardsPriority, successMessage,
   type CardActionContext,
 } from '../utils/cardActions'
@@ -185,6 +185,21 @@ describe('writes over a target set (§ Bulk operations wording)', () => {
     expect(r.failureMessage).toBe('1 of 2 cards could not be moved — a column limit was reached.')
   })
 
+  it('a server 403 on move names the move clause, and mixed with a client skip stays one reason', async () => {
+    vi.mocked(moveCard).mockRejectedValue(httpError(403))
+    expect((await moveCardsToColumn(1, [makeCard()], column)).failureMessage)
+      .toBe('1 of 1 card could not be moved — a card assigned to someone else can only be moved by its creator, its assignee or a board admin.')
+    const mine = makeCard({ id: 1, created_by: { id: 1, username: 'u', display_name: 'U', avatar_url: '' } })
+    const theirs = makeCard({
+      id: 2, created_by: { id: 9, username: 'o', display_name: 'O', avatar_url: '' },
+      assignee: { id: 8, username: 'a', display_name: 'A', avatar_url: '' } as never,
+    })
+    const r = await moveCardsToColumn(1, [mine, theirs], column, member)
+    expect(moveCard).toHaveBeenCalledTimes(2)
+    expect(r.failureMessage)
+      .toBe('2 of 2 cards could not be moved — a card assigned to someone else can only be moved by its creator, its assignee or a board admin.')
+  })
+
   it('assigns and sets priority with Promise.allSettled', async () => {
     vi.mocked(updateCard).mockResolvedValue(makeCard() as never)
     expect((await assignCards(1, [makeCard()], null)).failureMessage).toBeNull()
@@ -216,5 +231,75 @@ describe('writes over a target set (§ Bulk operations wording)', () => {
     expect(successMessage('copy-link', one)).toBe('Link copied to the clipboard.')
     expect(successMessage('delete', one)).toBe('Deleted “Fix payout rounding”.')
     expect(successMessage('open', one)).toBe('')
+  })
+})
+
+
+describe('cardRefusal (#2173)', () => {
+  const other = makeCard({ id: 2, created_by: { id: 9, username: 'z', display_name: 'Z', avatar_url: '' } })
+  const assignedElsewhere = makeCard({ id: 3, created_by: other.created_by, assignee: { id: 8, username: 'y', display_name: 'Y', avatar_url: '' } })
+  const actions = ['assign', 'priority', 'archive', 'delete'] as const
+
+  it('refuses ownership-gated actions on a card someone else created, with the shared clause', () => {
+    for (const a of actions) {
+      expect(cardRefusal(other, a, member)).toBe(REFUSAL_CLAUSE[a])
+      expect(cardRefusal(makeCard(), a, member)).toBeUndefined() // own card
+    }
+  })
+
+  it('Move is refused only for a card assigned to someone else that the user did not create', () => {
+    expect(cardRefusal(other, 'move', member)).toBeUndefined() // unassigned
+    expect(cardRefusal(assignedElsewhere, 'move', member)).toBe(REFUSAL_CLAUSE.move)
+    expect(cardRefusal(assignedElsewhere, 'move', { ...member, currentUserId: 8 })).toBeUndefined() // the assignee
+  })
+
+  it('moderators and admins are never refused; the demo visitor widens everything but delete', () => {
+    for (const a of [...actions, 'move' as const]) {
+      expect(cardRefusal(assignedElsewhere, a, { ...member, isModerator: true })).toBeUndefined()
+      expect(cardRefusal(assignedElsewhere, a, { ...member, role: 'admin' })).toBeUndefined()
+      expect(cardRefusal(assignedElsewhere, a, { ...member, role: 'site_admin' })).toBeUndefined()
+    }
+    const demo = { ...member, demoMode: true }
+    expect(cardRefusal(other, 'assign', demo)).toBeUndefined()
+    expect(cardRefusal(other, 'archive', demo)).toBeUndefined()
+    expect(cardRefusal(other, 'delete', demo)).toBe(REFUSAL_CLAUSE.delete)
+  })
+
+  it('stays lenient: an unknown creator or current user is left to the server', () => {
+    for (const a of [...actions, 'move' as const]) {
+      expect(cardRefusal(makeCard({ created_by: null, assignee: other.created_by }), a, member)).toBeUndefined()
+      expect(cardRefusal(assignedElsewhere, a, { ...member, currentUserId: null })).toBeUndefined()
+    }
+  })
+
+  it('cardActionEntries is exactly "every card refuses" (parity)', () => {
+    const sets = [[other], [other, makeCard({ id: 4 })], [other, assignedElsewhere], [assignedElsewhere], [makeCard({ created_by: null })], []]
+    const ctxs = [member, { ...member, isModerator: true }, { ...member, demoMode: true }, { ...member, currentUserId: null }, { ...member, role: 'admin' as const }]
+    const reasonFor = (a: string) => (a === 'move' ? MOVE_ASSIGNED_REASON : OWNER_ONLY_REASON)
+    for (const cards of sets) for (const ctx of ctxs) {
+      const e = byId(cards, ctx)
+      for (const a of [...actions, 'move' as const]) {
+        const every = cards.every((c) => cardRefusal(c, a, ctx) !== undefined)
+        if (ctx.demoMode && (a === 'archive' || a === 'delete')) continue // demo note wins
+        expect(e[a].enabled, `${a} ${JSON.stringify(ctx)} ${cards.length}`).toBe(!every)
+        if (every) expect(e[a].reason).toBe(reasonFor(a))
+      }
+    }
+  })
+
+  it('partitionRefused sends everything when there is no context', () => {
+    expect(partitionRefused([other], 'archive', undefined)).toEqual({ sendable: [other], refused: 0, clause: undefined })
+    const p = partitionRefused([other, makeCard({ id: 4 })], 'archive', member)
+    expect(p.sendable.map((c) => c.id)).toEqual([4])
+    expect(p.refused).toBe(1)
+    expect(p.clause).toBe(REFUSAL_CLAUSE.archive)
+  })
+
+  it('executors skip refused cards, count them failed and name the cause', async () => {
+    vi.mocked(updateCard).mockReset().mockResolvedValue(makeCard({ id: 4 }))
+    const r = await assignCards(1, [other, makeCard({ id: 4 })], 5, member)
+    expect(updateCard).toHaveBeenCalledTimes(1)
+    expect(r.failed).toBe(1)
+    expect(r.failureMessage).toBe('1 of 2 cards could not be assigned — you can only assign cards you created.')
   })
 })

@@ -145,6 +145,62 @@ function roleReason(role: CardActionContext["role"], action: CardActionId): stri
   return `${who} can't ${VERB[action]} cards`;
 }
 
+/** Actions whose refusal depends on who created or holds the card. */
+export type OwnershipAction = "move" | "assign" | "priority" | "archive" | "delete";
+
+/**
+ * Why the server refuses each ownership-gated action, as a number-neutral
+ * clause that completes `… could not be {verb} — {reason}.` after both
+ * "1 of 1 card" and "2 of 5 cards" (§ Bulk operations rule 2: no plural
+ * pronouns). One table for the bulk toolbar and the context-menu / palette
+ * executors, so the two surfaces word a refusal identically (#2173).
+ *
+ * Assign's clause is "you can only assign cards you created": the server lets
+ * a card's creator assign their own card (`_require_own_content`), so the old
+ * "assigning needs a moderator or admin" was inaccurate.
+ */
+export const REFUSAL_CLAUSE: Record<OwnershipAction, string> = {
+  move: "a card assigned to someone else can only be moved by its creator, its assignee or a board admin",
+  assign: "you can only assign cards you created",
+  priority: "you can only edit cards you created",
+  archive: "you can only archive cards you created",
+  delete: "you can only delete cards you created",
+};
+
+/**
+ * Whether the client already knows the server will refuse `action` on this one
+ * card for ownership, and why (a `REFUSAL_CLAUSE`); `undefined` when it may go.
+ * The per-card form of the ownership rules in `cardActionEntries`, and just as
+ * lenient: an unknown creator, assignee or current user is left to the server.
+ * Role, maintenance and demo gates are not here; they apply to the whole set
+ * and stay in `cardActionEntries`.
+ */
+export function cardRefusal(card: Card, action: OwnershipAction, ctx: CardActionContext): string | undefined {
+  const isAdmin = ctx.role === "admin" || ctx.role === "site_admin";
+  const canModifyOthers = isAdmin || ctx.isModerator;
+  // Same demo carve-out as CardDetail: the published visitor may reassign
+  // cards others created (archive and delete are withheld in the demo).
+  const widen = action === "delete" ? canModifyOthers : canModifyOthers || (ctx.demoMode && ctx.role === "member");
+  if (widen) return undefined;
+  const uid = ctx.currentUserId;
+  if (uid == null || card.created_by == null || card.created_by.id === uid) return undefined;
+  if (action === "move") {
+    // The server refuses a move only for a card assigned to someone else that
+    // the user did not create (backend move_card).
+    return card.assignee == null || card.assignee.id === uid ? undefined : REFUSAL_CLAUSE.move;
+  }
+  return REFUSAL_CLAUSE[action];
+}
+
+/** Splits a target set into the cards worth sending and those known to be refused. */
+export function partitionRefused(
+  cards: Card[], action: OwnershipAction, ctx: CardActionContext | undefined,
+): { sendable: Card[]; refused: number; clause: string | undefined } {
+  if (!ctx) return { sendable: cards, refused: 0, clause: undefined };
+  const sendable = cards.filter((c) => cardRefusal(c, action, ctx) === undefined);
+  return { sendable, refused: cards.length - sendable.length, clause: sendable.length < cards.length ? REFUSAL_CLAUSE[action] : undefined };
+}
+
 /**
  * Availability of every action for a target set, in menu order. Labels are
  * state-aware (`Block card…` / `Unblock card`). Ownership-gated actions are
@@ -157,11 +213,12 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
   const isAdmin = ctx.role === "admin" || ctx.role === "site_admin";
   const writer = isAdmin || ctx.role === "member";
   const canModifyOthers = isAdmin || ctx.isModerator;
-  // Same demo carve-out as CardDetail: the published visitor may reassign
-  // cards others created (archive is withheld in the demo, see below).
-  const canModifyOthersInDemo = canModifyOthers || (ctx.demoMode && ctx.role === "member");
-  const ownsAny = (widen: boolean) =>
-    widen || cards.some((c) => c.created_by == null || ctx.currentUserId == null || c.created_by.id === ctx.currentUserId);
+  // Disabled only when the client knows EVERY card is refused; one card that
+  // may go keeps the action enabled and the rest report as partial failure.
+  const everyRefused = (action: OwnershipAction): string | undefined =>
+    cards.every((c) => cardRefusal(c, action, ctx) !== undefined)
+      ? (action === "move" ? MOVE_ASSIGNED_REASON : OWNER_ONLY_REASON)
+      : undefined;
 
   const writeGate = (action: CardActionId): string | undefined => {
     if (ctx.maintenanceBlocked) return MAINTENANCE_REASON;
@@ -189,19 +246,16 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
     // The server refuses a move only for a card assigned to someone else that
     // the user did not create (backend move_card); disabled only when every
     // target card is known to be such a card.
-    entry("move", "Move to…", writeGate("move") ?? (canModifyOthersInDemo || cards.some((c) =>
-      ctx.currentUserId == null || c.assignee == null || c.created_by == null
-      || c.created_by.id === ctx.currentUserId || c.assignee.id === ctx.currentUserId,
-    ) ? undefined : MOVE_ASSIGNED_REASON)),
-    entry("assign", "Assign to…", writeGate("assign") ?? (ownsAny(canModifyOthersInDemo) ? undefined : OWNER_ONLY_REASON)),
+    entry("move", "Move to…", writeGate("move") ?? everyRefused("move")),
+    entry("assign", "Assign to…", writeGate("assign") ?? everyRefused("assign")),
     // Any PATCH takes the server's own-content gate ("You can only edit cards
     // you created"), so Priority follows Assign's ownership rule.
-    entry("priority", "Set priority", writeGate("priority") ?? (ownsAny(canModifyOthersInDemo) ? undefined : OWNER_ONLY_REASON)),
+    entry("priority", "Set priority", writeGate("priority") ?? everyRefused("priority")),
     entry(blockId, blocked ? "Unblock card" : "Block card…", blockReason),
     // The demo's card sheet withholds Archive and Delete (#1914 frame 7); the
     // menu follows the sheet, which is the per-card surface it stands in for.
-    entry("archive", "Archive card", writeGate("archive") ?? (ctx.demoMode ? DEMO_CARD_FOOTER_NOTE : ownsAny(canModifyOthersInDemo) ? undefined : OWNER_ONLY_REASON)),
-    entry("delete", "Delete card…", writeGate("delete") ?? (ctx.demoMode ? DEMO_CARD_FOOTER_NOTE : ownsAny(canModifyOthers) ? undefined : OWNER_ONLY_REASON)),
+    entry("archive", "Archive card", writeGate("archive") ?? (ctx.demoMode ? DEMO_CARD_FOOTER_NOTE : everyRefused("archive"))),
+    entry("delete", "Delete card…", writeGate("delete") ?? (ctx.demoMode ? DEMO_CARD_FOOTER_NOTE : everyRefused("delete"))),
   ];
 }
 
@@ -315,42 +369,64 @@ function summarize<T>(done: T[], total: number, verb: string, reasons: Set<strin
 }
 
 /**
+ * The executors below take the user's `CardActionContext` so a mixed set skips
+ * the cards the client already knows the server refuses (`cardRefusal`): they
+ * are not sent, count as failed, and carry the ownership reason. Delete does
+ * the same through `CardDeleteConfirm`, which takes the same context and
+ * `partitionRefused`. Without a context nothing is
+ * skipped and the server decides. The server stays the enforcement point.
+ */
+
+/**
  * Moves serially, like the toolbar: concurrent position-reorder transactions
  * on one column deadlock. Each card keeps its swimlane and lands last.
  */
-export async function moveCardsToColumn(boardId: number, cards: Card[], column: Column): Promise<CardActionResult<Card>> {
+export async function moveCardsToColumn(boardId: number, cards: Card[], column: Column, ctx?: CardActionContext): Promise<CardActionResult<Card>> {
+  const { sendable, clause } = partitionRefused(cards, "move", ctx);
   const done: Card[] = [];
-  const reasons = new Set<string>();
-  for (const card of cards) {
+  const reasons = new Set<string>(clause ? [clause] : []);
+  for (const card of sendable) {
     try {
       const result = await moveCard(boardId, card.id, { column_id: column.id, swimlane_id: card.swimlane, position: 9999 });
       done.push(result.card);
     } catch (err) {
-      reasons.add(failureReason(err));
+      reasons.add(failureReason(err, REFUSAL_CLAUSE.move));
     }
   }
   return summarize(done, cards.length, "moved", reasons);
 }
 
-async function settleEach<T>(cards: Card[], run: (card: Card) => Promise<T>, verb: string, forbidden?: string): Promise<CardActionResult<T>> {
-  const results = await Promise.allSettled(cards.map(run));
+async function settleEach<T>(
+  cards: Card[], run: (card: Card) => Promise<T>, verb: string, action: OwnershipAction, ctx: CardActionContext | undefined,
+): Promise<CardActionResult<T>> {
+  const { sendable, clause } = partitionRefused(cards, action, ctx);
+  const results = await Promise.allSettled(sendable.map(run));
   const done = results.filter((r): r is PromiseFulfilledResult<Awaited<T>> => r.status === "fulfilled").map((r) => r.value as T);
   const reasons = new Set(
-    results.filter((r): r is PromiseRejectedResult => r.status === "rejected").map((r) => failureReason(r.reason, forbidden)),
+    results.filter((r): r is PromiseRejectedResult => r.status === "rejected").map((r) => failureReason(r.reason, REFUSAL_CLAUSE[action])),
   );
+  if (clause) reasons.add(clause);
   return summarize(done, cards.length, verb, reasons);
 }
 
-export function assignCards(boardId: number, cards: Card[], userId: number | null): Promise<CardActionResult<Card>> {
-  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), userId === null ? "unassigned" : "assigned", "assigning needs a moderator or admin");
+export function assignCards(boardId: number, cards: Card[], userId: number | null, ctx?: CardActionContext): Promise<CardActionResult<Card>> {
+  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), userId === null ? "unassigned" : "assigned", "assign", ctx);
 }
 
-export function setCardsPriority(boardId: number, cards: Card[], priority: Priority): Promise<CardActionResult<Card>> {
-  return settleEach(cards, (card) => updateCard(boardId, card.id, { priority }), "updated", "you can only edit cards you created");
+export function setCardsPriority(boardId: number, cards: Card[], priority: Priority, ctx?: CardActionContext): Promise<CardActionResult<Card>> {
+  return settleEach(cards, (card) => updateCard(boardId, card.id, { priority }), "updated", "priority", ctx);
 }
 
-export function archiveCards(boardId: number, cards: Card[]): Promise<CardActionResult<number>> {
-  return settleEach(cards, (card) => archiveCard(boardId, card.id).then(() => card.id), "archived", "you can only archive cards you created");
+export function archiveCards(boardId: number, cards: Card[], ctx?: CardActionContext): Promise<CardActionResult<number>> {
+  return settleEach(cards, (card) => archiveCard(boardId, card.id).then(() => card.id), "archived", "archive", ctx);
+}
+
+/**
+ * The slot message for a refused click when the client knows every card is
+ * refused: the same rule-2 wording a server refusal would produce.
+ */
+export function allRefusedMessage(cards: Card[], action: OwnershipAction, verb: string): string {
+  return `${cards.length} of ${cards.length} ${plural(cards.length)} could not be ${verb} — ${REFUSAL_CLAUSE[action]}.`;
 }
 
 /** Success line for the board's polite status region. */

@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Priority, User } from "../../types";
-import { moveCard, updateCard, archiveCard } from "../../api/cards";
-import { failureReason } from "../../utils/moveFailure";
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
-import { assignChoices, moveChoices, priorityChoices } from "../../utils/cardActions";
+import {
+  allRefusedMessage, archiveCards, assignCards, assignChoices, cardActionEntries, moveCardsToColumn,
+  MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, moveChoices, priorityChoices, setCardsPriority, type CardActionContext, type OwnershipAction,
+} from "../../utils/cardActions";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { usePublishedHeight } from "../../hooks/usePublishedHeight";
@@ -18,20 +19,35 @@ interface Props {
   onCardsArchived: (cardIds: number[]) => void;
   onClearSelection: () => void;
   currentUser?: User | null;
+  /**
+   * The shared availability context BoardView builds for the card context
+   * menu and the palette. The toolbar derives nothing of its own, so the
+   * three surfaces gate and word a refusal identically (#2173).
+   */
+  cardActionCtx: CardActionContext;
+  /**
+   * The slot's text. Controlled by BoardView so a context-menu or palette
+   * result over this same selection reports here too (#2173).
+   */
+  message: string | null;
+  onMessageChange: (message: string | null) => void;
 }
 
 type Dropdown = "move" | "assign" | "priority" | null;
 
-const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
-
-export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onCardsArchived, onClearSelection, currentUser }: Props) {
+export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onCardsArchived, onClearSelection, currentUser, cardActionCtx, message: partialError, onMessageChange: setPartialError }: Props) {
   const [dropdown, setDropdown] = useState<Dropdown>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [partialError, setPartialError] = useState<string | null>(null);
+  const refusalIdPrefix = useId();
 
   // The shared toast region floats above the toolbar (frontend/CLAUDE.md § Toasts).
   const rootRef = useRef<HTMLDivElement>(null);
+  // Pending clear-then-set tick of a refusal message; cleared on unmount.
+  const refuseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (refuseTimerRef.current !== null) clearTimeout(refuseTimerRef.current);
+  }, []);
   usePublishedHeight(rootRef, "--bulk-toolbar-h");
 
   const moveRef = useRef<HTMLButtonElement>(null);
@@ -54,116 +70,109 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const count = selectedCardIds.size;
   const selectedCards = board.cards.filter((c) => selectedCardIds.has(c.id));
 
-  const role = board.current_user_role;
-  const isModerator = board.members.some(
-    (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
-  );
   // Feeds ONLY the delete confirmation's "cards created by others will be
   // skipped" note. Deliberately NOT widened for the hosted demo (#1179): card
   // delete is not on DEMO_ALLOWED_WRITES, and in demo mode the Delete button
   // is inert, so the confirmation (and this note) can never open.
-  const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
+  const canModifyAll = cardActionCtx.role === "admin" || cardActionCtx.role === "site_admin" || cardActionCtx.isModerator;
   const demoMode = useInstanceFlags().demo_mode;
+
+  // Same availability the context menu shows for this selection. A button is
+  // refused when the client knows every selected card is (role, maintenance,
+  // ownership); one card that may go keeps it enabled (#2173).
+  const entries = cardActionEntries(selectedCards, cardActionCtx);
+  const entryFor = (id: "move" | "assign" | "priority" | "archive" | "delete") => entries.find((e) => e.id === id)!;
+  const deleteEntry = entryFor("delete");
+  const moveEntry = entryFor("move");
+  const assignEntry = entryFor("assign");
+  const priorityEntry = entryFor("priority");
+  const archiveEntry = entryFor("archive");
+
+  // A refused button is aria-disabled, never native disabled: it stays in the
+  // tab order so the reason is reachable, and activating it writes the reason
+  // into the status slot (§ Bulk operations). `aria-disabled` stops nothing,
+  // so every handler guards (§ aria-disabled needs a handler guard).
+  const refuseMessage = (action: OwnershipAction, verb: string, reason: string | undefined) =>
+    // Name the gate that actually applies. cardActionEntries checks maintenance
+    // and role first, so only an ownership reason reads in the rule-2 wording;
+    // any other gate (maintenance, role, demo) already reads as a sentence.
+    (reason === OWNER_ONLY_REASON || reason === MOVE_ASSIGNED_REASON)
+      ? allRefusedMessage(selectedCards, action, verb)
+      : reason ?? "";
+  const refuse = (action: OwnershipAction, verb: string, reason: string | undefined) => {
+    setDropdown(null);
+    const text = refuseMessage(action, verb, reason);
+    // Clear first, then set on the next tick: an identical repeat message
+    // would change nothing in the live region and so not be announced again.
+    setPartialError(null);
+    if (refuseTimerRef.current !== null) clearTimeout(refuseTimerRef.current);
+    refuseTimerRef.current = setTimeout(() => {
+      refuseTimerRef.current = null;
+      setPartialError(text);
+    }, 0);
+  };
+  const refusalProps = (key: string, entry: { enabled: boolean; reason?: string }) =>
+    entry.enabled ? {} : {
+      "aria-disabled": true as const,
+      title: entry.reason,
+      "aria-describedby": `${refusalIdPrefix}-${key}`,
+    };
 
   const toggle = (d: Dropdown) => setDropdown((prev) => (prev === d ? null : d));
 
-  const handleMove = async (columnId: number) => {
-    setDropdown(null);
-    setPartialError(null);
-    setBusy(true);
-    // Serialize move requests to avoid database deadlocks from concurrent
-    // position-reorder transactions targeting the same column.
-    const updated: Card[] = [];
-    const reasons = new Set<string>();
-    for (const card of selectedCards) {
-      try {
-        const result = await moveCard(board.id, card.id, {
-          column_id: columnId,
-          swimlane_id: card.swimlane,
-          position: 9999,
-        });
-        updated.push(result.card);
-      } catch (err) {
-        // Continue moving remaining cards on individual failures
-        reasons.add(failureReason(err));
-      }
-    }
-    if (updated.length > 0) onCardsUpdated(updated);
-    const failed = selectedCards.length - updated.length;
-    if (failed > 0) {
-      // Keep selection active so the user can see which cards remain and dismiss manually.
-      setPartialError(
-        `${failed} of ${selectedCards.length} ${plural(selectedCards.length)} could not be moved — ${
-          reasons.size === 1 ? [...reasons][0] : "for more than one reason"
-        }.`
-      );
-    } else {
-      onClearSelection();
-    }
+  // Move, Assign, Priority and Archive run through the same executors as the
+  // card context menu and the palette (cardActions.ts), which skip the cards
+  // known to be refused and report them in the rule-2 wording.
+  const finish = (failure: string | null) => {
+    // Keep selection active so the user can see which cards remain and dismiss manually.
+    if (failure) setPartialError(failure);
+    else onClearSelection();
     setBusy(false);
   };
 
-  // Shared by the Promise.allSettled handlers: on any failure keep the whole
-  // selection and say so (same as Archive/Delete); clear it only on full success.
-  const reportBulkResult = (results: PromiseSettledResult<unknown>[], verb: string, forbidden?: string) => {
-    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-    if (rejected.length > 0) {
-      const reasons = new Set(rejected.map((r) => failureReason(r.reason, forbidden)));
-      setPartialError(
-        `${rejected.length} of ${results.length} ${plural(results.length)} could not be ${verb} — ${
-          reasons.size === 1 ? [...reasons][0] : "for more than one reason"
-        }.`
-      );
-    } else {
-      onClearSelection();
-    }
-    setBusy(false);
+  const handleMove = async (columnId: number) => {
+    const column = board.columns.find((c) => c.id === columnId);
+    if (!column) return;
+    setDropdown(null);
+    setPartialError(null);
+    setBusy(true);
+    const r = await moveCardsToColumn(board.id, selectedCards, column, cardActionCtx);
+    if (r.done.length > 0) onCardsUpdated(r.done);
+    finish(r.failureMessage);
   };
 
   const handleAssign = async (userId: number | null) => {
     setDropdown(null);
     setPartialError(null);
     setBusy(true);
-    const results = await Promise.allSettled(
-      selectedCards.map((card) =>
-        updateCard(board.id, card.id, { assignee_id: userId })
-      )
-    );
-    const updated = results
-      .filter((r): r is PromiseFulfilledResult<Card> => r.status === "fulfilled")
-      .map((r) => r.value);
-    if (updated.length > 0) onCardsUpdated(updated);
-    reportBulkResult(results, "assigned");
+    const r = await assignCards(board.id, selectedCards, userId, cardActionCtx);
+    if (r.done.length > 0) onCardsUpdated(r.done);
+    finish(r.failureMessage);
   };
 
   const handlePriority = async (priority: Priority) => {
     setDropdown(null);
     setPartialError(null);
     setBusy(true);
-    const results = await Promise.allSettled(
-      selectedCards.map((card) =>
-        updateCard(board.id, card.id, { priority })
-      )
-    );
-    const updated = results
-      .filter((r): r is PromiseFulfilledResult<Card> => r.status === "fulfilled")
-      .map((r) => r.value);
-    if (updated.length > 0) onCardsUpdated(updated);
-    reportBulkResult(results, "updated");
+    const r = await setCardsPriority(board.id, selectedCards, priority, cardActionCtx);
+    if (r.done.length > 0) onCardsUpdated(r.done);
+    finish(r.failureMessage);
   };
 
   const handleArchive = async () => {
     if (demoMode) return; // #2105: disabled on the demo with the shared reason
+    if (!archiveEntry.enabled) { refuse("archive", "archived", archiveEntry.reason); return; }
     setPartialError(null);
     setBusy(true);
-    const results = await Promise.allSettled(
-      selectedCards.map((card) => archiveCard(board.id, card.id).then(() => card.id))
-    );
-    const archivedIds = results
-      .filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled")
-      .map((r) => r.value);
-    if (archivedIds.length > 0) onCardsArchived(archivedIds);
-    reportBulkResult(results, "archived", "you can only archive cards you created");
+    const r = await archiveCards(board.id, selectedCards, cardActionCtx);
+    if (r.done.length > 0) onCardsArchived(r.done);
+    finish(r.failureMessage);
+  };
+
+  const handleDeleteClick = () => {
+    if (demoMode) return; // #2105: withheld on the demo with the shared reason
+    if (!deleteEntry.enabled) { refuse("delete", "deleted", deleteEntry.reason); return; }
+    setConfirmDelete(true);
   };
 
   // The same Move / Assign / Priority lists the card context menu and ⌘K
@@ -213,23 +222,28 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     }
   };
 
+  // A refused trigger never opens its menu: activating it says why instead.
+  const moveOpen = () => (moveEntry.enabled ? toggle("move") : refuse("move", "moved", moveEntry.reason));
+  const assignOpen = () => (assignEntry.enabled ? toggle("assign") : refuse("assign", "assigned", assignEntry.reason));
+  const priorityOpen = () => (priorityEntry.enabled ? toggle("priority") : refuse("priority", "updated", priorityEntry.reason));
+
   const handleMoveItemKeyDown = makeItemKeyDown(moveItemRefs, moveItems.length, moveRef);
   const handleAssignItemKeyDown = makeItemKeyDown(assignItemRefs, assignItems.length, assignRef);
   const handlePriorityItemKeyDown = makeItemKeyDown(priorityItemRefs, priorityItems.length, priorityRef);
 
   const handleMoveTriggerKeyDown = makeTriggerKeyDown(
     dropdown === "move",
-    () => toggle("move"),
+    moveOpen,
     moveItemRefs,
   );
   const handleAssignTriggerKeyDown = makeTriggerKeyDown(
     dropdown === "assign",
-    () => toggle("assign"),
+    assignOpen,
     assignItemRefs,
   );
   const handlePriorityTriggerKeyDown = makeTriggerKeyDown(
     dropdown === "priority",
-    () => toggle("priority"),
+    priorityOpen,
     priorityItemRefs,
   );
 
@@ -247,15 +261,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <div className="relative max-[540px]:static">
           <button
             ref={moveRef}
-            onClick={() => toggle("move")}
+            onClick={() => moveOpen()}
             onKeyDown={handleMoveTriggerKeyDown}
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "move"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            {...refusalProps("move", moveEntry)}
+            className={`text-xs px-2.5 py-1.5 rounded transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${moveEntry.enabled ? "hover:bg-surface-hover" : "opacity-40 cursor-not-allowed"}`}
           >
             Move to...
           </button>
+          {!moveEntry.enabled && <span id={`${refusalIdPrefix}-move`} className="sr-only">{moveEntry.reason}</span>}
           {dropdown === "move" && (
             <div
               role="menu"
@@ -282,15 +298,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <div className="relative max-[540px]:static">
           <button
             ref={assignRef}
-            onClick={() => toggle("assign")}
+            onClick={() => assignOpen()}
             onKeyDown={handleAssignTriggerKeyDown}
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "assign"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            {...refusalProps("assign", assignEntry)}
+            className={`text-xs px-2.5 py-1.5 rounded transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${assignEntry.enabled ? "hover:bg-surface-hover" : "opacity-40 cursor-not-allowed"}`}
           >
             Assign to...
           </button>
+          {!assignEntry.enabled && <span id={`${refusalIdPrefix}-assign`} className="sr-only">{assignEntry.reason}</span>}
           {dropdown === "assign" && (
             <div
               role="menu"
@@ -316,15 +334,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <div className="relative max-[540px]:static">
           <button
             ref={priorityRef}
-            onClick={() => toggle("priority")}
+            onClick={() => priorityOpen()}
             onKeyDown={handlePriorityTriggerKeyDown}
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "priority"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            {...refusalProps("priority", priorityEntry)}
+            className={`text-xs px-2.5 py-1.5 rounded transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${priorityEntry.enabled ? "hover:bg-surface-hover" : "opacity-40 cursor-not-allowed"}`}
           >
             Priority...
           </button>
+          {!priorityEntry.enabled && <span id={`${refusalIdPrefix}-priority`} className="sr-only">{priorityEntry.reason}</span>}
           {dropdown === "priority" && (
             <div
               role="menu"
@@ -358,28 +378,32 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={handleArchive}
           disabled={busy}
-          aria-disabled={demoMode ? true : undefined}
-          title={demoMode ? DEMO_CARD_FOOTER_NOTE : undefined}
+          aria-disabled={demoMode || !archiveEntry.enabled ? true : undefined}
+          title={demoMode ? DEMO_CARD_FOOTER_NOTE : archiveEntry.reason}
           aria-label={demoMode ? `Archive. ${DEMO_CARD_FOOTER_NOTE}` : undefined}
+          aria-describedby={!demoMode && !archiveEntry.enabled ? `${refusalIdPrefix}-archive` : undefined}
           className={`text-xs px-2.5 py-1.5 rounded text-warning transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-warning/20 hover:text-warning-on-tint"
+            demoMode || !archiveEntry.enabled ? "opacity-40 cursor-not-allowed" : "hover:bg-warning/20 hover:text-warning-on-tint"
           }`}
         >
           Archive
         </button>
+        {!demoMode && !archiveEntry.enabled && <span id={`${refusalIdPrefix}-archive`} className="sr-only">{archiveEntry.reason}</span>}
 
         <button
-          onClick={() => { if (!demoMode) setConfirmDelete(true); }}
+          onClick={handleDeleteClick}
           disabled={busy}
-          aria-disabled={demoMode ? true : undefined}
-          title={demoMode ? DEMO_CARD_FOOTER_NOTE : undefined}
+          aria-disabled={demoMode || !deleteEntry.enabled ? true : undefined}
+          title={demoMode ? DEMO_CARD_FOOTER_NOTE : deleteEntry.reason}
           aria-label={demoMode ? `Delete. ${DEMO_CARD_FOOTER_NOTE}` : undefined}
+          aria-describedby={!demoMode && !deleteEntry.enabled ? `${refusalIdPrefix}-delete` : undefined}
           className={`text-xs px-2.5 py-1.5 rounded text-danger transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-danger/20 hover:text-danger-on-tint"
+            demoMode || !deleteEntry.enabled ? "opacity-40 cursor-not-allowed" : "hover:bg-danger/20 hover:text-danger-on-tint"
           }`}
         >
           Delete
         </button>
+        {!demoMode && !deleteEntry.enabled && <span id={`${refusalIdPrefix}-delete`} className="sr-only">{deleteEntry.reason}</span>}
 
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
@@ -414,6 +438,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           cards={selectedCards}
           canModifyAll={canModifyAll}
           currentUserId={currentUser?.id ?? null}
+          actionContext={cardActionCtx}
           onStart={() => { setDropdown(null); setBusy(true); setPartialError(null); }}
           onDeleted={onCardsDeleted}
           onClose={(failure, canceled) => {

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { deleteCard } from "../../api/cards";
 import { failureReason } from "../../utils/moveFailure";
+import { cardRefusal, partitionRefused, REFUSAL_CLAUSE, type CardActionContext } from "../../utils/cardActions";
 import type { Card } from "../../types";
 
 interface Props {
@@ -10,6 +11,12 @@ interface Props {
   /** Admin, site admin or moderator: may delete cards others created. */
   canModifyAll: boolean;
   currentUserId: number | null;
+  /**
+   * The user's action context. With it, cards the client already knows the
+   * server refuses (`cardRefusal`) are not sent: they count as failed with the
+   * delete clause. Without it every card is sent and the server decides.
+   */
+  actionContext?: CardActionContext;
   /** Fired when the deletes start, for callers that show their own in-flight state (the bulk toolbar's "Working..."). */
   onStart?: () => void;
   onDeleted: (cardIds: number[]) => void;
@@ -29,26 +36,36 @@ const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
  * runs from a single click. In flight the action is `aria-disabled` with a
  * progress label and Escape/backdrop dismissal is swallowed (#1437).
  */
-export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onStart, onDeleted, onClose }: Props) {
+export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, actionContext, onStart, onDeleted, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const count = cards.length;
-  const othersCards = currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
+  // With an action context the note counts exactly the cards `handleDelete` will
+  // withhold (cardRefusal is lenient about an unknown creator, so those ARE sent);
+  // without one every card is sent and the old creator-based count stands.
+  const othersCards = actionContext
+    ? cards.filter((c) => cardRefusal(c, "delete", actionContext) !== undefined)
+    : currentUserId != null ? cards.filter((c) => c.created_by?.id !== currentUserId) : cards;
 
   const handleDelete = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     onStart?.();
-    const results = await Promise.allSettled(cards.map((card) => deleteCard(boardId, card.id).then(() => card.id)));
+    // Known-refused cards are never sent: the server would 403 them, and a
+    // refused delete is not a skipped one unless we skip it here.
+    const { sendable, refused, clause } = partitionRefused(cards, "delete", actionContext);
+    const results = await Promise.allSettled(sendable.map((card) => deleteCard(boardId, card.id).then(() => card.id)));
     const deleted = results.filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled").map((r) => r.value);
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
     if (deleted.length > 0) onDeleted(deleted);
-    const reasons = new Set(rejected.map((r) => failureReason(r.reason, "you can only delete cards you created")));
+    const reasons = new Set(rejected.map((r) => failureReason(r.reason, REFUSAL_CLAUSE.delete)));
+    if (clause) reasons.add(clause);
+    const failed = rejected.length + refused;
     inFlight.current = false;
     setBusy(false);
-    onClose(rejected.length > 0
-      ? `${rejected.length} of ${count} ${plural(count)} could not be deleted — ${reasons.size === 1 ? [...reasons][0] : "for more than one reason"}.`
+    onClose(failed > 0
+      ? `${failed} of ${count} ${plural(count)} could not be deleted — ${reasons.size === 1 ? [...reasons][0] : "for more than one reason"}.`
       : null);
   };
 

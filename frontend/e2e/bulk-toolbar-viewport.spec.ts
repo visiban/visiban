@@ -62,3 +62,34 @@ for (const width of [320, 375, 1024]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
 }
+
+// #2173: when every selected card is one the user may not edit, the toolbar
+// says why instead of failing after the click. The button stays focusable
+// (aria-disabled, not disabled) and activating it writes the cause into the
+// status slot.
+test('a refused edit names its cause in the toolbar and keeps focus on the button (#2173)', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 640 })
+  await routeAuth(page)
+  const others = { ...BOARD_DENSE.cards[0].created_by, id: 987654, username: 'someone-else', display_name: 'Someone Else' }
+  const board = {
+    ...BOARD_DENSE,
+    current_user_role: 'member' as const,
+    cards: BOARD_DENSE.cards.map((c) => ({ ...c, created_by: others })),
+  }
+  await routeBoard(page, board as unknown as typeof BOARD_FULL)
+  await page.goto(`/boards/${BOARD_DENSE.id}`)
+  for (const id of [CARD.id, CARD_BUSY.id]) {
+    const face = page.locator(`[data-card-id="${id}"]`)
+    await expect(face).toBeVisible({ timeout: 10_000 })
+    await face.hover()
+    await face.getByRole('checkbox').click()
+  }
+  const bar = page.getByText('2 selected').locator('xpath=..')
+  const assign = bar.getByRole('button', { name: 'Assign to...' })
+  await expect(assign).toHaveAttribute('aria-disabled', 'true')
+  await assign.focus()
+  await page.keyboard.press('Enter')
+  await expect(assign).toBeFocused()
+  await expect(bar.getByRole('menu')).toHaveCount(0)
+  await expect(bar.getByRole('status')).toContainText('2 of 2 cards could not be assigned — you can only assign cards you created.')
+})

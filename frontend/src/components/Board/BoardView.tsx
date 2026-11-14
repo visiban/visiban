@@ -1479,6 +1479,30 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // status below. One key, so a later result replaces an earlier one.
   const [cardActionAnnouncement, setCardActionAnnouncement] = useState("");
   const cardActionStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The bulk toolbar's status slot (#2173), controlled here so a context-menu
+  // or palette result over this same selection reports where the user is
+  // already looking instead of in a toast above the toolbar.
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  // A refusal describes the selection it was written for, so it is retired when
+  // the selection gains a card it was not written for. A selection that only
+  // SHRINKS keeps it: after a partial archive/delete the succeeded cards leave
+  // the board, the prune effect drops them from the selection, and clearing
+  // here would wipe the very failure text the user needs to read. (Deselecting
+  // a card by hand also keeps it; emptying the selection unmounts the toolbar,
+  // and a fresh selection starts from an empty slot because the ref is empty.)
+  const prevSelectedIdsRef = useRef<Set<number>>(new Set());
+  // Bumped whenever the selection gains a card or empties: an action that
+  // started over an earlier selection compares it after its await and falls
+  // back to the toast instead of writing its result under a different selection.
+  const selectionGenRef = useRef(0);
+  useEffect(() => {
+    const prev = prevSelectedIdsRef.current;
+    prevSelectedIdsRef.current = selectedCardIds;
+    if (selectedCardIds.size === 0 || [...selectedCardIds].some((id) => !prev.has(id))) {
+      selectionGenRef.current += 1;
+      setBulkMessage(null);
+    }
+  }, [selectedCardIds]);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);
@@ -1488,7 +1512,34 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     dismissToast(CARD_ACTION_TOAST_KEY);
     dismissToast(CARD_NOT_FOUND_TOAST_KEY);
   }, [dismissToast]);
-  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced") => {
+  // The toolbar is up exactly while a selection exists and the user can edit
+  // (the render condition below); mirrored in a ref for the stable callbacks.
+  const toolbarUpRef = useRef(false);
+  // The clear-then-set tick of the toolbar message; cleared on unmount so a
+  // pending set never lands on an unmounted board.
+  const bulkMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (bulkMessageTimerRef.current !== null) clearTimeout(bulkMessageTimerRef.current);
+  }, []);
+  toolbarUpRef.current = selectedCardIds.size > 0 && canEdit;
+  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced", selectionResult = false) => {
+    // A failure or partial result of an action whose target set is the whole
+    // selection goes to the toolbar's slot while it is up. A full success
+    // clears the selection (unmounting the toolbar), so success still goes to
+    // the toast or the announcer; a single card outside the selection keeps
+    // the toast.
+    if (selectionResult && requested === "failed" && toolbarUpRef.current) {
+      dismissToast(CARD_ACTION_TOAST_KEY);
+      // Clear first, then set on the next tick: an identical repeat message
+      // would change nothing in the live region and so not be announced again.
+      setBulkMessage(null);
+      if (bulkMessageTimerRef.current !== null) clearTimeout(bulkMessageTimerRef.current);
+      bulkMessageTimerRef.current = setTimeout(() => {
+        bulkMessageTimerRef.current = null;
+        setBulkMessage(text);
+      }, 0);
+      return;
+    }
     // Announce-only is for a change visible on the board grid; from Summary,
     // History, Analytics or Lens the grid is not in view, so show it too.
     const kind = requested === "announced" && viewRef.current !== "board" ? "shown" : requested;
@@ -1547,15 +1598,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const entry = cardActionEntries(cards, cardActionStateRef.current.cardActionContext).find((e) => e.id === action);
     if (!entry?.enabled) return;
     const selected = cardActionStateRef.current.selectedCardIds;
-    const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
+    const startedGen = selectionGenRef.current;
+    const wasWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
+    // Evaluated when the result lands: a card added to the selection while the
+    // request ran makes the selection a different one, so the result must not
+    // be written under it (nor clear it).
+    const isWholeSelection = () => wasWholeSelection && selectionGenRef.current === startedGen;
     const finish = (failure: string | null, success: string, alreadyShown = false) => {
-      if (failure) { reportCardAction(failure, "failed"); return; }
+      if (failure) { reportCardAction(failure, "failed", isWholeSelection()); return; }
       // Skip the result when another toast already reported and announced the same
       // outcome ("Card archived"), on the board view (a second live announcement) and
       // off it (a second toast).
       if (!alreadyShown) reportCardAction(success, "announced");
       // § Bulk operations rule 1: a selection clears only on full success.
-      if (isWholeSelection) clearSelection();
+      if (isWholeSelection()) clearSelection();
     };
     switch (action) {
       case "open":
@@ -1580,7 +1636,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "move": {
         const column = current.columns.find((c) => c.id === Number(value));
         if (!column) return;
-        const r = await moveCardsToColumn(current.id, cards, column);
+        const r = await moveCardsToColumn(current.id, cards, column, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("move", cards, column.name));
         return;
@@ -1588,20 +1644,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "assign": {
         const userId = value == null ? null : Number(value);
         const member = current.members.find((m) => m.user.id === userId);
-        const r = await assignCards(current.id, cards, userId);
+        const r = await assignCards(current.id, cards, userId, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("assign", cards, member ? userDisplayName(member.user) : undefined));
         return;
       }
       case "priority": {
         const priority = String(value) as Card["priority"];
-        const r = await setCardsPriority(current.id, cards, priority);
+        const r = await setCardsPriority(current.id, cards, priority, cardActionStateRef.current.cardActionContext);
         r.done.forEach((c) => onCardUpdated(c));
         finish(r.failureMessage, successMessage("priority", cards, priority));
         return;
       }
       case "archive": {
-        const r = await archiveCards(current.id, cards);
+        const r = await archiveCards(current.id, cards, cardActionStateRef.current.cardActionContext);
         r.done.forEach((id) => onCardArchived(id));
         if (r.done.length > 0) {
           showArchiveToast();
@@ -3419,6 +3475,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             cards={delCards}
             canModifyAll={isAdmin || isBoardModerator}
             currentUserId={currentUser?.id ?? null}
+            actionContext={cardActionContext}
             onDeleted={(ids) => {
               ids.forEach((id) => onCardDeleted(id));
               const sel = cardActionStateRef.current.selectedCardIds;
@@ -3427,7 +3484,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onClose={(failure, canceled) => {
               const firstId = deleteTargetIds[0];
               setDeleteTargetIds(null);
-              if (failure) reportCardAction(failure, "failed");
+              const sel = cardActionStateRef.current.selectedCardIds;
+              const wholeSelection = delCards.length === sel.size && delCards.every((c) => sel.has(c.id));
+              if (failure) reportCardAction(failure, "failed", wholeSelection);
               else if (!canceled && delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
               setTimeout(() => focusCardOrBoard(firstId), 0);
             }}
@@ -3448,6 +3507,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onCardsArchived={(ids) => { ids.forEach(onCardArchived); if (ids.length > 0) showArchiveToast(); }}
           onClearSelection={clearSelection}
           currentUser={currentUser}
+          cardActionCtx={cardActionContext}
+          message={bulkMessage}
+          onMessageChange={setBulkMessage}
         />
       )}
 
