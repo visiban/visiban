@@ -393,6 +393,10 @@ test.describe('rich text editor', () => {
     await page.mouse.up()
     // Pressing the preview swatch (a non-focusable surface) must not blur-save either.
     await panel.getByTestId('custom-color-preview').click()
+    // #2223: the press used to focus the card sheet (tabindex="-1"), which closes the panel a
+    // tick later. Whether that tick landed before the visibility check was timing, so assert
+    // the cause directly: focus never leaves the panel.
+    expect(await panel.evaluate((n) => n.contains(document.activeElement))).toBe(true)
 
     await expect(panel).toBeVisible()
     await expect(editor).toBeVisible()

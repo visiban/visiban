@@ -1235,6 +1235,25 @@ describe('RichTextEditor custom text color (#2097)', () => {
       expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Apply' }))).toBe(true)
     })
   })
+
+  it('a press on the preview is default-prevented even inside a focusable host such as the card sheet (#2223)', () => {
+    const h = makeFakeEditor('current markdown', '')
+    const onSave = vi.fn()
+    vi.mocked(useEditor).mockReturnValue(h.editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      // The card sheet is role="dialog" tabIndex={-1}: an ancestor match must not count as a control.
+      const { container } = render(<div role="dialog" tabIndex={-1}><RichTextEditor value="text" onSave={onSave} /></div>)
+      fireEvent.click(container.firstChild!.firstChild as Element)
+      openPanel()
+      expect(fireEvent.mouseDown(screen.getByTestId('custom-color-preview'))).toBe(false)
+      expect(screen.getByRole('group', { name: 'Color value' })).toBeInTheDocument()
+      expect(onSave).not.toHaveBeenCalled()
+      // A focusable control inside the panel still keeps its own focus behavior.
+      expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Apply' }))).toBe(true)
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
 })
 
 describe('RichTextEditor view-mode color span (#2097)', () => {
