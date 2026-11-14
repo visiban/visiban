@@ -1347,8 +1347,9 @@ class UserFieldParityTests(McpTestCase):
         self.assertEqual(detail["assignee"]["username"], "parity-assignee")
         self.assertEqual(detail["assignee"]["display_name"], "Pat Assignee")
 
-        # Card-level keys: everything except the audit-history lists, which
-        # REST serves from their own per-card endpoints.
+        # Card-level keys: everything except the audit-history lists and their
+        # truncation flags, which REST serves from their own per-card
+        # endpoints (the flags as the X-Truncated header).
         history = {
             "movements", "checklist_items", "activities", "comments",
             "activities_truncated", "comments_truncated",
