@@ -406,6 +406,26 @@ describe("ChoiceColorPicker (#1391)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("default-prevents a press on its label or padding inside a focusable host (#2240)", () => {
+    // The settings modal's dialog is tabIndex=-1: without the guard a press on a
+    // non-control part of the popover focused it and the wrapper's blur closed the popover.
+    render(
+      <div role="region" aria-label="Host" tabIndex={-1}>
+        <ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} />
+      </div>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Color for Low/ }));
+    const dialog = screen.getByRole("dialog", { name: "Color for Low" });
+    // fireEvent returns false when the handler called preventDefault().
+    expect(fireEvent.mouseDown(within(dialog).getByText("Automatic"))).toBe(false);
+    expect(fireEvent.mouseDown(dialog)).toBe(false);
+    expect(fireEvent.mouseDown(within(dialog).getByRole("radiogroup", { name: "Palette" }))).toBe(false);
+    // Controls inside keep their own focus behavior.
+    expect(fireEvent.mouseDown(within(dialog).getByRole("radio", { name: "Slate" }))).toBe(true);
+    expect(fireEvent.mouseDown(within(dialog).getByRole("button", { name: "Reset to automatic" }))).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Color for Low" })).toBeInTheDocument();
+  });
+
   it("opens below by default and flips above when there is little room below", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} />);
@@ -436,6 +456,16 @@ describe("ChoiceColorPicker (#1391)", () => {
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+
+  it("a blur with a null relatedTarget keeps the popover open; an outside mousedown closes it (#2240)", async () => {
+    const user = userEvent.setup();
+    render(<div><p>outside</p><ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} /></div>);
+    await user.click(screen.getByRole("button", { name: /Color for Low/ }));
+    fireEvent.blur(screen.getByRole("radio", { name: "Slate" }), { relatedTarget: null });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByText("outside"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("a click outside closes the popover without changing anything", async () => {

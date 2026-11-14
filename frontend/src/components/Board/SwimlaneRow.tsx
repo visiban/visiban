@@ -203,7 +203,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   // Row field values to render (#1140). Three guards, all deliberate:
   // an empty-string value renders nothing (never a dashed ghost chip — dashed
   // already means "unset" on the card face and must not gain a second
-  // meaning); a value whose definition is missing is dropped silently (a WS
+  // meaning; #2193's card-face ghost does not apply here, since row chips are
+  // read-only and Edit Swimlane lists every field, set or not, so an empty row
+  // value is never stranded); a value whose definition is missing is dropped silently (a WS
   // race between a definition delete and this render); and the pinned slice is
   // capped client-side so a server-side cap violation cannot blow out the row.
   const swimlaneFieldsById = new Map((swimlaneFieldDefinitions ?? []).map((d) => [d.id, d]));

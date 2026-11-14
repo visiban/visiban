@@ -78,6 +78,36 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.getByTitle("Sprint: not set")).toBeInTheDocument();
   });
 
+  it.each(["text", "number", "date"] as const)("keeps an empty pinned %s field hidden with quick edit on, at comfortable and standard", (field_type) => {
+    for (const density of ["comfortable", "standard"] as const) {
+      const { unmount } = render(
+        <CardItem
+          card={makeCard({ custom_field_values: [] })}
+          customFieldDefinitions={[makeDefinition({ field_type })]}
+          density={density}
+          boardId={7}
+          onCardUpdated={vi.fn()}
+        />
+      );
+      expect(screen.queryByTitle(/Sprint/)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("the drag overlay shows the same inert ghost as the in-cell card (#2193)", () => {
+    const defs = [makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["A"] })];
+    render(<CardItem card={makeCard()} customFieldDefinitions={defs} density="comfortable" overlay canEdit />);
+    const ghost = screen.getByTitle("Stage: not set");
+    expect(ghost).not.toHaveAttribute("role");
+    expect(ghost).not.toHaveAttribute("tabindex");
+  });
+
+  it("the drag overlay of a non-editable card shows no ghost", () => {
+    const defs = [makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["A"] })];
+    render(<CardItem card={makeCard()} customFieldDefinitions={defs} density="comfortable" overlay />);
+    expect(screen.queryByTitle(/Stage/)).not.toBeInTheDocument();
+  });
+
   it("does not render a chip for a field that isn't pinned", () => {
     render(
       <CardItem
@@ -263,6 +293,60 @@ describe("CardItem — pinned custom field chips (#371)", () => {
       );
     });
     await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(updatedCard));
+  });
+
+  describe("an empty pinned field stays settable from the card face (#2193)", () => {
+    const stage = makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["Beta", "GA"] });
+
+    for (const density of ["comfortable", "standard"] as const) {
+      it(`clearing a pinned dropdown leaves a ghost chip at ${density} density that opens quick edit again`, async () => {
+        const cleared = makeCard({ custom_field_values: [{ field_definition: 5, value: "" }] });
+        vi.mocked(cardsApi.updateCard).mockResolvedValue(cleared);
+        let current = makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] });
+        const onCardUpdated = vi.fn((c: Card) => { current = c; });
+        const { rerender } = render(
+          <CardItem card={current} customFieldDefinitions={[stage]} density={density} boardId={7} onCardUpdated={onCardUpdated} />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /Stage: Beta/ }));
+        fireEvent.click(screen.getByRole("option", { name: "— No value —" }));
+        await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(cleared));
+        rerender(
+          <CardItem card={current} customFieldDefinitions={[stage]} density={density} boardId={7} onCardUpdated={onCardUpdated} />
+        );
+
+        const ghost = screen.getByRole("button", { name: "Stage: not set. Press Enter to edit." });
+        expect(ghost).toHaveClass("border-dashed");
+        expect(ghost).toHaveAttribute("tabindex", "0");
+        fireEvent.keyDown(ghost, { key: "Enter" });
+        expect(screen.getByTestId("custom-field-quick-edit-popover")).toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "GA" })).toBeInTheDocument();
+      });
+    }
+
+    it("a checkbox ghost at comfortable density sets the value to Yes", async () => {
+      vi.mocked(cardsApi.updateCard).mockResolvedValue(makeCard());
+      render(
+        <CardItem
+          card={makeCard({ custom_field_values: [] })}
+          customFieldDefinitions={[makeDefinition({ field_type: "checkbox", name: "Blocked" })]}
+          density="comfortable"
+          boardId={7}
+          onCardUpdated={vi.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Blocked: not set. Press Enter to set it to Yes." }));
+      await waitFor(() => expect(cardsApi.updateCard).toHaveBeenCalledWith(
+        7, 1, { custom_field_values: [{ field_definition: 5, value: "true" }] },
+      ));
+    });
+
+    it("keeps a read-only empty dropdown hidden at comfortable density (no card-face edit path)", () => {
+      render(
+        <CardItem card={makeCard({ custom_field_values: [] })} customFieldDefinitions={[stage]} density="comfortable" />
+      );
+      expect(screen.queryByTitle("Stage: not set")).not.toBeInTheDocument();
+    });
   });
 
   it("rolls back silently (no crash, no card mutation) when the dropdown quick-edit write fails", async () => {

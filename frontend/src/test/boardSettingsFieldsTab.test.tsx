@@ -12,6 +12,7 @@ vi.mock("../api/boards", () => ({
   deleteCustomFieldDefinition: vi.fn(),
   reorderCustomFields: vi.fn(),
   listCustomFieldDefinitions: vi.fn(),
+  getCustomFieldDefinition: vi.fn(),
 }));
 
 const fakeUser: User = {
@@ -1138,5 +1139,90 @@ describe("BoardSettingsFieldsTab — thresholds (#1122)", () => {
     expect(screen.getByLabelText("Warn at (days from today)")).toHaveValue(14);
     expect(screen.getByLabelText("Alert at (days from today)")).toHaveValue(0);
     expect(screen.getByTestId("threshold-legend")).toHaveTextContent("Negative days are in the past.");
+  });
+});
+
+describe("BoardSettingsFieldsTab — type lock from has_values (#2202)", () => {
+  const LOCK_RE = /The type can't be changed because cards already have values/;
+
+  async function openEditor(board: BoardFull, name = "Sprint") {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={board} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: `Edit ${name}` }));
+    return user;
+  }
+
+  it("disables every other type and shows the reason up front when the field has values", async () => {
+    await openEditor(makeBoard([makeDefinition({ has_values: true })]));
+    const group = screen.getByRole("group", { name: "Field type" });
+    expect(within(group).getByRole("button", { name: /Text/ })).toBeEnabled();
+    for (const label of [/Number/, /Date/, /Dropdown/, /Checkbox/, /URL/, /Multi-select/]) {
+      expect(within(group).getByRole("button", { name: label })).toBeDisabled();
+    }
+    const reason = screen.getByText(LOCK_RE);
+    expect(group).toHaveAttribute("aria-describedby", reason.id);
+    expect(screen.queryByRole("button", { name: "Change type" })).not.toBeInTheDocument();
+  });
+
+  it("changes the type straight away, with no prompt, when the field has no values", async () => {
+    const user = await openEditor(makeBoard([makeDefinition({ has_values: false })]));
+    const group = screen.getByRole("group", { name: "Field type" });
+    await user.click(within(group).getByRole("button", { name: /Number/ }));
+    expect(screen.queryByRole("button", { name: "Change type" })).not.toBeInTheDocument();
+    expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(makeDefinition({ field_type: "number", has_values: false }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
+      1, 1, expect.objectContaining({ field_type: "number" }),
+    ));
+  });
+
+  it("locks on a value already on a card on screen, even when has_values is stale", async () => {
+    const board = makeBoard([makeDefinition({ has_values: false })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "S1" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeDisabled();
+    expect(screen.getByText(LOCK_RE)).toBeInTheDocument();
+  });
+
+  it("ignores a cleared (empty) value on a card", async () => {
+    const board = makeBoard([makeDefinition({ has_values: false })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeEnabled();
+  });
+
+  it("re-reads a stale has_values when no value is on screen, and unlocks once the last value was cleared", async () => {
+    vi.mocked(boardsApi.getCustomFieldDefinition).mockResolvedValueOnce(makeDefinition({ has_values: false }));
+    const board = makeBoard([makeDefinition({ has_values: true })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(boardsApi.getCustomFieldDefinition).toHaveBeenCalledWith(1, 1);
+    await waitFor(() => expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeEnabled());
+    expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
+  });
+
+  it("keeps the lock when the re-read fails", async () => {
+    vi.mocked(boardsApi.getCustomFieldDefinition).mockRejectedValueOnce(new Error("network"));
+    await openEditor(makeBoard([makeDefinition({ has_values: true })]));
+    await waitFor(() => expect(boardsApi.getCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(within(screen.getByRole("group", { name: "Field type" })).getByRole("button", { name: /Number/ })).toBeDisabled();
+    expect(screen.getByText(LOCK_RE)).toBeInTheDocument();
+  });
+
+  it("does not re-read has_values when a value on screen already backs the lock", async () => {
+    const board = makeBoard([makeDefinition({ has_values: true })]);
+    board.cards = [{ id: 5, custom_field_values: [{ field_definition: 1, value: "S1" }] } as unknown as BoardFull["cards"][number]];
+    await openEditor(board);
+    expect(boardsApi.getCustomFieldDefinition).not.toHaveBeenCalled();
+  });
+
+  it("never locks the type of a new field", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ has_values: true })])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    const groups = screen.getAllByRole("group", { name: "Field type" });
+    expect(within(groups[groups.length - 1]).getByRole("button", { name: /Number/ })).toBeEnabled();
+    expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
   });
 });

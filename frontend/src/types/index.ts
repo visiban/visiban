@@ -457,6 +457,12 @@ export interface CustomFieldDefinition {
   position: number;
   /** Pin this field's value to the card face. At most 2 per board. */
   show_on_card: boolean;
+  /**
+   * Read-only (#2202): true when any card, archived cards included, holds a
+   * value for this field, so the server refuses a `field_type` change.
+   * Optional because a payload from a server before 1.3 does not carry it.
+   */
+  has_values?: boolean;
   /** Declared but not enforced in v1 — see the serializer. */
   is_required: boolean;
   help_text: string;
