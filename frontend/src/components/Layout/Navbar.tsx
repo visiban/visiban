@@ -196,7 +196,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               <span aria-hidden="true">🔍</span>
               <span className="hidden lg:inline truncate">{searchLabel.placeholder}</span>
             </span>
-            <span aria-hidden="true" className="hidden lg:inline text-fg-faint">{formatShortcut({ mod: true, key: "K" })}</span>
+            <span aria-hidden="true" className="hidden lg:inline text-fg-muted">{formatShortcut({ mod: true, key: "K" })}</span>
           </button>
 
           {/* Notification bell */}
