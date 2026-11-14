@@ -87,7 +87,7 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
             <span
               key={label.name}
               className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none"
-              style={colorChipStyle(`#${label.color}`)}
+              style={colorChipStyle(`#${label.color}`, closed ? "lens-closed" : null)}
               title={label.name}
             >
               {label.name}

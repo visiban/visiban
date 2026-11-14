@@ -830,6 +830,22 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.queryByText(/The type can't be changed because swimlanes already have values/)).not.toBeInTheDocument()
   })
 
+  it('after a delete that leaves the board at the cap, focus falls back to the tab heading (#2204)', async () => {
+    const user = userEvent.setup()
+    const defs = Array.from({ length: 16 }, (_, i) =>
+      makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
+    )
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByTitle('Delete F0'))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete field?' })
+    await user.type(within(dialog).getByLabelText(/Type/), 'F0')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete field?' })).not.toBeInTheDocument())
+    const heading = screen.getByText('Swimlane fields')
+    expect(heading).toHaveAttribute('tabindex', '-1')
+    expect(document.activeElement).toBe(heading)
+  })
+
   it('disables Add field at the cap', () => {
     const defs = Array.from({ length: 15 }, (_, i) =>
       makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
@@ -1636,6 +1652,34 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defB]))
       expect(mockApi.deleteSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1)
       expect(screen.queryByText('Delete field?')).not.toBeInTheDocument()
+    })
+
+    // #2204: the opener (row ✕, or the editor's Delete field) is gone after the delete, so focus
+    // goes to + Add field instead of dropping to <body>.
+    it('row ✕: focus moves to + Add field after the delete (#2204)', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockResolvedValue(undefined)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Delete A'))
+      await user.type(screen.getByPlaceholderText('A'), 'A')
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defB]))
+      await waitFor(() => expect(screen.queryByText('Delete field?')).not.toBeInTheDocument())
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: '+ Add field' }))
+    })
+
+    it('Delete field in the editor: focus moves to + Add field once the editor closes (#2204)', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockResolvedValue(undefined)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: 'Delete field' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Delete field?' })
+      await user.type(within(dialog).getByPlaceholderText('A'), 'A')
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defB]))
+      await waitFor(() => expect(screen.queryByText('Delete field?')).not.toBeInTheDocument())
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: '+ Add field' }))
     })
 
     it('deletes on Enter once the name matches', async () => {

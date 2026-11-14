@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { listBoards, createBoard, deleteBoard } from "../../api/boards";
 import type { Board, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
@@ -39,6 +39,10 @@ export default function BoardSelector({ user, onSelect }: Props) {
   }, []);
 
   useEffect(() => { loadBoards(); }, [loadBoards]);
+
+  // #2204 class: a confirmed delete unmounts the row's Delete button (the opener), so
+  // the dialog restores focus to the stable "Your Boards" heading instead of <body>.
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const handleDelete = async (boardId: number) => {
     const removedIndex = boards.findIndex((b) => b.id === boardId);
@@ -90,7 +94,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
   return (
     <div className="min-h-screen bg-sunken flex items-center justify-center">
       <div className="w-full max-w-md">
-        <h2 className="text-fg text-2xl font-bold mb-6 text-center">Your Boards</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-bold mb-6 text-center focus:outline-none">Your Boards</h2>
 
         {deleteError && (
           <p role="alert" className="text-sm text-danger text-center mb-3">{deleteError}</p>
@@ -167,7 +171,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
-          <ModalWrapper open onClose={closeDeleteDialog} title="Delete board?" labelId={dialogTitleId} maxWidth="max-w-sm">
+          <ModalWrapper open onClose={closeDeleteDialog} title="Delete board?" labelId={dialogTitleId} maxWidth="max-w-sm" restoreFocusTo={() => headingRef.current}>
             <p className="text-fg-tertiary text-sm mb-1">
               <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards (including archived cards), and history will be permanently deleted.
             </p>

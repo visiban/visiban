@@ -62,7 +62,7 @@ describe("agingTint", () => {
   it("returns the orange stale stage past the threshold", () => {
     const result = agingTint(idleFor(15 * DAY), 14, 50, NOW);
     expect(result.stage).toBe("stale");
-    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-warning/15");
+    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-stale-tint/15");
     expect(result.bodyOpacityClass).toBe("opacity-85");
   });
 
@@ -90,7 +90,7 @@ describe("agingTint", () => {
     expect(AGING_STAGE_CLASSES.stale2x.bodyOpacityClass).toBe("opacity-85");
     expect(AGING_STAGE_CLASSES.stale3x.bodyOpacityClass).toBe("opacity-85");
     expect(AGING_STAGE_CLASSES.warning.overlayClass).toContain("bg-warning-emphasis/10");
-    expect(AGING_STAGE_CLASSES.stale.overlayClass).toContain("bg-warning/15");
+    expect(AGING_STAGE_CLASSES.stale.overlayClass).toContain("bg-stale-tint/15");
     expect(AGING_STAGE_CLASSES.stale2x.overlayClass).toContain("bg-danger/15");
     expect(AGING_STAGE_CLASSES.stale3x.overlayClass).toContain("bg-stale-severe/20");
   });
@@ -277,7 +277,7 @@ describe("staleBadgeToneClass", () => {
 describe("urgencyBadgeToneClass", () => {
   it("uses plain tokens on an untinted card", () => {
     expect(urgencyBadgeToneClass("danger", "none")).toBe("text-danger");
-    // Warning is the exception: plain `text-warning` is 3.56:1 on white (#2029, #871).
+    // Warning is the exception: plain `text-warning` was 3.56:1 on white before #2029 (#871).
     expect(urgencyBadgeToneClass("warning", "none")).toBe("text-warning-on-tint");
     expect(urgencyBadgeToneClass("info", "none")).toBe("text-info");
   });

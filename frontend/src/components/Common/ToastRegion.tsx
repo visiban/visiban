@@ -23,7 +23,8 @@ const SHELL: Record<ToastVariant, string> = {
 
 /**
  * Title and action text use the on-tint tokens even on the untinted shell:
- * plain `text-warning` is 3.56:1 on white (#2029). Ratios in § Color tokens.
+ * they out-contrast plain `text-warning` (orange-600 was 3.56:1 on white
+ * before #2029). Ratios in § Color tokens.
  */
 const TOAST_TEXT_TONE: Record<ToastVariant, string> = {
   success: "text-success-on-tint",

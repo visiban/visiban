@@ -387,7 +387,7 @@ export default function JoinPage({ user }: Props) {
                   {providers.gitlab && (
                     <button
                       onClick={() => handleOAuthRedirect("gitlab")}
-                      className="flex items-center justify-center gap-3 bg-warning-bg text-fg font-medium py-2.5 px-4 rounded hover:bg-warning-bg-hover transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="flex items-center justify-center gap-3 bg-warning-bg text-on-warning font-medium py-2.5 px-4 rounded hover:bg-warning-bg-hover transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <ProviderIcon id="gitlab" className="w-5 h-5" />
                       Continue with GitLab

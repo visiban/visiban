@@ -3707,6 +3707,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onClose={closeDialog}
             title="Delete column?"
             maxWidth="max-w-sm"
+            // #2204 class: the column header (the opener) unmounts with the column, so focus goes
+            // to the stable board scroll region (tabIndex -1) instead of <body>.
+            restoreFocusTo={() => scrollEl}
           >
             <p className="text-fg-tertiary text-sm mb-1">
               <span className="text-fg font-medium">{confirmDeleteColumn.name}</span> will be permanently deleted.

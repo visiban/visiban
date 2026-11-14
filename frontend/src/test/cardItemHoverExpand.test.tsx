@@ -170,6 +170,55 @@ describe('card hover expansion stays an overlay inside its cell', () => {
     expect(wrapper.style.height).toBe('')
   })
 
+  // #1414: a card whose overflow is all non-interactive (labels here, no link) has no focusable
+  // element in the row, so keyboard focus on the card itself is the keyboard twin of hover.
+  it('keyboard focus on the card itself expands it, even with nothing focusable in the row, and blur collapses it', () => {
+    const { card, wrapper } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 })
+    expect(screen.getByTestId('card-metadata-row').querySelector('a, button, [tabindex]')).toBeNull()
+    // jsdom has no input modality, so stand in for :focus-visible matching.
+    const spy = vi.spyOn(card, 'matches').mockReturnValue(true)
+    act(() => { fireEvent.focus(card) })
+    expect(screen.getByTestId('card-metadata-row')).toHaveClass('flex-wrap')
+    expect(card).toHaveClass('absolute')
+    expect(wrapper.style.height).toBe(`${REST_HEIGHT}px`)
+    act(() => { fireEvent.blur(card) })
+    expect(screen.getByTestId('card-metadata-row')).toHaveClass('overflow-hidden')
+    expect(card).toHaveClass('relative')
+    spy.mockRestore()
+  })
+
+  it('pointer-click focus on the card does not expand it (hover already does)', () => {
+    const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 })
+    const spy = vi.spyOn(card, 'matches').mockReturnValue(false)
+    act(() => { fireEvent.focus(card) })
+    expect(card).toHaveClass('relative')
+    spy.mockRestore()
+  })
+
+  it('keyboard focus on a control inside the card (not the card itself) does not expand it', () => {
+    const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 })
+    const spy = vi.spyOn(card, 'matches').mockReturnValue(true)
+    // The checkbox / ⋯ button sit directly inside the card; their focus bubbles to the card's
+    // onFocus with target !== currentTarget, which must not count as the card's own focus.
+    const inner = card.querySelector('[data-testid="card-metadata-row"]')!.parentElement as HTMLElement
+    expect(inner).not.toBe(card)
+    act(() => { fireEvent.focus(inner) })
+    expect(card).toHaveClass('relative')
+    expect(card).not.toHaveClass('absolute')
+    spy.mockRestore()
+  })
+
+  it('moving keyboard focus from the card into the row keeps it expanded', () => {
+    const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 }, true)
+    const spy = vi.spyOn(card, 'matches').mockReturnValue(true)
+    const link = screen.getByRole('link', { name: /#12/ })
+    act(() => { fireEvent.focus(card) })
+    act(() => { fireEvent.blur(card, { relatedTarget: link }); fireEvent.focus(link) })
+    expect(card).toHaveClass('absolute')
+    expect(screen.getByTestId('card-metadata-row')).toHaveClass('flex-wrap')
+    spy.mockRestore()
+  })
+
   it('moving focus to another element inside the row keeps the expansion open', () => {
     const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 }, true)
     const row = screen.getByTestId('card-metadata-row')
