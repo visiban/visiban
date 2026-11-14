@@ -24,11 +24,11 @@ from django.urls import reverse
 
 from accounts.models import User
 from boards.admin import (
-    BoardAdmin, BoardMembershipAdmin, CardChecklistAdmin, CardCommentAdmin,
+    BoardAdmin, BoardMembershipAdmin, CardAttachmentAdmin, CardChecklistAdmin, CardCommentAdmin,
     CardAdmin, ColumnAdmin, LabelAdmin, SwimlaneAdmin,
 )
 from boards.models import (
-    Board, BoardEvent, BoardMembership, Card, CardChecklist, CardComment,
+    Board, BoardEvent, BoardMembership, Card, CardAttachment, CardChecklist, CardComment,
     Column, Label, Swimlane,
 )
 from groups.models import Group
@@ -697,6 +697,74 @@ class CardChecklistAdminBroadcastTests(TestCase):
             self.assertEqual(event_type, "card.updated")
             self.assertEqual(payload["checklist_total"], 0)
             self.assertFalse(CardChecklist.objects.filter(pk=item.pk).exists())
+
+
+class CardAttachmentAdminBroadcastTests(TestCase):
+    """CardAttachment's admin re-broadcasts the parent card, like comments and checklists (#1744)."""
+
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(username="admin_att", password="p", email="att@x")
+        self.board = Board.objects.create(name="Admin Attachment Board", owner=self.admin_user)
+        BoardMembership.objects.create(
+            board=self.board, user=self.admin_user, role=BoardMembership.Role.ADMIN
+        )
+        column = Column.objects.create(board=self.board, name="Backlog", position=0)
+        swimlane = Swimlane.objects.create(board=self.board, name="Acme", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=column, swimlane=swimlane,
+            title="Attachment card", created_by=self.admin_user, position=0,
+        )
+        self.admin = CardAttachmentAdmin(CardAttachment, AdminSite())
+
+    def _attachment(self, name="a.txt"):
+        from django.core.files.base import ContentFile
+
+        att = CardAttachment(card=self.card, filename=name, size=1, uploaded_by=self.admin_user)
+        att.file.save(name, ContentFile(b"x"), save=False)
+        att.save()
+        return att
+
+    def test_save_model_on_create_broadcasts_card_updated(self):
+        from django.core.files.base import ContentFile
+
+        att = CardAttachment(card=self.card, filename="n.txt", size=1, uploaded_by=self.admin_user)
+        att.file.save("n.txt", ContentFile(b"x"), save=False)
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.admin.save_model(_make_request(self.admin_user), att, _DummyForm(), change=False)
+        mock_broadcast.assert_called_once()
+        board_id, event_type, payload = mock_broadcast.call_args[0]
+        self.assertEqual((board_id, event_type), (self.board.id, "card.updated"))
+        self.assertEqual(payload["attachment_count"], 1)
+        att.file.delete(save=False)
+
+    def test_delete_model_broadcasts_card_updated_with_decremented_count(self):
+        att = self._attachment()
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.admin.delete_model(_make_request(self.admin_user), att)
+        mock_broadcast.assert_called_once()
+        board_id, event_type, payload = mock_broadcast.call_args[0]
+        self.assertEqual((board_id, event_type), (self.board.id, "card.updated"))
+        self.assertEqual(payload["attachment_count"], 0)
+
+    def test_delete_queryset_broadcasts_once_per_card(self):
+        self._attachment("a.txt")
+        self._attachment("b.txt")
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.admin.delete_queryset(
+                    _make_request(self.admin_user), CardAttachment.objects.filter(card=self.card)
+                )
+        mock_broadcast.assert_called_once()
+        self.assertEqual(mock_broadcast.call_args[0][2]["attachment_count"], 0)
+
+    def test_card_is_read_only_on_change(self):
+        att = self._attachment()
+        request = _make_request(self.admin_user)
+        self.assertIn("card", self.admin.get_readonly_fields(request, att))
+        self.assertNotIn("card", self.admin.get_readonly_fields(request, None))
+        att.file.delete(save=False)
 
 
 class CardChildParentFixedOnChangeTests(TestCase):
