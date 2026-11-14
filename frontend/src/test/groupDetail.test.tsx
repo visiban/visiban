@@ -2670,7 +2670,7 @@ describe('GroupDetail — health status (#1133)', () => {
     await waitFor(() => expect(mockSetGroupHealthStatus).toHaveBeenCalledWith(1, { status: 'off_track', note: null }))
     expect(await screen.findByRole('button', { name: /^Health status: Off track/ })).toBeInTheDocument()
     // The caption carries the attribution (#2242).
-    expect(screen.getByText('Set just now by Priya')).toHaveAttribute('title', 'Set just now by Priya. Note: vendor slipped')
+    expect(screen.getByText('Set just now by Priya')).toHaveAttribute('title', expect.stringMatching(/^Set just now by Priya \(.+\)\. Note: vendor slipped$/))
     mockGetGroupHealthHistory.mockResolvedValue({ results: [], has_more: false })
     await user.click(screen.getByRole('button', { name: /^Health status: Off track/ }))
     const reopened = await screen.findByRole('dialog', { name: 'Health status for Engineering' })

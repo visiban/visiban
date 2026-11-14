@@ -199,6 +199,10 @@ export default function HealthStatusPopover({
   const historyId = `health-history-${uid}`;
   const confirmReasonId = `health-confirm-reason-${uid}`;
   const saveReasonId = `health-save-reason-${uid}`;
+  // The time the set line describes, for the exact time on hover (#2242).
+  const attributionTime = health_status !== null
+    ? (health_status_changed_at ?? null)
+    : (health_status_source?.changed_at ?? null);
   const attributionLine = detailed
     ? setLine(fields, { health_status_changed_at, health_status_changed_by })
     : "";
@@ -364,7 +368,13 @@ export default function HealthStatusPopover({
             {stateLine(fields, entityKind, parentName)}
           </p>
           {attributionLine && (
-            <p className="text-xs text-fg-tertiary mt-0.5" data-testid="health-set-line">{attributionLine}</p>
+            <p
+              className="text-xs text-fg-tertiary mt-0.5"
+              data-testid="health-set-line"
+              title={attributionTime ? formatDateTimeUser(attributionTime, datePrefs) : undefined}
+            >
+              {attributionLine}
+            </p>
           )}
           {detailed && health_status !== null && health_status_note && (
             <p className="text-xs text-fg-secondary break-words line-clamp-3 mt-1" title={health_status_note}>

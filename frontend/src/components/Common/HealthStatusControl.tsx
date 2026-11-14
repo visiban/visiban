@@ -5,7 +5,7 @@ import {
   getHealthDisplay, healthCaption, healthStatusAnnouncement, healthTitle,
   type HealthAttribution, type HealthEntityKind, type HealthFields,
 } from "../../utils/healthStatus";
-import type { UserDatePrefs } from "../../utils/date";
+import { formatDateTimeUser, type UserDatePrefs } from "../../utils/date";
 import type { HealthHistory } from "../../types";
 import HealthStatusPill from "./HealthStatusPill";
 import HealthStatusPopover from "./HealthStatusPopover";
@@ -159,9 +159,12 @@ export default function HealthStatusControl({
   const captionText = showCaption
     ? (detailed ? healthCaption(display, attribution, health_status_source) : (display.inheritedFrom ? `Inherited from ${display.inheritedFrom}` : ""))
     : "";
+  // Exact time on hover (#2242), then the note for a status set here.
+  const captionTime = display.inheritedFrom ? health_status_source?.changed_at ?? null : health_status_changed_at;
+  const captionExact = captionText && captionTime ? ` (${formatDateTimeUser(captionTime, datePrefs)})` : "";
   const captionTitle = captionText && !display.inheritedFrom && health_status_note
-    ? `${captionText}. Note: ${health_status_note}`
-    : captionText;
+    ? `${captionText}${captionExact}. Note: ${health_status_note}`
+    : `${captionText}${captionExact}`;
   const caption = captionText ? (
     <span className="text-xs text-fg-tertiary truncate max-w-[14rem] max-sm:max-w-full" title={captionTitle}>
       {captionText}

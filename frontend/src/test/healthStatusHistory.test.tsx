@@ -107,7 +107,7 @@ describe('HealthStatusPopover detailed mode (#2242)', () => {
   it('shows the set line, the note and an empty note field with a counter', async () => {
     const user = userEvent.setup()
     renderControl({ ...own('at_risk', { health_status_note: 'vendor slipped' }), showCaption: true })
-    expect(screen.getByText('Set 3d ago by Priya')).toHaveAttribute('title', 'Set 3d ago by Priya. Note: vendor slipped')
+    expect(screen.getByText('Set 3d ago by Priya')).toHaveAttribute('title', expect.stringMatching(/^Set 3d ago by Priya \(.+\)\. Note: vendor slipped$/))
     const dialog = await openDialog(user)
     expect(within(dialog).getByTestId('health-set-line')).toHaveTextContent('Set 3d ago by Priya')
     expect(within(dialog).getByText('vendor slipped')).toHaveAttribute('title', 'vendor slipped')

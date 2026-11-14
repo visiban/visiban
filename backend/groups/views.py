@@ -680,6 +680,8 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List the group's health status changes",
+        # A collection, so not the generated *_retrieve name (#1874).
+        operation_id="api_v1_groups_health_history_list",
         description=(
             "The group's own health status changes (#2242), newest first, at "
             "most 20; has_more is true when older ones exist. A row whose "

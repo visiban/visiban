@@ -561,6 +561,8 @@ class BoardViewSet(
 
     @extend_schema(
         summary="List the board's health status changes",
+        # A collection, so not the generated *_retrieve name (#1874).
+        operation_id="api_v1_boards_health_history_list",
         description=(
             "The board's own health status changes (#2242), newest first, at "
             "most 20; has_more is true when older ones exist. A row whose "
