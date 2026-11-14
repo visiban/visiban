@@ -244,6 +244,15 @@ Any chip built as an `inline-flex` container around one or more `truncate` text 
 - **A glyph that is the only content of a control needs an `aria-label` on the control, not `aria-hidden`** — hiding it would leave the control unnamed.
 - A bare `eslint-disable` also needs a `-- reason` (see `docs/development/suppressions.md`).
 
+## Board redesign reference (#2259)
+
+The Board view is being rebuilt against one reference design (owner decision 2026-11-14). The build spec is [`docs/development/board-redesign.md`](../docs/development/board-redesign.md), with screenshots and artboard sources beside it.
+
+- **For work labeled `board-redesign`, the spec wins over the board layout sections of this file**: § Board navigation bar, the picker placement and Classic rules in § Board presets, § Column headers, § Board grid cells, § Swimlane label panel, § Cards, § Card density and § Card border urgency tint. Those sections describe the board being replaced and stay accurate for shipped code until the child issue that replaces each one merges.
+- **Each child issue rewrites the section it replaces in the same MR** (the table is in the spec, § Rules to rewrite). Do not leave both descriptions in place.
+- **Everything else in this file still applies to the redesign**: tokens and contrast, focus rings, motion, keyboard parity, dropdown primitives, toasts, landmarks.
+- **Any new board design conforms to the spec.** If a proposal needs something the spec does not draw, extend the spec first.
+
 ## Top chrome — two-row composition
 
 The authenticated UI is framed by two horizontally-divided chrome rows and a main region. Maintain this skeleton across all routes; feature work lands inside the rows, not on top of them.

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales Pipeline board on a phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#93c5fd}a:hover{color:#f8fafc}
+</style>
+</helmet>
+<div style="--bg:#0f172a; --chrome:#0b1220; --panel:#1e293b; --well:#0a1120; --chip:#334155; --line:#334155; --line-strong:#475569; --fg:#e2e8f0; --fg2:#cbd5e1; --fg3:#94a3b8; --strong:#f8fafc; --track:#334155; --primary:#2563eb; --warn:#fb923c; --warn-text:#fdba74; --danger:#f87171; --danger-text:#fca5a5; --ok-text:#86efac; --ok-tint:rgba(74,222,128,0.12); --h:59,130,246; --sel:#60a5fa; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.4; box-sizing: border-box; min-height: 100vh">
+
+<header style="background: var(--chrome); padding: 8px 16px; display: flex; align-items: center; gap: 10px">
+<span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 8px; background: var(--primary); display: inline-flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"><path d="M4 4v10M9 4v6M14 4v8"/></svg></span>
+<h1 style="margin: 0; font-size: 16px; font-weight: 650; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Sales Pipeline</h1>
+<button type="button" aria-label="Search this board" style="width: 44px; height: 44px; border: 0; background: transparent; color: var(--fg2); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></button>
+<button type="button" aria-label="Filter and view options" style="width: 44px; height: 44px; border: 0; background: transparent; color: var(--fg2); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12M4.5 8h7M6.5 12h3"/></svg></button>
+</header>
+
+<nav aria-label="Board toolbar" style="background: var(--chrome); border-bottom: 1px solid var(--line); padding: 0 8px; display: flex; gap: 2px">
+<span aria-current="page" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-weight: 600; color: var(--strong); border-bottom: 2px solid var(--primary); margin-bottom: -1px">Board</span>
+<a href="#summary" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; color: var(--fg2); text-decoration: none">Summary</a>
+<a href="#analytics" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; color: var(--fg2); text-decoration: none">Analytics</a>
+<a href="#activity" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; color: var(--fg2); text-decoration: none">Activity</a>
+</nav>
+
+<main style="padding: 12px 16px 32px; display: flex; flex-direction: column; gap: 12px">
+
+<div role="group" aria-label="Show" style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px">
+<sc-for list="{{focus}}" as="f" hint-placeholder-count="4">
+<button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="flex: none; height: 44px; padding: 0 14px 0 12px; border-radius: 999px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: var(--fg); font: inherit; font-weight: {{f.weight}}; display: inline-flex; align-items: center; gap: 7px"><span aria-hidden="true" style="width: 9px; height: 9px; border-radius: 2px; background: {{f.swatch}}"></span>{{f.label}}<span style="color: var(--fg2); font-weight: 500">{{f.n}}</span></button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div role="group" aria-label="Column" style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="flex: none; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: var(--fg); font: inherit; font-weight: {{c.weight}}; display: inline-flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: {{c.dot}}"></span>{{c.name}}<span style="color: {{c.countFg}}; font-weight: 600">{{c.n}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="font-size: 13px; font-weight: 600; color: {{curFg}}; white-space: nowrap">{{curNote}}</span>
+<div aria-hidden="true" style="flex: 1 1 auto; height: 4px; border-radius: 2px; background: {{curTrack}}; overflow: hidden"><div style="height: 4px; width: {{curW}}; background: {{curMeter}}"></div></div>
+</div>
+<sc-if value="{{isSplit}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="Sub-column" style="display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden">
+<sc-for list="{{subs}}" as="u" hint-placeholder-count="2">
+<button type="button" onClick="{{u.pick}}" aria-pressed="{{u.on}}" style="flex: 1 1 0; min-height: 44px; border: 0; background: {{u.bg}}; color: {{u.fg}}; font: inherit; font-weight: {{u.weight}}; display: inline-flex; align-items: center; justify-content: center; gap: 6px"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="visibility: {{u.vis}}"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>{{u.name}} <span style="font-weight: 500">{{u.n}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<sc-for list="{{lanes}}" as="l" hint-placeholder-count="3">
+<section aria-label="{{l.name}}" style="display: flex; flex-direction: column; gap: 8px">
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 8px 4px; display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; align-items: center; gap: 6px">
+<button type="button" onClick="{{l.toggle}}" aria-expanded="{{l.expanded}}" aria-label="{{l.toggleAria}}" style="width: 44px; height: 44px; border: 0; border-radius: 6px; background: transparent; color: var(--fg2); display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" style="transform: rotate({{l.rot}})"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 3px; background: {{l.color}}"></span>
+<h2 style="margin: 0; font-size: 15px; font-weight: 650; flex: 1 1 auto">{{l.name}}</h2>
+<span style="font-size: 13px; font-weight: 600">{{l.here}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 2px 12px; padding-left: 50px; font-size: 13px; color: var(--fg3)">
+<span>{{l.vp}}</span>
+<span>Quota {{l.quota}}</span>
+<sc-if value="{{l.hasOver}}" hint-placeholder-val="{{true}}"><span style="color: var(--danger-text); font-weight: 600">{{l.over}}</span></sc-if>
+<sc-if value="{{l.hasStale}}" hint-placeholder-val="{{true}}"><span style="color: var(--warn-text); font-weight: 600">{{l.stale}}</span></sc-if>
+</div>
+</div>
+<sc-if value="{{l.expanded}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{l.cards}}" as="k" hint-placeholder-count="2">
+<button type="button" style="text-align: left; background: var(--panel); border: 1px solid {{k.border}}; border-radius: 8px; padding: 12px; color: var(--fg); font: inherit; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 650; color: var(--strong); line-height: 1.3">{{k.company}}</span><span style="font-size: 13px; color: var(--fg2); line-height: 1.35">{{k.work}}</span></span>
+<sc-if value="{{k.hasTracks}}" hint-placeholder-val="{{false}}">
+<span style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{k.tracks}}" as="t" hint-placeholder-count="2">
+<span style="font-size: 12px; font-weight: 600; color: {{t.fg}}; border: 1px solid {{t.edge}}; background: {{t.bg}}; border-radius: 4px; padding: 2px 8px">{{t.name}}: {{t.state}}</span>
+</sc-for>
+</span>
+</sc-if>
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--chip); border-radius: 999px; padding: 2px 8px 2px 6px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: {{k.labelDot}}"></span>{{k.label}}</span>
+<span style="font-size: 13px; font-weight: 600; color: {{k.sigFg}}; flex: 1 1 auto">{{k.sigText}}</span>
+<span style="font-size: 13px; font-weight: 600; color: var(--fg)">{{k.amt}} <span style="color: var(--fg3); font-weight: 500">{{k.prob}}</span></span>
+</span>
+</button>
+</sc-for>
+<sc-if value="{{l.empty}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--well); color: var(--fg3); font-size: 13px">{{l.emptyText}}</p>
+</sc-if>
+</div>
+</sc-if>
+</section>
+</sc-for>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startColumn":{"editor":"enum","options":["Prospect","Qualified","Discovery","Demo","Proposal Sent","Negotiation","Closed Won"],"default":"Discovery"},"$preview":{"width":390,"height":1320}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+    var C = [['Prospect','#94a3b8',0],['Qualified','#4ade80',6],['Discovery','#a78bfa',8],['Demo','#fbbf24',0],['Proposal Sent','#fb923c',0],['Negotiation','#f87171',4],['Closed Won','#34d399',0]];
+    var L = [['North America','#eab308','Avery Brooks','$600,000'],['APAC','#f97316','Priya Raman','$750,000'],['EMEA','#8b5cf6','Marcus Hale','$900,000']];
+    var K = [
+      [0,1,'Rio Health Network -- Hospital Operations Board','Enterprise',33,'stale',56],
+      [0,1,'Meridian Consulting -- 120-Seat Strategic Deal','Enterprise',27,'stale',104],
+      [0,1,'Riyadh Oil -- Operations Compliance Board','Renewal',41,'over','Oct 11'],
+      [0,1,'Busan Shipping -- Fleet Operations Board','SMB',27,'stale',65],
+      [0,2,'Sakura Electronics -- 100-Seat Engineering Board','Enterprise',52,'stale',39,0,'done','open'],
+      [0,2,'Thames Capital -- Investment Pipeline Board','Renewal',38,'over','Nov 12',1,'done','done'],
+      [0,2,'Southern Cross Media -- Content Calendar License','SMB',12,'over','Nov 9',0,'open','open'],
+      [0,2,'Stockholm SaaS -- 80-Seat Platform Migration','SMB',95,'',0,1,'done','done'],
+      [0,5,'Manila BPO -- Operations Kanban 200 Seats','SMB',88,'over','Oct 10'],
+      [1,0,'Andean Mining Corp -- Safety Compliance Board','Renewal',24,'stale',83],
+      [1,1,'Dragon Logistics -- Cross-Border Shipping Tracker','Enterprise',39,'stale',98],
+      [1,1,'Clyde Engineering -- Manufacturing Workflow','Upsell',31,'over','Oct 22'],
+      [1,1,'Oslo Energy -- Renewable Project Board','Enterprise',19,'stale',49],
+      [1,1,'Bangkok Retail -- Store Operations Board','SMB',35,'stale',91],
+      [1,2,'EuroTech Solutions -- Engineering Workflow','Renewal',46,'stale',76,1,'done','na'],
+      [1,2,'Pinnacle Health -- HIPAA Module Add-on','Enterprise',22,'stale',48,0,'open','na'],
+      [1,4,'Outback Mining -- Safety Incident Board','SMB',29,'over','Sep 24'],
+      [1,4,'Abu Dhabi Finance -- Investment Pipeline License','Renewal',64,'over','Nov 1'],
+      [1,4,'Kyoto Pharmaceuticals -- Drug Pipeline Board','Enterprise',42,'stale',39],
+      [2,0,'Coral Bay Resorts -- Property Management','SMB',32,'stale',54],
+      [2,2,'Pampa Agritech -- Field Operations Tracker','Upsell',14,'stale',45,0,'open','done'],
+      [2,2,'Helsinki Gaming -- Sprint Board License','SMB',28,'soon','3 days',0,'done','open'],
+      [2,3,'Nordic Finance Group -- SOC 2 Compliance Package','Enterprise',57,'over','Oct 25'],
+      [2,3,'Qatar Airways Cargo -- Logistics Board Deal','Upsell',73,'over','Oct 28'],
+      [2,3,'Ho Chi Minh Tech -- Engineering Board License','SMB',18,'',0],
+      [2,4,'Harbour Digital -- 40-Seat Startup Deal','Enterprise',16,'over','Oct 21'],
+      [2,4,'Dublin Analytics -- Data Team Kanban','Renewal',21,'over','Oct 29'],
+      [2,5,'Brightwave Systems -- 300-Seat Migration','Upsell',120,'over','Oct 7'],
+      [2,6,'Zurich Insurance -- Claims Workflow','Upsell',36,'',0]
+    ];
+    this._d = { C: C, L: L, K: K };
+    return this._d;
+  }
+  renderVals() {
+    var self = this, p = this.props || {}, s = this.state || {}, d = this.data();
+    var C = d.C, L = d.L, K = d.K;
+    var start = C.map(function (c) { return c[0]; }).indexOf(p.startColumn || 'Discovery');
+    var cur = s.col === undefined ? (start < 0 ? 2 : start) : s.col;
+    var focus = s.focus || 'all';
+    var collapsed = s.collapsed || {};
+    var SUBS = ['In discovery', 'Ready for demo'], PROB = [10, 25, 40, 55, 70, 85, 100], isSplit = cur === 2, sub = s.sub || 0;
+    var track = function (name, st) {
+      return { name: name, state: st === 'done' ? 'done' : st === 'open' ? 'open' : 'n/a', fg: st === 'done' ? 'var(--ok-text)' : st === 'open' ? 'var(--fg)' : 'var(--fg3)', edge: st === 'open' ? 'var(--line-strong)' : 'transparent', bg: st === 'done' ? 'var(--ok-tint)' : st === 'open' ? 'transparent' : 'var(--chip)' };
+    };
+    var labelDots = { Enterprise: '#60a5fa', Renewal: '#f59e0b', SMB: '#34d399', Upsell: '#c084fc' };
+    var match = function (k) { return focus === 'all' || k[5] === focus; };
+    var cols = C.map(function (c, ci) {
+      var n = K.filter(function (k) { return k[1] === ci; }).length, on = ci === cur, overLim = c[2] && n > c[2];
+      return { name: c[0], dot: c[1], n: n, on: on, weight: on ? 650 : 500, countFg: overLim ? 'var(--warn-text)' : 'var(--fg2)', bg: on ? 'rgba(var(--h),0.22)' : 'var(--panel)', border: on ? 'var(--sel)' : 'var(--line-strong)', pick: function () { self.setState({ col: ci }); } };
+    });
+    var cn = K.filter(function (k) { return k[1] === cur; }).length, lim = C[cur][2], overLim = lim && cn > lim;
+    var cnt = function (kind) { return K.filter(function (k) { return k[5] === kind; }).length; };
+    var focus_ = [['all', 'All cards', K.length, 'rgba(var(--h),0.7)'], ['over', 'Overdue', cnt('over'), 'var(--danger)'], ['stale', 'Stale', cnt('stale'), 'var(--warn)'], ['soon', 'Due soon', cnt('soon'), 'var(--fg3)']].map(function (f) {
+      var on = focus === f[0];
+      return { label: f[1], n: f[2], swatch: f[3], on: on, weight: on ? 650 : 500, bg: on ? 'rgba(var(--h),0.22)' : 'var(--panel)', border: on ? 'var(--sel)' : 'var(--line-strong)', pick: function () { self.setState({ focus: f[0] }); } };
+    });
+    var lanes = L.map(function (l, li) {
+      var mine = K.filter(function (k) { return k[0] === li; });
+      var over = mine.filter(function (k) { return k[5] === 'over'; }).length;
+      var stale = mine.filter(function (k) { return k[5] === 'stale'; }).length;
+      var cards = mine.filter(function (k) { return k[1] === cur && match(k) && (!isSplit || k[7] === sub); }).map(function (k) {
+        var kind = k[5], parts = k[2].split(' -- ');
+        return {
+          company: parts[0], work: parts[1] || '', label: k[3], labelDot: labelDots[k[3]], amt: '$' + k[4] + 'k', prob: PROB[k[1]] + '%',
+          hasTracks: isSplit, tracks: isSplit ? [track('Technical', k[8]), track('Business', k[9])] : [],
+          sigText: kind === 'stale' ? 'Stale ' + k[6] + 'd' : kind === 'over' ? 'Overdue ' + k[6] : kind === 'soon' ? 'Due in ' + k[6] : '',
+          sigFg: kind === 'stale' ? 'var(--warn-text)' : kind === 'over' ? 'var(--danger-text)' : 'var(--fg2)',
+          border: kind === 'over' ? 'var(--danger)' : 'var(--line)'
+        };
+      });
+      var col = !!collapsed[li];
+      return {
+        name: l[0], color: l[1], vp: l[2], quota: l[3],
+        here: cards.length + ' here', over: over + ' overdue', stale: stale + ' stale', hasOver: over > 0, hasStale: stale > 0,
+        cards: cards, empty: cards.length === 0, emptyText: 'No matching cards in ' + (isSplit ? SUBS[sub] : C[cur][0]) + '.',
+        expanded: !col, rot: col ? '-90deg' : '0deg', toggleAria: (col ? 'Expand ' : 'Collapse ') + l[0],
+        toggle: function () { var m = {}; L.forEach(function (_, i) { m[i] = !!collapsed[i]; }); m[li] = !col; self.setState({ collapsed: m }); }
+      };
+    });
+    return {
+      focus: focus_, cols: cols, lanes: lanes, isSplit: isSplit,
+      subs: SUBS.map(function (nm, si) { var on = si === sub; return { name: nm, n: K.filter(function (k) { return k[1] === 2 && k[7] === si; }).length, on: on, vis: on ? 'visible' : 'hidden', bg: on ? 'var(--primary)' : 'transparent', fg: on ? '#ffffff' : 'var(--fg2)', weight: on ? 650 : 500, pick: function () { self.setState({ sub: si }); } }; }),
+      curNote: lim ? cn + ' of ' + lim + (overLim ? ', over limit' : ' limit') : cn + ' cards, no limit',
+      curFg: overLim ? 'var(--warn-text)' : 'var(--fg2)',
+      curTrack: lim ? 'var(--track)' : 'transparent',
+      curW: lim ? Math.min(100, Math.round(cn / lim * 100)) + '%' : '0%',
+      curMeter: overLim ? 'var(--warn)' : 'rgba(var(--h),0.8)'
+    };
+  }
+}
+</script>
+</body>
+</html>

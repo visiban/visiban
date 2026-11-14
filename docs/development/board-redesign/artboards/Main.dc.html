@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales Pipeline board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:var(--link)}a:hover{color:var(--strong)}
+.vb-dark{--bg:#0f172a;--chrome:#0b1220;--panel:#1e293b;--well:#0a1120;--chip:#334155;--line:#334155;--line-strong:#475569;--fg:#e2e8f0;--fg2:#cbd5e1;--fg3:#94a3b8;--strong:#f8fafc;--track:#334155;--primary:#2563eb;--link:#93c5fd;--warn:#fb923c;--warn-text:#fdba74;--warn-tint:rgba(251,146,60,0.16);--danger:#f87171;--danger-text:#fca5a5;--danger-tint:rgba(248,113,113,0.14);--ok:#4ade80;--ok-text:#86efac;--ok-tint:rgba(74,222,128,0.12);--h:59,130,246;--sel:#60a5fa;--shadow:0 20px 50px rgba(0,0,0,0.6);--card-shadow:0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 6px rgba(0,0,0,0.35)}
+.vb-light{--bg:#f1f5f9;--chrome:#ffffff;--panel:#ffffff;--well:#e5eaf1;--chip:#e2e8f0;--line:#cbd5e1;--line-strong:#94a3b8;--fg:#0f172a;--fg2:#334155;--fg3:#475569;--strong:#020617;--track:#cbd5e1;--primary:#1e3a8a;--link:#1d4ed8;--warn:#c2410c;--warn-text:#9a3412;--warn-tint:rgba(194,65,12,0.10);--danger:#b91c1c;--danger-text:#991b1b;--danger-tint:rgba(185,28,28,0.08);--ok:#15803d;--ok-text:#166534;--ok-tint:rgba(21,128,61,0.10);--h:37,99,235;--sel:#1d4ed8;--shadow:0 20px 50px rgba(15,23,42,0.25);--card-shadow:0 1px 3px rgba(15,23,42,0.14)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.4; box-sizing: border-box; min-height: 100vh">
+
+<header style="background: var(--chrome); border-bottom: 1px solid var(--line); padding: 10px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 8px; background: var(--primary); display: inline-flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"><path d="M4 4v10M9 4v6M14 4v8"/></svg></span>
+<nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px">
+<a href="#boards" style="color: var(--fg3); text-decoration: none">Boards</a>
+<span aria-hidden="true" style="color: var(--fg3)">/</span>
+<h1 style="margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Sales Pipeline</h1>
+</nav>
+<button type="button" aria-label="Star board" style="width: 36px; height: 36px; border: 0; background: transparent; color: var(--fg3); border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg></button>
+<button type="button" aria-label="Board status: no status. Change status" style="height: 30px; padding: 0 10px 0 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="4"/></svg>No status</button>
+</div>
+<div style="flex: 1 1 280px; max-width: 520px; margin: 0 auto; position: relative; display: flex; align-items: center">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="position: absolute; left: 12px; color: var(--fg3)"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+<label for="vb-search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search this board</label>
+<input id="vb-search" type="search" placeholder="Search cards, people, labels, fields" style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 56px 0 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit">
+<kbd style="position: absolute; right: 10px; font: inherit; font-size: 12px; color: var(--fg2); background: var(--chip); border-radius: 4px; padding: 1px 6px">⌘K</kbd>
+</div>
+<div style="display: flex; align-items: center; gap: 6px">
+<button type="button" aria-label="Notifications" style="width: 36px; height: 36px; border: 0; background: transparent; color: var(--fg2); border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 018 0v4l1.2 1.5H2.8zM6.5 14h3"/></svg></button>
+<button type="button" aria-label="Account menu" style="width: 36px; height: 36px; border: 0; border-radius: 999px; background: rgba(var(--h),0.3); color: var(--strong); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer">AD</button>
+</div>
+</header>
+
+<nav aria-label="Board toolbar" style="background: var(--chrome); border-bottom: 1px solid var(--line); padding: 0 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px">
+<div style="display: flex; gap: 2px">
+<span aria-current="page" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-weight: 600; color: var(--strong); border-bottom: 2px solid var(--primary); margin-bottom: -1px">Board</span>
+<a href="#summary" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; color: var(--fg2); text-decoration: none">Summary</a>
+<a href="#history" style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; color: var(--fg2); text-decoration: none">History</a>
+<a href="#analytics" style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 12px; color: var(--fg2); text-decoration: none">Analytics <span style="font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--warn-tint); color: var(--warn-text)">Beta</span></a>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; padding: 4px 0">
+<button type="button" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12M4.5 8h7M6.5 12h3"/></svg>Filter</button>
+<button type="button" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M6 2.5v11M10 2.5v11"/></svg>View<svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<button type="button" onClick="{{toggleActivity}}" aria-pressed="{{showAct}}" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid {{actBorder}}; background: {{actBg}}; color: var(--fg); font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Activity</button>
+<button type="button" aria-label="More board actions: export, settings, shortcuts" style="width: 36px; height: 36px; border-radius: 6px; border: 0; background: transparent; color: var(--fg2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg2); padding-left: 8px; border-left: 1px solid var(--line)"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: var(--ok)"></span>Live</span>
+</div>
+</nav>
+
+<div style="position: relative; padding: 16px 20px 40px">
+<main style="min-width: 0; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+<span id="fc-label" style="color: var(--fg3); font-size: 13px">Show</span>
+<div role="group" aria-labelledby="fc-label" style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{focus}}" as="f" hint-placeholder-count="4">
+<button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="height: 34px; padding: 0 12px 0 10px; border-radius: 999px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: var(--fg); font: inherit; font-size: 13px; font-weight: {{f.weight}}; display: inline-flex; align-items: center; gap: 7px; cursor: pointer"><span aria-hidden="true" style="width: 9px; height: 9px; border-radius: 2px; background: {{f.swatch}}"></span>{{f.label}}<span style="color: var(--fg2); font-weight: 500; font-variant-numeric: tabular-nums">{{f.n}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-left: auto">
+<span style="color: var(--fg3); font-size: 13px">{{boardStats}}</span>
+<button type="button" onClick="{{toggleAll}}" style="height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; font-size: 13px; cursor: pointer">{{toggleAllLabel}}</button>
+</div>
+</div>
+
+<div style="overflow-x: auto; padding-bottom: 6px">
+<div style="min-width: 1240px; display: flex; flex-direction: column; gap: 10px">
+
+<div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: stretch">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="7">
+<div style="background: {{c.tint}}; border: 1px solid {{c.edge}}; border-radius: 8px; padding: 8px 6px 8px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: {{c.dot}}; flex: none"></span>
+<h2 style="margin: 0; font-size: 13px; font-weight: 650; line-height: 1.25; flex: 1 1 auto; min-width: 0">{{c.name}}</h2>
+<button type="button" aria-label="{{c.addAria}}" style="width: 28px; height: 28px; flex: none; border: 0; border-radius: 6px; background: transparent; color: var(--fg3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+</div>
+<div aria-hidden="true" style="height: 3px; border-radius: 2px; background: {{c.trackBg}}; margin-right: 6px; overflow: hidden"><div style="height: 3px; width: {{c.meterW}}; background: {{c.meterBg}}"></div></div>
+<span style="font-size: 12px; font-weight: 600; color: {{c.countFg}}; font-variant-numeric: tabular-nums">{{c.countText}}</span>
+<sc-if value="{{c.split}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; font-size: 12px; color: var(--fg2); margin-right: 6px">
+<sc-for list="{{c.subs}}" as="u" hint-placeholder-count="2">
+<span style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 6px; padding-left: {{u.pad}}; border-left: 1px dashed {{u.divider}}"><span style="font-weight: 600; white-space: nowrap">{{u.name}}</span><span style="color: var(--fg3); white-space: nowrap">{{u.note}}</span></span>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<sc-for list="{{lanes}}" as="l" hint-placeholder-count="3">
+<section aria-label="{{l.name}}" style="display: flex; flex-direction: column; gap: 8px">
+<div style="background: {{l.tint}}; border: 1px solid {{l.edge}}; border-radius: 8px; padding: 6px 14px 6px 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px">
+<button type="button" onClick="{{l.toggle}}" aria-expanded="{{l.expanded}}" aria-label="{{l.toggleAria}}" style="width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--fg2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" style="transform: rotate({{l.rot}})"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg></button>
+<span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: {{l.color}}"></span>
+<h3 style="margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; color: var(--strong)">{{l.name}}</h3>
+<sc-for list="{{l.fields}}" as="f" hint-placeholder-count="2">
+<span style="font-size: 13px; color: var(--fg3)">{{f.k}} <span style="color: var(--fg); font-variant-numeric: tabular-nums">{{f.v}}</span></span>
+</sc-for>
+<button type="button" onClick="{{l.toggleMore}}" aria-expanded="{{l.moreOpen}}" aria-label="{{l.moreAria}}" style="height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; font-size: 12px; cursor: pointer">{{l.moreLabel}}</button>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-left: auto; font-size: 13px">
+<sc-if value="{{l.hasOver}}" hint-placeholder-val="{{true}}"><span style="color: var(--danger-text); font-weight: 600">{{l.over}}</span></sc-if>
+<sc-if value="{{l.hasStale}}" hint-placeholder-val="{{true}}"><span style="color: var(--warn-text); font-weight: 600">{{l.stale}}</span></sc-if>
+<span style="color: {{l.wipFg}}; font-weight: 600; font-variant-numeric: tabular-nums">{{l.wip}}</span>
+<span style="color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums">{{l.rollup}}</span>
+</div>
+</div>
+
+<sc-if value="{{l.expanded}}" hint-placeholder-val="{{true}}">
+<div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px">
+<sc-for list="{{l.cells}}" as="c" hint-placeholder-count="7">
+<div style="background: var(--well); border-radius: 8px; padding: 6px; display: grid; grid-template-columns: {{c.tpl}}; gap: 6px; min-width: 0; min-height: 56px">
+<sc-for list="{{c.subs}}" as="u" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-left: {{u.pad}}; border-left: 1px dashed {{u.divider}}">
+<sc-for list="{{u.cards}}" as="k" hint-placeholder-count="2">
+<button type="button" onClick="{{k.open}}" style="text-align: left; background: var(--panel); border: 1px solid {{k.border}}; box-shadow: var(--card-shadow); border-radius: 8px; padding: 10px; color: var(--fg); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 7px; min-width: 0">
+<span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px; font-weight: 650; color: var(--strong); line-height: 1.3">{{k.company}}</span><span style="font-size: 12px; color: var(--fg2); line-height: 1.35">{{k.work}}</span></span>
+<sc-if value="{{k.hasTracks}}" hint-placeholder-val="{{false}}">
+<span style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{k.tracks}}" as="t" hint-placeholder-count="2">
+<span aria-label="{{t.aria}}" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: {{t.fg}}; border: 1px solid {{t.edge}}; background: {{t.bg}}; border-radius: 4px; padding: 1px 6px 1px 4px">
+<sc-if value="{{t.done}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg></sc-if>
+<sc-if value="{{t.open}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="3.6"/></svg></sc-if>
+<sc-if value="{{t.na}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h6"/></svg></sc-if>
+{{t.name}}</span>
+</sc-for>
+</span>
+</sc-if>
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0">
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--fg2); background: var(--chip); border-radius: 999px; padding: 2px 8px 2px 6px; min-width: 0"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: {{k.labelDot}}; flex: none"></span>{{k.label}}</span>
+<span aria-label="Assigned to DE" style="width: 20px; height: 20px; flex: none; border-radius: 999px; background: rgba(var(--h),0.3); color: var(--strong); font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">DE</span>
+</span>
+<span style="display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums"><span style="font-weight: 650; color: var(--fg)">{{k.amt}}</span><span style="color: var(--fg3)">{{k.prob}}</span></span>
+<sc-if value="{{k.hasSig}}" hint-placeholder-val="{{true}}">
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: {{k.sigFg}}">
+<sc-if value="{{k.isStale}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg></sc-if>
+<sc-if value="{{k.isDue}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 14V2.5h8l-2 3 2 3h-8"/></svg></sc-if>
+{{k.sigText}}</span>
+</sc-if>
+</button>
+</sc-for>
+<sc-if value="{{u.empty}}" hint-placeholder-val="{{false}}">
+<button type="button" aria-label="{{u.addAria}}" style="flex: 1 1 auto; min-height: 44px; border: 0; border-radius: 6px; background: transparent; color: var(--line-strong); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{l.collapsed}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px">
+<sc-for list="{{l.strip}}" as="c" hint-placeholder-count="7">
+<div style="background: var(--well); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: {{c.tpl}}; gap: 6px; min-width: 0; min-height: 22px">
+<sc-for list="{{c.subs}}" as="s" hint-placeholder-count="1">
+<div style="display: flex; align-items: center; gap: 8px; min-width: 0; padding-left: {{s.pad}}; border-left: 1px dashed {{s.divider}}">
+<span style="font-size: 13px; font-weight: 650; color: {{s.fg}}; font-variant-numeric: tabular-nums; min-width: 14px">{{s.n}}</span>
+<span aria-hidden="true" style="display: flex; flex-wrap: wrap; gap: 3px; min-width: 0">
+<sc-for list="{{s.squares}}" as="q" hint-placeholder-count="3"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{q.bg}}"></span></sc-for>
+</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</sc-for>
+
+</div>
+</div>
+</main>
+
+<sc-if value="{{showCard}}" hint-placeholder-val="{{false}}">
+<aside aria-label="Card details" style="position: absolute; top: 16px; right: 20px; width: 400px; max-width: calc(100% - 40px); box-sizing: border-box; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg3)">{{sel.lane}}</span>
+<button type="button" onClick="{{closePanel}}" aria-label="Close card details" style="width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--fg2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 style="margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; color: var(--strong)">{{sel.company}}</h2>
+<span style="color: var(--fg2)">{{sel.work}}</span>
+</div>
+<sc-if value="{{sel.hasSig}}" hint-placeholder-val="{{true}}"><div style="font-size: 13px; font-weight: 600; color: {{sel.sigFg}}; background: {{sel.sigBg}}; border-radius: 6px; padding: 8px 10px">{{sel.sigLong}}</div></sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 650">Status</h3>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<sc-for list="{{sel.steps}}" as="p" hint-placeholder-count="3">
+<span style="font-size: 12px; font-weight: {{p.weight}}; color: {{p.fg}}; background: {{p.bg}}; border: 1px solid {{p.edge}}; border-radius: 6px; padding: 3px 8px">{{p.name}}</span>
+</sc-for>
+</div>
+<sc-if value="{{sel.hasTracks}}" hint-placeholder-val="{{true}}">
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+<sc-for list="{{sel.tracks}}" as="t" hint-placeholder-count="2">
+<li style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px"><span>{{t.name}} discovery</span><span style="font-weight: 600; color: {{t.fg}}">{{t.state}}</span></li>
+</sc-for>
+</ul>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 650">Fields</h3>
+<span style="font-size: 12px; color: var(--fg3)">{{sel.fieldNote}}</span>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 13px">
+<sc-for list="{{sel.fields}}" as="f" hint-placeholder-count="6">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line)"><span style="color: var(--fg3)">{{f.k}}</span><span style="color: {{f.fg}}; font-variant-numeric: tabular-nums; text-align: right">{{f.v}}</span></li>
+</sc-for>
+</ul>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 650">Time in each column</h3>
+<div aria-hidden="true" style="display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden">
+<sc-for list="{{sel.segs}}" as="g" hint-placeholder-count="3"><span style="flex: {{g.flex}} 1 0; background: {{g.bg}}"></span></sc-for>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px">
+<sc-for list="{{sel.segs}}" as="g" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; background: {{g.bg}}"></span><span style="flex: 1 1 auto; color: var(--fg2)">{{g.name}}</span><span style="font-variant-numeric: tabular-nums; font-weight: {{g.weight}}">{{g.days}}</span></li></sc-for>
+</ul>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 650">History</h3>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+<sc-for list="{{sel.hist}}" as="e" hint-placeholder-count="3"><li style="display: flex; justify-content: space-between; gap: 10px"><span style="color: var(--fg2)">{{e.text}}</span><span style="color: var(--fg3); white-space: nowrap">{{e.when}}</span></li></sc-for>
+</ol>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px">
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 0; background: var(--primary); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Open card</button>
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; cursor: pointer">Move</button>
+</div>
+</aside>
+</sc-if>
+
+<sc-if value="{{showAct}}" hint-placeholder-val="{{false}}">
+<aside aria-label="Board activity" style="position: absolute; top: 16px; right: 20px; width: 400px; max-width: calc(100% - 40px); box-sizing: border-box; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 650">Activity</h2>
+<button type="button" onClick="{{closePanel}}" aria-label="Close activity" style="width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--fg2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg></button>
+</div>
+<div role="group" aria-label="Activity type" style="display: flex; gap: 4px; border-bottom: 1px solid var(--line)">
+<sc-for list="{{actTabs}}" as="t" hint-placeholder-count="2">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="min-height: 40px; padding: 0 12px; border: 0; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px; background: transparent; color: {{t.fg}}; font: inherit; font-weight: {{t.weight}}; cursor: pointer">{{t.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{actHistory}}" hint-placeholder-val="{{true}}">
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 13px">
+<sc-for list="{{activity}}" as="a" hint-placeholder-count="6">
+<li style="display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line)">
+<span aria-hidden="true" style="width: 22px; height: 22px; flex: none; border-radius: 999px; background: rgba(var(--h),0.3); color: var(--strong); font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">DE</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="color: var(--fg)">{{a.title}}</span><span style="color: var(--fg2)">{{a.text}}</span></span>
+<span style="color: var(--fg3); white-space: nowrap">{{a.when}}</span>
+</li>
+</sc-for>
+</ol>
+<a href="#history" style="font-size: 13px">Open the full History view</a>
+</sc-if>
+<sc-if value="{{actArchived}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; color: var(--fg2); font-size: 13px; max-width: 40ch">Archived cards are listed here, newest first. Restore one to put it back in its column and swimlane.</p>
+</sc-if>
+</aside>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"startCollapsed":{"editor":"boolean","default":false},"startPanel":{"editor":"enum","options":["none","card","activity"],"default":"none"},"$preview":{"width":1440,"height":2180}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+    var C = [['Prospect','#94a3b8',0],['Qualified','#4ade80',6],['Discovery','#a78bfa',8],['Demo','#fbbf24',0],['Proposal Sent','#fb923c',0],['Negotiation','#f87171',4],['Closed Won','#34d399',0]];
+    var L = [['North America','#eab308','Avery Brooks','$600,000',10,'6','Commit'],['APAC','#f97316','Priya Raman','$750,000',8,'8','Best case'],['EMEA','#8b5cf6','Marcus Hale','$900,000',12,'9','Commit']];
+    var K = [
+      [0,1,'Rio Health Network -- Hospital Operations Board','Enterprise',33,'stale',56],
+      [0,1,'Meridian Consulting -- 120-Seat Strategic Deal','Enterprise',27,'stale',104],
+      [0,1,'Riyadh Oil -- Operations Compliance Board','Renewal',41,'over','Oct 11'],
+      [0,1,'Busan Shipping -- Fleet Operations Board','SMB',27,'stale',65],
+      [0,2,'Sakura Electronics -- 100-Seat Engineering Board','Enterprise',52,'stale',39,0,'done','open'],
+      [0,2,'Thames Capital -- Investment Pipeline Board','Renewal',38,'over','Nov 12',1,'done','done'],
+      [0,2,'Southern Cross Media -- Content Calendar License','SMB',12,'over','Nov 9',0,'open','open'],
+      [0,2,'Stockholm SaaS -- 80-Seat Platform Migration','SMB',95,'',0,1,'done','done'],
+      [0,5,'Manila BPO -- Operations Kanban 200 Seats','SMB',88,'over','Oct 10'],
+      [1,0,'Andean Mining Corp -- Safety Compliance Board','Renewal',24,'stale',83],
+      [1,1,'Dragon Logistics -- Cross-Border Shipping Tracker','Enterprise',39,'stale',98],
+      [1,1,'Clyde Engineering -- Manufacturing Workflow','Upsell',31,'over','Oct 22'],
+      [1,1,'Oslo Energy -- Renewable Project Board','Enterprise',19,'stale',49],
+      [1,1,'Bangkok Retail -- Store Operations Board','SMB',35,'stale',91],
+      [1,2,'EuroTech Solutions -- Engineering Workflow','Renewal',46,'stale',76,1,'done','na'],
+      [1,2,'Pinnacle Health -- HIPAA Module Add-on','Enterprise',22,'stale',48,0,'open','na'],
+      [1,4,'Outback Mining -- Safety Incident Board','SMB',29,'over','Sep 24'],
+      [1,4,'Abu Dhabi Finance -- Investment Pipeline License','Renewal',64,'over','Nov 1'],
+      [1,4,'Kyoto Pharmaceuticals -- Drug Pipeline Board','Enterprise',42,'stale',39],
+      [2,0,'Coral Bay Resorts -- Property Management','SMB',32,'stale',54],
+      [2,2,'Pampa Agritech -- Field Operations Tracker','Upsell',14,'stale',45,0,'open','done'],
+      [2,2,'Helsinki Gaming -- Sprint Board License','SMB',28,'soon','3 days',0,'done','open'],
+      [2,3,'Nordic Finance Group -- SOC 2 Compliance Package','Enterprise',57,'over','Oct 25'],
+      [2,3,'Qatar Airways Cargo -- Logistics Board Deal','Upsell',73,'over','Oct 28'],
+      [2,3,'Ho Chi Minh Tech -- Engineering Board License','SMB',18,'',0],
+      [2,4,'Harbour Digital -- 40-Seat Startup Deal','Enterprise',16,'over','Oct 21'],
+      [2,4,'Dublin Analytics -- Data Team Kanban','Renewal',21,'over','Oct 29'],
+      [2,5,'Brightwave Systems -- 300-Seat Migration','Upsell',120,'over','Oct 7'],
+      [2,6,'Zurich Insurance -- Claims Workflow','Upsell',36,'',0]
+    ];
+    this._d = { C: C, L: L, K: K, SUBS: ['In discovery', 'Ready for demo'], PROB: [10, 25, 40, 55, 70, 85, 100] };
+    return this._d;
+  }
+  renderVals() {
+    var self = this, p = this.props || {}, s = this.state || {}, d = this.data();
+    var C = d.C, L = d.L, K = d.K, SUBS = d.SUBS, PROB = d.PROB, SPLIT = 2;
+    var theme = p.theme === 'light' ? 'light' : 'dark';
+    var rgba = function (hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; };
+    var collapsedMap = s.collapsed || {}, moreMap = s.more || {};
+    var isCollapsed = function (i) { return collapsedMap[i] === undefined ? !!p.startCollapsed : collapsedMap[i]; };
+    var focus = s.focus || 'all';
+    var panel = s.panel === undefined ? (p.startPanel || 'none') : s.panel;
+    var selId = s.sel === undefined ? 4 : s.sel;
+    var actTab = s.actTab || 'history';
+    var labelDots = { Enterprise: '#60a5fa', Renewal: '#f59e0b', SMB: '#34d399', Upsell: '#c084fc' };
+    var match = function (k) { return focus === 'all' || k[5] === focus; };
+    var track = function (name, st) {
+      return {
+        name: name, done: st === 'done', open: st === 'open', na: st === 'na',
+        state: st === 'done' ? 'Done' : st === 'open' ? 'Open' : 'Not applicable',
+        aria: name + ': ' + (st === 'done' ? 'done' : st === 'open' ? 'open' : 'not applicable'),
+        fg: st === 'done' ? 'var(--ok-text)' : st === 'open' ? 'var(--fg)' : 'var(--fg3)',
+        edge: st === 'open' ? 'var(--line-strong)' : 'transparent',
+        bg: st === 'done' ? 'var(--ok-tint)' : st === 'open' ? 'transparent' : 'var(--chip)'
+      };
+    };
+    var tracksOf = function (k) { return k[1] === SPLIT ? [track('Technical', k[8]), track('Business', k[9])] : []; };
+    var cardVals = function (k, id) {
+      var kind = k[5], parts = k[2].split(' -- ');
+      var selected = panel === 'card' && selId === id;
+      return {
+        company: parts[0], work: parts[1] || '', label: k[3], labelDot: labelDots[k[3]], amt: '$' + k[4] + 'k', prob: PROB[k[1]] + '%',
+        sigText: kind === 'stale' ? 'Stale ' + k[6] + 'd' : kind === 'over' ? 'Overdue ' + k[6] : kind === 'soon' ? 'Due in ' + k[6] : '',
+        sigFg: kind === 'stale' ? 'var(--warn-text)' : kind === 'over' ? 'var(--danger-text)' : 'var(--fg2)',
+        hasSig: kind !== '', isStale: kind === 'stale', isDue: kind === 'over' || kind === 'soon',
+        hasTracks: k[1] === SPLIT, tracks: tracksOf(k),
+        border: selected ? 'var(--sel)' : kind === 'over' ? 'var(--danger)' : 'var(--line)',
+        open: function () { self.setState({ panel: 'card', sel: id }); }
+      };
+    };
+    var sq = function (k) { return { bg: k[5] === 'over' ? 'var(--danger)' : k[5] === 'stale' ? 'var(--warn)' : 'rgba(var(--h),0.7)' }; };
+    var subIdx = function (ci) { return ci === SPLIT ? [0, 1] : [null]; };
+    var inSub = function (k, si) { return si === null || k[7] === si; };
+    var lanes = L.map(function (l, li) {
+      var mine = [];
+      K.forEach(function (k, id) { if (k[0] === li) mine.push([k, id]); });
+      var over = mine.filter(function (m) { return m[0][5] === 'over'; }).length;
+      var stale = mine.filter(function (m) { return m[0][5] === 'stale'; }).length;
+      var active = mine.filter(function (m) { return m[0][1] !== 6; });
+      var open = active.reduce(function (a, m) { return a + m[0][4]; }, 0);
+      var col = isCollapsed(li), more = !!moreMap[li], overWip = active.length > l[4];
+      var fields = [{ k: 'Regional VP', v: l[2] }, { k: 'Quarterly quota', v: l[3] }];
+      if (more) fields = fields.concat([{ k: 'Team size', v: l[5] }, { k: 'Forecast', v: l[6] }]);
+      return {
+        name: l[0], color: l[1], tint: rgba(l[1], 0.1), edge: rgba(l[1], 0.35), fields: fields,
+        moreOpen: more, moreLabel: more ? 'Less' : '+2', moreAria: (more ? 'Hide extra fields for ' : 'Show 2 more fields for ') + l[0],
+        toggleMore: function () { var m = {}; L.forEach(function (_, i) { m[i] = !!moreMap[i]; }); m[li] = !more; self.setState({ more: m }); },
+        over: over + ' overdue', stale: stale + ' stale', hasOver: over > 0, hasStale: stale > 0,
+        wip: 'WIP ' + active.length + ' / ' + l[4] + (overWip ? ' over' : ''), wipFg: overWip ? 'var(--warn-text)' : 'var(--fg2)',
+        rollup: '$' + open + 'k open',
+        collapsed: col, expanded: !col, rot: col ? '-90deg' : '0deg',
+        toggleAria: (col ? 'Expand ' : 'Collapse ') + l[0],
+        toggle: function () { var m = {}; L.forEach(function (_, i) { m[i] = isCollapsed(i); }); m[li] = !col; self.setState({ collapsed: m }); },
+        cells: C.map(function (c, ci) {
+          return { tpl: ci === SPLIT ? 'repeat(2, minmax(0,1fr))' : 'minmax(0,1fr)', subs: subIdx(ci).map(function (si) {
+            var cards = mine.filter(function (m) { return m[0][1] === ci && inSub(m[0], si) && match(m[0]); }).map(function (m) { return cardVals(m[0], m[1]); });
+            return { cards: cards, empty: cards.length === 0, pad: si ? '6px' : '0', divider: si ? 'var(--line-strong)' : 'transparent', addAria: 'Add card to ' + (si === null ? c[0] : SUBS[si]) + ' in ' + l[0] };
+          }) };
+        }),
+        strip: C.map(function (c, ci) {
+          return { tpl: ci === SPLIT ? 'repeat(2, minmax(0,1fr))' : 'minmax(0,1fr)', subs: subIdx(ci).map(function (si) {
+            var cs = mine.filter(function (m) { return m[0][1] === ci && inSub(m[0], si) && match(m[0]); });
+            return { n: cs.length ? String(cs.length) : '–', fg: cs.length ? 'var(--fg)' : 'var(--fg3)', squares: cs.map(function (m) { return sq(m[0]); }), pad: si ? '8px' : '0', divider: si ? 'var(--line-strong)' : 'transparent' };
+          }) };
+        })
+      };
+    });
+    var cols = C.map(function (c, ci) {
+      var n = K.filter(function (k) { return k[1] === ci; }).length, lim = c[2], overLim = lim && n > lim;
+      return {
+        name: c[0], dot: c[1], tint: rgba(c[1], 0.1), edge: rgba(c[1], 0.3), addAria: 'Add card to ' + c[0],
+        countText: lim ? n + ' / ' + lim + (overLim ? ' over' : '') : n + (n === 1 ? ' card' : ' cards'),
+        countFg: overLim ? 'var(--warn-text)' : 'var(--fg2)',
+        trackBg: lim ? 'var(--track)' : 'transparent',
+        meterW: lim ? Math.min(100, Math.round(n / lim * 100)) + '%' : '0%',
+        meterBg: overLim ? 'var(--warn)' : c[1],
+        split: ci === SPLIT,
+        subs: ci === SPLIT ? SUBS.map(function (nm, si) {
+          return { name: nm, note: K.filter(function (k) { return k[1] === SPLIT && k[7] === si; }).length + (si ? ' waiting' : ' working'), pad: si ? '8px' : '0', divider: si ? rgba(c[1], 0.55) : 'transparent' };
+        }) : []
+      };
+    });
+    var cnt = function (kind) { return K.filter(function (k) { return k[5] === kind; }).length; };
+    var focus_ = [['all', 'All cards', K.length, 'rgba(var(--h),0.7)'], ['over', 'Overdue', cnt('over'), 'var(--danger)'], ['stale', 'Stale', cnt('stale'), 'var(--warn)'], ['soon', 'Due soon', cnt('soon'), 'var(--fg3)']].map(function (f) {
+      var on = focus === f[0];
+      return { label: f[1], n: f[2], swatch: f[3], on: on, weight: on ? 650 : 500, bg: on ? 'rgba(var(--h),0.22)' : 'var(--panel)', border: on ? 'var(--sel)' : 'var(--line-strong)', pick: function () { self.setState({ focus: f[0] }); } };
+    });
+    var allCollapsed = L.every(function (_, i) { return isCollapsed(i); });
+    var k = K[selId], ci = k[1], h = k[2].length, kind = k[5], parts = k[2].split(' -- ');
+    var here = kind === 'stale' ? k[6] : 6 + h % 9;
+    var segs = [];
+    for (var i = 0; i <= ci; i++) {
+      var days = i === ci ? here : 4 + (h * (i + 3)) % 11;
+      segs.push({ name: C[i][0], days: days + ' d', flex: days, weight: i === ci ? 650 : 400, bg: 'rgba(var(--h),' + (0.28 + 0.6 * (i + 1) / (ci + 1)).toFixed(2) + ')' });
+    }
+    var hist = [], ago = 0;
+    for (var j = ci; j >= 0; j--) {
+      ago += parseInt(segs[j].days, 10);
+      hist.push({ text: j === 0 ? 'Created in ' + C[0][0] : C[j - 1][0] + ' to ' + C[j][0], when: ago + ' d ago' });
+    }
+    var step = function (name, on) { return { name: name, weight: on ? 650 : 500, fg: on ? 'var(--strong)' : 'var(--fg3)', bg: on ? 'rgba(var(--h),0.22)' : 'transparent', edge: on ? 'var(--sel)' : 'var(--line)' }; };
+    var steps = [];
+    if (ci > 0) steps.push(step(C[ci - 1][0], false));
+    if (ci === SPLIT) { steps.push(step(SUBS[0], k[7] === 0)); steps.push(step(SUBS[1], k[7] === 1)); } else steps.push(step(C[ci][0], true));
+    if (ci < C.length - 1) steps.push(step(C[ci + 1][0], false));
+    var seats = /(\d+)[- ]Seat/.exec(k[2]);
+    var money = function (n) { return '$' + n.toLocaleString('en-US'); };
+    var fv = function (key, v) { return { k: key, v: v || 'Not set', fg: v ? 'var(--fg)' : 'var(--fg3)' }; };
+    var fields = [
+      fv('Deal value', money(k[4] * 1000)), fv('Probability', PROB[ci] + '%'), fv('Weighted value', money(Math.round(k[4] * 10 * PROB[ci]))),
+      fv('Seats', seats ? seats[1] : ''), fv('Deal type', k[3]), fv('Due date', kind === 'over' ? k[6] : kind === 'soon' ? 'In ' + k[6] : ''),
+      fv('Assignee', 'DE'), fv('Last moved', here + ' days ago')
+    ];
+    var sel = {
+      company: parts[0], work: parts[1] || '', lane: L[k[0]][0], steps: steps,
+      hasTracks: ci === SPLIT, tracks: tracksOf(k),
+      fields: fields, fieldNote: '2 of ' + fields.length + ' pinned to the card',
+      hasSig: kind !== '',
+      sigLong: kind === 'stale' ? 'No movement for ' + k[6] + ' days' : kind === 'over' ? 'Was due ' + k[6] : 'Due in ' + k[6],
+      sigFg: kind === 'stale' ? 'var(--warn-text)' : kind === 'over' ? 'var(--danger-text)' : 'var(--fg2)',
+      sigBg: kind === 'stale' ? 'var(--warn-tint)' : kind === 'over' ? 'var(--danger-tint)' : 'var(--chip)',
+      segs: segs, hist: hist
+    };
+    var whens = ['12 min', '1 hr', '3 hr', '1 d', '1 d', '2 d', '3 d'];
+    var activity = [28, 8, 23, 17, 7, 21, 24].map(function (id, n) {
+      var c = K[id];
+      return { title: c[2].split(' -- ')[0], text: (c[1] > 0 ? C[c[1] - 1][0] + ' to ' : 'Created in ') + C[c[1]][0], when: whens[n] + ' ago' };
+    });
+    var actTabs = [['history', 'Recent'], ['archived', 'Archived']].map(function (t) {
+      var on = actTab === t[0];
+      return { label: t[1], on: on, line: on ? 'var(--primary)' : 'transparent', fg: on ? 'var(--strong)' : 'var(--fg2)', weight: on ? 600 : 400, pick: function () { self.setState({ actTab: t[0] }); } };
+    });
+    return {
+      themeClass: 'vb-' + theme,
+      focus: focus_, cols: cols, lanes: lanes,
+      boardStats: L.length + ' swimlanes · ' + C.length + ' columns · ' + K.length + ' cards · sample data',
+      toggleAllLabel: allCollapsed ? 'Expand all lanes' : 'Collapse all lanes',
+      toggleAll: function () { var m = {}; L.forEach(function (_, i) { m[i] = !allCollapsed; }); self.setState({ collapsed: m }); },
+      showCard: panel === 'card', showAct: panel === 'activity',
+      actBorder: panel === 'activity' ? 'var(--sel)' : 'var(--line-strong)', actBg: panel === 'activity' ? 'rgba(var(--h),0.22)' : 'var(--panel)',
+      toggleActivity: function () { self.setState({ panel: panel === 'activity' ? 'none' : 'activity' }); },
+      closePanel: function () { self.setState({ panel: 'none' }); },
+      sel: sel, activity: activity, actTabs: actTabs, actHistory: actTab === 'history', actArchived: actTab === 'archived'
+    };
+  }
+}
+</script>
+</body>
+</html>
