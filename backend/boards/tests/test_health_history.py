@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.utils import timezone
-from django.test import RequestFactory, SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -204,6 +204,59 @@ class BoardHealthHistoryTests(TestCase):
         change = BoardHealthChange.objects.get(board=board)
         self.assertEqual((change.from_status, change.to_status, change.changed_by), (None, "off_track", self.admin))
         self.assertIn("health_status_changed_by", BoardAdmin.readonly_fields)
+
+    # The admin templates need a non-manifest static backend in tests.
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
+    def test_admin_change_form_records_once_and_only_when_changed(self):
+        from django.test import Client
+        from django.urls import reverse
+        from boards.tests.test_admin_board_concurrent_edits import page_data
+
+        staff = User.objects.create_superuser(username="staff2242", password="pw", email="s2242@example.com")
+        # The change form requires a non-empty allowed_priorities.
+        Board.objects.filter(pk=self.board.pk).update(allowed_priorities=["low"])
+        web = Client()
+        web.force_login(staff)
+        url = reverse("admin:boards_board_change", args=[self.board.pk])
+        r = web.post(url, page_data(web.get(url), health_status="at_risk"))
+        self.assertEqual(r.status_code, 302, r.context["adminform"].form.errors if r.status_code == 200 else "")
+        rows = BoardHealthChange.objects.filter(board=self.board)
+        self.assertEqual(rows.count(), 1)
+        change = rows.get()
+        self.assertEqual((change.from_status, change.to_status, change.changed_by, change.note),
+                         (None, "at_risk", staff, None))
+        r = web.post(url, page_data(web.get(url), health_status="at_risk", name="Renamed2242"))
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(BoardHealthChange.objects.filter(board=self.board).count(), 1)
+
+    def test_post_bumps_board_updated_at_like_a_patch(self):
+        past = timezone.now() - timezone.timedelta(days=2)
+        Board.objects.filter(pk=self.board.pk).update(updated_at=past)
+        self.assertEqual(self._post({"status": "at_risk"}).status_code, 200)
+        self.board.refresh_from_db()
+        self.assertGreater(self.board.updated_at, past)
+        # Reconfirm of the same value also bumps it.
+        Board.objects.filter(pk=self.board.pk).update(updated_at=past)
+        self.assertEqual(self._post({"status": "at_risk"}).status_code, 200)
+        self.board.refresh_from_db()
+        self.assertGreater(self.board.updated_at, past)
+        # PATCH still does.
+        Board.objects.filter(pk=self.board.pk).update(updated_at=past)
+        r = _client(self.admin).patch(self.url, {"health_status": "off_track"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.board.refresh_from_db()
+        self.assertGreater(self.board.updated_at, past)
+
+    def test_group_has_no_updated_at_so_service_skips_it(self):
+        group = Group.objects.create(name="NoUA2242", owner=self.admin)
+        self.assertFalse(any(f.name == "updated_at" for f in Group._meta.concrete_fields))
+        record_health_change(group, change_model=GroupHealthChange, from_status=None,
+                             to_status="at_risk", user=self.admin)
+        group.refresh_from_db()
+        self.assertEqual(group.health_status, "at_risk")
 
     def test_inherited_source_carries_changed_at_only(self):
         owner = self.admin

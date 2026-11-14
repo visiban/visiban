@@ -61,6 +61,11 @@ def record_health_change(entity, *, change_model, from_status, to_status, user, 
         "health_status_changed_by": user,
         "health_status_note": note,
     }
+    # The queryset update skips auto_now, so bump updated_at by hand where the
+    # model has one (Board does, Group does not): a recorded change must order
+    # and read like the save() it replaces (e.g. PATCH), on every writer path.
+    if any(f.name == "updated_at" for f in type(entity)._meta.concrete_fields):
+        values["updated_at"] = now
     type(entity).objects.filter(pk=entity.pk).update(**values)
     for name, value in values.items():
         setattr(entity, name, value)
