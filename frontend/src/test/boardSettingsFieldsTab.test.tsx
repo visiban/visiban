@@ -80,7 +80,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     await user.tab();
     expect(handle).toHaveFocus();
     await user.keyboard(" ");
-    expect(await screen.findByText(/Picked up draggable item 1/)).toBeInTheDocument();
+    expect(await screen.findByText(/Picked up field Sprint, at position 1 of 2/)).toBeInTheDocument();
     await user.keyboard("{Escape}");
   });
 

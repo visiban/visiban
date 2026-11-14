@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldType, SwimlaneCustomFieldDefinition } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
+import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
 import { Toggle, ToggleField } from "../Common/Toggle";
 import {
   createSwimlaneCustomFieldDefinition,
@@ -159,6 +160,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [saving, setSaving] = useState(false);
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
+  const fieldDrag = useSortableFieldDrag(fields);
 
   // Re-sync from the parent when the board's definitions change for a reason
   // other than this component's own edits (another admin, over the WS
@@ -485,7 +487,13 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
       ) : (
-        <DndContext sensors={dragSensors} onDragEnd={(e) => void handleDragEnd(e)}>
+        <DndContext
+          sensors={dragSensors}
+          accessibility={fieldDrag.accessibility}
+          onDragStart={fieldDrag.onDragStart}
+          onDragCancel={fieldDrag.onDragCancel}
+          onDragEnd={fieldDrag.wrapDragEnd((e) => void handleDragEnd(e))}
+        >
           <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
             {fields.map((def) => (
               <FieldRow

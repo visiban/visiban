@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ConnectionStatus from '../components/Common/ConnectionStatus'
 
@@ -134,5 +134,30 @@ describe('ConnectionStatus', () => {
       <ConnectionStatus status="connected" lastEventAt={Date.now()} tourStep="live-indicator" />,
     )
     expect(screen.getByRole('button')).toHaveAttribute('data-tour-step', 'live-indicator')
+  })
+})
+
+// #1171: the panel is anchored once at click time, so it closes on window resize
+// and on a scroll outside it rather than staying behind a trigger that moved.
+describe('ConnectionStatus viewport dismissals (#1171)', () => {
+  const openPanel = async () => {
+    vi.useRealTimers()
+    render(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: /Real-time updates active/i }))
+    expect(await screen.findByRole('dialog', { name: 'Connection status' })).toBeInTheDocument()
+  }
+
+  it('closes on window resize', async () => {
+    await openPanel()
+    fireEvent(window, new Event('resize'))
+    expect(screen.queryByRole('dialog', { name: 'Connection status' })).not.toBeInTheDocument()
+  })
+
+  it('closes on a scroll outside the panel, not on one inside it', async () => {
+    await openPanel()
+    fireEvent.scroll(screen.getByRole('dialog', { name: 'Connection status' }))
+    expect(screen.getByRole('dialog', { name: 'Connection status' })).toBeInTheDocument()
+    fireEvent.scroll(document)
+    expect(screen.queryByRole('dialog', { name: 'Connection status' })).not.toBeInTheDocument()
   })
 })
