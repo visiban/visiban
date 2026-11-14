@@ -1003,8 +1003,9 @@ class CardViewSet(viewsets.ModelViewSet):
         offset = parse_offset(request)
         # Annotate `_total` via window function so the page fetch returns the
         # total count alongside each row — saves a second `COUNT(*)` round-trip
-        # on boards with long archived history.  Matches the pattern in
-        # analytics.py:movements (#929).
+        # on boards with long archived history (#929).  analytics.py:movements
+        # no longer uses this pattern; the remaining Window(Count) sites are
+        # tracked in #2239.
         page_qs = list(
             qs.annotate(_total=Window(Count("id")))[offset: offset + self._ARCHIVED_PAGE_SIZE]
         )

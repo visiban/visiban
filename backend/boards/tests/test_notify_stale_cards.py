@@ -517,7 +517,7 @@ class NotifyStaleCardsScalingTest(TestCase):
             call_command("notify_stale_cards", verbosity=0)
         return len(ctx)
 
-    def test_movement_history_does_not_add_queries_or_change_result(self):
+    def test_history_depth_adds_no_queries_and_all_boards_notified(self):
         _, light = self._board_with_card("light", 0)
         one_board = self._count_queries()
         Notification.objects.all().delete()
@@ -536,6 +536,25 @@ class NotifyStaleCardsScalingTest(TestCase):
         self.assertEqual(Notification.objects.filter(card=deep).count(), 1)
         self.assertEqual(Notification.objects.filter(card=light).count(), 1)
         self.assertEqual(Notification.objects.filter(card=light2).count(), 1)
+
+    def test_no_per_card_movement_history_prefetch(self):
+        # Discriminates old from new: the old code prefetched every stale
+        # card's full movement history with `... FROM boards_cardmovement
+        # WHERE card_id IN (...)`. The latest movement now arrives as a
+        # subquery annotation on the card query, so no statement may select
+        # from the movement table as its outermost FROM.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self._board_with_card("deep-history", 40)
+        with CaptureQueriesContext(connection) as ctx:
+            call_command("notify_stale_cards", verbosity=0)
+        top_level_movement_selects = [
+            q["sql"] for q in ctx.captured_queries
+            if q["sql"].lstrip().upper().startswith("SELECT")
+            and 'FROM "boards_cardmovement"' in q["sql"].split(" WHERE ")[0].split("(SELECT")[0]
+        ]
+        self.assertEqual(top_level_movement_selects, [])
 
     def test_board_with_no_stale_cards_costs_one_board_query(self):
         board, card = self._board_with_card("fresh", 3, days_ago=1)

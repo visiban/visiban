@@ -877,13 +877,14 @@ endpoint (#1112). It touches the existing, likely-large `cards` table, so it use
 
 `accounts/0027`, `accounts/0030`, `accounts/0034` and `boards/0052` add `NOT NULL` columns
 that, in the betas, carried a Django-level default only. PostgreSQL then drops the column
-default after the `ALTER`, so a pod still running the old release that inserts a row without
-naming the column fails with a `NOT NULL` violation until it drains. `accounts/0038` and
+default after the `ALTER` (Django's schema editor issues the `DROP DEFAULT`), so a pod still
+running the old release that inserts a row without naming the column fails with a `NOT NULL`
+violation until it drains. `accounts/0038` and
 `boards/0072` restore the database-level default with an additive `AlterField` (metadata
 only, no table rewrite). What this means for you:
 
 - **Upgrading from 1.1.x straight to GA:** nothing to do. Every migration runs in order, and the database ends with the default in place.
-- **Upgrading from `1.2.0-beta.1` or any 1.2 alpha:** these tags have none of the database defaults restored (`0038` and `0072` first ship in `1.2.0-beta.2`). Apply the whole GA migration set as usual; `0038` and `0072` run with it and close the gap. Between the earlier schema and that point, an old pod inserting a `users` or `boards` row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the [maintenance window](maintenance-mode.md).
+- **Upgrading from `1.2.0-beta.1` or any 1.2 alpha:** these tags have none of the database defaults restored (`0038` and `0072` first ship in `1.2.0-beta.2`). Apply the whole GA migration set as usual; `0038` and `0072` run with it and close the gap. Between the earlier schema and that point, an old pod inserting a `users`, `sitesetting` or `boards` row can fail. If you roll the upgrade while old pods still serve writes, expect and retry those failures, or use the [maintenance window](maintenance-mode.md).
 - **Upgrading from `1.2.0-beta.2` or later (including `beta.3` and `rc.1`):** `accounts/0038` and `boards/0072` are already applied. Nothing to do.
 - **Nothing needs a manual fix** and no data changes.
 

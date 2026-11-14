@@ -48,10 +48,11 @@ class Command(BaseCommand):
         )
 
         # Boards are read in pk-ordered keyset chunks, not materialized all at
-        # once (#1960) and not via .iterator(): that opens a PostgreSQL
-        # server-side cursor, which breaks under pgBouncer transaction pooling
-        # (docs/architecture/scaling.md). Only the columns this command reads are
-        # loaded; _get_effective_member_ids needs owner_id and group_id.
+        # once (#1960). Each chunk is a short, self-contained query, so no
+        # long-lived database cursor is held open across the (slow) per-board
+        # work and memory stays bounded by BOARD_CHUNK_SIZE. Only the columns
+        # this command reads are loaded; _get_effective_member_ids needs
+        # owner_id and group_id.
         board_qs = Board.objects.only(
             "id", "name", "owner_id", "group_id", "staleness_threshold_days"
         ).order_by("pk")

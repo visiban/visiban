@@ -28,29 +28,56 @@ async function clearOfFades(page: Page, rootSelector: string) {
 }
 
 /**
- * Like `clearOfFades`, but fails (false) when `rootSelector` is missing or no
- * fade is mounted under it, so a case cannot pass vacuously because the region
- * did not overflow (#2186). `activeDescendant` measures the focused combobox's
+ * Like `clearOfFades`, but reports WHY it is not clear so a case cannot pass
+ * vacuously because the region did not overflow (#2186). Returns 'missing'
+ * (root/focus target absent), 'no-fade' (nothing mounted), 'clear' or
+ * 'covered'. `activeDescendant` measures the focused combobox's
  * aria-activedescendant option instead of the focused element, for the
  * focus-staying comboboxes.
  */
-async function clearOfFadesStrict(page: Page, rootSelector: string, activeDescendant = false) {
+async function fadeState(page: Page, rootSelector: string, activeDescendant = false) {
   return page.evaluate(({ rootSelector, FADE, activeDescendant }) => {
     const root = document.querySelector(rootSelector)
-    if (!root) return false
+    if (!root) return 'missing'
     const id = activeDescendant ? document.activeElement?.getAttribute('aria-activedescendant') : null
     const el = activeDescendant ? (id ? document.getElementById(id) : null) : document.activeElement
-    if (!el) return false
+    if (!el) return 'missing'
     const r = el.getBoundingClientRect()
     const veils = Array.from(document.querySelectorAll(FADE)).filter(
       (veil) => root.contains(veil) || veil.parentElement?.contains(el) === true,
     )
-    if (veils.length === 0) return false
-    return veils.every((veil) => {
+    if (veils.length === 0) return 'no-fade'
+    const clear = veils.every((veil) => {
       const v = veil.getBoundingClientRect()
       return r.bottom <= v.top + 0.5 || r.top >= v.bottom - 0.5
     })
+    return clear ? 'clear' : 'covered'
   }, { rootSelector, FADE, activeDescendant })
+}
+
+/**
+ * Presses `key` up to `steps` times, requiring the focused control to be clear
+ * of every mounted fade after each press. A fade that unmounts after having
+ * been mounted means the list reached its end (nothing left to cover), so the
+ * walk stops there; the case still fails unless a fade was mounted at least
+ * once, so it cannot pass on a region that never overflowed.
+ */
+async function walkClearOfFades(
+  page: Page, key: string, steps: number, rootSelector: string, activeDescendant = false,
+) {
+  let seenFade = false
+  for (let i = 0; i < steps; i++) {
+    await page.keyboard.press(key)
+    let ended = false
+    await expect.poll(async () => {
+      const state = await fadeState(page, rootSelector, activeDescendant)
+      if (state === 'clear') { seenFade = true; return true }
+      if (state === 'no-fade' && seenFade) { ended = true; return true }
+      return false
+    }).toBe(true)
+    if (ended) break
+  }
+  expect(seenFade, 'a fade must have been mounted at least once').toBe(true)
 }
 
 function dropdownField(id: number) {
@@ -116,10 +143,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     const body = page.getByRole('region', { name: 'Column settings' })
     await expect(body).toBeVisible()
     await body.locator('input').first().focus()
-    for (let i = 0; i < 8; i++) {
-      await page.keyboard.press('Tab')
-      await expect.poll(() => clearOfFadesStrict(page, '[role="dialog"]')).toBe(true)
-    }
+    await walkClearOfFades(page, 'Tab', 8, '[role="dialog"]')
   })
 
   test('Custom-field quick-edit popover: tabbing down the choices', async ({ page }) => {
@@ -138,10 +162,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await expect(page.getByTestId('custom-field-quick-edit-popover')).toBeVisible()
     await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="listbox"]'))).toBe(true)
     // Past the first screenful, so focus has to scroll the list.
-    for (let i = 0; i < 28; i++) {
-      await page.keyboard.press('Tab')
-      await expect.poll(() => clearOfFadesStrict(page, '[data-testid="custom-field-quick-edit-popover"]')).toBe(true)
-    }
+    await walkClearOfFades(page, 'Tab', 28, '[data-testid="custom-field-quick-edit-popover"]')
   })
 
   test('Collapsed sidebar flyout: tabbing down the favorites', async ({ page }) => {
@@ -159,10 +180,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     const flyout = page.getByRole('menu', { name: /favorites/i })
     await expect(flyout).toBeVisible()
     await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="menu"]'))).toBe(true)
-    for (let i = 0; i < 12; i++) {
-      await page.keyboard.press('Tab')
-      await expect.poll(() => clearOfFadesStrict(page, '[role="menu"]')).toBe(true)
-    }
+    await walkClearOfFades(page, 'Tab', 12, '[role="menu"]')
   })
 
   test('Anchored filter menu: tabbing down a long assignee list', async ({ page }) => {
@@ -186,10 +204,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     const menu = page.locator('[role="group"][aria-label="Assignee"]')
     await expect(menu).toBeVisible()
     await menu.getByRole('checkbox').first().focus()
-    for (let i = 0; i < 14; i++) {
-      await page.keyboard.press('Tab')
-      await expect.poll(() => clearOfFadesStrict(page, '[data-anchored-menu]')).toBe(true)
-    }
+    await walkClearOfFades(page, 'Tab', 14, '[data-anchored-menu]')
   })
 
   test('SingleSelectDropdown portal menu: arrowing down a long choice list', async ({ page }) => {
@@ -210,10 +225,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await trigger.scrollIntoViewIfNeeded()
     await trigger.click()
     await expect(page.getByRole('menu')).toBeVisible()
-    for (let i = 0; i < 14; i++) {
-      await page.keyboard.press('ArrowDown')
-      await expect.poll(() => clearOfFadesStrict(page, '[role="menu"]')).toBe(true)
-    }
+    await walkClearOfFades(page, 'ArrowDown', 14, '[role="menu"]')
   })
 
   test('MultiSelectDropdown: arrowing down a long choice list in Card Detail', async ({ page }) => {
@@ -235,9 +247,6 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await trigger.click()
     const search = page.getByRole('combobox', { name: /Filter Tags choices/ })
     await expect(search).toBeFocused()
-    for (let i = 0; i < 14; i++) {
-      await page.keyboard.press('ArrowDown')
-      await expect.poll(() => clearOfFadesStrict(page, '[role="listbox"]', true)).toBe(true)
-    }
+    await walkClearOfFades(page, 'ArrowDown', 14, '[role="listbox"]', true)
   })
 })
