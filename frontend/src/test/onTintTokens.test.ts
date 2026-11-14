@@ -619,3 +619,44 @@ describe('health status pairings (#1133)', () => {
     }
   })
 })
+
+// #2252: the swimlane focus banner (BoardView) is a `bg-primary/<alpha>` tint. Its text, including the
+// secondary `text-fg-tertiary` status cue ("· doesn't match lane filters", #2251), sits on that tint.
+// The tint's backdrop is the board page, so the check takes the worst of canvas, sunken and surface.
+// Every text color in the banner is parsed from the source, so a new tone or a changed alpha re-runs.
+describe('focus banner text on its primary tint (#2252)', () => {
+  const src = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
+  const start = src.indexOf('{/* Focus mode banner')
+  const banner = src.slice(start, src.indexOf('Exit focus', start))
+  const alpha = Number(/\bbg-primary\/(\d+)\b/.exec(banner)?.[1]) / 100
+  // Rest-state text colors only; `hover:text-*` sits on the button's own opaque hover fill (checked below).
+  const tones = new Set(
+    [...banner.matchAll(/(?<![a-z:-])text-([a-z][a-z-]*)\b/g)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t)),
+  )
+
+  it('parses the banner: a /15 primary tint carrying info-on-tint, the fg-tertiary cue and the fg-secondary button', () => {
+    expect(start).toBeGreaterThan(-1)
+    expect(alpha).toBe(0.15)
+    expect([...tones].sort()).toEqual(['fg-secondary', 'fg-tertiary', 'info-on-tint'])
+    expect(banner).toMatch(/role="status" className="text-xs text-fg-tertiary /)
+  })
+
+  // Worst: dark fg-tertiary over a surface backdrop, 4.99. No tint-scoped token is needed.
+  it.each([
+    ['dark', darkBlock, 4.99],
+    ['light', lightBlock, 5.65],
+  ])('%s theme: every banner text tone holds >= 4.5:1 on the tint over canvas, sunken and surface', (_n, block, floor) => {
+    const ratios: number[] = []
+    for (const t of tones) {
+      for (const base of ['canvas', 'surface-sunken', 'surface']) {
+        const r = ratio(rgbOf(block, t), blend(rgbOf(block, 'primary'), rgbOf(block, base), alpha))
+        expect(r, `${t} over ${base}`).toBeGreaterThanOrEqual(4.5)
+        ratios.push(r)
+      }
+    }
+    expect(Math.min(...ratios)).toBeCloseTo(floor, 2)
+    // The Exit focus hover state: hover:text-fg on its own opaque hover:bg-surface-hover fill.
+    expect(banner).toContain('hover:text-fg hover:bg-surface-hover')
+    expect(ratio(rgbOf(block, 'fg'), rgbOf(block, 'surface-hover'))).toBeGreaterThanOrEqual(4.5)
+  })
+})
