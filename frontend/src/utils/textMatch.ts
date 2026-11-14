@@ -28,6 +28,7 @@ export const INVALID_PATTERN_MESSAGE = "Invalid regular expression — this filt
 export const PATTERN_HINT = "Use * as a wildcard, or /regex/";
 
 const CACHE_LIMIT = 64;
+const MAX_OPERAND = 500; // mirrors LANE_FILTER_MAX_STRING (laneFilter.ts)
 const cache = new Map<string, TextMatcher>();
 
 /** True when the operand is written as `/pattern/` (at least one character between). */
@@ -78,6 +79,8 @@ function escapeRegex(s: string): string {
 function compile(operand: string): TextMatcher {
   const trimmed = operand.trim();
   if (trimmed === "") return { kind: "empty" };
+  // Same cap as the lane filter: a longer operand (shared link, saved filter) is not run.
+  if (trimmed.length > MAX_OPERAND) return { kind: "invalid", reason: "Pattern is too long" };
 
   if (isRegexOperand(trimmed)) {
     const src = trimmed.slice(1, -1);

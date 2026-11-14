@@ -139,7 +139,7 @@ test.describe('lane filters', () => {
     await expect(globex).toBeVisible()
     await expect(acme).toHaveCount(0)
     await box2.fill('/[/')
-    await expect(dialog2.getByRole('alert')).toContainText('Invalid regular expression')
+    await expect(dialog2.getByRole('status').filter({ hasText: 'Invalid regular expression' })).toContainText('Invalid regular expression')
     await expect(acme).toBeVisible()
     await expect(globex).toBeVisible()
   })

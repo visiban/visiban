@@ -9,6 +9,7 @@ import FilterChip from "./FilterChip";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { PRIORITY_COLORS } from "../../constants/colors";
+import { LANE_FILTER_MAX_STRING } from "../../utils/laneFilter";
 import { compileTextMatcher, INVALID_PATTERN_MESSAGE, PATTERN_HINT } from "../../utils/textMatch";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -769,11 +770,15 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
           placeholder={`${definition.name} contains…`}
           title={PATTERN_HINT}
           aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${base}-error` : `${base}-hint`}
-          className={`bg-surface border rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-32 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0 ${invalid ? "border-danger" : "border-line"}`}
+          aria-describedby={invalid ? `${base}-hint ${base}-msg` : `${base}-hint`}
+          maxLength={LANE_FILTER_MAX_STRING}
+          className={`bg-surface border rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-32 focus:outline-none focus:ring-2 shrink-0 ${invalid ? "border-danger focus:ring-danger-emphasis" : "border-line focus:ring-primary-emphasis focus:border-transparent"}`}
         />
         <span id={`${base}-hint`} className="sr-only">{PATTERN_HINT}</span>
-        {invalid && <span id={`${base}-error`} role="alert" className="text-xs text-danger">{INVALID_PATTERN_MESSAGE}</span>}
+        {/* Always-mounted polite slot; the full message is also the tooltip. */}
+        <span id={`${base}-msg`} role="status" title={invalid ? INVALID_PATTERN_MESSAGE : undefined} className={invalid ? "text-xs text-danger truncate max-w-[8rem]" : "sr-only"}>
+          {invalid ? INVALID_PATTERN_MESSAGE : ""}
+        </span>
       </span>
     );
   }

@@ -38,8 +38,9 @@ const SECONDARY_BTN =
 const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", between: "between" };
 /** No text choices for a field: no lane carries a value for it yet. */
 const NO_CHOICES: string[] = [];
-const INPUT_CLS =
-  "bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
+const INPUT_CLS_BASE =
+  "bg-surface border rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2";
+const INPUT_CLS = `${INPUT_CLS_BASE} border-line focus:ring-primary-emphasis focus:border-transparent`;
 
 interface Props {
   filter: LaneFilter | undefined;
@@ -289,15 +290,23 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               maxLength={LANE_FILTER_MAX_STRING}
               aria-label={`Filter ${n} ${def.name} contains`}
               aria-invalid={isInvalidTextPattern(r.value) || undefined}
-              aria-describedby={`lane-rule-${r.id}-${isInvalidTextPattern(r.value) ? "error" : "hint"}`}
+              aria-describedby={`lane-rule-${r.id}-msg`}
               onChange={(e) => updateRule(r.id, { value: e.target.value })}
-              className={`${isInvalidTextPattern(r.value) ? INPUT_CLS.replace("border-line", "border-danger") : INPUT_CLS} w-full`}
+              className={`${INPUT_CLS_BASE} w-full ${
+                isInvalidTextPattern(r.value)
+                  ? "border-danger focus:ring-danger-emphasis"
+                  : "border-line focus:ring-primary-emphasis focus:border-transparent"
+              }`}
             />
-            {isInvalidTextPattern(r.value) ? (
-              <p id={`lane-rule-${r.id}-error`} role="alert" className="text-xs text-danger mt-1">{INVALID_PATTERN_MESSAGE}</p>
-            ) : (
-              <p id={`lane-rule-${r.id}-hint`} className="text-xs text-fg-tertiary mt-1">{PATTERN_HINT}</p>
-            )}
+            {/* One always-mounted polite slot: hint and error swap inside it, so
+                per-keystroke validity never mounts or unmounts an alert. */}
+            <p
+              id={`lane-rule-${r.id}-msg`}
+              role="status"
+              className={`text-xs mt-1 ${isInvalidTextPattern(r.value) ? "text-danger" : "text-fg-tertiary"}`}
+            >
+              {isInvalidTextPattern(r.value) ? INVALID_PATTERN_MESSAGE : PATTERN_HINT}
+            </p>
           </div>
         )}
         {textType && def && r.op !== "contains" && (

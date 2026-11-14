@@ -92,6 +92,11 @@ describe('compileTextMatcher (#2227)', () => {
     expect(unsafeRegexReason('a+b*')).toBeNull()
   })
 
+  it('rejects an operand over the 500-character cap', () => {
+    expect(compileTextMatcher('a'.repeat(501)).kind).toBe('invalid')
+    expect(compileTextMatcher('a'.repeat(500)).kind).toBe('ok')
+  })
+
   it('memoizes a compiled operand', () => {
     expect(compileTextMatcher('e*x')).toBe(compileTextMatcher('e*x'))
   })

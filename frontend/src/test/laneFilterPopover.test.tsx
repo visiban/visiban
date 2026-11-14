@@ -230,7 +230,7 @@ describe('LaneFilterPopover', () => {
     await user.paste('/[/')
     expect(box).toHaveAttribute('aria-invalid', 'true')
     expect(box).toHaveAccessibleDescription('Invalid regular expression — this filter is ignored')
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Invalid regular expression')
+    expect(within(dialog).getByText('Invalid regular expression — this filter is ignored')).toBeInTheDocument()
     expect(screen.getByText('Reads as: all lanes shown · 1 incomplete filter ignored')).toBeInTheDocument()
     await user.clear(box)
     await user.type(box, 'ross')
