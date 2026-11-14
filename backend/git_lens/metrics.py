@@ -19,8 +19,8 @@ Design constraints, each deliberate:
   swallowed here — a Valkey blip must never turn a board read into a 500, which is
   the opposite of how the load-bearing budget counters in ``views.py`` behave.
 * **Fixed, small label sets.** Provider, kind and outcome are closed enums, so the
-  key space is a constant (no ``maxmemory-policy`` is configured, so unbounded key
-  growth would mean Valkey OOM rather than silent eviction). Unknown labels are
+  key space is a constant (Valkey runs ``volatile-lru`` since #1130, so unbounded
+  key growth would evict other cache entries early). Unknown labels are
   coerced to ``"other"`` rather than minting new keys.
 * **No secrets or PII in the log line.** Only provider, kind, outcome, HTTP status,
   duration and the repo slug (a public path a board admin configured). Never the

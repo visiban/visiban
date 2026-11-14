@@ -1451,6 +1451,28 @@ check_valkey_auth() {
   [ "$bad" -eq 0 ] && pass "valkey.auth: the password reaches the server and every client only via one secretKeyRef, never as plaintext; chart-managed and existingSecret both; off by default"
 }
 
+# 11b2. The bundled Valkey is bounded (#1130): the default render carries
+# `maxmemory 128mb` and `maxmemory-policy volatile-lru`, and an empty
+# valkey.primary.maxmemory removes both lines (the documented opt-out).
+check_valkey_maxmemory() {
+  section "11b2. The bundled Valkey has a memory ceiling and eviction policy (#1130)"
+
+  local out bad=0
+  out="$(mktemp)"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" > "$out" 2>/dev/null; then
+    fail "the default render failed"; rm -f "$out"; return
+  fi
+  grep -qE '^ +maxmemory 128mb$' "$out" || { fail "the default render has no 'maxmemory 128mb' line"; bad=1; }
+  grep -qE '^ +maxmemory-policy volatile-lru$' "$out" || { fail "the default render has no 'maxmemory-policy volatile-lru' line"; bad=1; }
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set-string valkey.primary.maxmemory= > "$out" 2>/dev/null; then
+    grep -qE '^ +maxmemory(-policy)? ' "$out" && { fail "valkey.primary.maxmemory='' still renders a maxmemory or maxmemory-policy line"; bad=1; }
+  else
+    fail "the render with valkey.primary.maxmemory='' failed"; bad=1
+  fi
+  rm -f "$out"
+  [ "$bad" -eq 0 ] && pass "valkey: default render carries maxmemory 128mb + volatile-lru; an empty maxmemory removes both"
+}
+
 # ---------------------------------------------------------------------------
 # 11c. An external Valkey/Redis password stays in a Secret (#1361).
 # ---------------------------------------------------------------------------
@@ -2352,6 +2374,7 @@ run_all_checks() {
   check_demo_guards
   check_image_pins
   check_valkey_auth
+  check_valkey_maxmemory
   check_external_redis_auth
   check_legacy_redis_alias
   check_email_password_wiring
@@ -2465,6 +2488,10 @@ self_test() {
     "11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
     # 11b: a crackable hash of the password comes back as a pod annotation.
     "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
+    # 11b2 (#1130): the ceiling stops rendering, so Valkey grows until OOM-killed.
+    "11b2 valkey maxmemory line not rendered|templates/valkey.yaml|s/^    maxmemory {{ . }}/    # maxmemory removed {{ . }}/"
+    # 11b2 (#1130): the eviction policy stops rendering.
+    "11b2 valkey maxmemory-policy line not rendered|templates/valkey.yaml|s/^    maxmemory-policy /    # policy-removed /"
     # 11b: the server starts without --requirepass while clients present one.
     "11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
     # 11c (#1361): one backend container loses the external password env.

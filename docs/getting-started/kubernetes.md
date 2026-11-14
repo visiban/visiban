@@ -341,6 +341,8 @@ With `valkey.enabled: true` (the default), the chart runs Valkey itself.
 | `valkey.image.repository` / `valkey.image.tag` | `valkey/valkey` / `8-alpine` | The image. The chart refuses an empty or `latest` tag. |
 | `valkey.primary.persistence.enabled` / `.size` / `.storageClass` | `false` / `1Gi` / unset | Keep the append-only file in a PVC across restarts. |
 | `valkey.primary.resources` | 100m / 128Mi requests, 150m / 192Mi limits | Container resources. |
+| `valkey.primary.maxmemory` | `128mb` | Valkey memory ceiling, kept below the container limit. Empty means no ceiling. |
+| `valkey.primary.maxmemoryPolicy` | `volatile-lru` | Eviction policy applied when `maxmemory` is reached. |
 | `valkey.commonConfiguration` | AOF on, RDB snapshots off | Extra `valkey.conf` lines. |
 | `valkey.auth.enabled` | `false` | Require a password. See [Valkey password](#valkey-password) below. |
 | `valkey.auth.password` | empty | Chart-managed password, stored in the `<fullname>-valkey-auth` Secret (`visiban-valkey-auth` for a release named `visiban`, `my-release-visiban-valkey-auth` for `my-release`). |

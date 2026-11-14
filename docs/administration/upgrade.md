@@ -368,6 +368,13 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Valkey now has a memory ceiling and an eviction policy"
+    Since 1.3, Valkey runs with `maxmemory` and `maxmemory-policy volatile-lru` (#1130), so a busy instance evicts old cache entries instead of growing until it is OOM-killed.
+
+    - **Helm.** Installs are now capped at `valkey.primary.maxmemory` (default `128mb`). If you raised `valkey.primary.resources.limits.memory`, raise `valkey.primary.maxmemory` with it. Set `maxmemory` to an empty string to remove the ceiling.
+    - **Valkey restarts once.** The config checksum changes, so the upgrade restarts the Valkey pod one time and WebSocket clients reconnect.
+    - **Production Compose.** `docker-compose.prod.yml` defaults to `VALKEY_MAXMEMORY=256mb`. See [Valkey memory limit and eviction](configuration.md#valkey-memory-limit-and-eviction).
+
 !!! note "Board owners are protected, and non-admin updates answer `403` before `400`"
     Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191, #2225):
 
