@@ -5329,6 +5329,13 @@ fields used to set an assignee or labels) are not present — this endpoint is r
   the card — see <a href="../boards/#multi-select-fields">Multi-select fields</a>. A value may be at
   most 500 characters; a longer one (a long URL or a long multi-select included) is
   rejected, not truncated.</li>
+<li><em>(Since 1.3, #2218)</em> A <code>date</code> value is stored and read back as <code>YYYY-MM-DD</code>, whichever
+  other spelling of the same day the server also accepts (<code>20260105</code>, <code>2026-1-5</code>, or an ISO
+  week date such as <code>2026-W02-1</code> or <code>2026-W02</code>, which is that week's Monday). A <code>number</code> value
+  keeps the spelling you sent (<code>"1.50"</code>, <code>"1e3"</code>), except that digit-group underscores and
+  non-ASCII digits are rewritten (<code>"1_000"</code> is stored as <code>"1000"</code>). The value is still a
+  string. Values stored by earlier versions are rewritten the same way by the upgrade's
+  migration, so a value you read back may differ in spelling from the one you wrote.</li>
 <li>A <code>field_definition</code> id that does not belong to this card's board is rejected with <code>400</code>,
   as is the same field appearing twice in one payload.</li>
 <li>Setting a value is a card edit: it uses the same role allow-list and ownership gate as any other field, bumps <code>version</code>, and appears in the <code>card.updated</code> WebSocket payload.</li>
@@ -5657,6 +5664,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <h2 id="move">Move<a class="headerlink" href="#move" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1boardsboard_idcardsidmove"><code>POST /api/v1/boards/{board_id}/cards/{id}/move/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidmove" title="Permanent link">&para;</a></h3>
 <p>Move a card to a new column/swimlane/position. Creates a <code>CardMovement</code> record if column or swimlane changes. Requires member or above. Returns <code>404 Not Found</code> if the card was deleted concurrently; the move is not saved (#1585). Since 1.2 it also returns <code>404</code> when the destination column or swimlane, or the board, was deleted while the request was in flight (#1602).</p>
+<p>Since 1.3 (#2225), the role is checked before the body's shape: a caller below member (a viewer or collaborator) gets <code>403</code> even when the body is not a JSON object, where they previously got <code>400</code> with <code>{"detail": "Request body must be a JSON object."}</code>. Members still get that <code>400</code>, and a caller with no access to the board gets <code>404</code>.</p>
 <blockquote>
 <p><strong>Ownership gate:</strong> Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to a different user and that the member did not create requires the <code>is_moderator</code> entitlement or Admin role. In that case, non-moderator members receive <code>403 Forbidden</code> with body <code>{"code": "permission_denied", "detail": "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."}</code>.</p>
 </blockquote>

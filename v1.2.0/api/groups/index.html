@@ -5557,7 +5557,7 @@
 <li><code>new_owner_id</code> — the user ID of the new owner; must already be a group <strong>admin</strong>, and <em>(1.3+)</em> an active account</li>
 <li><code>confirmation</code> — must exactly match the group's name (case-sensitive) to prevent accidental transfers</li>
 </ul>
-<p>Since 1.2, a <code>new_owner_id</code> that is not an integer, or is beyond the 64-bit integer range, returns <code>400 Bad Request</code> (it returned <code>500</code> before). A body that is not a JSON object was already a <code>400</code>.</p>
+<p>Since 1.2, a <code>new_owner_id</code> that is not an integer, or is beyond the 64-bit integer range, returns <code>400 Bad Request</code> (it returned <code>500</code> before). A body that is not a JSON object was already a <code>400</code> for the group owner. <em>(1.3+)</em> The caller's access is checked first: a caller with no access gets <code>404</code> and a non-owner gets <code>403</code>, whatever the body.</p>
 <p><em>(1.3+)</em> The current owner must hold an admin membership on the group itself; a group whose owner lacks one is repaired by a superuser from the Django admin, as above.</p>
 <p>The previous owner becomes a regular admin after transfer. Returns the updated group object.</p>
 <p><strong>Error responses</strong>
