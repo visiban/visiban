@@ -208,6 +208,24 @@ A transaction that writes [change feed](../api/events.md) events holds one Postg
 
 An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none for the deleted boards themselves, plus one per other board where a deleted card was blocking a card (that card gets a `card.updated`). A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with `out of shared memory` and the hint `You might need to increase max_locks_per_transaction`, raise `max_locks_per_transaction` in `postgresql.conf` (or the chart's PostgreSQL configuration) and restart PostgreSQL.
 
+## Valkey memory limit and eviction
+
+Valkey holds only short-lived state: the Channels layer (WebSocket groups, db 0) and the Django cache (db 1). The cache carries rate-limit counters, single-use WebSocket tickets, Git lens fetch locks, filter caches and, if you set a cache `SESSION_ENGINE`, sessions. Every one of these keys is written with a TTL. Nothing in Valkey is a system of record: PostgreSQL is.
+
+Without a ceiling, Valkey grows until the container or pod is OOM-killed, which drops every WebSocket connection. Visiban therefore ships a ceiling and an eviction policy in all three deployments:
+
+| Deployment | Ceiling | Policy | How to change it |
+|---|---|---|---|
+| Development `docker-compose.yml` | `256mb` | `volatile-lru` | Edit the `valkey` service `command` |
+| Production `docker-compose.prod.yml` | `256mb` | `volatile-lru` | Set `VALKEY_MAXMEMORY` in `.env` (for example `512mb`) |
+| Helm chart | `128mb` (pod limit is `192Mi`) | `volatile-lru` | `valkey.primary.maxmemory` and `valkey.primary.maxmemoryPolicy` |
+
+**Why `volatile-lru` and not `allkeys-lru`.** `volatile-lru` evicts only keys that carry a TTL and returns an error on a write that would need to evict a key without one. Today that is the same set of keys, but it means a future key that must not disappear (a lock or counter written without an expiry) is never silently dropped. `noeviction` is the wrong choice here: at the ceiling it would make every Channels and cache write fail, which is an outage rather than a degraded cache.
+
+**What eviction costs.** Keys go in least-recently-used order, so under sustained pressure an idle user's cache entry, ticket or counter can be evicted early. The effects are small and self-healing: a cache miss recomputes, a WebSocket reconnects with a fresh ticket, a rate-limit window restarts, and a cache-backed session signs the user out. If `evicted_keys` in `valkey-cli INFO stats` keeps rising, raise the ceiling rather than the policy. Keep the ceiling below the container or pod memory limit, because AOF rewrites and client buffers need headroom.
+
+Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the chart's own and wins. Set `valkey.primary.maxmemory` to an empty string to remove the ceiling. For an external Valkey or Redis (`externalRedis`), set `maxmemory` and `maxmemory-policy volatile-lru` on that server yourself.
+
 ## Webhooks
 
 > **Added in 1.3** (#863).

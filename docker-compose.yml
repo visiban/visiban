@@ -34,6 +34,9 @@ services:
     # so the redis:// URL scheme and the REDIS_URL env vars are unchanged.
     image: valkey/valkey:8-alpine
     restart: unless-stopped
+    # Memory ceiling + eviction (#1130): see "Valkey memory limit and eviction"
+    # in docs/administration/configuration.md for why volatile-lru.
+    command: valkey-server --maxmemory 256mb --maxmemory-policy volatile-lru
     # Backend reaches Valkey over the internal Compose network as `valkey:6379`,
     # so this host-port mapping is usually not needed — only useful if you want
     # to attach valkey-cli/redis-cli or a GUI client from the host. Override
