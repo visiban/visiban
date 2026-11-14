@@ -369,12 +369,12 @@ Read the notes for every version between your current release and the target bef
 ### Upgrading to 1.3.x
 
 !!! note "Board owners are protected, and non-admin updates answer `403` before `400`"
-    Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902):
+    Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191):
 
     - **Board owner membership.** Removing the board owner's membership (`DELETE .../members/{user_id}/`) was `204` and now answers `400`; changing it to a role below admin was `200` and now answers `400`. Both carry `code: "board_owner_protected"`. The web app no longer offers either action for the owner. The owner leaves a board by deleting it. See the [Boards API](../api/boards.md#members).
     - **Group ownership transfer.** `transfer_ownership` to a deactivated admin now answers `400` (`New owner must be an active user.`); it used to succeed and leave the group owned by an account that cannot sign in. See the [Groups API](../api/groups.md).
     - **403 before 400.** `PUT`/`PATCH` on a board, and `POST`, `PUT`, and `PATCH` on a column, label, swimlane, card custom-field definition, or swimlane custom-field definition, now check the caller's role before validating the body. A caller below board admin who sent an invalid body got `400` with field errors; they now get `403`. Admins still get `400`, and a caller with no access still gets `404`.
-    - **Card create answers `403` before `400`.** `POST /api/v1/boards/{id}/cards/` now checks the caller's role before validating the body (#2191). A viewer or collaborator who sent an invalid body got `400` with field errors; they now get `403`. Members still get `400`, and a caller with no access still gets `404`. See the [Cards API](../api/cards.md).
+    - **Card create answers `403` before `400`.** `POST /api/v1/boards/{id}/cards/` now checks the caller's role before validating the body (#2191). A viewer or collaborator who sent an invalid body got `400` with field errors; they now get `403`. Members still get `400`, and a caller with no access still gets `404`. The card move action follows in #2225. See the [Cards API](../api/cards.md).
     - **Readiness `errors` keys.** `GET /api/health/readiness/` still returns the `errors` object on `503`, but its keys are deprecated and removal is planned for 2.0 (tracked on #1902). Decide readiness from the HTTP status code. See [Health](../api/health.md).
 
 !!! note "Custom WebSocket clients: a failed access re-check now closes with `4503`"

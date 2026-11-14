@@ -242,7 +242,13 @@ class RoleBeforeValidationCardCreateTests(TestCase):
         self.assertEqual(viewer.post(self.url, body, format="json").status_code, 403)
 
     def test_check_adds_no_query_to_valid_create(self):
-        """The early role check reuses the per-request board/role cache (#2191)."""
+        """The early role check adds no query beyond the cached lookup (#2191).
+
+        Only ``require_mutation_role`` is stubbed; the board/role lookup
+        (``_board_and_role()``) still runs in both arms. So this guards that
+        the check itself costs nothing extra (e.g. it must not re-resolve the
+        caller's role), not that the lookup is cached.
+        """
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
