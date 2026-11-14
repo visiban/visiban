@@ -448,6 +448,17 @@ def _cases(tmp, check):
     write(fl, [entry("x2", ts, dict(u(1, 0, 0, 0), speed="standard", inference_geo="global", service_tier="standard"), False, "m-a")])
     with open(fl) as f:
         check("standard speed and global geo still price", price_rows(dtable, tu.measure_rows(f)[0])[0] == D("0.000001"))
+    # cost-table.py recognizes this omission line by NOROW_RE; load it so the two cannot drift apart.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cost_table_2258", os.path.join(os.path.dirname(os.path.abspath(__file__)), "cost-table.py"))
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    try:
+        price_rows(dtable, [((1, 0, 0, 0), "no-such-model", 0, None)])
+        fail_line = ""
+    except Omit as e:
+        fail_line = "FAIL: %s; no line printed" % e
+    check("cost-table's NOROW_RE matches est-cost's no-price-row line", ct.NOROW_RE.match(fail_line) is not None, fail_line)
     check("a zero-usage message needs no price row", price_rows(dtable, [((0, 0, 0, 0), "<synthetic>", 0, None)])[0] == 0)
     # Omissions: each is exit 1 with no stdout and a note.
     rc, out, err = call("--agent", a1, prices=prices_file("stale.json", checked="2026-08-04"))
@@ -573,7 +584,7 @@ def _cases(tmp, check):
     # The shipped table must itself load, with every model this repo's transcripts name.
     try:
         shipped, _ = load_prices(DEFAULT_PRICES, datetime.date.fromisoformat(json.load(open(DEFAULT_PRICES))["checked"]))
-        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1",
+        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1", "claude-fable-5-2",
                                            "claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5"))
     except (Omit, OSError, ValueError):
         have = False
