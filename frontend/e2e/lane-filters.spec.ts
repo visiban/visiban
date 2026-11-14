@@ -151,9 +151,9 @@ test.describe('lane filters', () => {
     await expect(globex).toHaveCount(0)
   })
 
-  // The list's max-height reserves 9rem for the
-  // header, Reads-as and footer. Verify the whole panel, Done included, fits a
-  // short viewport with a long rule list, with and without focus mode.
+  // The list's max-height reserves 9rem for the header, Reads-as and footer
+  // (one reserve, focus mode or not). Verify the whole panel, Done included,
+  // fits a short viewport with a long rule list, with and without focus mode.
   for (const focused of [false, true]) {
     test(`fits a short viewport with many rules${focused ? ' while a lane is focused' : ''}`, async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 520 })

@@ -2038,6 +2038,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
+  // The collapsed-lanes strip counts only lanes the reader can see collapsed:
+  // focus collapses every other lane, including ones the lane rules hide (#2251).
+  const visibleCollapsedLaneCount = useMemo(
+    () => [...collapsedSwimlaneIds].filter((id) => !laneFilterHiddenIds.has(id)).length,
+    [collapsedSwimlaneIds, laneFilterHiddenIds],
+  );
   const lanesTriggerRef = useRef<HTMLButtonElement>(null);
   const { notice: laneNotice, dismiss: dismissLaneNotice, markLocalEdit: markLaneLocalEdit } = useLaneFilterNotice({
     swimlanes: board.swimlanes,
@@ -3138,7 +3144,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
-      {view === "board" && collapsedSwimlaneIds.size > 0 && (
+      {view === "board" && visibleCollapsedLaneCount > 0 && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info-on-tint shrink-0">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <line x1="2" y1="5" x2="14" y2="5" />
@@ -3146,9 +3152,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <polyline points="10,2 13,5 10,8" />
           </svg>
           <span>
-            <span className="font-medium text-info-on-tint">{collapsedSwimlaneIds.size}</span>
+            <span className="font-medium text-info-on-tint">{visibleCollapsedLaneCount}</span>
             {" "}
-            {collapsedSwimlaneIds.size === 1 ? "swimlane" : "swimlanes"} collapsed
+            {visibleCollapsedLaneCount === 1 ? "swimlane" : "swimlanes"} collapsed
           </span>
           <div className="flex-1" />
           <button
