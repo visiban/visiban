@@ -154,9 +154,10 @@ def notify_checklist_item_assigned(*, item, card, board, actor, previous_assigne
     "tell me when I'm given work" decision two toggles that could disagree.
 
     Sends nothing when the assignee did not change, when the item was
-    unassigned, or when the actor assigned themselves. The assignee is already
-    limited to the board's assignable members by ``CardChecklistSerializer``,
-    and ``create_notifications`` drops inactive recipients.
+    unassigned, when the actor assigned themselves, or when the assignee is not
+    a current effective member of the board. The serializer also limits the
+    assignee to the board's assignable members, and ``create_notifications``
+    drops inactive recipients.
 
     Call it inside the write's transaction *after* the ``card.updated``
     broadcast is recorded: on_commit callbacks run in registration order, and
@@ -171,6 +172,14 @@ def notify_checklist_item_assigned(*, item, card, board, actor, previous_assigne
     if actor is not None and recipient.pk == actor.pk:
         return []
     if not recipient.notif_card_assigned:
+        return []
+    # Notify only current board members. ``create_notifications`` has no
+    # membership check of its own, so each producer limits its recipients
+    # (docs/development/security-invariants.md, "Notification producers"); an
+    # assignee on the row is not evidence of current access.
+    from ..utils import _get_effective_member_ids
+
+    if recipient.pk not in _get_effective_member_ids(board):
         return []
     return create_notifications(
         [
