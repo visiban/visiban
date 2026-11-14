@@ -3231,7 +3231,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               <span className="text-xs text-fg-muted font-medium tabular-nums">
                 {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
               </span>
-              <span className="text-xs text-fg-faint tabular-nums">
+              <span className="text-xs text-fg-muted tabular-nums">
                 {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
               </span>
             </div>

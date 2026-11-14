@@ -260,7 +260,7 @@ export default function JoinPage({ user }: Props) {
               <p className="text-fg-muted text-sm">This link may have been revoked or has expired.</p>
             </>
           )}
-          <p className="text-fg-faint text-xs mt-3">
+          <p className="text-fg-muted text-xs mt-3">
             Redirecting to dashboard in {countdown}s…
           </p>
         </div>

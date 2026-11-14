@@ -266,7 +266,7 @@ export default function OverflowMenu({
             <span className="flex-1 text-left truncate">{item.label}</span>
             {item.shortcut && (
               <kbd
-                className="bg-surface-hover text-fg-muted text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"
+                className="bg-surface-hover text-fg-secondary text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"
                 aria-hidden="true"
               >
                 {item.shortcut}

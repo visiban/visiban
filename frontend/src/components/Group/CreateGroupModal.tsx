@@ -203,7 +203,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide">Description <span className="text-fg-faint">(optional)</span></label>
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide">Description <span className="text-fg-muted">(optional)</span></label>
             <span className={`text-xs ${descriptionCountColor}`}>{description.length}/{DESCRIPTION_MAX}</span>
           </div>
           <textarea

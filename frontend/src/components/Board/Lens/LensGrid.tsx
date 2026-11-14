@@ -127,7 +127,7 @@ export default function LensGrid({
             <span className="text-xs text-fg-muted font-medium tabular-nums">
               {swimlanes.length} lane{swimlanes.length !== 1 ? "s" : ""}
             </span>
-            <span className="text-xs text-fg-faint tabular-nums">
+            <span className="text-xs text-fg-muted tabular-nums">
               {data.issues.length} issue{data.issues.length !== 1 ? "s" : ""}
             </span>
             <LensResizeHandle

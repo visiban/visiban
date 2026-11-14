@@ -878,7 +878,7 @@ export default function InviteLinkPanel({
 
                   {/* Emailed links are single-use and never reveal a token (#731). */}
                   {link.delivery === "email" && (
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface-hover text-fg-tertiary">
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface-hover text-fg-secondary">
                       Emailed
                     </span>
                   )}

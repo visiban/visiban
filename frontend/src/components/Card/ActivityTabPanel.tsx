@@ -344,7 +344,7 @@ export default function ActivityTabPanel({
 
       {/* Empty state — no events at all */}
       {!loading && !error && entries.length === 0 && allShown && (
-        <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
+        <div className="flex flex-col items-center gap-2 py-8 text-fg-muted">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -355,7 +355,7 @@ export default function ActivityTabPanel({
 
       {/* Filter-active empty state */}
       {!loading && !error && entries.length === 0 && !allShown && (
-        <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
+        <div className="flex flex-col items-center gap-2 py-8 text-fg-muted">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />

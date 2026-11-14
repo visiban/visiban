@@ -451,7 +451,7 @@ function StalledCardsSection({ data, page: requestedPage, onPageChange, onOpenCa
                           {c.days_since_move}d
                         </td>
                         {onOpenCard && (
-                          <td className="py-1.5 pl-3 text-fg-faint text-xs text-center">↗</td>
+                          <td className="py-1.5 pl-3 text-fg-muted text-xs text-center">↗</td>
                         )}
                       </tr>
                     ))}

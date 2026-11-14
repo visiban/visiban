@@ -132,7 +132,7 @@ export default function CollapsedFlyout({
             </div>
           )}
           {sections.length > 1 && (
-            <div className="px-3 pt-1 pb-0.5 text-xs text-fg-faint uppercase tracking-wider">
+            <div className="px-3 pt-1 pb-0.5 text-xs text-fg-muted uppercase tracking-wider">
               {section.title}
             </div>
           )}

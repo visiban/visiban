@@ -458,7 +458,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             minHeight: menuReserve !== null ? `min(${menuReserve}px, ${listMaxHeight})` : undefined,
           }}
         >
-          {items.length === 0 && <p className="text-xs text-fg-faint italic">No lane filters yet.</p>}
+          {items.length === 0 && <p className="text-xs text-fg-muted italic">No lane filters yet.</p>}
           {items.map((it, i) => (
             <div key={it.id} className="flex flex-col gap-1.5">
               {i > 0 && (

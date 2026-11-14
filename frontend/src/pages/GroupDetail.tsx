@@ -1210,7 +1210,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     {group.description ? (
                       <span className="block text-sm text-fg-tertiary whitespace-pre-wrap">{group.description}</span>
                     ) : (
-                      <span className="block text-sm text-fg-faint">Add a description…</span>
+                      <span className="block text-sm text-fg-muted">Add a description…</span>
                     )}
                   </button>
                   {/* Overlay pencil: mouse-only shortcut, adds no height; the text button is the single tab stop (#1376). */}
@@ -1432,7 +1432,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   </button>
                 )}
                 {!canPlaceBoards && boards.length === 0 && !showSubgroupBoards && (
-                  <p className="text-fg-faint text-sm">No boards yet.</p>
+                  <p className="text-fg-muted text-sm">No boards yet.</p>
                 )}
 
                 {/* Subgroup boards */}
@@ -1440,7 +1440,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   loadingSubgroupBoards ? (
                     <Spinner />
                   ) : subgroupBoards.length === 0 ? (
-                    <p className="text-fg-faint text-sm px-1">No boards in subgroups.</p>
+                    <p className="text-fg-muted text-sm px-1">No boards in subgroups.</p>
                   ) : (
                     subgroupBoards.map((b) => (
                       <button
@@ -1511,7 +1511,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         ) : (
                           <span className="text-xs text-fg-muted capitalize">{m.role}</span>
                         )}
-                        <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
+                        <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">
                           ↑ {m.inherited_from}
                         </span>
                       </div>
@@ -1561,7 +1561,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                             ref={removeMemberTriggerRef(m.user.id)}
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
                             aria-label={m.has_all_content_access === true ? `Remove group role for ${m.user.display_name || m.user.username}` : `Remove ${m.user.display_name || m.user.username} from group`}
-                            className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                            className="text-fg-muted hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           >
                             Remove
                           </button>
@@ -1575,7 +1575,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           <p className="text-fg-muted text-xs capitalize" title={isLocked ? LOCKED_MEMBERSHIP_NOTE : undefined}>{m.role}</p>
                         )}
                         {m.user.id === group?.owner.id && (
-                          <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
+                          <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
                         )}
                       </div>
                     )}
@@ -1661,14 +1661,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 <p id="group-allowed-priorities-hint" className="text-fg-muted text-xs mt-2">
                   Deprecated. This setting has no effect: it is copied onto new boards, but card priorities are not restricted.
                 </p>
-                <p className="text-fg-faint text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
+                <p className="text-fg-muted text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
               </div>
               )}
 
               {/* Shared label library */}
               <div>
                 <label className="text-fg-tertiary text-sm block mb-2">Shared label library</label>
-                <p className="text-fg-faint text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
+                <p className="text-fg-muted text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
                 <div className="flex flex-col gap-1.5 mb-3">
                   {(group.shared_labels ?? []).map((label) => (
                     <div key={label.id} className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2">
@@ -1690,7 +1690,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ref={removeLabelTriggerRef(label.id)}
                           onClick={() => setConfirmRemoveLabelId(label.id)}
                           aria-label={`Remove ${label.name} from group`}
-                          className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                          className="text-fg-muted hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                         >
                           Remove
                         </button>
@@ -1698,7 +1698,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </div>
                   ))}
                   {(group.shared_labels ?? []).length === 0 && (
-                    <p className="text-fg-faint text-sm">No shared labels yet.</p>
+                    <p className="text-fg-muted text-sm">No shared labels yet.</p>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">

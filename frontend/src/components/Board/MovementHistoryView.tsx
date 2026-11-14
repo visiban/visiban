@@ -118,7 +118,7 @@ function SlideInPanel({ movement, relatedMovements, onClose, user }: SlideInPane
         </p>
         <p className="text-xs text-fg-secondary">
           <span className="text-fg-muted">By </span>
-          {movement.moved_by ? userDisplayName(movement.moved_by) : <span className="text-fg-faint italic">Unknown</span>}
+          {movement.moved_by ? userDisplayName(movement.moved_by) : <span className="text-fg-muted italic">Unknown</span>}
           <ImportedNoteText importedFrom={movement.imported_from_username} className="text-fg-muted" prefix=" · " />
         </p>
         <div className="text-xs text-fg-secondary space-y-0.5">
@@ -462,7 +462,7 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                         <td className="px-4 py-2 text-xs text-fg-tertiary align-top truncate max-w-[7rem]">
                           {m.moved_by
                             ? userDisplayName(m.moved_by)
-                            : <span className="text-fg-faint italic">Unknown</span>}
+                            : <span className="text-fg-muted italic">Unknown</span>}
                           <ImportedNoteText importedFrom={m.imported_from_username} className="block truncate text-fg-muted" />
                         </td>
                         <td className="px-4 py-2 text-xs text-fg align-top">

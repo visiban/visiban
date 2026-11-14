@@ -430,10 +430,10 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
                     {link.status}
                   </span>
                   {link.delivery === "email" && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-tertiary">Emailed</span>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">Emailed</span>
                   )}
                   {link.single_use && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-fg-muted/20 text-fg-tertiary">single-use</span>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-fg-muted/20 text-muted-on-tint">single-use</span>
                   )}
                 </div>
                 <p className="text-xs text-fg-muted mt-0.5">
@@ -972,7 +972,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
                 htmlFor="maintenance-message"
                 className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide"
               >
-                Message <span className="text-fg-faint">(optional)</span>
+                Message <span className="text-fg-muted">(optional)</span>
               </label>
               <span className={`text-xs ${messageCountColor}`}>
                 {maintenanceMessage.length}/{MAINTENANCE_MESSAGE_MAX}

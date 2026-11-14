@@ -936,7 +936,7 @@ function SidebarGroupNode({
             />
           ))}
           {groupBoards.length === 0 && children.length === 0 && (
-            <div className="py-1 text-xs text-fg-faint" style={{ paddingLeft: childDepth * 12 + 8 }}>
+            <div className="py-1 text-xs text-fg-muted" style={{ paddingLeft: childDepth * 12 + 8 }}>
               No boards
             </div>
           )}
