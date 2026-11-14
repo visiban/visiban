@@ -4733,6 +4733,12 @@ previously valid card writes fail, so it needs a release note, not a quiet chang
 <li>They live on the <em>definition</em>, not the value. The value stays the plain number string, so exports, filtering and the value index are unaffected.</li>
 <li>They mean something only when <code>field_type</code> is <code>number</code>. The serializer rejects them on any other type and resets them when a definition is retyped away from <code>number</code> (migration <code>0065</code>).</li>
 </ul>
+<p><code>custom_field_definitions</code> (card fields only) also carries five display-only threshold columns (#1122, migration <code>0101</code>): <code>threshold_direction</code> (<code>varchar(5)</code>, database default <code>""</code> = off, else <code>above</code> / <code>below</code>), <code>threshold_warn</code> and <code>threshold_alert</code> (<code>double precision</code>, nullable; number fields), and <code>threshold_warn_days</code> and <code>threshold_alert_days</code> (<code>smallint</code>, nullable; date fields, a signed day offset from today).</p>
+<ul>
+<li>Like the number format, they live on the definition and never touch a value. The card face marks a value that reaches a threshold with a shape and bold weight, never a color.</li>
+<li>Every rule (direction and values together, strict warn/alert ordering, bounds, the wrong-type 400 and the reset on retype) is enforced in the serializer, not by a database constraint, like the rest of this table. Typed day columns rather than reusing the number pair keep each column's meaning independent of <code>field_type</code>.</li>
+<li><code>swimlane_custom_field_definitions</code> has no threshold columns.</li>
+</ul>
 <p>Both definition models also carry <code>choice_colors</code> (<code>jsonb</code>, <code>NOT NULL</code>, default <code>'{}'</code>, #1391, migration <code>0066</code>): a <code>{choice text: palette key}</code> map giving dropdown and multi-select choices an optional display color.</p>
 <ul>
 <li>It is a separate column rather than objects inside <code>choices_json</code>, so <code>choices</code> stays the plain string list every client, export and template already reads.</li>

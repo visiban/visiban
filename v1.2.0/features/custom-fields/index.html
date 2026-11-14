@@ -1252,6 +1252,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#threshold-marking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threshold marking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#url-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4565,6 +4576,7 @@
 <li><strong>Type:</strong> one of the seven types, chosen from a row of buttons</li>
 <li><strong>Help text:</strong> optional hint shown next to the input wherever the field is edited</li>
 <li><strong>Format</strong> (number only): optional <strong>Prefix</strong>, <strong>Suffix</strong>, and <strong>Decimals</strong>; see <a href="#number-formatting">Number formatting</a></li>
+<li><strong>Thresholds</strong> (number and date only): <strong>Off</strong>, <strong>Above</strong> or <strong>Below</strong> (<strong>On or after</strong> or <strong>On or before</strong> for dates), with a <strong>Warn at</strong> and an <strong>Alert at</strong> value; see <a href="#threshold-marking">Threshold marking</a></li>
 <li><strong>Choices</strong> (dropdown and multi-select): add rows with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add from a block of text in one step. Each line becomes a choice, and so does each cell of a row copied from a spreadsheet; choices already in the list are skipped, and <strong>Add N choices</strong> counts only the new ones. Text still in the paste box when you click <strong>Save field</strong> is added too, and closing the box with text still in it adds that text to the choices instead of holding it aside. The round swatch in front of each choice sets its color; see <a href="#choice-colors">Choice colors</a></li>
 <li><strong>Pin to card face:</strong> toggle to show this field's value on the card face; see <a href="#pinned-fields-on-the-card-face">Pinned fields on the card face</a></li>
 </ul>
@@ -4657,6 +4669,20 @@
 <li><strong>Changing the type:</strong> switching a field away from Number clears its format options.</li>
 </ul>
 <p>The same options are available on <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
+<h3 id="threshold-marking">Threshold marking<a class="headerlink" href="#threshold-marking" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>A number or date card field can mark values that cross a threshold, so a card whose spend is over budget or whose renewal is close stands out without opening it.</p>
+<ul>
+<li><strong>Set it up</strong> in Board settings → Card fields → the field → <strong>Thresholds</strong>. Choose <strong>Above</strong> (mark large numbers) or <strong>Below</strong> (mark small numbers); for a date field the choices read <strong>On or after</strong> (mark dates far ahead) and <strong>On or before</strong> (mark dates that are close or past). Then enter a <strong>Warn at</strong> value, an <strong>Alert at</strong> value, or both. With both, the alert must lie beyond the warning in that direction. <strong>Off</strong> clears them. The editor refuses to save an invalid combination and says why.</li>
+<li><strong>Dates use days from today</strong>, in your own timezone, the same "today" as due dates (your profile timezone, or UTC if you have not set one). <code>0</code> is today, <code>3</code> is three days from now and <code>-2</code> is two days ago. So <strong>On or before</strong> with <strong>Warn at</strong> <code>14</code> and <strong>Alert at</strong> <code>0</code> warns two weeks ahead and alerts on the day and after.</li>
+<li><strong>Boundaries count.</strong> A value exactly at a threshold is marked: <strong>Above</strong> <code>5000</code> marks <code>5000</code>.</li>
+<li><strong>On the card face</strong> a marked value gets a chevron and bold text: one chevron (<code>›</code>) at warning, two (<code>»</code>) at alert, pointing left for a <strong>Below</strong> threshold. There is no red or amber: those colors already mean priority and urgency on a card, so a threshold never borrows them. Screen readers hear the words, for example "Spend: $6,100, Alert: at or above $6,000". The settings block shows the same legend.</li>
+<li><strong>In words</strong> in the <a href="#hover-peek">hover peek</a> and the card detail panel, for example <code>Alert: at or above $6,000</code> or <code>Warning: 3 days from today or earlier</code>. On a touch screen, tap the card to see them.</li>
+<li><strong>Card fields only.</strong> Swimlane (row) fields, filter chips and the Summary view do not show threshold marks in this release (swimlane fields: #2217; filter chips and Summary tables: #2221). A value that is not a valid number or date is never marked.</li>
+<li><strong>Changing the type clears them</strong>, as it does the number format.</li>
+</ul>
 <h3 id="url-fields">URL fields<a class="headerlink" href="#url-fields" title="Permanent link">&para;</a></h3>
 <p>A URL field holds one web address (a runbook, a design file, a CRM record) as a clickable link. Unlike a card's single <a href="../card-links/">pull / merge request link</a>, a board can have several URL fields, and they work on swimlanes too.</p>
 <ul>
