@@ -561,6 +561,8 @@ Read the notes for every version between your current release and the target bef
 
     Add `--board <id>` to limit it to one board. Assignees who are no longer members of a board are left in place (#1866).
 
+    Since 1.3 the command also clears checklist item assignees on the same terms, records each cleared assignee in the card's History (with no acting user), and sends `card.updated` for every card it changed, so open boards update without a reload (#2200, #1744). Cards that are archived, and their checklist items, are left alone.
+
 !!! warning "Helm: the placeholder PostgreSQL password fails the render"
     As a deliberate default change before 1.2 GA, `helm install`, `helm upgrade` and `helm template` now **fail** while the bundled PostgreSQL (`postgresql.enabled=true`, the default) has an empty or placeholder (`visiban`) `postgresql.auth.password`. The check is skipped when `postgresql.auth.existingSecret` is set, because the password then comes from that Secret. Earlier chart versions refused the placeholder only with `postgresql.subchartEnabled=true` (#1864). That subchart mode never rendered with the chart's values and was removed in chart 0.8.0; see "Helm: the Bitnami PostgreSQL subchart is removed" under [Upgrading to 1.3.x](#upgrading-to-13x) (#1911).
 
