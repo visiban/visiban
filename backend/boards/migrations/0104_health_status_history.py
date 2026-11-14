@@ -2,7 +2,7 @@
 # indexes are built with it: the table is new, so no rows and no readers) and
 # three nullable last-change columns on boards with no database default, so
 # each ADD COLUMN is a catalog-only change on PostgreSQL. The FK column is
-# added with db_index=False; its index is built concurrently in 0103_board_health_changed_by_idx.
+# added with db_index=False; its index is built concurrently in 0105_board_health_changed_by_idx.
 
 import django.db.models.deletion
 import django.db.models.functions.datetime
@@ -15,7 +15,7 @@ STATUS_CHOICES = [("on_track", "On track"), ("at_risk", "At risk"), ("off_track"
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0101_custom_field_thresholds"),
+        ("boards", "0103_swimlane_health_status"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0102_health_status_history"),
+        ("boards", "0104_health_status_history"),
     ]
 
     operations = [
