@@ -520,12 +520,13 @@ describe('formatImportSkipped (#119)', () => {
     )
   })
 
-  it('reports unmatched assignees first, so they never collapse (#2198)', () => {
+  it('reports unmatched assignees in their own sentence, ahead of the skipped list (#2198)', () => {
     expect(formatImportSkipped(summaryOf({ assignees: 1 }))).toBe(
-      'Board imported. Skipped: 1 unmatched assignee.',
+      "Board imported. 1 assignee didn't match a user and was left unassigned.",
     )
-    expect(formatImportSkipped(summaryOf({ assignees: 3, cards: 2, comments: 3, checklist_items: 4 }))).toBe(
-      'Board imported. Skipped: 3 unmatched assignees, 2 cards, 3 comments, and 1 more.',
+    expect(formatImportSkipped(summaryOf({ assignees: 3, cards: 2, comments: 3, checklist_items: 4, label_refs: 1 }))).toBe(
+      "Board imported. 3 assignees didn't match a user and were left unassigned. "
+        + 'Skipped: 2 cards, 3 comments, 4 checklist items, and 1 more.',
     )
   })
 
@@ -592,15 +593,20 @@ describe('ImportSkippedToast (#119)', () => {
     }
   })
 
-  it('announces unmatched assignees from a JSON import (#2198)', () => {
+  it('announces unmatched assignees and stays until dismissed (#2198)', () => {
     vi.useFakeTimers()
     try {
+      const onDismiss = vi.fn()
       renderNotice(
-        <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0, assignees: 2 } }} onDismiss={vi.fn()} />,
+        <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0, assignees: 2 } }} onDismiss={onDismiss} />,
       )
       act(() => { vi.advanceTimersByTime(0) })
-      expect(screen.getByRole('status')).toHaveTextContent('Board imported. Skipped: 2 unmatched assignees.')
-      expect(screen.getByTestId('import-notice')).toHaveTextContent('2 unmatched assignees')
+      const text = "Board imported. 2 assignees didn't match a user and were left unassigned."
+      expect(screen.getByRole('status')).toHaveTextContent(text)
+      expect(screen.getByTestId('import-notice')).toHaveTextContent(text)
+      act(() => { vi.advanceTimersByTime(60000) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      expect(screen.getByTestId('import-notice')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

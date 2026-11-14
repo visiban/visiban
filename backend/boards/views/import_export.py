@@ -866,6 +866,14 @@ def _text(max_length=None):
     return functools.partial(_text_error, max_length=max_length)
 
 
+# The activity types whose ``item_text`` names a checklist item (#2199); the
+# same set as ``views.cards._ITEM_TEXT_EVENT_TYPES``. Other types import NULL.
+_ITEM_TEXT_EVENT_TYPES = frozenset({
+    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
+})
+
+
 def _nullable_item_text(value):
     """``CardActivity.item_text`` (#2199): null, or text that fits the column.
 
@@ -2198,7 +2206,11 @@ class BoardImportExportMixin:
                             to_value=act_data.get("to_value", ""),
                             actor=request.user,
                             imported_from_username=_imported_from_username(act_data, "actor"),
-                            item_text=act_data.get("item_text"),
+                            # Kept only where History shows it (#2199), so a
+                            # file cannot park text on other rows.
+                            item_text=(
+                                act_data.get("item_text") if event_type in _ITEM_TEXT_EVENT_TYPES else None
+                            ),
                         ),
                         act_data.get("created_at"),
                     ))

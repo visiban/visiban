@@ -15,11 +15,7 @@ const MAX_LISTED = 3;
 export function formatImportSkipped(summary: ImportSummary | null | undefined): string | null {
   const skipped = summary?.skipped;
   if (!skipped) return null;
-  // Unmatched assignees (#2198) come first: unlike the option skips, the user
-  // did not choose them and may want to reassign, so they never collapse into
-  // "and N more".
   const items: { n: number; one: string; many: string }[] = [
-    { n: skipped.assignees ?? 0, one: "unmatched assignee", many: "unmatched assignees" },
     { n: skipped.cards ?? 0, one: "card", many: "cards" },
     { n: skipped.comments ?? 0, one: "comment", many: "comments" },
     { n: skipped.checklist_items ?? 0, one: "checklist item", many: "checklist items" },
@@ -31,11 +27,34 @@ export function formatImportSkipped(summary: ImportSummary | null | undefined): 
     },
   ];
   const parts = items.filter(({ n }) => n > 0).map(({ n, one, many }) => `${n} ${n === 1 ? one : many}`);
-  if (parts.length === 0) return null;
-  const listed = parts.slice(0, MAX_LISTED);
-  const rest = parts.length - listed.length;
-  if (rest > 0) listed.push(`and ${rest} more`);
-  return `Board imported. Skipped: ${listed.join(", ")}.`;
+  // Unmatched assignees (#2198) get their own sentence, ahead of the list: the
+  // card or item was imported, only its assignee was dropped, so "Skipped"
+  // would misstate it, and it must never fold into "and N more".
+  const unmatched = unmatchedAssignees(summary);
+  const assigneeSentence = unmatched > 0
+    ? unmatched === 1
+      ? "1 assignee didn't match a user and was left unassigned."
+      : `${unmatched} assignees didn't match a user and were left unassigned.`
+    : null;
+  if (parts.length === 0 && !assigneeSentence) return null;
+  const sentences = ["Board imported."];
+  if (assigneeSentence) sentences.push(assigneeSentence);
+  if (parts.length > 0) {
+    const listed = parts.slice(0, MAX_LISTED);
+    const rest = parts.length - listed.length;
+    if (rest > 0) listed.push(`and ${rest} more`);
+    sentences.push(`Skipped: ${listed.join(", ")}.`);
+  }
+  return sentences.join(" ");
+}
+
+/**
+ * How many card and checklist item assignees matched no user (#2198); 0 from
+ * servers that predate the count. A notice reporting any stays until
+ * dismissed: the user did not choose this loss and may need to reassign.
+ */
+export function unmatchedAssignees(summary: ImportSummary | null | undefined): number {
+  return summary?.skipped?.assignees ?? 0;
 }
 
 /**
