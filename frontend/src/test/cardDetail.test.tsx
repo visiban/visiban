@@ -3643,8 +3643,14 @@ describe('CardDetail focus trap (#1732)', () => {
     // Tab through the panel until a popover control takes focus. Stop there: 200
     // unconditional Tabs cost ~1s locally and passed the 5s timeout on a slower CI
     // runner. The bound is only the "never reached" failure path.
+    // #2177: also stop once this test's panel is gone. Vitest does not cancel a
+    // timed-out test's body, so when this loop timed out on a loaded runner it kept
+    // pressing Tab on `document.activeElement` while later tests ran, and a Tab on
+    // the #1840 custom-field dropdown's trigger closed its portaled menu (both
+    // attempts, since the retry's loop leaked the same way). Cleanup unmounts the
+    // panel, so `isConnected` ends an abandoned loop at its next step.
     let reached = false
-    for (let i = 0; i < 200 && !reached; i++) {
+    for (let i = 0; i < 200 && !reached && panel.isConnected; i++) {
       await user.tab()
       reached = popover.contains(document.activeElement)
     }

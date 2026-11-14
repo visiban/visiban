@@ -260,6 +260,14 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
   body such as `.then(() => setTimeout(...))`, or `void setTimeout(...)`) with a delay other
   than a literal `0`. It doesn't catch a stored id that's never cleared, so review still has
   to look for the cleanup.
+- [ ] **No interaction loop that can outlive its test (#2177).** Vitest does not cancel a
+  timed-out test's body: a `for` loop of `await user.tab()` (or any `user.*` call) keeps
+  dispatching keys on `document.activeElement` after the timeout, into whatever test runs
+  next, and that test fails on both attempts because the retry's loop leaks too. Stop such a
+  loop on its own goal *and* on its test's teardown: `panel.isConnected` in the loop condition
+  ends it once cleanup unmounts the panel (see the focus-trap Move-popover test in
+  `cardDetail.test.tsx`). The victim is usually a later test whose portaled menu closes on
+  Tab, not the loop's own test.
 
 ## Writing tests that catch mutations
 
