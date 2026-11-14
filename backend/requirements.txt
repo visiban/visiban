@@ -89,6 +89,6 @@ certifi>=2026.10.19
 # vulnerable to GHSA-xcq7-p3pf-p88h (quadratic-time `tracestate` header
 # parsing), which pip-audit flags in the lock. Floor it at the fixed release,
 # mirroring the certifi pattern above.
-opentelemetry-api>=1.45.1
+opentelemetry-api>=1.45.2
 whitenoise==6.12.0
 drf-spectacular==0.29.0
