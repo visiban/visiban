@@ -409,9 +409,10 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </p>
             )}
             {/* Collapsed lane (#2243): a set status rides inline, shape only, so
-                the py-1 row does not grow; an unset one shows nothing here. */}
+                the py-1 row does not grow (-my-0.5 cancels the pill's 4px
+                excess over the 20px name line); an unset one shows nothing here. */}
             {collapsed && showHealthPill && (
-              <span className="shrink-0 inline-flex" onDoubleClick={(e) => e.stopPropagation()}>
+              <span className="shrink-0 inline-flex -my-0.5" onDoubleClick={(e) => e.stopPropagation()}>
                 <HealthStatusControl
                   entityKind="swimlane"
                   entityName={swimlane.name}

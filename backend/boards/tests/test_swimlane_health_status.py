@@ -14,7 +14,9 @@ import json
 import types
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -186,3 +188,26 @@ class SwimlaneHealthStatusTests(TestCase):
         self.assertEqual(updates[0]["data"]["health_status"], "at_risk")
         # The broadcast is built from the public serializer: no PII.
         self.assertNotIn("contact_email", updates[0]["data"])
+
+
+class BoardFullQueryCountWithLaneStatusTests(TestCase):
+    """Lane health_status is a plain column: it must not add /full/ queries (#2243)."""
+
+    def test_full_query_count_unchanged_when_lanes_have_a_status(self):
+        admin = User.objects.create_user(username="hs_qc_admin", password="pass")
+        board = _make_board(admin)
+        lanes = [Swimlane.objects.create(board=board, name=f"L{i}", position=i) for i in range(3)]
+        client = APIClient()
+        client.force_authenticate(user=admin)
+
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                r = client.get(f"/api/v1/boards/{board.id}/full/")
+            self.assertEqual(r.status_code, 200)
+            return len(ctx)
+
+        baseline = count()
+        for lane, value in zip(lanes, ("on_track", "at_risk", "off_track")):
+            lane.health_status = value
+            lane.save(update_fields=["health_status"])
+        self.assertEqual(count(), baseline)
