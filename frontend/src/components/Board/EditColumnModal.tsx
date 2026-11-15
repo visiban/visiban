@@ -5,7 +5,7 @@ import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
-import IntakeColumnCallout from "./IntakeColumnCallout";
+import IntakeColumnCallout, { DoneColumnMore } from "./IntakeColumnCallout";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
@@ -232,6 +232,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                   </p>
                 </label>
                 {/* Saved is_done, not the draft checkbox, so toggling it does not flicker the note. */}
+                {column.is_done && <DoneColumnMore idPrefix={tabsId} />}
                 {isIntakeColumn && !column.is_done && <IntakeColumnCallout idPrefix={tabsId} />}
               </div>
 

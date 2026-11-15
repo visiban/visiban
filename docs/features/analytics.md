@@ -134,6 +134,8 @@ The panel names the column the server reports as the bottleneck (the column that
 
 **See the N cards** opens the [column drawer](#column-drawer) for that column; **Open on board** goes back to the board. Without a bottleneck the panel says **Too early to say** (no 85th percentile of cycle time yet) or **No bottleneck** (no column's queue grew in the period). Both also cover a board where only the first column's queue grew, since that column is never named.
 
+Column settings show the first column that is not done as a checked, disabled **Not named as the bottleneck** checkbox, so the rule is visible where you edit the column.
+
 ### How work flows
 
 One row, left to right, inside a box that scrolls sideways when the panel is narrower than 980px:
