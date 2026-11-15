@@ -175,7 +175,7 @@ vi.mock('../components/Board/AddColumnModal', async () => {
   const { default: RealAddColumnModal } = await vi.importActual<typeof import('../components/Board/AddColumnModal')>('../components/Board/AddColumnModal')
   return {
     default: (props: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => {
-      if (renderRealColumnModals) return <RealAddColumnModal {...(props as never)} />
+      if (renderRealColumnModals) return <RealAddColumnModal {...(props as unknown as React.ComponentProps<typeof RealAddColumnModal>)} />
       return (
         <div data-testid="add-column-modal">
           <button onClick={() => props.onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false })}>
