@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { cardShowChip, parseShowChip, showChipCardIds, showChipCounts } from '../utils/showChips'
+import { cardBoardStatus } from '../constants/laneStatus'
 import { buildCardStatusLine, formatShortMonthDay } from '../utils/cardStatusLine'
 
 const NOW = Date.parse('2026-06-15T12:00:00Z')
@@ -8,6 +9,8 @@ const c = (o: Partial<{ id: number; column: number; due_date: string | null; is_
   ({ id: 1, column: 1, due_date: null, is_stale: false, archived_at: null, ...o })
 
 describe('show chips (#2272)', () => {
+  afterEach(() => { vi.useRealTimers() })
+
   it('parses the URL param and falls back to all', () => {
     expect(parseShowChip('overdue')).toBe('overdue')
     expect(parseShowChip('due_soon')).toBe('due_soon')
@@ -22,6 +25,17 @@ describe('show chips (#2272)', () => {
     expect(cardShowChip(c({ is_stale: true }), false, NOW)).toBe('stale')
     expect(cardShowChip(c({ is_stale: true }), true, NOW)).toBeNull()
     expect(cardShowChip(c({ due_date: '2026-09-01' }), false, NOW)).toBeNull()
+  })
+
+  it('a stale card that is also due soon: the chips say due soon, the band and squares say stale (#2272)', () => {
+    // Deliberate, documented difference (frontend/CLAUDE.md § Show chips): cardShowChip ranks
+    // overdue > due soon > stale, cardBoardStatus ranks overdue > stale and ignores due soon.
+    // cardBoardStatus reads the wall clock, so pin it to NOW.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
+    const card = c({ due_date: '2026-06-16', is_stale: true })
+    expect(cardShowChip(card, false, NOW)).toBe('due_soon')
+    expect(cardBoardStatus({ ...card, last_moved_at: null }, false)).toBe('stale')
   })
 
   it('counts the whole board without archived cards', () => {

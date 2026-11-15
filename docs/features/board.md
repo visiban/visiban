@@ -247,7 +247,7 @@ Columns, swimlanes, new card labels and a [group's shared labels](groups.md#grou
 
 ## Cards
 
-Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the bottom-right. Under the **Classic** [preset](#board-presets), cards keep their earlier colored priority border and urgency badge.
+Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the end of the label row (at the bottom-right under Classic). Under the **Classic** [preset](#board-presets), cards keep their earlier colored priority border and urgency badge.
 
 ### Card density
 
@@ -257,19 +257,19 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 
 | Tier | Best for | What appears on the card face | Pinned swimlane values per row |
 |---|---|---|---|
-| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
-| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count | 5 |
-| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge | 8 |
+| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
+| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count | 5 |
+| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout) | 8 |
 
 **Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under **Classic** or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.
 
 ### Show chips
 
-A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
-**Upgrading from 1.0:** existing boards are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
+**Upgrading from 1.0:** existing boards are migrated to **Dense** so they keep their compact density until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
 
 #### Personal density override
 
@@ -316,7 +316,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Priority | `low` / `medium` / `high` / `urgent`; shown as a colored border and a filled badge on the card face under the Classic preset, and otherwise read from the card's accessible name and the peek (only overdue cards have a colored border; Dense shows an explicit badge) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
-| Due date | Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red |
+| Due date | Optional date; past dates are disabled in the picker; shown on the card in the status line (for example *Overdue Nov 12* or *Due in 3 days*) with a flag icon; only an overdue card has a colored (red) border |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |
@@ -466,7 +466,7 @@ The **Card layout** control in the toolbar's **View** menu switches between two 
 
 | Mode | Description |
 |---|---|
-| **Expanded** (default) | Full card face with title, priority border, label pills, assignee avatar, checklist progress, and due date |
+| **Expanded** (default) | Full card face with title, label pills, assignee avatar, checklist progress, and a status line (only an overdue card has a colored border) |
 | **Compact** | Narrower cards showing title and priority indicator only — useful on dense boards with many cards per cell. An aging card's title starts with a small bar meter that shows its aging step, since compact cards have no `Stale · Nd` badge (see [Card aging tint](card-history.md#card-aging-tint)) |
 
 The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.

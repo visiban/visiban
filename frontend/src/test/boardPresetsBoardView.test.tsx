@@ -847,6 +847,23 @@ describe('BoardView — Show chips (#2272)', () => {
     expect(screen.getByTestId('board-totals')).toHaveTextContent('1 swimlane · 3 columns · 5 cards')
   })
 
+  it('ANDs with an active Filter-panel filter: only cards matching both stay', () => {
+    // Two overdue cards, only one high priority; a high-priority card that is not overdue.
+    renderBoard(
+      makeBoard({
+        cards: [
+          makeCard(1, { title: 'Overdue high', due_date: '2026-06-10', priority: 'high' }),
+          makeCard(2, { title: 'Overdue medium', due_date: '2026-06-10', priority: 'medium' }),
+          makeCard(3, { title: 'Calm high', priority: 'high' }),
+        ],
+      }),
+      'show=overdue&f_priorities=high',
+    )
+    expect(screen.getByText('Overdue high')).toBeInTheDocument()
+    expect(screen.queryByText('Overdue medium')).not.toBeInTheDocument()
+    expect(screen.queryByText('Calm high')).not.toBeInTheDocument()
+  })
+
   it('swatches reuse the collapsed-lane square tokens', () => {
     renderBoard(chipBoard())
     expect(chip(/^Overdue/).querySelector('span[aria-hidden="true"]')).toHaveClass('bg-danger-emphasis')
