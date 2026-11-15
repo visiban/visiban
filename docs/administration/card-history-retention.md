@@ -15,7 +15,7 @@ Each movement record of a deleted card keeps:
 - the card's UID, and the card's title **as it was at the time of that move** (`card_uid`, `card_title`);
 - the movement's notes, the columns and swimlanes involved, who moved it and when.
 
-Since 1.3, each [block](../features/blocked-cards.md) of a deleted card is kept the same way (#1149): the card's UID and title when it was blocked, the block's **reason** and **resolution** (free text), the column, who blocked and unblocked it and when. Board members see the reasons in [Analytics](../features/analytics.md#blocked-time).
+Since 1.3, each [block](../features/blocked-cards.md) of a deleted card is kept the same way (#1149): the card's UID and title when it was blocked, the block's **reason** and **resolution** (free text), the column, who blocked and unblocked it and when. Board members see the reasons in [Analytics](../features/analytics.md#why-cards-get-blocked).
 
 While the card exists, its history shows under its current title. Once it is deleted, each movement shows under the title recorded with it, so a card renamed before deletion appears in the board's **History** view under each earlier title. This is intended: it is what the card was called at each move.
 

@@ -845,16 +845,16 @@ describe('period labels during a refetch (#2261)', () => {
   it('keep naming the period of the numbers on screen until the new answers arrive', async () => {
     mockAll()
     await renderLoaded()
-    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
+    expect(screen.getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
     let release: (value: FlowBlocked) => void = () => {}
     blockedMock.mockReturnValue(new Promise<FlowBlocked>((resolve) => { release = resolve }))
     await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     await waitFor(() => expect(blockedMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
-    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
-    expect(screen.queryByText('Blocked time (last 30 days)')).not.toBeInTheDocument()
+    expect(screen.getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
+    expect(screen.queryByText('Block reasons over the last 30 days, longest first.')).not.toBeInTheDocument()
     release(blocked)
-    expect(await screen.findByText('Blocked time (last 30 days)')).toBeInTheDocument()
+    expect(await screen.findByText('Block reasons over the last 30 days, longest first.')).toBeInTheDocument()
   })
 })
 

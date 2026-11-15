@@ -199,19 +199,36 @@ describe('Analytics blocked time (#1149), from metrics/blocked (#2261)', () => {
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const section = await screen.findByTestId('analytics-blocked')
-    expect(within(section).getByRole('heading', { name: 'Blocked time (last 90 days)' })).toBeInTheDocument()
-    const table = within(section).getByRole('table', { name: 'Blocked time per column' })
-    expect(within(table).getByText('Doing')).toBeInTheDocument()
-    expect(within(table).queryByText('Review')).not.toBeInTheDocument()
-    expect(within(table).getByRole('columnheader', { name: 'Time blocked' })).toBeInTheDocument()
-    expect(within(table).getByRole('columnheader', { name: 'Times blocked' })).toBeInTheDocument()
-    expect(within(table).getByText('3d')).toBeInTheDocument()
-    // A sub-day block reads in hours, never "0d".
-    expect(within(table).getByText('2h')).toBeInTheDocument()
-    const reasons = within(section).getByRole('list', { name: 'Top block reasons' })
-    expect(within(reasons).getByText('Waiting on customer')).toBeInTheDocument()
-    expect(within(reasons).getByText('2 blocks · 3d')).toBeInTheDocument()
-    expect(within(reasons).getByText('1 block · 12h')).toBeInTheDocument()
+    expect(within(section).getByRole('heading', { name: 'Why cards get blocked' })).toBeInTheDocument()
+    expect(within(section).getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
+    const reasons = within(section).getByRole('list', { name: 'Block reasons' })
+    const items = within(reasons).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Waiting on customer3d · 2')
+    // A sub-day total reads in hours, never "0d".
+    expect(items[1]).toHaveTextContent('Vendor12h · 1')
+    expect(section).toHaveTextContent('2 of 4 blocks started in Doing.')
+  })
+
+  it('ranks reasons longest first and scales the danger bars to the longest', async () => {
+    vi.mocked(getFlowBlocked).mockResolvedValue({
+      ...none,
+      total: { days: 6, blocks: 3 },
+      columns: [{ column_uid: 'c1', column_name: 'Doing', days: 6, blocks: 1 }],
+      reasons: [
+        { reason: 'Short', days: 1, blocks: 1 },
+        { reason: 'Long', days: 4, blocks: 1 },
+        { reason: 'Tiny', days: 0.001, blocks: 1 },
+      ],
+      reason_count: 3,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const section = await screen.findByTestId('analytics-blocked')
+    const items = within(section).getAllByRole('listitem')
+    expect(items.map((li) => li.textContent?.slice(0, 5))).toEqual(['Long4', 'Short', 'Tiny1'])
+    const bars = section.querySelectorAll('.bg-danger')
+    expect((bars[0] as HTMLElement).style.width).toBe('100%')
+    expect((bars[1] as HTMLElement).style.width).toBe('25%')
+    expect((bars[2] as HTMLElement).style.width).toBe('2%')
   })
 
   it('renders no section when nothing was blocked', async () => {
