@@ -26,4 +26,23 @@ test.describe('intake column callout', () => {
     await expect(body).toBeVisible()
     await expect(callout.getByRole('button', { name: 'Less' })).toHaveAttribute('aria-expanded', 'true')
   })
+
+  test('Done column More body is hidden until the toggle is opened', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.getByText('Done', { exact: true }).first().dblclick()
+
+    const doneMore = page.getByTestId('done-column-more')
+    await expect(doneMore).toBeVisible()
+    const more = doneMore.getByRole('button', { name: 'More' })
+    const body = page.locator(`#${await more.getAttribute('aria-controls')}`)
+    await expect(more).toHaveAttribute('aria-expanded', 'false')
+    await expect(body).toBeHidden()
+
+    await more.click()
+    await expect(body).toBeVisible()
+    await expect(doneMore.getByRole('button', { name: 'Less' })).toHaveAttribute('aria-expanded', 'true')
+  })
 })
