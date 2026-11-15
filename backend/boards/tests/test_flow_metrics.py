@@ -2007,6 +2007,21 @@ class GroupingRankingTests(GroupingFixture):
         counted = sum(c["count"] for s in grouped["samples"] for c in s["by_group"])
         self.assertEqual(counted, plain["total"])
 
+    def test_a_lane_of_never_started_cards_is_not_ranked(self):
+        # Backlog cards that never moved are samples on no endpoint, so they must
+        # not take a named slot and push a lane with real WIP into Other.
+        lanes = self.lanes(6)
+        for _ in range(10):
+            self.path(self.backlog, 20, lane=lanes[0])
+        for lane, count in zip(lanes[1:], (5, 4, 3, 2, 1)):
+            for _ in range(count):
+                self.wip(lane=lane)
+        expected = [str(lane.id) for lane in lanes[1:]]
+        for metric in GROUPED_METRICS:
+            groups = self.get(metric, group_by="swimlane")["grouping"]["groups"]
+            self.assertEqual([g["key"] for g in groups], expected, metric)
+            self.assertNotIn(None, [g["key"] for g in groups], metric)
+
     def test_more_than_five_groups_collapse_into_other_last(self):
         lanes = self.lanes(7)
         for index, lane in enumerate(lanes):

@@ -99,7 +99,9 @@ def load_grouping(board, flow, by, definition=None):
 
 def _is_active(flow, flow_range, card):
     """The card can appear on at least one grouped endpoint for this range."""
-    if card.archived_at is None and card.column_uid not in flow.done_uids:
+    # Started and not yet done: a never-started backlog card is a sample on no
+    # endpoint, so it must not rank its group.
+    if card.is_in_progress(flow.done_uids):
         return True
     if card.completion_at is not None and (
         flow_range.contains(card.completion_at)
