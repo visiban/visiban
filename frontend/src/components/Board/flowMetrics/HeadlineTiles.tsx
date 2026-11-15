@@ -93,7 +93,9 @@ function ThroughputTile({ throughput }: { throughput: FlowThroughput }) {
   );
 }
 
-function WipTile({ wipAge, columns, filtered }: { wipAge: FlowWipAge; columns: Props["columns"]; filtered: boolean }) {
+function WipTile({ wipAge, columns, filtered, cycleSampleSize }: {
+  wipAge: FlowWipAge; columns: Props["columns"]; filtered: boolean; cycleSampleSize: number | null;
+}) {
   const over = filtered ? null : columnsOverLimit(wipAge, columns);
   const p85 = wipAge.cycle_time_percentiles.p85;
   const past = p85 === null ? null : cardsPastP85(wipAge);
@@ -109,7 +111,14 @@ function WipTile({ wipAge, columns, filtered }: { wipAge: FlowWipAge; columns: P
           {pluralize(past, "card")} past {formatNumber(p85)} {days(p85)}.
         </span>
       )}
-      {over === null && past === null && "Cards in progress now."}
+      {p85 === null && (
+        <>
+          {over !== null && " "}
+          The 85th-percentile age appears at {PERCENTILE_APPEARS_AT.p85} finished cards.
+          {cycleSampleSize !== null && ` ${cycleSampleSize} so far.`}
+        </>
+      )}
+      {over === null && past === null && p85 !== null && "Cards in progress now."}
     </Tile>
   );
 }
@@ -134,7 +143,7 @@ export default function HeadlineTiles({ cycle, throughput, wipAge, blocked, colu
       <h2 id="analytics-tiles-heading" className="sr-only">Headline numbers</h2>
       {cycle ? <CycleTile cycle={cycle} /> : <TilePlaceholder label="Cycle time" failed={settled} />}
       {throughput ? <ThroughputTile throughput={throughput} /> : <TilePlaceholder label="Throughput" failed={settled} />}
-      {wipAge ? <WipTile wipAge={wipAge} columns={columns} filtered={filtered} /> : <TilePlaceholder label="Work in progress" failed={settled} />}
+      {wipAge ? <WipTile wipAge={wipAge} columns={columns} filtered={filtered} cycleSampleSize={cycle?.sample_size ?? null} /> : <TilePlaceholder label="Work in progress" failed={settled} />}
       {blocked ? <BlockedTile blocked={blocked} /> : <TilePlaceholder label="Blocked time" failed={settled} />}
     </section>
   );

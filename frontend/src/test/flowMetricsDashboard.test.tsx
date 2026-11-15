@@ -774,6 +774,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Throughput')).toHaveTextContent('2cards so far')
     expect(tile('Throughput')).toHaveTextContent('Too few whole weeks for a weekly median. 2 so far.')
     expect(tile('Work in progress')).toHaveTextContent('1 column over its limit.')
+    expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 3 so far.')
     expect(tile('Work in progress')).not.toHaveTextContent('past')
   })
 
@@ -815,7 +816,17 @@ describe('the headline tiles (#2261)', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
     await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
-    expect(tile('Work in progress')).toHaveTextContent('Cards in progress now.')
+    expect(tile('Work in progress')).not.toHaveTextContent('limit')
+    expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 7 so far.')
+  })
+
+  it('says "Cards in progress now." under a filter when the 85th percentile is shown', async () => {
+    mockAll()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
+    expect(tile('Work in progress')).not.toHaveTextContent('The 85th-percentile age appears')
   })
 
   it('shows a per-tile and a bottleneck error when one endpoint fails, and the other panels still render', async () => {

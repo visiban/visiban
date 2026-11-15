@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { FlowFilters } from "../../api/flowMetrics";
 import type { Column } from "../../types";
@@ -65,10 +65,12 @@ export default function AnalyticsView({
 }: Props) {
   const { filters, setFilters } = useAnalyticsFilters();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // The title row names the period of the numbers on screen, not the live selection (it lags during a refetch).
+  const [fetchedFilters, setFetchedFilters] = useState<FlowFilters | null>(null);
   return (
     <div className="flex-1 overflow-y-auto bg-sunken" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
-        <AnalyticsTitleRow boardName={boardName} filters={filters} headingRef={headingRef} />
+        <AnalyticsTitleRow boardName={boardName} filters={fetchedFilters ?? filters} headingRef={headingRef} />
         <AnalyticsOverview
           boardId={boardId}
           filters={filters}
@@ -80,6 +82,7 @@ export default function AnalyticsView({
           onOpenCard={onOpenCard}
           onGoToBoard={onGoToBoard}
           headingRef={headingRef}
+          onFetchedFilters={setFetchedFilters}
         />
         <p className="text-xs text-fg-tertiary">
           Calendar days in UTC, from each card&apos;s movement history. Filters use each card&apos;s current swimlane

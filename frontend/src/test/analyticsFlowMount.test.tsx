@@ -128,6 +128,20 @@ describe('AnalyticsView: one filter bar drives the page without remounting the c
     expect(screen.getByRole('button', { name: 'Swimlane: Customer A' })).toBeInTheDocument()
   })
 
+  it('keeps the title row on the period of the numbers on screen until the new fetch resolves (#2261)', async () => {
+    render(<AnalyticsView {...props} />)
+    await screen.findByTestId('flow-wip-age')
+    const periodLine = () => screen.getByText(/Platform roadmap/).textContent
+    const before = periodLine()
+    let release: (value: Awaited<ReturnType<typeof getFlowBlocked>>) => void = () => {}
+    vi.mocked(getFlowBlocked).mockReturnValue(new Promise((resolve) => { release = resolve }))
+    await choose(/^Date range/, 'Last 30 days')
+    await waitFor(() => expect(vi.mocked(getFlowBlocked)).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
+    expect(periodLine()).toBe(before)
+    release({ definition: 'd', total: { days: 0, blocks: 0 }, blocked_now: 0, columns: [], reasons: [], reason_count: 0 })
+    await waitFor(() => expect(periodLine()).not.toBe(before))
+  })
+
   it('keeps the charts mounted through a heatmap failure', async () => {
     vi.mocked(getBoardAnalytics).mockRejectedValue(new Error('no'))
     render(<AnalyticsView {...props} />)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type { Column, FlowCumulativeFlow, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
@@ -31,6 +31,8 @@ interface Props {
   onGoToBoard?: () => void;
   /** Where focus goes when Retry is pressed, so it does not drop to <body>. */
   headingRef?: RefObject<HTMLElement | null>;
+  /** Reports the filters the numbers on screen were fetched for, so the page's title row names that period. */
+  onFetchedFilters?: (filters: FlowFilters | null) => void;
 }
 
 function isEmpty(cycle: FlowCycleTime, throughput: FlowThroughput, cumulative: FlowCumulativeFlow, age: FlowWipAge) {
@@ -58,13 +60,15 @@ function ChartRow({ children }: { children: ReactNode }) {
  */
 export default function AnalyticsOverview({
   boardId, filters, onFiltersChange, swimlanes, labels, columns = [], currentUserRole = null,
-  onOpenCard, onGoToBoard, headingRef,
+  onOpenCard, onGoToBoard, headingRef, onFetchedFilters,
 }: Props) {
   const [attempt, setAttempt] = useState(0);
   // Here, not in the panels, so a panel's Chart | Table choice outlives a refetch.
   const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
   const { results, fetchedFilters, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt);
+
+  useEffect(() => { onFetchedFilters?.(fetchedFilters); }, [fetchedFilters, onFetchedFilters]);
 
   const cycle = results?.cycle.data;
   const throughput = results?.throughput.data;

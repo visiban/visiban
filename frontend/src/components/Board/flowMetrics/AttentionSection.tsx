@@ -60,7 +60,7 @@ function StalledTable({ data, swimlanes, onOpenCard }: Omit<Props, "attention"> 
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse" aria-label="Stalled cards">
           <thead>
-            <tr className="text-left text-xs text-fg-muted uppercase tracking-wider border-b border-line">
+            <tr className="text-left text-xs text-fg-tertiary uppercase tracking-wider border-b border-line">
               <th className="pb-2 pr-4 font-medium sticky left-0 bg-surface w-32">Swimlane</th>
               <th className="pb-2 px-3 font-medium">Card</th>
               <th className="pb-2 px-3 font-medium text-right w-28">Days stalled</th>
@@ -89,7 +89,7 @@ function StalledTable({ data, swimlanes, onOpenCard }: Omit<Props, "attention"> 
                   {c.days_since_move}d
                 </td>
                 {onOpenCard && (
-                  <td className="py-1.5 pl-3 text-fg-muted text-xs text-center">↗</td>
+                  <td className="py-1.5 pl-3 text-fg-tertiary text-xs text-center">↗</td>
                 )}
               </tr>
             ))}
@@ -99,7 +99,7 @@ function StalledTable({ data, swimlanes, onOpenCard }: Omit<Props, "attention"> 
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-fg-muted">
+          <span className="text-xs text-fg-tertiary">
             {(page - 1) * STALLED_PAGE_SIZE + 1}–{Math.min(page * STALLED_PAGE_SIZE, sorted.length)} of {sorted.length}
           </span>
           <div className="flex items-center gap-1">
@@ -110,7 +110,7 @@ function StalledTable({ data, swimlanes, onOpenCard }: Omit<Props, "attention"> 
             >
               ← Prev
             </button>
-            <span className="text-xs text-fg-muted px-2">{page} / {totalPages}</span>
+            <span className="text-xs text-fg-tertiary px-2">{page} / {totalPages}</span>
             <button
               onClick={() => onPageChange(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}

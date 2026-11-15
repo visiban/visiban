@@ -29,7 +29,7 @@ function heatLevel(avg: number, threshold: number, warningPct: number): HeatLeve
 
 function HeatmapLegend() {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted" aria-label="Heatmap legend">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-tertiary" aria-label="Heatmap legend">
       {(Object.keys(HEAT_LEVELS) as HeatLevel[]).map(level => (
         <li key={level} className="flex items-center gap-1.5">
           <span
@@ -161,12 +161,12 @@ function Heatmap({ data, mode, days }: { data: AnalyticsData; mode: ViewMode; da
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h18v18H3V3zm0 4.5h18M7.5 3v18" />
               </svg>
               <p className="text-fg-tertiary text-sm font-medium">No analytics data yet</p>
-              <p className="text-fg-muted text-xs">Move cards between columns to start generating heatmap data.</p>
+              <p className="text-fg-tertiary text-xs">Move cards between columns to start generating heatmap data.</p>
             </div>
           )}
           <table className="text-sm border-collapse" aria-label="Dwell time heatmap">
             <thead>
-              <tr className="text-left text-xs text-fg-muted uppercase tracking-wider">
+              <tr className="text-left text-xs text-fg-tertiary uppercase tracking-wider">
                 <th className="pb-2 pr-4 font-medium sticky left-0 bg-surface">Swimlane</th>
                 {activeCols.map(col => (
                   <th key={col} className="pb-2 px-3 font-medium text-center min-w-[90px]">
@@ -189,7 +189,7 @@ function Heatmap({ data, mode, days }: { data: AnalyticsData; mode: ViewMode; da
                     return (
                       <td
                         key={col}
-                        className={`py-1.5 px-3 text-center rounded text-xs ${level ? level.cls : "bg-surface text-fg-muted"}`}
+                        className={`py-1.5 px-3 text-center rounded text-xs ${level ? level.cls : "bg-surface text-fg-tertiary"}`}
                         title={tooltip}
                       >
                         {level && <span aria-hidden="true" className="mr-1 text-[10px] leading-none align-middle">{level.glyph}</span>}
@@ -208,7 +208,7 @@ function Heatmap({ data, mode, days }: { data: AnalyticsData; mode: ViewMode; da
         </div>
         <HeatmapLegend />
         {doneCols.size > 0 && (
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-tertiary">
             {doneCols.size} done {doneCols.size === 1 ? "column" : "columns"} not shown
           </p>
         )}
