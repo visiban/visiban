@@ -15,7 +15,9 @@ Covers:
 """
 import datetime
 
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -628,6 +630,44 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
         self.assertIsNotNone(avg)
         self.assertAlmostEqual(avg, 5.0, delta=0.2)
+
+    def test_column_entered_before_the_prefetch_buffer_keeps_its_in_window_dwell(self):
+        """#2295: days=30, entered To Do 100 days ago, left 10 days ago -> 20 in-window days."""
+        self.col_doing = Column.objects.create(board=self.board, name="Doing", position=5)
+        self._move(self.card, self.col_todo, days_ago=100)
+        self._move(self.card, self.col_doing, days_ago=10)
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]
+        self.assertAlmostEqual(avg["To Do"], 20.0, delta=0.2)
+        self.assertAlmostEqual(avg["Doing"], 10.0, delta=0.2)
+
+    def test_archived_card_with_no_prefetched_movements_contributes_its_in_window_dwell(self):
+        """#2295: archived 5 days into the window, entered long before the buffer."""
+        self._move(self.card, self.col_todo, days_ago=100)
+        Card.objects.filter(pk=self.card.pk).update(
+            archived_at=timezone.now() - datetime.timedelta(days=25)
+        )
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertAlmostEqual(avg, 5.0, delta=0.2)
+
+    def test_pre_buffer_seed_adds_no_queries_per_card(self):
+        self._move(self.card, self.col_todo, days_ago=100)
+        url = self._analytics_url() + "?days=30"
+        client = self._client_for(self.admin)
+        with CaptureQueriesContext(connection) as one:
+            client.get(url)
+        for i in range(4):
+            extra = Card.objects.create(
+                board=self.board, column=self.col_todo, swimlane=self.card.swimlane,
+                title=f"extra {i}", created_by=self.admin, position=10 + i,
+            )
+            self._move(extra, self.col_todo, days_ago=100)
+        with CaptureQueriesContext(connection) as many:
+            client.get(url)
+        self.assertEqual(len(one), len(many))
 
     def test_board_with_no_done_columns_returns_empty_done_columns(self):
         """done_columns must be an empty list when no columns are marked done."""
