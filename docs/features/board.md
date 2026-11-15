@@ -157,6 +157,8 @@ Columns represent pipeline stages. Each column has:
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 - **Intake column note** (since 1.3) — the board's first column that is not done is its intake column, where new work arrives. Its **Edit settings** shows a short note under the **Done column** setting: Analytics never names that column as the bottleneck, because a growing queue there is demand, not a hold-up. It still appears in cumulative flow, WIP, WIP aging, dwell, and cycle-time. **More** explains why and links to [how the bottleneck is chosen](analytics.md#bottleneck). The role follows position: reordering columns, or adding a not-done column to the left of the intake column, moves it to the new first not-done column. **Add Column** tells you when the new column will take over the role.
+- **Not named as the bottleneck checkbox** (since 1.3) — on the intake column, **Edit settings** also shows a checked, grayed-out **Not named as the bottleneck** checkbox in the **Analytics behavior** section. It is informational and cannot be changed; it moves with the intake role.
+- **Done column More** (since 1.3) — a Done column's **Count as completed** checkbox has a **More** disclosure: completion feeds throughput, lead time, and cycle time, while dwell time and the heatmap skip that column.
 - **Policy** (since 1.3) — the column's entry criteria and definition of done, shown from a **Policy** button in its header. See [Column Policies](column-policies.md).
 
 **Managing a column:**

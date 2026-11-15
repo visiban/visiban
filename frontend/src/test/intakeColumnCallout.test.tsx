@@ -84,6 +84,54 @@ describe('EditColumnModal intake callout (#2298)', () => {
   })
 })
 
+describe('EditColumnModal intake checkbox and Done More (#2299)', () => {
+  it('shows a checked, disabled "Not named as the bottleneck" checkbox only on the intake column', () => {
+    const { unmount } = renderEdit(column(), true)
+    const cb = screen.getByRole('checkbox', { name: 'Not named as the bottleneck' })
+    expect(cb).toBeChecked()
+    expect(cb).toBeDisabled()
+    unmount()
+    renderEdit(column({ id: 2 }), false)
+    expect(screen.queryByRole('checkbox', { name: 'Not named as the bottleneck' })).toBeNull()
+  })
+
+  it('follows reordering for the checkbox', () => {
+    const { rerender } = renderEdit(column(), false)
+    expect(screen.queryByRole('checkbox', { name: 'Not named as the bottleneck' })).toBeNull()
+    rerender(
+      <EditColumnModal boardId={1} column={column()} cardCount={0} onUpdated={vi.fn()}
+        onRequestDelete={vi.fn()} onClose={vi.fn()} isIntakeColumn />,
+    )
+    expect(screen.getByRole('checkbox', { name: 'Not named as the bottleneck' })).toBeDisabled()
+  })
+
+  it('done column shows a collapsed More that toggles by keyboard and never says exclude', async () => {
+    renderEdit(column({ is_done: true }))
+    const more = screen.getByRole('button', { name: 'More' })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    const body = document.getElementById(more.getAttribute('aria-controls')!)!
+    expect(body).toHaveAttribute('hidden')
+    more.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Less' })).toHaveAttribute('aria-expanded', 'true')
+    expect(body).not.toHaveAttribute('hidden')
+    expect(body).toHaveTextContent(/throughput, lead time, and cycle time/)
+    expect(body).toHaveTextContent(/Dwell time and the heatmap skip/)
+    expect(body.textContent ?? '').not.toMatch(/exclud/i)
+  })
+
+  it('done column keeps the editable Count as completed checkbox; not-done has no Done More', async () => {
+    const { unmount } = renderEdit(column({ is_done: true }))
+    const cb = screen.getByRole('checkbox', { name: /Count as completed/ })
+    expect(cb).toBeEnabled()
+    await userEvent.click(cb)
+    expect(cb).not.toBeChecked()
+    unmount()
+    renderEdit(column())
+    expect(screen.queryByTestId('done-column-more')).toBeNull()
+  })
+})
+
 describe('AddColumnModal take-over note (#2298)', () => {
   const renderAdd = (p: { willBecomeIntake?: boolean; replacesIntake?: boolean }) =>
     render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} {...p} />)
