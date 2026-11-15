@@ -53,24 +53,30 @@ describe('LensToolbar', () => {
     expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toBeInTheDocument()
   })
 
-  it('marks the active Filters and layout toggles with the underline cue, not tint alone (#2188)', () => {
+  it('marks the active layout toggle with the underline cue, not tint alone (#2188)', () => {
     setup()
     const filters = screen.getByRole('button', { name: 'Filters' })
     const layout = screen.getByRole('button', { name: 'Switch to compact card layout' })
     expect(filters).toHaveAttribute('aria-pressed', 'false')
-    expect(within(filters).queryByTestId('active-underline')).not.toBeInTheDocument()
     expect(layout).toHaveAttribute('aria-pressed', 'false')
     expect(within(layout).queryByTestId('active-underline')).not.toBeInTheDocument()
   })
 
-  it('shows the underline cue on Filters while open and on the layout toggle while compact (#2188)', () => {
+  it('shows the underline cue on the layout toggle while compact, and none on the labeled Filters button (#2188)', () => {
     setup({ showFilters: true, cardLayout: 'compact' })
     const filters = screen.getByRole('button', { name: 'Filters' })
     const layout = screen.getByRole('button', { name: 'Switch to expanded card layout' })
     expect(filters).toHaveAttribute('aria-pressed', 'true')
-    expect(within(filters).getByTestId('active-underline')).toHaveClass('bg-fg')
+    expect(within(filters).queryByTestId('active-underline')).not.toBeInTheDocument()
     expect(layout).toHaveAttribute('aria-pressed', 'true')
     expect(within(layout).getByTestId('active-underline')).toBeInTheDocument()
+  })
+
+  it('keeps a filled, readable count badge on Filters while the filter row is open (#2302)', () => {
+    setup({ url: '/?state=open&milestone=0.3', showFilters: true })
+    const badge = within(screen.getByRole('button', { name: 'Filters, 2 active' })).getByText('2')
+    expect(badge).toBeVisible()
+    expect(badge).toHaveClass('bg-primary', 'text-on-primary')
   })
 
   it('layout toggle reflects cardLayout and toggles', async () => {

@@ -125,7 +125,7 @@ export default function LensToolbar({
         <button
           type="button"
           onClick={onToggleFilters}
-          className={`relative inline-flex items-center h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`inline-flex items-center h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
@@ -133,12 +133,11 @@ export default function LensToolbar({
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
           Filters
-          {!showFilters && activeCount > 0 && (
-            <span className="ml-1.5 bg-primary-emphasis/20 text-info rounded-full px-1.5 py-0.5 font-medium">
+          {activeCount > 0 && (
+            <span className="ml-1.5 bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
               {activeCount}
             </span>
           )}
-          <ActiveUnderline active={showFilters || activeCount > 0} />
         </button>
       </Tooltip>
       <Tooltip content={`${layoutLabel} (${layoutShortcutLabel})`}>

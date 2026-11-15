@@ -58,6 +58,22 @@ test.describe('Lens toolbar', () => {
     )
     expect(overflow).toBeLessThanOrEqual(0)
     await expect(page.getByRole('button', { name: /card layout/i })).toBeVisible()
+    // The page check alone cannot catch the old bug (the row scrolled inside its own box).
+    const toolbar = await page.getByTestId('board-toolbar').evaluate((el) => {
+      const nav = el.closest('nav') ?? el
+      return { scroll: nav.scrollWidth, client: nav.clientWidth }
+    })
+    expect(toolbar.scroll).toBeLessThanOrEqual(toolbar.client)
+    const controls = [
+      page.getByRole('button', { name: /^Filters/ }),
+      page.getByRole('button', { name: /card layout/i }),
+      page.getByText('Columns: Status'),
+      page.getByText('Swimlanes: Milestone'),
+    ]
+    for (const c of controls) {
+      const b = (await c.first().boundingBox())!
+      expect(b.x + b.width).toBeLessThanOrEqual(390)
+    }
   })
 
   test('pivot dropdown menu is not clipped', async ({ page }) => {
@@ -70,6 +86,14 @@ test.describe('Lens toolbar', () => {
     await expect(menu).toBeVisible()
     const box = (await menu.boundingBox())!
     expect(box.height).toBeGreaterThan(60)
+    // Portaled out of the toolbar nav, so no ancestor overflow box can clip it.
+    expect(await menu.evaluate((el) => !el.closest('nav'))).toBe(true)
+    const hit = await menu.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const top = document.elementFromPoint(r.left + r.width / 2, r.bottom - 2)
+      return !!top && el.contains(top)
+    })
+    expect(hit).toBe(true)
   })
 })
 
