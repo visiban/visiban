@@ -822,7 +822,7 @@ describe('the bottleneck panel (#2261)', () => {
     expect(panel.getByRole('heading', { name: 'Doing' })).toBeInTheDocument()
     expect(panel.getByText(
       'Cards wait 2.1 days here, about half of the whole cycle. The queue grew from 2 to 5 cards against a limit of 3, '
-      + 'because 3.5 cards arrive each week and 2 leave.',
+      + 'because 3.5 cards arrive each week and 2 cards leave.',
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
     const seeButton = panel.getByRole('button', { name: 'See the 4 cards' })
@@ -1378,7 +1378,16 @@ describe('rounding and wording edge cases (#2297)', () => {
       columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: 1, left_per_week: 2 })),
     }
     expect(bottleneckSentence('col-doing', { cumulative: one, dwell: undefined, cycle, columns: [] }))
-      .toBe('The median wait here is not available yet. The queue grew from 1 to 4 cards, because 1 card arrives each week and 2 leave.')
+      .toBe('The median wait here is not available yet. The queue grew from 1 to 4 cards, because 1 card arrives each week and 2 cards leave.')
+  })
+
+  it('says "1 card leaves" for a departure rate of one', () => {
+    const one: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: 2, left_per_week: 1 })),
+    }
+    expect(bottleneckSentence('col-doing', { cumulative: one, dwell: undefined, cycle, columns: [] }))
+      .toBe('The median wait here is not available yet. The queue grew from 1 to 4 cards, because 2 cards arrive each week and 1 card leaves.')
   })
 
   it('shows blocked time under a day in hours on the tile, as the section does', async () => {

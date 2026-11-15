@@ -206,7 +206,8 @@ export function bottleneckSentence(
     if (limit !== null) queue += ` against a limit of ${limit}`;
     if (band.entered_per_week !== null && band.left_per_week !== null) {
       const arriving = formatNumber(band.entered_per_week);
-      queue += `, because ${arriving} ${arriving === "1" ? "card arrives" : "cards arrive"} each week and ${formatNumber(band.left_per_week)} leave`;
+      const leaving = formatNumber(band.left_per_week);
+      queue += `, because ${arriving} ${arriving === "1" ? "card arrives" : "cards arrive"} each week and ${leaving} ${leaving === "1" ? "card leaves" : "cards leave"}`;
     }
     parts.push(`${queue}.`);
   }
