@@ -521,6 +521,20 @@ class ThroughputTests(FlowFixture):
         hits = {s["start"]: s["count"] for s in payload["samples"]}
         self.assertEqual(hits["2026-06-15"], 2)  # 06-15 06:00 and 06-16
 
+    def test_completed_in_range_can_exceed_the_cycle_time_sample(self):
+        # #2288 owner decision: it counts every first completion in the range,
+        # including a card with no creation movement (incomplete history), which
+        # has no start and so no cycle time.
+        self.path(self.backlog, 60, self.doing, 50, self.done, 3)
+        orphan = self.card(self.done, created=12)
+        self.row(orphan, self.backlog, self.done, 2)
+        flow = self.flow()
+        completed = fm.throughput(flow, self.last(30))["completed_in_range"]
+        cycle = fm.cycle_time(flow, self.last(30))
+        self.assertEqual(completed, 2)
+        self.assertEqual(cycle["sample_size"], 1)
+        self.assertGreater(completed, cycle["sample_size"])
+
     def test_completed_in_range_differs_from_total_unless_the_range_is_whole_weeks(self):
         # A completion every day for 60 days: the whole-week total covers
         # 7 x weeks days, the range count every completion inside [start, now).

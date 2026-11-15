@@ -127,7 +127,7 @@ function WipTile({ wipAge, columns, filtered, cycleSampleSize }: {
           {cycleSampleSize !== null && ` ${cycleSampleSize} so far.`}
         </>
       )}
-      {over === null && past === null && p85 !== null && "Cards in progress now."}
+      {over === null && past === null && p85 !== null && "Every card not done yet."}
     </Tile>
   );
 }

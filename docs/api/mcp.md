@@ -464,7 +464,7 @@ Flow metrics for one board over a rolling window, from the same service as the R
 | `wip` | `{definition, columns: [{column_id, column_uid, column_name, count}]}`: cards, not archived, currently in each not-done column. |
 | `blocked` | `{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}`, keyed by column name; the same object as the `/analytics/` blocked-time block (#1149), cut by `swimlane_id` when one is given. `days` and `total_days` are rounded to 0.1; `top_reasons` is ordered by block count, then by time. |
 
-The per-card `samples` and `card_uids` lists REST returns are left out so the result does not grow with the board; use `list_cards` for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.
+The per-card `samples` and `card_uids` lists REST returns are left out so the result does not grow with the board, and so is the throughput `completed_in_range` field (use `total`, or the per-week counts); use `list_cards` for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.
 
 ### `aging_cards`
 

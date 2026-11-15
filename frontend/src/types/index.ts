@@ -2158,7 +2158,7 @@ export interface FlowAttentionItem {
   swimlane_id: number;
   /** Null when the card is not in progress. */
   age_days: number | null;
-  /** Null when the card has no movement. */
+  /** Never null from the server now (a card with no movement counts from its creation date); kept `number | null` for compatibility. */
   unmoved_days: number | null;
   /** Never empty, in the order blocked, past_p85, stalled. */
   reasons: FlowAttentionReason[];

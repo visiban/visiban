@@ -33,6 +33,8 @@ const throughput = {
   definition: 'the number of cards whose first entry into a done column falls in a period.',
   period: 'week',
   total: 24,
+  // Differs from `total` on purpose: the Done box must show this one (#2288).
+  completed_in_range: 31,
   median: 2,
   samples: Array.from({ length: 12 }, (_, n) => ({
     start: dateDaysAgo(84 - 7 * n), count: n % 4, card_uids: cards.slice(n, n + n % 4).map((c) => c.uid), started: n % 3,
@@ -65,7 +67,7 @@ const wipAge = {
   sample_size: 12,
   excluded_incomplete_history: 0,
   cycle_time_percentiles: { p50: 4.2, p85: 8.1, p95: 12.6 },
-  columns: columnUids.slice(0, 3).map((uid, n) => ({ column_uid: uid, column_name: ['Backlog', 'Doing', 'Review'][n] })),
+  columns: columnUids.slice(0, 3).map((uid, n) => ({ column_uid: uid, column_name: ['Backlog', 'Doing', 'Review'][n], wip_count: [5, 11, 3][n] })),
   samples: cards.slice(0, 12).map((card, n) => ({
     card_uid: card.uid,
     column_uid: columnUids[n % 3],
@@ -204,6 +206,13 @@ test.describe('flow metrics dashboard', () => {
     const fits = await page.getByTestId('analytics-page').evaluate((el) => el.scrollWidth <= el.clientWidth)
     expect(fits).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  })
+
+  test('the flow row uses wip_count and completed_in_range, not the sample counts (#2287, #2288)', async ({ page }) => {
+    await openAnalytics(page)
+    await expect(page.getByTestId('flow-column-box').filter({ hasText: 'Doing' })).toContainText('11 now')
+    await expect(page.getByTestId('flow-done-box')).toContainText('31')
+    await expect(page.getByTestId('flow-done-box')).not.toContainText('24')
   })
 
   test('opens the column drawer from a column box and returns focus on close (#2262)', async ({ page }) => {

@@ -11,8 +11,11 @@ describe('Where the time goes: the sum of medians is not a silent total (#2293)'
   it('says how many columns were left out of the ungrouped bar', () => {
     render(<TimeBar columns={[col('a', 2), col('b', null), col('c', 0), col('d', 3)]} />)
     expect(screen.getByTestId('time-total')).toHaveTextContent('5.0d')
-    expect(screen.getByTestId('time-omitted')).toHaveTextContent('2 columns without enough data left out')
-    expect(screen.getByRole('img')).toHaveAccessibleName(/Sum of medians 5\.0d, 2 columns without enough data left out/)
+    // Only the null median is withheld; the 0-day median had enough data.
+    expect(screen.getByTestId('time-omitted')).toHaveTextContent('1 column without enough data left out')
+    expect(screen.getByTestId('time-omitted')).not.toHaveTextContent('2 columns')
+    expect(screen.getByRole('list', { name: 'Time bar legend' })).toHaveTextContent('A 2.0d')
+    expect(screen.getByRole('img')).toHaveAccessibleName(/Sum of medians 5\.0d, 1 column without enough data left out/)
     expect(screen.getByTestId('time-footnote')).toHaveTextContent('not the cycle time')
   })
 
@@ -61,5 +64,14 @@ describe('Where the time goes: the sum of medians is not a silent total (#2293)'
     expect(sliver).toHaveTextContent('')
     expect(sliver).toHaveAttribute('title', 'A 0.1d')
     expect(screen.getByRole('img')).toHaveAccessibleName(/A 0\.1d, B 10\.0d/)
+  })
+
+  it('names only the columns in the legend under a breakdown, not the all-cards medians (#2287)', () => {
+    const groups = [{ name: 'Platform', color: 'red', medians: new Map<string, number | null>([['a', 7], ['b', 9]]) }]
+    render(<TimeBar columns={[col('a', 2), col('b', 3)]} groups={groups} />)
+    const legend = screen.getByRole('list', { name: 'Time bar legend' })
+    expect(legend).toHaveTextContent('A')
+    expect(legend).not.toHaveTextContent('2.0d')
+    expect(legend).not.toHaveTextContent('3.0d')
   })
 })

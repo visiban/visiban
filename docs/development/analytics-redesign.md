@@ -83,7 +83,7 @@ Four tiles, each with a label, one large number with its unit, and one supportin
 |---|---|---|
 | Cycle time | Median, in days | The 85th percentile and the sample size |
 | Throughput | Median cards per week | Number of weeks and total finished |
-| Work in progress | Cards in progress now | Columns over their limit and cards past the 85th percentile |
+| Work in progress | Every card not archived in a not-done column now, started or not (changed by #2287/#2293) | Columns over their limit and cards past the 85th percentile |
 | Blocked time | Total days blocked | Number of blocks and cards blocked now |
 
 ### Withholding rules
@@ -122,7 +122,7 @@ Under the flow row, in the same panel.
 
 - One horizontal bar per group. With no breakdown there is one bar, "All cards".
 - Each bar is segmented by in-progress column; a segment's width is the median days in that column and it is labeled with that number.
-- The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The total is printed at the end.
+- The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The sum of the medians is printed at the end, with a note of how many columns were left out for lack of data (changed by #2287/#2293).
 - The bottleneck column's segment is hatched.
 - This replaces the dwell heatmap as the lead visual. The heatmap is not deleted: it becomes this panel's **Table** view, behind the same Chart | Table switch the charts have. The screenshots do not draw that switch.
 - The table is today's heatmap table: swimlane rows, column cells with the three-level cue, the velocity column, and the admin-only CSV export. Its period follows the filter bar.

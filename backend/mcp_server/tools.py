@@ -1338,7 +1338,8 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     Every board role may call it. Only cycle time and throughput are the REST
     ``metrics/cycle-time`` and ``metrics/throughput`` responses, minus their
     per-card lists (``samples``, ``card_uids``), which would make the payload
-    scale with the board. WIP and blocked time come from the same service but
+    scale with the board, and minus throughput's ``completed_in_range``, which
+    MCP does not return. WIP and blocked time come from the same service but
     match no REST response: WIP is ``flow_metrics.wip``, and ``blocked`` is the
     older ``blocked_time`` shape the ``/analytics/`` response serves (days
     rounded to 0.1, keyed by column name, reasons ranked by block count), not

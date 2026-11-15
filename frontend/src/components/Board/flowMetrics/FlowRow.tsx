@@ -23,10 +23,22 @@ function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: s
  */
 export const MAX_SQUARES = 30;
 
-function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
-  const filled = column.limit === null ? column.count : Math.min(column.count, column.limit);
+/**
+ * The squares drawn for one column: filled, hollow (over the limit), and how many are left to "+N more".
+ * Past the cap a share of it is reserved for hollow squares, so a column over its limit always shows
+ * at least one (#2287); otherwise a limit near the cap would fill every drawn square.
+ */
+export function squareCounts(column: Pick<FlowRowColumn, "count" | "limit">) {
   const drawn = Math.min(column.count, MAX_SQUARES);
-  const hidden = column.count - drawn;
+  const natural = column.limit === null ? column.count : Math.min(column.count, column.limit);
+  const over = column.limit === null ? 0 : Math.max(0, column.count - column.limit);
+  const reserved = column.count > MAX_SQUARES ? Math.min(over, Math.ceil(MAX_SQUARES / 3)) : 0;
+  const filled = Math.min(natural, drawn - reserved);
+  return { filled, hollow: Math.min(over, drawn - filled), hidden: column.count - drawn, drawn };
+}
+
+function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
+  const { filled, drawn, hidden } = squareCounts(column);
   return (
     <div className="flex flex-wrap items-center gap-1" aria-hidden="true">
       {Array.from({ length: drawn }, (_, i) => (

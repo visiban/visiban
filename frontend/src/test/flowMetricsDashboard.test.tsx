@@ -774,7 +774,9 @@ describe('flow summaries', () => {
   })
 
   it('aging counts cards past P85 and copes with no zones', () => {
-    expect(wipAgeSummary(empty.age)).toBe('No cards are in progress.')
+    expect(wipAgeSummary({ ...empty.age, columns: empty.age.columns.map((c) => ({ ...c, wip_count: 0 })) })).toBe('No cards are in progress.')
+    // Live WIP counts unstarted cards, so no ages must not claim nothing is in progress (#2293).
+    expect(wipAgeSummary({ ...empty.age, columns: [{ column_uid: 'c', column_name: 'C', wip_count: 9 }] })).toBe('No card in progress has an age yet.')
     expect(wipAgeSummary(age)).toBe('1 of 1 card in progress is past the 85th percentile.')
     expect(wipAgeSummary({ ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } })).toBe('1 card in progress.')
   })
@@ -955,7 +957,7 @@ describe('the headline tiles (#2261)', () => {
     expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('The queue grew from 2 to 5 cards, because')
   })
 
-  it('says why when the period has no days, and "Cards in progress now." when a filter hides the rest', async () => {
+  it('says why when the period has no days, and "Every card not done yet." when a filter hides the rest', async () => {
     mockAll({
       cumulative: { ...cumulative, bottleneck_column_uid: null, days: [] },
       age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
@@ -969,7 +971,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 7 so far.')
   })
 
-  it('says "Cards in progress now." under a filter when the 85th percentile is shown', async () => {
+  it('says "Every card not done yet." under a filter when the 85th percentile is shown', async () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))

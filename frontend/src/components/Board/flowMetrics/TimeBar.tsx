@@ -27,7 +27,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
     const segments = columns
       .map((column, index) => ({ column, index, wait: group.medians.get(column.uid) ?? null }))
       .filter((s): s is { column: FlowRowColumn; index: number; wait: number } => s.wait !== null && s.wait > 0);
-    return { group, gi, segments, omitted: columns.length - segments.length, total: segments.reduce((sum, s) => sum + s.wait, 0) };
+    return { group, gi, segments, omitted: columns.filter((c) => group.medians.get(c.uid) == null).length, total: segments.reduce((sum, s) => sum + s.wait, 0) };
   });
   const longest = Math.max(0, ...rows.map((r) => r.total));
   return (
@@ -89,7 +89,10 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
     .map((column, index) => ({ column, index }))
     .filter((s): s is { column: FlowRowColumn & { medianWait: number }; index: number } => s.column.medianWait !== null && s.column.medianWait > 0);
   const total = segments.reduce((sum, s) => sum + s.column.medianWait, 0);
-  const omitted = columns.length - segments.length;
+  // Under a breakdown the bars are per group, so the all-cards medians would contradict them.
+  const grouped = !!(groups && groups.length > 0);
+  // Only withheld medians count as left out; a 0-day median had enough data (no segment, but not omitted).
+  const omitted = columns.filter((c) => c.medianWait === null).length;
   if (segments.length === 0 && !(groups && groups.length > 0)) {
     return <p className="text-sm text-fg-tertiary" data-testid="time-bar-empty">Too few finished cards to show where the time goes.</p>;
   }
@@ -128,7 +131,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
               className="w-3 h-3 rounded-sm bg-surface"
               style={column.bottleneck ? { backgroundImage: HATCH } : { backgroundImage: `linear-gradient(${chartTint(columnAlpha(index, columns.length))}, ${chartTint(columnAlpha(index, columns.length))})` }}
             />
-            {column.name} {formatDays(column.medianWait)}{column.bottleneck ? " (bottleneck, hatched)" : ""}
+            {column.name}{grouped ? "" : ` ${formatDays(column.medianWait)}`}{column.bottleneck ? " (bottleneck, hatched)" : ""}
           </li>
         ))}
       </ul>

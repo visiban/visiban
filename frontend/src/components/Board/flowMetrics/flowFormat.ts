@@ -61,8 +61,12 @@ export function cumulativeFlowSummary({ columns, bottleneck_column_uid: bottlene
     : "No column that is not done grew in this range.";
 }
 
-export function wipAgeSummary({ sample_size: n, samples, cycle_time_percentiles: zones }: FlowWipAge): string {
-  if (n === 0) return "No cards are in progress.";
+export function wipAgeSummary({ sample_size: n, samples, columns, cycle_time_percentiles: zones }: FlowWipAge): string {
+  if (n === 0) {
+    // Live WIP (#2287) counts unstarted cards too, so no ages does not mean no work in progress.
+    const live = columns.reduce((sum, c) => sum + (c.wip_count ?? 0), 0);
+    return live > 0 ? "No card in progress has an age yet." : "No cards are in progress.";
+  }
   if (zones.p85 === null) return `${plural(n, "card")} in progress.`;
   const past = cardsPastP85({ samples, cycle_time_percentiles: zones });
   return `${past} of ${plural(n, "card")} in progress ${past === 1 ? "is" : "are"} past the 85th percentile.`;

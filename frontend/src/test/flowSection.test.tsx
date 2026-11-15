@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import FlowSection from '../components/Board/flowMetrics/FlowSection'
 import FlowDrillDrawer from '../components/Board/flowMetrics/FlowDrillDrawer'
-import FlowRow, { MAX_SQUARES } from '../components/Board/flowMetrics/FlowRow'
+import FlowRow, { MAX_SQUARES, squareCounts } from '../components/Board/flowMetrics/FlowRow'
 import type { DrillSelection } from '../components/Board/flowMetrics/FlowDrillDrawer'
 import { buildColumnSelection } from '../components/Board/flowMetrics/columnDrill'
 import { buildFlowRow, wipCount } from '../components/Board/flowMetrics/flowRowData'
@@ -68,15 +68,15 @@ const analytics: AnalyticsData = {
   }],
 }
 
-function Harness({ onOpenColumn = () => {}, data = analytics, filtered = false, cols = columns, cum = cumulative }: {
+function Harness({ onOpenColumn = () => {}, data = analytics, filtered = false, cols = columns, cum = cumulative, age = wipAge }: {
   onOpenColumn?: (uid: string) => void; data?: AnalyticsData | null; filtered?: boolean
-  cols?: { uid: string; wip_limit: number | null }[]; cum?: FlowCumulativeFlow
+  cols?: { uid: string; wip_limit: number | null }[]; cum?: FlowCumulativeFlow; age?: FlowWipAge
 }) {
   const [view, setView] = useState<ChartPanelView>('chart')
   const [mode, setMode] = useState<'age' | 'throughput'>('age')
   return (
     <FlowSection
-      analytics={{ data }} cumulative={cum} dwell={dwell} wipAge={wipAge} throughput={throughput}
+      analytics={{ data }} cumulative={cum} dwell={dwell} wipAge={age} throughput={throughput}
       columns={cols} filtered={filtered} mode={mode} onModeChange={setMode} view={view} onViewChange={setView}
       filters={{ days: 30, swimlaneId: null, labelId: null }} settled onOpenColumn={onOpenColumn}
     />
@@ -202,6 +202,22 @@ describe('the flow row and time bar (#2262)', () => {
     expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(MAX_SQUARES - 5)
     expect(within(review).getByTestId('flow-squares-more')).toHaveTextContent(`+${500 - MAX_SQUARES} more`)
     expect(review).toHaveTextContent('500 of 5, 495 over limit')
+  })
+
+  it('keeps hollow squares inside the cap when a big limit is exceeded, and the note names them (#2287)', () => {
+    const age60: FlowWipAge = { ...wipAge, columns: [wipAge.columns[0], { ...wipAge.columns[1], wip_count: 60 }] }
+    render(<Harness age={age60} cols={[{ uid: 'ready', wip_limit: 5 }, { uid: 'review', wip_limit: 40 }]} />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    expect(within(review).getAllByTestId('flow-square-over').length).toBeGreaterThan(0)
+    expect(within(review).getAllByTestId('flow-square').length + within(review).getAllByTestId('flow-square-over').length).toBe(MAX_SQUARES)
+    expect(screen.getByText(/Hollow squares are over the limit/)).toBeInTheDocument()
+    expect(squareCounts({ count: 25, limit: 20 })).toMatchObject({ filled: 20, hollow: 5, hidden: 0 })
+  })
+
+  it('does not name hollow squares when none is drawn (#2287)', () => {
+    render(<Harness cols={[{ uid: 'ready', wip_limit: 50 }, { uid: 'review', wip_limit: 50 }]} />)
+    expect(screen.queryAllByTestId('flow-square-over')).toHaveLength(0)
+    expect(screen.queryByText(/Hollow squares/)).toBeNull()
   })
 
   it('draws every square, with no overflow note, for a small count (#2287)', () => {
