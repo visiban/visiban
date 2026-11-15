@@ -155,7 +155,7 @@ Run `python scripts/_paths.py --self-test` to exercise the helper (`..` traversa
 
 **Why it matters:** A scheduled pipeline on `main` runs the **whole** pipeline, not just the schedule-gated jobs: the `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` rules match a schedule, and `changes:` rules evaluate true on one. Every extra schedule costs a full pipeline (about 48 jobs).
 
-So the project keeps **three** schedules (#1383, #1384), not one per job. All three use the `America/New_York` time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:
+So the project keeps **three** schedules (#1383, #1384), not one per job. All three use the `America/New_York` time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart (the weekly mutation run's worst case is now up to 150 minutes per shard, #2111, plus the report job, so check the gap before moving a schedule), clear of the TruePPM project's own schedules:
 
 | Schedule (id) | Cron (`America/New_York`) | Variables | Owner | Jobs it adds | What red means |
 |---|---|---|---|---|---|

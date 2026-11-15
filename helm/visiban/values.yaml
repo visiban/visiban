@@ -419,6 +419,15 @@ valkey:
       enabled: false
       size: 1Gi
       # storageClass: ""
+    # Memory ceiling and eviction policy (#1130). Without a ceiling the cache
+    # grows until the pod is OOM-killed, which drops every WebSocket. Keep
+    # maxmemory comfortably below resources.limits.memory (AOF rewrite and
+    # client buffers need headroom). Empty maxmemory disables the ceiling.
+    # volatile-lru evicts only keys that carry a TTL (every key Visiban writes
+    # does) and refuses to evict anything without one. See "Valkey memory limit
+    # and eviction" in docs/administration/configuration.md.
+    maxmemory: 128mb
+    maxmemoryPolicy: volatile-lru
     resources:
       requests:
         cpu: 100m

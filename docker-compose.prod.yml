@@ -47,7 +47,9 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /data
-    command: valkey-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
+    # Memory ceiling + eviction (#1130): see "Valkey memory limit and eviction" in
+    # docs/administration/configuration.md for why volatile-lru.
+    command: valkey-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env} --maxmemory ${VALKEY_MAXMEMORY:-256mb} --maxmemory-policy volatile-lru
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     healthcheck:

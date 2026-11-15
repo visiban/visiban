@@ -83,6 +83,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 | `APP_VERSION` | Image tag to pull, e.g. `v1.1.0`. **Required**: the compose file fails to start if unset and no longer falls back to the mutable `latest` tag (see [Container image retention](container-image-retention.md)). `.env.example` ships a pinned value. The backend strips only a leading `v`: `GET /api/v1/version/` reports bare semver (e.g. `1.1.0`) for a release tag, and serves a non-release value such as `latest` or `dev` back verbatim (see [Version API](../api/version.md)). |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
 | `REDIS_PASSWORD` | Valkey authentication password — required in production; the Valkey service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -hex 32` (base64 output can contain `/`, which breaks the URL) |
+| `VALKEY_MAXMEMORY` | Valkey memory ceiling for `docker-compose.prod.yml` (default `256mb`, for example `512mb`). The eviction policy is fixed at `volatile-lru`. Keep it below the container memory limit; see [Valkey memory limit and eviction](#valkey-memory-limit-and-eviction) |
 | `REDIS_URL_PASSWORD` | Not set under Compose, which puts the password into `REDIS_URL`/`REDIS_CACHE_URL` itself (from `REDIS_PASSWORD`). The Helm chart sets it from a Secret when `valkey.auth.enabled` is true or `externalRedis.existingSecret` is set. The backend percent-encodes it into both URLs, so any character is safe, and keeps a username in the URL (`redis://user@host:6379/0`, a Redis ACL user). It refuses to start if a URL already carries a password too, because the two would compete. |
 | `DATABASE_URL_PASSWORD` | Optional (#1910). Not set under Compose, or by default under Helm. The Helm chart sets it from the `password` key of the Secret named by `postgresql.auth.existingSecret`, and renders `DATABASE_URL` without a password. The backend percent-encodes it into `DATABASE_URL`, so any character is safe. The chart does not set it when `secret.existingSecret` supplies a complete `database-url`. It refuses to start if `DATABASE_URL` already carries a password too, because the two would compete. |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
@@ -207,6 +208,24 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 A transaction that writes [change feed](../api/events.md) events holds one PostgreSQL advisory lock per board it writes events on, until it commits (#2053). The lock lets feed readers tell that no lower event id is still committing. Writers never wait for each other on it. PostgreSQL keeps every session's locks in one shared table of `max_locks_per_transaction × (max_connections + max_prepared_transactions)` entries: 6,400 at the defaults (64 × 100).
 
 An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none for the deleted boards themselves, plus one per other board where a deleted card was blocking a card (that card gets a `card.updated`). A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with `out of shared memory` and the hint `You might need to increase max_locks_per_transaction`, raise `max_locks_per_transaction` in `postgresql.conf` (or the chart's PostgreSQL configuration) and restart PostgreSQL.
+
+## Valkey memory limit and eviction
+
+Valkey holds only short-lived state: the Channels layer (WebSocket groups, db 0) and the Django cache (db 1). The cache carries rate-limit counters, single-use WebSocket tickets, Git lens fetch locks, filter caches and, if you set a cache `SESSION_ENGINE`, sessions. Every one of these keys is written with a TTL. Nothing in Valkey is a system of record: PostgreSQL is.
+
+Without a ceiling, Valkey grows until the container or pod is OOM-killed, which drops every WebSocket connection. Visiban therefore ships a ceiling and an eviction policy in all three deployments:
+
+| Deployment | Ceiling | Policy | How to change it |
+|---|---|---|---|
+| Development `docker-compose.yml` | `256mb` | `volatile-lru` | Edit the `valkey` service `command` |
+| Production `docker-compose.prod.yml` | `256mb` | `volatile-lru` | Set `VALKEY_MAXMEMORY` in `.env` (for example `512mb`) |
+| Helm chart | `128mb` (pod limit is `192Mi`) | `volatile-lru` | `valkey.primary.maxmemory` and `valkey.primary.maxmemoryPolicy` |
+
+**Why `volatile-lru` and not `allkeys-lru`.** `volatile-lru` evicts only keys that carry a TTL and returns an error on a write that would need to evict a key without one. Today that is the same set of keys, but it means a future key that must not disappear (a lock or counter written without an expiry) is never silently dropped. `noeviction` is the wrong choice here: at the ceiling it would make every Channels and cache write fail, which is an outage rather than a degraded cache.
+
+**What eviction costs.** Keys go in least-recently-used order, so under sustained pressure an idle user's cache entry, ticket or counter can be evicted early. The effects are small and self-healing: a cache miss recomputes, a WebSocket reconnects with a fresh ticket, a rate-limit window restarts, and a cache-backed session signs the user out. If `evicted_keys` in `valkey-cli INFO stats` keeps rising, raise the ceiling rather than the policy. Keep the ceiling below the container or pod memory limit, because AOF rewrites and client buffers need headroom.
+
+Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the chart's own and wins. Set `valkey.primary.maxmemory` to an empty string to remove the ceiling. For an external Valkey or Redis (`externalRedis`), set `maxmemory` and `maxmemory-policy volatile-lru` on that server yourself.
 
 ## Webhooks
 
