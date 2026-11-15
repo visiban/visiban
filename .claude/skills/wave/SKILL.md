@@ -223,7 +223,7 @@ ruled out, which files and lines, what is committed, so it does not re-read what
 established.
 
 **Reporting.** Show the model as `fable` in every status table and the Step 7 report, with the
-trigger and the user's answer. A gate a Fable agent ran is recorded `(fable)` in its `## Gates`
+trigger and the user's answer. A gate a Fable agent ran is recorded `(model: fable)` in its `## Gates`
 line, like any model. Step 7 carries one `rescue:` line per issue a trigger fired on.
 
 "This issue is important" is not escalation criteria. Neither is "it touches
@@ -583,8 +583,8 @@ Every agent finishes by, in order:
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
    `gate: <name> — <N> findings` line per gate run (including
-   `completeness-check — <N> findings (model: <sonnet|opus>; causes: <tally>)`, plus
-   `completeness-check/fix-diff — <N> findings (model: <sonnet|opus>)` when Step 5.4
+   `completeness-check — <N> findings (model: <sonnet|opus|fable>; causes: <tally>)`, plus
+   `completeness-check/fix-diff — <N> findings (model: <sonnet|opus|fable>)` when Step 5.4
    triggered the re-check, or — when Step 5.4 triggered round 2 instead —
    `completeness-check — <N> findings (round 2; opus; causes: <tally>; overlap <k>/<M>)`
    with `completeness-check/fix-diff — n/a`). `0 findings` is a real
@@ -665,7 +665,7 @@ state plainly:
   (`scripts/wt remove <issue>` or `scripts/wt prune`).
 - The wave's shape: how many agents, how many on Opus and on Fable, and at what effort.
 - One `rescue:` line per issue a *Rescue escalation* trigger fired on, and `rescue: none` when
-  none did (report the zero too; no script reads this line yet, so it lives in this report
+  none did (report the zero too; no script reads this line yet (#2304), so it lives in this report
   only): `rescue: #N — trigger <1 implementer strike two | 2 round-2 BLOCKER>; choice <fable |
   opus-again | dropped | escalation-pending>; outcome <resolved | failed | n/a>`.
 - Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
