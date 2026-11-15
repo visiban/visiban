@@ -580,6 +580,7 @@ Adds an optional `period`, `week` (the default) or `day`.
   "definition": "the number of cards whose first entry into a done column falls in a period.",
   "period": "week",
   "total": 9,
+  "completed_in_range": 11,
   "median": 2,
   "samples": [
     { "start": "2026-06-01", "count": 3, "card_uids": ["3a9f1c2d7e4b8a05"], "started": 4 }
@@ -589,6 +590,8 @@ Adds an optional `period`, `week` (the default) or `day`.
 ```
 
 `median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
+
+`total` sums the whole periods only. With `period=week` a range holds only the Monday-to-Sunday weeks that fit inside it: the partial week at the start of the range and the one at its end (today's, for a rolling range) are both left out, so a 30-day range covers 21 or 28 days of completions. `completed_in_range` *(added in 1.3, #2288)* counts every first completion in the range itself, the same `[start, end)` window a cycle-time sample belongs to (for `days`, from exactly `days` × 24 hours ago to now), so it equals `total` only when the range is whole weeks. It is always the ungrouped number.
 
 `started` *(added in 1.3, #2260)* counts the cards whose cycle started in the period: their first move out of the column they were created in, to a column that is not done. Archived cards count, as in `count`. A reopen is not a start. A card with no creation movement, such as one imported without its history, can finish but never starts, so on an imported board `started` under-reports next to `count`.
 
@@ -668,7 +671,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
   "sample_size": 12,
   "excluded_incomplete_history": 1,
   "cycle_time_percentiles": { "p50": 4.21, "p85": 8.14, "p95": null },
-  "columns": [{ "column_uid": "col0000001", "column_name": "Doing" }],
+  "columns": [{ "column_uid": "col0000001", "column_name": "Doing", "wip_count": 14 }],
   "samples": [
     {
       "card_uid": "3a9f1c2d7e4b8a05",
@@ -687,7 +690,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
 }
 ```
 
-`columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, clipped to the age clock so the values sum to `value_days`, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
+`columns` lists the columns that are not done, in position order. `wip_count` *(added in 1.3, #2287)* is every card not archived in the column now, under the same swimlane and label filters: the count the column header holds against its WIP limit. It includes cards that have not started yet and cards without complete history, which have no sample, so it can be larger than the column's samples. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, clipped to the age clock so the values sum to `value_days`, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
 
 #### `GET /api/v1/boards/{id}/metrics/dwell/`
 

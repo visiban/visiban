@@ -645,7 +645,15 @@ _THROUGHPUT_RESPONSE = inline_serializer(
     fields={
         "definition": serializers.CharField(),
         "period": serializers.ChoiceField(choices=["day", "week"]),
-        "total": serializers.IntegerField(),
+        "total": serializers.IntegerField(
+            help_text="Completions in the whole periods only: a partial week at either end of the range is left out.",
+        ),
+        "completed_in_range": serializers.IntegerField(
+            help_text=(
+                "First completions anywhere in the range, the window the cycle-time sample uses (#2288). "
+                "Differs from `total` when the range does not start on a Monday and end on a Sunday."
+            ),
+        ),
         "median": serializers.IntegerField(
             allow_null=True, help_text="Nearest-rank p50 of the period counts; null under five whole periods.",
         ),
@@ -759,7 +767,17 @@ _WIP_AGE_RESPONSE = inline_serializer(
             name="FlowWipAgeColumn",
             many=True,
             help_text="The columns that are not done, in position order.",
-            fields={"column_uid": serializers.CharField(), "column_name": serializers.CharField()},
+            fields={
+                "column_uid": serializers.CharField(),
+                "column_name": serializers.CharField(),
+                "wip_count": serializers.IntegerField(
+                    help_text=(
+                        "Cards not archived in the column now, the count its WIP limit applies to (#2287). "
+                        "Includes cards that have not started and cards with incomplete history, which "
+                        "have no sample."
+                    ),
+                ),
+            },
         ),
         "samples": inline_serializer(
             name="FlowWipAgeSample",

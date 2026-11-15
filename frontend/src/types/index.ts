@@ -2036,7 +2036,13 @@ export interface FlowThroughputSample {
 export interface FlowThroughput {
   definition: string;
   period: "day" | "week";
+  /** Completions in the whole periods: a partial week at either end of the range is left out. */
   total: number;
+  /**
+   * First completions anywhere in the range, the cycle-time sample's window
+   * (#2288). Optional: a server older than #2288 omits it.
+   */
+  completed_in_range?: number;
   median: number | null;
   samples: FlowThroughputSample[];
   cards: FlowCard[];
@@ -2091,7 +2097,13 @@ export interface FlowWipAge {
   sample_size: number;
   excluded_incomplete_history: number;
   cycle_time_percentiles: FlowPercentiles;
-  columns: { column_uid: string; column_name: string }[];
+  /**
+   * The columns that are not done, in position order. `wip_count` (#2287) is
+   * every card not archived in the column now, the count its WIP limit
+   * applies to; the samples leave out cards with no age (not started, or
+   * incomplete history). Optional: a server older than #2287 omits it.
+   */
+  columns: { column_uid: string; column_name: string; wip_count?: number }[];
   samples: FlowAgeSample[];
   cards: FlowCard[];
   grouping?: FlowGrouping<FlowWipAgeGroup>;

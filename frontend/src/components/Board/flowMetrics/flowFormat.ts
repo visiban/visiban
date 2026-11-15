@@ -1,6 +1,6 @@
 import { LINE_DASH } from "../../../utils/chartScale";
 import type { ChartColor } from "../../../utils/chartScale";
-import { effectiveLimit } from "./flowRowData";
+import { effectiveLimit, wipCount } from "./flowRowData";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
   FlowAgeSample, FlowBlocked, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
@@ -152,16 +152,16 @@ export function shareOfCyclePhrase(share: number): string {
 }
 
 /**
- * How many board columns hold more in-progress cards than their WIP limit.
- * Counts the aging samples per column, so it agrees with the aging chart.
+ * How many board columns hold more cards than their WIP limit. Counts every
+ * card not archived in the column (`wipCount`), as the column header does, so
+ * cards that have not started count too (#2287).
  */
 export function columnsOverLimit(
-  wipAge: Pick<FlowWipAge, "samples">,
+  wipAge: Pick<FlowWipAge, "columns" | "samples">,
   columns: { uid: string; wip_limit: number | null }[],
 ): number {
   return columns.filter(
-    (column) => !!column.wip_limit
-      && wipAge.samples.filter((s) => s.column_uid === column.uid).length > column.wip_limit,
+    (column) => !!column.wip_limit && wipCount(wipAge, column.uid) > column.wip_limit,
   ).length;
 }
 

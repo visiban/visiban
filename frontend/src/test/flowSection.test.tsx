@@ -5,9 +5,10 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import FlowSection from '../components/Board/flowMetrics/FlowSection'
 import FlowDrillDrawer from '../components/Board/flowMetrics/FlowDrillDrawer'
+import FlowRow from '../components/Board/flowMetrics/FlowRow'
 import type { DrillSelection } from '../components/Board/flowMetrics/FlowDrillDrawer'
 import { buildColumnSelection } from '../components/Board/flowMetrics/columnDrill'
-import { buildFlowRow } from '../components/Board/flowMetrics/flowRowData'
+import { buildFlowRow, wipCount } from '../components/Board/flowMetrics/flowRowData'
 import type { AnalyticsData } from '../components/Board/flowMetrics/heatmap'
 import type { ChartPanelView } from '../components/Common/Chart'
 import type { FlowCard, FlowCumulativeFlow, FlowDwell, FlowThroughput, FlowWipAge } from '../types'
@@ -35,10 +36,12 @@ const sample = (i: number, column: string, days: number) => ({
   card_uid: cards[i].uid, column_uid: column, value_days: days, start: '2026-08-01T00:00:00Z', is_blocked: i === 1, blocked_days: 0,
   dwell_by_column: [{ column_uid: 'ready', value_days: 1 }, { column_uid: column, value_days: days - 1 }],
 })
+// Review holds nine cards (#2287): seven with an age, one that has not
+// started and one with incomplete history, which have no sample.
 const wipAge: FlowWipAge = {
-  definition: 'd', sample_size: 8, excluded_incomplete_history: 0,
+  definition: 'd', sample_size: 8, excluded_incomplete_history: 1,
   cycle_time_percentiles: { p50: 3, p85: 10, p95: null },
-  columns: [{ column_uid: 'ready', column_name: 'Ready' }, { column_uid: 'review', column_name: 'Review' }],
+  columns: [{ column_uid: 'ready', column_name: 'Ready', wip_count: 1 }, { column_uid: 'review', column_name: 'Review', wip_count: 9 }],
   samples: [sample(0, 'ready', 2), ...[1, 2, 3, 4, 5, 6, 7].map((i) => sample(i, 'review', 20 - i))],
   cards,
 }
@@ -49,7 +52,8 @@ const dwell: FlowDwell = {
     { column_uid: 'review', column_name: 'Review', sample_size: 9, percentiles: { p50: 6.2, p85: null, p95: null } },
   ],
 }
-const throughput: FlowThroughput = { definition: 'd', period: 'week', total: 102, median: 7, samples: [], cards: [] }
+// 102 in the whole weeks, 110 in the 30 days the Done box names (#2288).
+const throughput: FlowThroughput = { definition: 'd', period: 'week', total: 102, completed_in_range: 110, median: 7, samples: [], cards: [] }
 const columns = [{ uid: 'ready', wip_limit: 5 }, { uid: 'review', wip_limit: 5 }]
 
 const analytics: AnalyticsData = {
@@ -86,7 +90,7 @@ describe('the flow row and time bar (#2262)', () => {
     expect(boxes).toHaveLength(2)
     const review = boxes[1]
     expect(review).toHaveTextContent('Review')
-    expect(review).toHaveTextContent('7 of 5, 2 over limit')
+    expect(review).toHaveTextContent('9 of 5, 4 over limit')
     expect(review).toHaveTextContent('6.2d median wait')
     expect(review).toHaveTextContent('Queue +7 since Aug 16')
     expect(review.className).toContain('border-warning')
@@ -97,11 +101,21 @@ describe('the flow row and time bar (#2262)', () => {
     expect(squares[0].className).toContain('bg-surface')
     expect(squares[0].className).not.toContain('bg-warning')
     expect((within(boxes[0]).getAllByTestId('flow-square')[0] as HTMLElement).style.backgroundImage).not.toContain('repeating-linear-gradient')
-    expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(2)
+    expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(4)
     expect(boxes[0]).toHaveTextContent('Queue steady')
     expect(screen.getByText(/Hollow squares are over the limit/)).toBeInTheDocument()
-    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('102')
+    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('110in 30 days')
     expect(screen.getByText('7.8 / wk')).toBeInTheDocument()
+  })
+
+  it('shows the range count in the Done box, and the whole-week total from an older server (#2288)', () => {
+    const row = buildFlowRow(cumulative, dwell, wipAge, columns)
+    const { total, median, samples, definition, period, cards: directory } = throughput
+    const { unmount } = render(<FlowRow columns={row} cumulative={cumulative} throughput={throughput} days={30} onOpenColumn={() => {}} />)
+    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('110in 30 days')
+    unmount()
+    render(<FlowRow columns={row} cumulative={cumulative} throughput={{ definition, period, total, median, samples, cards: directory }} days={30} onOpenColumn={() => {}} />)
+    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('102in 30 days')
   })
 
   it('hatches the bottleneck segment and prints the total', () => {
@@ -148,7 +162,7 @@ describe('the flow row and time bar (#2262)', () => {
     render(<Harness />)
     const review = screen.getAllByTestId('flow-column-box')[1]
     const description = document.getElementById(review.getAttribute('aria-describedby')!)!
-    expect(description).toHaveTextContent('7 of 5, 2 over limit')
+    expect(description).toHaveTextContent('9 of 5, 4 over limit')
     expect(description).toHaveTextContent('6.2d median wait')
     expect(description).toHaveTextContent('Queue +7 since Aug 16')
   })
@@ -156,18 +170,18 @@ describe('the flow row and time bar (#2262)', () => {
   it('shows only the count, with no limit wording, while a filter is on', () => {
     render(<Harness filtered />)
     const review = screen.getAllByTestId('flow-column-box')[1]
-    expect(review).toHaveTextContent('7 now')
+    expect(review).toHaveTextContent('9 now')
     expect(review).not.toHaveTextContent('of 5')
     expect(review).not.toHaveTextContent('over limit')
     expect(within(review).queryAllByTestId('flow-square-over')).toHaveLength(0)
-    expect(within(review).getAllByTestId('flow-square')).toHaveLength(7)
+    expect(within(review).getAllByTestId('flow-square')).toHaveLength(9)
     expect(screen.queryByText(/Hollow squares/)).toBeNull()
   })
 
   it('treats a limit of 0 as no limit', () => {
     render(<Harness cols={[{ uid: 'ready', wip_limit: 0 }, { uid: 'review', wip_limit: 0 }]} />)
     const review = screen.getAllByTestId('flow-column-box')[1]
-    expect(review).toHaveTextContent('7 now')
+    expect(review).toHaveTextContent('9 now')
     expect(review).not.toHaveTextContent('over limit')
     expect(within(review).queryAllByTestId('flow-square-over')).toHaveLength(0)
     expect(buildColumnSelection('review', { cumulative, dwell, wipAge, columns: [{ uid: 'review', wip_limit: 0 }] }).limit).toBeNull()
@@ -178,6 +192,20 @@ describe('the flow row and time bar (#2262)', () => {
     render(<Harness onOpenColumn={onOpen} />)
     await userEvent.click(screen.getAllByTestId('flow-column-box')[1])
     expect(onOpen).toHaveBeenCalledWith('review')
+  })
+
+  it('counts unstarted cards over the limit, and falls back to the samples without wip_count (#2287)', () => {
+    // A To Do of five cards that never moved: no samples, five cards against a limit of 3.
+    const unstarted: FlowWipAge = {
+      ...wipAge, sample_size: 0, samples: [], excluded_incomplete_history: 0,
+      columns: [{ column_uid: 'ready', column_name: 'Ready', wip_count: 5 }, { column_uid: 'review', column_name: 'Review', wip_count: 0 }],
+    }
+    const row = buildFlowRow(cumulative, dwell, unstarted, [{ uid: 'ready', wip_limit: 3 }, { uid: 'review', wip_limit: 5 }])
+    expect(row.map((c) => [c.uid, c.count, c.limit])).toEqual([['ready', 5, 3], ['review', 0, 5]])
+    expect(wipCount(unstarted, 'missing')).toBe(0)
+    const legacy: FlowWipAge = { ...wipAge, columns: wipAge.columns.map(({ column_uid, column_name }) => ({ column_uid, column_name })) }
+    expect(wipCount(legacy, 'review')).toBe(7)
+    expect(wipCount(undefined, 'review')).toBe(0)
   })
 
   it('handles withheld numbers', () => {
@@ -216,7 +244,8 @@ describe('the column drawer (#2262)', () => {
   const selection = buildColumnSelection('review', { cumulative, dwell, wipAge, columns })
 
   it('builds the figures from the responses', () => {
-    expect(selection).toMatchObject({ name: 'Review', limit: 5, count: 7, medianWait: 6.2, pastP85: 7 })
+    expect(selection).toMatchObject({ name: 'Review', limit: 5, count: 9, medianWait: 6.2, pastP85: 7 })
+    expect(selection.cards).toHaveLength(7)
     expect(selection.cards[0].days).toBe(19)
     expect(buildColumnSelection('missing', { cumulative: undefined, dwell: undefined, wipAge: undefined, columns: [] }))
       .toMatchObject({ name: 'this column', count: 0, medianWait: null, pastP85: null })
@@ -244,8 +273,8 @@ describe('the column drawer (#2262)', () => {
     opener.focus()
     await userEvent.click(opener)
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('7 cards in this column now, limit 5')).toBeInTheDocument()
-    expect(within(dialog).getByText('7 of 5')).toBeInTheDocument()
+    expect(within(dialog).getByText('9 cards in this column now, limit 5')).toBeInTheDocument()
+    expect(within(dialog).getByText('9 of 5')).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /movement history/i })).toBeNull()
     const list = within(dialog).getByRole('region', { name: 'Other cards, oldest first' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(5)
@@ -263,9 +292,9 @@ describe('the column drawer (#2262)', () => {
     render(<Host pick={filteredSelection} />)
     await userEvent.click(screen.getByRole('button', { name: 'open it' }))
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('7 cards in this column now')).toBeInTheDocument()
+    expect(within(dialog).getByText('9 cards in this column now')).toBeInTheDocument()
     expect(within(dialog).queryByText(/limit/)).toBeNull()
-    expect(within(dialog).queryByText('7 of 5')).toBeNull()
+    expect(within(dialog).queryByText('9 of 5')).toBeNull()
   })
 
   it('moves focus to the first revealed row after "Show N more", and Tab stays in the drawer', async () => {
@@ -320,6 +349,19 @@ describe('the column drawer (#2262)', () => {
     render(<FlowDrillDrawer boardId={1} selection={unblocked} cards={new Map([[legacy.uid, legacy]])} onChange={() => {}} onClose={() => {}} />)
     const oldest = within(screen.getByRole('dialog')).getByRole('region', { name: 'Oldest card' })
     expect(within(oldest).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('says how many cards in the column have no age and are not listed (#2287)', () => {
+    render(<FlowDrillDrawer boardId={1} selection={selection} cards={new Map(cards.map((c) => [c.uid, c]))} onChange={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('2 cards not listed: no age yet (not started, or missing history).')).toBeInTheDocument()
+    expect(screen.queryByText('No cards in this column now.')).toBeNull()
+  })
+
+  it('lists no cards but keeps the count for a column of unstarted cards', () => {
+    const unstarted = { ...selection, count: 1, cards: [] }
+    render(<FlowDrillDrawer boardId={1} selection={unstarted} cards={new Map()} onChange={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('1 card not listed: no age yet (not started, or missing history).')).toBeInTheDocument()
+    expect(screen.queryByText('No cards in this column now.')).toBeNull()
   })
 
   it('says so for an empty column', async () => {

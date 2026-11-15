@@ -102,7 +102,9 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
         <Connector rate={rate} note="finished" maxRate={maxRate} warn={bottleneckIndex !== -1} />
         <div className="min-w-[110px] bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1 justify-center" data-testid="flow-done-box">
           <span className="text-sm font-semibold text-fg">Done</span>
-          <span className="text-xl font-semibold text-fg font-mono">{throughput ? throughput.total : "—"}</span>
+          {/* completed_in_range (#2288) covers the whole range the caption names; `total` only its whole
+              weeks. The fallback is for a server older than #2288 during a rolling deploy. */}
+          <span className="text-xl font-semibold text-fg font-mono">{throughput ? (throughput.completed_in_range ?? throughput.total) : "—"}</span>
           <span className="text-xs text-fg-tertiary">in {days} days</span>
         </div>
       </div>

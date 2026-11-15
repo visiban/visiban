@@ -4,7 +4,7 @@ import type { Column, FlowCumulativeColumn, FlowCumulativeFlow, FlowDwell, FlowW
 export interface FlowRowColumn {
   uid: string;
   name: string;
-  /** Cards in the column now (aging samples, the same count the aging chart draws). */
+  /** Cards in the column now, the count its WIP limit applies to (`wipCount`). */
   count: number;
   limit: number | null;
   /** Median completed wait; null when withheld. */
@@ -16,6 +16,18 @@ export interface FlowRowColumn {
   /** The connector's one- or two-word note. */
   note: string;
   bottleneck: boolean;
+}
+
+/**
+ * Cards not archived in the column now, as the board's column header counts
+ * them (#2287). The aging samples leave out cards that have not started and
+ * cards with incomplete history, so they are not this count; they are only
+ * the fallback for a server older than #2287, which sends no `wip_count`.
+ */
+export function wipCount(wipAge: Pick<FlowWipAge, "columns" | "samples"> | undefined, uid: string): number {
+  if (!wipAge) return 0;
+  return wipAge.columns.find((c) => c.column_uid === uid)?.wip_count
+    ?? wipAge.samples.filter((s) => s.column_uid === uid).length;
 }
 
 export function connectorNote(index: number, col: Pick<FlowCumulativeColumn, "entered_per_week" | "left_per_week">): string {
@@ -46,7 +58,7 @@ export function buildFlowRow(
     .map((c, index) => ({
       uid: c.column_uid,
       name: c.column_name ?? "Column",
-      count: wipAge?.samples.filter((s) => s.column_uid === c.column_uid).length ?? 0,
+      count: wipCount(wipAge, c.column_uid),
       limit: effectiveLimit(columns.find((col) => col.uid === c.column_uid)?.wip_limit, filtered),
       medianWait: dwell?.columns.find((d) => d.column_uid === c.column_uid)?.percentiles.p50 ?? null,
       enteredPerWeek: c.entered_per_week,

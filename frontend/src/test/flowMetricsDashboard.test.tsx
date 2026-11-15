@@ -98,12 +98,14 @@ const cumulative: FlowCumulativeFlow = {
   ],
   bottleneck_column_uid: 'col-doing',
 }
+// Doing holds four cards (#2287) but only one has an age: two have not
+// started and one has incomplete history, so neither of those has a sample.
 const age: FlowWipAge = {
   definition: 'age definition',
   sample_size: 1,
-  excluded_incomplete_history: 0,
+  excluded_incomplete_history: 1,
   cycle_time_percentiles: { p50: 4, p85: 8, p95: 12 },
-  columns: [{ column_uid: 'col-doing', column_name: 'Doing' }, { column_uid: 'col-review', column_name: 'Review' }],
+  columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 4 }, { column_uid: 'col-review', column_name: 'Review', wip_count: 0 }],
   samples: [{
     card_uid: cardA.uid,
     column_uid: 'col-doing',
@@ -773,11 +775,12 @@ describe('the bottleneck panel (#2261)', () => {
       + 'because 3.5 cards arrive each week and 2 leave.',
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
-    const seeButton = panel.getByRole('button', { name: 'See the 1 card' })
+    const seeButton = panel.getByRole('button', { name: 'See the 4 cards' })
     await userEvent.click(seeButton)
     const drawer = await screen.findByRole('dialog')
     expect(within(drawer).getByRole('heading', { name: 'Doing' })).toBeInTheDocument()
-    expect(within(drawer).getByText('1 card in this column now, limit 3')).toBeInTheDocument()
+    expect(within(drawer).getByText('4 cards in this column now, limit 3')).toBeInTheDocument()
+    expect(within(drawer).getByText('3 cards not listed: no age yet (not started, or missing history).')).toBeInTheDocument()
     expect(within(drawer).getByText('Fix the login')).toBeInTheDocument()
     await userEvent.click(within(drawer).getByRole('button', { name: /close/i }))
     await waitFor(() => expect(seeButton).toHaveFocus())
@@ -794,7 +797,7 @@ describe('the bottleneck panel (#2261)', () => {
     const panel = within(screen.getByTestId('analytics-bottleneck'))
     expect(panel.getByRole('heading', { name: 'Too early to say' })).toBeInTheDocument()
     expect(panel.getByText(
-      "4 cards have finished and no column's queue has grown yet. A bottleneck is named when one does.",
+      "4 cards have finished and no column after the first has a growing queue yet. A bottleneck is named when one does.",
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).not.toContain('border-warning')
   })
@@ -804,7 +807,7 @@ describe('the bottleneck panel (#2261)', () => {
     await renderLoaded()
     const panel = within(screen.getByTestId('analytics-bottleneck'))
     expect(panel.getByRole('heading', { name: 'No bottleneck' })).toBeInTheDocument()
-    expect(panel.getByText("No column's queue grew between Jun 1 and Jun 2.")).toBeInTheDocument()
+    expect(panel.getByText("No column after the first grew its queue between Jun 1 and Jun 2. The first column is where new work arrives, so it is never named.")).toBeInTheDocument()
   })
 
   it('leaves out what the server did not return', () => {
@@ -885,7 +888,7 @@ describe('the headline tiles (#2261)', () => {
       age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
     })
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
-    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column's queue grew in this period.")
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column after the first grew its queue in this period. The first column is where new work arrives, so it is never named.")
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
     await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
@@ -991,18 +994,29 @@ describe('share of the cycle and limits (#2261)', () => {
     expect(shareOfCyclePhrase(0.05)).toBe('a small part of the whole cycle')
   })
 
-  it('counts columns over their limit, ignoring columns without one', () => {
+  it('counts unstarted cards against the limit (#2287)', async () => {
+    // A column of five cards that never moved: no aging samples, but over a limit of 3.
+    mockAll({ age: { ...age, sample_size: 0, samples: [], columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 5 }] } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }] })
+    const wipTile = screen.getByRole('heading', { name: 'Work in progress', level: 3 }).closest('div')!.parentElement as HTMLElement
+    expect(wipTile).toHaveTextContent('1 column over its limit.')
+    expect(columnsOverLimit({ columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 5 }], samples: [] }, [
+      { uid: 'col-doing', wip_limit: 3 },
+    ])).toBe(1)
+  })
+
+  it('counts columns over their limit from the aging samples when the server sends no wip_count', () => {
     const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }, { ...age.samples[0], column_uid: 'col-review' }]
-    expect(columnsOverLimit({ samples }, [
+    expect(columnsOverLimit({ columns: [], samples }, [
       { uid: 'col-doing', wip_limit: 1 }, { uid: 'col-review', wip_limit: 1 }, { uid: 'col-qa', wip_limit: null },
     ])).toBe(1)
   })
 
   it('treats a limit of 0 or null as no limit and counts a real limit', () => {
     const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }]
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
   })
 
   it('leaves "against a limit" out of the bottleneck sentence for a limit of 0', () => {

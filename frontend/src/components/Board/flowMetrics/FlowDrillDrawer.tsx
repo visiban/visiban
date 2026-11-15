@@ -291,7 +291,13 @@ function ColumnBody({
           )}
         </section>
       )}
-      {selection.cards.length === 0 && <p className="text-xs text-fg-tertiary">No cards in this column now.</p>}
+      {selection.count === 0 && <p className="text-xs text-fg-tertiary">No cards in this column now.</p>}
+      {/* The count is every card in the column (#2287); only cards with an age are listed. */}
+      {selection.count > selection.cards.length && (
+        <p className="text-xs text-fg-tertiary">
+          {pluralize(selection.count - selection.cards.length, "card")} not listed: no age yet (not started, or missing history).
+        </p>
+      )}
     </div>
   );
 }

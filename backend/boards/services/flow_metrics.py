@@ -1053,9 +1053,15 @@ def age(flow, flow_range):
     position = {c.uid: c.position for c in flow.columns}
     in_progress = []
     excluded = 0
+    # The live WIP per column (#2287): every card not archived in the column,
+    # the count the board's column header holds against its WIP limit. The
+    # samples leave out cards that have not started and cards with broken
+    # history, so they cannot be that count.
+    wip_counts: dict[str, int] = {}
     for card in flow.cards:
         if card.archived_at is not None or card.column_uid in flow.done_uids:
             continue
+        wip_counts[card.column_uid] = wip_counts.get(card.column_uid, 0) + 1
         if not card.complete_history:
             excluded += 1
         elif card.age_start is not None:
@@ -1084,7 +1090,10 @@ def age(flow, flow_range):
         "cycle_time_percentiles": cycle_time(flow, flow_range)["percentiles"],
         # Additive to the ADR's shape: the chart's x-axis, so an empty column
         # keeps its place and the client needs no second source of order.
-        "columns": [{"column_uid": c.uid, "column_name": c.name} for c in _column_entries(flow)],
+        "columns": [
+            {"column_uid": c.uid, "column_name": c.name, "wip_count": wip_counts.get(c.uid, 0)}
+            for c in _column_entries(flow)
+        ],
         "samples": samples,
     }
 
@@ -1192,7 +1201,13 @@ def _periods(flow_range, period):
 
 
 def throughput(flow, flow_range, period="week"):
-    """Completions per whole UTC day or ISO week. Zero periods count toward the median."""
+    """Completions per whole UTC day or ISO week. Zero periods count toward the median.
+
+    ``total`` sums the whole periods, so a partial week at either end of the
+    range is in neither. ``completed_in_range`` (#2288) counts the first
+    completions in ``[start, end)`` instead, the window the cycle-time sample
+    uses, so the Analytics Done box and its "in N days" caption agree.
+    """
     periods = _periods(flow_range, period)
     index_of_day = {}
     for index, (first, last) in enumerate(periods):
@@ -1224,6 +1239,7 @@ def throughput(flow, flow_range, period="week"):
         "definition": DEFINITIONS["throughput"],
         "period": period,
         "total": sum(counts),
+        "completed_in_range": sum(1 for card in completed if flow_range.contains(card.completion_at)),
         "median": percentile(counts, 50),
         "samples": samples,
     }
