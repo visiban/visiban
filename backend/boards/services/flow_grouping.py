@@ -141,8 +141,10 @@ class GroupedFlow:
         self.flow = flow
         self.grouping = grouping
         active = {}
+        active_uids = set()
         for card in flow.cards:
             if _is_active(flow, flow_range, card):
+                active_uids.add(card.uid)
                 for key in grouping.keys_by_card.get(card.id, ()):
                     active[key] = active.get(key, 0) + 1
         ranked = sorted(active, key=lambda key: (-active[key], grouping.order[key]))
@@ -155,7 +157,8 @@ class GroupedFlow:
         self.excluded_cards = []
         # True when some card in the flow sits in two or more groups (labels), so
         # group sizes can add up to more than an endpoint's ungrouped total. It is
-        # computed over every card in the flow, not per endpoint (#2297).
+        # computed over the cards active in the range (the ones ranked above), not
+        # the board's whole history and not per endpoint (#2297).
         self.overlapping = False
         self.slots_by_uid = {}
         self.keys_by_uid = {}
@@ -167,7 +170,7 @@ class GroupedFlow:
             slots = sorted({slot_of_key[k] for k in keys})
             self.keys_by_uid[card.uid] = keys
             self.slots_by_uid[card.uid] = slots
-            if len(slots) > 1:
+            if card.uid in active_uids and len(slots) > 1:
                 self.overlapping = True
             if not slots:
                 self.excluded_cards.append(card)

@@ -529,9 +529,9 @@ def _grouping_field(prefix, aggregates):
             ),
             "overlapping": serializers.BooleanField(
                 help_text=(
-                    "True when at least one of the board's cards in the range counts in two or more "
+                    "True when at least one of the cards active in the range counts in two or more "
                     "groups (label grouping), so group sizes can add up to more than an endpoint's "
-                    "ungrouped total. It reflects label overlap across all those cards, not per endpoint."
+                    "ungrouped total. It reflects label overlap across the cards active in the range, not per endpoint."
                 ),
             ),
             "groups": inline_serializer(
@@ -1202,7 +1202,7 @@ class BoardAnalyticsMixin:
                     queryset=CardMovement.objects.filter(
                         moved_at__gte=buffer_cutoff
                     ).only(
-                        "card_id", "from_column_id", "to_column_id", "moved_at"
+                        "card_id", "to_column_id", "moved_at"
                     ).order_by("moved_at"),
                 )
             )

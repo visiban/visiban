@@ -2953,6 +2953,16 @@ class GroupingEdgeCaseTests(GroupingFixture):
                 self.assertIs(self.get(metric, group_by="label")["grouping"]["overlapping"], True)
                 self.assertIs(self.get(metric, group_by="swimlane")["grouping"]["overlapping"], False)
 
+    def test_overlapping_ignores_cards_that_finished_before_the_range(self):
+        red, blue = Label.objects.create(board=self.board, name="red"), Label.objects.create(board=self.board, name="blue")
+        self.wip().labels.add(red)
+        old = self.path(self.backlog, 210, self.doing, 205, self.done, 200)
+        old.labels.add(red, blue)
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric):
+                body = self.get(metric, group_by="label", days=30)
+                self.assertIs(body["grouping"]["overlapping"], False)
+
     def test_checkbox_groups_and_per_group_sample_sizes(self):
         flag = self.field(field_type=CustomFieldDefinition.FieldType.CHECKBOX)
         for _ in range(2):
