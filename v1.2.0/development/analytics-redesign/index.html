@@ -4793,6 +4793,7 @@
 <ul>
 <li>A ranked list of block reasons, longest total first.</li>
 <li>Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked, in the danger color.</li>
+<li>The subtitle is computed from the data (#2282). With one reason: "Every blocked day had the same reason." Top share of <code>total.days</code> (unrounded) at least 50%: "One reason accounts for more than half of all blocked time." At least 40% and under 50%: "One reason accounts for nearly half of all blocked time." Otherwise, or when <code>total.days</code> is 0: "Block reasons over the last N days, longest first."</li>
 <li>A footnote says where most blocks started.</li>
 <li>Renders nothing when no block overlapped the period, as today.</li>
 </ul>
