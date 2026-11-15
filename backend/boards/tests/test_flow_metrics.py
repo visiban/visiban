@@ -586,6 +586,37 @@ class CumulativeFlowTests(FlowFixture):
             self.path(self.backlog, 20, self.done, 2)  # done grows most, and never counts
         self.assertEqual(fm.cumulative_flow(self.flow(), self.last(10))["bottleneck_column_uid"], self.doing.uid)
 
+    def test_bottleneck_never_names_the_intake_column(self):
+        # Six cards arrive in Backlog; three sit in Review from before the window.
+        for _ in range(6):
+            self.path(self.backlog, 5)
+        for _ in range(3):
+            self.path(self.backlog, 40, self.review, 30)
+        self.assertEqual(fm.cumulative_flow(self.flow(), self.last(10))["bottleneck_column_uid"], None)
+
+    def test_growing_backlog_and_growing_review_names_review(self):
+        for _ in range(6):
+            self.path(self.backlog, 5)
+        for _ in range(2):
+            self.path(self.backlog, 20, self.review, 5)
+        payload = fm.cumulative_flow(self.flow(), self.last(10))
+        self.assertEqual(payload["bottleneck_column_uid"], self.review.uid)
+
+    def test_a_tie_across_three_columns_goes_to_the_earliest_non_intake_column(self):
+        qa = Column.objects.create(board=self.board, name="QA", position=5)
+        self.path(self.backlog, 20, qa, 2)
+        self.path(self.backlog, 20, self.review, 2)
+        self.path(self.backlog, 20, self.doing, 2)
+        for _ in range(4):
+            self.path(self.backlog, 5)  # the intake grows most and still never counts
+        self.assertEqual(fm.cumulative_flow(self.flow(), self.last(10))["bottleneck_column_uid"], self.doing.uid)
+
+    def test_a_board_with_one_not_done_column_has_no_bottleneck(self):
+        Column.objects.filter(pk__in=[self.doing.pk, self.review.pk]).update(is_done=True)
+        for _ in range(3):
+            self.path(self.backlog, 5)
+        self.assertIsNone(fm.cumulative_flow(self.flow(), self.last(10))["bottleneck_column_uid"])
+
     def test_bottleneck_tie_goes_to_the_earlier_column(self):
         self.path(self.backlog, 20, self.review, 2)
         self.path(self.backlog, 20, self.doing, 2)
@@ -668,7 +699,6 @@ class AgeResponseTests(FlowFixture):
         self.assertEqual(
             sample["dwell_by_column"],
             [
-                {"column_uid": self.backlog.uid, "value_days": 2},
                 {"column_uid": self.doing.uid, "value_days": 6},
                 {"column_uid": self.review.uid, "value_days": 2},
             ],
@@ -684,11 +714,24 @@ class AgeResponseTests(FlowFixture):
         self.assertEqual(
             sample["dwell_by_column"],
             [
-                {"column_uid": self.backlog.uid, "value_days": 2},
                 {"column_uid": self.doing.uid, "value_days": 3},
                 {"column_uid": None, "value_days": 5},
             ],
         )
+
+    def test_dwell_total_equals_age_and_leaves_out_time_before_the_age_clock(self):
+        # Created 10 days ago, picked up 8 days ago: the 2 days in Backlog precede the age.
+        card = self.path(self.backlog, 10, self.doing, 8)
+        sample = self.by_card(fm.age(self.flow(), self.last()))[card.uid]
+        self.assertEqual(sample["value_days"], 8)
+        self.assertEqual(sample["dwell_by_column"], [{"column_uid": self.doing.uid, "value_days": 8}])
+        self.assertAlmostEqual(sum(d["value_days"] for d in sample["dwell_by_column"]), sample["value_days"])
+
+    def test_dwell_after_a_reopen_counts_only_the_current_cycle(self):
+        card = self.path(self.backlog, 20, self.doing, 15, self.done, 10, self.review, 5)
+        sample = self.by_card(fm.age(self.flow(), self.last()))[card.uid]
+        self.assertEqual(sample["value_days"], 5)
+        self.assertEqual(sample["dwell_by_column"], [{"column_uid": self.review.uid, "value_days": 5}])
 
     def test_samples_are_ordered_by_column_then_oldest_first(self):
         young = self.path(self.backlog, 10, self.doing, 2)

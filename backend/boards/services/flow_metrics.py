@@ -821,12 +821,22 @@ def column_entered_at(flow):
     return entered
 
 
-def _dwell_by_column(flow, card):
-    """The card's measured visits summed per column key, in order of first entry."""
+def _dwell_by_column(flow, card, since=None):
+    """The card's measured visits summed per column key, in order of first entry.
+
+    With ``since`` each visit is clipped to ``[since, now]`` (#2292): the drawer
+    passes the card's ``age_start`` so the per-column shares sum to the age and
+    time before the age clock started, or in an earlier cycle, is not counted.
+    """
     totals: dict[object, float] = {}
     for visit in card.visits:
         if visit.key in flow.done_uids or not visit.measured:
             continue
+        if since is not None:
+            end = visit.end if visit.end is not None else flow.now
+            if end <= since:
+                continue
+            visit = Visit(key=visit.key, start=max(visit.start, since), end=visit.end, measured=True)
         value = visit.value_days(flow.now)
         if value is not None:
             totals[visit.key] = totals.get(visit.key, 0.0) + value
@@ -1058,7 +1068,7 @@ def age(flow, flow_range):
             "column_uid": card.column_uid,
             "value_days": _days_between(card.age_start, flow.now),
             "start": _iso(card.age_start),
-            "dwell_by_column": _dwell_by_column(flow, card),
+            "dwell_by_column": _dwell_by_column(flow, card, since=card.age_start),
             # Additive to the ADR's sample for the drawer's blocked time and
             # the chart's square mark.
             "is_blocked": card.id in blocked,
@@ -1232,9 +1242,14 @@ def _cfd_columns(flow):
 
 
 def _bottleneck(flow, first_counts, last_counts):
-    """The current not-done column that grew most across the window; earlier position wins a tie."""
+    """The current not-done column that grew most across the window; earlier position wins a tie.
+
+    The board's first not-done column is the intake: new work arriving there is
+    not a queue that is failing to drain, so it never counts (#2290). A board
+    with one not-done column therefore has no bottleneck.
+    """
     best, best_growth = None, 0
-    for column in _column_entries(flow):
+    for column in _column_entries(flow)[1:]:
         growth = last_counts[column.uid] - first_counts[column.uid]
         if growth > best_growth:
             best, best_growth = column.uid, growth

@@ -124,7 +124,7 @@ A filter change refreshes every panel once. The panels keep showing the previous
 
 ### Bottleneck
 
-The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart) and states its numbers in one sentence:
+The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart; the first in-progress column, where new work arrives, is never named) and states its numbers in one sentence:
 
 - **Median wait:** the 50th percentile of completed time in that column ([dwell](#flow-metric-definitions)).
 - **Share of the cycle:** the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.
@@ -169,14 +169,14 @@ Four charts built from the movement log, so you can see how long work takes and 
 |---|---|---|
 | **Cycle time** | How long finished work took. "85th · 8.1d" means 85% of these cards took 8.1 days or less. | One point per finished card. 50th percentile dashed, 85th solid and heavier, 95th dotted. A hollow point was reopened after finishing, and keeps its first finish. |
 | **Throughput** | How many cards finish per week. | One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a **Started** column. Started under-reports on imported boards. Today's unfinished week is left out, so a partial week never reads as a slow one. |
-| **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, named in a small key under the chart. The Done band is gray. |
+| **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, leaving out the first column that is not done (where new work arrives), named in a small key under the chart. The Done band is gray. |
 | **WIP aging** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. Dots are gray up to the 50th percentile, orange past it, and red past the 85th percentile. A ringed card is past the 85th percentile, a square is blocked, so color is never the only cue. A key under the chart shows each gray, orange and red tier that has a dot on screen (under a breakdown the dots take group colors, so no tier key appears) and a "Blocked card" entry for the square. |
 
 **Too few cards.** A percentile line appears only with enough cards behind it: the 50th needs 5, the 85th needs 7 and the 95th needs 20. Until then the chart leaves that line out and says so, rather than presenting one card's time as a trend. The throughput median needs five whole weeks.
 
 **What is left out.** A card with missing or broken history (for example, imported without its history) has no cycle time or age, and the chart says how many were left out. It still counts toward throughput once it reaches a done column. Blocked time is part of cycle time and age, never subtracted, because the wait is real.
 
-**See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column. **Open card** opens the card; an archived card has no **Open card**.
+**See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column, counted from when the card's age started so the columns add up to the days in progress. **Open card** opens the card; an archived card has no **Open card**.
 
 **Keyboard.** Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.
 
