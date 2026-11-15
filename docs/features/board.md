@@ -86,7 +86,7 @@ Click the chevron on the band to collapse a swimlane and save vertical space. Wh
 - Under each column the strip shows the swimlane's card count (an en dash when there are none) and one small square per card: red for overdue, orange for stale, blue otherwise. The number is always there, so the squares never carry meaning alone; screen readers read `Qualified: 4 cards, 1 overdue, 2 stale`. A card in a done column never counts as stale.
 - While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).
 - A calm row-limit line is hidden, and an over-limit one stays.
-- The edit (✎) button is hidden; the drag handle and the focus-mode crosshair remain.
+- The edit (✎) button, drag handle and focus-mode crosshair remain.
 - Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's collapse menu (**Hide all swimlanes** and **Show all swimlanes**).
 
 Admins can double-click the swimlane band to open the Edit Swimlane modal.

@@ -229,7 +229,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     setRenaming(true);
   };
 
-  // Lane health status (#2243). The set pill (under the name) and the unset
+  // Lane health status (#2243). The set pill (after the name) and the unset
   // icon (right-hand cluster) are different elements, so a save that swaps
   // them hands focus to the new one explicitly, and the announcement lives
   // here because the control that saved may unmount.
@@ -357,7 +357,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           data-tour-step="swimlane"
           data-testid="swimlane-band"
           data-no-pan
-          onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
+          // A double-click on a control inside the band (rename input, chevron, +N, icons) is
+          // that control's own gesture, never "open Edit Swimlane".
+          onDoubleClick={isAdmin ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, [role=button]")) setEditing(true); } : undefined}
         >
           {/* Over-WIP top accent (#1150): an inset line, so the band does not grow. */}
           {limitState === "overWip" && (
@@ -419,7 +421,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   type="button"
                   ref={renameTriggerRef}
                   className="block max-w-full truncate text-left font-semibold cursor-text rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  title="Click to rename"
+                  title={`${swimlane.name} (click to rename)`}
                   onClick={(e) => { e.stopPropagation(); startRenaming(); }}
                 >
                   {swimlane.name}
@@ -523,7 +525,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 />
               </span>
             )}
-            {!collapsed && isAdmin && (
+            {isAdmin && (
               <button type="button"
                 onClick={() => setEditing(true)}
                 className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
@@ -669,7 +671,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div key={col.id} className="contents">
                 {sep}
                 <div
-                  className={`shrink-0 flex flex-wrap content-center items-center gap-x-2 gap-y-1 rounded-lg bg-canvas px-3 py-2.5 min-h-10${hasMatch ? " animate-pulse motion-reduce:animate-none" : ""}`}
+                  className={`shrink-0 flex flex-wrap content-center items-center gap-x-2 gap-y-1 rounded-lg bg-canvas px-3 py-2.5 min-h-10${hasMatch ? " animate-pulse motion-reduce:animate-none ring-1 ring-inset ring-info/50" : ""}`}
                   style={{ width: cellWidth }}
                   data-testid={`swimlane-strip-cell-${col.id}`}
                 >

@@ -13,7 +13,7 @@ interface Props {
    * `chip` — legacy bordered pill (#371 Direction A); test-only, no production
    * call site (the card face renders its own inline chip in CardItem). `detail` — plain
    * text inside the card-detail read-only section. `row-chip` — the swimlane
-   * label-panel chip (#1140). Peek-popover text does *not* go through this
+   * chip (#1140, replaced in the band by `band`). Peek-popover text does *not* go through this
    * component — it's a single joined line of plain strings, formatted
    * directly via `formatCustomFieldValue` in `CardPeekPopover`, not JSX.
    */
@@ -100,10 +100,8 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
     // with no border or pill, label in tertiary text and value in the body color.
     const band = variant === "band";
     // Same neutral bordered chip as the card face — not a fourth pill
-    // treatment. Two deviations the surface forces: the swimlane label panel
-    // is a ~220px *vertical* column, so chips stack and each owns a full
-    // line (max-w-full, not max-w-[10rem]) and can afford 20 characters
-    // rather than 16.
+    // treatment. Two deviations the surface forces: the swimlane header band
+    // (#2271) has room, so a value gets max-w-full and 20 characters rather than 16.
     // overflow-hidden is a backstop, not the truncation mechanism: every child
     // keeps min-w-0 + truncate, and py-0.5 must stay >= the 2px focus ring.
     return (
@@ -124,7 +122,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}{band ? "" : ":"}</span>
         )}
         {isUrl ? (
-          // stopPropagation: the row label panel is a double-click-to-edit
+          // stopPropagation: the swimlane band is a double-click-to-edit
           // surface for admins, and the link must not select or edit the row.
           <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
         ) : multiEntries ? (

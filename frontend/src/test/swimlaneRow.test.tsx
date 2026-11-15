@@ -182,11 +182,11 @@ describe('SwimlaneRow', () => {
     expect(screen.queryByText('a@test.com')).not.toBeInTheDocument()
   })
 
-  it('collapsed=true hides edit button', () => {
+  it('collapsed=true keeps the edit button (#2271)', () => {
     const props = defaultProps()
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    expect(screen.queryByTitle('Edit swimlane')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
   })
 
   it('collapsed=true shows nothing for empty cells', () => {
@@ -200,6 +200,15 @@ describe('SwimlaneRow', () => {
   it('shows edit button for admin', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+  })
+
+  it('keeps the edit button on a collapsed lane, and a double-click on a control does not open the modal', async () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
+    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+    await userEvent.setup().dblClick(screen.getByTitle('Expand Customer A'))
+    expect(screen.queryByTestId('edit-swimlane-modal')).not.toBeInTheDocument()
   })
 
   it('hides edit button for non-admin', () => {
