@@ -2123,8 +2123,9 @@ class GroupingLabelAndFieldTests(GroupingFixture):
         )
         # Each unit counts once per distinct group its card lands in: the
         # multi-label card is in L0 and in Other, so each of its units adds one
-        # over the ungrouped total. Dwell counts visits (backlog and doing).
-        extra = {"cycle-time": 1, "throughput": 1, "wip-age": 1, "dwell": 2}
+        # over the ungrouped total. Dwell counts closed visits: the completed one has two,
+        # the in-progress one its closed backlog visit.
+        extra = {"cycle-time": 1, "throughput": 1, "wip-age": 1, "dwell": 3}
         for metric in GROUPED_METRICS:
             with self.subTest(metric=metric):
                 grouped = self.get(metric, group_by="label")
