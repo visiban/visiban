@@ -41,6 +41,8 @@ describe('Needs attention (#2263)', () => {
     expect(rows[0]).toHaveTextContent('Card 1')
     expect(rows[2]).toHaveTextContent('Review · Mobile · no movement for 9 days')
     expect(rows[2]).toHaveTextContent('9d')
+    expect(within(rows[2]).getByLabelText('9 days without movement')).toBeInTheDocument()
+    expect(within(rows[0]).getByLabelText('12 days old')).toBeInTheDocument()
   })
 
   it('colors age danger past the 85th percentile and warning otherwise', () => {

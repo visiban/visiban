@@ -3,8 +3,13 @@ import { formatBlockedDuration } from "../../../utils/blockedState";
 import { PanelPlaceholder } from "./FlowChartPanels";
 import type { Result } from "./useAnalyticsOverviewData";
 
-/** Blocked time for display: hours under a day, never a misleading "0d". */
-const blockedTimeText = (days: number) => formatBlockedDuration(days * 86_400_000, 1);
+/**
+ * Blocked time for display: one decimal from a day up (6.5d, as the redesign
+ * draws it; `formatBlockedDuration` would floor it to "6d"), hours below a day,
+ * never a misleading "0d".
+ */
+export const blockedTimeText = (days: number) =>
+  days >= 1 ? `${Math.round(days * 10) / 10}d` : formatBlockedDuration(days * 86_400_000, 1);
 
 interface Props {
   /** Undefined until the first answer. */

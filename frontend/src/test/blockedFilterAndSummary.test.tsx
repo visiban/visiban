@@ -231,6 +231,26 @@ describe('Analytics blocked time (#1149), from metrics/blocked (#2261)', () => {
     expect((bars[2] as HTMLElement).style.width).toBe('2%')
   })
 
+  it('shows one decimal from a day up and hours below it', async () => {
+    vi.mocked(getFlowBlocked).mockResolvedValue({
+      ...none,
+      total: { days: 9.5, blocks: 5 },
+      columns: [{ column_uid: 'c1', column_name: 'Doing', days: 9.5, blocks: 5 }],
+      reasons: [
+        { reason: 'A', days: 6.5, blocks: 2 },
+        { reason: 'B', days: 2.5, blocks: 2 },
+        { reason: 'C', days: 0.5, blocks: 1 },
+      ],
+      reason_count: 3,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const section = await screen.findByTestId('analytics-blocked')
+    const items = within(section).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('A6.5d · 2')
+    expect(items[1]).toHaveTextContent('B2.5d · 2')
+    expect(items[2]).toHaveTextContent('C12h · 1')
+  })
+
   it('renders no section when nothing was blocked', async () => {
     vi.mocked(getFlowBlocked).mockResolvedValue(none)
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)

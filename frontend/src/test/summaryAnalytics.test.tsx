@@ -750,6 +750,19 @@ const attentionPayload = (items: { id: number; title: string; days: number }[]):
   cards: items.map((c) => ({ uid: `uid-${c.id}`, id: c.id, title: c.title, archived: false, assignee: null })),
 })
 
+describe('AnalyticsView passes column names to Needs attention (#2263)', () => {
+  it('shows the column name on a row', async () => {
+    vi.clearAllMocks()
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 90, columns: [], swimlanes: [], stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
+    })
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([{ id: 7, title: 'Slow Card', days: 20 }]))
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={[{ id: 1, name: 'Mobile' }]} columns={[{ uid: 'col', name: 'Doing', wip_limit: null }]} />)
+    expect(await screen.findByText('Slow Card')).toBeInTheDocument()
+    expect(screen.getByText(/Doing · Mobile/)).toBeInTheDocument()
+  })
+})
+
 describe('AnalyticsView keeps the Overview mounted (#448, #2261)', () => {
   beforeEach(() => {
     vi.clearAllMocks()

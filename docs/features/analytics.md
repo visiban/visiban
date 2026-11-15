@@ -196,10 +196,10 @@ Analytics includes archived cards as part of the historical record.
 
 ### Needs attention
 
-Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card appears once, oldest first. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. Five rows show at first; **All N cards** expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.
+Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. Five rows show at first; **All N cards** expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.
 
 - **Default threshold:** the board's `staleness_threshold_days`.
-- **Override:** pass the `stalled_days` query parameter to the analytics endpoint. It affects only that endpoint's stalled list, not the heatmap coloring.
+- **Override:** none. This list always uses the board's threshold. The `stalled_days` query parameter applies only to the analytics endpoint's own stalled list, not to this list or to the heatmap coloring.
 - **Filters:** the list follows the page's [filters](#filters); it is built from `GET /api/v1/boards/{id}/metrics/attention/`.
 - **Excluded:** archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.
 

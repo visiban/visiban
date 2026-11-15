@@ -17,7 +17,7 @@ interface Props {
   swimlanes?: { id: number; name: string }[];
   labels?: { id: number; name: string }[];
   /** The board's columns: WIP limits for the bottleneck panel and tiles (#2261). */
-  columns?: Pick<Column, "uid" | "wip_limit">[];
+  columns?: (Pick<Column, "uid" | "wip_limit"> & { name?: string })[];
   /** Shown in the title row. */
   boardName?: string;
   /** "Go to board" and "Open on board" switch back to the board. */

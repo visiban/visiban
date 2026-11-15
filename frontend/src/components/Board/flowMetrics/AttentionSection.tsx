@@ -87,7 +87,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
                   <span className="block text-sm font-medium text-fg truncate" title={title}>{title}</span>
                   <span className="block text-xs text-fg-tertiary group-hover:text-fg-secondary truncate" title={where}>{where}</span>
                 </span>
-                <span aria-label={`${days(age(item))} old`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
+                <span aria-label={item.age_days !== null ? `${days(age(item))} old` : `${days(age(item))} without movement`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
                   {Math.round(age(item))}d
                 </span>
               </>
