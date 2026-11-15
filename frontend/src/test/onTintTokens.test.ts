@@ -936,3 +936,30 @@ describe('InviteLinkPanel dimmed rows (#2030)', () => {
     expect(ratio(rgbOf(block, 'danger'), rgbOf(block, "surface-sunken"))).toBeGreaterThanOrEqual(min)
   })
 })
+
+// #2264: the Analytics chart colors (chartScale.ts) against the panel face (`bg-surface`). Marks and strokes are
+// graphical objects (WCAG 1.4.11, 3:1). `neutralTint` (the Done band's fill, built on `border-strong`) is NOT held
+// to it: 2.56:1 light, 1.93:1 dark before any alpha. The band is also stroked `fg-tertiary` (the neutral color) and
+// directly labeled at its right edge, so the fill is decoration and the stroke and label carry the band.
+describe('Analytics chart colors on the panel surface (#2264)', () => {
+  const marks: [string, number, number][] = [
+    // token, dark ratio, light ratio
+    ['primary-emphasis', 3.98, 3.68],
+    ['warning', 6.46, 5.18],
+    ['danger', 5.29, 4.83],
+    ['fg-tertiary', 5.71, 7.58],
+  ]
+  it.each(marks)('%s holds 3:1 for strokes and marks in both themes (pinned)', (token, dark, light) => {
+    const d = ratio(rgbOf(darkBlock, token), rgbOf(darkBlock, 'surface'))
+    const l = ratio(rgbOf(lightBlock, token), rgbOf(lightBlock, 'surface'))
+    expect(d).toBeCloseTo(dark, 2)
+    expect(l).toBeCloseTo(light, 2)
+    expect(d).toBeGreaterThanOrEqual(3)
+    expect(l).toBeGreaterThanOrEqual(3)
+  })
+
+  it('the neutralTint base is below 3:1, which is why the Done band is stroked and labeled (recorded exception)', () => {
+    expect(ratio(rgbOf(darkBlock, 'border-strong'), rgbOf(darkBlock, 'surface'))).toBeCloseTo(1.93, 2)
+    expect(ratio(rgbOf(lightBlock, 'border-strong'), rgbOf(lightBlock, 'surface'))).toBeCloseTo(2.56, 2)
+  })
+})
