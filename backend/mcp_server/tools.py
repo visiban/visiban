@@ -1335,13 +1335,19 @@ def _flow_args_errors(board, *, window_days=None, swimlane_id=None, percentile=N
 def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     """Cycle time, weekly throughput, WIP per column and blocked time for a board.
 
-    Every board role may call it. Cycle time and throughput are the REST
-    ``metrics/cycle-time`` and ``metrics/throughput`` responses, WIP and blocked
-    time come from the same service, all minus their per-card
-    lists (``samples``, ``card_uids``), which would make the payload scale with
-    the board. Percentiles stay ``null`` below the service's sample-size rule,
-    and throughput counts whole ISO weeks only, so a short window yields few or
-    no weeks (under five, the weekly median is null); both are passed through unchanged.
+    Every board role may call it. Only cycle time and throughput are the REST
+    ``metrics/cycle-time`` and ``metrics/throughput`` responses, minus their
+    per-card lists (``samples``, ``card_uids``), which would make the payload
+    scale with the board. WIP and blocked time come from the same service but
+    match no REST response: WIP is ``flow_metrics.wip``, and ``blocked`` is the
+    older ``blocked_time`` shape the ``/analytics/`` response serves (days
+    rounded to 0.1, keyed by column name, reasons ranked by block count), not
+    ``metrics/blocked``. It is cut by ``swimlane_id`` like the rest, because
+    ``_block_spans`` reads the flow's swimlane (#2280). Percentiles stay
+    ``null`` below the service's sample-size rule, and throughput counts whole
+    ISO weeks only, dropping the partial week at each end of the window, so a
+    short window yields few or no weeks (under five, the weekly median is
+    null); both are passed through unchanged.
     """
     user = get_current_user()
     try:
