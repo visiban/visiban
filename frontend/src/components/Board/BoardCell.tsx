@@ -118,9 +118,11 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // The cell becomes the keyboard-reachable creation surface when it has nothing
   // in it (#962). Tab → empty cell → Enter / Space opens the new-card input. The
   // dashed border + centered "+ Add card" overlay gives Sam a discoverable click
-  // target on day one. Populated cells fall back to the dense layout with the
-  // unobtrusive bottom-aligned button.
+  // target on day one. Populated cells keep the dense layout, but their "+ Add card"
+  // button grows to fill the cell's remaining height (#2319), so blank well space below the
+  // cards behaves like an empty cell: dashed edge and "Add card" label on hover, click adds.
   const isEmptyAddable = cards.length === 0 && !adding && column.allow_card_creation && canEdit;
+  const isPopulatedAddable = cards.length > 0 && !adding && column.allow_card_creation && canEdit;
   const startAdding = () => setAdding(true);
   const canAdd = column.allow_card_creation && canEdit;
   useEffect(() => {
@@ -186,6 +188,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // edge and the "Add card" label on hover or focus.
       className={`group/cell relative shrink-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
         isOver && isDraggingCard && !blockedBy ? "bg-surface-hover/40" : "bg-canvas"
+      } ${isPopulatedAddable ? "flex flex-col" : ""
       } ${blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : ""
       } ${
         isEmptyAddable ? "cursor-pointer hover:border-dashed hover:border-line-strong focus:border-dashed focus:border-line-strong hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
@@ -328,18 +331,23 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </div>
       )}
 
-      {/* Populated-cell affordance — bottom-aligned, low-key. Stays as a separate
-          button so a focused card stack can Tab into "+ Add card" without the
-          whole cell intercepting Enter. */}
-      {column.allow_card_creation && canEdit && !adding && cards.length > 0 && (
+      {/* Populated-cell affordance (#2319) — a real button that fills the cell's remaining
+          height (the swimlane row stretches cells to the tallest neighbor), so the blank space
+          below the cards offers the same dashed hover edge and "+ Add card" label as an empty
+          cell. Still ONE tab stop. During a drag it stays in layout but is invisible and inert
+          so the drop indicator owns the cell. */}
+      {isPopulatedAddable && (
         <button
           ref={addButtonRef}
+          type="button"
+          aria-label="+ Add card"
           onClick={() => setAdding(true)}
           // On an overlay tint fg-faint sinks out of sight, and this button sits on the
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
-          className={`relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+          className={`group/addbtn relative flex-1 min-h-7 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-hover/30 focus-visible:border-dashed focus-visible:border-line-strong focus-visible:bg-surface-hover/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-emphasis ${active ? "invisible pointer-events-none" : ""}`}
         >
-          + Add card
+          <span aria-hidden="true" className="text-base leading-none">+</span>
+          <span aria-hidden="true" className="hidden group-hover/addbtn:inline group-focus-visible/addbtn:inline ml-1.5">Add card</span>
         </button>
       )}
     </div>
