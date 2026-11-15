@@ -157,6 +157,8 @@ describe('Break down by control (#2268)', () => {
     const group = screen.getByRole('group', { name: 'Break down by' })
     const buttons = within(group).getAllByRole('button')
     expect(buttons.map((b) => b.textContent)).toEqual(['None', 'Swimlane', 'Label', 'Size', 'Urgent?'])
+    // A bordered control with a hover fill rests on bg-surface so the page ground never shows through it (#2311).
+    expect(group.className).toContain('bg-surface')
     expect(buttons[0]).toHaveAttribute('aria-pressed', 'true')
     expect(within(buttons[0]).getByTestId('active-mark')).toBeInTheDocument()
     expect(within(buttons[1]).queryByTestId('active-mark')).toBeNull()
@@ -426,7 +428,7 @@ const lum = (c: number[]) => {
 const ratio = (a: number[], b: number[]) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05) }
 
 describe('--chart-cat-* tokens (#2268)', () => {
-  const surfaces = ['surface', 'surface-sunken', 'canvas', 'surface-hover']
+  const surfaces = ['surface', 'surface-sunken', 'surface-page', 'canvas', 'surface-hover']
   const names = [1, 2, 3, 4, 5].map((n) => `chart-cat-${n}`)
   it.each([['dark', darkBlock], ['light', lightBlock]])('clears 3:1 on every surface in the %s theme', (_t, block) => {
     for (const n of names) for (const s of surfaces) {

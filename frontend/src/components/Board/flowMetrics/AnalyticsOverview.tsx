@@ -147,7 +147,7 @@ export default function AnalyticsOverview({
           <button
             type="button"
             onClick={() => exportCsv(exportable, mode)}
-            className="text-sm px-3 py-1.5 rounded border border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-sm px-3 py-1.5 rounded border border-line-strong bg-surface text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Export CSV
           </button>
@@ -173,7 +173,7 @@ export default function AnalyticsOverview({
       </p>
       {failed && (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm text-danger" role="alert">Some panels failed to load.</p>
+          <p className="text-sm text-danger-on-tint" role="alert">Some panels failed to load.</p>
           <button
             type="button"
             onClick={() => {
@@ -181,7 +181,7 @@ export default function AnalyticsOverview({
               headingRef?.current?.focus();
               setAttempt((n) => n + 1);
             }}
-            className="px-3 py-1.5 text-sm rounded border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 text-sm rounded border border-line-strong bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
           </button>

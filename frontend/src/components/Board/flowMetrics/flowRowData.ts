@@ -76,7 +76,7 @@ export function doneRate(cumulative: FlowCumulativeFlow): number | null {
 }
 
 /** In-progress columns run from a light to a dark step of the chart hue, in board order (shared by the row and the bar). */
-export const columnAlpha = (index: number, total: number) => (total <= 1 ? 0.7 : 0.4 + (0.6 * index) / (total - 1));
+export const columnAlpha = (index: number, total: number) => (total <= 1 ? 0.7 : 0.55 + (0.45 * index) / (total - 1));
 
 /** The bottleneck's hatch: the shared definition in `hatch.ts` (#2285), kept under this name for the HTML renderers. */
 export { HATCH_CSS as HATCH } from "./hatch";

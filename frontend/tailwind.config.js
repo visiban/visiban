@@ -15,6 +15,7 @@ export default {
         surface: "rgb(var(--surface) / <alpha-value>)",
         raised: "rgb(var(--surface-raised) / <alpha-value>)",
         sunken: "rgb(var(--surface-sunken) / <alpha-value>)",
+        page: "rgb(var(--surface-page) / <alpha-value>)",
         "surface-hover": "rgb(var(--surface-hover) / <alpha-value>)",
         "surface-active": "rgb(var(--surface-active) / <alpha-value>)",
 

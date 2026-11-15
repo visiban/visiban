@@ -28,16 +28,16 @@ function Tile({ label, value, unit, provisional = false, children }: TileProps) 
   return (
     <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-1 min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <h3 className="text-sm text-fg-tertiary">{label}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{label}</h3>
         {provisional && <span className="text-xs text-fg-tertiary border border-line-strong rounded px-1.5">Provisional</span>}
       </div>
       <p className="flex flex-wrap items-baseline gap-x-1 text-fg">
         {value === null ? (
-          <span className="text-3xl font-semibold text-fg-tertiary">—<span className="sr-only">Withheld</span></span>
+          <span className="text-3xl font-bold text-fg-tertiary tabular-nums">—<span className="sr-only">Withheld</span></span>
         ) : (
-          <span className="text-3xl font-semibold">{value}</span>
+          <span className="text-3xl font-bold text-fg tabular-nums">{value}</span>
         )}
-        <span className="text-base text-fg-tertiary">{unit}</span>
+        <span className="text-sm text-fg-tertiary">{unit}</span>
       </p>
       <p className="text-xs text-fg-secondary">{children}</p>
     </div>
@@ -111,12 +111,12 @@ function WipTile({ wipAge, columns, filtered, cycleSampleSize }: {
   return (
     <Tile label="Work in progress" value={String(live)} unit={live === 1 ? "card" : "cards"}>
       {over !== null && (
-        <span className={over > 0 ? "text-warning" : undefined}>
+        <span className={over > 0 ? "text-danger font-semibold" : undefined}>
           {pluralize(over, "column")} over {over === 1 ? "its" : "their"} limit.{" "}
         </span>
       )}
       {past !== null && p85 !== null && (
-        <span className={past > 0 ? "text-warning" : undefined}>
+        <span className={past > 0 ? "text-warning font-semibold" : undefined}>
           {pluralize(past, "card")} past {formatNumber(p85)} {days(p85)}.
         </span>
       )}

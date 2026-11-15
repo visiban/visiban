@@ -75,3 +75,13 @@ describe('Where the time goes: the sum of medians is not a silent total (#2293)'
     expect(legend).not.toHaveTextContent('3.0d')
   })
 })
+
+describe('time bar surfaces (#2311)', () => {
+  it('uses the panel surface for the gutter, a shadowed chip and a secondary-ink legend', () => {
+    render(<TimeBar columns={[col('a', 5), col('b', 5)]} />)
+    expect(screen.getByRole('img').className).toContain('bg-surface')
+    expect(screen.getByRole('img').className).not.toContain('bg-line')
+    expect(screen.getAllByText('5.0')[0].className).toContain('shadow-sm')
+    expect(screen.getByRole('list', { name: 'Time bar legend' }).className).toContain('text-fg-secondary')
+  })
+})

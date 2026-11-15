@@ -497,8 +497,9 @@ describe('the panels', () => {
   it('strokes the Done band top edge neutral (the contrast exception) and labels it only when it has height', async () => {
     await renderLoaded()
     const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
-    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
-    expect(image.querySelector('[data-band="col-doing"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--primary-emphasis))')
+    // Every band separator is the panel surface, so the bands read as separate shapes on one ramp (#2311).
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--surface))')
+    expect(image.querySelector('[data-band="col-doing"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--surface))')
     expect(image).toHaveTextContent('Done')
   })
 
@@ -511,7 +512,7 @@ describe('the panels', () => {
     })
     await renderLoaded()
     const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
-    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--surface))')
     expect(image).not.toHaveTextContent('Done')
   })
 
@@ -825,6 +826,9 @@ describe('the bottleneck panel (#2261)', () => {
       + 'because 3.5 cards arrive each week and 2 leave.',
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
+    expect(screen.getByTestId('analytics-bottleneck').className).toContain('ring-1')
+    expect(screen.getByTestId('analytics-bottleneck').className).toContain('ring-inset')
+    expect(screen.getByTestId('analytics-bottleneck').className).toContain('ring-warning')
     const seeButton = panel.getByRole('button', { name: 'See the 4 cards' })
     await userEvent.click(seeButton)
     const drawer = await screen.findByRole('dialog')
@@ -850,6 +854,7 @@ describe('the bottleneck panel (#2261)', () => {
       "4 cards have finished and no column after the first has a growing queue yet. A bottleneck is named when one does.",
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).not.toContain('border-warning')
+    expect(screen.getByTestId('analytics-bottleneck').className).not.toContain('ring-warning')
   })
 
   it('says "No bottleneck" with the period when there is enough history', async () => {
@@ -880,6 +885,16 @@ describe('the headline tiles (#2261)', () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
     expect(tile('Cycle time')).toHaveTextContent('4.0days')
+    // Hierarchy (#2311): a bold primary-ink number, a small unit, an uppercase label, and a danger over-limit.
+    const cycle = tile('Cycle time')
+    expect(within(cycle).getByRole('heading', { name: 'Cycle time' }).className).toContain('uppercase')
+    expect(within(cycle).getByRole('heading', { name: 'Cycle time' }).className).toContain('font-semibold')
+    const number = within(cycle).getByText('4.0')
+    expect(number.className).toContain('text-3xl')
+    expect(number.className).toContain('font-bold')
+    expect(number.className).toContain('text-fg')
+    expect(number.className).toContain('tabular-nums')
+    expect(within(cycle).getByText('days').className).toContain('text-sm')
     expect(tile('Cycle time')).toHaveTextContent('Half finish within this. 85% within 8.1 days. Based on 7 cards.')
     expect(tile('Throughput')).toHaveTextContent('1/ week')
     expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 2 cards finished.')

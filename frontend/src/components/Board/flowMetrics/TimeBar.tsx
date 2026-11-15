@@ -48,7 +48,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
             ) : (
               <div className={`overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset`} style={isolated === null || isolated === gi ? undefined : { opacity: ISOLATED_OPACITY }} role="region" aria-label={`Where the time goes for ${group.name}, scrolls sideways`} tabIndex={0}>
                 <div
-                  className="flex h-8 rounded gap-px bg-line bg-clip-padding min-w-[8rem]"
+                  className="flex h-8 rounded gap-px bg-surface bg-clip-padding min-w-[8rem]"
                   style={{ width: `${(total / longest) * 100}%` }}
                   role="img"
                   aria-label={`${group.name}, median days in each column: ${segments.map((s) => `${s.column.name} ${formatDays(s.wait)}`).join(", ")}. Sum of medians ${formatDays(total)}${omitted > 0 ? `, ${omittedNote(omitted)}` : ""}.`}
@@ -66,7 +66,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
                         backgroundImage: column.bottleneck ? HATCH : `linear-gradient(${chartTint(columnAlpha(index, columns.length))}, ${chartTint(columnAlpha(index, columns.length))})`,
                       }}
                     >
-                      {wait / total >= MIN_LABEL_SHARE && <span className="text-xs font-semibold bg-surface text-fg rounded px-1">{wait.toFixed(1)}</span>}
+                      {wait / total >= MIN_LABEL_SHARE && <span className="text-xs font-semibold bg-surface text-fg rounded px-1 shadow-sm">{wait.toFixed(1)}</span>}
                     </div>
                   ))}
                 </div>
@@ -101,7 +101,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
       {groups && groups.length > 0 ? <GroupedTimeBars columns={columns} groups={groups} isolated={isolated} /> : (
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
         <span className="text-sm text-fg-secondary w-20 shrink-0">All cards</span>
-        <div className="flex-1 min-w-0 overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" role="region" aria-label="Where the time goes, scrolls sideways" tabIndex={0}><div className="flex h-8 rounded gap-px bg-line bg-clip-padding min-w-full w-max" role="img"
+        <div className="flex-1 min-w-0 overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" role="region" aria-label="Where the time goes, scrolls sideways" tabIndex={0}><div className="flex h-8 rounded gap-px bg-surface bg-clip-padding min-w-full w-max" role="img"
           aria-label={`Median days in each column: ${segments.map((s) => `${s.column.name} ${formatDays(s.column.medianWait)}`).join(", ")}. Sum of medians ${formatDays(total)}${omitted > 0 ? `, ${omittedNote(omitted)}` : ""}.`}>
           {segments.map(({ column, index }) => (
             <div
@@ -116,14 +116,14 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
                 ...(column.bottleneck ? { backgroundImage: HATCH } : { backgroundImage: `linear-gradient(${chartTint(columnAlpha(index, columns.length))}, ${chartTint(columnAlpha(index, columns.length))})` }),
               }}
             >
-              {column.medianWait / total >= MIN_LABEL_SHARE && <span className="text-xs font-semibold bg-surface text-fg rounded px-1">{formatNumberShort(column.medianWait)}</span>}
+              {column.medianWait / total >= MIN_LABEL_SHARE && <span className="text-xs font-semibold bg-surface text-fg rounded px-1 shadow-sm">{formatNumberShort(column.medianWait)}</span>}
             </div>
           ))}
         </div></div>
         <span className="text-sm font-semibold text-fg font-mono shrink-0" data-testid="time-total" title="Sum of the columns' median days">{formatDays(total)}</span>
       </div>
       )}
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-tertiary" aria-label="Time bar legend">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary" aria-label="Time bar legend">
         {segments.map(({ column, index }) => (
           <li key={column.uid} className="flex items-center gap-1.5">
             <span

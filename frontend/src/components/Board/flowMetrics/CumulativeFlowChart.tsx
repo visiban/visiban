@@ -1,9 +1,10 @@
 import { useId } from "react";
 import { ChartBandHit, ChartFrame } from "../../Common/Chart";
-import { CHART_COLORS, CHART_HUE, axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels } from "../../../utils/chartScale";
+import { axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels } from "../../../utils/chartScale";
 import type { FlowCumulativeFlow } from "../../../types";
 import { CumulativeFlowLegend } from "./FlowLegends";
 import { HATCH_SVG } from "./hatch";
+import { columnAlpha } from "./flowRowData";
 import { bandKey, bandName, formatDate } from "./flowFormat";
 
 const LABEL_CHARS = 16;
@@ -37,6 +38,7 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
     ...shown.filter((column) => !column.is_done && column.column_uid === null),
     ...shown.filter((column) => !column.is_done && column.column_uid !== null),
   ];
+  const progress = data.columns.filter((column) => !column.is_done && column.column_uid !== null);
   const totals = days.map((day) => bands.reduce((sum, band) => sum + (day.counts[bandKey(band)] ?? 0), 0));
   const top = niceCeil(Math.max(1, ...totals));
   const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, days.length - 1)], [x0, x1]);
@@ -63,7 +65,7 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
         const y = linearScale([0, top], [geometry.y1, geometry.y0]);
         const running = days.map(() => 0);
         const labels: { key: string; text: string; y: number }[] = [];
-        const paths = bands.map((band, bandIndex) => {
+        const paths = bands.map((band) => {
           const key = bandKey(band);
           const lower = running.map((value, i) => `${x(i)},${y(value)}`);
           const lastLower = running[running.length - 1] ?? 0;
@@ -74,14 +76,16 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
           if (lastUpper > lastLower) {
             labels.push({ key, text: shorten(bandName(band)), y: y((lastLower + lastUpper) / 2) });
           }
-          const alpha = 0.6 - (0.45 * bandIndex) / Math.max(1, bands.length - 1);
+          // In-progress bands share the time bar's ramp (columnAlpha, board order), so one column is one shade everywhere.
+          const progressIndex = progress.findIndex((c) => bandKey(c) === key);
+          const alpha = band.is_done ? 0.6 : progressIndex === -1 ? columnAlpha(0, 2) : columnAlpha(progressIndex, progress.length);
           return (
             <g key={key} data-band={key} data-top-count={lastUpper}>
               <polygon
                 points={[...upper, ...[...lower].reverse()].join(" ")}
                 fill={isBottleneck ? `url(#${hatchId})` : (band.is_done ? neutralTint : chartTint)(Number(alpha.toFixed(2)))}
               />
-              <polyline points={upper.join(" ")} fill="none" stroke={band.is_done ? CHART_COLORS.neutral : CHART_HUE} strokeWidth={1} />
+              <polyline points={upper.join(" ")} fill="none" stroke="rgb(var(--surface))" strokeWidth={1} />
             </g>
           );
         });

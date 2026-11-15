@@ -81,7 +81,7 @@ function BreakdownControl({ breakdown, onChange, fields }: {
   return (
     <div className="flex flex-wrap items-center gap-2 min-w-0">
       <span id="breakdown-label" className="text-xs text-fg-tertiary">Break down by</span>
-      <div role="group" aria-labelledby="breakdown-label" data-testid="breakdown-control" className="inline-flex flex-wrap rounded overflow-hidden border border-line-strong">
+      <div role="group" aria-labelledby="breakdown-label" data-testid="breakdown-control" className="inline-flex flex-wrap rounded overflow-hidden border border-line-strong bg-surface">
         {options.map((o, i) => (
           <button
             key={o.value.by === "custom_field" ? `f${o.value.fieldId}` : o.value.by}
