@@ -66,6 +66,27 @@ test.describe('board view', () => {
     await expect(page.getByText('New task').first()).toBeVisible({ timeout: 5_000 })
   })
 
+  test('column-header + asks which swimlane when the board has several (#2317)', async ({ page }) => {
+    const mobile = { ...SWIMLANE, id: 2, uid: 'swim000002m', name: 'Mobile', position: 1, color: '#10B981' }
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, mobile] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const plus = page.getByRole('button', { name: `Add card to ${COLUMN_TODO.name}`, exact: true })
+    await expect(plus).toBeVisible({ timeout: 10_000 })
+    await plus.click()
+    const menu = page.getByRole('menu', { name: 'Add card to which swimlane?' })
+    await expect(menu.getByRole('menuitem')).toHaveText([SWIMLANE.name, 'Mobile'])
+    // Escape closes the menu and returns focus to the +.
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(plus).toBeFocused()
+    // Picking the second lane opens the input in that lane's cell, not the first lane's.
+    await plus.click()
+    await menu.getByRole('menuitem', { name: 'Mobile' }).click()
+    const input = page.getByPlaceholder('Card title…')
+    await expect(input).toBeVisible()
+    await expect(page.locator('[data-board-cell][data-swimlane-id="2"][data-column-id="' + COLUMN_TODO.id + '"]').getByPlaceholder('Card title…')).toBeVisible()
+  })
+
   test('column headers stay visible after scrolling past the first lane (#2270)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 500 })
     await page.goto(`/boards/${BOARD_FULL.id}`)

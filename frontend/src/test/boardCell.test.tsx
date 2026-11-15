@@ -291,6 +291,7 @@ describe('BoardCell', () => {
     const { container } = render(<BoardCell {...defaultProps()} />)
     const cell = container.firstChild as HTMLElement
     expect(cell).toHaveAttribute('data-column-id', '10')
+    expect(cell).toHaveAttribute('data-swimlane-id')
     expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
     act(() => { cell.dispatchEvent(new CustomEvent(ADD_CARD_EVENT)) })
     expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()

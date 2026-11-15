@@ -157,6 +157,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // The card detail sheet anchors to this cell's column edges (#1914).
       data-board-cell
       data-column-id={column.id}
+      data-swimlane-id={swimlane.id}
       role={isEmptyAddable ? "button" : undefined}
       tabIndex={isEmptyAddable ? 0 : undefined}
       aria-label={isEmptyAddable ? cellAriaLabel : undefined}

@@ -703,6 +703,31 @@ describe('ColumnHeader', () => {
     expect(onAddCard).toHaveBeenCalledTimes(1)
   })
 
+  it('add-card with several lanes: menu lists each lane, collapsed marked, and picking calls onAddCard(laneId)', async () => {
+    const onAddCard = vi.fn()
+    const addCardLanes = [
+      { id: 1, name: 'Web App', color: '#3B82F6', collapsed: false },
+      { id: 2, name: 'Mobile', color: '#10B981', collapsed: true },
+    ]
+    renderHeader({ name: 'Review' }, [], { onAddCard, addCardLanes })
+    const user = userEvent.setup()
+    const plus = screen.getByRole('button', { name: 'Add card to Review' })
+    expect(plus).toHaveAttribute('aria-haspopup', 'menu')
+    await user.click(plus)
+    expect(onAddCard).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Web App', 'Mobile (collapsed)'])
+    await user.click(screen.getByRole('menuitem', { name: 'Mobile (collapsed)' }))
+    expect(onAddCard).toHaveBeenCalledWith(2)
+  })
+
+  it('add-card with a single lane skips the menu and passes that lane', async () => {
+    const onAddCard = vi.fn()
+    renderHeader({ name: 'Review' }, [], { onAddCard, addCardLanes: [{ id: 7, name: 'Only', color: '#000', collapsed: false }] })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to Review' }))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(onAddCard).toHaveBeenCalledWith(7)
+  })
+
   it('no add-card button when onAddCard is not provided (viewer, or creation disabled)', () => {
     renderHeader({}, [])
     expect(screen.queryByRole('button', { name: /^Add card to/ })).not.toBeInTheDocument()
