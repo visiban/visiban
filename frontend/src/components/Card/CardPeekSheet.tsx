@@ -5,7 +5,9 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import type { BoardFull, Card, CardMovement } from "../../types";
 import { formatDateStr, formatRelativeTime, formatDueDate } from "../../utils/date";
-import { failureReason } from "../../utils/moveFailure";
+import { failureReason, isLimitFailure } from "../../utils/moveFailure";
+import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
+import type { MoveOutcome } from "../../hooks/useBoard";
 import {
   buildFieldRows,
   buildStatusStrip,
@@ -16,6 +18,8 @@ import {
 } from "../../utils/cardPeek";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import Avatar from "../Common/Avatar";
+
+const OUTSIDE_CONTROL_SELECTOR = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
 
 interface Props {
   card: Card;
@@ -30,6 +34,13 @@ interface Props {
     swimlaneId: number,
     position: number,
   ) => Promise<{ ok?: boolean; error?: unknown } | void>;
+  /**
+   * Admin override for a soft-limit refusal (useBoard.forceMoveCardTo). The
+   * Move-blocked toast's override sits outside this sheet's focus trap, so the
+   * sheet offers it itself, as CardDetail's Move popover does (#1772). Omitted:
+   * no override is shown.
+   */
+  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
   userDateFormat?: string;
   userTimezone?: string;
 }
@@ -44,7 +55,7 @@ interface Props {
  * detail sheet placement): focus goes to Close on open, and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
@@ -54,6 +65,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const [targetSwimlane, setTargetSwimlane] = useState(card.swimlane);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const [moveRefusal, setMoveRefusal] = useState<LimitRefusal | null>(null);
+  const forcingRef = useRef(false);
 
   useFocusTrap(panelRef, true, () =>
     findBoardCardElement(card.id) ?? document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR));
@@ -80,20 +93,61 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     return () => { live = false; };
   }, [board.id, card.id, card.version, card.column]);
 
-  // A primary click on board space closes the peek. A card click is left to the
-  // card's own handler, which swaps the peek; controls elsewhere pass through.
+  // Click-catcher, mirroring CardDetail's (frontend/CLAUDE.md § Card detail
+  // sheet placement): classified at pointerdown, acted on at the following
+  // click, so a text selection or scrollbar drag that started in the sheet
+  // never closes it. A press on board space is consumed (an empty cell's
+  // "+ Add card" must not also fire) and does not move focus, so focus can
+  // return to the card on close. A card click is left to the card's own
+  // handler, which swaps the peek; a control elsewhere closes the peek AND works.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
+    let pending: { x: number; y: number; consume: boolean } | null = null;
+    const onPointerDown = (e: PointerEvent) => {
+      pending = null;
       if (e.button !== 0) return;
-      const t = e.target as HTMLElement | null;
-      if (!t || panelRef.current?.contains(t)) return;
-      if (t.closest("[data-card-id]")) return;
-      if (t.closest(BOARD_SCROLL_SELECTOR)) onClose();
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (panelRef.current?.contains(t)) return;
+      if (t.closest('[data-card-id], [data-keeps-card-sheet-open], [aria-modal="true"], [role="dialog"]')) return;
+      if (t instanceof HTMLElement && t.clientWidth > 0 && (e.offsetX > t.clientWidth || e.offsetY > t.clientHeight)) return;
+      pending = {
+        x: e.clientX,
+        y: e.clientY,
+        consume: !t.closest(OUTSIDE_CONTROL_SELECTOR) || !!t.closest(BOARD_SCROLL_SELECTOR),
+      };
     };
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, [onClose]);
+    const onMouseDown = (e: MouseEvent) => { if (pending?.consume) e.preventDefault(); };
+    const onClick = (e: MouseEvent) => {
+      const p = pending;
+      pending = null;
+      if (!p || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 6) return;
+      if (p.consume) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      onCloseRef.current();
+    };
+    const onCancel = () => { pending = null; };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("pointercancel", onCancel);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("pointercancel", onCancel);
+    };
+  }, []);
 
+  // Plain text, entities decoded (`&amp;` shows as "&"); parsed into an inert
+  // document, never injected.
+  const descriptionText = useMemo(
+    () => (card.description ? (new DOMParser().parseFromString(card.description, "text/html").body.textContent ?? "").trim() : ""),
+    [card.description],
+  );
   const strip = useMemo(() => buildStatusStrip(card, board.columns), [card, board.columns]);
   const tracks = useMemo(() => getCardTrackStates(card), [card]);
   const fields = useMemo(() => buildFieldRows(card, board.custom_field_definitions ?? []), [card, board.custom_field_definitions]);
@@ -117,6 +171,44 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       ? `No movement for ${idleDays} days`
       : null;
 
+  // Names the column or swimlane for limit refusals (the 409 body carries it).
+  const moveFailureMessage = (err: unknown): string => {
+    const body = (err as { response?: { data?: { column_name?: unknown; swimlane_name?: unknown } } } | null)?.response?.data;
+    if (isLimitFailure(err) && typeof body?.swimlane_name === "string") {
+      return `Card could not be moved: swimlane "${body.swimlane_name}" has reached its limit.`;
+    }
+    if (isLimitFailure(err) && typeof body?.column_name === "string") {
+      return `Card could not be moved: "${body.column_name}" has reached its limit.`;
+    }
+    return `Card could not be moved: ${failureReason(err)}.`;
+  };
+  const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
+  // Only a soft limit can be forced, never wip_hard_blocked.
+  const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
+
+  const forceMove = async () => {
+    if (!onForceMoveCard || forcingRef.current) return;
+    forcingRef.current = true;
+    setMoving(true);
+    try {
+      const result = await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999);
+      if (result.ok === false) {
+        setMoveError(moveFailureMessage(result.error));
+        setMoveRefusal(limitRefusal(result.error));
+        return;
+      }
+      setMoveError(null);
+      setMoveRefusal(null);
+      setMoveOpen(false);
+    } catch (err) {
+      setMoveError(moveFailureMessage(err));
+      setMoveRefusal(limitRefusal(err));
+    } finally {
+      forcingRef.current = false;
+      setMoving(false);
+    }
+  };
+
   const submitMove = async () => {
     if (targetColumn === card.column && targetSwimlane === card.swimlane) {
       setMoveOpen(false);
@@ -124,16 +216,19 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     }
     setMoving(true);
     setMoveError(null);
+    setMoveRefusal(null);
     try {
       // 9999 appends to the end of the target cell, as the card sheet's Move does.
       const result = await onMoveCard(card.id, targetColumn, targetSwimlane, 9999);
       if (result && result.ok === false) {
-        setMoveError(`Card could not be moved: ${failureReason(result.error)}.`);
+        setMoveError(moveFailureMessage(result.error));
+        setMoveRefusal(limitRefusal(result.error));
         return;
       }
       setMoveOpen(false);
     } catch (err) {
-      setMoveError(`Card could not be moved: ${failureReason(err)}.`);
+      setMoveError(moveFailureMessage(err));
+      setMoveRefusal(limitRefusal(err));
     } finally {
       setMoving(false);
     }
@@ -182,8 +277,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5">
         <div>
           <h2 id="card-peek-title" className="text-lg font-semibold text-fg break-words">{card.title}</h2>
-          {card.description && (
-            <p className="text-sm text-fg-secondary line-clamp-2 break-words">{card.description.replace(/<[^>]*>/g, "").trim()}</p>
+          {descriptionText && (
+            <p className="text-sm text-fg-secondary line-clamp-2 break-words">{descriptionText}</p>
           )}
         </div>
 
@@ -262,14 +357,17 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
                     data-testid="card-peek-segment"
                     data-current={d.current ? "true" : "false"}
                     style={{ width: `${totalMs > 0 ? Math.max((d.ms / totalMs) * 100, 2) : 100 / dwell.length}%` }}
-                    className={`h-full border-r border-surface last:border-r-0 ${d.current ? "bg-primary-emphasis" : "bg-primary-emphasis/45"}`}
+                    className="h-full border-r border-surface last:border-r-0 bg-primary-emphasis"
                   />
                 ))}
               </div>
               <ul className="mt-2 space-y-1 text-sm">
                 {dwell.map((d) => (
                   <li key={d.columnId ?? d.name} className={`flex justify-between ${d.current ? "font-semibold text-fg" : "text-fg-secondary"}`}>
-                    <span>{d.name}</span>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-sm bg-primary-emphasis" />
+                      <span className="break-words">{d.name}</span>
+                    </span>
                     <span>{d.days} d</span>
                   </li>
                 ))}
@@ -304,17 +402,30 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <div className="mb-3 space-y-2" data-testid="card-peek-move-form">
             <label className="block text-xs text-fg-secondary">
               Column
-              <select className={selectClass} value={targetColumn} onChange={(e) => { setTargetColumn(Number(e.target.value)); setMoveError(null); }}>
+              <select className={selectClass} value={targetColumn} onChange={(e) => { setTargetColumn(Number(e.target.value)); setMoveError(null); setMoveRefusal(null); }}>
                 {board.columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
             <label className="block text-xs text-fg-secondary">
               Swimlane
-              <select className={selectClass} value={targetSwimlane} onChange={(e) => { setTargetSwimlane(Number(e.target.value)); setMoveError(null); }}>
+              <select className={selectClass} value={targetSwimlane} onChange={(e) => { setTargetSwimlane(Number(e.target.value)); setMoveError(null); setMoveRefusal(null); }}>
                 {board.swimlanes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
-            {moveError && <p role="alert" className="text-sm text-danger">{moveError}</p>}
+            {moveError && (
+              <div role="alert" className="text-sm">
+                <p className="text-danger">{moveError}</p>
+                {moveRefusal && <p className="mt-0.5 text-xs text-fg-tertiary">{limitCounts(moveRefusal)}</p>}
+              </div>
+            )}
+            {canForceMove && (
+              <button
+                type="button"
+                onClick={forceMove}
+                aria-disabled={moving}
+                className="text-xs text-warning hover:text-warning underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+              >{moving ? "Moving anyway…" : "Move anyway (admin override)"}</button>
+            )}
             <div className="flex gap-2">
               <button type="button" disabled={moving} onClick={submitMove} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
               <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0">Cancel</button>
@@ -326,7 +437,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           {canEdit && !moveOpen && (
             <button
               type="button"
-              onClick={() => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveOpen(true); }}
+              onClick={() => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
               className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move

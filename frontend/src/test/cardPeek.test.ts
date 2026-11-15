@@ -52,7 +52,16 @@ describe('computeTimeInColumns', () => {
   it('keeps a deleted column by its recorded name and returns [] with no moves', () => {
     const r = computeTimeInColumns(card, [mv({ to_column: null, to_column_name: 'Gone' })], columns, t0 + DAY)
     expect(r[0]).toMatchObject({ name: 'Gone', days: 1, current: false })
-    expect(computeTimeInColumns(card, [], columns)).toEqual([])
+  })
+})
+
+describe('computeTimeInColumns with no movement rows', () => {
+  it('falls back to the current column since creation (imported or legacy cards)', () => {
+    const r = computeTimeInColumns(card, [], columns, t0 + 10 * DAY)
+    expect(r).toEqual([{ columnId: 3, name: 'Discovery', days: 10, ms: 10 * DAY, current: true }])
+  })
+  it('is empty when only archive rows exist and the column is unknown', () => {
+    expect(computeTimeInColumns({ ...card, column: 99 }, [], columns, t0 + DAY)).toEqual([])
   })
 })
 

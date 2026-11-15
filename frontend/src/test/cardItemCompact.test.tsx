@@ -331,10 +331,13 @@ describe('CardItem — keyboard (#1376)', () => {
     expect(card).toHaveAttribute('role', 'button')
     card.focus()
     expect(card).toHaveFocus()
-    await userEvent.setup().keyboard('{Enter}')
+    await userEvent.setup().keyboard('a')
     expect(mockDragKeyDown).toHaveBeenCalledTimes(1)
-    // Enter belongs to the dnd-kit KeyboardSensor, not onClick
     expect(onClick).not.toHaveBeenCalled()
+    // Enter opens the card (#2273): the board mounts no dnd-kit KeyboardSensor, so
+    // nothing else claims it, and the div role=button gets no native click from it.
+    await userEvent.setup().keyboard('{Enter}')
+    expect(onClick).toHaveBeenCalledTimes(1)
   })
 })
 

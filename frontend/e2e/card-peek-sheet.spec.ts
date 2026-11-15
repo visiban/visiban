@@ -48,6 +48,40 @@ test.describe('card peek sheet', () => {
     await expect(page.getByRole('dialog', { name: /./ })).toBeVisible()
   })
 
+  test('Enter on the focused card opens the peek', async ({ page }) => {
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await expect(card).toBeVisible({ timeout: 10_000 })
+    await card.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('card-peek-sheet')).toBeVisible()
+  })
+
+  test('a click on "+ Add card" closes the peek and does not also open the editor', async ({ page }) => {
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await card.click()
+    await expect(page.getByTestId('card-peek-sheet')).toBeVisible()
+    await page.getByText('+ Add card').first().click()
+    await expect(page.getByTestId('card-peek-sheet')).toHaveCount(0)
+    await expect(page.getByPlaceholder(/title/i)).toHaveCount(0)
+  })
+
+  test('Open card then Escape closes the detail sheet and returns focus to the board card', async ({ page }) => {
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await card.click()
+    await page.getByRole('button', { name: 'Open card' }).click()
+    await expect(page.getByTestId('card-peek-sheet')).toHaveCount(0)
+    await expect(page.getByRole('dialog', { name: /./ })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: /./ })).toHaveCount(0)
+    await expect(card).toBeFocused()
+  })
+
   test.describe('at 390px', () => {
     test.use({ viewport: { width: 390, height: 844 } })
 

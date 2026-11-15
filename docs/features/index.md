@@ -87,7 +87,7 @@ Board admins can bring people onto a board without knowing their username. **Inv
 
 ## Card detail
 
-Click any card to open a side panel with full context:
+Click any card to peek at it, then select **Open card** for the full detail panel with:
 
 - **Priority** — low / medium / high / urgent, shown in the card's accessible name and on the hover peek; only an overdue card has a colored (red) border
 - **Assignee** — any board member; triggers a notification on assignment

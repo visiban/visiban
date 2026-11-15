@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { AxiosError } from 'axios'
 import CardPeekSheet from '../components/Card/CardPeekSheet'
 import type { BoardFull, Card, CardMovement } from '../types'
 
@@ -84,7 +85,8 @@ describe('CardPeekSheet', () => {
   it('handles empty and failed history', async () => {
     getCardMovements.mockResolvedValueOnce([])
     const { unmount } = (() => { setup(); return { unmount: () => {} } })()
-    expect(await screen.findByText('No movement recorded yet.')).toBeInTheDocument()
+    expect(await screen.findByText('Qualified')).toBeInTheDocument()
+    expect(screen.getAllByTestId('card-peek-segment')).toHaveLength(1)
     expect(screen.getByText('No history yet.')).toBeInTheDocument()
     unmount()
   })
@@ -164,5 +166,112 @@ describe('CardPeekSheet', () => {
     setup({ canEdit: false })
     expect(screen.queryByRole('button', { name: 'Move' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open card' })).toBeInTheDocument()
+  })
+
+  it('shows description text with entities decoded and never injects markup', () => {
+    setup({ card: { ...card, description: '<p>Terms &amp; Conditions <b>apply</b></p><img src=x onerror="window.__peekXss=1">' } })
+    expect(screen.getByText('Terms & Conditions apply')).toBeInTheDocument()
+    expect((window as unknown as { __peekXss?: number }).__peekXss).toBeUndefined()
+  })
+
+  describe('click-catcher (same rules as the card detail sheet)', () => {
+    function boardSpace() {
+      const space = document.body.appendChild(document.createElement('div'))
+      space.setAttribute('data-board-scroll', '')
+      const cell = space.appendChild(document.createElement('div'))
+      const add = cell.appendChild(document.createElement('button'))
+      const onAdd = vi.fn()
+      add.addEventListener('click', onAdd)
+      return { space, cell, add, onAdd }
+    }
+
+    it('consumes the dismissing click on board space so "+ Add card" does not also fire', async () => {
+      const p = setup()
+      const { space, add, onAdd } = boardSpace()
+      await userEvent.click(add)
+      expect(p.onClose).toHaveBeenCalledTimes(1)
+      expect(onAdd).not.toHaveBeenCalled()
+      space.remove()
+    })
+
+    it('does not let the press move focus off the sheet (so focus can return to the card)', () => {
+      setup()
+      const { space, cell } = boardSpace()
+      cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+      const notCanceled = cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+      expect(notCanceled).toBe(false)
+      space.remove()
+    })
+
+    it('does not close when the press started in the sheet and ended on the board (text selection)', () => {
+      const p = setup()
+      const { space, cell } = boardSpace()
+      screen.getByRole('heading', { name: 'Sakura Electronics' }).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      expect(p.onClose).not.toHaveBeenCalled()
+      space.remove()
+    })
+
+    it('does not close for a non-primary button', () => {
+      const p = setup()
+      const { space, cell } = boardSpace()
+      cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 2 }))
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      expect(p.onClose).not.toHaveBeenCalled()
+      space.remove()
+    })
+  })
+
+  describe('soft WIP limit override', () => {
+    const axiosRefusal = (data: object) =>
+      new AxiosError('conflict', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409, data } as never)
+    const softRefusal = () => axiosRefusal({ code: 'wip_limit_exceeded', column_name: 'Prospect', wip_limit: 2, current_count: 2 })
+    const adminBoard = { ...board, current_user_role: 'admin' } as unknown as BoardFull
+
+    async function refuse(over: Partial<Parameters<typeof CardPeekSheet>[0]>) {
+      const p = setup({
+        board: adminBoard,
+        onMoveCard: vi.fn().mockResolvedValue({ ok: false, error: softRefusal() }),
+        ...over,
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+      await userEvent.selectOptions(screen.getByLabelText('Column'), '1')
+      await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+      await screen.findByRole('alert')
+      return p
+    }
+
+    it('offers Move anyway to an admin, forcing the form target, and closes on success', async () => {
+      const onForceMoveCard = vi.fn().mockResolvedValue({ ok: true })
+      await refuse({ onForceMoveCard })
+      expect(screen.getByRole('alert')).toHaveTextContent('"Prospect" has reached its limit')
+      await userEvent.click(screen.getByRole('button', { name: /Move anyway/ }))
+      expect(onForceMoveCard).toHaveBeenCalledWith(9, 1, 5, 9999)
+      await waitFor(() => expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument())
+    })
+
+    it('keeps the form and error when the override itself fails', async () => {
+      const onForceMoveCard = vi.fn().mockResolvedValue({ ok: false, error: new Error('nope') })
+      await refuse({ onForceMoveCard })
+      await userEvent.click(screen.getByRole('button', { name: /Move anyway/ }))
+      expect(await screen.findByTestId('card-peek-move-form')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
+
+    it('offers nothing to a non-admin, for a hard limit, or without the prop', async () => {
+      await refuse({ board: { ...board, current_user_role: 'member' } as unknown as BoardFull, onForceMoveCard: vi.fn() })
+      expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
+
+    it('never offers it for a hard limit', async () => {
+      const hard = axiosRefusal({ code: 'wip_hard_blocked', column_name: 'Prospect', wip_limit: 2, current_count: 2 })
+      await refuse({ onForceMoveCard: vi.fn(), onMoveCard: vi.fn().mockResolvedValue({ ok: false, error: hard }) })
+      expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
+
+    it('offers nothing without onForceMoveCard', async () => {
+      await refuse({})
+      expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
   })
 })

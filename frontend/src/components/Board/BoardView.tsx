@@ -1434,8 +1434,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Exclusivity (#2273): the detail sheet or the activity drawer opening closes
   // the peek; a card removed remotely closes it too.
   useEffect(() => {
-    if (selectedCard || drawerOpen || (peekCardId !== null && !peekCard)) setPeekCardId(null);
-  }, [selectedCard, drawerOpen, peekCardId, peekCard]);
+    if (selectedCard || drawerOpen || showArchived || (peekCardId !== null && !peekCard)) setPeekCardId(null);
+  }, [selectedCard, drawerOpen, showArchived, peekCardId, peekCard]);
   useEffect(() => {
     if (selectedCardId === null) return;
     if (board.cards.some((c) => c.id === selectedCardId)) return;
@@ -3004,7 +3004,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3153,6 +3153,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                         // While the detail sheet is open a card click swaps it; otherwise it peeks (#2273).
                         if (selectedCard) { setSelectedCard(card); return; }
                         setDrawerOpen(false);
+                        setShowArchived(false);
                         setPeekCardId(card.id);
                       }}
                       onCardAdded={onCardAdded}
@@ -3347,6 +3348,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onClose={() => setPeekCardId(null)}
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
+            onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             userDateFormat={userDateFormat}
             userTimezone={userTimezone}
           />

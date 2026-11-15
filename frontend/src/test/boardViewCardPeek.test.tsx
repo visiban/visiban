@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, Card, User } from '../types'
@@ -17,14 +17,14 @@ let mockSearchParams = new URLSearchParams()
 const mockSetSearchParams = vi.fn()
 
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({ children, sensors }: { children: React.ReactNode; sensors?: unknown[] }) => <div data-testid="dnd" data-sensors={sensors?.length ?? 0}>{children}</div>,
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   MouseSensor: class { static activators = [] },
   TouchSensor: class {},
   KeyboardSensor: class {},
   closestCenter: vi.fn((_args: Parameters<CollisionDetection>[0]) => []),
   useSensor: () => ({}),
-  useSensors: () => [],
+  useSensors: (...a: unknown[]) => a,
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
 }))
 
@@ -306,5 +306,27 @@ describe('BoardView card peek (#2273)', () => {
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [makeCard(2, 10, 20)] }) })
     rerender(<BoardView />)
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+  })
+
+  it('suspends drag-and-drop while the peek is open and restores it on close', async () => {
+    render(<BoardView />)
+    const live = Number(screen.getByTestId('dnd').getAttribute('data-sensors'))
+    expect(live).toBeGreaterThan(0)
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    expect(screen.getByTestId('dnd')).toHaveAttribute('data-sensors', '0')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByTestId('dnd')).toHaveAttribute('data-sensors', String(live))
+  })
+
+  it('never shows with the Archived panel: it closes the peek, and a card click closes it', async () => {
+    render(<BoardView />)
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'y' })
+    expect(await screen.findByTestId('archived-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
   })
 })

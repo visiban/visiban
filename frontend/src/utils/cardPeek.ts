@@ -62,7 +62,14 @@ export function computeTimeInColumns(
   const moves = movements
     .filter((m) => m.movement_type === "move")
     .sort((a, b) => new Date(a.moved_at).getTime() - new Date(b.moved_at).getTime());
-  if (moves.length === 0) return [];
+  if (moves.length === 0) {
+    // No movement rows (an imported or legacy card): it has been in its column
+    // since it was created.
+    const col = columns.find((c) => c.id === card.column);
+    if (!col) return [];
+    const ms = Math.max(0, now - new Date(card.created_at).getTime());
+    return [{ columnId: col.id, name: col.name, days: Math.floor(ms / DAY_MS), ms, current: true }];
+  }
 
   const order: string[] = [];
   const byKey = new Map<string, ColumnDwell>();

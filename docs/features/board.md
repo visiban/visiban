@@ -345,7 +345,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open the full detail panel.
+Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open the [peek sheet](#card-peek-sheet), then **Open card** for the full detail panel.
 
 - The peek is not shown on any card while the card detail panel is open, so it never covers the fields you are editing. Closing the panel does not bring a peek back; hover a card again to see it.
 - The 600 ms delay means casual scrolling and rapid drag-and-drop do not trigger the popover unintentionally.
