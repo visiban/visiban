@@ -175,6 +175,15 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('button', { name: /^Budget/ })).toHaveTextContent('4')
   })
 
+  it('keeps a row active when its ids no longer resolve, and shows Yes/No for checkbox fields', async () => {
+    const u = userEvent.setup()
+    setup({ filters: { ...EMPTY_FILTER, assigneeIds: [999], labelIds: [404], customFields: { 11: { kind: 'choice', values: ['true'] } } } })
+    await open(u)
+    expect(screen.getByRole('button', { name: /^Assignee/ })).toHaveTextContent('1 selected')
+    expect(screen.getByRole('button', { name: /^Label/ })).toHaveTextContent('1 selected')
+    expect(screen.getByRole('button', { name: /^Approved/ })).toHaveTextContent('Yes')
+  })
+
   it('only one row is expanded at a time', async () => {
     const u = userEvent.setup()
     setup()
@@ -224,7 +233,7 @@ describe('FilterPanel (#2301)', () => {
     const u = userEvent.setup()
     setup({ savedFilters: [] })
     await open(u)
-    expect(screen.getByText('No saved filters yet.')).toBeInTheDocument()
+    expect(screen.getByText(/No saved filters yet\./)).toBeInTheDocument()
   })
 
   it('footer toggles the full filter bar and closes the panel', async () => {

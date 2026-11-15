@@ -147,20 +147,25 @@ export default function FilterPanel({
     [board.custom_field_definitions],
   );
 
+  // An id that no longer resolves (a removed user or label, e.g. from a shared URL) still
+  // filters cards, so the row must still read as active: fall back to a count.
+  const namesOrCount = (names: string[]) => {
+    const known = names.filter(Boolean);
+    return known.length === names.length ? known.join(", ") : `${names.length} selected`;
+  };
+
   const rows: Row[] = [];
   rows.push({
     id: "assignee",
     label: "Assignee",
     value: filters.assigneeIds.length
-      ? filters.assigneeIds.map((i) => (i === -1 ? "Unassigned" : assigneeUsers.find((u) => u.id === i) ? userDisplayName(assigneeUsers.find((u) => u.id === i)!) : "")).filter(Boolean).join(", ") || null
+      ? namesOrCount(filters.assigneeIds.map((i) => (i === -1 ? "Unassigned" : assigneeUsers.find((u) => u.id === i) ? userDisplayName(assigneeUsers.find((u) => u.id === i)!) : "")))
       : null,
   });
   rows.push({
     id: "label",
     label: "Label",
-    value: filters.labelIds.length
-      ? filters.labelIds.map((i) => board.labels.find((l) => l.id === i)?.name ?? "").filter(Boolean).join(", ") || null
-      : null,
+    value: filters.labelIds.length ? namesOrCount(filters.labelIds.map((i) => board.labels.find((l) => l.id === i)?.name ?? "")) : null,
   });
   rows.push({
     id: "priority",
@@ -180,7 +185,7 @@ export default function FilterPanel({
       id: `cf:${def.id}`,
       label: def.name,
       value: active
-        ? v.kind === "choice" || v.kind === "multi_choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, userDateFormat)
+        ? v.kind === "choice" || v.kind === "multi_choice" ? (def.field_type === "checkbox" ? v.values.map((x) => (x === "true" ? "Yes" : "No")) : v.values).join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, userDateFormat)
         : null,
     });
   }
@@ -318,7 +323,7 @@ export default function FilterPanel({
       <div className="border-t border-line pt-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2 pb-1">Saved filters</h3>
         {savedFilters.length === 0 ? (
-          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet.</p>
+          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet. Save one from the filter bar.</p>
         ) : (
           <ul aria-label="Saved filters" className="space-y-0.5">
             {savedFilters.map((sf) => (
