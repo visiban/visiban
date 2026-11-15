@@ -1,0 +1,5097 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/development/board-redesign/">
+      
+      
+        <link rel="prev" href="../analytics-redesign/">
+      
+      
+        <link rel="next" href="../../administration/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Board Redesign Spec - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#board-view-redesign-what-to-build" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Board Redesign Spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/health-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_29" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_29" id="__nav_3_29_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_29_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_29">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cost-ledger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MR Cost Ledger
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-style-smart-brevity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs Style (Smart Brevity)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics Redesign Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Redesign Spec
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Redesign Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-wins-when-sources-disagree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What wins when sources disagree
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#page-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Page structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#toolbar-and-header" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Toolbar and header
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#menus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Menus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#show-chips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Show chips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#column-headers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column headers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#swimlane-bands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlane bands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cells" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cells
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#card-peek" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card peek
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#activity-drawer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Activity drawer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sub-columns-and-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sub-columns and tracks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#states" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        States
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#drag-and-drop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drag and drop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phone-width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phone width
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design tokens
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-api-must-return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the API must return
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-changes-for-existing-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changes for existing features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rules-to-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules to rewrite
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fidelity-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fidelity check
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-part-of-this-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not part of this design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#artboard-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Artboard sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="board-view-redesign-what-to-build">Board view redesign: what to build<a class="headerlink" href="#board-view-redesign-what-to-build" title="Permanent link">&para;</a></h1>
+<p><a id="board-redesign"></a></p>
+<p>This page is the build spec for the redesigned Board view. It records the design so that an implementer who cannot open the design canvas can still build it exactly.</p>
+<p><strong>Why it matters:</strong> The current board puts about 16 controls in one toolbar row, spends roughly 325px of every row on a mostly empty swimlane label, and draws a red border on most cards, so nothing stands out. The redesign makes lanes scannable, keeps red for overdue only, and gives every control one home.</p>
+<p><strong>Status:</strong> Design only. Nothing on this page is implemented. The work is tracked in #2259 and its child issues #2269 to #2279, all labeled <code>board-redesign</code>.</p>
+<p><strong>Watch out:</strong> Every card, name and number in the screenshots is sample data (<code>board-redesign/sample-board.json</code>). Probability, weighted value, the lane fields "Team size" and "Forecast", and the track states are invented for the sample.</p>
+<h2 id="what-wins-when-sources-disagree">What wins when sources disagree<a class="headerlink" href="#what-wins-when-sources-disagree" title="Permanent link">&para;</a></h2>
+<p>The owner ruled on 2026-11-14 that this design is the standard for the Board view. For work labeled <code>board-redesign</code>:</p>
+<ol>
+<li>This page.</li>
+<li>The screenshots in <code>docs/development/board-redesign/</code>.</li>
+<li>The artboard sources in <code>docs/development/board-redesign/artboards/</code>, for exact copy, order and spacing.</li>
+<li><code>frontend/CLAUDE.md</code>. Its token, contrast, focus, motion and accessibility rules still apply in full. Its board layout sections listed under <a href="#rules-to-rewrite">Rules to rewrite</a> describe the board being replaced; each child issue rewrites its section in the same MR.</li>
+</ol>
+<p>An older board issue that describes a different look, including #871, follows this page.</p>
+<h2 id="screenshots">Screenshots<a class="headerlink" href="#screenshots" title="Permanent link">&para;</a></h2>
+<p>All are 1440px wide unless noted, dark theme unless noted.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>board-dark.png</code></td>
+<td>The board: toolbar, Show chips, column headers, three lanes, a split Discovery stage</td>
+</tr>
+<tr>
+<td><code>board-light.png</code></td>
+<td>The same board in the light theme</td>
+</tr>
+<tr>
+<td><code>board-peek.png</code></td>
+<td>Card peek open on a Discovery card</td>
+</tr>
+<tr>
+<td><code>board-collapsed.png</code></td>
+<td>Every lane collapsed to its count strip</td>
+</tr>
+<tr>
+<td><code>board-activity.png</code></td>
+<td>Activity drawer open</td>
+</tr>
+<tr>
+<td><code>board-phone.png</code></td>
+<td>390px wide, Discovery selected, sub-column switcher</td>
+</tr>
+<tr>
+<td><code>components.png</code></td>
+<td>Every card, column header, lane band, cell, drag and chip state</td>
+</tr>
+<tr>
+<td><code>menus.png</code></td>
+<td>Filter panel, View menu, overflow menu, and the filter chip row</td>
+</tr>
+<tr>
+<td><code>board-states.png</code></td>
+<td>Loading, empty board, filter matches nothing, offline, load error, view-only</td>
+</tr>
+<tr>
+<td><code>stages-settings.png</code></td>
+<td>Stage settings panel (bottom of the image). The board above it is an earlier draft; use <code>board-dark.png</code> for the board</td>
+</tr>
+</tbody>
+</table>
+<h2 id="page-structure">Page structure<a class="headerlink" href="#page-structure" title="Permanent link">&para;</a></h2>
+<p>Top to bottom:</p>
+<ol>
+<li>App header (Row 1): logo, breadcrumb, star, board status pill, board search, notifications, account.</li>
+<li>Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.</li>
+<li>Filter chip row: only when a filter is active.</li>
+<li>Show chips, with the board totals and "Collapse all lanes" on the right.</li>
+<li>Column headers, one grid row.</li>
+<li>One section per swimlane: a header band, then one cell per column.</li>
+</ol>
+<p>The landmarks in <code>frontend/CLAUDE.md</code> § Top chrome do not change: <code>banner</code>, <code>navigation: Breadcrumb</code>, <code>navigation: Board toolbar</code>, <code>search: Board filters</code>, <code>main</code>.</p>
+<p>The column grid is one CSS grid template shared by the header row, every lane's cells and every collapsed strip: one <code>minmax(0, 1fr)</code> track per column and <code>minmax(0, 2fr)</code> for a column split into two sub-columns. Gap 8px. Below 1240px of board width the grid scrolls sideways inside its own box; the page does not.</p>
+<h2 id="toolbar-and-header">Toolbar and header<a class="headerlink" href="#toolbar-and-header" title="Permanent link">&para;</a></h2>
+<p>Screenshots: <code>board-dark.png</code>, <code>menus.png</code>.</p>
+<ul>
+<li><strong>Tabs:</strong> Board, Summary, History, Analytics. History stays a full view and keeps its URL. The active tab is bold with a 2px <code>primary</code> underline.</li>
+<li><strong>Buttons:</strong> Filter, View, Activity. Bordered, 36px tall, icon plus label. A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see <a href="#design-tokens">Design tokens</a>); Filter also shows the count of active filters.</li>
+<li><strong>Overflow menu:</strong> Export board, Board settings, Keyboard shortcuts. Nothing else.</li>
+<li><strong>Connection status:</strong> the existing <code>ConnectionStatus</code> component, last in the row.</li>
+<li><strong>Board status pill:</strong> beside the star in Row 1. Same data and menu as today.</li>
+<li><strong>Board search:</strong> in Row 1, centered, placeholder "Search cards, people, labels, fields", with the command palette hint.</li>
+</ul>
+<p>Preset, card density, overlay, collapse all and expand all move into the View menu. Archived cards move into the Activity drawer.</p>
+<h2 id="menus">Menus<a class="headerlink" href="#menus" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>menus.png</code>.</p>
+<ul>
+<li><strong>Filter panel:</strong> a "Find a field" input, then one row per filterable field showing its current value or "Any" (Assignee, Label, Swimlane, Due date, Last moved, Track state, then each custom field). An active row is tinted and bold. Saved filters are listed at the bottom.</li>
+<li><strong>Filter chip row:</strong> "Filtered by", one removable chip per active filter, "Clear all", and "Save filter" at the right.</li>
+<li><strong>View menu:</strong> Preset (select), Card density (segmented: Comfortable, Standard, Dense, active member marked with <code>ActiveMark</code>), Overlay (select), Swimlanes (Collapse all, Expand all), "Show sub-columns" (switch), and a line naming the fields pinned to the card with a "Change" link to Board settings.</li>
+</ul>
+<p>All three use the existing dropdown primitives and focus containment rules.</p>
+<h2 id="show-chips">Show chips<a class="headerlink" href="#show-chips" title="Permanent link">&para;</a></h2>
+<p>Screenshots: <code>board-dark.png</code>, <code>components.png</code>.</p>
+<p>All cards, Overdue, Stale, Due soon. Each shows a color swatch, a label and a count for the whole board. Exactly one is active; All cards is the default.</p>
+<ul>
+<li>Choosing a chip hides non-matching cards. Column counts, WIP meters and lane counts keep showing the whole column and lane.</li>
+<li>The swatches are the legend for collapsed-lane squares.</li>
+<li>The active chip is marked by weight and border as well as fill.</li>
+<li>A chip is a quick view, not a saved filter. It combines with the Filter panel (both apply).</li>
+</ul>
+<h2 id="column-headers">Column headers<a class="headerlink" href="#column-headers" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>components.png</code>.</p>
+<p>Each header is a panel tinted with the column color: color dot, name (wraps, never truncates), an add-card button, a 3px meter, then the count line.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Count line</th>
+<th>Meter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No limit</td>
+<td>"2 cards"</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Under limit</td>
+<td>"2 / 4"</td>
+<td>column color, proportional</td>
+</tr>
+<tr>
+<td>At limit</td>
+<td>"4 / 4"</td>
+<td>column color, full</td>
+</tr>
+<tr>
+<td>Over limit</td>
+<td>"8 / 6 over" in warning text</td>
+<td>warning color, full</td>
+</tr>
+<tr>
+<td>Split stage</td>
+<td>"8 / 8", then one line per sub-column: name and "5 working" or "3 waiting"</td>
+<td>as above</td>
+</tr>
+</tbody>
+</table>
+<p>Headers stay visible when the board scrolls vertically.</p>
+<h2 id="swimlane-bands">Swimlane bands<a class="headerlink" href="#swimlane-bands" title="Permanent link">&para;</a></h2>
+<p>Screenshots: <code>board-dark.png</code>, <code>board-collapsed.png</code>, <code>components.png</code>.</p>
+<p>A full-width band replaces the left label panel. Left to right:</p>
+<ul>
+<li>collapse toggle (chevron, turns 90° when collapsed, <code>aria-expanded</code>);</li>
+<li>lane color square and lane name (17px, semibold);</li>
+<li>the first two lane fields as "Label value";</li>
+<li>a "+N" pill that shows the remaining lane fields inline and then reads "Less";</li>
+<li>at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".</li>
+</ul>
+<p>The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup are new data: see #2275. Until that ships, the band omits them.</p>
+<p><strong>Collapsed:</strong> the cells are replaced by one strip aligned to the column grid. Each strip cell shows the card count (an en dash when zero) and one 10px square per card: danger for overdue, warning for stale, primary tint otherwise. A split column shows two counts with the dashed divider.</p>
+<h2 id="cells">Cells<a class="headerlink" href="#cells" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>components.png</code>.</p>
+<ul>
+<li>A cell is a well (the deepest surface) with 6px padding and 6px between cards.</li>
+<li>Lane height follows the tallest cell. An empty cell is 56px tall.</li>
+<li>An empty cell shows a quiet plus sign and the whole cell is the add target. On hover or focus it gains a dashed border and the label "Add card".</li>
+<li>A split cell is one well with a dashed vertical divider between its sub-columns.</li>
+</ul>
+<h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
+<p>Screenshots: <code>board-dark.png</code>, <code>components.png</code>.</p>
+<p>Rows, top to bottom, at Comfortable density:</p>
+<ol>
+<li>Title: the text before <code>--</code> in bold, the rest as a subtitle. A title without <code>--</code> is all bold.</li>
+<li>Track chips, only in a column that has tracks.</li>
+<li>Label chip (through <code>colorChipStyle</code>), assignee avatar at the right.</li>
+<li>Up to two pinned custom fields from the board preset; the first is emphasized.</li>
+<li>Status line, omitted when the card is on track.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Border</th>
+<th>Status line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overdue</td>
+<td>danger</td>
+<td>flag icon, "Overdue Nov 12", danger text</td>
+</tr>
+<tr>
+<td>Stale</td>
+<td>neutral</td>
+<td>clock icon, "Stale 39d", warning text</td>
+</tr>
+<tr>
+<td>Due soon</td>
+<td>neutral</td>
+<td>flag icon, "Due in 3 days", secondary text</td>
+</tr>
+<tr>
+<td>On track</td>
+<td>neutral</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p>Overdue is the only state with a colored border. Stale and due-soon thresholds are the existing ones.</p>
+<p><strong>Density:</strong> Standard shows the title on one line, then the status line and pinned fields on one row. Dense is a single row: title, short status ("39d"), first pinned field.</p>
+<p><strong>Interaction states:</strong> hover (stronger border, lifts 1px), keyboard focus (the standard focus ring outside the card), selected while its peek is open (selection border), dragging, and the dimmed source. All are drawn in <code>components.png</code>. Motion follows § Motion and reduced motion.</p>
+<h2 id="card-peek">Card peek<a class="headerlink" href="#card-peek" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>board-peek.png</code>.</p>
+<p>Clicking a card, or Enter on a focused card, opens a 400px sheet over the right side of the board. It does not push the grid. Top to bottom:</p>
+<ul>
+<li>lane name, close button;</li>
+<li>title and subtitle;</li>
+<li>status banner when overdue or stale ("No movement for 39 days", "Was due Nov 12");</li>
+<li><strong>Status:</strong> the previous stage, the current stage or sub-columns with the current one marked, and the next stage; then one row per track with its state;</li>
+<li><strong>Fields:</strong> every custom field, "Not set" in tertiary text for empty ones, and a note "2 of 8 pinned to the card";</li>
+<li><strong>Time in each column:</strong> one segmented bar and a list with days per column, current column bold;</li>
+<li><strong>History:</strong> the card's moves, newest first;</li>
+<li>actions: Open card (primary), Move.</li>
+</ul>
+<p>Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card).</p>
+<h2 id="activity-drawer">Activity drawer<a class="headerlink" href="#activity-drawer" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>board-activity.png</code>.</p>
+<p>Same sheet position as the peek; only one of the two is open at a time. Two tabs: Recent (board moves, newest first: avatar, card title, "Qualified to Discovery", relative time) and Archived (archived cards with Restore). A link at the bottom opens the full History view.</p>
+<h2 id="sub-columns-and-tracks">Sub-columns and tracks<a class="headerlink" href="#sub-columns-and-tracks" title="Permanent link">&para;</a></h2>
+<p>Screenshots: <code>board-dark.png</code>, <code>components.png</code>.</p>
+<p>The rule from #1102 and #1920 holds: if the order of the checks matters they are sub-columns; if not, they are tracks.</p>
+<ul>
+<li><strong>Sub-columns</strong> (#1102): a stage's ordered steps. The stage takes a double-width grid track. One WIP limit covers the whole stage. The last sub-column is counted as waiting.</li>
+<li><strong>Tracks</strong> (#1920): facts that finish in any order. Each track on a card is done, open or not applicable, shown as a chip: check icon on a success tint, hollow circle with a border, or dash on a neutral fill. Icon and fill both change, so the state never depends on color alone.</li>
+<li>The column structure is identical in every swimlane. A swimlane can only mark a track not applicable.</li>
+<li>With "Show sub-columns" off, a split stage renders at normal width and each card shows a segmented progress bar, as #1102 specifies.</li>
+</ul>
+<h2 id="stage-settings">Stage settings<a class="headerlink" href="#stage-settings" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>stages-settings.png</code> (the panel at the bottom).</p>
+<p>Opens from the column menu. Three groups:</p>
+<ul>
+<li><strong>Sub-columns, in order:</strong> numbered name inputs, remove buttons, "Add sub-column". Note: one WIP limit covers the whole stage; time in the last sub-column is recorded as waiting.</li>
+<li><strong>Tracks, any order:</strong> name inputs, remove buttons, "Add track". Note: each track is open, done or not applicable and shows as a chip on the card.</li>
+<li><strong>Rules and exceptions:</strong> "Every track must be done to reach <last sub-column>" (checkbox), a list of swimlane exceptions ("APAC: Business is not applicable") with remove buttons, "Add swimlane exception".</li>
+</ul>
+<p>Save stage (primary) and Cancel. Composite editor rules in § Composite inline editors apply.</p>
+<h2 id="states">States<a class="headerlink" href="#states" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>board-states.png</code>.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>What shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loading</td>
+<td>Skeleton column headers, one lane band and card blocks at their final sizes; announced as "Loading board"</td>
+</tr>
+<tr>
+<td>Empty board</td>
+<td>Column headers with zero counts, then "No cards yet", a sentence, "Add a card" (primary) and "Import cards"</td>
+</tr>
+<tr>
+<td>Filter or chip matches nothing</td>
+<td>Lanes shrink to their band with "No matching cards"; below, "No cards are due soon" and "Show all cards"</td>
+</tr>
+<tr>
+<td>Offline</td>
+<td>Warning banner "Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline</td>
+</tr>
+<tr>
+<td>Load error</td>
+<td>"The board didn't load. Check your connection and try again." with "Try again"</td>
+</tr>
+<tr>
+<td>View-only</td>
+<td>An informational line; add controls, drag handles and stage settings are not rendered; the peek still opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drag-and-drop">Drag and drop<a class="headerlink" href="#drag-and-drop" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>components.png</code>, "Cells and drag and drop".</p>
+<ul>
+<li>The dragged card tilts 2°, takes a deep shadow and follows the pointer. Its source stays in place at reduced opacity.</li>
+<li>The cell under the pointer takes a selection-colored dashed border and tint, and a placeholder shows where the card will land.</li>
+<li>A drop that would put a column or lane over its limit shows the warning treatment and the reason in the cell before the drop. What happens on drop follows the existing limit rules (§ Placement limits on the board, § Move-blocked toast).</li>
+<li>Dragging across a gate inside a stage passes or reopens gates as #1102 specifies.</li>
+<li>With reduced motion, the tilt and lift are dropped.</li>
+</ul>
+<h2 id="keyboard">Keyboard<a class="headerlink" href="#keyboard" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No new shortcut keys. Existing board shortcuts and the command palette keep working.</li>
+<li>Tab order: toolbar, filter chip row, Show chips, column header add buttons, then per lane: collapse toggle, "+N", cards in column order and, inside a split stage, sub-column order.</li>
+<li>Enter or Space on a card opens the peek; Escape closes it and returns focus to the card.</li>
+<li>The existing keyboard move path gains sub-columns as stops between columns.</li>
+<li>Every click target here has keyboard parity (§ Click handlers need keyboard parity).</li>
+</ul>
+<h2 id="phone-width">Phone width<a class="headerlink" href="#phone-width" title="Permanent link">&para;</a></h2>
+<p>Screenshot: <code>board-phone.png</code>.</p>
+<ul>
+<li>One column at a time. A horizontally scrolling row of column buttons (color dot, name, count) selects it; under it, the column's limit line and meter.</li>
+<li>A split stage adds a two-part segmented control for its sub-columns.</li>
+<li>Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line.</li>
+<li>Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.</li>
+<li>The same four tabs as desktop: Board, Summary, History, Analytics. Search, Activity and Filter are icon buttons in the header; the Filter button also opens the View options.</li>
+<li>Every target is at least 44px. No sideways page scroll at 390px.</li>
+</ul>
+<h2 id="design-tokens">Design tokens<a class="headerlink" href="#design-tokens" title="Permanent link">&para;</a></h2>
+<p>The screenshots use literal colors. Build with the tokens.</p>
+<table>
+<thead>
+<tr>
+<th>In the design</th>
+<th>Token</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Page background behind the grid</td>
+<td><code>bg-sunken</code></td>
+</tr>
+<tr>
+<td>Cell well, collapsed strip cell</td>
+<td><code>bg-canvas</code></td>
+</tr>
+<tr>
+<td>Card, column header, lane band, sheet, menu</td>
+<td><code>bg-surface</code> (<code>bg-surface</code> with <code>shadow-xl</code> for sheets and menus)</td>
+</tr>
+<tr>
+<td>Chip fill, kbd hint, bar track</td>
+<td><code>bg-surface-hover</code> with <code>text-fg-secondary</code></td>
+</tr>
+<tr>
+<td>Panel and card border</td>
+<td><code>border-line</code></td>
+</tr>
+<tr>
+<td>Control border, hover border, dashed dividers</td>
+<td><code>border-line-strong</code></td>
+</tr>
+<tr>
+<td>Primary text, card title</td>
+<td><code>text-fg</code></td>
+</tr>
+<tr>
+<td>Subtitle, values, secondary text</td>
+<td><code>text-fg-secondary</code></td>
+</tr>
+<tr>
+<td>Field labels, captions, "Not set", sub-column notes</td>
+<td><code>text-fg-tertiary</code> (never <code>fg-muted</code> on the card face)</td>
+</tr>
+<tr>
+<td>Primary button</td>
+<td><code>bg-button-primary hover:bg-button-primary-hover text-on-primary</code></td>
+</tr>
+<tr>
+<td>Active tab underline, active segment</td>
+<td><code>border-primary</code>; <code>bg-primary text-on-primary</code> with <code>ActiveMark</code></td>
+</tr>
+<tr>
+<td>Selected card, open-panel button, active Show chip, drop target</td>
+<td><code>border-info</code> with <code>bg-primary/20</code> fill</td>
+</tr>
+<tr>
+<td>Overdue border and text</td>
+<td><code>border-danger</code>, <code>text-danger-on-tint</code></td>
+</tr>
+<tr>
+<td>Stale text, over-limit count, lane WIP over</td>
+<td><code>text-warning-on-tint</code></td>
+</tr>
+<tr>
+<td>Over-limit meter, drop-blocked border</td>
+<td><code>bg-warning</code>, <code>border-warning</code> with <code>bg-warning/20</code></td>
+</tr>
+<tr>
+<td>Track done</td>
+<td><code>text-success-on-tint</code> on <code>bg-success/20</code></td>
+</tr>
+<tr>
+<td>On-track square in a collapsed strip</td>
+<td><code>bg-primary/70</code></td>
+</tr>
+<tr>
+<td>Link</td>
+<td><code>text-info</code></td>
+</tr>
+</tbody>
+</table>
+<p>Column and lane tints come from the user-assigned column or lane color: 10% of the color as the fill and 30% (column) or 35% (lane) as the border, over the page background. Add one helper for this next to <code>colorChipStyle</code>, and pin text contrast on the tint for a sample of the RGB cube in both themes, as <code>colorContrast.test.ts</code> does for label chips. Text on a tinted band or header is <code>text-fg</code> and <code>text-fg-secondary</code> only.</p>
+<p>Sizes: radius 8px on panels, cards and wells, pill on chips, 4px on track chips. Grid gap 8px; lane sections 10px apart; card padding 10px; card rows 7px apart. Type: lane name 17px semibold; column name, card title 13px semibold; card subtitle, fields, status 12px; chips 11px semibold; body 14px. Smallest text is 11px and only on chips. Where the type scale in § Typography has no exact step, use the nearest step.</p>
+<h2 id="what-the-api-must-return">What the API must return<a class="headerlink" href="#what-the-api-must-return" title="Permanent link">&para;</a></h2>
+<p>All additive.</p>
+<ul>
+<li>A per-lane WIP limit (nullable) and a per-board choice of the number field to roll up per lane (#2275).</li>
+<li>Sub-column structure and each card's gate position (#1102).</li>
+<li>Track definitions, per-card track states and per-lane "not applicable" exceptions (#1920).</li>
+<li>Per-card time in each column for the peek. Check whether the analytics drill-down endpoint already covers it before adding one.</li>
+</ul>
+<h2 id="what-changes-for-existing-features">What changes for existing features<a class="headerlink" href="#what-changes-for-existing-features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>No Classic fallback.</strong> The owner ruled on 2026-11-14 that, with no installed users to protect, the redesigned board is the only board in 1.3. The preset ids stay valid because they are stored in <code>Board.default_preset</code> and in <code>?preset=</code> links; Classic stops having its own rendering (#2279).</li>
+<li><strong>Presets</strong> keep bundling pinned fields, density, overlay and default filter. The picker moves into the View menu.</li>
+<li><strong>History</strong> stays a tab. Archived cards move from the toolbar to the Activity drawer.</li>
+<li><strong>Swimlane label panel</strong> and its popover are replaced by the lane band.</li>
+<li><strong>#871</strong> is implemented as drawn here.</li>
+</ul>
+<h2 id="rules-to-rewrite">Rules to rewrite<a class="headerlink" href="#rules-to-rewrite" title="Permanent link">&para;</a></h2>
+<p>Each child issue rewrites the <code>frontend/CLAUDE.md</code> section it replaces, in the same MR as the code:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§ Board navigation bar; picker placement in § Board presets</td>
+<td>#2269</td>
+</tr>
+<tr>
+<td>§ Column headers; § Board grid cells</td>
+<td>#2270</td>
+</tr>
+<tr>
+<td>§ Swimlane label panel</td>
+<td>#2271</td>
+</tr>
+<tr>
+<td>§ Cards; § Card density; § Card border urgency tint</td>
+<td>#2272</td>
+</tr>
+<tr>
+<td>§ Card detail sheet placement, if the peek changes it</td>
+<td>#2273</td>
+</tr>
+<tr>
+<td>§ Empty states; § Placement limits on the board</td>
+<td>#2276</td>
+</tr>
+<tr>
+<td>Classic rules in § Board presets</td>
+<td>#2279</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fidelity-check">Fidelity check<a class="headerlink" href="#fidelity-check" title="Permanent link">&para;</a></h2>
+<p>The goal is that the built board matches these screenshots in structure, tokens and layout. A mock and a real build never match pixel for pixel (fonts, real components), so the check has three layers:</p>
+<ol>
+<li><strong>Fixture.</strong> Seed one board from <code>board-redesign/sample-board.json</code> (3 lanes, 7 columns, 29 cards, Discovery split in two with two tracks). Every screenshot on this page uses that data.</li>
+<li><strong>Assertions.</strong> Each child issue adds tests for the rules it implements: for example only overdue cards carry <code>border-danger</code>, the count line reads "8 / 6 over" when over the limit, a collapsed lane renders one square per card, the grid template gives a split stage two tracks.</li>
+<li><strong>Side-by-side review.</strong> The implementing MR captures the same state at the same viewport from the fixture with Playwright (1440px dark and light; 390px for phone) and shows each next to its reference PNG. <code>ux-review</code> signs off row by row against the <a href="#review-checklist">review checklist</a>. After sign-off the captured image becomes the pinned baseline (<code>toHaveScreenshot</code>) in <code>e2e/board-redesign.spec.ts</code>, so later changes that drift fail CI (#2279).</li>
+</ol>
+<h2 id="not-part-of-this-design">Not part of this design<a class="headerlink" href="#not-part-of-this-design" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A different column structure per swimlane.</li>
+<li>Lead time, forecasting or any analytics panel on the board.</li>
+<li>Pricing, sales concepts or any domain meaning in the product: the sales pipeline is sample data only.</li>
+</ul>
+<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
+<p>Owner decisions, 2026-11-14:</p>
+<ul>
+<li>This design is the standard for the Board view; other board designs conform to it.</li>
+<li>Sub-columns for ordered steps and track chips for parallel facts.</li>
+<li>Lanes cannot change column structure; a lane may mark a track not applicable.</li>
+<li>History stays a full tab; the Activity drawer is the quick look.</li>
+<li>No Classic fallback in 1.3.</li>
+</ul>
+<p>Evidence and its limits: a simulated persona panel (not user research) and desk research informed the History and per-lane decisions. The real usability baseline (#1590) has not been run.</p>
+<p>Open for <code>architect</code>: the lane WIP limit and rollup model (#2275), and how tracks are stored (#1920).</p>
+<h2 id="review-checklist">Review checklist<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h2>
+<p>For <code>ux-review</code> and <code>completeness-check</code> on the implementing MRs:</p>
+<ul>
+<li>[ ] Toolbar holds only the four tabs, Filter, View, Activity, the overflow menu and the connection status</li>
+<li>[ ] One grid template drives headers, cells and collapsed strips; a split stage is double width</li>
+<li>[ ] Column names wrap and never truncate; the count line matches <a href="#column-headers">Column headers</a></li>
+<li>[ ] The lane band replaces the label panel and wraps without sideways scroll</li>
+<li>[ ] Only overdue cards have a colored border; stale is warning text with a clock icon</li>
+<li>[ ] Card rows appear in the order in <a href="#cards">Cards</a>; on-track cards have no status line</li>
+<li>[ ] Show chips filter cards while column and lane counts stay whole</li>
+<li>[ ] A collapsed lane shows one square per card in the right column and sub-column</li>
+<li>[ ] The peek lists every custom field and marks empty ones "Not set"</li>
+<li>[ ] Track state is carried by icon and fill, not color alone</li>
+<li>[ ] All six states render as in <code>board-states.png</code></li>
+<li>[ ] Every drag state renders as in <code>components.png</code></li>
+<li>[ ] No sideways page scroll at 390px; targets are at least 44px there</li>
+<li>[ ] Light and dark themes pass the contrast rules in <code>frontend/CLAUDE.md</code></li>
+<li>[ ] The replaced <code>frontend/CLAUDE.md</code> section is rewritten in the same MR</li>
+</ul>
+<h2 id="artboard-sources">Artboard sources<a class="headerlink" href="#artboard-sources" title="Permanent link">&para;</a></h2>
+<p><code>docs/development/board-redesign/artboards/</code> holds the design canvas files as published. <code>Main.dc.html</code> is the board; <code>Peek</code>, <code>Light</code>, <code>Overview</code> and <code>Activity</code> load it with different settings. <code>Mobile</code>, <code>Components</code>, <code>Menus</code>, <code>BoardStates</code> and <code>Stages</code> stand alone. They are reference material for copy, order and spacing, not code to port: they are excluded from the docs site and need the canvas runtime to render.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
