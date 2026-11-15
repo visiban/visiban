@@ -886,7 +886,7 @@ _ATTENTION_RESPONSE = inline_serializer(
                     allow_null=True, help_text="Days in progress; null when the card is not in progress.",
                 ),
                 "unmoved_days": serializers.FloatField(
-                    allow_null=True, help_text="Days since the card last moved; null with no movement.",
+                    allow_null=True, help_text="Days since the card last moved, or since it was created when it has no movement.",
                 ),
                 "reasons": serializers.ListField(
                     child=serializers.ChoiceField(choices=list(flow_metrics.ATTENTION_REASONS)),
