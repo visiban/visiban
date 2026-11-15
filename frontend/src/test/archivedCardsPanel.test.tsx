@@ -177,12 +177,12 @@ describe('ArchivedCardsPanel', () => {
 })
 
 describe('ArchivedCardsPanel — Escape and restore refusals', () => {
-  it('Escape closes the panel', async () => {
+  it('registers no Escape of its own; BoardActivityDrawer owns it at priority 19 (#2274)', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([]))
     const onClose = vi.fn()
     render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
     await userEvent.setup().keyboard('{Escape}')
-    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   // #1428 — restore into a full column now returns the move path's 409 body.
@@ -657,7 +657,7 @@ describe('ArchivedCardsPanel hosted in the Activity drawer (#2274)', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the list without a dialog, backdrop or close button, and Escape closes it', async () => {
+  it('renders the list without a dialog, backdrop or close button', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
     const onClose = vi.fn()
     render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
@@ -666,8 +666,6 @@ describe('ArchivedCardsPanel hosted in the Activity drawer (#2274)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     expect(screen.getByText('(1)')).toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('still restores a card', async () => {

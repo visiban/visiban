@@ -4,6 +4,7 @@ import { formatRelativeTime } from "../../utils/date";
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
 import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 
 export type ActivityEntry = {
   id: string;
@@ -63,6 +64,11 @@ export default function BoardActivityDrawer({
   // #2274 — below `lg` the floating sheet would cover the whole board and
   // clip off-screen, so it becomes a full-height right edge panel instead.
   const isLarge = useIsLargeViewport();
+  // The drawer is non-modal, so Escape sits BELOW every control that opens over
+  // or inside the board (dropdowns 25, View menu 26, inline fields 21, bulk
+  // confirm 20) and above the movement-history slide-in (18). One registration
+  // for both tabs; below `lg` it is also the only keyboard way out besides Ctrl+\.
+  useEscapeStack(onClose, 19);
   // Focus the active tab on open and whenever the host switches tabs (Y, the
   // View menu, the archive toast), so keyboard users land inside the drawer.
   useEffect(() => {

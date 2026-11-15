@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, User } from "../../types";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
 import { getArchivedCards } from "../../api/cards";
@@ -17,7 +16,7 @@ interface Props {
   subscribeCardEvents?: (listener: (event: BoardEvent) => void) => () => void;
 }
 
-export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents }: Props) {
+export default function ArchivedCardsPanel({ board, onUnarchived, currentUser, subscribeCardEvents }: Props) {
   const [loadedCards, setCards] = useState<Card[]>([]);
   const [loadedTotal, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -28,8 +27,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   // Hosted by the Activity drawer's Archived tab (#2274): non-modal, so no focus
-  // trap. Escape still closes it, as the old standalone modal did.
-  useEscapeStack(onClose, 30);
+  // trap. Escape is owned by BoardActivityDrawer (priority 19), for both tabs.
 
   useEffect(() => {
     setLoading(true);

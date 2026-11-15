@@ -4229,7 +4229,7 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         """Return only active (non-archived) cards for the board view.
 
         Archived cards are excluded here; they are fetched separately via the
-        /cards/archived/ action when the user opens the archived panel.
+        /cards/archived/ action when the user opens the Archived tab of the Activity drawer.
 
         Member IDs and board labels are pre-computed once here and threaded
         through context so CardSerializer.__init__ does not re-query them
