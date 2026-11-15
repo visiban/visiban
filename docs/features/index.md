@@ -98,7 +98,7 @@ Click any card to open a side panel with full context:
 - **Attachments** — upload files directly to a card (up to 10 MB each)
 - **Description** — rich text editor with bold, italic, code, lists, headings, blockquote, and text color; type `@username` to mention a board member and send them a notification
 - **Relations** — link cards as Blocked by / Blocks / Relates to, with a red indicator for unfinished blockers
-- **Blocked state** *(1.3+)* — block a card with a reason; the card shows how long it has been blocked, and Analytics sums blocked time per column and by reason
+- **Blocked state** *(1.3+)* — block a card with a reason; the card shows how long it has been blocked, and Analytics ranks the reasons by days blocked
 - **Pull / merge request** — link a GitHub or GitLab PR/MR to the card
 - **Comments** — threaded discussion visible to collaborators and above
 - **Details · Comments · History tabs** *(1.3+)* — the History tab holds the full movement timeline and activity log, filtered by event type; Details ends with a last-activity line

@@ -26,7 +26,7 @@ const renderIt = (items: FlowAttentionItem[], onOpenCard?: (id: number) => void)
 describe('Needs attention (#2263)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('lists each card once, oldest first, with column, swimlane and reason', () => {
+  it('lists each card once, in the order the service returns, with column, swimlane and reason', () => {
     renderIt([
       item(1, { age_days: 12, reasons: ['blocked'] }),
       item(2, { age_days: 28, reasons: ['blocked', 'past_p85'], swimlane_id: 2, column_uid: 'c-doing' }),
@@ -34,10 +34,11 @@ describe('Needs attention (#2263)', () => {
     ])
     const rows = within(screen.getByRole('list', { name: 'Cards that need attention' })).getAllByRole('listitem')
     expect(rows).toHaveLength(3)
-    expect(rows[0]).toHaveTextContent('Card 2')
-    expect(rows[0]).toHaveTextContent('In progress · Platform · blocked, past 19 days')
-    expect(rows[0]).toHaveTextContent('28d')
-    expect(rows[1]).toHaveTextContent('Card 1')
+    // Order is the service's; the client never re-sorts (a 28d card after a 12d one stays there).
+    expect(rows[1]).toHaveTextContent('Card 2')
+    expect(rows[1]).toHaveTextContent('In progress · Platform · blocked, past 19 days')
+    expect(rows[1]).toHaveTextContent('28d')
+    expect(rows[0]).toHaveTextContent('Card 1')
     expect(rows[2]).toHaveTextContent('Review · Mobile · no movement for 9 days')
     expect(rows[2]).toHaveTextContent('9d')
   })
@@ -48,9 +49,21 @@ describe('Needs attention (#2263)', () => {
     expect(screen.getByText('5d')).toHaveClass('text-warning')
   })
 
-  it('falls back to the raw title uid-free data when names are unknown', () => {
-    render(<AttentionSection attention={ok(payload([item(1, { column_uid: 'gone', swimlane_id: 99, reasons: ['blocked'] })]))} swimlanes={[]} />)
-    expect(screen.getByText('blocked')).toBeInTheDocument()
+  it('falls back to the card uid and drops an unknown column and swimlane', () => {
+    const data = payload([item(1, { column_uid: 'gone', swimlane_id: 99, reasons: ['blocked'] })])
+    data.cards = []
+    render(<AttentionSection attention={ok(data)} swimlanes={[]} />)
+    const row = screen.getByRole('listitem')
+    expect(row).toHaveTextContent('uid-1')
+    expect(row).toHaveTextContent(/^uid-1blocked1d$/)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('brightens the secondary line on row hover for contrast', () => {
+    renderIt([item(1)], vi.fn())
+    const row = screen.getByRole('button')
+    expect(row).toHaveClass('group')
+    expect(within(row).getByText(/Review · Mobile/)).toHaveClass('group-hover:text-fg-secondary')
   })
 
   it('shows five rows, then expands in place 25 per page', async () => {

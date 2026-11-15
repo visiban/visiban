@@ -209,7 +209,7 @@ Next to WIP aging, one list shows each card that is blocked now, has not moved f
 
 Next to Cycle time, **Why cards get blocked** ranks the reasons cards were [manually blocked](blocked-cards.md) during the selected period, longest first:
 
-- **Each reason:** the days it cost, the number of blocks, and a red bar sized against the longest reason. A footnote says which column most blocks started in. The per-column figures stay in the cumulative flow and the column drawer. At most ten reasons show. Reasons that differ only in capitals or spacing count as one.
+- **Each reason:** the days it cost, the number of blocks, and a red bar sized against the longest reason. A footnote says which column most blocks started in. At most ten reasons show. Reasons that differ only in capitals or spacing count as one.
 
 A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
 

@@ -8,7 +8,7 @@ Open a card and click **Block…** in its header. Say what it is waiting on, the
 
 **Why it matters:** "waiting on the customer" or "vendor outage" is not another card, so a [relation](card-relations.md) cannot say it. A block records who blocked the card, when, and why, so you can see how long work sat blocked, in which column, and for which reasons.
 
-**How it works:** a card is either blocked or not. Each block is kept in the card's history with its reason, its start and end, and the column the card was in, so blocked time can be summed per column and grouped by reason in [Analytics](analytics.md).
+**How it works:** a card is either blocked or not. Each block is kept in the card's history with its reason, its start and end, and the column the card was in, so blocked time can be ranked by reason in [Analytics](analytics.md).
 
 **Yes, but:** blocking does not stop anyone from moving or editing the card, and it is never set or cleared automatically. Unblock it when the wait is over.
 
@@ -56,7 +56,7 @@ The **Summary** view has a **Blocked** column: how many active cards in each swi
 
 ### Analytics
 
-[Analytics](analytics.md) adds **Blocked time** for the selected period: blocked days per column (the column each block started in) and the most common reasons, with how many blocks and how many days each one cost.
+[Analytics](analytics.md) adds **Why cards get blocked** for the selected period: the reasons ranked by days blocked, each with its number of blocks and a bar, and a footnote naming the column where most blocks started.
 
 ---
 
@@ -68,7 +68,7 @@ Some boards already track blocked work with a [custom field](custom-fields.md) c
 |---|---|---|
 | Card-face glyph and elapsed time | Yes | No |
 | Who, when, why recorded | Yes, every block | No |
-| Blocked time per column, top reasons | Yes | No |
+| Why cards get blocked (ranked reasons) | Yes | No |
 | **Blocked only** filter | Yes | Filter on the field instead |
 | Free to rename, recolor, combine with other values | No | Yes |
 

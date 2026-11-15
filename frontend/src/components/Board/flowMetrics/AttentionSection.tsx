@@ -47,8 +47,9 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
   const cards = new Map(data.cards.map((c) => [c.uid, c]));
   const p85 = data.cycle_time_percentiles.p85;
   const age = (i: FlowAttentionItem) => i.age_days ?? i.unmoved_days ?? 0;
-  // Oldest first, as the spec requires; the sort is stable so equal ages keep the service's order.
-  const sorted = [...data.items].sort((a, b) => age(b) - age(a));
+  // Membership and order come from one backend service (the spec: #1358 reuses it), so the list
+  // renders in the service's order and never re-sorts on the client.
+  const sorted = data.items;
   const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(requestedPage, totalPages);
@@ -84,14 +85,14 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
               <>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-fg truncate" title={title}>{title}</span>
-                  <span className="block text-xs text-fg-tertiary truncate" title={where}>{where}</span>
+                  <span className="block text-xs text-fg-tertiary group-hover:text-fg-secondary truncate" title={where}>{where}</span>
                 </span>
                 <span aria-label={`${days(age(item))} old`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
                   {Math.round(age(item))}d
                 </span>
               </>
             );
-            const rowClass = "w-full flex items-center gap-3 rounded-md border border-line bg-sunken px-3 py-2 text-left";
+            const rowClass = "w-full flex items-center gap-3 rounded-md group border border-line bg-sunken px-3 py-2 text-left";
             const id = card?.id;
             return (
               <li key={item.card_uid}>
