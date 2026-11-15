@@ -1,5 +1,6 @@
 import type { FlowFilters } from "../../../api/flowMetrics";
-import { CHART_COLORS, chartTint, warningTint } from "../../../utils/chartScale";
+import { chartTint } from "../../../utils/chartScale";
+import { HATCH_CSS as HATCH } from "./hatch";
 import { DEFAULT_DAYS, RANGES } from "./useAnalyticsFilters";
 
 const PRIMARY_BUTTON = "px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
@@ -14,7 +15,6 @@ const EXAMPLE_BAR = [
 ];
 // Light to dark in column order, as the charts draw the in-progress hues; every alpha is valid (0 to 1).
 const EXAMPLE_ALPHAS = [0.4, 0.65, 0.9, 1];
-const HATCH = `repeating-linear-gradient(45deg, ${warningTint(0.2)} 0 3px, ${CHART_COLORS.warning} 3px 5px)`;
 
 /**
  * "No history yet" (#2264, `states.png`): no card has moved, so there is

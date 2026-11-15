@@ -49,7 +49,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
                       key={column.uid}
                       data-testid="time-segment"
                       data-bottleneck={column.bottleneck ? "true" : "false"}
-                      className={`flex items-center justify-center min-w-[2.25rem] ${column.bottleneck ? "bg-warning" : "bg-surface"}`}
+                      className="flex items-center justify-center min-w-[2.25rem] bg-surface"
                       style={{
                         flexGrow: wait,
                         flexBasis: 0,
@@ -91,7 +91,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
               key={column.uid}
               data-testid="time-segment"
               data-bottleneck={column.bottleneck ? "true" : "false"}
-              className={`flex items-center justify-center min-w-[2.25rem] ${column.bottleneck ? "bg-warning" : "bg-surface"}`}
+              className="flex items-center justify-center min-w-[2.25rem] bg-surface"
               style={{
                 flexGrow: column.medianWait,
                 flexBasis: 0,
@@ -110,7 +110,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
           <li key={column.uid} className="flex items-center gap-1.5">
             <span
               aria-hidden="true"
-              className={`w-3 h-3 rounded-sm ${column.bottleneck ? "bg-warning" : ""}`}
+              className="w-3 h-3 rounded-sm bg-surface"
               style={column.bottleneck ? { backgroundImage: HATCH } : { backgroundImage: `linear-gradient(${chartTint(columnAlpha(index, columns.length))}, ${chartTint(columnAlpha(index, columns.length))})` }}
             />
             {column.name}{column.bottleneck ? " (bottleneck, hatched)" : ""}

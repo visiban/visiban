@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { HATCH_CSS, HATCH_GROUND_COLOR, HATCH_PERIOD, HATCH_SPEC, HATCH_STRIPE_COLOR } from '../components/Board/flowMetrics/hatch'
 import { useRef } from 'react'
 import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -365,7 +366,13 @@ describe('the panels', () => {
     const fill = panel.querySelector('[data-band="col-doing"] polygon')?.getAttribute('fill')
     expect(fill).toMatch(/^url\(#cfd-hatch-/)
     expect(panel.querySelector('[data-band="col-done"] polygon')?.getAttribute('fill')).toContain('--border-strong')
-    expect(panel.querySelector('pattern line')?.getAttribute('stroke')).toContain('--warning')
+    const pattern = panel.querySelector('pattern') as SVGElement
+    expect(pattern.getAttribute('patternTransform')).toBe(`rotate(${HATCH_SPEC.angle})`)
+    expect(pattern.getAttribute('width')).toBe(String(HATCH_PERIOD))
+    expect(pattern.querySelector('rect')?.getAttribute('fill')).toBe(HATCH_GROUND_COLOR)
+    const line = pattern.querySelector('line')
+    expect(line?.getAttribute('stroke')).toBe(HATCH_STRIPE_COLOR)
+    expect(line?.getAttribute('stroke-width')).toBe(String(HATCH_SPEC.stripe))
     expect(panel).toHaveTextContent('The hatched band is the bottleneck.')
   })
 
@@ -1024,7 +1031,7 @@ describe('the no-history example (#2264)', () => {
     expect(screen.getByTestId('flow-empty-icon')).toHaveAttribute('aria-hidden', 'true')
     const hatched = screen.getByTestId('flow-empty-example').querySelectorAll('[data-hatched="true"]')
     expect(hatched).toHaveLength(1)
-    expect((hatched[0] as HTMLElement).style.background).toContain('--warning')
+    expect((hatched[0] as HTMLElement).style.background).toBe(HATCH_CSS)
   })
 })
 
