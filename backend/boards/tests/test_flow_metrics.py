@@ -2419,6 +2419,21 @@ class SwimlaneComparisonTests(EndpointFixture):
         self.assertIsNone(plain["grouping"])
         self.assertIsNone(self.lane_row(plain, self.lane)["group"])
 
+    def test_admin_only_field_cannot_be_grouped_by_non_admins(self):
+        field = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Tier", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,
+            choices_json=["gold"], is_admin_only=True,
+        )
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.lane, field_definition=field, value="gold")
+        member = User.objects.create_user(username="flow_member3", password="pw")
+        BoardMembership.objects.create(board=self.board, user=member, role="viewer")
+        client = APIClient()
+        client.force_authenticate(member)
+        resp = client.get(self.url("swimlanes"), {"group_by_field_id": field.id})
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn("gold", resp.content.decode())
+        self.assertEqual(self.get(group_by_field_id=field.id)["grouping"]["field_id"], field.id)
+
     def test_invalid_filters_are_400(self):
         card_field = CustomFieldDefinition.objects.create(
             board=self.board, name="Card f", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,

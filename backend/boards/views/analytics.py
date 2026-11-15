@@ -19,10 +19,10 @@ from rest_framework import serializers, status
 
 from accounts.serializers import BoardUserSerializer
 
-from ..models import BoardExportLog, CardMovement, CardRelation
+from ..models import BoardExportLog, BoardMembership, CardMovement, CardRelation
 from ..serializers import CardMovementSerializer
 from .. import hooks
-from ..permissions import analytics_extensions_for_role
+from ..permissions import SITE_ADMIN, analytics_extensions_for_role
 from ..services import flow_grouping, flow_metrics
 from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
 from visiban.request_shape import MAX_DB_INT, OFFSET_QUERY_PARAMETER, parse_offset, query_text
@@ -360,11 +360,15 @@ class SwimlaneComparisonQuerySerializer(FlowMetricsQuerySerializer):
     group_by_field_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
 
     def validate_group_by_field_id(self, value):
-        definition = (
-            self.context["board"]
-            .swimlane_custom_field_definitions.filter(pk=value, field_type__in=flow_grouping.GROUPABLE_FIELD_TYPES)
-            .first()
+        fields = self.context["board"].swimlane_custom_field_definitions.filter(
+            pk=value, field_type__in=flow_grouping.GROUPABLE_FIELD_TYPES,
         )
+        # An admin-only field's values are hidden from every other role by the
+        # swimlane serializers; grouping by one would hand them out as `group`.
+        # Same message as a missing field so its existence is not revealed.
+        if self.context["role"] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            fields = fields.filter(is_admin_only=False)
+        definition = fields.first()
         if definition is None:
             raise serializers.ValidationError("Not a dropdown or checkbox swimlane field on this board.")
         return definition
@@ -380,9 +384,9 @@ class CumulativeFlowQuerySerializer(FlowMetricsQuerySerializer):
     validate_date = FlowMetricsQuerySerializer._in_bounds
 
 
-def _flow_query(serializer_class, request, board):
+def _flow_query(serializer_class, request, board, **context):
     """Validated query params, or a 400 in the API-wide bad-parameter shape (#1825)."""
-    serializer = serializer_class(data=request.query_params, context={"board": board})
+    serializer = serializer_class(data=request.query_params, context={"board": board, **context})
     if not serializer.is_valid():
         field, errors = next(iter(serializer.errors.items()))
         prefix = "" if field == "non_field_errors" else f"{field}: "
@@ -1348,7 +1352,7 @@ class BoardAnalyticsMixin:
                 name="group_by_field_id", type={"type": "integer", "format": "int64", "minimum": 1},
                 location=OpenApiParameter.QUERY, required=False,
                 description=(
-                    "A dropdown or checkbox swimlane custom field of this board. Adds `grouping` and "
+                    "A dropdown or checkbox swimlane custom field of this board (an admin-only field only for board admins). Adds `grouping` and "
                     "each swimlane's `group`."
                 ),
             ),
@@ -1358,8 +1362,8 @@ class BoardAnalyticsMixin:
     @action(detail=True, methods=["get"], url_path="metrics/swimlanes")
     def metrics_swimlanes(self, request, pk=None):
         """One row per swimlane for the Swimlanes tab, with the board median (#2266)."""
-        board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(SwimlaneComparisonQuerySerializer, request, board)
+        board, role = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(SwimlaneComparisonQuerySerializer, request, board, role=role)
         now = timezone.now()
         flow = _load_flow(board, params, now)
         lanes = list(board.swimlanes.order_by("position", "id"))

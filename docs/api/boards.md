@@ -597,7 +597,7 @@ One row per swimlane for the Swimlanes tab of Analytics, plus the board median f
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
-| `group_by_field_id` | integer | none | A dropdown or checkbox **swimlane** custom field of this board ("Group lanes by"). Any other id is a 400 (`invalid_query_param`). |
+| `group_by_field_id` | integer | none | A dropdown or checkbox **swimlane** custom field of this board ("Group lanes by"). An admin-only field is accepted only for board admins. Any other id is a 400 (`invalid_query_param`). |
 
 Response (cycle time is the same measure as `metrics/cycle-time/`; every number is computed on the server):
 
