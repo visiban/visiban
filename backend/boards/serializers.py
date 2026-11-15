@@ -26,7 +26,7 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
 # groups.serializers nor groups.models imports anything from boards (groups.views
 # does, but lazily, inside its methods).
-from groups.health import HealthStatus
+from groups.health import HealthStatus, valid_health_status
 from groups.serializers import (
     HEALTH_HISTORY_FIELDS, HEALTH_REVIEW_DAYS_HELP, HEALTH_REVIEW_FIELDS, HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
 )
@@ -749,11 +749,96 @@ def _swimlane_custom_field_prefetch():
 
 
 SWIMLANE_HEALTH_STATUS_HELP = (
-    "This lane's manual health status (#2243): on_track, at_risk or "
-    "off_track, or null for no status. Independent of the board's status: "
-    "null does not inherit the board's value, and a lane's value never rolls "
-    "up to the board. Writable by board admins."
+    "This lane's manual health status (#2243), the pin: on_track, at_risk or "
+    "off_track, or null for no pin. Null does not inherit the board's value. "
+    "On a board with health_auto_enabled (#2245) the board's computed status "
+    "is the worst of its lanes' effective_health_status, so a lane's value "
+    "rolls up to the board there; with auto health off it does not. Writable "
+    "by board admins."
 )
+
+#: Read-only computed-health fields (#2245), shared by board and lane serializers.
+AUTO_HEALTH_COMPUTED_FIELDS = ["computed_health_status", "health_computed_at", "health_computed_counts"]
+
+_COMPUTED_HEALTH_STATUS_HELP = (
+    "The auto health status (#2245): what the rule computed at "
+    "health_computed_at, readable even while a pin (health_status) overrides "
+    "it. Null when auto health is off, never computed, or (for a lane) the "
+    "lane had no open cards. Read-only."
+)
+_HEALTH_COMPUTED_AT_HELP = (
+    "When the auto health status was last computed (#2245), whether or not it "
+    "changed; null = never computed (auto off, or the scheduled job has not "
+    "run). Read-only."
+)
+_HEALTH_COMPUTED_COUNTS_HELP = (
+    "The open-card counts behind computed_health_status (#2245): open, "
+    "overdue, stale, blocked, and flagged (open cards with at least one of "
+    "the three; a card counts once). Summed over the lanes for a board. Null "
+    "when never computed. Read-only."
+)
+
+
+class HealthComputedCountsSerializer(serializers.Serializer):
+    """Schema of ``health_computed_counts`` (#2245)."""
+
+    open = serializers.IntegerField(read_only=True)
+    overdue = serializers.IntegerField(read_only=True)
+    stale = serializers.IntegerField(read_only=True)
+    blocked = serializers.IntegerField(read_only=True)
+    flagged = serializers.IntegerField(read_only=True)
+
+
+# Auto health status fields (#2245) of Board and BoardFull. No docstring on
+# purpose (see HealthStatusFieldsMixin): drf-spectacular would publish it.
+class AutoHealthBoardFieldsMixin(serializers.Serializer):
+
+    health_auto_enabled = serializers.BooleanField(
+        required=False,
+        help_text=(
+            "Compute this board's health from its lanes' cards (#2245); default "
+            "false. Turning it on computes at once; turning it off clears every "
+            "computed value. Written by board admins."
+        ),
+    )
+    health_off_track_cards = serializers.IntegerField(
+        required=False, min_value=1, max_value=1000,
+        help_text=(
+            "Auto health threshold (#2245): an ABSOLUTE count of flagged cards "
+            "in one lane, not a share of its open cards. A lane with at least 1 "
+            "flagged card is at_risk; with at least this many, off_track. "
+            "Default 3, minimum 1. Written by board admins."
+        ),
+    )
+    computed_health_status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True, read_only=True,
+        help_text=_COMPUTED_HEALTH_STATUS_HELP + " For a board: the worst of its lanes' effective statuses.",
+    )
+    health_computed_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_AT_HELP,
+    )
+    health_computed_counts = HealthComputedCountsSerializer(
+        read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_COUNTS_HELP,
+    )
+    health_status_origin = serializers.SerializerMethodField(
+        help_text=(
+            "Where effective_health_status comes from (#2245): manual (this "
+            "board's own pin), computed (auto health), inherited (a group; "
+            "health_status_source names it), or null for no status."
+        ),
+    )
+
+    @extend_schema_field(serializers.ChoiceField(
+        choices=["manual", "computed", "inherited"], allow_null=True,
+    ))
+    def get_health_status_origin(self, obj):
+        return HealthStatusFieldsMixin.get_health_status_origin(self, obj)
+
+
+#: Meta.fields entries of AutoHealthBoardFieldsMixin.
+AUTO_HEALTH_BOARD_FIELDS = [
+    "health_auto_enabled", "health_off_track_cards", *AUTO_HEALTH_COMPUTED_FIELDS, "health_status_origin",
+]
 
 
 class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
@@ -796,6 +881,28 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         choices=HealthStatus.choices, allow_null=True, required=False,
         help_text=SWIMLANE_HEALTH_STATUS_HELP,
     )
+    # Auto health status (#2245). Read-only; written by
+    # boards.services.health_compute. A lane never inherits from its board.
+    effective_health_status = serializers.SerializerMethodField(
+        help_text=(
+            "The lane status shown (#2245): the pin (health_status) if set, else "
+            "computed_health_status (non-null only on a board with auto health "
+            "on), else null."
+        ),
+    )
+    health_status_origin = serializers.SerializerMethodField(
+        help_text="manual (the pin), computed (auto health), or null for no status (#2245).",
+    )
+    computed_health_status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True, read_only=True,
+        help_text=_COMPUTED_HEALTH_STATUS_HELP,
+    )
+    health_computed_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_AT_HELP,
+    )
+    health_computed_counts = HealthComputedCountsSerializer(
+        read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_COUNTS_HELP,
+    )
 
     MAX_LIMIT_COLUMN_IDS = 90
 
@@ -806,6 +913,8 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "created_at", "custom_field_values",
             "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
             "health_status",
+            # Additive (#2245).
+            "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -813,6 +922,18 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "weight_limit": {"help_text": field_enforcement.SWIMLANE_WEIGHT_LIMIT},
             "limit_enforcement": {"help_text": field_enforcement.SWIMLANE_LIMIT_ENFORCEMENT},
         }
+
+    @extend_schema_field(serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True))
+    def get_effective_health_status(self, obj):
+        return valid_health_status(obj.health_status) or valid_health_status(obj.computed_health_status)
+
+    @extend_schema_field(serializers.ChoiceField(choices=["manual", "computed"], allow_null=True))
+    def get_health_status_origin(self, obj):
+        if valid_health_status(obj.health_status):
+            return "manual"
+        if valid_health_status(obj.computed_health_status):
+            return "computed"
+        return None
 
     def validate_limit_enforcement(self, value):
         """Store only ``block``, ``hard`` or null (#1150).
@@ -911,6 +1032,8 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             "is_collapsed", "created_at", "custom_field_values",
             "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
             "health_status",
+            # Additive (#2245).
+            "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
         ]
 
 
@@ -3635,7 +3758,7 @@ DEFAULT_PRESET_HELP = (
 
 
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
-class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
+class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
@@ -3705,7 +3828,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4040,7 +4163,7 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
 
 
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
-class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
+class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     columns = ColumnSerializer(many=True, read_only=True)
     swimlanes = serializers.SerializerMethodField()
@@ -4126,6 +4249,8 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "default_preset",
             # Additive (#2244): the review cue.
             *HEALTH_REVIEW_FIELDS,
+            # Additive (#2245): auto health status.
+            *AUTO_HEALTH_BOARD_FIELDS,
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.

@@ -10,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ErrorDetail, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     extend_schema, extend_schema_view, inline_serializer, OpenApiParameter, OpenApiResponse,
@@ -47,7 +48,7 @@ from ..permissions import (
 from ..serializers import (
     EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
-    BoardMembershipSerializer, SavedFilterSerializer,
+    BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer,
 )
 from ..services.feed import (
     cursor_row_visible,
@@ -243,6 +244,19 @@ _BOARDS_STARRED_PARAMETER = OpenApiParameter(
         "Omitted or any other value returns every board the user can access."
     ),
 )
+
+
+class BoardHealthRecomputeThrottle(UserRateThrottle):
+    """30 "Recompute now" runs per user per hour (#2245): each reads every open card of one board."""
+
+    scope = "board_health_recompute"
+
+
+class HealthRecomputeResponseSerializer(serializers.Serializer):
+    """Response of ``POST /boards/{id}/health-recompute/`` (#2245)."""
+
+    board = BoardSerializer(read_only=True)
+    swimlanes = SwimlaneSerializer(many=True, read_only=True)
 
 
 # list and retrieve are the inherited ModelViewSet actions, so their schema is
@@ -487,11 +501,15 @@ class BoardViewSet(
             # a history row only when the value changes, with no note. A
             # reconfirm or a note goes through POST health-status/.
             old_health_status = board.health_status
+            # Auto health (#2245): read from the locked row, like the status.
+            old_auto = board.health_auto_enabled
+            old_off_track_cards = board.health_off_track_cards
             serializer.save()
             board = serializer.instance
             record_if_changed(
                 board, change_model=BoardHealthChange, from_status=old_health_status, user=self.request.user,
             )
+            self._apply_auto_health_change(board, old_auto, old_off_track_cards)
             board_id = board.id
             if board.group_id != old_group_id:
                 # A group-derived admin role can end with the group change; a
@@ -500,6 +518,28 @@ class BoardViewSet(
                 from ..services.share_links import revoke_lapsed_share_links
                 revoke_lapsed_share_links(board_ids=[board_id])
             self._persist_and_broadcast_board_updated(board_id, old_group_id)
+
+    def _apply_auto_health_change(self, board, old_auto, old_off_track_cards):
+        """Turning auto health on computes now; off clears every computed value (#2245).
+
+        Runs inside perform_update's transaction, holding the board row lock,
+        before its ``board.updated``: that one event carries the new computed
+        values, so the compute sends no second ``board.updated``
+        (``broadcast_board=False``). A threshold change on an auto board
+        recomputes too, so the stored value never answers to the old rule.
+        """
+        from ..services.health_compute import clear_computed_health, compute_board_health
+
+        if old_auto and not board.health_auto_enabled:
+            clear_computed_health(board, user=self.request.user)
+        elif board.health_auto_enabled and (
+            not old_auto or board.health_off_track_cards != old_off_track_cards
+        ):
+            compute_board_health(board.pk, broadcast_board=False)
+            # The PATCH response is rendered from this instance.
+            board.refresh_from_db(fields=[
+                "computed_health_status", "health_computed_at", "health_computed_counts",
+            ])
 
     def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
         """Persist ``board.updated`` and schedule its fanout on commit; return the payload.
@@ -513,20 +553,67 @@ class BoardViewSet(
         # triggering per-field subqueries from the bare post-save instance (#647).
         annotated = self.get_queryset().get(pk=board_id)
         board_data = BoardSerializer(annotated, context={"request": self.request}).data
-        new_group_id = annotated.group_id
-        event_id = _broadcast.persist_board_event(
-            board_id, _broadcast.EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
+        # The persist + on-commit fanout lives in services.board_events
+        # (#2245) so the request-less auto health job sends the same sequence.
+        from ..services.board_events import record_board_updated
+
+        return record_board_updated(
+            board_id, board_data, old_group_id=old_group_id, new_group_id=annotated.group_id,
+            actor_id=self.request.user.id,
         )
-        def _broadcast_updated(
-            bid=board_id, bd=board_data,
-            og=old_group_id, ng=new_group_id, eid=event_id, aid=self.request.user.id,
-        ):
-            _broadcast.broadcast_board_event(
-                bid, _broadcast.EVT_BOARD_UPDATED, bd, event_id=eid, actor_id=aid,
+
+    @extend_schema(
+        summary="Recompute the board's auto health status now",
+        description=(
+            "Runs the auto health computation (#2245) for this board at once: "
+            "the same code path as the nightly compute_health_status job. Each "
+            "lane's status is computed from its own open cards (overdue, stale "
+            "or blocked; a card counts once; at least 1 flagged card is "
+            "at_risk, at least health_off_track_cards is off_track; no open "
+            "cards is null) and the board's is the worst of its lanes' "
+            "effective statuses. Always advances health_computed_at. Board "
+            "admins only; non-members get 404. 409 (code "
+            "\"health_auto_disabled\") when the board has health_auto_enabled "
+            "false. Rate-limited to 30 per hour per user. Broadcasts "
+            "swimlane.updated for each changed lane and board.updated when the "
+            "board's computed status changed, with no actor. Response: the "
+            "board, as GET /boards/{id}/, and its lanes."
+        ),
+        request=None,
+        responses={
+            200: HealthRecomputeResponseSerializer,
+            401: OpenApiResponse(description="Not authenticated."),
+            403: OpenApiResponse(description="Not a board admin."),
+            404: OpenApiResponse(description="No such board, or not a member."),
+            409: OpenApiResponse(description="Auto health status is off for this board."),
+            429: OpenApiResponse(description="Rate limit exceeded (30 per hour)."),
+        },
+    )
+    @action(
+        detail=True, methods=["post"], url_path="health-recompute",
+        throttle_classes=[BoardHealthRecomputeThrottle],
+    )
+    def health_recompute(self, request, pk=None):
+        from ..services.health_compute import compute_board_health
+
+        # 404 for a non-member first (security-invariants Rule 7), then 403.
+        board = self.get_object()
+        self._require_board_settings_admin(board)
+        result = compute_board_health(board.pk)
+        if result is None:
+            return Response(
+                {
+                    "detail": "Auto health status is off for this board.",
+                    "code": "health_auto_disabled",
+                },
+                status=status.HTTP_409_CONFLICT,
             )
-            _broadcast_board_group_change(bid, bd, og, ng, actor_id=aid)
-        transaction.on_commit(_broadcast_updated)
-        return board_data
+        annotated = self.get_queryset().get(pk=board.pk)
+        lanes = Swimlane.objects.filter(board_id=board.pk).order_by("position", "pk")
+        return Response({
+            "board": BoardSerializer(annotated, context={"request": request}).data,
+            "swimlanes": SwimlaneSerializer(lanes, many=True).data,
+        })
 
     @extend_schema(
         summary="Set or confirm the board's health status",

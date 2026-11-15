@@ -254,6 +254,27 @@ class Board(models.Model):
     # clock. Range 1..365 is enforced by the serializer. No index: nothing
     # filters on it.
     health_review_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Auto health status (#2245). Opt-in per board (off = exactly the pre-1.3
+    # behavior). When on, boards.services.health_compute stores each lane's
+    # status from its own open cards and this board's roll-up (worst lane)
+    # in the computed_* columns; the effective status is the pin
+    # (health_status) if set, else the computed value, else the group's.
+    # health_off_track_cards is an ABSOLUTE count of flagged cards in a lane
+    # (owner decision 2026-11-15, frozen at 1.3 GA): >= 1 flagged is at risk,
+    # >= this many is off track. All columns are nullable or db_default, so
+    # ADD COLUMN is catalog-only; no index (nothing filters on them).
+    health_auto_enabled = models.BooleanField(default=False, db_default=False)
+    health_off_track_cards = models.PositiveSmallIntegerField(
+        default=3, db_default=3, validators=[MinValueValidator(1)],
+    )
+    computed_health_status = models.CharField(
+        max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
+    )
+    # When the last computation ran (advanced on every run, changed or not);
+    # null = never computed (e.g. the scheduler is off).
+    health_computed_at = models.DateTimeField(null=True, blank=True)
+    # {open, overdue, stale, blocked, flagged} summed over the board's lanes.
+    health_computed_counts = models.JSONField(null=True, blank=True, default=None)
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board
@@ -715,12 +736,24 @@ class Swimlane(models.Model):
     # Lane health status (#2243): the lane's manual pin, same HealthStatus
     # enum as Board.health_status. Unlike a board, null here means "no
     # status", NOT "inherit": a lane's status is independent of its board's
-    # (no cascade down, no rollup up). A computed lane status (#2245) will sit
-    # beside this column, which is why it holds only what an admin pinned.
-    # Nullable with no default, so ADD COLUMN is catalog-only; no index.
+    # (no cascade down). Since #2245 an auto-health board rolls its lanes'
+    # effective statuses up into Board.computed_health_status. The computed
+    # lane status sits beside this column, which is why it holds only what an
+    # admin pinned. Nullable with no default, so ADD COLUMN is catalog-only;
+    # no index.
     health_status = models.CharField(
         max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
     )
+    # Auto health status (#2245): written only by
+    # boards.services.health_compute, and only while the board has
+    # health_auto_enabled (turning it off clears them). Null status = no open
+    # cards or never computed; counts are {open, overdue, stale, blocked,
+    # flagged}.
+    computed_health_status = models.CharField(
+        max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
+    )
+    health_computed_at = models.DateTimeField(null=True, blank=True)
+    health_computed_counts = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "swimlanes"

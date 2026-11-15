@@ -36,8 +36,19 @@ class LoadJobsTest(SimpleTestCase):
                 ("prune_board_events", datetime.time(3, 0)),
                 ("notify_due_soon", datetime.time(7, 0)),
                 ("notify_stale_cards", datetime.time(8, 0)),
+                ("compute_health_status", datetime.time(2, 0)),
             ],
         )
+
+    def test_compute_health_schedule_is_configurable_and_can_be_off(self):
+        # #2245: SCHEDULE_COMPUTE_HEALTH, default 02:00, "off" disables.
+        jobs = load_jobs({"SCHEDULE_COMPUTE_HEALTH": "04:15"})
+        self.assertIn(("compute_health_status", datetime.time(4, 15)), [(j.command, j.at) for j in jobs])
+        self.assertNotIn("compute_health_status", [j.command for j in load_jobs({"SCHEDULE_COMPUTE_HEALTH": "off"})])
+
+    def test_bad_compute_health_schedule_fails_at_startup(self):
+        with self.assertRaises(Exception):
+            load_jobs({"SCHEDULE_COMPUTE_HEALTH": "25:99"})
 
     def test_notification_prune_is_opt_in(self):
         self.assertNotIn("prune_notifications", [j.command for j in load_jobs({})])
@@ -150,6 +161,7 @@ class HandleTest(SimpleTestCase):
             "SCHEDULE_NOTIFY_DUE_SOON": "off",
             "SCHEDULE_NOTIFY_STALE_CARDS": "off",
             "SCHEDULE_PRUNE_BOARD_EVENTS": "off",
+            "SCHEDULE_COMPUTE_HEALTH": "off",
         }
         with mock.patch.dict("os.environ", env):
             with self.assertRaisesMessage(CommandError, "switched off"):

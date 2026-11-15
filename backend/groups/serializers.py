@@ -9,12 +9,14 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 from visiban.invite_email import InviteEmailField
 from visiban.query_fallbacks import fk_chain_loaded, note_fallback
 from .models import (
-    HEALTH_NOTE_MAX_LENGTH,
+    HEALTH_NOTE_MAX_LENGTH, HealthChangeKind,
     Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite,
     _GROUP_TRAVERSAL_MAX_DEPTH, user_has_group_access,
     user_is_group_admin,
 )
-from .health import HealthStatus, build_health_map, resolve_health, resolve_review_due_at, valid_health_status
+from .health import (
+    HealthStatus, build_health_map, resolve_health_origin, resolve_review_due_at, valid_health_status,
+)
 
 # Schema for the root-first ancestor breadcrumb returned by
 # GroupDetailSerializer.get_ancestors (#1119) — a plain list-of-``{id, name}`` dict, not
@@ -337,6 +339,7 @@ class HealthStatusFieldsMixin(serializers.Serializer):
         self._health_map = build_health_map(
             self._health_start(obj) for obj in items
             if not valid_health_status(obj.health_status)
+            and not valid_health_status(getattr(obj, "computed_health_status", None))
         )
 
     def _health(self, obj):
@@ -344,22 +347,32 @@ class HealthStatusFieldsMixin(serializers.Serializer):
         # by the inputs, not just the pk, so a row re-serialized after a write
         # in the same request is never answered from a stale entry.
         start = self._health_start(obj)
+        # Boards only (#2245): stored while auto health is on, else null.
+        computed = getattr(obj, "computed_health_status", None)
         key = (
             obj.pk, obj.health_status, start[1],
             getattr(obj, "health_status_changed_at", None), getattr(obj, "health_review_days", None),
+            computed,
         )
         cache = self.__dict__.setdefault("_health_cache", {})
         if key not in cache:
             health_map = self.__dict__.get("_health_map")
             if health_map is None:
-                health_map = {} if valid_health_status(obj.health_status) else build_health_map([start])
-            effective, source = resolve_health(obj.health_status, start[1], health_map)
+                health_map = (
+                    {} if valid_health_status(obj.health_status) or valid_health_status(computed)
+                    else build_health_map([start])
+                )
+            effective, source, origin = resolve_health_origin(
+                obj.health_status, start[1], health_map, computed,
+            )
             # Same map, same walk: the review clock costs no query (#2244).
-            due_at = resolve_review_due_at(
+            # A computed value is never "not reviewed" (#2245): it is as old
+            # as its health_computed_at, which the client shows instead.
+            due_at = None if origin == "computed" else resolve_review_due_at(
                 obj.health_status, getattr(obj, "health_status_changed_at", None),
                 getattr(obj, "health_review_days", None), start[1], health_map,
             )
-            cache[key] = (effective, source, due_at)
+            cache[key] = (effective, source, due_at, origin)
         return cache[key]
 
     @extend_schema_field(serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True))
@@ -369,6 +382,11 @@ class HealthStatusFieldsMixin(serializers.Serializer):
     @extend_schema_field(HealthStatusSourceSerializer(allow_null=True))
     def get_health_status_source(self, obj):
         return self._health(obj)[1]
+
+    # Read by the ``health_status_origin`` field the board serializers
+    # declare (#2245); groups do not publish an origin.
+    def get_health_status_origin(self, obj):
+        return self._health(obj)[3]
 
     @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_health_review_due_at(self, obj):
@@ -1183,6 +1201,18 @@ class HealthStatusChangeSerializer(serializers.Serializer):
     changed_by = BoardUserSerializer(read_only=True, allow_null=True)
     changed_at = serializers.DateTimeField(read_only=True)
     note = serializers.CharField(read_only=True, allow_null=True)
+    # #2245. Additive: rows before 1.3 read "manual".
+    kind = serializers.ChoiceField(
+        choices=HealthChangeKind.choices, read_only=True,
+        help_text=(
+            "manual: a person set or reconfirmed the status. computed: the auto "
+            "health status changed (changed_by null, reason says why) (#2245)."
+        ),
+    )
+    reason = serializers.CharField(
+        read_only=True, allow_null=True,
+        help_text="Why a computed change happened, e.g. \"Auto: 1 lane off track (Acme)\"; null on manual rows.",
+    )
 
 
 class HealthHistorySerializer(serializers.Serializer):

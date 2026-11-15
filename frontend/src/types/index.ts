@@ -389,10 +389,21 @@ export interface Swimlane {
    */
   limit_column_ids: number[] | null;
   /**
-   * The lane's manual health status (#2243), or null for no status. Never
-   * inherited from the board and never rolled up to it.
+   * The lane's manual health status (#2243), the pin, or null for no pin.
+   * Never inherited from the board. On an auto-health board (#2245) the
+   * board's computed status is the worst of its lanes' effective statuses.
    */
   health_status: HealthStatus | null;
+  /** #2245 — the pin if set, else `computed_health_status`, else null. */
+  effective_health_status: HealthStatus | null;
+  /** #2245 — "manual" (the pin), "computed", or null for no status. */
+  health_status_origin: SwimlaneHealthStatusOrigin | null;
+  /** #2245 — what the rule computed, readable while pinned; null when auto is off, never computed, or no open cards. */
+  computed_health_status: HealthStatus | null;
+  /** #2245 — when the lane was last computed; null = never computed. */
+  health_computed_at: string | null;
+  /** #2245 — the open-card counts behind `computed_health_status`. */
+  health_computed_counts: HealthComputedCounts | null;
 }
 
 export type SwimlaneLimitEnforcement = "block" | "hard";
@@ -1063,6 +1074,21 @@ export interface Board {
   health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Board admins write it with `patchBoard`. */
   default_preset: BoardPresetId | null;
+  /** #2245 — compute this board's health from its lanes' cards; default false. Board admins write it with `patchBoard`. */
+  health_auto_enabled: boolean;
+  /**
+   * #2245 — an ABSOLUTE count of flagged cards in one lane (not a share): at
+   * least 1 flagged is at risk, at least this many is off track. Default 3, minimum 1.
+   */
+  health_off_track_cards: number;
+  /** #2245 — the computed board status (worst lane), readable while pinned; null when auto is off or never computed. */
+  computed_health_status: HealthStatus | null;
+  /** #2245 — when the auto status was last computed; null = never computed. */
+  health_computed_at: string | null;
+  /** #2245 — open-card counts summed over the lanes; null when never computed. */
+  health_computed_counts: HealthComputedCounts | null;
+  /** #2245 — where `effective_health_status` comes from. */
+  health_status_origin: BoardHealthStatusOrigin | null;
 }
 
 /**
@@ -1070,6 +1096,21 @@ export interface Board {
  * the definitions. Mirrors `BoardPresetId` in `backend/boards/models.py`.
  */
 export type BoardPresetId = "classic" | "default";
+
+/** Open-card counts behind an auto health status (#2245); `flagged` counts a card once. */
+export interface HealthComputedCounts {
+  open: number;
+  overdue: number;
+  stale: number;
+  blocked: number;
+  flagged: number;
+}
+
+/** Where a board's effective health status comes from (#2245). */
+export type BoardHealthStatusOrigin = "manual" | "computed" | "inherited";
+
+/** Where a lane's effective health status comes from (#2245); lanes never inherit. */
+export type SwimlaneHealthStatusOrigin = "manual" | "computed";
 
 /** Board and group health values (#1133); `null` on the wire means inherit / none. */
 export type HealthStatus = "on_track" | "at_risk" | "off_track";
@@ -1090,6 +1131,10 @@ export interface HealthStatusChange {
   changed_by: BoardUser | null;
   changed_at: string;
   note: string | null;
+  /** #2245 — "computed" for an auto health change (`changed_by` null, `reason` says why). */
+  kind: "manual" | "computed";
+  /** #2245 — why a computed change happened; null on manual rows. */
+  reason: string | null;
 }
 
 /** `GET .../health-history/` (#2242): newest first, at most 20; `has_more` when older rows exist. */
@@ -1214,6 +1259,21 @@ export interface BoardFull {
   health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Read-only here (written with `patchBoard`). */
   default_preset: BoardPresetId | null;
+  /** #2245 — compute this board's health from its lanes' cards; default false. Board admins write it with `patchBoard`. */
+  health_auto_enabled: boolean;
+  /**
+   * #2245 — an ABSOLUTE count of flagged cards in one lane (not a share): at
+   * least 1 flagged is at risk, at least this many is off track. Default 3, minimum 1.
+   */
+  health_off_track_cards: number;
+  /** #2245 — the computed board status (worst lane), readable while pinned; null when auto is off or never computed. */
+  computed_health_status: HealthStatus | null;
+  /** #2245 — when the auto status was last computed; null = never computed. */
+  health_computed_at: string | null;
+  /** #2245 — open-card counts summed over the lanes; null when never computed. */
+  health_computed_counts: HealthComputedCounts | null;
+  /** #2245 — where `effective_health_status` comes from. */
+  health_status_origin: BoardHealthStatusOrigin | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

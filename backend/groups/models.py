@@ -350,6 +350,16 @@ class HealthStatus(models.TextChoices):
 HEALTH_NOTE_MAX_LENGTH = 280
 
 
+HEALTH_REASON_MAX_LENGTH = 200
+
+
+class HealthChangeKind(models.TextChoices):
+    """Who made a health status change (#2245). Public API values: never rename."""
+
+    MANUAL = "manual"
+    COMPUTED = "computed"
+
+
 class HealthStatusChangeBase(models.Model):
     """One set of a board's or group's health status (#2242); abstract.
 
@@ -370,6 +380,17 @@ class HealthStatusChangeBase(models.Model):
     )
     changed_at = models.DateTimeField(db_default=Now())
     note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
+    # #2245: "manual" for a person's set or reconfirm, "computed" for a change
+    # of the auto health status (written by boards.services.health_compute,
+    # changed_by null). db_default so an older pod's INSERT that omits the
+    # column stores "manual", which is what every row before #2245 was.
+    kind = models.CharField(
+        max_length=16, choices=HealthChangeKind.choices,
+        default=HealthChangeKind.MANUAL, db_default=HealthChangeKind.MANUAL,
+    )
+    # Why a computed change happened, e.g. "Auto: 2 lanes off track (Acme,
+    # Beta)". Null on manual rows (their free text is ``note``).
+    reason = models.CharField(max_length=HEALTH_REASON_MAX_LENGTH, null=True, blank=True)
 
     class Meta:
         abstract = True

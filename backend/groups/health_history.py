@@ -72,6 +72,31 @@ def record_health_change(entity, *, change_model, from_status, to_status, user, 
     return change
 
 
+
+def record_computed_health_change(entity, *, change_model, from_status, to_status, reason, user=None):
+    """Append one ``kind="computed"`` history row for ``entity`` (#2245).
+
+    The sibling of :func:`record_health_change` for the auto health status. It
+    touches no entity column: the computed columns are written by the caller
+    (``boards.services.health_compute``), and the pin's last-change columns
+    (``health_status_changed_at`` and the rest) must not move, or a nightly
+    run would reset the #2244 review clock of a person's pin. ``user`` is
+    ``None`` for the job and the manual run's roll-up (a system change); the
+    statuses are computed values, not pins.
+    """
+    from .models import HEALTH_REASON_MAX_LENGTH, HealthChangeKind
+
+    user = user if getattr(user, "is_authenticated", False) else None
+    return change_model.objects.create(
+        **{entity._meta.model_name: entity},
+        from_status=valid_health_status(from_status),
+        to_status=valid_health_status(to_status),
+        changed_by=user,
+        changed_at=timezone.now(),
+        kind=HealthChangeKind.COMPUTED,
+        reason=(reason or "")[:HEALTH_REASON_MAX_LENGTH] or None,
+    )
+
 def record_if_changed(entity, *, change_model, from_status, user):
     """Record a change from ``from_status`` to ``entity.health_status`` if they differ.
 

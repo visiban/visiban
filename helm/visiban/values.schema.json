@@ -536,6 +536,31 @@
             }
           }
         },
+        "computeHealthStatus": {
+          "description": "manage.py compute_health_status — auto health status for boards that turned it on (#2245).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
         "pruneBoardEvents": {
           "description": "manage.py prune_board_events — DELETES board change-feed events older than BOARD_EVENT_RETENTION_DAYS.",
           "type": "object",
