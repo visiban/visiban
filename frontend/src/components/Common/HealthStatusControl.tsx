@@ -178,7 +178,7 @@ export default function HealthStatusControl({
   const reviewCue = isLane || display.value === "none" ? null : healthReviewCue({
     ...fields, health_review_due_at, health_status_changed_at,
   });
-  const reviewBadge = reviewCue ? <HealthReviewCueBadge cue={reviewCue} compact={collapseLabel} /> : null;
+  const reviewBadge = reviewCue ? <HealthReviewCueBadge cue={reviewCue} compact={collapseLabel ? "below-md" : false} actionable={canEdit && !demoMode} /> : null;
   // Always mounted, so a change of its text is announced (frontend/CLAUDE.md § Inline status messages).
   const liveRegion = <span role="status" aria-live="polite" className="sr-only">{announcement}</span>;
 

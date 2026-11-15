@@ -750,6 +750,6 @@ describe('Dashboard health status (#1133)', () => {
     ])
     renderDashboard()
     expect(await screen.findByText('Not reviewed in 18 days')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Stale Board Health status: At risk Not reviewed in 18 days/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Stale Board Health status: At risk ?, Not reviewed in 18 days$/ })).toBeInTheDocument()
   })
 })

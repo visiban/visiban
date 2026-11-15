@@ -141,15 +141,21 @@ function ReviewClockIcon() {
 /**
  * The "Not reviewed in 18 days" cue (#2244) beside a health pill: a clock and
  * the words, in `text-warning` on the solid surface (never color alone, no
- * fill). `compact` shows "18d" and keeps the full sentence for screen readers
- * and the tooltip. Build `cue` only with `healthReviewCue`.
+ * fill). `compact`: `true` shows "18d" at every width (the narrow group tree),
+ * `"below-md"` only below `md`, like a header pill's `collapseLabel`. The full
+ * sentence is always in the accessible text, after a ", " so a row button's
+ * name reads "…At risk, Not reviewed in 18 days". `actionable` adds the
+ * "Confirm or change" hint to the tooltip, only where the viewer can act.
+ * Build `cue` only with `healthReviewCue`.
  */
-export function HealthReviewCueBadge({ cue, compact = false, className = "" }: {
+export function HealthReviewCueBadge({ cue, compact = false, actionable = false, className = "" }: {
   cue: { days: number; text: string };
-  compact?: boolean;
+  compact?: boolean | "below-md";
+  actionable?: boolean;
   className?: string;
 }) {
-  const title = `${cue.text}. Confirm or change the status to clear this.`;
+  const title = actionable ? `${cue.text}. Confirm or change the status to clear this.` : cue.text;
+  const short = <span aria-hidden="true" className={compact === "below-md" ? "md:hidden" : undefined}>{cue.days}d</span>;
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs font-medium text-warning shrink-0 ${className}`}
@@ -157,10 +163,16 @@ export function HealthReviewCueBadge({ cue, compact = false, className = "" }: {
       data-health-review-cue=""
     >
       <ReviewClockIcon />
-      {compact ? (
+      <span className="sr-only">, </span>
+      {compact === true ? (
         <>
-          <span aria-hidden="true">{cue.days}d</span>
+          {short}
           <span className="sr-only">{cue.text}</span>
+        </>
+      ) : compact === "below-md" ? (
+        <>
+          {short}
+          <span className="sr-only md:not-sr-only">{cue.text}</span>
         </>
       ) : (
         <span>{cue.text}</span>

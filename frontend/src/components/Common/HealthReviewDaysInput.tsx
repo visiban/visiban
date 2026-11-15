@@ -76,7 +76,7 @@ export default function HealthReviewDaysInput({ value, onSave, entityKind, disab
           placeholder="Off"
           value={draft}
           disabled={disabled}
-          aria-describedby={`${id}-hint`}
+          aria-describedby={error ? `${id}-hint ${id}-error` : `${id}-hint`}
           aria-invalid={error ? true : undefined}
           onFocus={() => { focused.current = true; }}
           onChange={(e) => { setDraft(e.target.value); setSaved(false); }}
@@ -84,14 +84,14 @@ export default function HealthReviewDaysInput({ value, onSave, entityKind, disab
           onKeyDown={(e) => {
             if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commit(); }
           }}
-          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-50"
+          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-40"
         />
         <span className="text-sm text-fg-tertiary">days</span>
-        {saved && !error && <span className="text-success text-xs">Saved</span>}
+        <span role="status" className="text-success text-xs">{saved && !error ? "Saved" : ""}</span>
       </div>
       <p id={`${id}-hint`} className="text-xs text-fg-muted">{hint}</p>
-      <p className="text-xs h-4">
-        {error && <span role="alert" className="text-danger">{error}</span>}
+      <p className="text-xs min-h-4">
+        {error && <span id={`${id}-error`} role="alert" className="text-danger">{error}</span>}
       </p>
     </div>
   );

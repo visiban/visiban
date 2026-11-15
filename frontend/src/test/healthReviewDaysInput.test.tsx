@@ -21,7 +21,7 @@ describe('HealthReviewDaysInput (#2244)', () => {
     await user.type(input, '14')
     await user.tab()
     expect(onSave).toHaveBeenCalledWith(14)
-    expect(await screen.findByText('Saved')).toBeInTheDocument()
+    expect(await screen.findByText('Saved')).toHaveAttribute('role', 'status')
     rerender(<HealthReviewDaysInput entityKind="board" value={14} onSave={onSave} />)
     await user.clear(input)
     await user.keyboard('{Enter}')
@@ -39,6 +39,7 @@ describe('HealthReviewDaysInput (#2244)', () => {
     expect(onSave).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a whole number from 1 to 365')
     expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input.getAttribute('aria-describedby')).toContain(screen.getByRole('alert').id)
     expect(screen.getByText(/subgroups and boards that inherit it/)).toBeInTheDocument()
   })
 

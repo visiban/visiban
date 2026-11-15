@@ -388,8 +388,16 @@ describe('health review cue (#2244)', () => {
     expect(screen.getByText('18d')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText('Not reviewed in 18 days')).toHaveClass('sr-only')
     compact.unmount()
-    renderControl({ canEdit: false, ...fields })
+    const readOnly = renderControl({ canEdit: false, ...fields })
     expect(screen.getByText('Not reviewed in 18 days')).toBeInTheDocument()
+    // Non-admins cannot act, so no "Confirm or change" hint.
+    expect(document.querySelector('[data-health-review-cue]')).toHaveAttribute('title', 'Not reviewed in 18 days')
+    readOnly.unmount()
+    renderControl({ ...fields, collapseLabel: true })
+    const cue = document.querySelector('[data-health-review-cue]') as HTMLElement
+    expect(cue).toHaveAttribute('title', 'Not reviewed in 18 days. Confirm or change the status to clear this.')
+    expect(within(cue).getByText('18d')).toHaveClass('md:hidden')
+    expect(within(cue).getByText('Not reviewed in 18 days')).toHaveClass('sr-only', 'md:not-sr-only')
   })
 
   it('is absent from the control within the window and for lanes', () => {
