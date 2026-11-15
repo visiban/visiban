@@ -110,7 +110,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
           <li key={column.uid} className="flex items-center gap-1.5">
             <span
               aria-hidden="true"
-              className={`w-3 h-3 rounded-sm`}
+              className="w-3 h-3 rounded-sm bg-surface"
               style={column.bottleneck ? { backgroundImage: HATCH } : { backgroundImage: `linear-gradient(${chartTint(columnAlpha(index, columns.length))}, ${chartTint(columnAlpha(index, columns.length))})` }}
             />
             {column.name}{column.bottleneck ? " (bottleneck, hatched)" : ""}
