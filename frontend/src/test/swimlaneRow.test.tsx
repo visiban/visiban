@@ -181,6 +181,40 @@ describe('SwimlaneRow', () => {
     expect(c2.querySelector('.cursor-pointer.select-none')).toBeNull()
   })
 
+  // #1990 kept under #2300: a lane separator drag resizes the column to its left,
+  // the same gesture (and the same saved width) as the header separator.
+  it('resizes the column left of a cell separator on drag, and inserts on a tiny drag (#1990, #2300)', () => {
+    const onInsertColumn = vi.fn()
+    const setColumnWidth = vi.fn()
+    const colWidths = new Map([[columns[0].id, 300]])
+    const { container } = render(
+      <SwimlaneRow {...defaultProps()} onInsertColumn={onInsertColumn} colWidths={colWidths} setColumnWidth={setColumnWidth} />,
+    )
+    // The first separator has nothing to its left: insert only.
+    expect(container.querySelectorAll('.cursor-pointer.select-none')).toHaveLength(1)
+    const sep = container.querySelector('.cursor-col-resize') as HTMLElement
+    expect(sep).not.toBeNull()
+    fireEvent.mouseDown(sep, { clientX: 100 })
+    fireEvent.mouseMove(window, { clientX: 140 })
+    fireEvent.mouseUp(window)
+    // Unmeasured track (jsdom): the drag adds to the saved width.
+    expect(setColumnWidth).toHaveBeenLastCalledWith(columns[0].id, 340)
+    expect(onInsertColumn).not.toHaveBeenCalled()
+    setColumnWidth.mockClear()
+    fireEvent.mouseDown(sep, { clientX: 100 })
+    fireEvent.mouseMove(window, { clientX: 102 })
+    fireEvent.mouseUp(window)
+    expect(setColumnWidth).not.toHaveBeenCalled()
+    expect(onInsertColumn).toHaveBeenCalledWith(columns[1].id)
+  })
+
+  it('does not resize a collapsed column from a lane separator: it is a 40px stub (#2300)', () => {
+    const { container } = render(
+      <SwimlaneRow {...defaultProps()} collapsedColumnIds={new Set([columns[0].id])} colWidths={new Map()} setColumnWidth={vi.fn()} />,
+    )
+    expect(container.querySelector('.cursor-col-resize')).toBeNull()
+  })
+
   it('has no tint styles when the lane has no color', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, color: '' }} />)
     expect(screen.getByTestId('swimlane-band').className).toContain('bg-surface')

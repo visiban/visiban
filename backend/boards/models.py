@@ -2129,18 +2129,14 @@ class SwimlaneCustomFieldDefinition(models.Model):
     # Raising a cap later is backward compatible; lowering it is not, so this
     # starts deliberately conservative — the same asymmetry as MAX_VALUE_LENGTH.
     MAX_PER_BOARD = 15
-    # Row-header real estate. Note the swimlane label panel is *not* a
-    # full-width band — it is a sticky left column, `sidebarWidth ?? 220`px
-    # wide, already carrying the drag handle, the name, contact_email and the
-    # collapse control. It is narrower than the ~250px card face, not wider.
-    # The cap is 8 rather than the card face's 2 because row chips stack
-    # *vertically* down that column, so eight pinned fields cost eight lines
-    # rather than competing for one line's width. Raising this trades rows
-    # visible on screen for metadata per row. It was 3 until #1416 raised it so
-    # the Sales Territory (Overlay) demo can pin AD, AE, OAE, OSA and SVC.
-    # Decided in #1417: the pin cap stays 8, and how many chips actually show on
-    # a row follows card density (frontend ``utils/swimlaneRowChips.ts``), so
-    # the cap is no longer an interim number.
+    # Server-side cap on `show_on_row`, kept for the 1.0 API contract. Since 1.3
+    # the flag has no effect on the board (#2303): the swimlane header band
+    # shows the first two fields by order and the rest behind `+N`, and the UI
+    # no longer reads or writes the flag. History: the cap was 3 until #1416
+    # raised it so the Sales Territory (Overlay) demo could pin AD, AE, OAE, OSA
+    # and SVC, and #1417 kept it at 8 when chips stacked down the old sticky
+    # label column (removed in #2271). Raising it stays backward compatible;
+    # lowering it does not.
     MAX_PINNED_PER_BOARD = 8
     # Referenced, not re-chosen. The constraint behind the number is the same
     # one the card model documents: ``scfv_definition_value_idx`` is a btree,

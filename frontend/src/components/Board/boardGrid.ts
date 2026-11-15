@@ -24,28 +24,59 @@ export const BOARD_GRID_MIN_WIDTH = 1240;
  * Narrowest a normal column may get before the grid scrolls instead. The spec's
  * 1240px threshold is sized for the 7-column reference board; without a per-track
  * floor a 15-column board would squeeze every column to ~70px at 1240px. 160px is
- * the floor the old per-column resize clamp used.
+ * the per-column resize clamp's minimum (`COLUMN_WIDTH_MIN`); it does not scale with a
+ * column's weight, so resizing never moves the scroll threshold.
  */
 export const BOARD_TRACK_FLOOR = 160;
 /** Hidden and collapsed columns keep their 40px stub. */
 export const BOARD_NARROW_TRACK = 40;
 
+/** The default column width in px. A saved width is a track weight relative to it. */
+export const DEFAULT_COLUMN_WIDTH = 220;
+/** Clamp for a saved column width, the same bounds `setColumnWidth` (useViewPrefs) applies. */
+export const COLUMN_WIDTH_MIN = 160;
+export const COLUMN_WIDTH_MAX = 600;
+
 /**
  * - `column`: a normal stage, `minmax(0, 1fr)`.
  * - `split`: a stage split into two sub-columns, `minmax(0, 2fr)` (#2278).
  * - `narrow`: a hidden or collapsed column stub, fixed 40px.
+ * - `{ kind, width }`: a column (or split stage) the user resized. The saved px
+ *   width becomes the track's weight, `width / 220` fr, so a column dragged to
+ *   440 is twice as wide as a default one at any board width. A width of 220
+ *   renders exactly like the plain `column` / `split` track.
  */
-export type BoardTrack = "column" | "split" | "narrow";
+export type BoardTrack = "column" | "split" | "narrow" | { kind: "column" | "split"; width: number };
+
+/** Clamp a saved column width (or the default when unset) to the resize bounds. */
+export function clampColumnWidth(width: number | undefined | null): number {
+  const w = typeof width === "number" && Number.isFinite(width) ? width : DEFAULT_COLUMN_WIDTH;
+  return Math.max(COLUMN_WIDTH_MIN, Math.min(COLUMN_WIDTH_MAX, w));
+}
+
+/** A column's track: plain `column` at the default width, a weighted one otherwise. */
+export function columnTrack(width: number | undefined | null, split = false): BoardTrack {
+  const w = clampColumnWidth(width);
+  const kind = split ? "split" : "column";
+  return w === DEFAULT_COLUMN_WIDTH ? kind : { kind, width: w };
+}
+
+function frTrack(fr: number): string {
+  // Rounded so a weight like 230/220 does not print 16 digits into the template.
+  return `minmax(0, ${Number(fr.toFixed(4))}fr)`;
+}
 
 function trackSize(track: BoardTrack): string {
-  if (track === "split") return "minmax(0, 2fr)";
   if (track === "narrow") return `${BOARD_NARROW_TRACK}px`;
-  return "minmax(0, 1fr)";
+  if (track === "split") return frTrack(2);
+  if (track === "column") return frTrack(1);
+  return frTrack((track.kind === "split" ? 2 : 1) * (track.width / DEFAULT_COLUMN_WIDTH));
 }
 
 function trackFloor(track: BoardTrack): number {
-  if (track === "split") return BOARD_TRACK_FLOOR * 2 + BOARD_GRID_GAP;
   if (track === "narrow") return BOARD_NARROW_TRACK;
+  const kind = typeof track === "string" ? track : track.kind;
+  if (kind === "split") return BOARD_TRACK_FLOOR * 2 + BOARD_GRID_GAP;
   return BOARD_TRACK_FLOOR;
 }
 
@@ -84,16 +115,24 @@ export function separatorTrackLine(sepIndex: number): number {
 const INSERT_DRAG_THRESHOLD = 4; // px: movement beyond this is a drag, not a click
 
 /**
- * The column separators' insert gesture, shared by the header's ColumnSeparator and
- * the lane cells' separators so both behave alike: it fires on release, and not
- * when the pointer moved more than 4px in between (a drag is not a click).
+ * The column separators' gesture, shared by the header's ColumnSeparator and the
+ * lane cells' separators so both behave alike. A release without more than 4px of
+ * movement is a click: it inserts a column. Past 4px it is a drag: `onDrag` (when
+ * given) gets the pointer's x offset from the press on every move, and nothing is
+ * inserted on release.
  */
-export function startInsertGesture(e: { clientX: number; preventDefault(): void }, onInsert: () => void): void {
+export function startInsertGesture(
+  e: { clientX: number; preventDefault(): void },
+  onInsert: () => void,
+  onDrag?: (deltaPx: number) => void,
+): void {
   e.preventDefault();
   const startX = e.clientX;
   let dragged = false;
   const onMove = (ev: MouseEvent) => {
-    if (Math.abs(ev.clientX - startX) > INSERT_DRAG_THRESHOLD) dragged = true;
+    const delta = ev.clientX - startX;
+    if (!dragged && Math.abs(delta) > INSERT_DRAG_THRESHOLD) dragged = true;
+    if (dragged && onDrag) onDrag(delta);
   };
   const onUp = () => {
     window.removeEventListener("mousemove", onMove);
@@ -102,6 +141,34 @@ export function startInsertGesture(e: { clientX: number; preventDefault(): void 
   };
   window.addEventListener("mousemove", onMove);
   window.addEventListener("mouseup", onUp);
+}
+
+/**
+ * Rendered px width of the column track to the left of separator `sepIndex`, read
+ * from the resolved `grid-template-columns` of the grid row `el` sits in. Returns
+ * 0 when it cannot be measured (no layout, as in jsdom).
+ */
+export function renderedTrackLeftOf(el: HTMLElement | null, sepIndex: number): number {
+  if (!el || sepIndex < 1) return 0;
+  let grid = el.parentElement;
+  while (grid && getComputedStyle(grid).display !== "grid") grid = grid.parentElement;
+  if (!grid) return 0;
+  // Resolved value: one px size per track, e.g. "16px 204.5px 8px ...".
+  const tracks = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
+  const m = /^([\d.]+)px$/.exec(tracks[columnTrackLine(sepIndex - 1) - 1] ?? "");
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * The saved width a separator drag asks for. Columns are fr tracks, so the saved
+ * width is a weight, not the rendered width: the drag scales the weight by how much
+ * it grows the rendered track (`startWidth * (rendered + delta) / rendered`). When
+ * the track was not measured, the drag adds the delta to the saved width as before
+ * the shared template. `setColumnWidth` clamps the result to 160..600.
+ */
+export function resizedColumnWidth(startWidth: number, renderedPx: number, deltaPx: number): number {
+  if (renderedPx > 0) return Math.round((startWidth * Math.max(1, renderedPx + deltaPx)) / renderedPx);
+  return startWidth + deltaPx;
 }
 
 /** CSS variable on the board scroll box: its visible (client) width in px. */

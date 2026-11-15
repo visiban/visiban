@@ -908,6 +908,19 @@ describe('BoardView', () => {
     expect(screen.getByTestId('board-header-row').style.gridTemplateColumns).toMatch(/^16px 40px 8px /)
   })
 
+  // #1990 kept under #2300: a saved column width is that column's track weight.
+  it('weights a resized column in the shared template, and makes its header separator resizable (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 440 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    const tpl = screen.getByTestId('board-header-row').style.gridTemplateColumns
+    expect(tpl).toMatch(/^16px minmax\(0, 2fr\) 8px minmax\(0, 1fr\)/)
+    document.querySelectorAll('[data-grid-template]').forEach((lane) => expect(lane.getAttribute('data-grid-template')).toBe(tpl))
+    const seps = screen.getAllByTestId('column-separator')
+    expect(seps[0].className).toContain('cursor-pointer')
+    expect(seps[1].className).toContain('cursor-col-resize')
+  })
+
   it('has no label-panel corner cell in the header row (#2271)', () => {
     render(<BoardView {...defaultProps()} />)
     const header = screen.getByTestId('board-header-row')

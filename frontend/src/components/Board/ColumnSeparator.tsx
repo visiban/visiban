@@ -1,10 +1,15 @@
+import { useRef } from "react";
 import SeparatorPlus from "./SeparatorPlus";
-import { startInsertGesture } from "./boardGrid";
+import { renderedTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 interface Props {
   isAdmin: boolean;
   /** Called on a click (no drag) by an admin. Opens the add-column modal in the parent. */
   onOpenAdd: () => void;
+  /** Saved width of the column to the left of this separator. Omit (with setWidth) for a click-only separator. */
+  currentWidth?: number;
+  /** Called while dragging with that column's new saved width. Omit when nothing to the left resizes. */
+  setWidth?: (w: number) => void;
   /** Position index (0 = far-left). Used to coordinate hover highlight across all rows. */
   sepIndex: number;
   /** Which separator index is currently highlighted — lifted from the parent. */
@@ -13,25 +18,35 @@ interface Props {
 }
 
 /**
- * A header-row column separator: click to insert a column here. Columns are not
- * resizable since the shared grid template (#2300) made every track `minmax(0, 1fr)`,
- * so there is no drag-to-resize.
+ * A header-row column separator: click to insert a column here, drag to resize the
+ * column to its left (#1990). Columns are fr tracks of the shared grid template
+ * (#2300), so a drag changes the column's weight (saved width / 220); see
+ * `resizedColumnWidth` in boardGrid.ts for how the px drag becomes a saved width.
  */
-export default function ColumnSeparator({ isAdmin, onOpenAdd, sepIndex, hoveredSepIndex, onSepHoverChange }: Props) {
+export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setWidth, sepIndex, hoveredSepIndex, onSepHoverChange }: Props) {
   const highlighted = hoveredSepIndex === sepIndex;
+  const ref = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
-    startInsertGesture(e, () => {
-      if (isAdmin) onOpenAdd();
-    });
+    const startWidth = currentWidth ?? 0;
+    // Measured once at the press: the track's rendered width before the drag.
+    const rendered = setWidth ? renderedTrackLeftOf(ref.current, sepIndex) : 0;
+    startInsertGesture(
+      e,
+      () => {
+        if (isAdmin) onOpenAdd();
+      },
+      setWidth ? (delta) => setWidth(resizedColumnWidth(startWidth, rendered, delta)) : undefined,
+    );
   };
 
   return (
     <div
+      ref={ref}
       // No fixed width: the separator fills its track of the board's shared grid
       // template (#2300), 16px at the outer edges and 8px between columns.
-      className="relative flex items-stretch select-none cursor-pointer"
+      className={`relative flex items-stretch select-none ${setWidth ? "cursor-col-resize" : "cursor-pointer"}`}
       data-testid="column-separator"
       onMouseEnter={() => onSepHoverChange(sepIndex)}
       onMouseLeave={() => onSepHoverChange(null)}

@@ -212,6 +212,65 @@ test.describe('board view', () => {
     expect(h!.x).toBeLessThan(c!.x + c!.width)
   })
 
+  // #1990 kept under #2300: dragging a header separator resizes the column to its left.
+  // The saved width is a track weight in the one shared template, so the header cell
+  // and every lane cell of that column change together and stay aligned.
+  test('dragging a column separator resizes the column in the header and every lane (#1990, #2300)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 800 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const headerRow = page.getByTestId('board-header-row')
+    await expect(headerRow).toBeVisible({ timeout: 10_000 })
+    const cell = page.locator('[data-board-cell]').first()
+    await expect(cell).toBeVisible()
+    const colId = await cell.getAttribute('data-column-id')
+    const laneCells = page.locator(`[data-board-cell][data-column-id="${colId}"]`)
+    const seps = headerRow.getByTestId('column-separator')
+    const headerTrack = async () => {
+      const [a, b] = [await seps.nth(0).boundingBox(), await seps.nth(1).boundingBox()]
+      return { left: a!.x + a!.width, width: b!.x - (a!.x + a!.width) }
+    }
+    const before = await headerTrack()
+    const cellBefore = (await cell.boundingBox())!
+    expect(Math.abs(cellBefore.width - before.width)).toBeLessThanOrEqual(1)
+
+    const handle = (await seps.nth(1).boundingBox())!
+    await expect(seps.nth(1)).toHaveClass(/cursor-col-resize/)
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + handle.width / 2 + 60, handle.y + handle.height / 2, { steps: 4 })
+    await page.mouse.move(handle.x + handle.width / 2 + 120, handle.y + handle.height / 2, { steps: 4 })
+    await page.mouse.up()
+
+    // No add-column modal: a drag is not a click.
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect.poll(async () => (await headerTrack()).width).toBeGreaterThan(before.width + 40)
+    const after = await headerTrack()
+    const n = await laneCells.count()
+    expect(n).toBeGreaterThan(0)
+    for (let i = 0; i < n; i++) {
+      const box = await laneCells.nth(i).boundingBox()
+      if (!box) continue
+      // Same track in every row: same left edge and width as the header cell.
+      expect(Math.abs(box.x - after.left)).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.width - after.width)).toBeLessThanOrEqual(1)
+    }
+    const tplHeader = await headerRow.evaluate((el) => getComputedStyle(el).gridTemplateColumns)
+    const tplLane = await cell.evaluate((el) => {
+      let row = el.parentElement
+      while (row && getComputedStyle(row).display !== 'grid') row = row.parentElement
+      return row ? getComputedStyle(row).gridTemplateColumns : 'no grid row'
+    })
+    expect(tplLane).toBe(tplHeader)
+    // The width is saved per board, as before the shared template.
+    const saved = await page.evaluate((id) => {
+      const raw = localStorage.getItem(`board:${id}:view-prefs`)
+      return raw ? (JSON.parse(raw).columnWidths ?? {}) : {}
+    }, BOARD_FULL.id)
+    expect(saved[colId!]).toBeGreaterThan(220)
+    // The page never scrolls sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+  })
+
   // #2305: on a board wider than the window, the swimlane band (name and stats) stays
   // in view while the grid scrolls sideways.
   test('the swimlane band keeps its name and stats in view after scrolling sideways (#2305)', async ({ page }) => {

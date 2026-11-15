@@ -19,7 +19,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { BAND_MAX_WIDTH, boardGridTemplate, startInsertGesture } from "./boardGrid";
+import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, renderedTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -106,6 +106,10 @@ interface Props {
   /** The board's shared `grid-template-columns` (#2300, `boardGrid.ts`). Omitted
    *  (tests, isolated renders): built from `columns` with every track a normal column. */
   gridTemplate?: string;
+  /** Saved per-column widths (px, `viewPrefs.columnWidths`); the lane separators' drag starts from these. */
+  colWidths?: Map<number, number>;
+  /** Resize a column from a lane separator drag. Omitted: lane separators only insert. */
+  setColumnWidth?: (colId: number, width: number) => void;
   onInsertColumn?: (colId: number) => void;
   /** Which column separator index (0-based from left) is currently hovered — for full-height highlight. */
   hoveredSepIndex?: number | null;
@@ -177,7 +181,7 @@ const INLINE_FIELD_COUNT = 2;
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -579,18 +583,31 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const cellCount = cellCards.length;
           const sepHighlighted = hoveredSepIndex === colIdx;
 
-          // The sep sits to the LEFT of col[colIdx]; a click inserts a column there.
-          // Columns are not resizable: every track is `minmax(0, 1fr)` of the shared
-          // grid template (#2300), so there is no per-column width to drag.
+          // The sep sits to the LEFT of col[colIdx], so a drag resizes the column to its left:
+          //   colIdx === 0  → insert only (nothing to its left since #2271)
+          //   colIdx  >  0  → resize columns[colIdx - 1], unless that is a hidden or
+          //                   collapsed 40px stub (no width to drag)
+          // This mirrors the header, where the ColumnSeparator after col[i] resizes col[i].
+          // A drag changes the column's weight in the shared grid template (#2300).
+          const prevCol = colIdx > 0 ? columns[colIdx - 1] : null;
+          const canResizeSep = !!prevCol && !!setColumnWidth && !hiddenColumnIds?.has(prevCol.id) && !collapsedColumnIds.has(prevCol.id);
           const canInsert = isAdmin && !!onInsertColumn;
-          const handleSepMouseDown = canInsert
-            ? (e: React.MouseEvent) => startInsertGesture(e, () => onInsertColumn!(col.id))
+          const handleSepMouseDown = (canResizeSep || canInsert)
+            ? (e: React.MouseEvent<HTMLDivElement>) => {
+                const startWidth = prevCol ? clampColumnWidth(colWidths?.get(prevCol.id)) : 0;
+                const rendered = canResizeSep ? renderedTrackLeftOf(e.currentTarget, colIdx) : 0;
+                startInsertGesture(
+                  e,
+                  () => { if (canInsert) onInsertColumn!(col.id); },
+                  canResizeSep ? (delta) => setColumnWidth!(prevCol!.id, resizedColumnWidth(startWidth, rendered, delta)) : undefined,
+                );
+              }
             : undefined;
 
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`relative flex items-stretch select-none ${canInsert ? "cursor-pointer" : ""}`}
+              className={`relative flex items-stretch select-none ${canResizeSep ? "cursor-col-resize" : canInsert ? "cursor-pointer" : ""}`}
               onMouseEnter={() => onSepHoverChange?.(colIdx)}
               onMouseLeave={() => onSepHoverChange?.(null)}
               onMouseDown={handleSepMouseDown}

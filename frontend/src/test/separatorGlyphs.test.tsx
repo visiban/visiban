@@ -17,6 +17,8 @@ describe('separator hover glyphs are aria-hidden (#2012)', () => {
       <ColumnSeparator
         isAdmin
         onOpenAdd={() => {}}
+        currentWidth={100}
+        setWidth={() => {}}
         sepIndex={1}
         hoveredSepIndex={1}
         onSepHoverChange={() => {}}
