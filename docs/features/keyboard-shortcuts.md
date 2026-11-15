@@ -73,7 +73,7 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 | <kbd>Space + drag</kbd> | Pan the board with the mouse |
 | <kbd>Tab</kbd> | Move between filter chips; <kbd>Delete</kbd> or <kbd>Backspace</kbd> to remove |
 
-- **`E`** mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.
+- **`E`** toggles all columns and all swimlanes together: if everything is expanded, it collapses both; otherwise it expands both. The **View** menu shows the key on its **Swimlanes** (**Collapse all** / **Expand all**) and **Columns** (**Hide all** / **Show all**) groups, which act on each set separately.
 - **`F` and `⌘⇧L` / `Ctrl+Shift+L`** also work on the [Issue Board Lens](issue-board-lens.md) tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.
 
 ## Card actions in the command palette

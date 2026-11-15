@@ -54,6 +54,6 @@ describe('ViewToggle Board tab', () => {
 
   it('keeps the active styling when Board is the selected tab', () => {
     render(<ViewToggle view="board" onChange={vi.fn()} showLens deemphasizeBoard />)
-    expect(screen.getByRole('button', { name: 'Board' }).className).toContain('bg-primary')
+    expect(screen.getByRole('button', { name: 'Board' }).className).toContain('border-primary')
   })
 })

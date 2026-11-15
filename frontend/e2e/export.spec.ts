@@ -10,7 +10,8 @@ test.describe('board export', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    await page.getByRole('button', { name: 'Export board' }).click()
+    await page.getByRole('button', { name: 'More board actions' }).click()
+    await page.getByRole('menuitem', { name: /^Export board/ }).click()
     await expect(page.getByText('Export Board')).toBeVisible({ timeout: 2_000 })
     await expect(page.getByRole('button', { name: 'Export JSON' })).toBeVisible()
   })
@@ -35,7 +36,8 @@ test.describe('board export', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    await page.getByRole('button', { name: 'Export board' }).click()
+    await page.getByRole('button', { name: 'More board actions' }).click()
+    await page.getByRole('menuitem', { name: /^Export board/ }).click()
     await page.getByRole('button', { name: 'Export JSON' }).click()
 
     const opened = await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)
@@ -70,6 +72,7 @@ test.describe('board export', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    await expect(page.getByRole('button', { name: 'Export board' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'More board actions' }).click()
+    await expect(page.getByRole('menuitem', { name: /^Export board/ })).toHaveCount(0)
   })
 })

@@ -382,6 +382,25 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
 
 const defaultProps = () => ({})
 
+// #2269 — Export, Board settings and Keyboard shortcuts live in the overflow menu;
+// archived, collapse/expand, density, overlay and preset live in the View menu.
+function openOverflowMenu(): HTMLElement {
+  if (!screen.queryByRole('menu', { name: 'More board actions' })) {
+    fireEvent.click(screen.getByRole('button', { name: 'More board actions' }))
+  }
+  return screen.getByRole('menu', { name: 'More board actions' })
+}
+function overflowItem(name: RegExp): HTMLElement {
+  return within(openOverflowMenu()).getByRole('menuitem', { name })
+}
+function queryOverflowItem(name: RegExp): HTMLElement | null {
+  return within(openOverflowMenu()).queryByRole('menuitem', { name })
+}
+function openViewPanel() {
+  if (!screen.queryByTestId('view-menu-panel')) fireEvent.click(screen.getByRole('button', { name: 'View' }))
+  return within(screen.getByTestId('view-menu-panel'))
+}
+
 describe('BoardView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -441,7 +460,7 @@ describe('BoardView', () => {
     const evictCardByUid = vi.fn((uid: string) => { archivedPanelCalls.push(`evict:${uid}`) })
     mockBoardContextValue = defaultContext({ evictCardByUid })
     render(<BoardView {...defaultProps()} />)
-    fireEvent.click(screen.getByLabelText('Show archived cards'))
+    fireEvent.click(openViewPanel().getByRole('button', { name: 'Show archived cards' }))
     act(() => { capturedSocketEvent!({ event: 'card.deleted', data: { card_uid: 'abc' } }) })
     // The panel's active-card guard needs board.cards before the eviction.
     expect(archivedPanelCalls).toEqual(['panel:card.deleted', 'evict:abc'])
@@ -529,6 +548,7 @@ describe('BoardView', () => {
       renderWith(silentReload)
       frame(leaveDone().reopened)
       expect(silentReload).not.toHaveBeenCalled()
+      openViewPanel()
       await userEvent.click(screen.getByRole('button', { name: /^Overlay$/ }))
       await userEvent.click(screen.getByRole('menuitem', { name: 'Dwell time' }))
       expect(silentReload).toHaveBeenCalledTimes(1)
@@ -587,7 +607,7 @@ describe('BoardView', () => {
 
   it('FilterBar renders in its own row below the toolbar', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('Filters'))
+    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
     const filterBar = screen.getByTestId('filter-bar')
     const toolbar = screen.getByTestId('board-toolbar')
     // FilterBar should not be a descendant of the toolbar row
@@ -596,7 +616,7 @@ describe('BoardView', () => {
 
   it('renders Filters button', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('Filters')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Filters/ })).toBeInTheDocument()
   })
 
   it('does not render Export button in toolbar (export is in board settings)', () => {
@@ -606,13 +626,13 @@ describe('BoardView', () => {
 
   it('renders Settings gear icon for admin', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByLabelText('Board settings')).toBeInTheDocument()
+    expect(overflowItem(/^Board settings/)).toBeInTheDocument()
   })
 
   it('hides Settings gear icon for viewer', () => {
     mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
     render(<BoardView {...defaultProps()} />)
-    expect(screen.queryByLabelText('Board settings')).not.toBeInTheDocument()
+    expect(queryOverflowItem(/^Board settings/)).not.toBeInTheDocument()
   })
 
   it('renders column headers', () => {
@@ -682,7 +702,7 @@ describe('BoardView', () => {
   it('clicking Filters toggles filter bar', async () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByText('Filters'))
+    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
@@ -708,7 +728,7 @@ describe('BoardView', () => {
 
   it('clicking Settings gear opens the settings modal', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
   })
 
@@ -716,7 +736,7 @@ describe('BoardView', () => {
     const silentReload = vi.fn()
     mockBoardContextValue = defaultContext({ board: makeBoard(), silentReload })
     render(<BoardView {...defaultProps()} currentUser={{ id: 77 } as never} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     // Without the id the modal fails closed and hides Delete from the owner.
     expect(capturedSettingsProps.currentUserId).toBe(77)
     capturedSettingsProps.onDeleteForbidden?.()
@@ -729,7 +749,7 @@ describe('BoardView', () => {
     const ctx = defaultContext({ board: makeBoard() })
     mockBoardContextValue = ctx
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     const patch = { share_link_active: true, share_token_expires_at: '2999-01-01T00:00:00Z' }
     capturedSettingsProps.onShareChanged?.(patch)
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
@@ -739,7 +759,7 @@ describe('BoardView', () => {
     const ctx = defaultContext({ board: makeBoard() })
     mockBoardContextValue = ctx
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     expect(typeof capturedSettingsProps.onColumnUpdated).toBe('function')
     const updated = { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: { v: 1, entry: ['Ready'], done: [], mode: 'advisory' } }
     capturedSettingsProps.onColumnUpdated?.(updated)
@@ -800,7 +820,7 @@ describe('BoardView', () => {
 
       await user.click(screen.getByText('MockSettingsClose'))
       expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
-      await user.click(screen.getByLabelText('Board settings'))
+      await user.click(overflowItem(/^Board settings/))
       expect(capturedSettingsProps.initialTab).toBeUndefined()
     })
 
@@ -811,7 +831,7 @@ describe('BoardView', () => {
       await user.click(screen.getByTestId('edit-order-20'))
       await user.click(screen.getByText('MockManageLens'))
       expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
-      await user.click(screen.getByLabelText('Board settings'))
+      await user.click(overflowItem(/^Board settings/))
       expect(capturedSettingsProps.initialTab).toBeUndefined()
     })
 
@@ -828,12 +848,12 @@ describe('BoardView', () => {
 
   it("passes the current user's own is_site_admin to the settings modal (#1290)", async () => {
     const { unmount } = render(<BoardView currentUser={{ ...fakeUser, is_site_admin: true }} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(true)
     unmount()
 
     render(<BoardView currentUser={fakeUser} />)
-    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    await userEvent.setup().click(overflowItem(/^Board settings/))
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
   })
 
@@ -845,12 +865,12 @@ describe('BoardView', () => {
 
   it('renders keyboard shortcuts icon button', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByLabelText('Keyboard shortcuts')).toBeInTheDocument()
+    expect(overflowItem(/^Keyboard shortcuts/)).toBeInTheDocument()
   })
 
   it('clicking keyboard shortcuts icon shows shortcuts overlay', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByLabelText('Keyboard shortcuts'))
+    await userEvent.setup().click(overflowItem(/^Keyboard shortcuts/))
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
   })
 
@@ -888,7 +908,7 @@ describe('BoardView', () => {
 
     it('still renders the keyboard shortcuts icon button', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText(/Keyboard shortcuts/i)).toBeInTheDocument()
+      expect(overflowItem(/^Keyboard shortcuts/)).toBeInTheDocument()
     })
 
     it('? hotkey still opens the shortcuts overlay', () => {
@@ -952,7 +972,7 @@ describe('BoardView', () => {
 
     it('Archived toolbar button exposes aria-keyshortcuts="Y"', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
+      expect(openViewPanel().getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
     })
 
     it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
@@ -2159,30 +2179,27 @@ describe('BoardView', () => {
   })
 
   describe('toolbar zone layout', () => {
-    it('toolbar has exactly 2 zone dividers', () => {
+    it('toolbar carries tabs plus Filter, View and Activity buttons, with no zone dividers (#2269)', () => {
       render(<BoardView {...defaultProps()} />)
       const toolbar = screen.getByTestId('board-toolbar')
-      // Zone dividers are direct children of the toolbar with the w-px divider class
-      const dividers = Array.from(toolbar.children).filter(
-        (el) => el.tagName === 'DIV' && el.classList.contains('w-px')
-      )
-      expect(dividers.length).toBe(2)
+      expect(toolbar.querySelectorAll('.w-px')).toHaveLength(0)
+      expect(within(toolbar).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-current', 'page')
+      for (const name of [/^Filters/, 'View', 'Open activity drawer']) {
+        expect(within(toolbar).getByRole('button', { name })).toBeInTheDocument()
+      }
+      // Controls that left the toolbar are not direct buttons any more.
+      expect(screen.queryByRole('button', { name: 'Show archived cards' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Export board' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Overlay' })).not.toBeInTheDocument()
     })
 
-    it('Archived button is in the same zone as Filters', () => {
+    it('Archived is reachable from the View menu and shows an active mark when toggled', async () => {
       render(<BoardView {...defaultProps()} />)
-      const filters = screen.getByLabelText('Filters')
-      const archived = screen.getByLabelText('Show archived cards')
-      // Both should share the same parent container (Zone 2)
-      expect(filters.parentElement).toBe(archived.parentElement)
-    })
-
-    it('Archived button shows amber active state when toggled', async () => {
-      render(<BoardView {...defaultProps()} />)
-      const archived = screen.getByLabelText('Show archived cards')
+      const archived = openViewPanel().getByRole('button', { name: 'Show archived cards' })
       await userEvent.setup().click(archived)
-      expect(archived.className).toMatch(/text-warning/)
-      expect(archived.getAttribute('aria-pressed')).toBe('true')
+      const hide = openViewPanel().getByRole('button', { name: 'Hide archived cards' })
+      expect(hide.getAttribute('aria-pressed')).toBe('true')
+      expect(within(hide).getByTestId('active-mark')).toBeInTheDocument()
     })
 
     it('does not render pan hint text in toolbar', () => {
@@ -2190,38 +2207,29 @@ describe('BoardView', () => {
       expect(screen.queryByText(/Space.*drag to pan/)).not.toBeInTheDocument()
     })
 
-    it('keyboard shortcuts and settings icons have tooltips', () => {
+    it('overflow items advertise their keyboard shortcuts', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      const shortcuts = screen.getByLabelText('Keyboard shortcuts')
-      expect(shortcuts.getAttribute('data-tooltip')).toBe('Keyboard shortcuts (?)')
-      const settings = screen.getByLabelText('Board settings')
-      expect(settings.getAttribute('data-tooltip')).toBe('Board settings (⌘,)')
+      expect(overflowItem(/^Keyboard shortcuts/)).toHaveTextContent('?')
+      expect(overflowItem(/^Board settings/)).toHaveTextContent('⌘,')
+      expect(overflowItem(/^Export board/)).toHaveTextContent('⌘⇧E')
     })
 
-    it('Filters, Export, and Activity drawer tooltips advertise their keyboard shortcuts', () => {
-      // Force Mac so the shortcut renders with ⌘ glyphs; non-Mac path is
-      // covered by platform.test.ts.
+    it('Filters and Activity drawer tooltips advertise their keyboard shortcuts', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      const filters = screen.getByLabelText('Filters')
-      expect(filters.getAttribute('data-tooltip')).toBe('Filters (F)')
-      const exportBtn = screen.getByLabelText('Export board')
-      expect(exportBtn.getAttribute('data-tooltip')).toBe('Export board (⌘⇧E)')
-      const drawer = screen.getByLabelText('Open activity drawer')
-      expect(drawer.getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
+      expect(screen.getByLabelText('Filters').getAttribute('data-tooltip')).toBe('Filters (F)')
+      expect(screen.getByLabelText('Open activity drawer').getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
     })
 
-    it('non-Mac platform renders Ctrl/Shift tooltip labels', () => {
+    it('non-Mac platform renders Ctrl/Shift shortcut labels', () => {
       Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      const exportBtn = screen.getByLabelText('Export board')
-      expect(exportBtn.getAttribute('data-tooltip')).toBe('Export board (Ctrl+Shift+E)')
-      const drawer = screen.getByLabelText('Open activity drawer')
-      expect(drawer.getAttribute('data-tooltip')).toBe('Open activity drawer (Ctrl+\\)')
+      expect(overflowItem(/^Export board/)).toHaveTextContent('Ctrl+Shift+E')
+      expect(screen.getByLabelText('Open activity drawer').getAttribute('data-tooltip')).toBe('Open activity drawer (Ctrl+\\)')
     })
 
     it('Live indicator has role=status', () => {
@@ -2230,17 +2238,27 @@ describe('BoardView', () => {
       expect(statusRegions.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('Row 2 is a <nav> landmark labeled "Board toolbar" with h-10', () => {
+    it('Row 2 is a <nav> landmark labeled "Board toolbar" with a 40px minimum height', () => {
       render(<BoardView {...defaultProps()} />)
       const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
       expect(nav.tagName).toBe('NAV')
-      expect(nav.className).toMatch(/\bh-10\b/)
+      expect(nav.className).toMatch(/(^|\s)min-h-10(\s|$)/)
       expect(nav.className).toMatch(/bg-surface/)
+    })
+
+    it('the toolbar row wraps instead of scrolling sideways', () => {
+      render(<BoardView {...defaultProps()} />)
+      const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
+      const row = screen.getByTestId('board-toolbar')
+      for (const el of [nav, row]) {
+        expect(el.className).toMatch(/(^|\s)flex-wrap(\s|$)/)
+        expect(el.className).not.toMatch(/overflow-x-auto|min-w-max/)
+      }
     })
 
     it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByText('Filters'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
       const search = screen.getByRole('search', { name: 'Board filters' })
       expect(search).toBeInTheDocument()
     })
@@ -2312,7 +2330,7 @@ describe('BoardView', () => {
     it('pressing "c" in an INPUT does not trigger collapse', async () => {
       render(<BoardView {...defaultProps()} />)
       // Open the filter bar which contains an INPUT
-      await userEvent.setup().click(screen.getByText('Filters'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
       const filterBar = screen.getByTestId('filter-bar')
       // No crash or unexpected state change should occur
       expect(filterBar).toBeInTheDocument()
@@ -2336,50 +2354,36 @@ describe('BoardView', () => {
   })
 
   // #853 — SplitButton + overflow kebab + responsive fold
-  describe('Collapse SplitButton (#853)', () => {
-    it('renders Collapse as a split button — primary + chevron', () => {
+  describe('View menu collapse and expand (#853, #2269)', () => {
+    it('offers Collapse all / Expand all for swimlanes and Hide all / Show all for columns', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByRole('button', { name: 'Hide all swimlanes and columns' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Collapse menu' })).toBeInTheDocument()
+      const panel = openViewPanel()
+      for (const name of ['Collapse all', 'Expand all', 'Hide all', 'Show all']) {
+        expect(panel.getByRole('button', { name })).toBeInTheDocument()
+      }
     })
 
-    it('primary click still toggles everything (preserves 1.0 muscle memory)', async () => {
+    it('disables the no-op half of each pair (menu shape stays stable)', () => {
       render(<BoardView {...defaultProps()} />)
-      const primary = screen.getByRole('button', { name: 'Hide all swimlanes and columns' })
-      await userEvent.setup().click(primary)
-      // After collapse, the aria-label flips to the inverse — confirms the toggle fired
-      expect(screen.getByRole('button', { name: 'Show all swimlanes and columns' })).toBeInTheDocument()
+      const panel = openViewPanel()
+      // Default all-expanded state: the Expand/Show actions would do nothing.
+      expect(panel.getByRole('button', { name: 'Expand all' })).toBeDisabled()
+      expect(panel.getByRole('button', { name: 'Show all' })).toBeDisabled()
+      expect(panel.getByRole('button', { name: 'Collapse all' })).toBeEnabled()
     })
 
-    it('chevron opens a menu with action-first labels (not domain jargon)', async () => {
+    it('Collapse all then Expand all round-trips', async () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse menu' }))
-      expect(screen.getByRole('menuitem', { name: 'Hide all swimlanes' })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Hide all columns' })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Hide everything' })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Show all swimlanes' })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Show all columns' })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Show everything' })).toBeInTheDocument()
+      const user = userEvent.setup()
+      await user.click(openViewPanel().getByRole('button', { name: 'Collapse all' }))
+      expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeEnabled()
+      await user.click(openViewPanel().getByRole('button', { name: 'Expand all' }))
+      expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeDisabled()
     })
 
-    it('menu items are a consistent shape even when actions are no-ops (teaches the model)', async () => {
+    it('controls carry a visible keyboard-focus ring', () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse menu' }))
-      // With the default all-expanded state, the Show-* items are disabled (no-op)
-      // but still rendered — menu shape stays stable.
-      expect(screen.getByRole('menuitem', { name: 'Show all swimlanes' })).toBeDisabled()
-      expect(screen.getByRole('menuitem', { name: 'Show all columns' })).toBeDisabled()
-      expect(screen.getByRole('menuitem', { name: 'Show everything' })).toBeDisabled()
-    })
-
-    it('menuitems carry a visible keyboard-focus ring (#1234)', async () => {
-      // Roving-tabindex menuitems are real tab stops; `focus:bg-surface-hover`
-      // alone is invisible to a keyboard user who arrowed onto an item
-      // without touching the mouse.
-      render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse menu' }))
-      expect(screen.getByRole('menuitem', { name: 'Hide all swimlanes' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
-      expect(screen.getByRole('menuitem', { name: 'Hide everything' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+      expect(openViewPanel().getByRole('button', { name: 'Collapse all' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
     })
   })
 
@@ -2389,18 +2393,15 @@ describe('BoardView', () => {
       expect(screen.getByRole('button', { name: 'More board actions' })).toBeInTheDocument()
     })
 
-    it('overflow menu at lg contains Export, Shortcuts, and Replay tour', async () => {
+    it('overflow menu holds only Export, Board settings and Shortcuts', async () => {
       render(<BoardView currentUser={fakeUser} />)
       await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
       expect(screen.getByRole('menuitem', { name: /Export board/ })).toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: /Replay onboarding tour/ })).toBeInTheDocument()
-    })
-
-    it('Replay onboarding tour is omitted when no user is logged in', async () => {
-      render(<BoardView currentUser={null} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
       expect(screen.queryByRole('menuitem', { name: /Replay onboarding tour/ })).not.toBeInTheDocument()
+      // Layout, archived and drawer actions live in the View menu / Activity drawer, not here.
+      expect(screen.queryByRole('menuitem', { name: /layout|density|archived|activity|drawer/i })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('menuitem').length).toBeLessThanOrEqual(3)
     })
 
     it('overflow menuitems carry a visible keyboard-focus ring (#1234)', async () => {
@@ -2428,38 +2429,20 @@ describe('BoardView', () => {
       expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
     })
 
-    it('auto-expands the kebab menu once on first sub-`lg` visit (#971)', async () => {
-      // Sub-`lg` viewport: useIsLargeViewport reads matches=false.
-      const mq = {
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }
-      const matchMedia = vi.fn(() => mq) as unknown as typeof window.matchMedia
-      Object.defineProperty(window, 'matchMedia', {
-        configurable: true,
-        writable: true,
-        value: matchMedia,
-      })
+    it('does not auto-expand the kebab at sub-`lg` widths: nothing folds into it any more (#2269)', async () => {
+      const mq = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }
+      Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: vi.fn(() => mq) })
       localStorage.removeItem('user:prefs:overflow-seen')
       vi.useFakeTimers()
       try {
         render(<BoardView {...defaultProps()} />)
-        // Menu is closed at first paint — the auto-expand is delayed so the
-        // page can settle.
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
         expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(600)
-        })
-        expect(screen.getByRole('menu', { name: 'More board actions' })).toBeInTheDocument()
-        expect(localStorage.getItem('user:prefs:overflow-seen')).toBe('true')
+        expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument()
       } finally {
         vi.useRealTimers()
-        Object.defineProperty(window, 'matchMedia', {
-          configurable: true,
-          writable: true,
-          value: undefined,
-        })
+        Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: undefined })
       }
     })
 
@@ -2584,7 +2567,7 @@ describe('BoardView', () => {
       // BoardExportModal is not mocked; looking for its rendered content
       // would be brittle. Instead, check that the Export affordance has its
       // dot dismissed, which only happens as a side-effect of the shortcut.
-      const exportBtn = screen.queryByLabelText('Export board')
+      const exportBtn = queryOverflowItem(/^Export board/)
       if (exportBtn) {
         expect(exportBtn.querySelector('.bg-primary-emphasis')).toBeNull()
       }
@@ -2596,13 +2579,13 @@ describe('BoardView', () => {
         board: makeBoard({ current_user_role: 'member', export_min_role: unknown }),
       })
       const { unmount } = render(<BoardView {...defaultProps()} />)
-      expect(screen.queryByLabelText('Export board')).not.toBeInTheDocument()
+      expect(queryOverflowItem(/^Export board/)).not.toBeInTheDocument()
       unmount()
       mockBoardContextValue = defaultContext({
         board: makeBoard({ current_user_role: 'admin', export_min_role: unknown }),
       })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Export board')).toBeInTheDocument()
+      expect(overflowItem(/^Export board/)).toBeInTheDocument()
     })
 
     it('treats a blank export_min_role as the viewer default (#1725)', () => {
@@ -2610,7 +2593,7 @@ describe('BoardView', () => {
         board: makeBoard({ current_user_role: 'viewer', export_min_role: '' as unknown as 'viewer' }),
       })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Export board')).toBeInTheDocument()
+      expect(overflowItem(/^Export board/)).toBeInTheDocument()
     })
 
     it('does not fire when the user lacks export permission', () => {
@@ -2621,7 +2604,7 @@ describe('BoardView', () => {
       // No assertion target — just verify the shortcut does not throw and
       // does not silently render an Export UI that the viewer can't act on.
       fireEvent.keyDown(document, { key: 'E', metaKey: true, shiftKey: true })
-      expect(screen.queryByLabelText('Export board')).not.toBeInTheDocument()
+      expect(queryOverflowItem(/^Export board/)).not.toBeInTheDocument()
     })
   })
 
@@ -2947,7 +2930,6 @@ describe('BoardView', () => {
     it.each([
       ['Board settings', /Board settings/i, 'settings-modal'],
       ['Keyboard shortcuts', /Keyboard shortcuts/i, 'shortcuts-overlay'],
-      ['Show archived cards', /Show archived cards/i, 'archived-panel'],
     ])('%s: the kebab holds focus when the surface opens', async (_label, itemName, testId) => {
       const user = userEvent.setup()
       render(<BoardView {...defaultProps()} currentUser={fakeUser} />)

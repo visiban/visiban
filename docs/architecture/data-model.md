@@ -264,7 +264,7 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 
 ### Card
 
-`archived_at` is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived panel. Analytics uses it as the terminal timestamp, so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.
+`archived_at` is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived cards panel. Analytics uses it as the terminal timestamp, so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.
 
 `mentioned_user_ids` is a JSON list of user PKs that guards against re-notification for `@mention` references in the description: when the description is edited, only newly mentioned users are notified. The list holds only users who actually received a notification, so a user skipped at the time is still notified by a later mention.
 

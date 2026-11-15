@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, Card, User } from '../types'
@@ -254,6 +254,8 @@ function makeCard(id: number, column: number, swimlane: number): Card {
 
 /** The overlay picker's trigger — labeled "Overlay" until an overlay is chosen. */
 function getPicker(): HTMLElement {
+  // The overlay picker lives in the View menu (#2269); open it on first use.
+  if (!screen.queryByTestId('view-menu-panel')) fireEvent.click(screen.getByRole('button', { name: 'View' }))
   return screen.queryByRole('button', { name: /^Overlay$/ }) ?? screen.getByRole('button', { name: 'Card count' })
 }
 
@@ -276,7 +278,7 @@ describe('BoardView — grid overlay slot (#1147)', () => {
 
   it('renders the overlay picker in the board toolbar, reading "Overlay" at rest', () => {
     render(<BoardView />)
-    expect(screen.getByRole('button', { name: /^Overlay$/ })).toBeInTheDocument()
+    expect(getPicker()).toHaveAccessibleName('Overlay')
   })
 
   it('offers exactly the registered overlays, None first', async () => {
@@ -335,7 +337,7 @@ describe('BoardView — grid overlay slot (#1147)', () => {
   it('restores a persisted overlay on mount', () => {
     localStorage.setItem(OVERLAY_KEY, 'card-count')
     render(<BoardView />)
-    expect(screen.getByRole('button', { name: 'Card count' })).toBeInTheDocument()
+    expect(getPicker()).toHaveAccessibleName('Card count')
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-overlay-label', 'Card count')
   })
 
@@ -343,7 +345,7 @@ describe('BoardView — grid overlay slot (#1147)', () => {
     // What a #1146 board preset naming a newer overlay would look like here.
     localStorage.setItem(OVERLAY_KEY, 'dwell-time')
     render(<BoardView />)
-    expect(screen.getByRole('button', { name: /^Overlay$/ })).toBeInTheDocument()
+    expect(getPicker()).toHaveAccessibleName('Overlay')
     expect(screen.queryByRole('group', { name: /overlay scale/ })).not.toBeInTheDocument()
   })
 

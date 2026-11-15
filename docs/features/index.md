@@ -131,7 +131,7 @@ Deleting a card does not erase its movement history: the moves stay in the board
 
 ## Card archiving
 
-Archive a card instead of deleting it: it leaves the active board view, but its full history and movement audit trail stay. Restore it any time from the **Archived** panel in the board toolbar. Analytics dwell-time uses `archived_at` as the terminal timestamp, so only the active period is counted.
+Archive a card instead of deleting it: it leaves the active board view, but its full history and movement audit trail stay. Restore it any time from the **Archived cards** panel (board toolbar **View** menu, **Show archived cards**). Analytics dwell-time uses `archived_at` as the terminal timestamp, so only the active period is counted.
 
 → [Card Archiving](card-archiving.md)
 

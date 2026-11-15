@@ -184,7 +184,6 @@ describe('OverflowMenu', () => {
         items={[
           item('export', 'Export board', { shortcut: '⌘⇧E' }),
           item('shortcuts', 'Keyboard shortcuts', { shortcut: '?' }),
-          item('tour', 'Replay onboarding tour'),
         ]}
         showDot={false}
         onDismissDot={() => {}}

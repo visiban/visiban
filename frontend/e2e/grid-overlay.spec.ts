@@ -14,6 +14,13 @@ import { BOARD_FULL, CARD, COLUMN_DONE, COLUMN_TODO, LABEL_BUG, SWIMLANE } from 
 const COLUMN_DOING = { ...COLUMN_TODO, id: 3, uid: 'col0000003w', name: 'Doing', position: 1 }
 const COLUMN_FINISHED = { ...COLUMN_DONE, position: 2 }
 
+// #2269: Preset, Overlay and the other display controls live in the View menu.
+async function openViewMenu(page: Page) {
+  if (!(await page.getByTestId('view-menu-panel').isVisible())) {
+    await page.getByRole('button', { name: 'View', exact: true }).click()
+  }
+}
+
 function card(id: number, column: number, title: string) {
   return { ...CARD, id, uid: `card00000${id}x`, column, title, labels: [] }
 }
@@ -47,8 +54,12 @@ async function openBoard(page: Page, cards: unknown[] = CARDS) {
 
 async function pickOverlay(page: Page, name: string) {
   // The trigger reads "Overlay" at rest and takes the active overlay's own name while one is on.
+  await openViewMenu(page)
   await page.getByRole('button', { name: /^(Overlay|Card count|Dwell time)$/ }).click()
+  // Close the View panel so it does not cover the board.
   await page.getByRole('menuitem', { name }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('view-menu-panel')).toBeHidden()
 }
 
 const cellOf = (page: Page, title: string) =>
@@ -123,6 +134,7 @@ for (const scheme of ['light', 'dark'] as const) {
 test.describe('grid overlay picker menu and filters', () => {
   test('the picker menu opens at its button, lists the overlays, and closes on Escape', async ({ page }) => {
     await openBoard(page)
+    await openViewMenu(page)
     const button = page.getByRole('button', { name: /^Overlay$/ })
     await button.click()
     const menu = page.getByRole('menu')
@@ -155,5 +167,35 @@ test.describe('grid overlay picker menu and filters', () => {
 
     await expect(legend(page)).toContainText('No values match the active filters.')
     await expect(page.getByRole('img', { name: /^Card count:/ })).toHaveCount(0)
+  })
+})
+
+// #2269: the toolbar wraps at phone width; the page itself must never scroll sideways.
+test.describe('board toolbar at phone width', () => {
+  test.use({ viewport: { width: 390, height: 800 } })
+
+  test('the page has no sideways scroll', async ({ page }) => {
+    await openBoard(page)
+    await expect(page.getByRole('navigation', { name: 'Board toolbar' })).toBeVisible()
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+
+  // The old scrolling toolbar also passed the page check above; this one fails
+  // if the toolbar scrolls itself or pushes a control off screen.
+  test('the toolbar wraps: no inner scroll and every control is on screen', async ({ page }) => {
+    await openBoard(page)
+    const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
+    await expect(toolbar).toBeVisible()
+    const { scroll, client } = await toolbar.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
+    expect(scroll).toBeLessThanOrEqual(client)
+    for (const name of ['Filters', 'View', 'Open activity drawer', 'More board actions']) {
+      const box = await toolbar.getByRole('button', { name: new RegExp(`^${name}`) }).first().boundingBox()
+      expect(box, name).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+    }
   })
 })

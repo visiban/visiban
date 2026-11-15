@@ -16,7 +16,7 @@ export function useNavbarSearchLabel(): NavbarSearchLabel {
 
   // matchPath, not startsWith: /boards/1/typo is the not-found page, not a board.
   if (matchPath("/boards/:id", pathname)) {
-    return { placeholder: "Search cards…", ariaLabel: `Search cards (${mod})` };
+    return { placeholder: "Search cards, people, labels, fields", ariaLabel: `Search cards (${mod})` };
   }
   if (pathname === "/" || pathname.startsWith("/groups/")) {
     return { placeholder: "Jump to board…", ariaLabel: `Jump to board (${mod})` };

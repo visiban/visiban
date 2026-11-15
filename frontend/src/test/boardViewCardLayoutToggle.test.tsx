@@ -1,5 +1,6 @@
 /**
- * Tests for the card layout toggle button in BoardView (#626).
+ * Tests for the card layout control in BoardView (#626), now a segmented control
+ * in the View menu (#2269).
  * Covers rendering, toggle behaviour, aria-pressed state, and tooltip text.
  *
  * These tests reuse the same mock infrastructure as boardView.test.tsx but live
@@ -7,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
@@ -235,22 +236,16 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
 }
 
 // ---------------------------------------------------------------------------
-// Helper: find the layout toggle button by its aria-label attribute
+// Helpers: the layout control is a two-segment group inside the View menu
 // ---------------------------------------------------------------------------
-function getToggleButton(): HTMLElement {
-  // In expanded state the label is "Switch to compact card layout";
-  // in compact state it is "Switch to expanded card layout".
-  return (
-    screen.queryByLabelText('Switch to compact card layout') ??
-    screen.getByLabelText('Switch to expanded card layout')
-  )
+function openView() {
+  if (!screen.queryByTestId('view-menu-panel')) fireEvent.click(screen.getByRole('button', { name: 'View' }))
+  return within(screen.getByRole('group', { name: 'Card layout' }))
 }
+const expandedBtn = () => openView().getByRole('button', { name: /Expanded/ })
+const compactBtn = () => openView().getByRole('button', { name: /Compact/ })
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe('BoardView — card layout toggle button', () => {
+describe('BoardView — card layout control (View menu)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
@@ -258,110 +253,45 @@ describe('BoardView — card layout toggle button', () => {
     mockBoardContextValue = defaultContext()
   })
 
-  it('renders the layout toggle button in the toolbar', () => {
+  it('no longer renders a layout button in the toolbar itself', () => {
     render(<BoardView />)
-    expect(getToggleButton()).toBeInTheDocument()
+    expect(screen.queryByLabelText('Switch to compact card layout')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('view-menu-panel')).not.toBeInTheDocument()
   })
 
-  it('starts in expanded mode (aria-pressed=false) by default', () => {
+  it('starts in expanded mode by default', () => {
     render(<BoardView />)
-    expect(getToggleButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(expandedBtn()).toHaveAttribute('aria-pressed', 'true')
+    expect(compactBtn()).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('starts in compact mode (aria-pressed=true) when localStorage has compact', () => {
+  it('starts in compact mode when localStorage has compact', () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
-    expect(getToggleButton()).toHaveAttribute('aria-pressed', 'true')
-    expect(getToggleButton()).toHaveClass('bg-primary-emphasis/10')
+    expect(compactBtn()).toHaveAttribute('aria-pressed', 'true')
+    expect(expandedBtn()).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('aria-label is "Switch to compact card layout" in expanded mode', () => {
+  it('marks the active segment with a check, not color alone', () => {
     render(<BoardView />)
-    expect(screen.getByLabelText('Switch to compact card layout')).toBeInTheDocument()
+    expect(within(expandedBtn()).getByTestId('active-mark')).toBeInTheDocument()
+    expect(within(compactBtn()).queryByTestId('active-mark')).not.toBeInTheDocument()
   })
 
-  it('aria-label is "Switch to expanded card layout" when in compact mode', () => {
-    localStorage.setItem(LAYOUT_KEY, 'compact')
-    render(<BoardView />)
-    expect(screen.getByLabelText('Switch to expanded card layout')).toBeInTheDocument()
-  })
-
-  it('every Row 2 toolbar toggle pairs aria-pressed with the underline cue (#2188)', async () => {
+  it('choosing Compact persists compact and switching back persists expanded', async () => {
     render(<BoardView />)
     const user = userEvent.setup()
-    const cases: [string, string][] = [
-      ['Switch to compact card layout', 'Switch to expanded card layout'],
-      ['Show archived cards', 'Hide archived cards'],
-      ['Open activity drawer', 'Close activity drawer'],
-      ['Keyboard shortcuts', 'Close keyboard shortcuts'],
-      ['Filters', 'Filters'],
-    ]
-    for (const [before, after] of cases) {
-      const btn = screen.getAllByRole('button', { name: before }).find((b) => b.hasAttribute('aria-pressed'))!
-      expect(btn).toHaveAttribute('aria-pressed', 'false')
-      expect(within(btn).queryByTestId('active-underline')).not.toBeInTheDocument()
-      await user.click(btn)
-      const pressed = screen.getAllByRole('button', { name: after }).find((b) => b.getAttribute('aria-pressed') === 'true')!
-      expect(within(pressed).getByTestId('active-underline')).toBeInTheDocument()
-    }
-  })
-
-  it('clicking the toggle switches from expanded to compact', async () => {
-    render(<BoardView />)
-    const btn = getToggleButton()
-    expect(btn).toHaveAttribute('aria-pressed', 'false')
-    await userEvent.setup().click(btn)
-    expect(getToggleButton()).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('clicking the toggle twice returns to expanded', async () => {
-    render(<BoardView />)
-    const user = userEvent.setup()
-    await user.click(getToggleButton())
-    await user.click(getToggleButton())
-    expect(getToggleButton()).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('toggling to compact persists compact to localStorage', async () => {
-    render(<BoardView />)
-    await userEvent.setup().click(getToggleButton())
+    await user.click(compactBtn())
     expect(localStorage.getItem(LAYOUT_KEY)).toBe('compact')
-  })
-
-  it('toggling back to expanded persists expanded to localStorage', async () => {
-    localStorage.setItem(LAYOUT_KEY, 'compact')
-    render(<BoardView />)
-    await userEvent.setup().click(getToggleButton())
+    expect(compactBtn()).toHaveAttribute('aria-pressed', 'true')
+    await user.click(expandedBtn())
     expect(localStorage.getItem(LAYOUT_KEY)).toBe('expanded')
-  })
-
-  it('tooltip text updates to "Switch to expanded card layout" after switching to compact', async () => {
-    render(<BoardView />)
-    await userEvent.setup().click(getToggleButton())
-    // The tooltip now carries the shortcut hint per the #868 audit. Match on
-    // the phrase plus the platform-agnostic shortcut-suffix pattern so the
-    // assertion survives both Mac (⌘⇧L) and non-Mac (Ctrl+Shift+L) runs.
-    expect(getToggleButton().getAttribute('data-tooltip')).toMatch(/^Switch to expanded card layout \(.*L\)$/)
-  })
-
-  it('tooltip text updates to "Switch to compact card layout" after switching back to expanded', async () => {
-    localStorage.setItem(LAYOUT_KEY, 'compact')
-    render(<BoardView />)
-    await userEvent.setup().click(getToggleButton())
-    expect(getToggleButton().getAttribute('data-tooltip')).toMatch(/^Switch to compact card layout \(.*L\)$/)
-  })
-
-  it('toggle button is accessible by its aria-label', () => {
-    render(<BoardView />)
-    const btn = screen.getByLabelText('Switch to compact card layout')
-    expect(btn.tagName).toBe('BUTTON')
   })
 
   it('compact mode propagates to swimlane rows via data-compact attribute', async () => {
     render(<BoardView />)
-    // Expanded by default
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-compact', 'false')
-    await userEvent.setup().click(getToggleButton())
+    await userEvent.setup().click(compactBtn())
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-compact', 'true')
   })
 
@@ -369,7 +299,44 @@ describe('BoardView — card layout toggle button', () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-compact', 'true')
-    await userEvent.setup().click(getToggleButton())
+    await userEvent.setup().click(expandedBtn())
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-compact', 'false')
+  })
+
+  it('toolbar toggles that keep a pressed state expose aria-pressed', async () => {
+    render(<BoardView />)
+    const user = userEvent.setup()
+    for (const [before, after] of [['Open activity drawer', 'Close activity drawer'], ['Filters', 'Filters']]) {
+      const btn = screen.getByRole('button', { name: before })
+      expect(btn).toHaveAttribute('aria-pressed', 'false')
+      await user.click(btn)
+      expect(screen.getAllByRole('button', { name: after }).some((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true)
+    }
+  })
+
+  it('Escape closes the View menu and returns focus to its button', async () => {
+    render(<BoardView />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'View' }))
+    expect(screen.getByTestId('view-menu-panel')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('view-menu-panel')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View' })).toHaveFocus()
+  })
+
+  it('collapse/expand, density, and archived controls live in the View menu', async () => {
+    render(<BoardView />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'View' }))
+    const panel = within(screen.getByTestId('view-menu-panel'))
+    await user.click(panel.getByRole('button', { name: 'Dense' }))
+    expect(panel.getByRole('button', { name: 'Dense' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(panel.getByRole('button', { name: 'Collapse all' }))
+    expect(panel.getByRole('button', { name: 'Collapse all' })).toBeDisabled()
+    await user.click(panel.getByRole('button', { name: 'Expand all' }))
+    await user.click(panel.getByRole('button', { name: 'Hide all' }))
+    await user.click(panel.getByRole('button', { name: 'Show all' }))
+    await user.click(panel.getByRole('button', { name: 'Show archived cards' }))
+    expect(panel.getByRole('button', { name: 'Hide archived cards' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
