@@ -10,7 +10,7 @@ export function omittedNote(count: number) {
   return `${count} ${count === 1 ? "column" : "columns"} without enough data left out`;
 }
 
-/** Share of the bar below which a segment's number would not fit; the legend carries it instead. */
+/** Share of the bar below which a segment's number would not fit; its hover title and the bar's aria-label carry it (the single bar's legend too). */
 const MIN_LABEL_SHARE = 0.07;
 
 /** One group's bar under a breakdown (#2268): its name and color dot, and its median wait per column. */
@@ -58,6 +58,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
                       key={column.uid}
                       data-testid="time-segment"
                       data-bottleneck={column.bottleneck ? "true" : "false"}
+                      title={`${column.name} ${formatDays(wait)}`}
                       className="flex items-center justify-center min-w-0 overflow-hidden bg-surface"
                       style={{
                         flexGrow: wait,
@@ -104,6 +105,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
               key={column.uid}
               data-testid="time-segment"
               data-bottleneck={column.bottleneck ? "true" : "false"}
+              title={`${column.name} ${formatDays(column.medianWait)}`}
               className="flex items-center justify-center min-w-0 overflow-hidden bg-surface"
               style={{
                 flexGrow: column.medianWait,

@@ -48,4 +48,18 @@ describe('Where the time goes: the sum of medians is not a silent total (#2293)'
     // The sliver's number stays reachable in the legend.
     expect(screen.getByRole('list', { name: 'Time bar legend' })).toHaveTextContent('A 0.1d')
   })
+
+  it('names a narrow segment on hover and in the accessible name, in the single and the grouped bar', () => {
+    const columns = [col('a', 0.1), col('b', 10)]
+    const { unmount } = render(<TimeBar columns={columns} />)
+    expect(screen.getAllByTestId('time-segment')[0]).toHaveAttribute('title', 'A 0.1d')
+    expect(screen.getByRole('img')).toHaveAccessibleName(/A 0\.1d, B 10\.0d/)
+    unmount()
+    const groups = [{ name: 'Platform', color: 'red', medians: new Map<string, number | null>([['a', 0.1], ['b', 10]]) }]
+    render(<TimeBar columns={columns} groups={groups} />)
+    const sliver = screen.getAllByTestId('time-segment')[0]
+    expect(sliver).toHaveTextContent('')
+    expect(sliver).toHaveAttribute('title', 'A 0.1d')
+    expect(screen.getByRole('img')).toHaveAccessibleName(/A 0\.1d, B 10\.0d/)
+  })
 })

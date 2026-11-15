@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Column, FlowBlocked, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
+import { wipCount } from "./flowRowData";
 import { PERCENTILE_APPEARS_AT, cardsPastP85, columnsOverLimit, formatNumber, pluralize } from "./flowFormat";
 
 interface Props {
@@ -82,13 +83,16 @@ function CycleTile({ cycle }: { cycle: FlowCycleTime }) {
 
 function ThroughputTile({ throughput }: { throughput: FlowThroughput }) {
   const weeks = throughput.samples.length;
+  // The Done box's number (#2288): every completion in the range, not just the whole weeks.
+  // `total` is the fallback for a server older than #2288.
+  const finished = throughput.completed_in_range ?? throughput.total;
   return throughput.median === null ? (
-    <Tile label="Throughput" value={String(throughput.total)} unit="cards so far" provisional>
+    <Tile label="Throughput" value={String(finished)} unit="cards so far" provisional>
       Too few whole weeks for a weekly median. {weeks} so far.
     </Tile>
   ) : (
     <Tile label="Throughput" value={formatNumber(throughput.median)} unit="/ week">
-      Median of {pluralize(weeks, "week")}. {pluralize(throughput.total, "card")} finished.
+      Median of {pluralize(weeks, "week")}. {pluralize(finished, "card")} finished.
     </Tile>
   );
 }
@@ -99,8 +103,13 @@ function WipTile({ wipAge, columns, filtered, cycleSampleSize }: {
   const over = filtered ? null : columnsOverLimit(wipAge, columns);
   const p85 = wipAge.cycle_time_percentiles.p85;
   const past = p85 === null ? null : cardsPastP85(wipAge);
+  // Live WIP (#2287): every card in a column now, unstarted ones too, the count the flow row and the
+  // column header show. `sample_size` (cards with an age) is only the fallback for an older server.
+  const live = wipAge.columns.some((c) => c.wip_count !== undefined)
+    ? wipAge.columns.reduce((sum, c) => sum + wipCount(wipAge, c.column_uid), 0)
+    : wipAge.sample_size;
   return (
-    <Tile label="Work in progress" value={String(wipAge.sample_size)} unit={wipAge.sample_size === 1 ? "card" : "cards"}>
+    <Tile label="Work in progress" value={String(live)} unit={live === 1 ? "card" : "cards"}>
       {over !== null && (
         <span className={over > 0 ? "text-warning" : undefined}>
           {pluralize(over, "column")} over {over === 1 ? "its" : "their"} limit.{" "}

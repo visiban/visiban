@@ -886,6 +886,31 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Blocked time')).toHaveTextContent('2 blocks. 1 card blocked right now.')
   })
 
+  it('counts the live WIP, unstarted cards included, and falls back to the aged cards (#2287)', async () => {
+    // Nothing has an age yet, but nine cards sit in the columns now.
+    mockAll({ age: { ...age, sample_size: 0, samples: [], cards: [], columns: [
+      { column_uid: 'col-doing', column_name: 'Doing', wip_count: 6 }, { column_uid: 'col-review', column_name: 'Review', wip_count: 3 },
+    ] } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Work in progress')).toHaveTextContent('9cards')
+    cleanup()
+    // A server older than #2287 sends no wip_count: the aged cards are the number.
+    mockAll({ age: { ...age, sample_size: 2, columns: [{ column_uid: 'col-doing', column_name: 'Doing', sample_size: 2, percentiles: { p50: 2.1, p85: 5, p95: null } }] as never } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Work in progress')).toHaveTextContent('2cards')
+  })
+
+  it('shows the same finished count as the Done box when the range holds partial weeks (#2288)', async () => {
+    mockAll({ throughput: { ...throughput, median: 1, total: 2, completed_in_range: 5 } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 5 cards finished.')
+    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('5')
+    cleanup()
+    mockAll({ throughput: { ...throughput, median: null, total: 2, completed_in_range: 5 } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Throughput')).toHaveTextContent('5cards so far')
+  })
+
   it('withhold what the server withheld and say when it appears', async () => {
     mockAll({
       cycle: { ...cycle, sample_size: 3, percentiles: { p50: null, p85: null, p95: null } },

@@ -16,11 +16,20 @@ function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: s
   );
 }
 
+/**
+ * Most squares drawn for one column. A count includes cards that have not started (#2287), so an
+ * intake column can hold hundreds; past this the rest is a "+N more" note. The exact count stays in
+ * the box's "N now" / "N of limit" text, which is what assistive tech reads.
+ */
+export const MAX_SQUARES = 30;
+
 function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
   const filled = column.limit === null ? column.count : Math.min(column.count, column.limit);
+  const drawn = Math.min(column.count, MAX_SQUARES);
+  const hidden = column.count - drawn;
   return (
-    <div className="flex flex-wrap gap-1" aria-hidden="true">
-      {Array.from({ length: column.count }, (_, i) => (
+    <div className="flex flex-wrap items-center gap-1" aria-hidden="true">
+      {Array.from({ length: drawn }, (_, i) => (
         i < filled ? (
           <span
             key={i}
@@ -32,6 +41,7 @@ function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
           <span key={i} data-testid="flow-square-over" className="w-3 h-3 rounded-sm border-2 border-danger" />
         )
       ))}
+      {hidden > 0 && <span data-testid="flow-squares-more" className="text-xs text-fg-tertiary">+{hidden} more</span>}
     </div>
   );
 }

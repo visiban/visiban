@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import FlowSection from '../components/Board/flowMetrics/FlowSection'
 import FlowDrillDrawer from '../components/Board/flowMetrics/FlowDrillDrawer'
-import FlowRow from '../components/Board/flowMetrics/FlowRow'
+import FlowRow, { MAX_SQUARES } from '../components/Board/flowMetrics/FlowRow'
 import type { DrillSelection } from '../components/Board/flowMetrics/FlowDrillDrawer'
 import { buildColumnSelection } from '../components/Board/flowMetrics/columnDrill'
 import { buildFlowRow, wipCount } from '../components/Board/flowMetrics/flowRowData'
@@ -192,6 +192,24 @@ describe('the flow row and time bar (#2262)', () => {
     render(<Harness onOpenColumn={onOpen} />)
     await userEvent.click(screen.getAllByTestId('flow-column-box')[1])
     expect(onOpen).toHaveBeenCalledWith('review')
+  })
+
+  it('caps the squares of a huge column and says how many more, keeping the exact count (#2287)', () => {
+    const row = buildFlowRow(cumulative, dwell, wipAge, columns).map((c, i) => (i === 1 ? { ...c, count: 500, limit: 5 } : c))
+    render(<FlowRow columns={row} cumulative={cumulative} throughput={throughput} days={30} onOpenColumn={() => {}} />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    expect(within(review).getAllByTestId('flow-square')).toHaveLength(5)
+    expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(MAX_SQUARES - 5)
+    expect(within(review).getByTestId('flow-squares-more')).toHaveTextContent(`+${500 - MAX_SQUARES} more`)
+    expect(review).toHaveTextContent('500 of 5, 495 over limit')
+  })
+
+  it('draws every square, with no overflow note, for a small count (#2287)', () => {
+    const row = buildFlowRow(cumulative, dwell, wipAge, columns).map((c, i) => (i === 1 ? { ...c, count: MAX_SQUARES, limit: null } : c))
+    render(<FlowRow columns={row} cumulative={cumulative} throughput={throughput} days={30} onOpenColumn={() => {}} />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    expect(within(review).getAllByTestId('flow-square')).toHaveLength(MAX_SQUARES)
+    expect(within(review).queryByTestId('flow-squares-more')).toBeNull()
   })
 
   it('counts unstarted cards over the limit, and falls back to the samples without wip_count (#2287)', () => {
