@@ -107,6 +107,10 @@ export default function AnalyticsOverview({
   const busy = loading && results !== null;
   const settled = results !== null;
   const filtered = filters.swimlaneId !== null || filters.labelId !== null;
+  // The empty block follows the data on screen, so its chips and copy follow the filters that data was fetched
+  // for, not the live selection: otherwise a pending refetch would show the wrong state.
+  const shownFilters = fetchedFilters ?? filters;
+  const narrowed = isNarrowed(shownFilters);
   const empty = cycle && throughput && cumulative && wipAge ? isEmpty(cycle, throughput, cumulative, wipAge) : false;
   const canExport = currentUserRole === "admin" || currentUserRole === "site_admin";
   const exportable = analytics?.swimlanes ? analytics : null;
@@ -129,7 +133,7 @@ export default function AnalyticsOverview({
         ) : undefined}
       />
       <p role="status" className="sr-only">
-        {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (isNarrowed(filters) ? "No cards match these filters" : "Nothing has moved yet") : "")}
+        {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (narrowed ? "No cards match these filters" : "Nothing has moved yet") : "")}
       </p>
       {failed && (
         <div className="flex flex-wrap items-center gap-2">
@@ -150,9 +154,11 @@ export default function AnalyticsOverview({
       {empty ? (
         // Nothing to draw: one block in place of regions 5 to 9. Going from here to data remounts
         // the charts, which is safe because it follows the data itself, not a sibling's state.
-        isNarrowed(filters)
-          ? <NoMatchState filters={filters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} onBeforeChange={() => headingRef?.current?.focus()} />
-          : <NoHistoryState onGoToBoard={onGoToBoard} />
+        <div aria-busy={busy} className={`min-w-0 transition-opacity motion-reduce:transition-none ${busy ? "opacity-60" : ""}`}>
+          {narrowed
+            ? <NoMatchState filters={shownFilters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} onBeforeChange={() => headingRef?.current?.focus()} />
+            : <NoHistoryState onGoToBoard={onGoToBoard} />}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-w-0">
@@ -188,7 +194,7 @@ export default function AnalyticsOverview({
             <RegionSlot busy={busy}>
               {cumulative
                 ? <CumulativeFlowPanel {...panelView("cumulative")} data={cumulative} onSelectDay={selectDay} />
-                : <PanelPlaceholder title="Cumulative flow" failed={settled} />}
+                : <PanelPlaceholder title="Cumulative flow" failed={settled} loadingNote={!settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>
               {throughput

@@ -135,7 +135,7 @@ Four charts built from the movement log, so you can see how long work takes and 
 
 ### Page states
 
-- **Loading.** Each region shows a gray block the size of its final panel, and the filters stay usable. A refetch keeps the previous numbers on screen, dimmed.
+- **Loading.** Each region shows a gray skeleton the size of its final panel (a chart panel gets a title, a summary line, the 260px chart and two note lines), the first chart panel says "Loading flow metrics…", and the filters stay usable. The pulse stops under reduced motion. A refetch keeps the previous numbers on screen, dimmed.
 - **Nothing has moved yet.** A board with no card movement shows a short explanation, a dimmed example bar labeled as an example, and **Go to board**.
 - **Too little data.** The page still renders. The bottleneck panel says "Too early to say" with the reason, and a tile marks its value **Provisional** and says what is withheld and when it appears.
 - **No cards match these filters.** The message names the active swimlane, label and period, with one removable chip per filter. **Show last 90 days** appears when the period is shorter than 90 days, and **Clear all filters** resets everything. It does not predict how many cards a wider filter would match.

@@ -10,9 +10,13 @@ interface Props {
 }
 
 const STARTED_OFFSET = 10;
+const DIAMOND_RADIUS = 4.5;
+// The plot's right inset keeps the last diamond (offset right of its week) inside the plot, clear of the
+// reference-label column that starts 6px past x1.
+const PLOT_INSET_RIGHT = STARTED_OFFSET + DIAMOND_RADIUS + 3;
 
 /** A hollow diamond centered on (x, y): the "started" marker, a shape distinct from the finished dot. */
-const diamond = (x: number, y: number, r = 4.5) => `${x},${y - r} ${x + r},${y} ${x},${y + r} ${x - r},${y}`;
+const diamond = (x: number, y: number, r = DIAMOND_RADIUS) => `${x},${y - r} ${x + r},${y} ${x},${y + r} ${x - r},${y}`;
 
 /** What the two marks mean, in the shapes the chart draws (color is never the only carrier). */
 function ThroughputLegend() {
@@ -24,7 +28,7 @@ function ThroughputLegend() {
       </li>
       <li className="flex items-center gap-1.5">
         <svg width={12} height={12} aria-hidden="true">
-          <polygon points={diamond(6, 6, 4.5)} fill="none" stroke={CHART_COLORS.neutral} strokeWidth={1.5} />
+          <polygon points={diamond(6, 6)} fill="none" stroke={CHART_COLORS.neutral} strokeWidth={1.5} />
         </svg>
         Started
       </li>
@@ -39,7 +43,7 @@ function ThroughputLegend() {
 export default function ThroughputChart({ data, labelledBy, onSelect }: Props) {
   const { samples } = data;
   const top = niceCeil(Math.max(1, ...samples.map((s) => Math.max(s.count, s.started)), data.median ?? 0));
-  const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, samples.length - 1)], [x0 + 8, x1 - 8]);
+  const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, samples.length - 1)], [x0 + 8, x1 - PLOT_INSET_RIGHT]);
   return (
     <>
     <ChartFrame

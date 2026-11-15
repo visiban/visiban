@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import type { ComponentProps } from 'react'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { REFERENCE_LABEL_MARGIN } from '../components/Common/Chart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
@@ -186,6 +187,12 @@ describe('FlowMetricsDashboard states', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading flow metrics')
     expect(screen.getByTestId('analytics-bottleneck')).toBeInTheDocument()
     expect(screen.queryByTestId('flow-cycle-time')).not.toBeInTheDocument()
+    // Skeletons are sized like the final panels (#2264): four chart frames at the real 260px, with the note lines.
+    const frames = screen.getAllByTestId('panel-skeleton')
+    const chartBlocks = frames.flatMap((frame) => [...frame.querySelectorAll('.h-\\[260px\\]')])
+    expect(chartBlocks).toHaveLength(4)
+    expect(screen.getByText('Loading flow metrics…')).toBeInTheDocument()
+    for (const block of chartBlocks) expect(block.className).toContain('motion-reduce:animate-none')
     unmount()
 
     mockAll()
@@ -923,6 +930,30 @@ describe('the throughput started marker (#2264)', () => {
   })
 })
 
+describe('the throughput started marker placement (#2264)', () => {
+  it('keeps the last diamond inside the plot, clear of the reference-label column', async () => {
+    mockAll({ throughput: { ...throughput, samples: [{ ...throughput.samples[0], started: 5 }, { ...throughput.samples[1], started: 5 }] } })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-throughput')).getByRole('img')
+    const width = Number(image.getAttribute('width'))
+    const xs = [...image.querySelectorAll('polygon[data-started]')].flatMap((mark) =>
+      (mark.getAttribute('points') ?? '').split(' ').map((point) => Number(point.split(',')[0])))
+    expect(Math.max(...xs)).toBeLessThanOrEqual(width - REFERENCE_LABEL_MARGIN)
+  })
+})
+
+describe('the no-history example (#2264)', () => {
+  it('draws the chart icon and an example bar with a hatched bottleneck segment', async () => {
+    mockAll(empty)
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByRole('heading', { name: 'Nothing has moved yet' })
+    expect(screen.getByTestId('flow-empty-icon')).toHaveAttribute('aria-hidden', 'true')
+    const hatched = screen.getByTestId('flow-empty-example').querySelectorAll('[data-hatched="true"]')
+    expect(hatched).toHaveLength(1)
+    expect((hatched[0] as HTMLElement).style.background).toContain('--warning')
+  })
+})
+
 describe('named chart colors (#2264)', () => {
   it('colors aging marks neutral to P50, warning past it, danger past P85', async () => {
     const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
@@ -938,7 +969,7 @@ describe('named chart colors (#2264)', () => {
     expect(colors).toEqual(['neutral', 'warning', 'danger'])
     expect(image.querySelector('[data-age-color="warning"] circle')?.getAttribute('fill')).toContain('--warning')
     expect(image.querySelector('[data-age-color="danger"] circle[r="8"]')?.getAttribute('stroke')).toContain('--danger')
-    expect(screen.getByTestId('flow-wip-age')).toHaveTextContent('Amber marks')
+    expect(screen.getByTestId('flow-wip-age')).toHaveTextContent('Orange marks')
   })
 
   it('adds no tier for a withheld percentile', () => {
@@ -978,6 +1009,49 @@ describe('the page states (#2264)', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Clear all filters' }))
     expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+  })
+
+  it('keeps the no-match state, dimmed, while a refetch after Clear all filters is pending (#2264)', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await screen.findByTestId('flow-no-match')
+    // The next answer is held back; the page must keep describing the filters it was fetched for.
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    cycleMock.mockImplementation(async () => { await gate; return empty.cycle })
+    throughputMock.mockImplementation(async () => { await gate; return empty.throughput })
+    cumulativeMock.mockImplementation(async () => { await gate; return empty.cumulative })
+    ageMock.mockImplementation(async () => { await gate; return empty.age })
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    expect(screen.getByRole('heading', { name: 'No cards match these filters' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nothing has moved yet' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('flow-no-match').parentElement).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByTestId('flow-no-match').parentElement?.className).toContain('opacity-60')
+    release()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No cards match these filters' })).not.toBeInTheDocument()
+  })
+
+  it('keeps "Nothing has moved yet" while a refetch after picking a filter is pending (#2264)', async () => {
+    mockAll(empty)
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByRole('heading', { name: 'Nothing has moved yet' })
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    cycleMock.mockImplementation(async () => { await gate; return empty.cycle })
+    throughputMock.mockImplementation(async () => { await gate; return empty.throughput })
+    cumulativeMock.mockImplementation(async () => { await gate; return empty.cumulative })
+    ageMock.mockImplementation(async () => { await gate; return empty.age })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    expect(screen.getByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    expect(screen.queryByTestId('flow-no-match')).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByTestId('flow-no-match')).toBeInTheDocument()
   })
 
   it('says too little data on the bottleneck and tiles while charts still draw', async () => {

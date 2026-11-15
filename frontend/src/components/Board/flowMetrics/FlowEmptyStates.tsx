@@ -1,14 +1,18 @@
 import type { FlowFilters } from "../../../api/flowMetrics";
+import { CHART_COLORS, warningTint } from "../../../utils/chartScale";
 import { DEFAULT_DAYS, RANGES } from "./useAnalyticsFilters";
 
 const PRIMARY_BUTTON = "px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 const SECONDARY_BUTTON = "px-3 py-1.5 text-sm rounded border border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
+// One segment per column; the hatched one is the example's bottleneck, drawn as the charts draw it.
 const EXAMPLE_BAR = [
-  { name: "Doing", width: "w-1/4" },
-  { name: "Review", width: "w-2/5" },
-  { name: "Test", width: "w-1/5" },
+  { name: "Doing", width: "w-[11%]", hatched: false },
+  { name: "Review", width: "w-[23%]", hatched: false },
+  { name: "Test", width: "w-[47%]", hatched: true },
+  { name: "Done", width: "w-[19%]", hatched: false },
 ];
+const HATCH = `repeating-linear-gradient(45deg, ${warningTint(0.2)} 0 3px, ${CHART_COLORS.warning} 3px 5px)`;
 
 /**
  * "No history yet" (#2264, `states.png`): no card has moved, so there is
@@ -21,6 +25,10 @@ export function NoHistoryState({ onGoToBoard }: { onGoToBoard?: () => void }) {
       className="bg-surface border border-line rounded-lg p-8 flex flex-col items-center gap-3 text-center min-w-0"
       data-testid="flow-empty"
     >
+      <svg aria-hidden="true" width={28} height={28} viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="text-fg-tertiary" data-testid="flow-empty-icon">
+        <path d="M4 4v20h20" />
+        <path d="M8 18l5-6 4 3 6-8" />
+      </svg>
       <h2 className="text-xl font-semibold text-fg">Nothing has moved yet</h2>
       <p className="max-w-md text-sm text-fg-secondary">
         Analytics are built from cards moving between columns. Once a few cards reach Done, this page shows where they spent their time.
@@ -31,7 +39,8 @@ export function NoHistoryState({ onGoToBoard }: { onGoToBoard?: () => void }) {
             <div
               key={segment.name}
               className={`${segment.width} h-full border-r border-surface`}
-              style={{ background: `rgb(var(--primary-emphasis) / ${0.6 - index * 0.2})` }}
+              data-hatched={segment.hatched}
+              style={{ background: segment.hatched ? HATCH : `rgb(var(--primary-emphasis) / ${0.4 + index * 0.25})` }}
             />
           ))}
         </div>
