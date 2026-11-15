@@ -404,6 +404,14 @@ describe('the panels', () => {
     expect(Number(rings[0].getAttribute('cx'))).toBe(Number(square.getAttribute('x')) + 4)
   })
 
+  it('tints the zones above P50 and P85 with the neutral tint at 5% and 10%, never the chart hue', async () => {
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    expect(image.querySelector('[data-age-zone="p50"]')?.getAttribute('fill')).toBe('rgb(var(--border-strong) / 0.05)')
+    expect(image.querySelector('[data-age-zone="p85"]')?.getAttribute('fill')).toBe('rgb(var(--border-strong) / 0.1)')
+    expect(image.querySelector('rect[fill*="primary-emphasis"]')).toBeNull()
+  })
+
   it('rings nothing and draws no zones without a P85', async () => {
     mockAll({ age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } } })
     await renderLoaded()
@@ -1003,7 +1011,14 @@ describe('the page states (#2264)', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     const state = await screen.findByTestId('flow-no-match')
     expect(within(state).getByRole('button', { name: 'Remove filter: Last 30 days' })).toBeInTheDocument()
-    await userEvent.click(within(state).getByRole('button', { name: 'Show last 90 days' }))
+    // states.png: the period shortcut is the primary button, above the secondary Clear all filters.
+    const show = within(state).getByRole('button', { name: 'Show last 90 days' })
+    const clear = within(state).getByRole('button', { name: 'Clear all filters' })
+    expect(show).toHaveClass('bg-button-primary')
+    expect(clear).toHaveClass('border-line-strong')
+    expect(clear).not.toHaveClass('bg-button-primary')
+    expect(show.compareDocumentPosition(clear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.click(show)
     expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))

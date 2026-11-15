@@ -1,5 +1,5 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
-import { CHART_COLORS, axisTicks, chartTint, linearScale, niceCeil } from "../../../utils/chartScale";
+import { CHART_COLORS, axisTicks, linearScale, neutralTint, niceCeil } from "../../../utils/chartScale";
 import type { FlowAgeSample, FlowCard, FlowWipAge } from "../../../types";
 import { ageMarkColor, ageMarkLabel, percentileLines } from "./flowFormat";
 
@@ -80,15 +80,16 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
         const width = geometry.x1 - geometry.x0;
         return (
           <>
-            {zones.p85 !== null && (
+            {zones.p50 !== null && (
               <rect
-                x={geometry.x0} width={width} y={zones.p95 !== null ? y(zones.p95) : geometry.y0}
-                height={y(zones.p85) - (zones.p95 !== null ? y(zones.p95) : geometry.y0)}
-                fill={chartTint(0.08)}
+                data-age-zone="p50"
+                x={geometry.x0} width={width} y={zones.p85 !== null ? y(zones.p85) : geometry.y0}
+                height={y(zones.p50) - (zones.p85 !== null ? y(zones.p85) : geometry.y0)}
+                fill={neutralTint(0.05)}
               />
             )}
-            {zones.p95 !== null && (
-              <rect x={geometry.x0} width={width} y={geometry.y0} height={y(zones.p95) - geometry.y0} fill={chartTint(0.16)} />
+            {zones.p85 !== null && (
+              <rect data-age-zone="p85" x={geometry.x0} width={width} y={geometry.y0} height={y(zones.p85) - geometry.y0} fill={neutralTint(0.1)} />
             )}
             <ChartReferenceLines lines={percentileLines(zones, y)} geometry={geometry} />
             {placed.map(({ sample, x, y: cy, pastP85 }) => {

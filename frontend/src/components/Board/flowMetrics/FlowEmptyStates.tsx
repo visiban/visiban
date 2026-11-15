@@ -1,5 +1,5 @@
 import type { FlowFilters } from "../../../api/flowMetrics";
-import { CHART_COLORS, warningTint } from "../../../utils/chartScale";
+import { CHART_COLORS, chartTint, warningTint } from "../../../utils/chartScale";
 import { DEFAULT_DAYS, RANGES } from "./useAnalyticsFilters";
 
 const PRIMARY_BUTTON = "px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
@@ -12,6 +12,8 @@ const EXAMPLE_BAR = [
   { name: "Test", width: "w-[47%]", hatched: true },
   { name: "Done", width: "w-[19%]", hatched: false },
 ];
+// Light to dark in column order, as the charts draw the in-progress hues; every alpha is valid (0 to 1).
+const EXAMPLE_ALPHAS = [0.4, 0.65, 0.9, 1];
 const HATCH = `repeating-linear-gradient(45deg, ${warningTint(0.2)} 0 3px, ${CHART_COLORS.warning} 3px 5px)`;
 
 /**
@@ -40,7 +42,7 @@ export function NoHistoryState({ onGoToBoard }: { onGoToBoard?: () => void }) {
               key={segment.name}
               className={`${segment.width} h-full border-r border-surface`}
               data-hatched={segment.hatched}
-              style={{ background: segment.hatched ? HATCH : `rgb(var(--primary-emphasis) / ${0.4 + index * 0.25})` }}
+              style={{ background: segment.hatched ? HATCH : chartTint(EXAMPLE_ALPHAS[index]) }}
             />
           ))}
         </div>
@@ -114,16 +116,16 @@ export function NoMatchState({ filters, swimlanes, labels, onFiltersChange: chan
           ))}
         </ul>
       )}
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-col items-center gap-2">
         {shortPeriod && (
-          <button type="button" onClick={() => onFiltersChange({ ...filters, days: DEFAULT_DAYS })} className={SECONDARY_BUTTON}>
+          <button type="button" onClick={() => onFiltersChange({ ...filters, days: DEFAULT_DAYS })} className={PRIMARY_BUTTON}>
             {`Show last ${DEFAULT_DAYS} days`}
           </button>
         )}
         <button
           type="button"
           onClick={() => onFiltersChange({ days: DEFAULT_DAYS, swimlaneId: null, labelId: null })}
-          className={PRIMARY_BUTTON}
+          className={shortPeriod ? SECONDARY_BUTTON : PRIMARY_BUTTON}
         >
           Clear all filters
         </button>
