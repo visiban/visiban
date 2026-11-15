@@ -7,6 +7,7 @@ import type {
   FlowCycleTime,
   FlowDwell,
   FlowGroupBy,
+  FlowSwimlaneComparison,
   FlowThroughput,
   FlowWipAge,
 } from "../types";
@@ -90,3 +91,22 @@ export const getFlowAttention = (boardId: number, filters: FlowFilters) =>
   client
     .get<FlowAttention>(`/api/v1/boards/${boardId}/metrics/attention/`, { params: flowParams(filters) })
     .then((r) => r.data);
+
+/**
+ * Swimlanes tab (#2266). Takes no swimlane filter; `groupByFieldId` is a swimlane
+ * custom field ("Group lanes by").
+ */
+export const getFlowSwimlanes = (
+  boardId: number,
+  filters: Omit<FlowFilters, 'swimlaneId'>,
+  groupByFieldId?: number,
+) =>
+  client
+    .get<FlowSwimlaneComparison>(`/api/v1/boards/${boardId}/metrics/swimlanes/`, {
+      params: {
+        days: filters.days,
+        ...(filters.labelId !== null && { label_id: filters.labelId }),
+        ...(groupByFieldId !== undefined && { group_by_field_id: groupByFieldId }),
+      },
+    })
+    .then((r) => r.data)

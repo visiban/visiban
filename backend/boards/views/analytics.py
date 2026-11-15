@@ -347,6 +347,29 @@ class AnalyticsFilterQuerySerializer(serializers.Serializer):
     validate_label_id = FlowMetricsQuerySerializer.validate_label_id
 
 
+class SwimlaneComparisonQuerySerializer(FlowMetricsQuerySerializer):
+    """The period and label filters plus ``group_by_field_id`` for ``metrics/swimlanes`` (#2266).
+
+    It compares swimlanes, so it takes no ``swimlane_id``: the field is removed
+    and a stray one is ignored like any unknown parameter. ``group_by_field_id``
+    names a *swimlane* custom field ("Group lanes by"); every id that is not a
+    dropdown or checkbox swimlane field on this board gets the same message.
+    """
+
+    swimlane_id = None
+    group_by_field_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+
+    def validate_group_by_field_id(self, value):
+        definition = (
+            self.context["board"]
+            .swimlane_custom_field_definitions.filter(pk=value, field_type__in=flow_grouping.GROUPABLE_FIELD_TYPES)
+            .first()
+        )
+        if definition is None:
+            raise serializers.ValidationError("Not a dropdown or checkbox swimlane field on this board.")
+        return definition
+
+
 class ThroughputQuerySerializer(GroupedFlowMetricsQuerySerializer):
     period = serializers.ChoiceField(choices=["day", "week"], required=False, default="week")
 
@@ -539,6 +562,71 @@ _CYCLE_TIME_RESPONSE = inline_serializer(
             "sample_size": serializers.IntegerField(),
             "percentiles": _PERCENTILES_FIELD,
         }),
+    },
+)
+
+_SWIMLANE_COMPARISON_RESPONSE = inline_serializer(
+    name="FlowSwimlaneComparison",
+    fields={
+        "definition": serializers.CharField(),
+        "board": inline_serializer(
+            name="FlowSwimlaneBoard",
+            fields={
+                "finished": serializers.IntegerField(),
+                "median_days": serializers.FloatField(allow_null=True),
+                "p85_days": serializers.FloatField(allow_null=True),
+            },
+        ),
+        "status_threshold_pct": serializers.IntegerField(),
+        "status_min_finished": serializers.IntegerField(),
+        "swimlanes": inline_serializer(
+            name="FlowSwimlaneRow",
+            many=True,
+            fields={
+                "id": serializers.IntegerField(),
+                "name": serializers.CharField(),
+                "position": serializers.IntegerField(),
+                "group": serializers.CharField(allow_null=True),
+                "finished": serializers.IntegerField(),
+                "in_progress": serializers.IntegerField(),
+                "median_days": serializers.FloatField(allow_null=True),
+                "p85_days": serializers.FloatField(allow_null=True),
+                "blocked_share": serializers.FloatField(allow_null=True),
+                "rolling_median": inline_serializer(
+                    name="FlowSwimlaneRollingPoint",
+                    many=True,
+                    fields={
+                        "at": serializers.DateTimeField(),
+                        "median_days": serializers.FloatField(allow_null=True),
+                        "sample_size": serializers.IntegerField(),
+                    },
+                ),
+                "status": serializers.ChoiceField(choices=["slower", "in_line", "faster"], allow_null=True),
+                "trend": inline_serializer(
+                    name="FlowSwimlaneTrend",
+                    allow_null=True,
+                    fields={
+                        "direction": serializers.ChoiceField(choices=["slower", "steady", "faster"]),
+                        "first_days": serializers.FloatField(),
+                        "last_days": serializers.FloatField(),
+                    },
+                ),
+            },
+        ),
+        "grouping": inline_serializer(
+            name="FlowSwimlaneGrouping",
+            allow_null=True,
+            fields={
+                "field_id": serializers.IntegerField(),
+                "field_name": serializers.CharField(),
+                "field_type": serializers.CharField(),
+                "groups": inline_serializer(
+                    name="FlowSwimlaneGroup",
+                    many=True,
+                    fields={"key": serializers.CharField(), "name": serializers.CharField(allow_null=True)},
+                ),
+            },
+        ),
     },
 )
 
@@ -1251,6 +1339,33 @@ class BoardAnalyticsMixin:
             flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
         payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
         return Response(payload)
+
+    @extend_schema(
+        summary="Per-swimlane cycle time, trend, blocked share and status against the board",
+        parameters=[
+            *(p for p in _FLOW_FILTER_PARAMETERS if p.name != "swimlane_id"),
+            OpenApiParameter(
+                name="group_by_field_id", type={"type": "integer", "format": "int64", "minimum": 1},
+                location=OpenApiParameter.QUERY, required=False,
+                description=(
+                    "A dropdown or checkbox swimlane custom field of this board. Adds `grouping` and "
+                    "each swimlane's `group`."
+                ),
+            ),
+        ],
+        responses={200: _SWIMLANE_COMPARISON_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/swimlanes")
+    def metrics_swimlanes(self, request, pk=None):
+        """One row per swimlane for the Swimlanes tab, with the board median (#2266)."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(SwimlaneComparisonQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        lanes = list(board.swimlanes.order_by("position", "id"))
+        return Response(flow_metrics.swimlane_comparison(
+            flow, _flow_range(params, now), lanes, params.get("group_by_field_id"),
+        ))
 
     @extend_schema(
         summary="Cards completed per whole ISO week or UTC day",

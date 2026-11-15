@@ -511,7 +511,7 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/` and [`.../swimlanes/`](#get-apiv1boardsidmetricsswimlanes) return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
 
 **Query parameters** (the first five on all seven):
 
@@ -588,6 +588,29 @@ Adds an optional `period`, `week` (the default) or `day`.
 `median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
 
 `started` *(added in 1.3, #2260)* counts the cards whose cycle started in the period: their first move out of the column they were created in, to a column that is not done. Archived cards count, as in `count`. A reopen is not a start. A card with no creation movement, such as one imported without its history, can finish but never starts, so on an imported board `started` under-reports next to `count`.
+
+#### `GET /api/v1/boards/{id}/metrics/swimlanes/`
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+One row per swimlane for the Swimlanes tab of Analytics, plus the board median for the same filters. Any board member, viewers included, as for `metrics/cycle-time/`. It takes `days`, `from_date`, `to_date` and `label_id` as above and no `swimlane_id` (a stray one is ignored). One optional parameter:
+
+| Parameter | Type | Default | Constraint |
+|---|---|---|---|
+| `group_by_field_id` | integer | none | A dropdown or checkbox **swimlane** custom field of this board ("Group lanes by"). Any other id is a 400 (`invalid_query_param`). |
+
+Response (cycle time is the same measure as `metrics/cycle-time/`; every number is computed on the server):
+
+- `definition`, `board` `{finished, median_days, p85_days}`, and the two thresholds `status_threshold_pct` (20) and `status_min_finished` (10).
+- `swimlanes`: every swimlane in position order, empty ones included, each `{id, name, position, group, finished, in_progress, median_days, p85_days, blocked_share, rolling_median, status, trend}`.
+    - `median_days` is `null` below 5 finished cards; `p85_days` is `null` below 7.
+    - `blocked_share` is the fraction (0 to 1) of the swimlane's in-progress time inside the period that its cards were blocked, with overlapping blocks counted once; `null` when no card was in progress.
+    - `rolling_median` has eight `{at, median_days, sample_size}` points. Each is the median of the cards finished in a window half as long as the period, ending at `at`; the first window ends at the middle of the period and the last at its end. A window with fewer than 5 cards has `median_days: null`.
+    - `status` is `slower`, `in_line` or `faster` against the board median: more than 20% above or below, and only with at least 10 finished cards. Otherwise `null`.
+    - `trend` is `{direction, first_days, last_days}` comparing the first and last rolling medians with the same 20% rule (`slower`, `steady`, `faster`). `null` with fewer than 5 finished cards or when either end point is withheld.
+- `grouping`: `null`, or with `group_by_field_id`, `{field_id, field_name, field_type, groups: [{key, name}]}` in the field's order; each swimlane's `group` is its value, `null` when it has none.
+
+Nothing here compares with an earlier period. The response shape is additive and stable from 1.3.
 
 #### `GET /api/v1/boards/{id}/metrics/cumulative-flow/`
 

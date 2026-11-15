@@ -21,7 +21,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from boards.models import (
     Board, BoardMembership, Card, CardBlock, CardMovement, CardRelation, Column, CustomFieldDefinition,
-    CustomFieldValue, Label, Swimlane,
+    CustomFieldValue, Label, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 from boards.serializers import _annotate_column_entered_at
 from boards.services import flow_metrics as fm
@@ -2280,3 +2280,211 @@ class GroupedQueryCountTests(GroupingFixture):
             for by in self.VARIANTS:
                 with self.subTest(metric=metric, by=by, size="large"):
                     self.assertEqual(self.count(metric, **self.params(by))[0], baseline[metric, by])
+
+
+# ── #2266: per-swimlane comparison ─────────────────────────────────────────
+
+
+class SwimlaneComparisonTests(EndpointFixture):
+    """``metrics/swimlanes``: numbers, 20% / 10-card boundaries, trend, blocked share, access."""
+
+    def get(self, **params):
+        resp = self.client.get(self.url("swimlanes"), params)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        return resp.json()
+
+    def lane_row(self, body, lane):
+        return next(row for row in body["swimlanes"] if row["id"] == lane.id)
+
+    def finish(self, lane, cycle, n=1, done_ago=5):
+        """``n`` cards that finished ``done_ago`` days ago after exactly ``cycle`` days in progress."""
+        return [
+            self.path(self.backlog, cycle + done_ago + 10, self.doing, cycle + done_ago, self.done, done_ago, lane=lane)
+            for _ in range(n)
+        ]
+
+    def anchor(self):
+        """30 cards at exactly 10 days in a third lane, so the board median is 10 for lanes of up to 10 cards."""
+        anchor = Swimlane.objects.create(board=self.board, name="Anchor", position=2)
+        self.finish(anchor, 10, 30)
+        return anchor
+
+    def test_percentiles_match_a_manual_calculation(self):
+        for cycle in (1, 2, 3, 4, 5, 6, 7):
+            self.finish(self.lane, cycle)
+        body = self.get()
+        row = self.lane_row(body, self.lane)
+        # Nearest rank: p50 = ceil(.5 * 7) = 4th value, p85 = ceil(.85 * 7) = 6th.
+        self.assertEqual((row["finished"], row["median_days"], row["p85_days"]), (7, 4.0, 6.0))
+        self.assertEqual(body["board"], {"finished": 7, "median_days": 4.0, "p85_days": 6.0})
+        empty = self.lane_row(body, self.other_lane)
+        self.assertEqual((empty["finished"], empty["median_days"], empty["status"], empty["trend"]), (0, None, None, None))
+
+    def test_withholding_below_five_and_between_five_and_seven(self):
+        self.finish(self.lane, 3, 4)
+        self.finish(self.other_lane, 3, 6)
+        body = self.get()
+        few, some = self.lane_row(body, self.lane), self.lane_row(body, self.other_lane)
+        self.assertEqual((few["median_days"], few["p85_days"], few["status"], few["trend"]), (None, None, None, None))
+        self.assertEqual((some["median_days"], some["p85_days"], some["status"]), (3.0, None, None))
+
+    def test_status_boundary_is_strictly_more_than_twenty_percent(self):
+        self.anchor()
+        for cycle, expected in ((13, "slower"), (12, "in_line"), (10, "in_line"), (8, "in_line"), (7, "faster")):
+            with self.subTest(cycle=cycle):
+                Card.objects.filter(swimlane=self.lane).delete()
+                self.finish(self.lane, cycle, 10)
+                body = self.get()
+                self.assertEqual(body["board"]["median_days"], 10.0)
+                self.assertEqual(self.lane_row(body, self.lane)["status"], expected)
+
+    def test_status_needs_ten_finished_cards(self):
+        self.anchor()
+        self.finish(self.lane, 13, 9)
+        row = self.lane_row(self.get(), self.lane)
+        self.assertEqual((row["finished"], row["median_days"], row["status"]), (9, 13.0, None))
+        self.finish(self.lane, 13)
+        self.assertEqual(self.lane_row(self.get(), self.lane)["status"], "slower")
+
+    def test_constants_are_returned(self):
+        body = self.get()
+        self.assertEqual((body["status_threshold_pct"], body["status_min_finished"]), (20, 10))
+
+    def trend_for(self, first_cycle, last_cycle, n=5):
+        Card.objects.filter(swimlane=self.lane).delete()
+        # days=40: windows are 20 days wide, the first covers 40-20 days ago, the last 20-0.
+        self.finish(self.lane, first_cycle, n, done_ago=30)
+        self.finish(self.lane, last_cycle, n, done_ago=5)
+        row = self.lane_row(self.get(days=40), self.lane)
+        self.assertEqual(len(row["rolling_median"]), 8)
+        return row["trend"]
+
+    def test_trend_boundary_and_values(self):
+        self.assertEqual(self.trend_for(10, 12), {"direction": "steady", "first_days": 10.0, "last_days": 12.0})
+        self.assertEqual(self.trend_for(10, 13)["direction"], "slower")
+        self.assertEqual(self.trend_for(10, 8)["direction"], "steady")
+        self.assertEqual(self.trend_for(10, 7), {"direction": "faster", "first_days": 10.0, "last_days": 7.0})
+
+    def test_trend_is_null_when_an_end_window_has_too_few_cards(self):
+        self.assertIsNone(self.trend_for(10, 12, n=4))
+
+    def test_trend_stays_inside_the_period(self):
+        self.finish(self.lane, 3, 5, done_ago=30)
+        row = self.lane_row(self.get(days=40), self.lane)
+        start = timezone.now() - datetime.timedelta(days=40)
+        first = datetime.datetime.fromisoformat(row["rolling_median"][0]["at"])
+        self.assertAlmostEqual((first - start).total_seconds(), 20 * 86400, delta=5)
+
+    def test_in_progress_and_blocked_share(self):
+        done = self.path(self.backlog, 30, self.doing, 20, self.done, 10, lane=self.lane)
+        wip = self.path(self.backlog, 30, self.doing, 8, lane=self.lane)
+        block = lambda card, begin, end: CardBlock.objects.create(  # noqa: E731
+            card=card, board=self.board, reason="r", blocked_at=self.ago(begin), unblocked_at=self.ago(end),
+        )
+        block(done, 27, 25)  # in the backlog: neither side counts it
+        block(done, 15, 12)  # 3 of the card's 10 in-progress days
+        block(done, 14, 13)  # overlaps the one above: counted once
+        block(done, 8, 6)    # after it finished: not counted
+        # wip: 8 in-progress days, none blocked. Lane total: 3 blocked of 18.
+        row = self.lane_row(self.get(), self.lane)
+        self.assertEqual(row["in_progress"], 1)
+        self.assertAlmostEqual(row["blocked_share"], 3 / 18, places=3)
+        self.assertIsNone(self.lane_row(self.get(), self.other_lane)["blocked_share"])
+        self.assertEqual(wip.swimlane_id, self.lane.id)
+
+    def test_label_filter_applies_and_swimlane_filter_is_ignored(self):
+        label = Label.objects.create(board=self.board, name="L")
+        cards = self.finish(self.lane, 3, 5) + self.finish(self.other_lane, 4, 5)
+        for card in cards[:5]:
+            card.labels.add(label)
+        body = self.get(label_id=label.id)
+        self.assertEqual(self.lane_row(body, self.lane)["finished"], 5)
+        self.assertEqual(self.lane_row(body, self.other_lane)["finished"], 0)
+        both = self.get(swimlane_id=self.lane.id)
+        self.assertEqual(len(both["swimlanes"]), 2)
+        self.assertEqual(self.lane_row(both, self.other_lane)["finished"], 5)
+
+    def test_group_lanes_by_a_swimlane_field(self):
+        field = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Region", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,
+            choices_json=["EU", "US"],
+        )
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.lane, field_definition=field, value="US")
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.other_lane, field_definition=field, value="gone")
+        body = self.get(group_by_field_id=field.id)
+        self.assertEqual(body["grouping"]["groups"], [{"key": "EU", "name": "EU"}, {"key": "US", "name": "US"}])
+        self.assertEqual(self.lane_row(body, self.lane)["group"], "US")
+        self.assertIsNone(self.lane_row(body, self.other_lane)["group"])
+        plain = self.get()
+        self.assertIsNone(plain["grouping"])
+        self.assertIsNone(self.lane_row(plain, self.lane)["group"])
+
+    def test_invalid_filters_are_400(self):
+        card_field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Card f", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,
+            choices_json=["a"],
+        )
+        other = Board.objects.create(name="Other", owner=self.user)
+        foreign = SwimlaneCustomFieldDefinition.objects.create(
+            board=other, name="F", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN, choices_json=["a"],
+        )
+        text = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="T", position=0, field_type=CustomFieldDefinition.FieldType.TEXT,
+        )
+        for params in (
+            {"label_id": 999999}, {"days": 0}, {"group_by_field_id": card_field.id},
+            {"group_by_field_id": foreign.id}, {"group_by_field_id": text.id}, {"group_by_field_id": "x"},
+        ):
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get(self.url("swimlanes"), params).status_code, 400)
+
+    def test_access_matches_cycle_time(self):
+        viewer = User.objects.create_user(username="flow_viewer2", password="pw")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        client = APIClient()
+        client.force_authenticate(viewer)
+        self.assertEqual(client.get(self.url("swimlanes")).status_code, 200)
+        outsider = APIClient()
+        outsider.force_authenticate(User.objects.create_user(username="flow_out2", password="pw"))
+        self.assertEqual(outsider.get(self.url("swimlanes")).status_code, 404)
+        self.assertIn(APIClient().get(self.url("swimlanes")).status_code, (401, 403))
+        self.assertEqual(self.client.post(self.url("swimlanes"), {}, format="json").status_code, 405)
+
+    def count(self, **params):
+        with CaptureQueriesContext(connection) as ctx:
+            self.get(**params)
+        return len(ctx)
+
+    def test_query_count_is_flat_in_lanes_and_cards(self):
+        field = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Region", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,
+            choices_json=["EU"],
+        )
+
+        def seed(n, start):
+            for i in range(n):
+                lane = Swimlane.objects.create(board=self.board, name=f"L{start + i}", position=10 + start + i)
+                card = self.finish(lane, 3 + i % 4)[0]
+                CardBlock.objects.create(card=card, board=self.board, reason="r", blocked_at=self.ago(8))
+                SwimlaneCustomFieldValue.objects.create(swimlane=lane, field_definition=field, value="EU")
+
+        seed(3, 0)
+        plain, grouped = self.count(), self.count(group_by_field_id=field.id)
+        # The field lookup in the serializer, then the values.
+        self.assertEqual(grouped, plain + 2)
+        seed(12, 3)
+        self.assertEqual(self.count(), plain)
+        self.assertEqual(self.count(group_by_field_id=field.id), grouped)
+
+    def test_response_matches_its_published_schema(self):
+        self.finish(self.lane, 3, 8)
+        body = self.get()
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        operation = schema["paths"]["/api/v1/boards/{id}/metrics/swimlanes/"]["get"]
+        fragment = operation["responses"]["200"]["content"]["application/json"]["schema"]
+        jsonschema.validate(
+            instance=body, schema=_openapi3_nullable_to_jsonschema({**fragment, "components": schema["components"]}),
+        )
+        names = {p["name"] for p in operation["parameters"] if p["in"] == "query"}
+        self.assertTrue({"days", "from_date", "to_date", "label_id", "group_by_field_id"} <= names)
+        self.assertNotIn("swimlane_id", names)
