@@ -589,7 +589,7 @@ def load_recent_completions(board, flow_range, *, columns):
     return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=Exists(entered_done))
 
 
-def load_recent_dwell(board, flow_range, *, columns):
+def load_recent_dwell(board, flow_range, *, columns, swimlane_id=None, label_id=None):
     """Only the cards current dwell or a visit closing in ``flow_range`` can come from.
 
     An open visit needs a live card outside a done column. A visit closes at a
@@ -604,7 +604,10 @@ def load_recent_dwell(board, flow_range, *, columns):
         | Q(archived_at__gte=flow_range.start)
         | Exists(moved)
     )
-    return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=relevant)
+    return load_board_flow(
+        board, swimlane_id=swimlane_id, label_id=label_id, now=flow_range.end,
+        columns=columns, cards_matching=relevant,
+    )
 
 
 def card_directory(flow, uids):

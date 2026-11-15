@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Board loading, empty and degraded states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="--bg:#0f172a; --panel:#1e293b; --well:#0a1120; --chip:#334155; --line:#334155; --line-strong:#475569; --fg:#e2e8f0; --fg2:#cbd5e1; --fg3:#94a3b8; --strong:#f8fafc; --primary:#2563eb; --warn:#fb923c; --warn-text:#fdba74; --warn-tint:rgba(251,146,60,0.16); --danger:#f87171; --h:59,130,246; --sel:#60a5fa; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.4; box-sizing: border-box; min-height: 100vh; padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px">
+
+<section aria-labelledby="bs-load" style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="bs-load" style="margin: 0; font-size: 15px; font-weight: 650">Loading</h2>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{four}}" as="x" hint-placeholder-count="4"><div style="height: 44px; border-radius: 8px; background: var(--panel)"></div></sc-for>
+</div>
+<div aria-hidden="true" style="height: 48px; border-radius: 8px; background: var(--panel)"></div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{skel}}" as="c" hint-placeholder-count="4">
+<div style="background: var(--well); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 6px; min-height: 150px">
+<sc-for list="{{c.rows}}" as="r" hint-placeholder-count="2"><div style="height: 62px; border-radius: 8px; background: var(--panel); opacity: 0.7"></div></sc-for>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; color: var(--fg2); font-size: 13px">Column headers, one lane band and card blocks hold their final sizes, so nothing jumps when the cards arrive. Screen readers hear "Loading board".</p>
+</section>
+
+<section aria-labelledby="bs-empty" style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="bs-empty" style="margin: 0; font-size: 15px; font-weight: 650">New board, no cards</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{names}}" as="n" hint-placeholder-count="4"><div style="border-radius: 8px; background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; font-size: 13px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; min-width: 0"><span style="overflow: hidden; text-overflow: ellipsis">{{n}}</span><span style="color: var(--fg2); font-weight: 600">0</span></div></sc-for>
+</div>
+<div style="background: var(--well); border-radius: 8px; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<p style="margin: 0; font-size: 17px; font-weight: 650; color: var(--strong)">No cards yet</p>
+<p style="margin: 0; color: var(--fg2); max-width: 44ch">Add the first card to Prospect, or import cards from a file.</p>
+<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px">
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 0; background: var(--primary); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Add a card</button>
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg2); font: inherit; cursor: pointer">Import cards</button>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="bs-none" style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="bs-none" style="margin: 0; font-size: 15px; font-weight: 650">Filter matches nothing</h2>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<span style="height: 34px; padding: 0 12px 0 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel); font-size: 13px; display: inline-flex; align-items: center; gap: 7px"><span aria-hidden="true" style="width: 9px; height: 9px; border-radius: 2px; background: rgba(var(--h),0.7)"></span>All cards <span style="color: var(--fg2)">29</span></span>
+<span style="height: 34px; padding: 0 12px 0 10px; border-radius: 999px; border: 1px solid var(--sel); background: rgba(var(--h),0.22); font-size: 13px; font-weight: 650; display: inline-flex; align-items: center; gap: 7px"><span aria-hidden="true" style="width: 9px; height: 9px; border-radius: 2px; background: var(--fg3)"></span>Due soon <span style="color: var(--fg2); font-weight: 500">0</span></span>
+</div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><span style="font-size: 15px; font-weight: 650; color: var(--strong)">North America</span><span style="color: var(--fg3); font-size: 13px; margin-left: auto">No matching cards</span></div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><span style="font-size: 15px; font-weight: 650; color: var(--strong)">APAC</span><span style="color: var(--fg3); font-size: 13px; margin-left: auto">No matching cards</span></div>
+<div style="background: var(--well); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<p style="margin: 0; font-weight: 650; color: var(--strong)">No cards are due soon</p>
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg); font: inherit; cursor: pointer">Show all cards</button>
+</div>
+<p style="margin: 0; color: var(--fg2); font-size: 13px">Lanes with no match shrink to their band. Column counts and limits keep showing the whole column.</p>
+</section>
+
+<section aria-labelledby="bs-off" style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h2 id="bs-off" style="margin: 0; font-size: 15px; font-weight: 650">Offline, load error and view-only</h2>
+<div role="status" style="background: var(--warn-tint); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><span style="color: var(--warn-text); font-weight: 600">Reconnecting. Moves are paused until the board is live again.</span><span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg2)"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; border: 2px solid var(--warn); box-sizing: border-box"></span>Offline</span></div>
+<div role="alert" style="background: var(--panel); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><span style="flex: 1 1 220px"><strong style="color: var(--strong)">The board didn't load.</strong> <span style="color: var(--fg2)">Check your connection and try again.</span></span><button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 6px; border: 0; background: var(--primary); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer">Try again</button></div>
+<div style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--fg2); flex: none"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.500 8 14.500 8s-2.400 4.500-6.500 4.500S1.500 8 1.500 8z"/><circle cx="8" cy="8" r="2"/></svg><span><strong style="color: var(--strong)">View only.</strong> <span style="color: var(--fg2)">You can open cards and filter, but not move or edit them.</span></span></div>
+<p style="margin: 0; color: var(--fg2); font-size: 13px">In view-only mode the add controls, drag handles and stage settings are not rendered. The peek still opens.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":850}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { four: [1, 2, 3, 4], names: ['Prospect', 'Qualified', 'Discovery', 'Demo'], skel: [{ rows: [1, 2] }, { rows: [1] }, { rows: [1, 2] }, { rows: [] }] };
+  }
+}
+</script>
+</body>
+</html>

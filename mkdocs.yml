@@ -5,9 +5,11 @@ repo_url: https://gitlab.com/visiban/visiban
 repo_name: visiban/visiban
 edit_uri: edit/main/docs/
 
-# Design canvas sources: reference material, not pages (see development/analytics-redesign.md)
+# Design canvas sources: reference material, not pages (see development/analytics-redesign.md, development/board-redesign.md)
 exclude_docs: |
   development/analytics-redesign/artboards/
+  development/board-redesign/artboards/
+  development/board-redesign/sample-board.json
 
 extra_css:
   - stylesheets/version-badge.css
@@ -150,6 +152,7 @@ nav:
     - Load Test Version Benchmarks: development/load-test-version-benchmarks.md
     - Docs Style (Smart Brevity): development/docs-style-smart-brevity.md
     - Analytics Redesign Spec: development/analytics-redesign.md
+    - Board Redesign Spec: development/board-redesign.md
   - Administration:
     - administration/index.md
     - Configuration: administration/configuration.md

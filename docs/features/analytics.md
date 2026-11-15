@@ -185,6 +185,8 @@ Click **Export CSV** to download the heatmap data for spreadsheets. It includes 
 |---|---|---|---|
 | `days` | integer | `30` | `1`–`365`. Returns `400` if non-integer or out of range. |
 | `stalled_days` | integer | Board's `staleness_threshold_days` | Optional override, `1`–`90`. Returns `400` if non-integer or out of range. When omitted, the board setting is used. |
+| `swimlane_id` | integer | None | Optional, 1.3+. Narrows every section to one swimlane. Returns `400` if malformed or not a swimlane on this board. |
+| `label_id` | integer | None | Optional, 1.3+. Narrows every section to cards with this label. Returns `400` if malformed or not a label on this board. Combined with `swimlane_id`, both must match. |
 
 The response includes two threshold fields:
 

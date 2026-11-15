@@ -174,7 +174,10 @@ _BAD_QUERY_PARAM_SERIALIZER = inline_serializer(
 )
 
 _ANALYTICS_400 = OpenApiResponse(
-    description="`days` or `stalled_days` is not an integer or is out of range (`code: invalid_query_param`).",
+    description=(
+        "`days` or `stalled_days` is not an integer or is out of range, or `swimlane_id` or "
+        "`label_id` is not a swimlane or label on this board (`code: invalid_query_param`)."
+    ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
 )
 
@@ -328,6 +331,20 @@ class GroupedFlowMetricsQuerySerializer(FlowMetricsQuerySerializer):
             raise serializers.ValidationError({"group_by_field_id": "Required with group_by=custom_field."})
         attrs["group_by_field"] = definition
         return attrs
+
+
+class AnalyticsFilterQuerySerializer(serializers.Serializer):
+    """The optional ``swimlane_id`` / ``label_id`` filters of ``analytics`` (#2280).
+
+    Validated exactly as on ``metrics/*`` (reusing its validators) so an id on
+    another board gets the same 400 as one that does not exist.
+    """
+
+    swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+    label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+
+    validate_swimlane_id = FlowMetricsQuerySerializer.validate_swimlane_id
+    validate_label_id = FlowMetricsQuerySerializer.validate_label_id
 
 
 class ThroughputQuerySerializer(GroupedFlowMetricsQuerySerializer):
@@ -892,6 +909,16 @@ class BoardAnalyticsMixin:
                     "Omit to use the board's staleness_threshold_days."
                 ),
             ),
+            OpenApiParameter(
+                name="swimlane_id", type={"type": "integer", "minimum": 1},
+                location=OpenApiParameter.QUERY, required=False,
+                description="Only cards currently in this swimlane, as on `metrics/*`.",
+            ),
+            OpenApiParameter(
+                name="label_id", type={"type": "integer", "minimum": 1},
+                location=OpenApiParameter.QUERY, required=False,
+                description="Only cards currently carrying this label, as on `metrics/*`.",
+            ),
         ],
         responses={200: _BOARD_ANALYTICS_RESPONSE, 400: _ANALYTICS_400},
     )
@@ -903,6 +930,10 @@ class BoardAnalyticsMixin:
           - ``days`` (int, default 30): window for dwell-time and velocity calculations.
           - ``stalled_days`` (int, optional): overrides ``board.staleness_threshold_days``
             for this request when explicitly provided; omit to use the board setting.
+          - ``swimlane_id`` / ``label_id`` (int, optional, #2280): narrow every section
+            (dwell, velocity, stalled cards, blocked time) to the cards the flow service's
+            ``_base_cards`` selects, so the filter means what it does on ``metrics/*``.
+            An id from another board gets the same 400 as a nonexistent one.
 
         ``age_avg_days_per_column`` (current dwell) and
         ``throughput_avg_days_per_column`` (completed dwell) are visits from the
@@ -927,6 +958,9 @@ class BoardAnalyticsMixin:
             return _invalid_query_param("Query param 'days' must be a positive integer.")
         if days > 365:
             return _invalid_query_param("Query param 'days' must not exceed 365.")
+        filters = _flow_query(AnalyticsFilterQuerySerializer, request, board)
+        swimlane_filter = filters.get("swimlane_id")
+        label_filter = filters.get("label_id")
         now = timezone.now()
         # Stall threshold is a board-level setting, independent of the period selector.
         # The period controls the dwell-time analysis window; staleness is how long a
@@ -955,6 +989,8 @@ class BoardAnalyticsMixin:
         # board.swimlanes.order_by() inside the for-statement bypasses Django's
         # prefetch cache because order_by() always creates a new queryset.
         swimlanes = list(board.swimlanes.order_by("position"))
+        if swimlane_filter is not None:
+            swimlanes = [sw for sw in swimlanes if sw.id == swimlane_filter]
         # Partition columns into active (dwell tracked) and done (terminal — clock stops
         # on entry). Columns match by identity, never by name (ADR #1532): a column
         # deleted and recreated under the same name is a different column, so it does
@@ -965,7 +1001,9 @@ class BoardAnalyticsMixin:
         # Current and completed dwell come from the flow service (#448), so the
         # heatmap's Age and Throughput modes agree with the flow charts.
         flow_range = flow_metrics.rolling_range(days, now=now)
-        flow = flow_metrics.load_recent_dwell(board, flow_range, columns=columns)
+        flow = flow_metrics.load_recent_dwell(
+            board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
+        )
         current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
         completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
 
@@ -989,7 +1027,7 @@ class BoardAnalyticsMixin:
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
         _last_mv_qs = _mv_qs.order_by("-moved_at")
         all_cards = list(
-            board.cards.filter(
+            flow_metrics._base_cards(board, swimlane_filter, label_filter).filter(
                 Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
             )
             .annotate(
