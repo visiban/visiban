@@ -1899,6 +1899,61 @@ export interface FlowCard {
   assignee: BoardUser | null;
 }
 
+/**
+ * Breakdowns (`group_by`, #2265) on cycle-time, throughput, wip-age and dwell.
+ * Present only when the request sent `group_by`. Keys are strings: a swimlane or
+ * label id, the dropdown choice, or "true"/"false" for a checkbox.
+ */
+export type FlowGroupBy = "swimlane" | "label" | "custom_field";
+
+/**
+ * One group. At most five named groups, ranked by cards active in the range;
+ * the rest collapse into a last "Other" group with `key` and `name` null. A
+ * group's index in `groups` is its chart color.
+ */
+export interface FlowGroupBase {
+  key: string | null;
+  /** Swimlane, label or choice text; null for checkbox values and for Other. */
+  name: string | null;
+  /** The card keys in the group: `[key]`, or every collapsed key for Other. */
+  member_keys: string[];
+}
+
+export interface FlowGrouping<G extends FlowGroupBase> {
+  by: FlowGroupBy;
+  field_id: number | null;
+  /** In the endpoint's own unit: what belongs to no group. */
+  excluded: number;
+  groups: G[];
+}
+
+export interface FlowCycleTimeGroup extends FlowGroupBase {
+  sample_size: number;
+  percentiles: FlowPercentiles;
+}
+
+export interface FlowThroughputGroup extends FlowGroupBase {
+  total: number;
+  median: number | null;
+}
+
+export interface FlowWipAgeGroup extends FlowGroupBase {
+  sample_size: number;
+}
+
+export interface FlowDwellGroup extends FlowGroupBase {
+  /** Visits, like the top-level `sample_size`. */
+  sample_size: number;
+  columns: FlowDwellColumn[];
+}
+
+/** One period's completions in one group; Other is keyed null. */
+export interface FlowThroughputGroupCount {
+  key: string | null;
+  count: number;
+  card_uids: string[];
+}
+
 export interface FlowCycleTimeSample {
   card_uid: string;
   value_days: number;
@@ -1906,6 +1961,8 @@ export interface FlowCycleTimeSample {
   end: string;
   /** The card was reopened after this completion; the number does not change. */
   reopened: boolean;
+  /** With `group_by` only: the card's group keys, empty when it has none. */
+  group_keys?: string[];
 }
 
 export interface FlowCycleTime {
@@ -1915,6 +1972,7 @@ export interface FlowCycleTime {
   percentiles: FlowPercentiles;
   samples: FlowCycleTimeSample[];
   cards: FlowCard[];
+  grouping?: FlowGrouping<FlowCycleTimeGroup>;
 }
 
 export interface FlowThroughputSample {
@@ -1924,6 +1982,8 @@ export interface FlowThroughputSample {
   card_uids: string[];
   /** Cards whose cycle started in the period (#2260). Under-reports on imported boards. */
   started: number;
+  /** With `group_by` only: one entry per `grouping.groups` entry, in order. */
+  by_group?: FlowThroughputGroupCount[];
 }
 
 export interface FlowThroughput {
@@ -1933,6 +1993,7 @@ export interface FlowThroughput {
   median: number | null;
   samples: FlowThroughputSample[];
   cards: FlowCard[];
+  grouping?: FlowGrouping<FlowThroughputGroup>;
 }
 
 export interface FlowCumulativeColumn {
@@ -1974,6 +2035,8 @@ export interface FlowAgeSample {
   dwell_by_column: { column_uid: string | null; value_days: number }[];
   is_blocked: boolean;
   blocked_days: number;
+  /** With `group_by` only: the card's group keys, empty when it has none. */
+  group_keys?: string[];
 }
 
 export interface FlowWipAge {
@@ -1984,6 +2047,7 @@ export interface FlowWipAge {
   columns: { column_uid: string; column_name: string }[];
   samples: FlowAgeSample[];
   cards: FlowCard[];
+  grouping?: FlowGrouping<FlowWipAgeGroup>;
 }
 
 /** `GET /boards/{id}/metrics/dwell/` (#2260): completed dwell per not-done column. */
@@ -1999,6 +2063,7 @@ export interface FlowDwell {
   sample_size: number;
   excluded_incomplete_history: number;
   columns: FlowDwellColumn[];
+  grouping?: FlowGrouping<FlowDwellGroup>;
 }
 
 /** `GET /boards/{id}/metrics/blocked/` (#2260). Days are unrounded. */

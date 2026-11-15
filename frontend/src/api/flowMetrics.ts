@@ -6,6 +6,7 @@ import type {
   FlowCumulativeFlow,
   FlowCycleTime,
   FlowDwell,
+  FlowGroupBy,
   FlowThroughput,
   FlowWipAge,
 } from "../types";
@@ -25,14 +26,37 @@ function flowParams({ days, swimlaneId, labelId }: FlowFilters) {
   };
 }
 
-export const getFlowCycleTime = (boardId: number, filters: FlowFilters) =>
+/**
+ * A breakdown (#2265). Only cycle-time, throughput, wip-age and dwell take it,
+ * so it is a separate argument rather than part of the shared filters.
+ * `fieldId` is required with `by: "custom_field"` and refused otherwise.
+ */
+export interface FlowGroupingParams {
+  by: FlowGroupBy;
+  fieldId?: number;
+}
+
+function groupedParams(filters: FlowFilters, grouping?: FlowGroupingParams) {
+  if (!grouping) return flowParams(filters);
+  return {
+    ...flowParams(filters),
+    group_by: grouping.by,
+    ...(grouping.fieldId !== undefined && { group_by_field_id: grouping.fieldId }),
+  };
+}
+
+export const getFlowCycleTime = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
   client
-    .get<FlowCycleTime>(`/api/v1/boards/${boardId}/metrics/cycle-time/`, { params: flowParams(filters) })
+    .get<FlowCycleTime>(`/api/v1/boards/${boardId}/metrics/cycle-time/`, {
+      params: groupedParams(filters, grouping),
+    })
     .then((r) => r.data);
 
-export const getFlowThroughput = (boardId: number, filters: FlowFilters) =>
+export const getFlowThroughput = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
   client
-    .get<FlowThroughput>(`/api/v1/boards/${boardId}/metrics/throughput/`, { params: flowParams(filters) })
+    .get<FlowThroughput>(`/api/v1/boards/${boardId}/metrics/throughput/`, {
+      params: groupedParams(filters, grouping),
+    })
     .then((r) => r.data);
 
 export const getFlowCumulativeFlow = (boardId: number, filters: FlowFilters) =>
@@ -47,14 +71,14 @@ export const getFlowCumulativeDay = (boardId: number, filters: FlowFilters, date
     })
     .then((r) => r.data);
 
-export const getFlowWipAge = (boardId: number, filters: FlowFilters) =>
+export const getFlowWipAge = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
   client
-    .get<FlowWipAge>(`/api/v1/boards/${boardId}/metrics/wip-age/`, { params: flowParams(filters) })
+    .get<FlowWipAge>(`/api/v1/boards/${boardId}/metrics/wip-age/`, { params: groupedParams(filters, grouping) })
     .then((r) => r.data);
 
-export const getFlowDwell = (boardId: number, filters: FlowFilters) =>
+export const getFlowDwell = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
   client
-    .get<FlowDwell>(`/api/v1/boards/${boardId}/metrics/dwell/`, { params: flowParams(filters) })
+    .get<FlowDwell>(`/api/v1/boards/${boardId}/metrics/dwell/`, { params: groupedParams(filters, grouping) })
     .then((r) => r.data);
 
 export const getFlowBlocked = (boardId: number, filters: FlowFilters) =>

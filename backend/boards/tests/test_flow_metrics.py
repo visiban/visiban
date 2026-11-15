@@ -6,6 +6,7 @@ change to the record has one obvious place to land.
 """
 import datetime
 import random
+from unittest import mock
 from pathlib import Path
 
 import jsonschema
@@ -19,7 +20,8 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, CardBlock, CardMovement, CardRelation, Column, Label, Swimlane,
+    Board, BoardMembership, Card, CardBlock, CardMovement, CardRelation, Column, CustomFieldDefinition,
+    CustomFieldValue, Label, Swimlane,
 )
 from boards.serializers import _annotate_column_entered_at
 from boards.services import flow_metrics as fm
@@ -1115,6 +1117,7 @@ class EndpointFixture(FlowFixture):
         return f"/api/v1/boards/{self.board.pk}/metrics/{metric}/"
 
 
+GROUPING_ONLY_KEYS = {"grouping", "group_keys", "by_group"}
 METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age", "dwell", "blocked", "attention")
 
 
@@ -1778,7 +1781,8 @@ class FlowRedesignEndpointTests(EndpointFixture):
 
     def assert_documented(self, component, obj):
         documented = set(self.schema["components"]["schemas"][component]["properties"])
-        self.assertEqual(set(obj), documented, component)
+        # The #2265 breakdown keys are documented but present only with group_by.
+        self.assertEqual(set(obj), documented - (GROUPING_ONLY_KEYS - set(obj)), component)
 
     def test_a_user_who_must_change_their_password_is_refused(self):
         self.user.must_change_password = True
@@ -1839,3 +1843,394 @@ class FlowRedesignEndpointTests(EndpointFixture):
         ).json()
         end = datetime.datetime.combine(to_day + datetime.timedelta(days=1), datetime.time(), tzinfo=datetime.timezone.utc)
         self.assertAlmostEqual(ranged["total"]["days"], 2 * (end - self.ago(20)).total_seconds() / fm.SECONDS_PER_DAY)
+
+
+# ── #2265: flow metrics grouped by swimlane, label or a card field ─────────
+
+GROUPED_METRICS = ("cycle-time", "throughput", "wip-age", "dwell")
+
+
+def _size(metric, body):
+    """The number a grouping reconciles with, in the endpoint's own unit."""
+    return body["total"] if metric == "throughput" else body["sample_size"]
+
+
+def _group_size(metric, group):
+    return group["total"] if metric == "throughput" else group["sample_size"]
+
+
+def _strip_grouping(body):
+    body = {k: v for k, v in body.items() if k != "grouping"}
+    if "samples" in body:
+        body["samples"] = [
+            {k: v for k, v in sample.items() if k not in ("group_keys", "by_group")} for sample in body["samples"]
+        ]
+    return body
+
+
+class GroupingFixture(EndpointFixture):
+    def get(self, metric, **params):
+        if metric == "throughput":
+            # Whole days, so completions a few days ago are counted whatever the weekday.
+            params.setdefault("period", "day")
+        resp = self.client.get(self.url(metric), params)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        return resp.json()
+
+    def lanes(self, n):
+        """``n`` swimlanes, the fixture's two first."""
+        lanes = [self.lane, self.other_lane]
+        for position in range(2, n):
+            lanes.append(Swimlane.objects.create(board=self.board, name=f"Lane {position}", position=position))
+        return lanes[:n]
+
+    def wip(self, lane=None):
+        return self.path(self.backlog, 20, self.doing, 10, lane=lane)
+
+    def completed(self, lane=None):
+        return self.path(self.backlog, 20, self.doing, 16, self.done, 3, lane=lane)
+
+    def field(self, field_type=CustomFieldDefinition.FieldType.DROPDOWN, choices=(), board=None):
+        # Name and position are unique per board.
+        n = CustomFieldDefinition.objects.count()
+        return CustomFieldDefinition.objects.create(
+            board=board or self.board, name=f"Field {n}", position=n, field_type=field_type,
+            choices_json=list(choices),
+        )
+
+    def value(self, card, definition, value):
+        CustomFieldValue.objects.create(card=card, field_definition=definition, value=value)
+
+
+class GroupingShapeTests(GroupingFixture):
+    def seed_mixed(self):
+        lanes = self.lanes(3)
+        team = self.field(choices=["Red", "Blue"])
+        red, blue = Label.objects.create(board=self.board, name="red"), Label.objects.create(board=self.board, name="blue")
+        for i in range(9):
+            card = (self.completed if i % 2 else self.wip)(lane=lanes[i % 3])
+            if i % 3:
+                self.value(card, team, ["Red", "Blue"][i % 2])
+            if i % 4 == 0:
+                card.labels.add(red)
+            if i % 3 == 0:
+                card.labels.add(blue)
+        return team
+
+    def test_grouping_only_adds_keys_to_the_ungrouped_response(self):
+        team = self.seed_mixed()
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            for metric in GROUPED_METRICS:
+                plain = self.get(metric)
+                self.assertNotIn("grouping", plain)
+                for params in ({"group_by": "swimlane"}, {"group_by": "label"},
+                               {"group_by": "custom_field", "group_by_field_id": team.id}):
+                    with self.subTest(metric=metric, **params):
+                        grouped = self.get(metric, **params)
+                        self.assertIn("grouping", grouped)
+                        self.assertEqual(_strip_grouping(grouped), plain)
+
+    def test_endpoints_that_do_not_break_down_ignore_group_by(self):
+        team = self.seed_mixed()
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            for metric in ("cumulative-flow", "blocked", "attention"):
+                with self.subTest(metric=metric):
+                    self.assertEqual(
+                        self.get(metric, group_by="custom_field", group_by_field_id=team.id), self.get(metric),
+                    )
+
+    def test_swimlane_and_field_groups_reconcile_with_the_ungrouped_totals(self):
+        team = self.seed_mixed()
+        for metric in GROUPED_METRICS:
+            for params in ({"group_by": "swimlane"}, {"group_by": "custom_field", "group_by_field_id": team.id}):
+                with self.subTest(metric=metric, **params):
+                    body = self.get(metric, **params)
+                    grouping = body["grouping"]
+                    self.assertEqual(
+                        sum(_group_size(metric, g) for g in grouping["groups"]) + grouping["excluded"],
+                        _size(metric, body),
+                    )
+        field_grouping = self.get("wip-age", group_by="custom_field", group_by_field_id=team.id)["grouping"]
+        self.assertEqual((field_grouping["by"], field_grouping["field_id"]), ("custom_field", team.id))
+        self.assertGreater(field_grouping["excluded"], 0)
+
+    def test_grouped_bodies_match_their_published_schema(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        team = self.seed_mixed()
+        for metric in GROUPED_METRICS:
+            path = f"/api/v1/boards/{{id}}/metrics/{metric}/"
+            fragment = schema["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+            combined = _openapi3_nullable_to_jsonschema({**fragment, "components": schema["components"]})
+            for params in ({"group_by": "label"}, {"group_by": "custom_field", "group_by_field_id": team.id}):
+                with self.subTest(metric=metric, **params):
+                    body = self.get(metric, **params)
+                    jsonschema.validate(instance=body, schema=combined)
+                    prefix = {"cycle-time": "FlowCycleTime", "throughput": "FlowThroughput",
+                              "wip-age": "FlowWipAge", "dwell": "FlowDwell"}[metric]
+                    components = schema["components"]["schemas"]
+                    self.assertEqual(set(body["grouping"]), set(components[f"{prefix}Grouping"]["properties"]))
+                    self.assertEqual(set(body["grouping"]["groups"][0]), set(components[f"{prefix}Group"]["properties"]))
+                    if metric == "throughput":
+                        self.assertEqual(set(body["samples"][0]), set(components["FlowThroughputSample"]["properties"]))
+                        self.assertEqual(
+                            set(body["samples"][0]["by_group"][0]),
+                            set(components["FlowThroughputGroupCount"]["properties"]),
+                        )
+
+    def test_only_the_four_breakdown_endpoints_document_the_group_parameters(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        for metric in METRICS:
+            with self.subTest(metric=metric):
+                operation = schema["paths"][f"/api/v1/boards/{{id}}/metrics/{metric}/"]["get"]
+                names = {p["name"] for p in operation["parameters"] if p["in"] == "query"}
+                expected = metric in GROUPED_METRICS
+                self.assertEqual({"group_by", "group_by_field_id"} <= names, expected)
+                self.assertEqual(bool(names & {"group_by", "group_by_field_id"}), expected)
+
+
+class GroupingRankingTests(GroupingFixture):
+    def test_more_than_five_groups_collapse_into_other_last(self):
+        lanes = self.lanes(7)
+        for index, lane in enumerate(lanes):
+            for _ in range(7 - index):
+                self.wip(lane=lane)
+        self.completed(lane=lanes[0])
+        self.completed(lane=lanes[0])
+        self.completed(lane=lanes[6])
+        body = self.get("wip-age", group_by="swimlane")
+        groups = body["grouping"]["groups"]
+        self.assertEqual([g["key"] for g in groups], [str(lane.id) for lane in lanes[:5]] + [None])
+        self.assertEqual([g["name"] for g in groups], [lane.name for lane in lanes[:5]] + [None])
+        self.assertEqual(groups[0]["member_keys"], [str(lanes[0].id)])
+        self.assertEqual(groups[-1]["member_keys"], [str(lanes[5].id), str(lanes[6].id)])
+        self.assertEqual([g["sample_size"] for g in groups], [7, 6, 5, 4, 3, 3])
+        uid_lane = {card.uid: str(card.swimlane_id) for card in Card.objects.filter(board=self.board)}
+        for sample in body["samples"]:
+            self.assertEqual(sample["group_keys"], [uid_lane[sample["card_uid"]]])
+        throughput = self.get("throughput", group_by="swimlane")
+        self.assertEqual([g["key"] for g in throughput["grouping"]["groups"]], [g["key"] for g in groups])
+        self.assertEqual([g["total"] for g in throughput["grouping"]["groups"]], [2, 0, 0, 0, 0, 1])
+        for sample in throughput["samples"]:
+            self.assertEqual([entry["key"] for entry in sample["by_group"]], [g["key"] for g in groups])
+            self.assertEqual(sum(entry["count"] for entry in sample["by_group"]), sample["count"])
+        dwell = self.get("dwell", group_by="swimlane")
+        top_columns = [c["column_uid"] for c in dwell["columns"]]
+        for group in dwell["grouping"]["groups"]:
+            self.assertEqual([c["column_uid"] for c in group["columns"]], top_columns)
+            self.assertEqual(set(group["columns"][0]), set(dwell["columns"][0]))
+
+    def test_exactly_six_groups_leave_one_member_in_other(self):
+        lanes = self.lanes(6)
+        for index, lane in enumerate(lanes):
+            for _ in range(6 - index):
+                self.wip(lane=lane)
+        groups = self.get("wip-age", group_by="swimlane")["grouping"]["groups"]
+        self.assertEqual(len(groups), 6)
+        self.assertEqual(groups[-1]["member_keys"], [str(lanes[5].id)])
+
+    def test_groups_without_active_cards_are_left_out_and_ties_break_by_position_or_name(self):
+        lanes = self.lanes(3)
+        self.wip(lane=lanes[1])
+        self.wip(lane=lanes[0])
+        old = self.path(self.backlog, 300, self.doing, 290, self.done, 280, lane=lanes[2])
+        self.assertIsNotNone(old)
+        groups = self.get("cycle-time", group_by="swimlane")["grouping"]["groups"]
+        self.assertEqual([g["key"] for g in groups], [str(lanes[0].id), str(lanes[1].id)])
+        beta, alpha = Label.objects.create(board=self.board, name="beta"), Label.objects.create(board=self.board, name="Alpha")
+        for label in (beta, alpha):
+            self.wip().labels.add(label)
+        groups = self.get("wip-age", group_by="label")["grouping"]["groups"]
+        self.assertEqual([g["name"] for g in groups], ["Alpha", "beta"])
+
+    def test_a_group_active_only_through_wip_is_listed_with_size_zero_on_cycle_time(self):
+        lanes = self.lanes(2)
+        for _ in range(5):
+            self.completed(lane=lanes[0])
+        self.wip(lane=lanes[1])
+        groups = {g["key"]: g for g in self.get("cycle-time", group_by="swimlane")["grouping"]["groups"]}
+        self.assertEqual(groups[str(lanes[1].id)]["sample_size"], 0)
+        self.assertEqual(groups[str(lanes[1].id)]["percentiles"], {"p50": None, "p85": None, "p95": None})
+        self.assertEqual(groups[str(lanes[0].id)]["sample_size"], 5)
+
+    def test_group_percentiles_follow_the_sample_size_rule(self):
+        team = self.field(choices=["a", "b", "c", "d"])
+        for choice, n in (("a", 4), ("b", 5), ("c", 7), ("d", 20)):
+            for _ in range(n):
+                self.value(self.completed(), team, choice)
+        body = self.get("cycle-time", group_by="custom_field", group_by_field_id=team.id)
+        groups = {g["key"]: g for g in body["grouping"]["groups"]}
+        self.assertEqual([g["key"] for g in body["grouping"]["groups"]], ["d", "c", "b", "a"])
+        nulls = {key: [p for p, v in groups[key]["percentiles"].items() if v is None] for key in groups}
+        self.assertEqual(nulls, {"a": ["p50", "p85", "p95"], "b": ["p85", "p95"], "c": ["p95"], "d": []})
+        self.assertEqual({k: g["sample_size"] for k, g in groups.items()}, {"a": 4, "b": 5, "c": 7, "d": 20})
+        self.assertEqual(groups["d"]["name"], "d")
+
+    def test_swimlane_filter_with_swimlane_grouping_leaves_one_group(self):
+        lanes = self.lanes(2)
+        for lane in lanes:
+            self.wip(lane=lane)
+            self.completed(lane=lane)
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric):
+                body = self.get(metric, group_by="swimlane", swimlane_id=lanes[1].id)
+                self.assertEqual([g["key"] for g in body["grouping"]["groups"]], [str(lanes[1].id)])
+
+
+class GroupingLabelAndFieldTests(GroupingFixture):
+    def test_a_card_counts_once_per_label_group_and_once_in_other(self):
+        labels = [Label.objects.create(board=self.board, name=f"L{i}") for i in range(7)]
+        for index, label in enumerate(labels[:5]):
+            for _ in range(10 - index):
+                self.wip().labels.add(label)
+        multi = self.wip()
+        multi.labels.add(labels[0], labels[5], labels[6])
+        self.wip().labels.add(labels[5])
+        unlabeled = self.wip()
+        body = self.get("wip-age", group_by="label")
+        grouping = body["grouping"]
+        other = grouping["groups"][-1]
+        self.assertEqual(other["key"], None)
+        self.assertEqual(set(other["member_keys"]), {str(labels[5].id), str(labels[6].id)})
+        self.assertEqual(other["sample_size"], 2)
+        self.assertEqual(grouping["excluded"], 1)
+        samples = self.by_card(body)
+        self.assertEqual(samples[unlabeled.uid]["group_keys"], [])
+        self.assertEqual(
+            set(samples[multi.uid]["group_keys"]), {str(labels[0].id), str(labels[5].id), str(labels[6].id)},
+        )
+        # Each card counts once per distinct group it lands in: the multi-label
+        # card is in L0 and in Other, so it adds one over the ungrouped total.
+        self.assertEqual(
+            sum(g["sample_size"] for g in grouping["groups"]), body["sample_size"] - grouping["excluded"] + 1,
+        )
+
+    def test_labels_of_another_board_are_never_read(self):
+        stranger = Board.objects.create(name="Elsewhere", owner=self.user)
+        foreign = Label.objects.create(board=stranger, name="foreign")
+        card = self.wip()
+        # Not reachable through the UI; guards the label__board filter.
+        card.labels.add(foreign)
+        grouping = self.get("wip-age", group_by="label")["grouping"]
+        self.assertEqual(grouping["groups"], [])
+        self.assertEqual(grouping["excluded"], 1)
+
+    def test_an_orphan_dropdown_value_is_excluded(self):
+        team = self.field(choices=["Red"])
+        self.value(self.wip(), team, "Red")
+        self.value(self.wip(), team, "Removed choice")
+        grouping = self.get("wip-age", group_by="custom_field", group_by_field_id=team.id)["grouping"]
+        self.assertEqual([(g["key"], g["name"], g["sample_size"]) for g in grouping["groups"]], [("Red", "Red", 1)])
+        self.assertEqual(grouping["excluded"], 1)
+
+    def test_checkbox_groups_read_the_stored_value_and_a_missing_row_is_excluded(self):
+        flag = self.field(CustomFieldDefinition.FieldType.CHECKBOX)
+        self.value(self.wip(), flag, "false")
+        self.value(self.wip(), flag, "false")
+        self.value(self.wip(), flag, "true")
+        self.value(self.wip(), flag, "maybe")
+        self.wip()
+        grouping = self.get("wip-age", group_by="custom_field", group_by_field_id=flag.id)["grouping"]
+        self.assertEqual(
+            [(g["key"], g["name"], g["sample_size"]) for g in grouping["groups"]],
+            [("false", None, 2), ("true", None, 1)],
+        )
+        self.assertEqual(grouping["excluded"], 2)
+
+
+class GroupingValidationTests(GroupingFixture):
+    def bad(self, metric, **params):
+        resp = self.client.get(self.url(metric), params)
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertEqual(resp.json()["code"], "invalid_query_param")
+        return resp.json()
+
+    def test_every_unusable_field_id_gets_one_identical_answer(self):
+        stranger = Board.objects.create(name="Elsewhere", owner=self.user)
+        ids = {
+            "other_board": self.field(choices=["x"], board=stranger).id,
+            "text": self.field(CustomFieldDefinition.FieldType.TEXT).id,
+            "multi_select": self.field(CustomFieldDefinition.FieldType.MULTI_SELECT, choices=["x"]).id,
+        }
+        ids["nonexistent"] = max(ids.values()) + 1000
+        ids = {"nonexistent": ids.pop("nonexistent"), **ids}
+        for metric in GROUPED_METRICS:
+            bodies = {
+                name: self.bad(metric, group_by="custom_field", group_by_field_id=pk) for name, pk in ids.items()
+            }
+            with self.subTest(metric=metric):
+                self.assertEqual(len({str(body) for body in bodies.values()}), 1, bodies)
+                self.assertTrue(bodies["text"]["detail"].startswith("group_by_field_id: "))
+
+    def test_group_by_and_field_id_must_go_together(self):
+        team = self.field(choices=["x"])
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric):
+                self.bad(metric, group_by_field_id=team.id)
+                self.bad(metric, group_by="label", group_by_field_id=team.id)
+                self.bad(metric, group_by="custom_field")
+                self.bad(metric, group_by="assignee")
+                self.bad(metric, group_by="custom_field", group_by_field_id=0)
+
+    def test_grouping_keeps_the_board_permission(self):
+        team = self.field(choices=["x"])
+        outsider = User.objects.create_user(username="flow_group_outsider", password="pw")
+        viewer = User.objects.create_user(username="flow_group_viewer", password="pw")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        params = {"group_by": "custom_field", "group_by_field_id": team.id}
+        for user, status in ((outsider, 404), (viewer, 200)):
+            client = APIClient()
+            client.force_authenticate(user)
+            for metric in GROUPED_METRICS:
+                with self.subTest(user=user.username, metric=metric):
+                    self.assertEqual(client.get(self.url(metric), params).status_code, status)
+        for metric in GROUPED_METRICS:
+            with self.subTest(anonymous=metric):
+                self.assertIn(APIClient().get(self.url(metric), params).status_code, (401, 403))
+
+
+class GroupedQueryCountTests(GroupingFixture):
+    """Grouping adds one query (two for a custom field), flat in cards (#2265)."""
+
+    VARIANTS = {"swimlane": 1, "label": 1, "custom_field": 2}
+
+    def setUp(self):
+        super().setUp()
+        self.all_lanes = self.lanes(7)
+        self.all_labels = [Label.objects.create(board=self.board, name=f"Q{i}") for i in range(7)]
+        self.team = self.field(choices=[f"c{i}" for i in range(7)])
+        self.seeded = 0
+
+    def seed(self, n):
+        for _ in range(n):
+            for make, lane in ((self.completed, self.seeded), (self.wip, self.seeded + 3)):
+                card = make(lane=self.all_lanes[lane % 7])
+                card.labels.add(self.all_labels[self.seeded % 7], self.all_labels[(self.seeded + 1) % 7])
+                self.value(card, self.team, f"c{self.seeded % 7}")
+                self.seeded += 1
+
+    def params(self, by):
+        return {"group_by": by, **({"group_by_field_id": self.team.id} if by == "custom_field" else {})}
+
+    def count(self, metric, **params):
+        with CaptureQueriesContext(connection) as ctx:
+            body = self.get(metric, **params)
+        return len(ctx), body
+
+    def test_grouped_endpoints_add_a_fixed_number_of_queries(self):
+        self.seed(4)
+        baseline = {}
+        for metric in GROUPED_METRICS:
+            plain, _ = self.count(metric)
+            for by, extra in self.VARIANTS.items():
+                with self.subTest(metric=metric, by=by):
+                    queries, body = self.count(metric, **self.params(by))
+                    # Six or more groups: the "Other" path runs too.
+                    self.assertEqual(len(body["grouping"]["groups"]), 6)
+                    self.assertIsNone(body["grouping"]["groups"][-1]["key"])
+                    self.assertEqual(queries, plain + extra)
+                    baseline[metric, by] = queries
+        self.seed(12)
+        for metric in GROUPED_METRICS:
+            for by in self.VARIANTS:
+                with self.subTest(metric=metric, by=by, size="large"):
+                    self.assertEqual(self.count(metric, **self.params(by))[0], baseline[metric, by])
