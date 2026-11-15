@@ -2687,6 +2687,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             labels={board.labels}
             columns={board.columns}
             boardName={board.name}
+            swimlaneFields={board.swimlane_custom_field_definitions
+              ?.filter((f) => f.field_type === "dropdown" || f.field_type === "checkbox")
+              .map((f) => ({ id: f.id, name: f.name }))}
             onGoToBoard={() => setView("board")}
           />
         </SectionErrorBoundary>

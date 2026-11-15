@@ -1,0 +1,240 @@
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { getFlowSwimlanes } from "../../../api/flowMetrics";
+import type { FlowFilters } from "../../../api/flowMetrics";
+import type { FlowSwimlaneComparison, FlowSwimlaneRow } from "../../../types";
+import { CHART_COLORS, CHART_HUE } from "../../../utils/chartScale";
+import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
+import AnalyticsFilterBar from "./AnalyticsFilterBar";
+import {
+  SORT_OPTIONS, barScale, blockedText, cycleText, dayText, findingText, sortRows, statusText, trendText,
+} from "./swimlanesFormat";
+import type { SwimlaneSort } from "./swimlanesFormat";
+
+interface Props {
+  boardId: number;
+  filters: FlowFilters;
+  onFiltersChange: (filters: FlowFilters) => void;
+  labels: { id: number; name: string }[];
+  /** Swimlane custom fields for "Group lanes by". */
+  swimlaneFields?: { id: number; name: string }[];
+  /** A swimlane name opens the Overview filtered to that swimlane. */
+  onOpenSwimlane: (swimlaneId: number) => void;
+  /** Reports the filters the numbers on screen were fetched for (the title row's period). */
+  onFetchedFilters?: (filters: FlowFilters | null) => void;
+}
+
+const pct = (value: number, scale: number) => `${Math.min(100, Math.max(0, (value / scale) * 100))}%`;
+
+function CycleBar({ row, scale, boardMedian }: { row: FlowSwimlaneRow; scale: number; boardMedian: number | null }) {
+  const color = row.status === "slower" ? CHART_COLORS.warning : CHART_HUE;
+  return (
+    <div className="relative h-3 rounded bg-surface-hover" aria-hidden="true" data-testid="cycle-bar">
+      {row.median_days !== null && (
+        <div className="absolute inset-y-0 left-0 rounded" style={{ width: pct(row.median_days, scale), background: color }} />
+      )}
+      {row.median_days !== null && row.p85_days !== null && (
+        <div
+          className="absolute top-1/2 h-0.5 -translate-y-1/2"
+          data-testid="p85-line"
+          style={{ left: pct(row.median_days, scale), width: pct(Math.max(0, row.p85_days - row.median_days), scale), background: color }}
+        />
+      )}
+      {boardMedian !== null && (
+        <div className="absolute -top-1 -bottom-1 w-0.5 bg-fg" data-testid="board-tick" style={{ left: pct(boardMedian, scale) }} />
+      )}
+    </div>
+  );
+}
+
+function TrendBars({ row }: { row: FlowSwimlaneRow }) {
+  const values = row.rolling_median.map((p) => p.median_days);
+  const max = Math.max(0, ...values.filter((v): v is number => v !== null));
+  const color = row.trend?.direction === "slower" ? CHART_COLORS.warning : CHART_HUE;
+  if (!row.trend || max === 0) return <div className="h-6" aria-hidden="true" />;
+  return (
+    <div className="flex items-end gap-0.5 h-6" aria-hidden="true" data-testid="trend-bars">
+      {values.map((v, i) => (
+        <div key={i} className="flex-1 rounded-sm" style={{ height: v === null ? "2px" : `${Math.max(8, (v / max) * 100)}%`, background: v === null ? CHART_COLORS.neutral : color }} />
+      ))}
+    </div>
+  );
+}
+
+function Cell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 flex flex-col gap-1">
+      <span className="text-xs text-fg-tertiary">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function LaneRow({ row, scale, boardMedian, onOpen }: {
+  row: FlowSwimlaneRow; scale: number; boardMedian: number | null; onOpen: (id: number) => void;
+}) {
+  const status = statusText(row);
+  const statusClass = row.status === "slower" ? "text-warning" : row.status === "faster" ? "text-success" : "text-fg-tertiary";
+  const trendClass = row.trend?.direction === "slower" ? "text-warning" : row.trend?.direction === "faster" ? "text-success" : "text-fg-secondary";
+  return (
+    <li
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-6 gap-y-3 py-4 border-b border-line last:border-b-0 items-start"
+      data-testid="swimlane-row"
+    >
+      <div className="min-w-0 flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+        <button
+          type="button"
+          onClick={() => onOpen(row.id)}
+          className="self-start max-w-full text-left text-base font-semibold text-info underline underline-offset-2 truncate min-h-6 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          title={row.name}
+          aria-label={`${row.name}, open in Overview`}
+        >
+          {row.name}
+        </button>
+        {status && <span className={`text-xs font-medium ${statusClass}`}>{status}</span>}
+      </div>
+      <Cell label="Cycle time">
+        <CycleBar row={row} scale={scale} boardMedian={boardMedian} />
+        <span className="text-xs text-fg-secondary">{cycleText(row)}</span>
+      </Cell>
+      <Cell label="Trend in period">
+        <TrendBars row={row} />
+        <span className={`text-xs font-medium ${trendClass}`}>{trendText(row)}</span>
+      </Cell>
+      <Cell label="Time blocked">
+        <div className="h-2 rounded bg-surface-hover mt-0.5" aria-hidden="true">
+          <div className="h-2 rounded" style={{ width: pct(row.blocked_share ?? 0, 1), background: CHART_COLORS.danger }} />
+        </div>
+        <span className="text-xs text-fg-secondary">{blockedText(row)}</span>
+      </Cell>
+      <div className="min-w-0 text-xs text-fg-secondary flex flex-col gap-0.5">
+        <span>{row.in_progress} in progress</span>
+        <span className="font-semibold text-fg">{row.finished} finished</span>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The Swimlanes view (#2267): one row per swimlane, ranked by how long work
+ * takes. Status, trend and percentiles come from the server; this draws them.
+ */
+export default function AnalyticsSwimlanes({
+  boardId, filters, onFiltersChange, labels, swimlaneFields = [], onOpenSwimlane, onFetchedFilters,
+}: Props) {
+  const [data, setData] = useState<FlowSwimlaneComparison | null>(null);
+  const [fetched, setFetched] = useState<FlowFilters | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [sort, setSort] = useState<SwimlaneSort>("slowest");
+  const [groupId, setGroupId] = useState<number | null>(null);
+  const { days, labelId } = filters;
+
+  useEffect(() => {
+    let current = true;
+    setLoading(true);
+    setFailed(false);
+    getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined)
+      .then((result) => {
+        if (!current) return;
+        setData(result);
+        setFetched({ days, labelId, swimlaneId: null });
+        setLoading(false);
+      })
+      .catch(() => { if (current) { setFailed(true); setLoading(false); } });
+    return () => { current = false; };
+  }, [boardId, days, labelId, groupId, attempt]);
+
+  useEffect(() => { onFetchedFilters?.(fetched); }, [fetched, onFetchedFilters]);
+
+  const scale = useMemo(() => (data ? barScale(data) : 1), [data]);
+  const finding = data ? findingText(data) : null;
+  const sections = useMemo(() => {
+    if (!data) return [];
+    const rows = sortRows(data.swimlanes, sort);
+    if (!data.grouping) return [{ key: "all", title: null as string | null, rows }];
+    const named = data.grouping.groups.map((g) => ({
+      key: g.key, title: g.name ?? g.key, rows: rows.filter((r) => r.group === g.key),
+    }));
+    const rest = rows.filter((r) => !data.grouping!.groups.some((g) => g.key === r.group));
+    return [...named, ...(rest.length ? [{ key: "none", title: `No ${data.grouping.field_name}`, rows: rest }] : [])]
+      .filter((s) => s.rows.length > 0);
+  }, [data, sort]);
+
+  const groupOptions = [{ value: 0, label: "None" }, ...swimlaneFields.map((f) => ({ value: f.id, label: f.name }))];
+  const groupName = swimlaneFields.find((f) => f.id === groupId)?.name;
+
+  return (
+    <div className="flex flex-col gap-4 min-w-0" data-testid="analytics-swimlanes">
+      <div className="flex flex-wrap items-center gap-2 min-w-0">
+        <AnalyticsFilterBar filters={filters} onFiltersChange={onFiltersChange} swimlanes={[]} labels={labels} showSwimlane={false} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {swimlaneFields.length > 0 && (
+            <SingleSelectDropdown
+              label={`Group lanes by: ${groupName ?? "None"}`}
+              ariaLabel="Group lanes by"
+              options={groupOptions}
+              selected={groupId}
+              onChange={(value) => setGroupId(value ? value : null)}
+              portalMenu
+            />
+          )}
+          <SingleSelectDropdown
+            label={`Sort: ${SORT_OPTIONS.find((o) => o.value === sort)?.label}`}
+            ariaLabel="Sort"
+            options={SORT_OPTIONS}
+            selected={sort}
+            onChange={(value) => setSort(value ?? "slowest")}
+            portalMenu
+          />
+        </div>
+      </div>
+      <div role="status" className="sr-only">{loading && data ? "Updating" : ""}</div>
+      {failed && !data ? (
+        <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
+          <p className="text-sm text-fg-secondary">Could not load swimlanes.</p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover">
+            Retry
+          </button>
+        </div>
+      ) : !data || !finding ? (
+        <div className="bg-surface border border-line rounded-lg p-4 h-64 animate-pulse motion-reduce:animate-none" data-testid="panel-skeleton" aria-busy="true">
+          <span className="sr-only">Loading swimlanes…</span>
+        </div>
+      ) : (
+        <div className={`flex flex-col gap-4 min-w-0 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+          <section
+            className={`bg-surface border rounded-lg p-4 ${data.swimlanes.some((s) => s.status === "slower") ? "border-warning" : "border-line"}`}
+            data-testid="swimlanes-finding"
+          >
+            <h2 className="text-base font-semibold text-fg">{finding.heading}</h2>
+            <p className="text-sm text-fg-secondary mt-1 max-w-3xl">{finding.sentence}</p>
+          </section>
+          <section className="bg-surface border border-line rounded-lg px-4 min-w-0" aria-label="Swimlanes">
+            {data.swimlanes.length === 0 && <p className="text-sm text-fg-secondary py-4">This board has no swimlanes.</p>}
+            {sections.map((section) => (
+              <div key={section.key}>
+                {section.title && <h3 className="text-sm font-semibold text-fg pt-4">{section.title}</h3>}
+                <ul>
+                  {section.rows.map((row) => (
+                    <LaneRow key={row.id} row={row} scale={scale} boardMedian={data.board.median_days} onOpen={onOpenSwimlane} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <p className="text-xs text-fg-tertiary py-3 border-t border-line flex flex-wrap gap-x-6 gap-y-1" data-testid="swimlanes-legend">
+              <span>
+                <span aria-hidden="true" className="inline-block w-0.5 h-3 bg-fg align-middle mr-1.5" />
+                Board median{data.board.median_days !== null ? `, ${dayText(data.board.median_days)} days` : ""}
+              </span>
+              <span>Solid bar: median. Thin line: reaches the 85% mark.</span>
+              <span>Trend compares rolling medians inside the selected period.</span>
+              <span>Swimlanes with fewer than 5 finished cards show no median.</span>
+            </p>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}

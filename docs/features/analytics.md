@@ -77,6 +77,21 @@ From 1024px wide the paired panels sit side by side; below that every panel take
 
 <span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.
 
+### Swimlanes view
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Under the page title, two links switch between **Overview** and **Swimlanes**. The Date range and Label you picked carry over. The Swimlanes view ranks swimlanes by how long work takes:
+
+- **Controls:** Date range, Label, **Group lanes by** (None, or a dropdown or checkbox swimlane custom field) and **Sort** (slowest first by default). There is no Swimlane filter, because every swimlane is shown.
+- **Finding panel:** names up to two swimlanes that are slower than the board, or says none is.
+- **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked; and cards in progress and finished.
+- **Status:** "Slower than the board" or "Faster than the board" when the median is more than 20% away from the board median, otherwise "In line with the board". A swimlane needs 10 finished cards for a status; with 5 to 9 it shows its median and no status line. Color repeats the words and never replaces them.
+- **Small samples:** under 5 finished cards a swimlane shows no median, bar or trend; with 5 or 6 it shows no 85th percentile line.
+- The server computes every number. See `GET /api/v1/boards/{id}/metrics/swimlanes/` in the [API reference](../api/boards.md).
+
+Below 1024px each row's cells wrap under the name.
+
 ### Filters
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>

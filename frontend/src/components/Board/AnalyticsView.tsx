@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { FlowFilters } from "../../api/flowMetrics";
 import type { Column } from "../../types";
 import AnalyticsOverview from "./flowMetrics/AnalyticsOverview";
+import AnalyticsSwimlanes from "./flowMetrics/AnalyticsSwimlanes";
 import { formatDate } from "./flowMetrics/flowFormat";
 import { useAnalyticsFilters } from "./flowMetrics/useAnalyticsFilters";
 
@@ -20,6 +21,8 @@ interface Props {
   columns?: (Pick<Column, "uid" | "wip_limit"> & { name?: string })[];
   /** Shown in the title row. */
   boardName?: string;
+  /** Swimlane custom fields, for the Swimlanes view's "Group lanes by" (#2267). */
+  swimlaneFields?: { id: number; name: string }[];
   /** "Go to board" and "Open on board" switch back to the board. */
   onGoToBoard?: () => void;
 }
@@ -61,16 +64,52 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
  * its position whatever any region is doing.
  */
 export default function AnalyticsView({
-  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard,
+  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [],
 }: Props) {
   const { filters, setFilters } = useAnalyticsFilters();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [view, setView] = useState<"overview" | "swimlanes">("overview");
+  // One update: the Overview mounts already filtered to the lane, never unfiltered first.
+  const openSwimlane = useCallback((swimlaneId: number) => {
+    setFilters((f) => ({ ...f, swimlaneId }));
+    setFetchedFilters(null);
+    setView("overview");
+  }, [setFilters]);
   // The title row names the period of the numbers on screen, not the live selection (it lags during a refetch).
   const [fetchedFilters, setFetchedFilters] = useState<FlowFilters | null>(null);
   return (
     <div className="flex-1 overflow-y-auto bg-sunken" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
         <AnalyticsTitleRow boardName={boardName} filters={fetchedFilters ?? filters} headingRef={headingRef} />
+        <nav aria-label="Analytics views" className="flex gap-6 border-b border-line">
+          {([["overview", "Overview"], ["swimlanes", "Swimlanes"]] as const).map(([id, text]) => (
+            <a
+              key={id}
+              href={`#analytics-${id}`}
+              aria-current={view === id ? "page" : undefined}
+              onClick={(event) => {
+                event.preventDefault(); // the view is page state, not a URL
+                if (view !== id) { setFetchedFilters(null); setView(id); }
+              }}
+              className={`px-1 py-2 -mb-px text-sm border-b-2 min-h-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded-t ${
+                view === id ? "font-semibold text-fg border-primary-emphasis underline underline-offset-4" : "text-fg-secondary border-transparent hover:text-fg"
+              }`}
+            >
+              {text}
+            </a>
+          ))}
+        </nav>
+        {view === "swimlanes" ? (
+          <AnalyticsSwimlanes
+            boardId={boardId}
+            filters={filters}
+            onFiltersChange={setFilters}
+            labels={labels}
+            swimlaneFields={swimlaneFields}
+            onOpenSwimlane={openSwimlane}
+            onFetchedFilters={setFetchedFilters}
+          />
+        ) : (
         <AnalyticsOverview
           boardId={boardId}
           filters={filters}
@@ -84,6 +123,7 @@ export default function AnalyticsView({
           headingRef={headingRef}
           onFetchedFilters={setFetchedFilters}
         />
+        )}
         <p className="text-xs text-fg-tertiary">
           Calendar days in UTC, from each card&apos;s movement history. Filters use each card&apos;s current swimlane
           and labels. Analytics is in beta: data may be incomplete in some configurations, so results are best used as

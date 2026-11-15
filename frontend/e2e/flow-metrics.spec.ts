@@ -287,3 +287,46 @@ test.describe('flow metrics dashboard', () => {
     await expect(region.getByRole('button', { name: CARD.title })).toBeVisible()
   })
 })
+
+test.describe('analytics swimlanes view (#2267)', () => {
+  const lane = (id: number, name: string, over: Record<string, unknown> = {}) => ({
+    id, name, position: id, group: null, finished: 20, in_progress: 2, median_days: 11, p85_days: 15, blocked_share: 0.1,
+    rolling_median: Array.from({ length: 8 }, (_, i) => ({ at: `2026-10-0${i + 1}`, median_days: 11, sample_size: 6 })),
+    status: 'in_line', trend: { direction: 'steady', first_days: 11, last_days: 11 }, ...over,
+  })
+  const comparison = {
+    definition: 'd', board: { finished: 60, median_days: 11, p85_days: 20 }, status_threshold_pct: 20, status_min_finished: 10,
+    grouping: null,
+    swimlanes: [
+      lane(1, 'A very long swimlane name that must not widen the page', { status: 'slower', median_days: 14.5, p85_days: 24, trend: { direction: 'slower', first_days: 10, last_days: 16 } }),
+      lane(2, 'Support', { status: 'faster', median_days: 7.5, p85_days: 12 }),
+      lane(3, 'Design', { finished: 4, median_days: null, p85_days: null, status: null, trend: null, blocked_share: null }),
+    ],
+  }
+
+  async function openSwimlanes(page: Page) {
+    await openAnalytics(page)
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/swimlanes/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(comparison) }),
+    )
+    await page.getByRole('navigation', { name: 'Analytics views' }).getByRole('link', { name: 'Swimlanes' }).click()
+    await expect(page.getByTestId('swimlanes-finding')).toBeVisible()
+  }
+
+  test('shows the rows, and a swimlane name opens the filtered Overview', async ({ page }) => {
+    await openSwimlanes(page)
+    await expect(page.getByTestId('swimlane-row')).toHaveCount(3)
+    await expect(page.getByTestId('swimlane-row').first()).toContainText('Slower than the board')
+    await expect(page.getByTestId('swimlane-row').nth(2)).toContainText('No median yet: only 4 cards finished.')
+    await page.getByTestId('swimlane-row').first().getByRole('button').click()
+    await expect(page.getByTestId('flow-wip-age')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Swimlane/ })).toBeVisible()
+  })
+
+  test('has no sideways page scroll at 390px', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openSwimlanes(page)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+    expect(await page.getByTestId('analytics-page').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  })
+})
