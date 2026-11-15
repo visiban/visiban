@@ -108,7 +108,7 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
         </p>
 
         {/* Heatmap — capped vertically so it never consumes the full panel */}
-        <div className="overflow-x-auto overflow-y-auto max-h-[40vh] min-w-0">
+        <div className="overflow-x-auto overflow-y-auto max-h-[40vh] min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" role="region" aria-label="Dwell time by swimlane and column" tabIndex={0} data-testid="dwell-scroller">
           {/* Empty state: no swimlanes yet — show a muted placeholder instead of a blank table */}
           {(!data.swimlanes || data.swimlanes.length === 0) && (
             <div className="flex flex-col items-center justify-center gap-2 py-8">

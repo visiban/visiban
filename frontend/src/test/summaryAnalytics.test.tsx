@@ -317,7 +317,17 @@ describe('AnalyticsView', () => {
     expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
   })
 
-  it('renders Age/Throughput mode toggle', async () => {
+  it('the dwell table scroller is a focusable labeled region', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30, columns: ['To Do'], swimlanes: [],
+      stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
+    })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const region = await screen.findByRole('region', { name: 'Dwell time by swimlane and column' })
+    expect(region).toHaveAttribute('tabindex', '0')
+  })
+
+  it('renders Current / In period mode toggle', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -332,7 +342,7 @@ describe('AnalyticsView', () => {
     expect(screen.getByRole('button', { name: 'In period' })).toBeInTheDocument()
   })
 
-  it('description line appears only in throughput mode and names the filter bar period', async () => {
+  it('description line appears only in In period mode and names the filter bar period', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -373,13 +383,13 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    // Default age mode — shows 20d from age_avg_days_per_column
+    // Default Current mode — shows 20d from age_avg_days_per_column
     expect(await screen.findByText('20d')).toBeInTheDocument()
     expect(screen.queryByText('5d')).not.toBeInTheDocument()
     expect(screen.queryByText('99d')).not.toBeInTheDocument()
   })
 
-  it('throughput mode renders throughput_avg_days_per_column values', async () => {
+  it('In period mode renders throughput_avg_days_per_column values', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -405,7 +415,7 @@ describe('AnalyticsView', () => {
     await showTable()
     await screen.findByRole('button', { name: 'In period' })
     await userEvent.setup().click(screen.getByRole('button', { name: 'In period' }))
-    // Throughput mode — shows 5d from throughput_avg_days_per_column
+    // In period mode — shows 5d from throughput_avg_days_per_column
     expect(screen.getByText('5d')).toBeInTheDocument()
     expect(screen.queryByText('20d')).not.toBeInTheDocument()
   })
@@ -847,6 +857,6 @@ describe('AnalyticsView Export CSV in the filter bar (#2261)', () => {
       reader.readAsText(blob)
     })
     expect(await read(blobs[0])).toBe('Swimlane,Current (To Do, days),Velocity (days),Stalled cards\nCustomer A,8,12,0')
-    expect(await read(blobs[1])).toContain('Customer A,3,12,0')
+    expect(await read(blobs[1])).toBe('Swimlane,In period (last 90d) (To Do, days),Velocity (days),Stalled cards\nCustomer A,3,12,0')
   })
 })

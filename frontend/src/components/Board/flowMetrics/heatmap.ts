@@ -17,10 +17,10 @@ export interface SwimlaneStat {
   avg_days_per_column: Record<string, number | null>;
   /** @deprecated Use throughput_is_outlier. */
   is_outlier: Record<string, boolean>;
-  // Age mode — current dwell for cards presently in each column (snapshot of "now").
+  // Current mode — current dwell for cards presently in each column (snapshot of "now").
   age_avg_days_per_column?: Record<string, number | null>;
   age_is_outlier?: Record<string, boolean>;
-  // Throughput mode — dwell for cards that exited each column within the period.
+  // In period mode — dwell for cards that exited each column within the period.
   throughput_avg_days_per_column?: Record<string, number | null>;
   throughput_card_count_per_column?: Record<string, number>;
   throughput_is_outlier?: Record<string, boolean>;
