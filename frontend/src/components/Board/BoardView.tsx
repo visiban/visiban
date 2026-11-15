@@ -1436,6 +1436,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (selectedCard || drawerOpen || showArchived || (peekCardId !== null && !peekCard)) setPeekCardId(null);
   }, [selectedCard, drawerOpen, showArchived, peekCardId, peekCard]);
+  // The peek renders only in the board branch; leaving the board view ends it,
+  // so returning does not reopen it and steal focus.
+  useEffect(() => {
+    if (view !== "board") setPeekCardId(null);
+  }, [view]);
   useEffect(() => {
     if (selectedCardId === null) return;
     if (board.cards.some((c) => c.id === selectedCardId)) return;
@@ -1557,8 +1562,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     maintenanceBlocked: blockedByMaintenance,
   };
   // Latest state for the stable callbacks and window listeners below.
-  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, cardActionContext });
-  cardActionStateRef.current = { selectedCardIds, selectedCard, cardActionContext };
+  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, peekCardId, cardActionContext });
+  cardActionStateRef.current = { selectedCardIds, selectedCard, peekCardId, cardActionContext };
 
   const openCardMenu = useCallback((card: Card, anchor: CardMenuAnchor) => {
     setCardMenu({ cardIds: contextMenuTargetIds(card.id, cardActionStateRef.current.selectedCardIds), originId: card.id, anchor });
@@ -1678,11 +1683,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const detail = (ev as CustomEvent<CardTargetQueryDetail>).detail;
       const current = boardRef.current;
       if (!detail || !current) return;
-      const { selectedCardIds: sel, selectedCard: open, cardActionContext: ctx } = cardActionStateRef.current;
+      const { selectedCardIds: sel, selectedCard: open, peekCardId: peeked, cardActionContext: ctx } = cardActionStateRef.current;
       const target = detail.cardIds
         ? { cardIds: detail.cardIds, source: "result" as const }
         : resolveCardTarget({
-            openCardId: open?.id ?? null,
+            // The peek withholds the context menu and the bulk selection, so the
+            // peeked card is the palette's target while it is open (#2273).
+            openCardId: open?.id ?? peeked,
             // A focused card counts only if it is on this board.
             focusedCardId: detail.focusedCardId != null && current.cards.some((c) => c.id === detail.focusedCardId) ? detail.focusedCardId : null,
             selectedIds: sel,

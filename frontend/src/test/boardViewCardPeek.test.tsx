@@ -329,4 +329,24 @@ describe('BoardView card peek (#2273)', () => {
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
   })
+
+  it('makes the peeked card the command palette target while the peek is open', async () => {
+    render(<BoardView />)
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
+    const detail: { focusedCardId: null; response?: { cardIds: number[]; source: string } | null } = { focusedCardId: null }
+    window.dispatchEvent(new CustomEvent('visiban:card-target-query', { detail }))
+    expect(detail.response?.cardIds).toEqual([2])
+  })
+
+  it('clears the peek when the view leaves the board, so returning does not reopen it', async () => {
+    render(<BoardView />)
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'a' })
+    expect(await screen.findByTestId('analytics-view')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'b' })
+    expect(await screen.findByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+  })
 })

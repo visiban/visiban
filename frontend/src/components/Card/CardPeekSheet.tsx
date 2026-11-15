@@ -21,6 +21,10 @@ import Avatar from "../Common/Avatar";
 
 const OUTSIDE_CONTROL_SELECTOR = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
 
+/** A key that a deleted column's name cannot collide with a live column's id. */
+export const dwellKey = (d: { columnId: number | null; name: string }) =>
+  d.columnId != null ? `col:${d.columnId}` : `name:${d.name}`;
+
 interface Props {
   card: Card;
   board: BoardFull;
@@ -100,16 +104,23 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   // "+ Add card" must not also fire) and does not move focus, so focus can
   // return to the card on close. A card click is left to the card's own
   // handler, which swaps the peek; a control elsewhere closes the peek AND works.
+  const cardIdRef = useRef(card.id);
+  cardIdRef.current = card.id;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
     let pending: { x: number; y: number; consume: boolean } | null = null;
+    // A press on this card's own face must not move focus onto it, outside the
+    // aria-modal dialog (CardDetail does the same).
+    let ownFacePress = false;
     const onPointerDown = (e: PointerEvent) => {
       pending = null;
+      ownFacePress = false;
       if (e.button !== 0) return;
       const t = e.target;
       if (!(t instanceof Element)) return;
       if (panelRef.current?.contains(t)) return;
+      if (t.closest(`[data-card-id="${cardIdRef.current}"]`)) { ownFacePress = true; return; }
       if (t.closest('[data-card-id], [data-keeps-card-sheet-open], [aria-modal="true"], [role="dialog"]')) return;
       if (t instanceof HTMLElement && t.clientWidth > 0 && (e.offsetX > t.clientWidth || e.offsetY > t.clientHeight)) return;
       pending = {
@@ -118,7 +129,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         consume: !t.closest(OUTSIDE_CONTROL_SELECTOR) || !!t.closest(BOARD_SCROLL_SELECTOR),
       };
     };
-    const onMouseDown = (e: MouseEvent) => { if (pending?.consume) e.preventDefault(); };
+    const onMouseDown = (e: MouseEvent) => { if (ownFacePress || pending?.consume) e.preventDefault(); };
     const onClick = (e: MouseEvent) => {
       const p = pending;
       pending = null;
@@ -259,7 +270,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       aria-labelledby="card-peek-title"
       tabIndex={-1}
       data-testid="card-peek-sheet"
-      className="fixed z-50 bg-surface text-fg outline-none border border-line shadow-xl flex flex-col max-sm:inset-0 max-sm:rounded-none sm:right-4 sm:top-24 sm:bottom-3 sm:w-[400px] sm:rounded-lg"
+      className="fixed z-50 bg-surface text-fg outline-none border border-line shadow-xl flex flex-col max-[640px]:inset-0 max-[640px]:rounded-none min-[641px]:right-4 min-[641px]:top-24 min-[641px]:bottom-3 min-[641px]:w-[400px] min-[641px]:rounded-lg"
     >
       <div className="flex items-start justify-between gap-2 px-4 pt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{lane?.name ?? ""}</p>
@@ -353,7 +364,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-sunken" role="img" aria-label={`Time in each column: ${dwell.map((d) => `${d.name} ${d.days} days`).join(", ")}`}>
                 {dwell.map((d) => (
                   <span
-                    key={d.columnId ?? d.name}
+                    key={dwellKey(d)}
                     data-testid="card-peek-segment"
                     data-current={d.current ? "true" : "false"}
                     style={{ width: `${totalMs > 0 ? Math.max((d.ms / totalMs) * 100, 2) : 100 / dwell.length}%` }}
@@ -363,7 +374,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               </div>
               <ul className="mt-2 space-y-1 text-sm">
                 {dwell.map((d) => (
-                  <li key={d.columnId ?? d.name} className={`flex justify-between ${d.current ? "font-semibold text-fg" : "text-fg-secondary"}`}>
+                  <li key={dwellKey(d)} className={`flex justify-between ${d.current ? "font-semibold text-fg" : "text-fg-secondary"}`}>
                     <span className="flex items-center gap-2 min-w-0">
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-sm bg-primary-emphasis" />
                       <span className="break-words">{d.name}</span>

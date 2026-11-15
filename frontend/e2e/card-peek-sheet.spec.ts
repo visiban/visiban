@@ -82,6 +82,18 @@ test.describe('card peek sheet', () => {
     await expect(card).toBeFocused()
   })
 
+  test.describe('at 640px', () => {
+    test.use({ viewport: { width: 640, height: 800 } })
+
+    test('is full-screen at exactly 640px', async ({ page }) => {
+      await setup(page)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await page.locator(`[data-card-id="${CARD.id}"]`).click()
+      const box = await page.getByTestId('card-peek-sheet').boundingBox()
+      expect(Math.round(box?.width ?? 0)).toBe(640)
+    })
+  })
+
   test.describe('at 390px', () => {
     test.use({ viewport: { width: 390, height: 844 } })
 

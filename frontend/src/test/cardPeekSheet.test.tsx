@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
-import CardPeekSheet from '../components/Card/CardPeekSheet'
+import CardPeekSheet, { dwellKey } from '../components/Card/CardPeekSheet'
 import type { BoardFull, Card, CardMovement } from '../types'
 
 const getCardMovements = vi.fn()
@@ -40,7 +40,21 @@ function setup(over: Partial<Parameters<typeof CardPeekSheet>[0]> = {}) {
   return props
 }
 
+describe('dwellKey', () => {
+  it('cannot collide when a deleted column\'s name equals a live column\'s id', () => {
+    expect(dwellKey({ columnId: 5, name: 'Live' })).not.toBe(dwellKey({ columnId: null, name: '5' }))
+  })
+})
+
 describe('CardPeekSheet', () => {
+  it('goes full-screen at exactly 640px and floats from 641px', () => {
+    setup()
+    const cls = screen.getByTestId('card-peek-sheet').className
+    expect(cls).toContain('max-[640px]:inset-0')
+    expect(cls).toContain('min-[641px]:w-[400px]')
+    expect(cls).not.toMatch(/(^|\s)sm:/)
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     getCardMovements.mockResolvedValue(movements)
@@ -200,6 +214,20 @@ describe('CardPeekSheet', () => {
       cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
       const notCanceled = cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
       expect(notCanceled).toBe(false)
+      space.remove()
+    })
+
+    it('keeps focus off the board: a press on this card\'s own face is default-prevented, another card\'s is not', () => {
+      setup()
+      const { space, cell } = boardSpace()
+      const own = cell.appendChild(document.createElement('div'))
+      own.setAttribute('data-card-id', String(card.id))
+      const other = cell.appendChild(document.createElement('div'))
+      other.setAttribute('data-card-id', '4')
+      own.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+      expect(own.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))).toBe(false)
+      other.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+      expect(other.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))).toBe(true)
       space.remove()
     })
 

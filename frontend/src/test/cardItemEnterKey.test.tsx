@@ -39,8 +39,9 @@ describe('CardItem keyboard open (#2273)', () => {
     const onClick = vi.fn()
     const { container, rerender } = render(<CardItem card={makeCard()} onClick={onClick} onSelect={() => {}} />)
     fireEvent.keyDown(face(container), { key: 'a' })
-    const inner = face(container).querySelector('button, input') as HTMLElement | null
-    if (inner) fireEvent.keyDown(inner, { key: 'Enter' })
+    const inner = face(container).querySelector('[role="checkbox"], button, input') as HTMLElement | null
+    expect(inner).not.toBeNull()
+    fireEvent.keyDown(inner as HTMLElement, { key: 'Enter' })
     expect(onClick).not.toHaveBeenCalled()
     rerender(<CardItem card={makeCard()} onClick={onClick} readOnly />)
     fireEvent.keyDown(face(container), { key: 'Enter' })
