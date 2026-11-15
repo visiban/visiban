@@ -2687,6 +2687,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             labels={board.labels}
             columns={board.columns}
             boardName={board.name}
+            // The server 400s on an admin-only grouping field for a non-admin, so offer
+            // exactly the fields the lane filter offers (same helper, same rule).
+            swimlaneFields={laneFields.filter((f) => f.field_type === "dropdown" || f.field_type === "checkbox").map((f) => ({ id: f.id, name: f.name }))}
             onGoToBoard={() => setView("board")}
           />
         </SectionErrorBoundary>
