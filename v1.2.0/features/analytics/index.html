@@ -1331,6 +1331,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#break-down-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Break down by
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bottleneck" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4600,6 +4611,20 @@
 <p class="admonition-title">Changed in 1.3 (#2261)</p>
 <p>The heatmap's own <strong>7 / 30 / 90 days</strong> buttons are gone, and the 7-day window with them: the heatmap uses the filter bar's date range, so it now defaults to 90 days instead of 30. Pick <strong>Last 30 days</strong> for the old default.</p>
 </div>
+<h3 id="break-down-by">Break down by<a class="headerlink" href="#break-down-by" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p><strong>Break down by</strong> in the filter bar colors the flow charts by group. Pick <strong>None</strong> (the default), <strong>Swimlane</strong>, <strong>Label</strong>, or any dropdown or checkbox card custom field. With <strong>None</strong> the page is unchanged.</p>
+<ul>
+<li>A <strong>legend</strong> under the filter bar names each group with its color. Select a group to isolate it: its marks stay at full strength and the rest fade to 20%. Select it again to show every group. Changing the breakdown clears the isolation.</li>
+<li><strong>Where the time goes</strong> shows one bar per group, on one scale, so the longest bar is the slowest group.</li>
+<li><strong>Throughput</strong> bars stack by group. <strong>WIP aging</strong> marks and <strong>Cycle time</strong> dots take the group color; aging marks keep the ring (past the 85th percentile) and the square (blocked).</li>
+<li>Each chart's summary says what the color means, and its table view has a group column, so color is never the only cue. <strong>Cumulative flow</strong> does not change.</li>
+<li>Up to five groups get a color. With more, the five largest are shown and the rest collapse into a neutral <strong>Other</strong>.</li>
+<li><strong>Labels:</strong> a card with several labels is counted once in each.</li>
+<li><strong>Custom fields:</strong> cards with no value for the field are left out.</li>
+<li>When no card in the view has a value to break down by, a status line replaces the legend ("No cards in this view have a swimlane to break down by.", or the same for label or the field) and the charts stay uncolored.</li>
+<li>Groups use each card's current swimlane, labels and field values, like the filters.</li>
+</ul>
 <h3 id="bottleneck">Bottleneck<a class="headerlink" href="#bottleneck" title="Permanent link">&para;</a></h3>
 <p>The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart) and states its numbers in one sentence:</p>
 <ul>
@@ -4615,7 +4640,7 @@
 <li><strong>Column box</strong> for each in-progress column, a button that opens the <a href="#column-drawer">column drawer</a>: the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). <strong>Squares beyond the WIP limit are hollow</strong>, outlined in the danger color. The bottleneck's box has the warning border.</li>
 <li>A final connector and a <strong>Done</strong> box with the number of cards finished in the period.</li>
 </ul>
-<p><strong>Where the time goes</strong> sits under the row: one bar, "All cards", segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.</p>
+<p><strong>Where the time goes</strong> sits under the row: one bar, "All cards" (or one bar per group under <a href="#break-down-by">Break down by</a>), segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.</p>
 <p>A <strong>Chart | Table</strong> switch on the panel changes it to the <a href="#dwell-time-heatmap">dwell time heatmap</a> table.</p>
 <h3 id="column-drawer">Column drawer<a class="headerlink" href="#column-drawer" title="Permanent link">&para;</a></h3>
 <p>Opens from a column box or from the bottleneck panel's <strong>See the N cards</strong> button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its time by column and an <strong>Open card</strong> button, then the other cards oldest first. Five show at first; <strong>Show N more</strong> reveals the rest. Choosing a card in the list shows its transitions, with <strong>Back</strong> returning to the column. The drawer does not yet show a card's swimlane; that is tracked in #2283.</p>
