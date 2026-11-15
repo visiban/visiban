@@ -7,10 +7,10 @@ interface Props {
   isAdmin: boolean;
   /** Called when the user clicks (no drag). Opens the add-column modal in the parent. */
   onOpenAdd: () => void;
-  /** Width of the element immediately to the left of this separator. */
-  currentWidth: number;
-  /** Called continuously while dragging to update that element's width. */
-  setWidth: (w: number) => void;
+  /** Width of the element immediately to the left of this separator. Omit (with setWidth) for a click-only separator. */
+  currentWidth?: number;
+  /** Called continuously while dragging to update that element's width. Omit when nothing to the left resizes. */
+  setWidth?: (w: number) => void;
   /** Position index (0 = far-left). Used to coordinate hover highlight across all rows. */
   sepIndex: number;
   /** Which separator index is currently highlighted — lifted from the parent. */
@@ -25,7 +25,7 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dragState.current = { startX: e.clientX, startWidth: currentWidth, dragging: false };
+    dragState.current = { startX: e.clientX, startWidth: currentWidth ?? 0, dragging: false };
 
     const onMove = (ev: MouseEvent) => {
       if (!dragState.current) return;
@@ -33,7 +33,7 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
       if (!dragState.current.dragging && Math.abs(delta) > DRAG_THRESHOLD) {
         dragState.current.dragging = true;
       }
-      if (dragState.current.dragging) {
+      if (dragState.current.dragging && setWidth) {
         setWidth(dragState.current.startWidth + delta);
       }
     };
@@ -53,7 +53,7 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
 
   return (
     <div
-      className="relative shrink-0 flex items-stretch select-none cursor-col-resize"
+      className={`relative shrink-0 flex items-stretch select-none ${setWidth ? "cursor-col-resize" : "cursor-pointer"}`}
       style={{ width: 16 }}
       onMouseEnter={() => onSepHoverChange(sepIndex)}
       onMouseLeave={() => onSepHoverChange(null)}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
+import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
@@ -440,6 +440,21 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // blocked indicator). Classic keeps its pre-#2272 border rules byte for byte.
   const classicFace = useClassicCardFace(boardId);
   const calmFace = !classicFace;
+  // #2272: the calm Dense tier is ONE row: title, short status, first pinned field (and the
+  // assignee at the end). Everything else Dense used to carry moves to the hover peek.
+  const denseRow = calmFace && !compact && density === "dense";
+  // A fragment outside the dense row, so every other face keeps its DOM byte for byte.
+  const RowWrap: React.ElementType = denseRow ? "div" : Fragment;
+  const denseFieldId = denseRow
+    ? customFieldDefinitions
+        .filter((d) => d.show_on_card)
+        .sort((a, b) => a.position - b.position)
+        .find((d) => card.custom_field_values.some((v) => v.field_definition === d.id && v.value !== ""))?.id ?? null
+    : null;
+  // The calm face puts the assignee avatar at the end of the label row; Classic and the
+  // compact layout keep the absolutely-positioned bottom-right avatar (#1411).
+  const avatarInRow = calmFace && !compact && !!card.assignee;
+  const AvatarWrap: React.ElementType = avatarInRow ? "div" : Fragment;
   const isOverdueCard = calmFace && classifyCardUrgency({ due_date: card.due_date, is_stale: false, last_moved_at: null })?.kind === "overdue";
   const priorityColor = colorForPriority(card.priority);
   // Comfortable density only (#977, A-Q4): overdue / due-soon also take the
@@ -620,9 +635,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const hasMetadataRow =
     !!card.assignee ||
     isCardBlocked(card) ||
-    (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
-    (showPriorityBadge && card.priority !== "low") ||
-    (!compact && (
+    (denseRow && (statusInline || denseFieldId !== null)) ||
+    (!denseRow && showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
+    (!denseRow && showPriorityBadge && card.priority !== "low") ||
+    (!compact && !denseRow && (
       (showDescriptionIndicator && !!card.description) ||
       card.labels.length > 0 ||
       card.checklist_total > 0 ||
@@ -792,7 +808,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       )}
       <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
-        <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
+        <RowWrap {...(denseRow ? { className: "flex items-center gap-2", "data-testid": "card-dense-row" } : {})}>
+        <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
           menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-14" : " [@media(pointer:coarse)]:group-focus-within:pr-14") : ""
         }`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
@@ -816,14 +833,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {/* Description exists — indicator only; full content shown in card detail */}
 
         {hasMetadataRow && (
-          // metaClass (#1844): on a tinted card, `card-aging-meta` rescopes every
+          <AvatarWrap {...(avatarInRow ? { className: `flex items-center gap-1 ${denseRow ? "shrink-0 max-w-[60%]" : "mt-1.5"}` } : {})}>
+          {/* metaClass (#1844): on a tinted card, `card-aging-meta` rescopes every
           // metadata text token in this row to its on-tint value, so the row
           // clears 4.5:1 on every aging stage. Empty on an untinted card, where
           // the row's quietest text is fg-tertiary (#1862): fg-muted and fg-faint
-          // are below 4.5:1 on bg-surface in dark mode, so they are not used here.
+          are below 4.5:1 on bg-surface in dark mode, so they are not used here. */}
           <div
             data-testid="card-metadata-row"
-            className={`flex items-center gap-1 mt-1.5 ${expanded ? "flex-wrap overflow-visible" : "overflow-hidden"} ${card.assignee ? "min-h-5 pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
+            className={`flex items-center gap-1 ${avatarInRow || denseRow ? "min-w-0" : "mt-1.5"}${avatarInRow ? " flex-1" : ""} ${expanded ? "flex-wrap overflow-visible" : "overflow-hidden"} ${card.assignee && !avatarInRow ? "min-h-5 pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
             // Keyboard path to the expansion: focus on a chip's quick-edit
             // button or the MR/PR link inside the row (React's onFocus/onBlur
             // bubble). Blur to another element inside the row keeps it open.
@@ -895,7 +913,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     so cmd/middle-click still work). The href is re-checked with
                     isHttpUrl() even though the server validates it — an href is
                     an XSS sink. */}
-                {externalRef && (() => {
+                {!denseRow && externalRef && (() => {
                   const label = PROVIDER_LABELS[externalRef.provider] ?? externalRef.provider;
                   const content = (
                     <>
@@ -946,7 +964,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 })()}
 
                 {/* Description indicator — dense only */}
-                {showDescriptionIndicator && card.description && (
+                {!denseRow && showDescriptionIndicator && card.description && (
                   <svg className="w-2.5 h-2.5 text-fg-tertiary shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
                     <title>Has description</title>
                     <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
@@ -1008,7 +1026,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     Exception to the "filled pill" rule: labels use user-assigned colors
                     that may be light or low-contrast against white text. Tint + colored
                     border keeps the label readable across any hue. See frontend/CLAUDE.md. */}
-                {card.labels.slice(0, labelLimit).map((label) => {
+                {!denseRow && card.labels.slice(0, labelLimit).map((label) => {
                   const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
                   return (
                     <span
@@ -1021,7 +1039,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     </span>
                   );
                 })}
-                {card.labels.length > labelLimit && (
+                {!denseRow && card.labels.length > labelLimit && (
                   <span className="text-xs text-fg-tertiary shrink-0">+{card.labels.length - labelLimit}</span>
                 )}
 
@@ -1034,6 +1052,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     `CustomFieldValueDisplay` stays reusable for card-detail
                     and any future read-only surface. */}
                 {pinnedFields.map((def) => {
+                  if (denseRow && def.id !== denseFieldId) return null;
                   const entry = card.custom_field_values.find((v) => v.field_definition === def.id);
                   const populated = entry && entry.value !== "";
                   const interactive = isQuickEditable(def);
@@ -1170,7 +1189,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 })}
 
                 {/* Checklist — shown at every density (it's a quick progress signal) */}
-                {card.checklist_total > 0 && (
+                {!denseRow && card.checklist_total > 0 && (
                   <span
                     className={`text-xs font-medium shrink-0 ${
                       card.checklist_done === card.checklist_total ? "text-success" : "text-fg-tertiary"
@@ -1183,7 +1202,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {/* #445: at most one suffix, overdue item first, else items
                     assigned to the viewer. Never feeds the urgency badge or
                     border (A-Q9); the word or glyph carries it, not color alone. */}
-                {card.checklist_total > 0 && checklistSuffix && (
+                {!denseRow && card.checklist_total > 0 && checklistSuffix && (
                   checklistSuffix.kind === "overdue" ? (
                     <span
                       className="text-xs font-medium shrink-0 text-danger"
@@ -1210,7 +1229,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 )}
 
                 {/* Attachments — standard + dense only; comfortable folds into peek */}
-                {showAttachments && card.attachment_count > 0 && (
+                {!denseRow && showAttachments && card.attachment_count > 0 && (
                   <span className="text-xs text-fg-tertiary shrink-0" title={`${card.attachment_count} attachment(s)`}>
                     📎{card.attachment_count}
                   </span>
@@ -1219,7 +1238,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {/* Due date — only at Standard / Dense, and only when not
                     already carried by the urgency badge. At Comfortable the
                     urgency badge is the single date signal. */}
-                {showDueDatePill && dueInfo && !dueAlreadyInUrgency && (
+                {!denseRow && showDueDatePill && dueInfo && !dueAlreadyInUrgency && (
                   <span
                     className={`text-xs font-medium shrink-0 ${
                       classicFace
@@ -1241,7 +1260,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 )}
 
                 {/* Weight — standard + dense, only when > 1 */}
-                {showWeight && card.weight > 1 && (
+                {!denseRow && showWeight && card.weight > 1 && (
                   <span className="text-xs text-fg-secondary font-medium shrink-0" title={`Weight: ${card.weight}`}>
                     {card.weight}
                   </span>
@@ -1251,18 +1270,18 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
             {/* Recently moved dot — dense only; lower densities use the urgency
                 badge's "Just moved" tone instead. */}
-            {showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency && (
+            {!denseRow && showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency && (
               <span className="w-2 h-2 rounded-full bg-primary-emphasis shrink-0" title="Recently moved" />
             )}
 
             {/* Last-moved text label — dense only (≥24h ago) */}
-            {!compact && movedLabel && (
+            {!compact && !denseRow && movedLabel && (
               <span className="text-xs text-fg-tertiary shrink-0">{movedLabel}</span>
             )}
 
             {/* Priority badge — dense only. At lower densities the priority is
                 already communicated by the existing colored card border. */}
-            {showPriorityBadge && card.priority !== "low" && (
+            {!denseRow && showPriorityBadge && card.priority !== "low" && (
               <span
                 className="text-xs font-semibold shrink-0 capitalize px-1 py-0.5 rounded leading-none"
                 style={{ backgroundColor: priorityColor, color: "#fff" }}
@@ -1272,12 +1291,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
               </span>
             )}
           </div>
+          {avatarInRow && card.assignee && <Avatar user={card.assignee} size="xs" className="shrink-0" />}
+          </AvatarWrap>
         )}
+        </RowWrap>
 
         {statusRow && (
           <div
             data-testid="card-status-row"
-            className={`mt-1.5 flex items-center ${card.assignee ? "pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
+            className={`mt-1.5 flex items-center ${card.assignee && !avatarInRow ? "pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
           >
             {statusNode}
           </div>
@@ -1289,7 +1311,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             its last flex child was the first thing silently clipped when the
             row overflowed — backwards, since it's the one metadata element
             with no density gate (#1411). */}
-        {card.assignee && (
+        {card.assignee && !avatarInRow && (
           <Avatar user={card.assignee} size="xs" className="absolute bottom-1.5 right-1.5 z-10" />
         )}
       </div>

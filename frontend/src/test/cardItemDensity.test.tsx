@@ -243,38 +243,56 @@ describe('CardItem — card_density (#961)', () => {
       })
     })
 
-    it('leaves a far-out due pill plain: no glyph, fg-tertiary', () => {
+    it('is one row: title, short status, first pinned field, avatar; the rest moves to the peek (#2272)', () => {
       const FAR = new Date(TODAY.getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
-      render(<CardItem card={makeCard({ due_date: FAR })} density="dense" />)
-      const pill = screen.getByTitle(`Due ${FAR}`)
-      expect(pill.className).toContain('text-fg-tertiary')
-      expect(pill.querySelector('svg')).toBeNull()
-    })
-
-    it('renders all three labels + overflow', () => {
-      const card = makeCard({
-        labels: [
-          ...makeCard().labels,
-          { id: 103, uid: 'lbluid004', name: 'extra', color: '#3B82F6' },
-        ],
+      const def = (id: number, name: string, position: number) => ({
+        id, uid: `cf${id}`, name, field_type: 'text' as const, choices: [], position, show_on_card: true,
+        is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null,
+        choice_colors: {}, threshold_direction: '' as const, threshold_warn: null, threshold_alert: null,
+        threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
       })
-      render(<CardItem card={card} density="dense" />)
-      expect(screen.getByText('backend')).toBeInTheDocument()
-      expect(screen.getByText('security')).toBeInTheDocument()
-      expect(screen.getByText('q2-goal')).toBeInTheDocument()
-      expect(screen.getByText('+1')).toBeInTheDocument()
-    })
-
-    it('shows priority badge for medium/high', () => {
-      render(<CardItem card={makeCard({ priority: 'high' })} density="dense" />)
-      expect(screen.getByTitle('Priority: high')).toBeInTheDocument()
-    })
-
-    it('shows the recently-moved dot at <24h', () => {
       const { container } = render(
-        <CardItem card={makeCard({ last_moved_at: TWELVE_HOURS_AGO })} density="dense" />,
+        <CardItem
+          card={makeCard({
+            due_date: FIVE_DAYS_AGO, priority: 'high', weight: 5, attachment_count: 2, checklist_total: 3,
+            checklist_done: 1, last_moved_at: TWELVE_HOURS_AGO, description: 'x',
+            custom_field_values: [{ field_definition: 2, value: 'Acme' }, { field_definition: 3, value: 'Other' }],
+          })}
+          customFieldDefinitions={[def(2, 'Account', 0), def(3, 'Region', 1)]}
+          density="dense"
+        />,
       )
-      expect(container.querySelector('[title="Recently moved"]')).toBeInTheDocument()
+      const row = container.querySelector('[data-testid="card-dense-row"]') as HTMLElement
+      expect(row).not.toBeNull()
+      expect(row.querySelector('p')).not.toBeNull()
+      expect(row.querySelector('[data-testid="card-status-line"]')?.textContent).toBe('Overdue')
+      expect(screen.getByTitle('Account: Acme')).toBeInTheDocument()
+      expect(screen.queryByTitle('Region: Other')).toBeNull()
+      expect(screen.getByTestId('avatar')).toBeInTheDocument()
+      // Everything else is off the face (the priority stays in the accessible name).
+      expect(screen.queryByText('backend')).toBeNull()
+      expect(screen.queryByTitle('Priority: high')).toBeNull()
+      expect(screen.queryByTitle('Weight: 5')).toBeNull()
+      expect(screen.queryByTitle('2 attachment(s)')).toBeNull()
+      expect(screen.queryByTitle('1/3 checklist items')).toBeNull()
+      expect(container.querySelector('[title="Recently moved"]')).toBeNull()
+      expect(screen.queryByTitle(`Due ${FAR}`)).toBeNull()
+    })
+
+    it('renders no second row for a dense card with only a title', () => {
+      const { container } = render(<CardItem card={makeCard({ labels: [], assignee: null })} density="dense" />)
+      expect(container.querySelector('[data-testid="card-metadata-row"]')).toBeNull()
+      expect(container.querySelector('[data-testid="card-status-row"]')).toBeNull()
+    })
+  })
+
+  describe('assignee avatar placement (#2272)', () => {
+    it('sits at the end of the label row on the calm face, not absolutely positioned', () => {
+      const { container } = render(<CardItem card={makeCard()} density="standard" />)
+      const avatar = screen.getByTestId('avatar')
+      expect(avatar.closest('[data-testid="card-metadata-row"]')).toBeNull()
+      expect(avatar.previousElementSibling).toBe(container.querySelector('[data-testid="card-metadata-row"]'))
+      expect(avatar.className).not.toContain('absolute')
     })
   })
 
@@ -327,9 +345,9 @@ describe('CardItem — card_density (#961)', () => {
 
     it('is the first element in the metadata row so it cannot be clipped', () => {
       const { container } = render(
-        <CardItem card={makeCard({ blocker_count: 2 })} density="dense" />,
+        <CardItem card={makeCard({ blocker_count: 2 })} density="standard" />,
       )
-      const row = container.querySelector('.flex.items-center.gap-1.mt-1\\.5')
+      const row = container.querySelector('[data-testid="card-metadata-row"]')
       expect(row?.firstElementChild).toHaveAttribute('aria-label', 'Blocked by 2 cards')
     })
   })

@@ -304,7 +304,6 @@ const FIRST_OPEN_RESYNC_MS = 1000;
 const ARCHIVE_TOAST_KEY = "archive";
 const CARD_NOT_FOUND_TOAST_KEY = "card-not-found";
 const CARD_ACTION_TOAST_KEY = "card-action";
-const noopSetWidth = () => {};
 
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
@@ -2165,7 +2164,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // The left label panel is gone (#2271): swimlane bands span the grid, so grid math starts at 0.
   // `viewPrefs.swimlaneColumnWidth` is still read and written for old saved prefs, but unused.
-  const swimlaneColWidth = 0;
 
 
   // Resizable board columns
@@ -2185,11 +2183,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [board.columns, viewPrefs.columnWidths]);
 
   // X position of the currently-hovered column separator within the scrollable area.
-  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  // sep[i] left = W + i*16 + sum(colWidth[j] for j in 0..i-1)
+  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  // sep[i] left = i*16 + sum(colWidth[j] for j in 0..i-1)
   const hoveredSepX = useMemo(() => {
     if (hoveredSepIndex === null) return null;
-    let x = swimlaneColWidth;
+    let x = 0;
     for (let i = 0; i < hoveredSepIndex; i++) {
       x += 16; // separator width
       if (i < board.columns.length) {
@@ -2200,20 +2198,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
     }
     return x;
-  }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
+  }, [hoveredSepIndex, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
-  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
   const colCenterXs = useMemo(() => {
     const result: number[] = [];
-    let x = swimlaneColWidth + 16; // after sidebar + first sep
+    let x = 16; // after the first sep
     for (const col of board.columns) {
       const w = (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
       result.push(x + w / 2);
       x += w + 16;
     }
     return result;
-  }, [swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
+  }, [board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -2997,12 +2995,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
-            {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
+            {/* Far-left separator: click inserts column at pos 0 (nothing to its left resizes) */}
             <ColumnSeparator
               isAdmin={isAdmin}
               onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
-              currentWidth={0}
-              setWidth={noopSetWidth}
               sepIndex={0}
               hoveredSepIndex={hoveredSepIndex}
               onSepHoverChange={setHoveredSepIndex}

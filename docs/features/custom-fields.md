@@ -168,7 +168,7 @@ A URL field holds one web address (a runbook, a design file, a CRM record) as a 
 
 - **Entering a value:** type or paste the address and leave the field (or press Enter). Without a scheme, `https://` is added, so `example.com` saves as `https://example.com`. Only `http://` and `https://` are accepted; anything else (for example `javascript:` or `ftp:`) shows an inline error under the input and is **not** saved. Your typed text stays in the box so you can fix it. Escape puts back the last saved value.
 - **Length:** at most **500 characters**, the same cap as every other custom field value. Longer addresses are rejected rather than shortened.
-- **Opening the link:** an editable URL field has an **Open link ↗** line that opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane label panel show just the hostname (a leading `www.` dropped); hover for the full address.
+- **Opening the link:** an editable URL field has an **Open link ↗** line that opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane band show just the hostname (a leading `www.` dropped); hover for the full address.
 - **Links always open in a new tab**, and only `http://`/`https://` values are ever rendered as links. A stored value that isn't a valid web address shows as plain text.
 
 ### Multi-select fields
@@ -200,7 +200,7 @@ Each choice on a dropdown or multi-select field can have its own color, so a val
 
 - **Setting a color:** in the field editor, click the round swatch in front of a choice and pick one of eight colors: **Slate**, **Blue**, **Green**, **Amber**, **Red**, **Violet**, **Pink**, or **Teal**. **Reset to automatic** removes it. The color saves with the rest of the field when you click **Save field**.
 - **Automatic:** a choice with no color keeps the small automatic color dot it always had, so boards created before 1.2 look exactly as they did. In the editor its swatch is an empty dashed circle labelled *Automatic*.
-- **Where it shows:** a colored choice renders as a tinted badge on the card face and in the swimlane label panel (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown, so color is never the only way to read it, and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.
+- **Where it shows:** a colored choice renders as a tinted badge on the card face and in the swimlane band (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown, so color is never the only way to read it, and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.
 - **Renaming or removing a choice resets its color:** the color belongs to the choice's text, so a renamed choice starts *Automatic* again and a removed choice's color is deleted. Values still stored under the old text (see [Renaming or removing a choice](#renaming-or-removing-a-choice)) render neutral.
 - **Changing the type:** switching a field away from Dropdown or Multi-select clears its colors. Switching between Dropdown and Multi-select keeps them.
 - **Keyboard:** in the color popover, the arrow keys move between swatches, Space or Enter picks one, and Escape closes just the popover (not Board Settings), as does tabbing out of it.
@@ -260,7 +260,7 @@ The tab lists fields in display order with the same glyph, name, type label, and
 
 The editor matches the card field editor (name, type, help text, choices for dropdowns and multi-selects, the [number format](#number-formatting) options for number fields, and a pin toggle), plus one addition:
 
-- **Admin only:** toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely. Members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.
+- **Admin only:** toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely. Members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane band, and next to its input in the Edit Swimlane modal.
 
 !!! note "Field type is locked once a swimlane holds a value"
     As with a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. **Delete field** at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.

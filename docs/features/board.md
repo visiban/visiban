@@ -184,7 +184,7 @@ The 16 px separators between columns and between swimlane rows are interactive i
 
 Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator: the column highlight extends through every row separator, and the row highlight extends across the full board width.
 
-The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the swimlane label sidebar on drag.
+The far-left separator (before the first board column) follows the same design. There is no swimlane sidebar to resize, so it only inserts a column at the first position on click.
 
 ### Column trash zone
 
@@ -676,7 +676,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the number of pinned swimlane chips shown per row, which follows card density as everywhere else (#1417, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the swimlane band, which shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.
