@@ -412,6 +412,27 @@ describe('the panels', () => {
     expect(image.querySelector('rect[fill*="primary-emphasis"]')).toBeNull()
   })
 
+  it('strokes the Done band top edge neutral (the contrast exception) and labels it only when it has height', async () => {
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
+    expect(image.querySelector('[data-band="col-doing"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--primary-emphasis))')
+    expect(image).toHaveTextContent('Done')
+  })
+
+  it('draws no Done label while the Done band is empty, but still strokes it neutral', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        days: cumulative.days.map((day) => ({ ...day, counts: { ...day.counts, 'col-done': 0 } })),
+      },
+    })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
+    expect(image).not.toHaveTextContent('Done')
+  })
+
   it('rings nothing and draws no zones without a P85', async () => {
     mockAll({ age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } } })
     await renderLoaded()
