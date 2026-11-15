@@ -4,69 +4,46 @@ import ColumnSeparator from '../components/Board/ColumnSeparator'
 
 function setup(isAdmin: boolean) {
   const onOpenAdd = vi.fn()
-  const setWidth = vi.fn()
   const { container } = render(
-    <ColumnSeparator
-      isAdmin={isAdmin}
-      onOpenAdd={onOpenAdd}
-      currentWidth={200}
-      setWidth={setWidth}
-      sepIndex={1}
-      hoveredSepIndex={null}
-      onSepHoverChange={vi.fn()}
-    />,
+    <ColumnSeparator isAdmin={isAdmin} onOpenAdd={onOpenAdd} sepIndex={1} hoveredSepIndex={null} onSepHoverChange={vi.fn()} />,
   )
-  return { sep: container.firstElementChild as HTMLElement, onOpenAdd, setWidth }
+  return { sep: container.firstElementChild as HTMLElement, onOpenAdd }
 }
 
-describe('ColumnSeparator (#1990)', () => {
-  it('resizes while dragging past the threshold and does not open the add modal', () => {
-    const { sep, onOpenAdd, setWidth } = setup(true)
-    fireEvent.mouseDown(sep, { clientX: 100 })
-    fireEvent.mouseMove(window, { clientX: 130 })
-    expect(setWidth).toHaveBeenLastCalledWith(230)
-    fireEvent.mouseUp(window)
-    expect(onOpenAdd).not.toHaveBeenCalled()
-    // Listeners are removed on release: further movement is ignored.
-    setWidth.mockClear()
-    fireEvent.mouseMove(window, { clientX: 300 })
-    expect(setWidth).not.toHaveBeenCalled()
-  })
-
-  it('a click without a drag opens the add modal for an admin', () => {
-    const { sep, onOpenAdd, setWidth } = setup(true)
+// #1990, #2300: the separator inserts a column on click; columns share the grid
+// template, so there is no drag-to-resize.
+describe('ColumnSeparator (#1990, #2300)', () => {
+  it('a click without a drag opens the add modal for an admin, on release', () => {
+    const { sep, onOpenAdd } = setup(true)
     fireEvent.mouseDown(sep, { clientX: 100 })
     fireEvent.mouseMove(window, { clientX: 102 })
+    expect(onOpenAdd).not.toHaveBeenCalled()
     fireEvent.mouseUp(window)
     expect(onOpenAdd).toHaveBeenCalledTimes(1)
-    expect(setWidth).not.toHaveBeenCalled()
+    // Listeners are removed on release.
+    fireEvent.mouseUp(window)
+    expect(onOpenAdd).toHaveBeenCalledTimes(1)
   })
 
-  it('a click without a drag does nothing for a non-admin', () => {
+  it('a drag past the threshold is not a click and does not open the add modal', () => {
+    const { sep, onOpenAdd } = setup(true)
+    fireEvent.mouseDown(sep, { clientX: 100 })
+    fireEvent.mouseMove(window, { clientX: 150 })
+    fireEvent.mouseUp(window)
+    expect(onOpenAdd).not.toHaveBeenCalled()
+  })
+
+  it('a click does nothing for a non-admin', () => {
     const { sep, onOpenAdd } = setup(false)
     fireEvent.mouseDown(sep, { clientX: 100 })
     fireEvent.mouseUp(window)
     expect(onOpenAdd).not.toHaveBeenCalled()
   })
 
-  it('a non-admin can still drag to resize', () => {
-    const { sep, setWidth } = setup(false)
-    fireEvent.mouseDown(sep, { clientX: 100 })
-    fireEvent.mouseMove(window, { clientX: 80 })
-    expect(setWidth).toHaveBeenLastCalledWith(180)
-    fireEvent.mouseUp(window)
-  })
-
-  it('a separator with no setWidth is click-only: no resize cursor, a drag does not throw', () => {
-    const onOpenAdd = vi.fn()
-    const { container } = render(
-      <ColumnSeparator isAdmin onOpenAdd={onOpenAdd} sepIndex={0} hoveredSepIndex={null} onSepHoverChange={vi.fn()} />,
-    )
-    const sep = container.firstElementChild as HTMLElement
+  it('has no resize cursor and no fixed width: it fills its grid track', () => {
+    const { sep } = setup(true)
     expect(sep.className).not.toContain('cursor-col-resize')
-    fireEvent.mouseDown(sep, { clientX: 100 })
-    fireEvent.mouseMove(window, { clientX: 150 })
-    fireEvent.mouseUp(window)
-    expect(onOpenAdd).not.toHaveBeenCalled()
+    expect(sep.className).toContain('cursor-pointer')
+    expect(sep.style.width).toBe('')
   })
 })

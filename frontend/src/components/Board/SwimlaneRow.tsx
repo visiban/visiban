@@ -19,7 +19,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { BAND_MAX_WIDTH, boardGridTemplate } from "./boardGrid";
+import { BAND_MAX_WIDTH, boardGridTemplate, startInsertGesture } from "./boardGrid";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -584,15 +584,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           // grid template (#2300), so there is no per-column width to drag.
           const canInsert = isAdmin && !!onInsertColumn;
           const handleSepMouseDown = canInsert
-            ? (e: React.MouseEvent) => {
-                e.preventDefault();
-                // Fires on release, like the header's ColumnSeparator.
-                const onUp = () => {
-                  window.removeEventListener("mouseup", onUp);
-                  onInsertColumn!(col.id);
-                };
-                window.addEventListener("mouseup", onUp);
-              }
+            ? (e: React.MouseEvent) => startInsertGesture(e, () => onInsertColumn!(col.id))
             : undefined;
 
           const sep = (

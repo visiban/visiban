@@ -81,6 +81,29 @@ export function separatorTrackLine(sepIndex: number): number {
   return sepIndex * 2 + 1;
 }
 
+const INSERT_DRAG_THRESHOLD = 4; // px: movement beyond this is a drag, not a click
+
+/**
+ * The column separators' insert gesture, shared by the header's ColumnSeparator and
+ * the lane cells' separators so both behave alike: it fires on release, and not
+ * when the pointer moved more than 4px in between (a drag is not a click).
+ */
+export function startInsertGesture(e: { clientX: number; preventDefault(): void }, onInsert: () => void): void {
+  e.preventDefault();
+  const startX = e.clientX;
+  let dragged = false;
+  const onMove = (ev: MouseEvent) => {
+    if (Math.abs(ev.clientX - startX) > INSERT_DRAG_THRESHOLD) dragged = true;
+  };
+  const onUp = () => {
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    if (!dragged) onInsert();
+  };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+}
+
 /** CSS variable on the board scroll box: its visible (client) width in px. */
 export const BOARD_VIEW_WIDTH_VAR = "--board-view-w";
 

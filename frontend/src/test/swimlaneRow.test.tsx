@@ -165,10 +165,15 @@ describe('SwimlaneRow', () => {
     const { container, unmount } = render(<SwimlaneRow {...defaultProps()} onInsertColumn={onInsertColumn} />)
     const sep = container.querySelector('.cursor-pointer.select-none') as HTMLElement
     expect(container.querySelector('.cursor-col-resize')).toBeNull()
-    fireEvent.mouseDown(sep)
+    fireEvent.mouseDown(sep, { clientX: 10 })
     expect(onInsertColumn).not.toHaveBeenCalled()
     fireEvent.mouseUp(window)
     expect(onInsertColumn).toHaveBeenCalledWith(columns[0].id)
+    fireEvent.mouseUp(window)
+    expect(onInsertColumn).toHaveBeenCalledTimes(1)
+    // A drag past 4px is not a click (same gesture as the header separator).
+    fireEvent.mouseDown(sep, { clientX: 10 })
+    fireEvent.mouseMove(window, { clientX: 40 })
     fireEvent.mouseUp(window)
     expect(onInsertColumn).toHaveBeenCalledTimes(1)
     unmount()
