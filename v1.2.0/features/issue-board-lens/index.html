@@ -4492,7 +4492,7 @@
 <h2 id="configuring-the-lens-on-a-board">Configuring the lens on a board<a class="headerlink" href="#configuring-the-lens-on-a-board" title="Permanent link">&para;</a></h2>
 <p>Only <strong>board admins</strong> can configure the lens.</p>
 <ol>
-<li>Open the board and click <strong>Settings</strong> (the gear icon in the toolbar).</li>
+<li>Open the board and open the <strong>More board actions</strong> menu (<code>...</code>) in the toolbar and choose <strong>Board settings</strong>.</li>
 <li>Select the <strong>Lens</strong> tab.</li>
 <li>Choose the <strong>Provider</strong>: GitHub or GitLab.</li>
 <li>Enter the repository in <code>owner/repo</code> format, for example <code>acme/backend</code> or <code>torvalds/linux</code>.</li>
@@ -4670,7 +4670,7 @@
 <blockquote>
 <p><strong>Changed in 1.2</strong></p>
 </blockquote>
-<p>The lens shares the board's toolbar row instead of rendering its own. The pivot dropdowns, a board-style <strong>Filters</strong> toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between <strong>Board</strong> and <strong>Lens</strong> no longer shifts the layout.</p>
+<p>The lens sits on the board's tab row, but its toolbar keeps the old scrolling layout until #2302 moves it onto the board's new toolbar. The pivot dropdowns, a board-style <strong>Filters</strong> toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between <strong>Board</strong> and <strong>Lens</strong> no longer shifts the layout.</p>
 <ul>
 <li><strong>Compact layout</strong> matches the board: cards flow two-per-row rather than shrinking, and the lens reuses your existing per-board card-layout preference.</li>
 <li><strong>Narrow screens:</strong> below the large breakpoint, the card-layout toggle moves into a <strong>Lens actions</strong> menu instead of pushing the row into a sideways scroll.</li>

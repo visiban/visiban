@@ -5470,7 +5470,7 @@
 </tr>
 <tr>
 <td><strong>Archive</strong></td>
-<td>Archive all selected cards — they are removed from the board view and can be restored from the <strong>Archived</strong> panel in the toolbar</td>
+<td>Archive all selected cards — they are removed from the board view and can be restored from the <strong>Archived cards</strong> panel (toolbar <strong>View</strong> menu, <strong>Show archived cards</strong>)</td>
 </tr>
 <tr>
 <td><strong>Delete</strong></td>
@@ -5647,18 +5647,18 @@
 </table>
 <p>Bare single-key shortcuts (<code>f</code>, <code>/</code>, <code>?</code>, <code>.</code>, <code>b</code>, <code>s</code>, <code>h</code>, <code>a</code>, <code>l</code>, <code>e</code>, <code>c</code>, <code>y</code>) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (<code>⌘K</code>, <code>⌘\</code>, <code>⌘⇧E</code>, <code>⌘,</code>, <code>⌘⇧L</code>) fire from any focus location. The in-app overlay (<code>?</code>) is the source of truth if this list drifts.</p>
 <h3 id="board-toolbar-layout">Board toolbar layout<a class="headerlink" href="#board-toolbar-layout" title="Permanent link">&para;</a></h3>
-<p>The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:</p>
+<p>The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:</p>
 <ul>
-<li><strong>Zone 1</strong> — view tabs (Board / Summary / History / Analytics)</li>
-<li><strong>Zone 2</strong> — board controls (Preset, Collapse split button, Filters, Overlay, Layout toggle, Archived)</li>
-<li><strong>Zone 3</strong> (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)</li>
-<li><strong>Trailing cluster</strong> — overflow kebab (<code>⋮</code>) and connection status; always visible</li>
+<li><strong>View tabs</strong> (Board / Summary / History / Analytics)</li>
+<li><strong>Filter</strong> button (also <code>f</code>)</li>
+<li><strong>View</strong> button, which opens the View menu</li>
+<li><strong>Activity</strong> button, which opens the activity drawer</li>
+<li>The overflow menu (<code>...</code>) and the connection status, always visible</li>
 </ul>
-<p><strong>Collapse button:</strong> a split control. Clicking the main segment collapses or expands everything at once (preserving one-click muscle memory); clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.</p>
-<p><strong>Overflow kebab (<code>⋮</code>):</strong> contains Export, Keyboard shortcuts, and Replay onboarding tour. Below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into it too, so the toolbar degrades gracefully without hiding functionality. The first time you visit a board at that viewport size, the kebab auto-expands once so the folded controls are visible. After that, a small first-encounter dot marks the kebab until you click it.</p>
-<p>The toolbar scrolls horizontally when it's wider than the viewport, with the trailing cluster (overflow kebab and connection status) pinned to the right edge so it's always reachable. This applies at any width, not just narrow phones.</p>
+<p><strong>View menu:</strong> a panel with the display controls, in order: <strong>Preset</strong>, card density, card layout (Expanded or Compact), <strong>Overlay</strong>, <strong>Collapse all</strong> / <strong>Expand all</strong> for swimlanes, <strong>Hide all</strong> / <strong>Show all</strong> for columns, and <strong>Show archived cards</strong>. Press Escape to close an open picker first, then the panel.</p>
+<p><strong>Overflow menu (<code>...</code>):</strong> contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use <strong>Restart tour</strong> in the keyboard shortcuts overlay or <strong>Restart onboarding tour</strong> in Settings. A small first-run dot marks the menu until you open it.</p>
 <h2 id="card-layout">Card layout<a class="headerlink" href="#card-layout" title="Permanent link">&para;</a></h2>
-<p>The toolbar's <strong>compact layout toggle</strong> (icon button) switches between two card display modes:</p>
+<p>The <strong>Card layout</strong> control in the toolbar's <strong>View</strong> menu switches between two card display modes:</p>
 <table>
 <thead>
 <tr>
@@ -5677,9 +5677,9 @@
 </tr>
 </tbody>
 </table>
-<p>The preference is stored per user in <code>localStorage</code> under the key <code>user:prefs:card-layout</code> and persists across boards and sessions. The toggle's <code>aria-pressed</code> attribute reflects the compact state for screen reader users.</p>
+<p>The preference is stored per user in <code>localStorage</code> under the key <code>user:prefs:card-layout</code> and persists across boards and sessions. The control's <code>aria-pressed</code> state reflects the compact layout for screen reader users.</p>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
-<p>Click <strong>Filters</strong> in the toolbar (or press <code>f</code>) to open the filter bar. Press <code>/</code> to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.</p>
+<p>Click <strong>Filter</strong> in the toolbar (or press <code>f</code>) to open the filter bar. Press <code>/</code> to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.</p>
 <table>
 <thead>
 <tr>
@@ -5893,7 +5893,7 @@
 </table>
 <h2 id="grid-overlays">Grid overlays<a class="headerlink" href="#grid-overlays" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>Pick an <strong>Overlay</strong> from the dropdown in the board toolbar, next to <strong>Filters</strong>, to shade each cell of the grid from a single number per cell. An overlay is a reading layer drawn <em>on top of</em> the grid, not a different view of it. The grid keeps its exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop, card creation, and filtering all behave the same.</p>
+<p>Pick an <strong>Overlay</strong> from the dropdown in the board toolbar's <strong>View</strong> menu, to shade each cell of the grid from a single number per cell. An overlay is a reading layer drawn <em>on top of</em> the grid, not a different view of it. The grid keeps its exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop, card creation, and filtering all behave the same.</p>
 <table>
 <thead>
 <tr>
@@ -6015,7 +6015,7 @@
 </table>
 <p>Presets are built in; you cannot create or edit your own yet.</p>
 <h3 id="choosing-a-preset">Choosing a preset<a class="headerlink" href="#choosing-a-preset" title="Permanent link">&para;</a></h3>
-<p>Pick a preset from the <strong>Preset</strong> dropdown (bookmark icon) at the start of the board toolbar's controls. Each option shows a one-line summary, and the board's default preset is labeled <strong>Board default</strong>. The trigger reads <strong>Preset</strong> when no preset is active and the preset's name when one is.</p>
+<p>Pick a preset from the <strong>Preset</strong> dropdown (bookmark icon) at the top of the board toolbar's <strong>View</strong> menu. Each option shows a one-line summary, and the board's default preset is labeled <strong>Board default</strong>. The trigger reads <strong>Preset</strong> when no preset is active and the preset's name when one is.</p>
 <p>Choosing a preset saves its density as your <a href="#personal-density-override">personal density override</a> and its overlay as your <a href="#grid-overlays">overlay</a> choice for that board, and records which preset you chose, all in this browser. A notice confirms the change, for example <strong>Applied “Default”</strong>, with an <strong>Undo</strong> button that puts back your previous settings. The notice closes by itself after a few seconds (longer when a link applied the preset), and waits while your pointer or keyboard focus is on it. While it is showing, the <strong>Preset</strong> dropdown also offers <strong>Undo</strong>, so you can reach it from the keyboard.</p>
 <p>You can also apply a preset from the <a href="../keyboard-shortcuts/">command palette</a> (⌘K / Ctrl+K): type <strong>Apply preset: Classic</strong> or <strong>Apply preset: Default</strong>, or <strong>Reset to preset: …</strong> when the active preset is modified. These work exactly like the dropdown, including the Undo notice, in every view of the board (Board, Summary, History, Analytics and the Lens).</p>
 <p>Choosing the preset that is already active, and unmodified, changes nothing and shows a short notice, <strong>“Default” is already applied</strong>, so you know the choice registered. A long preset name is shortened on the trigger; hover it to see the full name.</p>
@@ -6114,7 +6114,7 @@
 <p>Archive and restore events <strong>are included</strong> in the board History view by default, alongside column-to-column moves. The API supports narrowing this with <code>exclude_type=archived,unarchived</code>, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's <strong>History</strong> tab, if you want moves only.</p>
 <h2 id="export-import">Export &amp; import<a class="headerlink" href="#export-import" title="Permanent link">&para;</a></h2>
 <h3 id="export">Export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
-<p>Click <strong>Export</strong> in the board toolbar to download the board data:</p>
+<p>Open the overflow menu (<code>...</code>) in the board toolbar and choose <strong>Export</strong> to download the board data:</p>
 <ul>
 <li><strong>JSON</strong> (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.</li>
 <li><strong>CSV</strong> — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.</li>
