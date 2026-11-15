@@ -154,7 +154,7 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
         ))
       }
     />
-    <WipAgeLegend tiers={tiers} />
+    <WipAgeLegend tiers={tiers} blocked={data.samples.some((sample) => sample.is_blocked)} />
     </>
   );
 }

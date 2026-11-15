@@ -27,7 +27,7 @@ const diamond = (x: number, y: number, r = DIAMOND_RADIUS) => `${x},${y - r} ${x
 /** What the two marks mean, in the shapes the chart draws (color is never the only carrier). */
 function ThroughputLegend({ stacked }: { stacked: boolean }) {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary" aria-label="Legend" data-testid="throughput-legend">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary" aria-label="Throughput legend" data-testid="throughput-legend">
       <li className="flex items-center gap-1.5">
         <svg width={12} height={12} aria-hidden="true">
           {stacked

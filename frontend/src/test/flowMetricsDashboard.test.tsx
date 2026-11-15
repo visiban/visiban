@@ -1118,6 +1118,18 @@ describe('named chart colors (#2264)', () => {
     expect(await tiers([6])).toEqual(['warning'])
     cleanup()
     expect(await tiers([])).toEqual([])
+    expect(within(screen.getByTestId('flow-wip-age')).queryByTestId('wip-age-legend')).toBeNull()
+  })
+
+  it('keys the blocked square only when a blocked card is drawn (#2284)', async () => {
+    const at = (uid: string, blocked: boolean) => ({ ...age.samples[0], card_uid: uid, value_days: 2, is_blocked: blocked })
+    mockAll({ age: { ...age, sample_size: 2, cards: [cardA, cardB], samples: [at('b1', true), at('b2', false)] } })
+    await renderLoaded()
+    expect(within(screen.getByTestId('flow-wip-age')).getByTestId('wip-age-legend').querySelector('[data-legend-blocked]')).toHaveTextContent('Blocked card')
+    cleanup()
+    mockAll({ age: { ...age, sample_size: 1, cards: [cardA, cardB], samples: [at('b3', false)] } })
+    await renderLoaded()
+    expect(within(screen.getByTestId('flow-wip-age')).getByTestId('wip-age-legend').querySelector('[data-legend-blocked]')).toBeNull()
   })
 
   it('draws no aging tier key under a breakdown, where marks take group colors (#2284)', () => {
@@ -1129,7 +1141,7 @@ describe('named chart colors (#2264)', () => {
         onSelect={() => {}}
       />,
     )
-    expect(container.querySelector('[data-testid="wip-age-legend"]')).toBeNull()
+    expect(container.querySelector('[data-legend-tier]')).toBeNull()
   })
 
   it('adds no tier for a withheld percentile', () => {
