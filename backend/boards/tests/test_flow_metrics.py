@@ -2224,7 +2224,7 @@ class GroupedQueryCountTests(GroupingFixture):
             for by, extra in self.VARIANTS.items():
                 with self.subTest(metric=metric, by=by):
                     queries, body = self.count(metric, **self.params(by))
-                    # Six or more groups: the "Other" path runs too.
+                    # Six groups, so the "Other" path runs too.
                     self.assertEqual(len(body["grouping"]["groups"]), 6)
                     self.assertIsNone(body["grouping"]["groups"][-1]["key"])
                     self.assertEqual(queries, plain + extra)
