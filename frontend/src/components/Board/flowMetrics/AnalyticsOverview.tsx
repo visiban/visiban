@@ -125,7 +125,7 @@ export default function AnalyticsOverview({
         {loading ? (results === null ? "Loading flow metrics" : "Updating") : ""}
       </p>
       {failed && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm text-danger" role="alert">Some panels failed to load.</p>
           <button
             type="button"
@@ -134,7 +134,7 @@ export default function AnalyticsOverview({
               headingRef?.current?.focus();
               setAttempt((n) => n + 1);
             }}
-            className="px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 text-sm rounded border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
           </button>

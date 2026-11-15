@@ -46,7 +46,7 @@ export default function BottleneckPanel({
   const empty = cumulative && uid === null ? noBottleneck(cumulative, cycle) : null;
   return (
     <section
-      aria-labelledby="analytics-bottleneck-heading"
+      aria-labelledby="analytics-bottleneck-eyebrow analytics-bottleneck-heading"
       data-testid="analytics-bottleneck"
       className={`bg-surface border rounded-lg p-4 flex flex-col gap-3 min-w-0 h-full ${uid !== null ? "border-warning" : "border-line"}`}
     >
@@ -56,7 +56,7 @@ export default function BottleneckPanel({
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
           </svg>
         )}
-        <span className={uid !== null ? "text-warning" : undefined}>Bottleneck</span>
+        <span id="analytics-bottleneck-eyebrow" className={uid !== null ? "text-warning" : undefined}>Bottleneck</span>
       </p>
       {cumulative && uid !== null ? (
         <>
@@ -81,7 +81,7 @@ export default function BottleneckPanel({
       ) : failed ? (
         <p id="analytics-bottleneck-heading" className="text-sm text-fg-tertiary">Could not load the bottleneck.</p>
       ) : (
-        <div id="analytics-bottleneck-heading" aria-hidden="true" className="flex flex-col gap-3">
+        <div aria-hidden="true" className="flex flex-col gap-3">
           <div className="h-6 w-32 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
           <div className="h-12 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
         </div>

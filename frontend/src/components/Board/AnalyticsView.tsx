@@ -45,6 +45,7 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
           <>
             {boardName}
             <span className="text-fg-faint select-none mx-1" aria-hidden="true">·</span>
+            <span className="sr-only">, </span>
           </>
         )}
         {periodText(filters)}
@@ -65,7 +66,7 @@ export default function AnalyticsView({
   const { filters, setFilters } = useAnalyticsFilters();
   const headingRef = useRef<HTMLHeadingElement>(null);
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-sunken">
+    <div className="flex-1 overflow-y-auto bg-sunken" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
         <AnalyticsTitleRow boardName={boardName} filters={filters} headingRef={headingRef} />
         <AnalyticsOverview

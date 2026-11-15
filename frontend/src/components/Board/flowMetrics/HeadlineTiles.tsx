@@ -26,11 +26,11 @@ interface TileProps {
 function Tile({ label, value, unit, provisional = false, children }: TileProps) {
   return (
     <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-1 min-w-0">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <h3 className="text-sm text-fg-tertiary">{label}</h3>
         {provisional && <span className="text-xs text-fg-tertiary border border-line-strong rounded px-1.5">Provisional</span>}
       </div>
-      <p className="flex items-baseline gap-1 text-fg">
+      <p className="flex flex-wrap items-baseline gap-x-1 text-fg">
         {value === null ? (
           <span className="text-3xl font-semibold text-fg-tertiary">—<span className="sr-only">Withheld</span></span>
         ) : (
@@ -129,11 +129,13 @@ function BlockedTile({ blocked }: { blocked: FlowBlocked }) {
  */
 export default function HeadlineTiles({ cycle, throughput, wipAge, blocked, columns, filtered, settled = false }: Props) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 min-w-0" data-testid="analytics-tiles">
+    <section aria-labelledby="analytics-tiles-heading" className="grid grid-cols-2 lg:grid-cols-4 gap-4 min-w-0" data-testid="analytics-tiles">
+      {/* The tiles' own h2, so their h3s do not nest under the bottleneck's heading. */}
+      <h2 id="analytics-tiles-heading" className="sr-only">Headline numbers</h2>
       {cycle ? <CycleTile cycle={cycle} /> : <TilePlaceholder label="Cycle time" failed={settled} />}
       {throughput ? <ThroughputTile throughput={throughput} /> : <TilePlaceholder label="Throughput" failed={settled} />}
       {wipAge ? <WipTile wipAge={wipAge} columns={columns} filtered={filtered} /> : <TilePlaceholder label="Work in progress" failed={settled} />}
       {blocked ? <BlockedTile blocked={blocked} /> : <TilePlaceholder label="Blocked time" failed={settled} />}
-    </div>
+    </section>
   );
 }
