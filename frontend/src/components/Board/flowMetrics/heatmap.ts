@@ -71,7 +71,7 @@ export function saveViewMode(boardId: number, mode: ViewMode) {
 export function exportCsv(data: AnalyticsData, mode: ViewMode) {
   const doneCols = new Set(data.done_columns ?? []);
   const cols = data.columns.filter(c => !doneCols.has(c));
-  const modeLabel = mode === "age" ? "Current age" : `Throughput last ${data.days}d`;
+  const modeLabel = mode === "age" ? "Current" : `In period (last ${data.days}d)`;
   const header = ["Swimlane", ...cols.map(c => `${modeLabel} (${c}, days)`), "Velocity (days)", "Stalled cards"];
   const rows = data.swimlanes.map(sw => {
     const avgMap = mode === "age"

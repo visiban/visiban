@@ -67,7 +67,7 @@ Time-in-stage and flow data derived from `CardMovement` records, on one scrollin
 1. **Title row:** "Analytics", a **Beta** badge, the board name and the period shown.
 2. **Filter bar:** one **Date range**, **Swimlane** and **Label** selection for the whole page (see [Filters](#filters)), and **Export CSV** for admins.
 3. **Bottleneck** panel and four [headline tiles](#headline-tiles).
-4. The [dwell time heatmap](#dwell-time-heatmap).
+4. **How work flows**, with **Where the time goes** under it; its Table view is the [dwell time heatmap](#dwell-time-heatmap) (see [How work flows](#how-work-flows)).
 5. **Cumulative flow** and **Throughput**, side by side.
 6. **WIP aging** and the [Needs attention](#needs-attention).
 7. **Cycle time** and [Why cards get blocked](#why-cards-get-blocked).
@@ -99,7 +99,23 @@ The panel names the column the server reports as the bottleneck (the column that
 - **Share of the cycle:** the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.
 - **Queue:** cards in the column at the start and end of the period, the column's WIP limit when one is set, and how many cards arrive and leave per week.
 
-**See the N cards** lists the cards in that column now, oldest first; **Open on board** goes back to the board. Without a bottleneck the panel says **Too early to say** (no 85th percentile of cycle time yet) or **No bottleneck** (no column's queue grew in the period).
+**See the N cards** opens the [column drawer](#column-drawer) for that column; **Open on board** goes back to the board. Without a bottleneck the panel says **Too early to say** (no 85th percentile of cycle time yet) or **No bottleneck** (no column's queue grew in the period).
+
+### How work flows
+
+One row, left to right, inside a box that scrolls sideways when the panel is narrower than 980px:
+
+- **Connector** before each column: cards per week entering it, a bar whose thickness follows that rate, and a one- or two-word note ("started", "move on", "fewer leave"). Connectors are neutral, and warning-colored after the bottleneck.
+- **Column box** for each in-progress column, a button that opens the [column drawer](#column-drawer): the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). **Squares beyond the WIP limit are hollow**, outlined in the danger color. The bottleneck's box has the warning border.
+- A final connector and a **Done** box with the number of cards finished in the period.
+
+**Where the time goes** sits under the row: one bar, "All cards", segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.
+
+A **Chart | Table** switch on the panel changes it to the [dwell time heatmap](#dwell-time-heatmap) table.
+
+### Column drawer
+
+Opens from a column box or from the bottleneck panel's **See the N cards** button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its time by column and an **Open card** button, then the other cards oldest first. Five show at first; **Show N more** reveals the rest. Choosing a card in the list shows its transitions, with **Back** returning to the column.
 
 ### Headline tiles
 
@@ -177,16 +193,16 @@ Color is never the only signal: each colored cell shows its marker next to the v
 
 The heatmap follows the page's [filters](#filters): its period is the filter bar's date range, and the swimlane and label filters are sent with the request.
 
-### View mode: Age vs Throughput
+### Table modes: Current vs In period
 
-A button pair above the heatmap toggles its mode. The choice persists per board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
+The heatmap is the **Table** view of [How work flows](#how-work-flows). A button pair above it toggles its mode. The choice persists per board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Current**.
 
-| Mode | What the heatmap shows | Use it to |
+| Mode | What the table shows | Use it to |
 |---|---|---|
-| **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
-| **Throughput** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical time in each stage over the filter bar's date range |
+| **Current** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
+| **In period** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical time in each stage over the filter bar's date range |
 
-This mode measures dwell time, not [throughput](#flow-metric-definitions) (cards finished per period), despite the button's name. In this mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
+Neither mode measures [throughput](#flow-metric-definitions) (cards finished per period); both measure dwell time. In **In period** each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with no stay in the period show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
 ### Dwell time and archived cards
 
@@ -199,7 +215,7 @@ Analytics includes archived cards as part of the historical record.
 
 > **Changed in 1.3** (#448)
 
-**Age** and **Throughput** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's **Age** and split its stay in **Throughput**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.
+**Current** and **In period** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's age and split its stay in **In period**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.
 
 ### Needs attention
 
@@ -226,7 +242,7 @@ When the selected window has no movement data at all (a new board, or a period b
 
 ### CSV export
 
-Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode shown, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
+Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
 
 ### API reference
 
