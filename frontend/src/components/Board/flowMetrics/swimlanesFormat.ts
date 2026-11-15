@@ -70,8 +70,8 @@ export function cycleText(row: FlowSwimlaneRow): string {
   }
   const median = `${row.median_days.toFixed(1)} days median`;
   return row.p85_days === null
-    ? `${median} · 85% line appears at ${P85_APPEARS_AT} finished cards`
-    : `${median} · 85% within ${dayText(row.p85_days)} days`;
+    ? `${median} · 85% line needs ${P85_APPEARS_AT} finished cards`
+    : `${median} · 85% finish within ${dayText(row.p85_days)} days`;
 }
 
 export function trendText(row: FlowSwimlaneRow): string {

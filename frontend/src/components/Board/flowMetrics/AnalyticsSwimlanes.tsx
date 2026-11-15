@@ -7,7 +7,7 @@ import { CHART_COLORS, CHART_HUE } from "../../../utils/chartScale";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import AnalyticsFilterBar from "./AnalyticsFilterBar";
 import {
-  SORT_OPTIONS, barScale, blockedText, cycleText, dayText, findingText, sortRows, statusText, trendText,
+  MEDIAN_APPEARS_AT, SORT_OPTIONS, barScale, blockedText, cycleText, dayText, findingText, sortRows, statusText, trendText,
 } from "./swimlanesFormat";
 import type { SwimlaneSort } from "./swimlanesFormat";
 
@@ -192,9 +192,9 @@ export default function AnalyticsSwimlanes({
       </div>
       <div role="status" className="sr-only">{loading && data ? "Updating" : ""}</div>
       {failed && !data ? (
-        <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
+        <div role="alert" className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
           <p className="text-sm text-fg-secondary">Could not load swimlanes.</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover">
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Retry
           </button>
         </div>
@@ -204,6 +204,14 @@ export default function AnalyticsSwimlanes({
         </div>
       ) : (
         <div className={`flex flex-col gap-4 min-w-0 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+          {failed && (
+            <div role="alert" className="text-sm text-fg-secondary flex flex-wrap items-center gap-3">
+              Could not refresh swimlanes. The numbers below are from the last load.
+              <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+                Retry
+              </button>
+            </div>
+          )}
           <section
             className={`bg-surface border rounded-lg p-4 ${data.swimlanes.some((s) => s.status === "slower") ? "border-warning" : "border-line"}`}
             data-testid="swimlanes-finding"
@@ -211,7 +219,8 @@ export default function AnalyticsSwimlanes({
             <h2 className="text-base font-semibold text-fg">{finding.heading}</h2>
             <p className="text-sm text-fg-secondary mt-1 max-w-3xl">{finding.sentence}</p>
           </section>
-          <section className="bg-surface border border-line rounded-lg px-4 min-w-0" aria-label="Swimlanes">
+          <section className="bg-surface border border-line rounded-lg px-4 min-w-0">
+            <h2 className="sr-only">Swimlanes</h2>
             {data.swimlanes.length === 0 && <p className="text-sm text-fg-secondary py-4">This board has no swimlanes.</p>}
             {sections.map((section) => (
               <div key={section.key}>
@@ -223,15 +232,15 @@ export default function AnalyticsSwimlanes({
                 </ul>
               </div>
             ))}
-            <p className="text-xs text-fg-tertiary py-3 border-t border-line flex flex-wrap gap-x-6 gap-y-1" data-testid="swimlanes-legend">
+            {data.swimlanes.length > 0 && <p className="text-xs text-fg-tertiary py-3 border-t border-line flex flex-wrap gap-x-6 gap-y-1" data-testid="swimlanes-legend">
               <span>
                 <span aria-hidden="true" className="inline-block w-0.5 h-3 bg-fg align-middle mr-1.5" />
                 Board median{data.board.median_days !== null ? `, ${dayText(data.board.median_days)} days` : ""}
               </span>
               <span>Solid bar: median. Thin line: reaches the 85% mark.</span>
               <span>Trend compares rolling medians inside the selected period.</span>
-              <span>Swimlanes with fewer than 5 finished cards show no median.</span>
-            </p>
+              <span>Swimlanes with fewer than {MEDIAN_APPEARS_AT} finished cards show no median.</span>
+            </p>}
           </section>
         </div>
       )}

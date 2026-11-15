@@ -88,10 +88,11 @@ export default function AnalyticsView({
               href={`#analytics-${id}`}
               aria-current={view === id ? "page" : undefined}
               onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
                 event.preventDefault(); // the view is page state, not a URL
                 if (view !== id) { setFetchedFilters(null); setView(id); }
               }}
-              className={`px-1 py-2 -mb-px text-sm border-b-2 min-h-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded-t ${
+              className={`px-1 py-2 -mb-px text-sm border-b-2 min-h-6 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded-t ${
                 view === id ? "font-semibold text-fg border-primary-emphasis underline underline-offset-4" : "text-fg-secondary border-transparent hover:text-fg"
               }`}
             >

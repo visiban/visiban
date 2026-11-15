@@ -80,7 +80,7 @@ describe('Swimlanes view', () => {
     const byName = (n: string) => rows.find((r) => within(r).queryByRole('button', { name: `${n}, open in Overview` }))!
     const platform = byName('Platform')
     expect(platform).toHaveTextContent('Slower than the board')
-    expect(platform).toHaveTextContent('14.5 days median · 85% within 24 days')
+    expect(platform).toHaveTextContent('14.5 days median · 85% finish within 24 days')
     expect(platform).toHaveTextContent('Slower, 10 to 16 days')
     expect(platform).toHaveTextContent('31% of elapsed time')
     expect(byName('Growth')).toHaveTextContent('In line with the board')
@@ -91,7 +91,7 @@ describe('Swimlanes view', () => {
     expect(byName('Ops')).toHaveTextContent('9.0 days median')
     // 5 or 6 finished: no 85th line
     expect(within(byName('Legal')).queryByTestId('p85-line')).toBeNull()
-    expect(byName('Legal')).toHaveTextContent('appears at 7 finished cards')
+    expect(byName('Legal')).toHaveTextContent('needs 7 finished cards')
     // under 5: no median, bar fill or trend
     const design = byName('Design')
     expect(design).toHaveTextContent('Too few finished cards')
