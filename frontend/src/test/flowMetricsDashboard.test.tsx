@@ -903,7 +903,7 @@ describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
   it('follows the filters the dimmed data was fetched for, not the live selection', async () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
-    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    expect(screen.getByText(/columns over their limit/)).toBeInTheDocument()
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => { release = resolve })
     ageMock.mockImplementation(async () => { await gate; return age })
@@ -911,9 +911,9 @@ describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
     await waitFor(() => expect(ageMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: 3, labelId: null }))
     // Still the unfiltered answers on screen, so the board-wide clause must stay.
-    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    expect(screen.getByText(/columns over their limit/)).toBeInTheDocument()
     release()
-    await waitFor(() => expect(screen.queryByText(/column over its limit/)).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/columns over their limit/)).not.toBeInTheDocument())
   })
 })
 
