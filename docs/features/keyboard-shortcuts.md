@@ -53,7 +53,7 @@ View-tab shortcuts fire only on a board route (`/boards/<id>`). They write to th
 |---|---|
 | <kbd>↑</kbd> / <kbd>↓</kbd> | Move between rows (only while focus is on the table; they do nothing in the filter controls or the detail panel) |
 | <kbd>Enter</kbd> | Open the detail panel for the focused row |
-| <kbd>Esc</kbd> | Close an open filter menu, then the detail panel, then return to the board, one level per press |
+| <kbd>Esc</kbd> | Close an open filter menu or the Filter panel, then the detail panel, then return to the board, one level per press |
 
 The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focus to the row that opened it, so <kbd>Enter</kbd> reopens it.
 

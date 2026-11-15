@@ -453,7 +453,7 @@ Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`
 The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:
 
 - **View tabs** (Board / Summary / History / Analytics)
-- **Filter** button (also `f`)
+- **Filter** button, which opens the [Filter panel](#filter-panel) (press `f` to toggle the filter bar instead)
 - **View** button, which opens the View menu
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
@@ -473,9 +473,20 @@ The **Card layout** control in the toolbar's **View** menu switches between two 
 
 The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.
 
+## Filter panel
+
+The toolbar's **Filter** button opens a panel with:
+
+- A **Find a field** box (focused on open) that narrows the rows below it by name.
+- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when you can see swimlane fields) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
+- Your **saved filters**. Click one to load it and close the panel. Saving and deleting stay in the filter bar.
+- A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
+
+The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other, in the URL and in saved filters. Pressing `f` still toggles the filter bar, not the panel.
+
 ## Filtering
 
-Click **Filter** in the toolbar (or press `f`) to open the filter bar. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
+Click **Filter** in the toolbar to open the [Filter panel](#filter-panel), then choose **Show filter bar** in its footer to open the full filter bar. Press `f` to toggle the filter bar directly. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
 
 | Filter | Options |
 |---|---|

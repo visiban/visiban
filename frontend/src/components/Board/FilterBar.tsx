@@ -6,9 +6,9 @@ import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
 import ActiveMark from "../Common/ActiveMark";
 import FilterChip from "./FilterChip";
+import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
-import { PRIORITY_COLORS } from "../../constants/colors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { LaneFilterControl } from "./LaneFilterPopover";
@@ -41,6 +41,9 @@ export type CustomFieldFilterValue =
   | { kind: "number" | "date"; equals: string }
   | { kind: "choice"; values: string[] }
   | { kind: "multi_choice"; values: string[] };
+
+// eslint-disable-next-line react-refresh/only-export-components -- re-export keeps the existing import path
+export { isCustomFieldFilterActive };
 
 export interface FilterState {
   search: string;
@@ -84,30 +87,6 @@ export const EMPTY_FILTER: FilterState = {
   visibleCustomFieldFilterIds: [],
   blockedOnly: false,
 };
-
-// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
-export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
-  return v.kind === "choice" || v.kind === "multi_choice"
-    ? v.values.length > 0
-    : v.kind === "text" ? v.query !== "" : v.equals !== "";
-}
-
-function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFilterValue {
-  switch (def.field_type) {
-    case "number":
-    case "date":
-      return { kind: def.field_type, equals: "" };
-    case "dropdown":
-    case "checkbox":
-      return { kind: "choice", values: [] };
-    case "multi_select":
-      return { kind: "multi_choice", values: [] };
-    case "text":
-    case "url": // #1390 — a URL is matched as text ("contains"), like a text field
-    default:
-      return { kind: "text", query: "" };
-  }
-}
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
 export function countActiveFilters(f: FilterState): number {
@@ -214,20 +193,6 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
     </button>
   );
 }
-
-const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
-  { value: "low", label: "Low", color: PRIORITY_COLORS.low },
-  { value: "medium", label: "Medium", color: PRIORITY_COLORS.medium },
-  { value: "high", label: "High", color: PRIORITY_COLORS.high },
-  { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
-];
-
-const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: string }[] = [
-  { value: "overdue", label: "Overdue" },
-  { value: "today", label: "Today" },
-  { value: "this_week", label: "Due this week" },
-  { value: "none", label: "No due date" },
-];
 
 // #964 — the four built-in facets that used to render as always-visible
 // dropdowns in Row 1. They now stay collapsed until picked from the
