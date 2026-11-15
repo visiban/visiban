@@ -133,12 +133,12 @@ vi.mock('../components/Board/ColumnHeader', async () => {
     )
   }
   return {
-    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: () => void }) => {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: (swimlaneId?: number) => void }) => {
       capturedColumnUpdated = onColumnUpdated
       return (
         <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
           {column.name}
-          {onAddCard && <button onClick={onAddCard}>{`Header add ${column.name}`}</button>}
+          {onAddCard && <button onClick={() => onAddCard()}>{`Header add ${column.name}`}</button>}
           {renderRealColumnModals && <SettingsToggle column={column} isIntakeColumn={isIntakeColumn} />}
         </div>
       )
@@ -591,12 +591,14 @@ describe('BoardView', () => {
       expect(row).toHaveClass('sticky', 'top-0', 'bg-sunken')
     })
 
-    it('the header add-card button asks the first cell of its column to open its input', () => {
+    it('the header add-card button asks the chosen lane cell in its column to open its input', () => {
       render(<BoardView {...defaultProps()} />)
       const first = document.createElement('div')
       first.setAttribute('data-board-cell', '')
       first.setAttribute('data-column-id', '10')
+      first.setAttribute('data-swimlane-id', '20')
       const second = first.cloneNode() as HTMLElement
+      second.setAttribute('data-swimlane-id', '99')
       document.body.append(first, second)
       const opened = vi.fn()
       first.addEventListener('visiban:add-card', opened)
@@ -608,14 +610,14 @@ describe('BoardView', () => {
       first.remove(); second.remove()
     })
 
-    it('withholds the header add-card button when every lane is collapsed (no cell to hear it)', async () => {
+    it('keeps the header add-card button when every lane is collapsed (picking a lane expands it, #2317)', async () => {
       const base = makeBoard()
       mockBoardContextValue = defaultContext({
         board: makeBoard({ swimlanes: base.swimlanes.map((l) => ({ ...l, is_collapsed: true })) }),
       })
       render(<BoardView {...defaultProps()} />)
       await waitFor(() => expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'true'))
-      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Header add To Do' })).toBeInTheDocument()
     })
 
     it('a viewer gets no header add-card button', () => {

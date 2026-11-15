@@ -12,6 +12,12 @@ import OverflowMenu, { type OverflowItem } from "../Layout/OverflowMenu";
 import { isImeComposing } from "../../utils/imeComposition";
 import { columnTintStyle } from "../../utils/colorContrast";
 
+const ADD_ICON = (
+  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+    <path d="M8 3v10M3 8h10" />
+  </svg>
+);
+
 interface Props {
   /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
   boardColors?: BoardColor[];
@@ -35,10 +41,16 @@ interface Props {
    * Opens the add-card input in this column (#2270). Omitted when the viewer cannot
    * create cards here, which removes the button rather than disabling it.
    */
-  onAddCard?: () => void;
+  onAddCard?: (swimlaneId?: number) => void;
+  /**
+   * Lanes the add button can target (#2317). With more than one, the button opens a
+   * "which swimlane?" menu and calls `onAddCard(swimlaneId)`; with one or none it
+   * calls `onAddCard()` directly.
+   */
+  addCardLanes?: { id: number; name: string; color: string; collapsed: boolean }[];
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -298,19 +310,38 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               the keyboard-reachable, name-typed-confirm path, while column drag-to-
               trash now requires holding ⌥. Non-admins get no affordance at all per
               the conditional-admin-only-elements rule — never a greyed-out control. */}
-          {onAddCard && (
+          {onAddCard && addCardLanes && addCardLanes.length > 1 ? (
+            // Several lanes: ask which one (#2317). The wrapper keeps clicks off the header's
+            // rename/drag handlers, as the single-lane button below does.
+            <div className="shrink-0" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+              <OverflowMenu
+                align="left"
+                ariaLabel="Add card to which swimlane?"
+                triggerAriaLabel={`Add card to ${column.name}`}
+                triggerTitle="Add card"
+                triggerTestId="column-add-card"
+                triggerClassName="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                triggerIcon={ADD_ICON}
+                items={addCardLanes.map((lane, i) => ({
+                  id: String(lane.id),
+                  label: lane.collapsed ? `${lane.name} (collapsed)` : lane.name,
+                  icon: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: lane.color }} />,
+                  separatorBefore: i > 0,
+                  onSelect: () => onAddCard(lane.id),
+                }))}
+              />
+            </div>
+          ) : onAddCard && (
             <button
               type="button"
               aria-label={`Add card to ${column.name}`}
               title="Add card"
               data-testid="column-add-card"
-              onClick={(e) => { e.stopPropagation(); onAddCard(); }}
+              onClick={(e) => { e.stopPropagation(); onAddCard(addCardLanes?.[0]?.id); }}
               onDoubleClick={(e) => e.stopPropagation()}
               className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
-              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-                <path d="M8 3v10M3 8h10" />
-              </svg>
+              {ADD_ICON}
             </button>
           )}
           {isAdmin && (

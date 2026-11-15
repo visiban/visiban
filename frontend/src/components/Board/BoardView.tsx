@@ -2001,10 +2001,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
   );
-  const hasRenderedLane = useMemo(
-    () => board.swimlanes.some((s) => !renderHiddenSwimlaneIds.has(s.id) && !collapsedSwimlaneIds.has(s.id)),
-    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
-  );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
   // The collapsed-lanes strip counts only lanes the reader can see collapsed:
@@ -2168,12 +2164,48 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Resizable board columns
   const DEFAULT_COL_WIDTH = 220;
-  // Header "add card" (#2270): opens the new-card input in the column's first visible lane,
-  // through the cell's own listener, so the cell keeps owning its draft and its focus return.
-  const requestAddCard = useCallback((columnId: number) => {
-    const cell = document.querySelector<HTMLElement>(`[data-board-cell][data-column-id="${columnId}"]`);
-    cell?.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+  // Header "add card" (#2270, #2317): opens the new-card input in the chosen lane's cell for this
+  // column, through the cell's own listener, so the cell keeps owning its draft and its focus return.
+  // A collapsed lane has no cells, so it is expanded first and the request waits for them to render.
+  const [pendingAddCard, setPendingAddCard] = useState<{ columnId: number; swimlaneId: number } | null>(null);
+  const dispatchAddCard = useCallback((columnId: number, swimlaneId: number) => {
+    const cell = document.querySelector<HTMLElement>(
+      `[data-board-cell][data-column-id="${columnId}"][data-swimlane-id="${swimlaneId}"]`,
+    );
+    if (!cell) return false;
+    cell.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+    return true;
   }, []);
+  const requestAddCard = useCallback((columnId: number, swimlaneId: number) => {
+    if (collapsedSwimlaneIds.has(swimlaneId)) {
+      toggleCollapsedSwimlane(swimlaneId);
+      setPendingAddCard({ columnId, swimlaneId });
+      return;
+    }
+    dispatchAddCard(columnId, swimlaneId);
+  }, [collapsedSwimlaneIds, toggleCollapsedSwimlane, dispatchAddCard]);
+  useEffect(() => {
+    if (!pendingAddCard || collapsedSwimlaneIds.has(pendingAddCard.swimlaneId)) return;
+    const { columnId, swimlaneId } = pendingAddCard;
+    // Cells commit with the expand render, so the first try normally lands; one frame of grace
+    // covers a lane that mounts its cells a tick later.
+    if (dispatchAddCard(columnId, swimlaneId)) {
+      setPendingAddCard(null);
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      dispatchAddCard(columnId, swimlaneId);
+      setPendingAddCard(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingAddCard, collapsedSwimlaneIds, dispatchAddCard]);
+  // Lanes the header "+" can target, in board order (lanes hidden by the user or a lane filter have no cells).
+  const addCardLanes = useMemo(
+    () => board.swimlanes
+      .filter((s) => !renderHiddenSwimlaneIds.has(s.id))
+      .map((s) => ({ id: s.id, name: s.name, color: s.color, collapsed: collapsedSwimlaneIds.has(s.id) })),
+    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
+  );
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
     for (const col of board.columns) {
@@ -3023,9 +3055,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
-                    // No rendered lane cell (every lane collapsed or filtered out) means nothing
-                    // would hear the request, so the control is withheld rather than left dead.
-                    onAddCard={canEdit && col.allow_card_creation && hasRenderedLane ? () => requestAddCard(col.id) : undefined}
+                    // No lane at all (every lane hidden or filtered out) means nothing could hear the
+                    // request, so the control is withheld rather than left dead. Collapsed lanes still
+                    // count: picking one expands it first (#2317).
+                    addCardLanes={addCardLanes}
+                    onAddCard={canEdit && col.allow_card_creation && addCardLanes.length > 0
+                      ? (swimlaneId) => requestAddCard(col.id, swimlaneId ?? addCardLanes[0].id)
+                      : undefined}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}
