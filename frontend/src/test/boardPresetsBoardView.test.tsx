@@ -282,10 +282,10 @@ describe('BoardView — board presets (#1146)', () => {
       })
     }
 
-    // Named Classic exception (#1417, owner decision 2026-11-13): the pinned
-    // swimlane chip cap follows card density in Classic too. The snapshots above
-    // use no swimlane fields, so they cannot see it; this fixture pins it.
-    describe('pinned swimlane chips follow the board density (#1417 named exception)', () => {
+    // #2271: the swimlane band shows the first two lane fields at every density and
+    // folds the rest behind +N, in Classic too (the redesign replaces the grid for every
+    // preset, so the old #1417 density-following chip cap no longer exists).
+    describe('swimlane band fields (#2271)', () => {
       const defs = Array.from({ length: 6 }, (_, i) => ({
         id: i + 1, uid: `sfuid00000${i + 1}`, name: `Pin${i + 1}`, field_type: 'text' as const, choices: [], position: i,
         show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
@@ -299,16 +299,10 @@ describe('BoardView — board presets (#1146)', () => {
           swimlanes: [{ ...base.swimlanes[0], custom_field_values: defs.map((d) => ({ field_definition: d.id, value: `val${d.id}` })) }],
         })
       }
-      it.each([
-        ['comfortable', 3],
-        ['standard', 5],
-        ['dense', 6],
-      ] as const)('Classic %s shows %i of 6 pinned chips', (card_density, shown) => {
+      it.each(['comfortable', 'standard', 'dense'] as const)('Classic %s shows 2 of 6 fields and +4', (card_density) => {
         renderBoard(pinnedBoard(card_density), 'preset=classic')
-        expect(screen.queryAllByText(/^val\d$/)).toHaveLength(shown)
-        if (shown < 6) {
-          expect(screen.getByRole('button', { name: `+${6 - shown}: Show all 6 field values for ${'Customer A'}` })).toBeInTheDocument()
-        }
+        expect(screen.queryAllByText(/^val\d$/)).toHaveLength(2)
+        expect(screen.getByRole('button', { name: '+4: Show 4 more field values for Customer A' })).toBeInTheDocument()
       })
     })
 

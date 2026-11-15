@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
-import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
 import { useLocation, useSearchParams } from "react-router-dom";
@@ -303,6 +302,8 @@ const FIRST_OPEN_RESYNC_MS = 1000;
 const ARCHIVE_TOAST_KEY = "archive";
 const CARD_NOT_FOUND_TOAST_KEY = "card-not-found";
 const CARD_ACTION_TOAST_KEY = "card-action";
+const noopSetWidth = () => {};
+
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
@@ -462,7 +463,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
   // #974 — per-user override of the board admin's card_density default,
   // layered on top of it (never mutates board.card_density itself, so an
@@ -2137,20 +2138,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return result;
   }, [board.columns])();
 
-  // Resizable swimlane name column
-  const autoSwimlaneWidth = useMemo(
-    () => computeAutoSwimlaneWidth(
-      board.swimlanes,
-      board.swimlane_custom_field_definitions,
-      board.show_row_chip_field_names !== false,
-      // The density the rows render with, so folded chips do not size the column (#2216).
-      effectiveCardDensity,
-    ),
-    [board.swimlanes, board.swimlane_custom_field_definitions, board.show_row_chip_field_names, effectiveCardDensity],
-  );
-  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth ?? autoSwimlaneWidth;
+  // The left label panel is gone (#2271): swimlane bands span the grid, so grid math starts at 0.
+  // `viewPrefs.swimlaneColumnWidth` is still read and written for old saved prefs, but unused.
+  const swimlaneColWidth = 0;
 
-  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
 
   // Resizable board columns
   const DEFAULT_COL_WIDTH = 220;
@@ -2198,23 +2189,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     return result;
   }, [swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizeState.current = { startX: e.clientX, startWidth: swimlaneColWidth };
-    const onMove = (ev: MouseEvent) => {
-      if (!resizeState.current) return;
-      const delta = ev.clientX - resizeState.current.startX;
-      setSwimlaneColumnWidth(resizeState.current.startWidth + delta);
-    };
-    const onUp = () => {
-      resizeState.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [swimlaneColWidth, setSwimlaneColumnWidth]);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -2985,25 +2959,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
-            {/* Corner — sticky to the left; shows board density at a glance */}
-            <div className="shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
-              <span className="text-xs text-fg-muted font-medium tabular-nums">
-                {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
-              </span>
-              <span className="text-xs text-fg-muted font-medium tabular-nums">
-                {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
-              </span>
-              <span className="text-xs text-fg-muted tabular-nums">
-                {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
             {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
             <ColumnSeparator
               isAdmin={isAdmin}
               onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
-              currentWidth={swimlaneColWidth}
-              setWidth={setSwimlaneColumnWidth}
+              currentWidth={0}
+              setWidth={noopSetWidth}
               sepIndex={0}
               hoveredSepIndex={hoveredSepIndex}
               onSepHoverChange={setHoveredSepIndex}
@@ -3082,9 +3043,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
-                      sidebarWidth={swimlaneColWidth}
-                      setSidebarWidth={setSwimlaneColumnWidth}
-                      onResizeStart={handleResizeStart}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
                       onInsertColumn={(colId) => {
@@ -3218,8 +3176,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           )}
           {activeSwimlane && (
-            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 flex items-center gap-2" style={{ width: swimlaneColWidth }}>
-              <span className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
+            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 flex items-center gap-2 w-64">
+              <span className="w-3 h-3 rounded-[3px] shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
               <span className="font-semibold text-fg text-sm truncate">{activeSwimlane.name}</span>
             </div>
           )}

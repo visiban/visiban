@@ -246,7 +246,7 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.
 
-**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned** to the swimlane label panel. Each row shows 3, 5 or 8 of the pinned values depending on the board's [card density](board.md#card-density) (Comfortable, Standard, Dense); the rest fold into a `+N` chip.
+**By the numbers:** up to **15 swimlane fields**, with up to **8 of them pinned**. The swimlane band shows the first two values and folds the rest into a `+N` button; see [Swimlane fields in the lane band](#swimlane-fields-in-the-lane-band).
 
 Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Text and URL fields offer **contains**, **does not contain**, and **matches wildcard** (`*` any text, `?` one character, matches any part of the value): see [Text operators and wildcards](board.md#text-operators-and-wildcards). Admin-only fields are offered there to board admins only.
 
@@ -254,7 +254,7 @@ Dropdown, number, date, text, and URL swimlane fields can also hide lanes from t
 
 Open **Board Settings** and select **Swimlane fields**, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields. Reorder by dragging the `⋮⋮` handle, or with the keyboard: Tab to the handle, Space to pick up, arrow keys to move, Space to drop.
 
-**Shortcut:** when a swimlane's `+N` popover is open and the board has two or more swimlane fields, admins can choose **Edit field order…** in its footer. It closes the popover and opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
+**Shortcut:** when a swimlane's `+N` fields are revealed and the board has two or more swimlane fields, admins can choose **Change field order** beside them. It opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
 
 The tab lists fields in display order with the same glyph, name, type label, and pin state as the Card fields tab. The header shows a running count, for example `12 of 15 · 2 of 8 pinned`. At **13–14 fields**, a warning line shows how many are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
@@ -265,14 +265,11 @@ The editor matches the card field editor (name, type, help text, choices for dro
 !!! note "Field type is locked once a swimlane holds a value"
     As with a card field, a swimlane field's **type cannot be changed once any swimlane on the board holds a value for it**. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why: add a new field of the type you want, then delete this one. Deleting a field permanently deletes all of its values; they can't be recovered. **Delete field** at the bottom left of the editor opens the same type-the-name confirmation as the row's ✕.
 
-### Pinned fields in the swimlane label panel
+### Swimlane fields in the lane band
 
-Up to 8 fields can be pinned, and how many show as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name) follows the board's [card density](board.md#card-density): **3** at Comfortable, **5** at Standard, **8** at Dense. Chips are stacked below the row name, and they're hidden while the swimlane is collapsed, like the rest of the panel's detail. The same limits apply under the Classic preset.
+A swimlane's header is a full-width band (see [Swimlanes](board.md#swimlanes)). The band shows the swimlane's first **two** field values inline, as `Label value` pairs in the order set on the Swimlane fields tab, right after the name. Any further values sit behind a **+N** button: it reveals them in place on the same band and then reads **Less**. Screen readers hear the button's expanded or collapsed state. The band shows the same fields at every card density, under the Classic preset too, and keeps them when the lane is collapsed.
 
-Pinned values past the visible count fold into a trailing `+N` chip, together with any unpinned values. It opens a read-only popover listing every value the current viewer may see, so nothing is lost. Until you resize it yourself, the label column starts wide enough for the chips actually on the row, so a long value folded behind `+N` does not widen it.
-
-- **Order:** the N values counted by `+N` come first (folded pinned values in pin order, then unpinned ones), then the chips actually on the row under an **On row** heading.
-- **Size:** the popover grows to fit its values up to the window height. When it must scroll, a fade at the bottom edge shows there is more, and keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.
+The **Pin to row** setting no longer decides which values show: the band has room for the first two by order, and the rest are one click away. Admins also get a **Change field order** link beside the revealed values; it opens Board Settings on the Swimlane fields tab.
 
 #### Hiding field names on row chips
 
@@ -280,7 +277,7 @@ Pinned values past the visible count fold into a trailing `+N` chip, together wi
 
 By default each row chip shows its field's name before the value, for example `AD: Diane Foster`. With several pinned fields that name repeats on every row and takes up width. A board admin can turn it off in **Board Settings → Swimlane fields** with the **Show field names on row chips** switch at the top of the tab. The setting applies to the whole board, for everyone viewing it, and other people with the board open see the change straight away.
 
-With names hidden, a chip shows only its value (`Diane Foster`) and, unless you resized it yourself, the swimlane label column starts narrower. The name is still available:
+With names hidden, a band field shows only its value (`Diane Foster`). The name is still available:
 
 - **On hover:** the chip's tooltip reads `Field name: value`, as before.
 - **For screen readers:** the chip is still announced as `Field name: value`.

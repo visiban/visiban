@@ -424,7 +424,7 @@ describe('card metadata on an aging tint (#1844)', () => {
 // - CustomFieldValueDisplay: its chip and row-chip variants are the same chip on the swimlane label
 //   panel. AdminOnlyFieldGlyph: the row chip mounts it.
 // - CardPeekPopover: at comfortable density it carries the metadata moved off the face.
-// - SwimlaneFieldsPopover, SwimlaneFieldEditRow: the swimlane field names outside the row chip.
+// - SwimlaneFieldEditRow: the swimlane field names outside the band.
 // - ArchivedCardsPanel: archived cards are bg-sunken rows inside a bg-surface panel.
 // Each file lists every background its text sits on; the check takes the worst. The values are the
 // ones recorded in frontend/CLAUDE.md § Card aging ramp.
@@ -437,7 +437,6 @@ describe('untinted card face text (#1862)', () => {
     'Card/CustomFieldValueDisplay': ['surface'],
     'Common/AdminOnlyFieldGlyph': ['surface'],
     'Card/CardPeekPopover': ['surface'],
-    'Board/SwimlaneFieldsPopover': ['surface'],
     'Board/SwimlaneFieldEditRow': ['surface'],
     'Board/ArchivedCardsPanel': ['surface', 'surface-sunken'],
     'Board/Lens/LensIssueCard': ['surface', 'surface-sunken'],

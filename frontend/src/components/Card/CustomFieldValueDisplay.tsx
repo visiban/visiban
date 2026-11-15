@@ -17,7 +17,7 @@ interface Props {
    * component — it's a single joined line of plain strings, formatted
    * directly via `formatCustomFieldValue` in `CardPeekPopover`, not JSX.
    */
-  variant: "chip" | "detail" | "row-chip";
+  variant: "chip" | "detail" | "row-chip" | "band";
   /**
    * #1140 — draws the admin-only padlock on `row-chip`. Ignored by the other
    * variants. Only an admin is ever sent an admin-only value, so this marks
@@ -95,7 +95,10 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
   // chip
   const dot = isDropdown && !colorKey ? <ChoiceDot choice={value} /> : null;
 
-  if (variant === "row-chip") {
+  if (variant === "row-chip" || variant === "band") {
+    // `band` (#2271): the swimlane header band's "Label value" pair, plain text
+    // with no border or pill, label in tertiary text and value in the body color.
+    const band = variant === "band";
     // Same neutral bordered chip as the card face — not a fourth pill
     // treatment. Two deviations the surface forces: the swimlane label panel
     // is a ~220px *vertical* column, so chips stack and each owns a full
@@ -105,7 +108,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
     // keeps min-w-0 + truncate, and py-0.5 must stay >= the 2px focus ring.
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line max-w-full min-w-0 overflow-hidden ${className ?? ""}`}
+        className={`inline-flex items-center gap-1 min-w-0 max-w-full ${band ? "text-sm" : "text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden"} ${className ?? ""}`}
         title={
           adminOnly
             ? `${definition.name}: ${displayText} · Only board admins can see this`
@@ -118,7 +121,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           // Not aria-label: ARIA 1.2 prohibits naming a generic <span>.
           <span className="sr-only">{definition.name}: </span>
         ) : (
-          <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}:</span>
+          <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}{band ? "" : ":"}</span>
         )}
         {isUrl ? (
           // stopPropagation: the row label panel is a double-click-to-edit
@@ -130,7 +133,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
         ) : colorKey ? (
           <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 20)}</ChoiceBadge>
         ) : (
-          <span className="text-fg-secondary truncate min-w-0">
+          <span className={`${band ? "text-fg font-medium" : "text-fg-secondary"} truncate min-w-0`}>
             {chipValueText(definition, displayText, 20)}
           </span>
         )}

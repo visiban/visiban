@@ -819,32 +819,6 @@ describe('BoardView', () => {
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-hide-row-chip-names', 'true')
   })
 
-  it('auto-sizes the swimlane label column narrower when row chip names are hidden (#1418)', () => {
-    // A long field name with a short value: with names shown, the name drives
-    // the auto width past the default; hidden, only the value counts.
-    const def = {
-      id: 1, uid: 'sfuid0000001', name: 'Account director for the region', field_type: 'text' as const,
-      choices: [], position: 0, show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
-      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
-    }
-    const board = (show: boolean) => {
-      const b = makeBoard({ swimlane_custom_field_definitions: [def], show_row_chip_field_names: show })
-      return { ...b, swimlanes: b.swimlanes.map((s) => ({ ...s, custom_field_values: [{ field_definition: 1, value: 'Diane' }] })) }
-    }
-    const widthOf = () => Number(screen.getByTestId('swim-20').getAttribute('data-sidebar-width'))
-
-    mockBoardContextValue = defaultContext({ board: board(true) })
-    const { unmount } = render(<BoardView {...defaultProps()} />)
-    const shownWidth = widthOf()
-    unmount()
-    mockBoardContextValue = defaultContext({ board: board(false) })
-    render(<BoardView {...defaultProps()} />)
-    const hiddenWidth = widthOf()
-
-    expect(shownWidth).toBeGreaterThan(220)
-    expect(hiddenWidth).toBeLessThan(shownWidth)
-  })
-
   describe('swimlane field order shortcut (#1458)', () => {
     const twoDefs = [1, 2].map((n) => ({
       id: n, uid: `sfuid000000${n}`, name: `F${n}`, field_type: 'text' as const, choices: [], position: n,
@@ -899,10 +873,11 @@ describe('BoardView', () => {
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
   })
 
-  it('renders board density stats in the corner cell', () => {
+  it('has no label-panel corner cell in the header row (#2271)', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText(/col/)).toBeInTheDocument()
-    expect(screen.getByText(/lane/)).toBeInTheDocument()
+    const header = screen.getByTestId('board-header-row')
+    expect(within(header).queryByText(/^\d+ cols?$/)).toBeNull()
+    expect(within(header).queryByText(/^\d+ lanes?$/)).toBeNull()
   })
 
   it('renders keyboard shortcuts icon button', () => {

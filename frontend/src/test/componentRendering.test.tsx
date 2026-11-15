@@ -1231,30 +1231,31 @@ describe('SwimlaneRow', () => {
 
   it('double-clicking the swimlane label opens EditSwimlaneModal for admin', async () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
-    const label = screen.getByText('Customer A').closest('.border-l-4')!
+    const label = screen.getByTestId('swimlane-band')
     await userEvent.setup().dblClick(label)
     expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
   })
 
   it('double-clicking the swimlane label does nothing for non-admin', async () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
-    const label = screen.getByText('Customer A').closest('.border-l-4')!
+    const label = screen.getByTestId('swimlane-band')
     await userEvent.setup().dblClick(label)
     expect(screen.queryByTestId('edit-modal')).not.toBeInTheDocument()
   })
 
-  it('swimlane label panel has border-l-4 (strong color accent)', () => {
+  it('the band replaces the left label panel (#2271)', () => {
     const { container } = render(
       <SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />,
     )
-    const label = container.querySelector('.border-l-4')
-    expect(label).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-band')).toBeInTheDocument()
+    expect(container.querySelector('.border-l-4')).not.toBeInTheDocument()
   })
 
-  it('swimlane name uses text-fg-secondary per design system', () => {
+  it('swimlane name is 17px semibold text-fg per the band spec (#2271)', () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
     const name = screen.getByText('Customer A')
-    expect(name.className).toContain('text-fg-secondary')
-    expect(name.className).not.toContain('font-bold')
+    expect(name.className).toContain('text-fg')
+    expect(name.className).toContain('text-[17px]')
+    expect(name.className).toContain('font-semibold')
   })
 })

@@ -50,11 +50,17 @@ Card creation requires the column's *Allow card creation* setting and at least t
 
 ## Swimlanes
 
-Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), so you can identify swimlanes at a glance even on a dense board.
+Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane has a full-width **header band** tinted with the swimlane's color. Left to right it holds:
+
+- a collapse chevron (it points down when expanded and turns to point right when collapsed);
+- a small square in the swimlane color, then the name in larger semibold type (admins also see the contact email, and a set [health status](health-status.md#lane-status) follows the name);
+- the swimlane's first two field values as `Label value` pairs, then a **+N** button for the rest (it reveals them in place and then reads **Less**; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band));
+- at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the card count (`7 cards`).
+
+The band wraps onto a second line when it runs out of room. The old left label panel is gone, so the cards start at the left edge of the board.
 
 **Resizing:**
 
-- **Label sidebar:** drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width persists per board in localStorage.
 - **Row height:** drag the bottom edge of any swimlane row to set a minimum height. Height persists per swimlane per board in localStorage.
 
 Each swimlane has the following fields:
@@ -62,8 +68,8 @@ Each swimlane has the following fields:
 | Field | Description |
 |---|---|
 | Name | Required; unique per board |
-| Color | Left-edge stripe color on the label panel. Pick a preset or a [custom color](#custom-colors) |
-| Contact email | Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers) |
+| Color | Tint and color square on the header band. Pick a preset or a [custom color](#custom-colors) |
+| Contact email | Optional; set when you create the swimlane. Displayed in the header band for admins only (hidden from members and viewers) |
 | Notes | Optional free-text field on the data model; not currently exposed in the UI |
 | Health status | Optional; set by board admins on each lane. Separate from the board's own status. See [Lane status](health-status.md#lane-status) |
 | Position | Controls row order on the board |
@@ -74,15 +80,16 @@ Each swimlane has the following fields:
 !!! note "Contact email isn't editable after creation yet"
     Contact email can only be set in the **Add Swimlane** dialog. The **Edit Swimlane** modal covers name, color, swimlane field values and [limits](#swimlane-limits), not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.
 
-Click the chevron on the label panel to collapse a swimlane and save vertical space. When collapsed:
+Click the chevron on the band to collapse a swimlane and save vertical space. When collapsed:
 
-- The row shrinks to its minimum height; the stored row min-height is ignored.
-- Each column cell keeps the column's full width and renders as a centered count pill (empty cells show nothing).
-- A set health status stays visible as a shape beside the lane name; a lane with no status shows nothing extra.
-- The contact email and edit (✎) button are hidden; the drag handle and the focus-mode crosshair remain.
-- Click the chevron again to expand and restore full card visibility.
+- The band stays, with its fields, counts and health status, and the cells are replaced by one strip aligned to the columns. The stored row min-height is ignored.
+- Under each column the strip shows the swimlane's card count (an en dash when there are none) and one small square per card: red for overdue, orange for stale, blue otherwise. The number is always there, so the squares never carry meaning alone; screen readers read `Qualified: 4 cards, 1 overdue, 2 stale`. A card in a done column never counts as stale.
+- While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).
+- A calm row-limit line is hidden, and an over-limit one stays.
+- The edit (✎) button is hidden; the drag handle and the focus-mode crosshair remain.
+- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's collapse menu (**Hide all swimlanes** and **Show all swimlanes**).
 
-Admins can double-click the swimlane label to open the Edit Swimlane modal.
+Admins can double-click the swimlane band to open the Edit Swimlane modal.
 
 ### Swimlane limits
 
@@ -96,16 +103,16 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 - **Columns that count.** Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.
 - **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits**, **Enforce WIP hard** and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway. **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns.
 
-**What the row shows.** Once a row has a limit, its label panel shows one state line under the name, worst state first:
+**What the row shows.** Once a row has a limit, its band shows one state line in the right-hand stats, worst state first:
 
 | State | Line |
 |---|---|
 | Under the limit | `WIP 4/6` |
 | At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on; otherwise the line reads `WIP 5/5` |
-| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the label panel (`⛔` when the row is in hard mode) |
+| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the band (`⛔` when the row is in hard mode) |
 | Over the weight limit | `Over weight · 18/12` in red |
 
-The small bar next to the text is decorative; the words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
+The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
 
 **What a move does.** A move is checked against a row only when it adds to the row's count: the card enters one of the row's counted columns from another row, from a column of this row that does not count, or by being created or restored there. Moving a card between two counted columns of the same row never trips the row's limit. While you drag a card over a cell whose column or row is full, the cell gets a red ring and names the limit (for example `⚠ WIP limit 5/5 · Payouts`). With the keyboard, the screen reader announcement for each cell includes the same verdict. If you drop anyway, the move is refused with the same toast as a column limit, naming the row; when a column limit and a row limit both trip, the toast names both. Board admins get **Move anyway (admin override)** for a soft limit, never for a hard one.
 
@@ -117,7 +124,7 @@ Board import restores row limits as exported and does not check them, as with co
 
 Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction, which helps on dense boards with many swimlanes.
 
-**Entering focus mode:** hover over any swimlane label panel to reveal the crosshair icon (⊙) in the top-right corner of the label, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) at its right end, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
 
 **What changes when focus is active:**
 
