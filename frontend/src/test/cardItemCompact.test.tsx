@@ -105,9 +105,9 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   // --- Padding ---
 
-  it('compact mode applies reduced vertical padding py-1.5', () => {
+  it('compact mode applies reduced vertical padding: pt-[7px] (clears the dwell tab) and pb-1.5', () => {
     const { container } = render(<CardItem density="dense" card={makeCard()} compact />)
-    const inner = container.querySelector('.py-1\\.5')
+    const inner = container.querySelector('.pt-\\[7px\\].pb-1\\.5')
     expect(inner).toBeInTheDocument()
   })
 

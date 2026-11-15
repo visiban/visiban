@@ -760,12 +760,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       {overlayClass && (
         <div className={overlayClass} aria-hidden="true" />
       )}
+      {/* top-[7px], not top-1: the grid cell is a 6px well (5px padding + 1px border, #2270), so the
+          13px dwell-overlay tab above a card only clears the checkbox when the checkbox sits 7px
+          down (6 + 1px card border + 7 = 14). See frontend/CLAUDE.md (grid overlay value badge). */}
       {onSelect && (
         <div
           role="checkbox"
           aria-checked={selected}
           tabIndex={0}
-          className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
+          className={`absolute top-[7px] right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
             focus:outline-none focus:ring-2 focus:ring-primary-emphasis
             ${selected ? "bg-primary-emphasis border-primary-emphasis text-on-primary opacity-100" : "border-line-strong bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100"}
           `}
@@ -806,7 +809,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           <span aria-hidden="true" className="w-7 h-7 rounded-full bg-surface-hover border border-line-strong flex items-center justify-center leading-none">⋯</span>
         </button>
       )}
-      <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
+      <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
         <RowWrap {...(denseRow ? { className: "flex items-center gap-2", "data-testid": "card-dense-row" } : {})}>
         <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${

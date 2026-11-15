@@ -205,7 +205,13 @@ test.describe('Custom color picker in the card sheet (#2095)', () => {
     const sheet = page.getByRole('dialog').filter({ has: page.getByRole('textbox', { name: 'New label name' }) })
     await trigger(page).click()
     await expect(panel(page)).toBeVisible()
-    const outside = { x: 500, y: 700 }
+    // Outside the sheet by measurement, not a fixed point: the sheet may use the board's whole
+    // left edge since the swimlane label column went away (#2271), so a constant can land on it.
+    const box = (await sheet.boundingBox())!
+    const viewport = page.viewportSize()!
+    const outside = box.x + box.width + 24 < viewport.width
+      ? { x: box.x + box.width + 24, y: viewport.height - 40 }
+      : { x: Math.max(4, box.x - 24), y: viewport.height - 40 }
 
     await page.mouse.click(outside.x, outside.y)
     await expect(panel(page)).toHaveCount(0)

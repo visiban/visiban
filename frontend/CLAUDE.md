@@ -405,8 +405,8 @@ empty state. Rules:
   The overlay value badge is an opaque tab (`top-0 right-1 rounded-b bg-canvas px-1
   leading-[13px]`), #459. Opaque, because a card's border would otherwise run through a
   value as wide as `12.0d`. Exactly 13px tall, because that is the room above a card's
-  contents: the cell's 8px padding, the card's 1px border, then the checkbox's 4px inset;
-  the title starts lower still, at 17px, or 15px in the compact grid. Never lower or in
+  contents: the cell's 6px well (5px padding, 1px border, #2270), the card's 1px border, then the checkbox's 7px inset (`top-[7px]` on the card, so the 3px the thinner well took away is given back there);
+  the title starts at 14px, or 13px in the compact grid (compact body padding is `pt-[7px]` for exactly this reason: `py-1.5` would put the title's box 1px under the tab). Never lower or in
   another corner: a full compact grid has no free row, so a bottom corner lands on a card's
   avatar, and adding room would reflow the grid, which this slot forbids. `e2e/grid-overlay-dwell`
   measures the tab's box against every card's title, checkbox and avatar in both layouts.
