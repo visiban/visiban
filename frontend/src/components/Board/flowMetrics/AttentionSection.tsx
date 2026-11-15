@@ -86,12 +86,12 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
                   <span className="block text-sm font-medium text-fg truncate" title={title}>{title}</span>
                   <span className="block text-xs text-fg-tertiary truncate" title={where}>{where}</span>
                 </span>
-                <span className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
+                <span aria-label={`${days(age(item))} old`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
                   {Math.round(age(item))}d
                 </span>
               </>
             );
-            const rowClass = "w-full flex items-center gap-3 rounded-md border border-line bg-canvas px-3 py-2 text-left";
+            const rowClass = "w-full flex items-center gap-3 rounded-md border border-line bg-sunken px-3 py-2 text-left";
             const id = card?.id;
             return (
               <li key={item.card_uid}>
