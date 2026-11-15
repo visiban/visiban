@@ -399,6 +399,19 @@ class BoardViewSet(
             if swimlane_name:
                 Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
+            # A board created with auto health on is calculated at once, as a
+            # PATCH turning it on is (#2245): created = turned on from off.
+            # After its lanes exist, before board.created is rendered below,
+            # so that event carries the computed values; the uncommitted row
+            # is invisible to every other writer, so no lock is needed.
+            if board.health_auto_enabled:
+                from ..services.health_compute import apply_auto_health_change
+
+                apply_auto_health_change(
+                    board, old_auto=False, old_off_track_cards=board.health_off_track_cards,
+                    old_staleness_days=board.staleness_threshold_days, user=self.request.user,
+                )
+
             # Broadcast board.created so group members and dashboard subscribers
             # can refresh their board list without a manual reload.
             # NOTE: this event goes to channel board_{id}, which currently has no

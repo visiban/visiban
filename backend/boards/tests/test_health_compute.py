@@ -280,6 +280,25 @@ class SettingsToggleTests(_AutoBoardMixin, TestCase):
         # One board.updated (the PATCH's), carrying the computed value.
         self.assertEqual([f["event"] for f in frames].count("board.updated"), 1)
 
+    def test_board_created_with_auto_on_computes_at_once(self):
+        with _capture_frames() as frames, self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/api/v1/boards/", {"name": "Fresh", "health_auto_enabled": True, "swimlane_name": "Lane"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertIsNotNone(response.json()["health_computed_at"])
+        lane = Swimlane.objects.get(board_id=response.json()["id"])
+        self.assertIsNotNone(lane.health_computed_at)
+        created = [f for f in frames if f["event"] == "board.created"]
+        self.assertEqual(len(created), 1)
+        self.assertIsNotNone(created[0]["data"]["health_computed_at"])
+
+    def test_board_created_with_auto_off_is_not_computed(self):
+        response = self.client.post("/api/v1/boards/", {"name": "Plain", "swimlane_name": "Lane"}, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertIsNone(response.json()["health_computed_at"])
+
     def test_turning_off_clears_computed_columns(self):
         self._card(self.acme, title="late", due_date=YESTERDAY())
         self._patch({"health_auto_enabled": True})

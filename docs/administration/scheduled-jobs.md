@@ -15,7 +15,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
   their notification preferences never receive those notifications, in the bell
   or by email;
 - the `notifications` and `board_events` tables grow without bound;
-- boards with [auto health status](../features/health-status.md) turned on are calculated only once, when auto is turned on, and then only when a board admin uses **Recompute now**; their *Computed …* time keeps aging, and a lane added since shows "Never computed".
+- boards with [auto health status](../features/health-status.md) turned on are calculated at once when auto is turned on (including on a board created with it on), and after that only when a board admin uses **Recompute now**; their *Computed …* time keeps aging, and a lane added since shows "Never computed".
 
 | Command | What it does | Default time (UTC) | On by default when the scheduler is enabled |
 |---|---|---|---|
