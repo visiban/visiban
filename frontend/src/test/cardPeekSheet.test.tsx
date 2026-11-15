@@ -47,6 +47,7 @@ describe('CardPeekSheet', () => {
 
   it('shows lane, title, banner, status strip, every field with Not set, and the pinned note', async () => {
     setup()
+    expect(screen.getAllByText('Loading history...')).toHaveLength(2)
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true')
     expect(screen.getByRole('heading', { name: 'Sakura Electronics' })).toBeInTheDocument()
     expect(screen.getByText('North America')).toBeInTheDocument()
@@ -91,7 +92,8 @@ describe('CardPeekSheet', () => {
   it('reports a history load failure', async () => {
     getCardMovements.mockRejectedValueOnce(new Error('x'))
     setup()
-    expect(await screen.findByText('History could not be loaded.')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('History could not be loaded.')
+    expect(screen.getAllByText('History could not be loaded.')).toHaveLength(2)
   })
 
   it('focuses Close on open; Escape and Close call onClose', async () => {

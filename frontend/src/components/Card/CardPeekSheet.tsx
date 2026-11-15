@@ -139,7 +139,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     }
   };
 
-  const selectClass = "w-full bg-surface text-fg border border-line-strong rounded-md px-2 py-2 text-sm min-h-[44px] sm:min-h-0 sm:py-1.5";
+  const selectClass = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full bg-surface text-fg border border-line-strong rounded-md px-2 py-2 text-sm min-h-[44px] sm:min-h-0 sm:py-1.5";
   const stage = (name: string | undefined, kind: "previous" | "current" | "next") =>
     name ? (
       <span
@@ -173,7 +173,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           type="button"
           onClick={onClose}
           aria-label="Close card peek"
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 -mt-2 -mr-2 p-2 rounded-md text-fg-secondary hover:bg-surface-hover"
+          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 -mt-2 -mr-2 p-2 rounded-md text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
         </button>
@@ -249,6 +249,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <h3 id="peek-time" className="text-sm font-semibold mb-2">Time in each column</h3>
           {movements === null ? (
             <p className="text-sm text-fg-secondary" role="status">Loading history...</p>
+          ) : historyFailed ? (
+            <p className="text-sm text-fg-secondary">History could not be loaded.</p>
           ) : dwell.length === 0 ? (
             <p className="text-sm text-fg-tertiary">No movement recorded yet.</p>
           ) : (
@@ -278,9 +280,11 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
         <section aria-labelledby="peek-history">
           <h3 id="peek-history" className="text-sm font-semibold mb-2">History</h3>
-          {historyFailed ? (
+          {movements === null ? (
+            <p className="text-sm text-fg-secondary">Loading history...</p>
+          ) : historyFailed ? (
             <p className="text-sm text-fg-secondary" role="alert">History could not be loaded.</p>
-          ) : history.length === 0 && movements !== null ? (
+          ) : history.length === 0 ? (
             <p className="text-sm text-fg-tertiary">No history yet.</p>
           ) : (
             <ul className="space-y-1.5 text-sm" data-testid="card-peek-history">
@@ -312,18 +316,18 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             </label>
             {moveError && <p role="alert" className="text-sm text-danger">{moveError}</p>}
             <div className="flex gap-2">
-              <button type="button" disabled={moving} onClick={submitMove} className="bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">Move card</button>
-              <button type="button" onClick={() => setMoveOpen(false)} className="border border-line-strong text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0">Cancel</button>
+              <button type="button" disabled={moving} onClick={submitMove} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
+              <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0">Cancel</button>
             </div>
           </div>
         )}
         <div className="flex gap-2">
-          <button type="button" onClick={() => onOpenCard(card)} className="bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-4 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">Open card</button>
+          <button type="button" onClick={() => onOpenCard(card)} className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-4 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">Open card</button>
           {canEdit && !moveOpen && (
             <button
               type="button"
               onClick={() => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveOpen(true); }}
-              className="border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
+              className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move
             </button>

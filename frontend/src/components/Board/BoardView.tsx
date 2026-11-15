@@ -3146,7 +3146,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       // menu would take focus out of the aria-modal sheet, the same
                       // reason the selection checkbox is withheld (#1914). ⌘K acts
                       // on the open card instead.
-                      onOpenCardMenu={selectedCard ? undefined : openCardMenu}
+                      onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
                       onCardClick={(card) => {
                         clearSelection();
