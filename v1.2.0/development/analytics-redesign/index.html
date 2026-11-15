@@ -4910,15 +4910,19 @@
 <tbody>
 <tr>
 <td>Page background</td>
-<td><code>bg-sunken</code></td>
+<td><code>bg-page</code> (<code>--surface-page</code>: slate-100 light, slate-900 dark; Analytics root only, #2311)</td>
 </tr>
 <tr>
 <td>Panel</td>
 <td><code>bg-surface border border-line rounded-lg</code></td>
 </tr>
 <tr>
-<td>Inset box (column box, tile inside drawer, list row)</td>
+<td>Inset box (tile inside drawer, list row)</td>
 <td><code>bg-sunken border border-line</code></td>
+</tr>
+<tr>
+<td>Flow-row column box and Done box</td>
+<td><code>bg-sunken border border-line-strong</code>; hover is <code>hover:border-line-emphasis</code>, never a fill (#2311)</td>
 </tr>
 <tr>
 <td>Control border</td>
@@ -4949,8 +4953,20 @@
 <td><code>text-info</code></td>
 </tr>
 <tr>
-<td>Bottleneck border, over-limit and queue-growth text</td>
-<td><code>border-warning</code>, <code>text-warning</code></td>
+<td>Bottleneck border and bottleneck-column queue growth</td>
+<td><code>border-warning</code> (the Bottleneck panel adds <code>ring-1 ring-inset ring-warning</code>), <code>text-warning</code></td>
+</tr>
+<tr>
+<td>Over-limit text, in the flow row and on the Work in progress tile</td>
+<td><code>text-danger font-semibold</code></td>
+</tr>
+<tr>
+<td>Queue growth in a non-bottleneck column</td>
+<td><code>text-fg-secondary font-semibold</code> with an <code>aria-hidden</code> <code>▲</code></td>
+</tr>
+<tr>
+<td>Headline tile</td>
+<td>Label <code>text-xs font-semibold uppercase tracking-wide text-fg-tertiary</code>, number <code>text-3xl font-bold text-fg tabular-nums</code>, unit <code>text-sm text-fg-tertiary</code></td>
 </tr>
 <tr>
 <td>Age past the 85th percentile in a list</td>
@@ -4979,7 +4995,7 @@
 <tbody>
 <tr>
 <td>In-progress columns, in bands, time-bar segments and flow-row squares</td>
-<td>The chart hue from light to dark in board order (in the design: blue-300, blue-500, blue-700)</td>
+<td>The chart hue from light to dark in board order, one ramp: <code>columnAlpha</code> (0.55 to 1.0; one column 0.7). Time-bar gutter and band separators are <code>bg-surface</code> / <code>rgb(var(--surface))</code></td>
 </tr>
 <tr>
 <td>Done band</td>
@@ -4995,7 +5011,7 @@
 </tr>
 <tr>
 <td>Connectors in the flow row</td>
-<td>Neutral; <code>warning</code> after the bottleneck</td>
+<td><code>bg-line-emphasis</code>; <code>warning</code> after the bottleneck</td>
 </tr>
 <tr>
 <td>Throughput bars and Cycle time dots, no breakdown</td>
