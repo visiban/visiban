@@ -205,6 +205,34 @@ test.describe('flow metrics dashboard', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   })
 
+  test('opens the column drawer from a column box and returns focus on close (#2262)', async ({ page }) => {
+    await openAnalytics(page)
+    const box = page.getByTestId('flow-column-box').filter({ hasText: 'Doing' })
+    await expect(box).toBeVisible()
+    await box.click()
+    const drawer = page.getByRole('dialog', { name: 'Doing' })
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByText('Median wait')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(box).toBeFocused()
+  })
+
+  test('the flow row scrolls inside its panel at 390px and still opens the drawer (#2262)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openAnalytics(page)
+    const row = page.getByTestId('flow-row')
+    await expect(row).toBeVisible()
+    expect(await row.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+    const box = page.getByTestId('flow-column-box').filter({ hasText: 'Doing' })
+    await box.click()
+    await expect(page.getByRole('dialog', { name: 'Doing' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Doing' })).toBeHidden()
+    await expect(box).toBeFocused()
+  })
+
   test('draws all four charts with direct labels and percentile lines', async ({ page }) => {
     await openAnalytics(page)
     const cycle = page.getByTestId('flow-cycle-time')

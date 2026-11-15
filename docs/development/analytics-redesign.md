@@ -5,7 +5,7 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 
 **Why it matters:** The current tab has three sections with three filter models, buries the bottleneck in a chart footnote, and puts the most actionable list last. The redesign answers "where is work stuck and what should I look at" before it shows a chart.
 
-**Status:** Design only. Nothing on this page is implemented. The work is tracked in #2257 (page restructure) and #458 (swimlane comparison and breakdowns), both labeled `analytics-redesign`.
+**Status:** Being built in stages. The work is tracked in #2257 (page restructure) and #458 (swimlane comparison and breakdowns), both labeled `analytics-redesign`.
 
 **Watch out:** Every number in the screenshots is sample data. The screenshots approximate charts with plain boxes; build the real charts on `components/Common/Chart.tsx`.
 

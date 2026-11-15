@@ -609,7 +609,7 @@ class AnalyticsDwellTimeTests(TestCase):
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         self.assertIsNone(sw["age_avg_days_per_column"].get(self.col.name))
 
-    # ── Throughput mode tests ─────────────────────────────────────────────────
+    # ── In period mode tests (throughput_* fields) ─────────────────────────────────────────────────
 
     def test_throughput_avg_days_reflects_cards_that_exited_in_window(self):
         """throughput_avg_days_per_column includes cards that moved out of col

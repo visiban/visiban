@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AnalyticsView from '../components/Board/AnalyticsView'
 
@@ -96,11 +96,17 @@ describe('AnalyticsView title row (#2012, #2261)', () => {
   })
 })
 
+/** The heatmap is the flow panel's Table view since #2262. */
+async function showFlowTable() {
+  const group = await screen.findByRole('group', { name: 'How work flows view' })
+  await userEvent.click(within(group).getByRole('button', { name: 'table' }))
+}
+
 describe('AnalyticsView: one filter bar drives the page without remounting the charts', () => {
   it('makes one request per endpoint when the tab opens', async () => {
     render(<AnalyticsView {...props} />)
     await screen.findByTestId('flow-wip-age')
-    await screen.findByRole('button', { name: 'Throughput' })
+    await screen.findByTestId('analytics-flow')
     expect(calls()).toEqual(fetchers.map(() => 1))
     expect(mounts).toEqual({ cycle: 1, throughput: 1, cumulative: 1, age: 1 })
   })
@@ -145,6 +151,7 @@ describe('AnalyticsView: one filter bar drives the page without remounting the c
   it('keeps the charts mounted through a heatmap failure', async () => {
     vi.mocked(getBoardAnalytics).mockRejectedValue(new Error('no'))
     render(<AnalyticsView {...props} />)
+    await showFlowTable()
     await screen.findByText('Failed to load analytics.')
     await screen.findByTestId('flow-wip-age')
     expect(calls()).toEqual(fetchers.map(() => 1))
@@ -152,7 +159,8 @@ describe('AnalyticsView: one filter bar drives the page without remounting the c
 
   it('makes no request when the heatmap mode changes', async () => {
     render(<AnalyticsView {...props} />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Throughput' }))
+    await showFlowTable()
+    await userEvent.click(await screen.findByRole('button', { name: 'In period' }))
     expect(calls()).toEqual(fetchers.map(() => 1))
   })
 })
@@ -160,12 +168,13 @@ describe('AnalyticsView: one filter bar drives the page without remounting the c
 describe('AnalyticsView toggles mark the active state without color (#2185)', () => {
   it('checks the active mode button', async () => {
     render(<AnalyticsView {...props} />)
-    const age = await screen.findByRole('button', { name: 'Age' })
-    const throughput = screen.getByRole('button', { name: 'Throughput' })
+    await showFlowTable()
+    const age = await screen.findByRole('button', { name: 'Current' })
+    const inPeriod = screen.getByRole('button', { name: 'In period' })
     expect(age).toHaveAttribute('aria-pressed', 'true')
     expect(age.querySelector('[data-testid="active-mark"]')).not.toBeNull()
-    expect(throughput.querySelector('[data-testid="active-mark"]')).toBeNull()
-    await userEvent.click(throughput)
-    expect(throughput.querySelector('[data-testid="active-mark"]')).not.toBeNull()
+    expect(inPeriod.querySelector('[data-testid="active-mark"]')).toBeNull()
+    await userEvent.click(inPeriod)
+    expect(inPeriod.querySelector('[data-testid="active-mark"]')).not.toBeNull()
   })
 })

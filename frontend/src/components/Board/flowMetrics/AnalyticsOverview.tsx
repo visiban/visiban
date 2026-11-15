@@ -7,6 +7,7 @@ import AnalyticsFilterBar from "./AnalyticsFilterBar";
 import AttentionSection from "./AttentionSection";
 import BlockedSection from "./BlockedSection";
 import BottleneckPanel from "./BottleneckPanel";
+import { buildColumnSelection } from "./columnDrill";
 import {
   CumulativeFlowPanel, CycleTimePanel, PanelPlaceholder, RegionSlot, ThroughputPanel, WipAgePanel,
 } from "./FlowChartPanels";
@@ -80,7 +81,7 @@ export default function AnalyticsOverview({
   const analytics = results?.analytics.data;
 
   const {
-    drill, setDrill, cards, closeDrill, openCards, selectCycleSample, selectThroughputSample, selectAgeSample, selectDay,
+    drill, setDrill, cards, closeDrill, selectCycleSample, selectThroughputSample, selectAgeSample, selectDay,
   } = useFlowDrill(boardId, filters, { cycle, throughput, cumulative, wipAge, attention });
 
   const setMode = (next: ViewMode) => {
@@ -93,14 +94,7 @@ export default function AnalyticsOverview({
     onViewChange: (view: ChartPanelView) => setViews((current) => ({ ...current, [panel]: view })),
   });
 
-  const openColumn = (uid: string) => {
-    const name = cumulative?.columns.find((c) => c.column_uid === uid)?.column_name ?? "this column";
-    const oldestFirst = [...(wipAge?.samples ?? [])]
-      .filter((s) => s.column_uid === uid)
-      .sort((a, b) => b.value_days - a.value_days)
-      .map((s) => s.card_uid);
-    openCards(`Cards in ${name} now`, oldestFirst);
-  };
+  const openColumn = (uid: string) => setDrill(buildColumnSelection(uid, { cumulative, dwell, wipAge, columns }, filtered));
 
   // Period-labelled copy names the period the numbers on screen were fetched for, not the live selection.
   const shownDays = (fetchedFilters ?? filters).days;
@@ -189,7 +183,21 @@ export default function AnalyticsOverview({
             </RegionSlot>
           </div>
           <RegionSlot busy={busy}>
-            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={shownFilters} />
+            <FlowSection
+              analytics={results?.analytics}
+              cumulative={cumulative}
+              dwell={dwell}
+              wipAge={wipAge}
+              throughput={throughput}
+              columns={columns}
+              mode={mode}
+              onModeChange={setMode}
+              {...panelView("flow")}
+              filters={shownFilters}
+              filtered={filtered}
+              settled={settled}
+              onOpenColumn={openColumn}
+            />
           </RegionSlot>
           <ChartRow>
             <RegionSlot busy={busy}>

@@ -1,6 +1,6 @@
 /**
  * The dwell heatmap's data (`GET /boards/{id}/analytics/`), its remembered
- * Age / Throughput mode and its CSV export (#2261: moved out of AnalyticsView).
+ * Current / In period mode and its CSV export (#2261: moved out of AnalyticsView).
  */
 
 export interface StalledCard {
@@ -17,10 +17,10 @@ export interface SwimlaneStat {
   avg_days_per_column: Record<string, number | null>;
   /** @deprecated Use throughput_is_outlier. */
   is_outlier: Record<string, boolean>;
-  // Age mode — current dwell for cards presently in each column (snapshot of "now").
+  // Current mode — current dwell for cards presently in each column (snapshot of "now").
   age_avg_days_per_column?: Record<string, number | null>;
   age_is_outlier?: Record<string, boolean>;
-  // Throughput mode — dwell for cards that exited each column within the period.
+  // In period mode — dwell for cards that exited each column within the period.
   throughput_avg_days_per_column?: Record<string, number | null>;
   throughput_card_count_per_column?: Record<string, number>;
   throughput_is_outlier?: Record<string, boolean>;
@@ -71,7 +71,7 @@ export function saveViewMode(boardId: number, mode: ViewMode) {
 export function exportCsv(data: AnalyticsData, mode: ViewMode) {
   const doneCols = new Set(data.done_columns ?? []);
   const cols = data.columns.filter(c => !doneCols.has(c));
-  const modeLabel = mode === "age" ? "Current age" : `Throughput last ${data.days}d`;
+  const modeLabel = mode === "age" ? "Current" : `In period (last ${data.days}d)`;
   const header = ["Swimlane", ...cols.map(c => `${modeLabel} (${c}, days)`), "Velocity (days)", "Stalled cards"];
   const rows = data.swimlanes.map(sw => {
     const avgMap = mode === "age"

@@ -741,11 +741,14 @@ describe('the bottleneck panel (#2261)', () => {
       + 'because 3.5 cards arrive each week and 2 leave.',
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
-    await userEvent.click(panel.getByRole('button', { name: 'See the 1 card' }))
+    const seeButton = panel.getByRole('button', { name: 'See the 1 card' })
+    await userEvent.click(seeButton)
     const drawer = await screen.findByRole('dialog')
-    expect(within(drawer).getByText('Cards in Doing now')).toBeInTheDocument()
+    expect(within(drawer).getByRole('heading', { name: 'Doing' })).toBeInTheDocument()
+    expect(within(drawer).getByText('1 card in this column now, limit 3')).toBeInTheDocument()
     expect(within(drawer).getByText('Fix the login')).toBeInTheDocument()
     await userEvent.click(within(drawer).getByRole('button', { name: /close/i }))
+    await waitFor(() => expect(seeButton).toHaveFocus())
     await userEvent.click(panel.getByRole('button', { name: 'Open on board' }))
     expect(onGoToBoard).toHaveBeenCalled()
   })
@@ -795,7 +798,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Cycle time')).toHaveTextContent('Half finish within this. 85% within 8.1 days. Based on 7 cards.')
     expect(tile('Throughput')).toHaveTextContent('1/ week')
     expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 2 cards finished.')
-    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit. 1 card past 8 days.')
+    expect(tile('Work in progress')).toHaveTextContent('0 columns over their limit. 1 card past 8 days.')
     expect(tile('Blocked time')).toHaveTextContent('3.5days')
     expect(tile('Blocked time')).toHaveTextContent('2 blocks. 1 card blocked right now.')
   })
@@ -811,7 +814,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Cycle time')).toHaveTextContent('Median appears at 5. 3 so far.')
     expect(tile('Throughput')).toHaveTextContent('2cards so far')
     expect(tile('Throughput')).toHaveTextContent('Too few whole weeks for a weekly median. 2 so far.')
-    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit.')
+    expect(tile('Work in progress')).toHaveTextContent('0 columns over their limit.')
     expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 3 so far.')
     expect(tile('Work in progress')).not.toHaveTextContent('past')
   })
@@ -900,7 +903,7 @@ describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
   it('follows the filters the dimmed data was fetched for, not the live selection', async () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
-    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    expect(screen.getByText(/columns over their limit/)).toBeInTheDocument()
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => { release = resolve })
     ageMock.mockImplementation(async () => { await gate; return age })
@@ -908,9 +911,9 @@ describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
     await waitFor(() => expect(ageMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: 3, labelId: null }))
     // Still the unfiltered answers on screen, so the board-wide clause must stay.
-    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    expect(screen.getByText(/columns over their limit/)).toBeInTheDocument()
     release()
-    await waitFor(() => expect(screen.queryByText(/column over its limit/)).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/columns over their limit/)).not.toBeInTheDocument())
   })
 })
 
@@ -954,6 +957,23 @@ describe('share of the cycle and limits (#2261)', () => {
     expect(columnsOverLimit({ samples }, [
       { uid: 'col-doing', wip_limit: 1 }, { uid: 'col-review', wip_limit: 1 }, { uid: 'col-qa', wip_limit: null },
     ])).toBe(1)
+  })
+
+  it('treats a limit of 0 or null as no limit and counts a real limit', () => {
+    const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }]
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
+  })
+
+  it('leaves "against a limit" out of the bottleneck sentence for a limit of 0', () => {
+    const grown: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: null, left_per_week: null })),
+    }
+    const withLimit = (wip_limit: number) => bottleneckSentence('col-doing', { cumulative: grown, dwell, cycle, columns: [{ uid: 'col-doing', wip_limit }] })
+    expect(withLimit(0)).not.toContain('against a limit')
+    expect(withLimit(3)).toContain('against a limit of 3')
   })
 
   it('names the sample sizes at which percentiles appear', () => {

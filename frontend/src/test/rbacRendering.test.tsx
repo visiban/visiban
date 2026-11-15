@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 // Single consolidated mock for all boards API functions used in this file.
 // AnalyticsView's flow panels are covered by flowMetricsDashboard.test.tsx (#448, #2261).
@@ -38,6 +38,14 @@ import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 beforeEach(() => rememberCardDetailTab('details'))
 
 const mockGetBoardAnalytics = vi.mocked(getBoardAnalytics)
+
+/** The dwell table (swimlane names) is the flow panel's Table view since #2262. */
+function renderOnTableView(ui: Parameters<typeof render>[0]) {
+  const result = render(ui)
+  const group = screen.getByRole('group', { name: 'How work flows view' })
+  fireEvent.click(within(group).getByRole('button', { name: 'table' }))
+  return result
+}
 
 const sampleAnalyticsData = {
   days: 30,
@@ -80,7 +88,7 @@ describe('RBAC conditional rendering', () => {
     })
 
     it('hides Export CSV button for member role', async () => {
-      render(<AnalyticsView boardId={1} currentUserRole="member" />)
+      renderOnTableView(<AnalyticsView boardId={1} currentUserRole="member" />)
 
       await waitFor(() => {
         expect(screen.getByText('Customer A')).toBeInTheDocument()
@@ -89,7 +97,7 @@ describe('RBAC conditional rendering', () => {
     })
 
     it('hides Export CSV button for collaborator role', async () => {
-      render(<AnalyticsView boardId={1} currentUserRole="collaborator" />)
+      renderOnTableView(<AnalyticsView boardId={1} currentUserRole="collaborator" />)
 
       await waitFor(() => {
         expect(screen.getByText('Customer A')).toBeInTheDocument()
@@ -98,7 +106,7 @@ describe('RBAC conditional rendering', () => {
     })
 
     it('hides Export CSV button for viewer role', async () => {
-      render(<AnalyticsView boardId={1} currentUserRole="viewer" />)
+      renderOnTableView(<AnalyticsView boardId={1} currentUserRole="viewer" />)
 
       await waitFor(() => {
         expect(screen.getByText('Customer A')).toBeInTheDocument()
@@ -107,7 +115,7 @@ describe('RBAC conditional rendering', () => {
     })
 
     it('hides Export CSV button when role is null', async () => {
-      render(<AnalyticsView boardId={1} currentUserRole={null} />)
+      renderOnTableView(<AnalyticsView boardId={1} currentUserRole={null} />)
 
       await waitFor(() => {
         expect(screen.getByText('Customer A')).toBeInTheDocument()

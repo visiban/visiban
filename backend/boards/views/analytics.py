@@ -1091,7 +1091,7 @@ class BoardAnalyticsMixin:
         active_columns = [c for c in columns if not c.is_done]
         col_id_to_name = {c.id: c.name for c in columns}
         # Current and completed dwell come from the flow service (#448), so the
-        # heatmap's Age and Throughput modes agree with the flow charts.
+        # heatmap's Current and In period modes agree with the flow charts.
         flow_range = flow_metrics.rolling_range(days, now=now)
         flow = flow_metrics.load_recent_dwell(
             board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
@@ -1266,7 +1266,7 @@ class BoardAnalyticsMixin:
                 # Age mode: current dwell, not age, whatever the field name says (ADR #1532).
                 "age_avg_days_per_column": age_avg,
                 "age_is_outlier": {},  # populated below
-                # Throughput mode: completed dwell, visits that closed in the period.
+                # In period mode (UI name; the field keeps its throughput_ name): completed dwell, visits that closed in the period.
                 "throughput_avg_days_per_column": throughput_avg,
                 "throughput_card_count_per_column": throughput_count,
                 "throughput_is_outlier": {},  # populated below
