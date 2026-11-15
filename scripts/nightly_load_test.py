@@ -312,6 +312,7 @@ def _endpoints(base_url, board_id, sample_card_id):
         "flow_dwell": f"{base_url}/api/v1/boards/{board_id}/metrics/dwell/",
         "flow_blocked": f"{base_url}/api/v1/boards/{board_id}/metrics/blocked/",
         "flow_attention": f"{base_url}/api/v1/boards/{board_id}/metrics/attention/",
+        "flow_swimlanes": f"{base_url}/api/v1/boards/{board_id}/metrics/swimlanes/",
     }
 
 

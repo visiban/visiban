@@ -1415,9 +1415,13 @@ def swimlane_trend(points, finished):
 
     Same 20% rule as the status, applied to the first and last rolling medians
     inside the selected period only (the cross-period comparison is Enterprise).
-    No 10-card floor here: the trend is two numbers the page prints beside the
-    word, and each point already needs the 5-card percentile floor of its own
-    window. None when the swimlane has fewer than 5 finished cards, or when
+    No 10-card floor of its own: the trend is two numbers the page prints beside
+    the word, and each end point already needs the 5-card percentile floor of
+    its own window. Those two end windows are separate, so in practice a lane
+    needs about 10 finished cards before both are filled; 9 almost always gives
+    None, because the first and last windows together cover the period without
+    overlapping (they share only the mid-period instant). None when the
+    swimlane has fewer than 5 finished cards, or when
     either end point is withheld.
     """
     if finished < MIN_PERCENTILE_SAMPLE_SIZE:

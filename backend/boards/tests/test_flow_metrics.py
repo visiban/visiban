@@ -2368,6 +2368,17 @@ class SwimlaneComparisonTests(EndpointFixture):
     def test_trend_is_null_when_an_end_window_has_too_few_cards(self):
         self.assertIsNone(self.trend_for(10, 12, n=4))
 
+    def test_trend_needs_five_cards_in_each_end_window_so_nine_is_null_and_ten_is_not(self):
+        self.finish(self.lane, 10, 5, done_ago=30)
+        self.finish(self.lane, 12, 4, done_ago=5)
+        row = self.lane_row(self.get(days=40), self.lane)
+        self.assertEqual(row["finished"], 9)
+        self.assertIsNone(row["trend"])
+        self.finish(self.lane, 12, 1, done_ago=5)
+        row = self.lane_row(self.get(days=40), self.lane)
+        self.assertEqual(row["finished"], 10)
+        self.assertEqual(row["trend"], {"direction": "steady", "first_days": 10.0, "last_days": 12.0})
+
     def test_trend_stays_inside_the_period(self):
         self.finish(self.lane, 3, 5, done_ago=30)
         row = self.lane_row(self.get(days=40), self.lane)
@@ -2433,6 +2444,26 @@ class SwimlaneComparisonTests(EndpointFixture):
         self.assertEqual(resp.status_code, 400)
         self.assertNotIn("gold", resp.content.decode())
         self.assertEqual(self.get(group_by_field_id=field.id)["grouping"]["field_id"], field.id)
+
+    def test_site_admin_may_group_by_an_admin_only_field(self):
+        field = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Tier", position=0, field_type=CustomFieldDefinition.FieldType.DROPDOWN,
+            choices_json=["gold"], is_admin_only=True,
+        )
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.lane, field_definition=field, value="gold")
+        site_admin = User.objects.create_user(
+            username="flow_site_admin", password="pw", is_site_admin=True, can_access_all_content=True,
+        )
+        member = User.objects.create_user(username="flow_member4", password="pw")
+        BoardMembership.objects.create(board=self.board, user=member, role="member")
+        site_client, member_client = APIClient(), APIClient()
+        site_client.force_authenticate(site_admin)
+        member_client.force_authenticate(member)
+        resp = site_client.get(self.url("swimlanes"), {"group_by_field_id": field.id})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["grouping"]["field_id"], field.id)
+        self.assertEqual(self.lane_row(resp.json(), self.lane)["group"], "gold")
+        self.assertEqual(member_client.get(self.url("swimlanes"), {"group_by_field_id": field.id}).status_code, 400)
 
     def test_invalid_filters_are_400(self):
         card_field = CustomFieldDefinition.objects.create(
