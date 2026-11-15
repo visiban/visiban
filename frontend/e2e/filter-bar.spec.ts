@@ -46,7 +46,10 @@ test.describe('filter bar', () => {
     await expect(panel.getByRole('button', { name: /^Assignee/ })).toHaveCount(0)
     await row.focus()
     await page.keyboard.press('Enter')
-    await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
+    const bug = panel.getByRole('checkbox', { name: LABEL_BUG.name })
+    await bug.focus()
+    await page.keyboard.press('Space')
+    await expect(bug).toBeChecked()
 
     await expect(row).toContainText(LABEL_BUG.name)
     await expect(page).toHaveURL(/f_labels=/)

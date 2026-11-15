@@ -22,6 +22,8 @@ interface Props {
   activeCount: number;
   icon: React.ReactNode;
   savedFilters: SavedFilter[];
+  /** True while the saved filters are still being fetched, so the list does not read as empty. */
+  savedFiltersLoading?: boolean;
   activeFilterId: number | null;
   onLoadSaved: (saved: SavedFilter) => void;
   /** Whether the full filter bar (search, scope, My cards, Lanes) is showing under the toolbar. */
@@ -35,7 +37,7 @@ interface Props {
 const PANEL_WIDTH = 360;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-type RowId = "assignee" | "label" | "priority" | "dueDate" | "blocked" | "lanes" | `cf:${number}`;
+type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "lanes" | `cf:${number}`;
 interface Row {
   id: RowId;
   label: string;
@@ -53,7 +55,7 @@ interface Row {
  * off to the existing Lanes popover (#2205) rather than duplicating it.
  */
 export default function FilterPanel({
-  board, filters, onChange, activeCount, icon, savedFilters, activeFilterId, onLoadSaved,
+  board, filters, onChange, activeCount, icon, savedFilters, savedFiltersLoading = false, activeFilterId, onLoadSaved,
   filterBarShown, onToggleFilterBar, onOpenLaneFilters, userDateFormat = "MM/DD/YYYY",
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -166,6 +168,7 @@ export default function FilterPanel({
   };
 
   const rows: Row[] = [];
+  rows.push({ id: "search", label: "Search", value: filters.search !== "" ? filters.search : null });
   rows.push({
     id: "assignee",
     label: "Assignee",
@@ -244,6 +247,18 @@ export default function FilterPanel({
 
   const editor = (row: Row) => {
     switch (row.id) {
+      case "search":
+        // Same binding as the filter bar's search box: filters.search, which FilterBar/URL sync already persist.
+        return (
+          <input
+            type="text"
+            aria-label="Search cards"
+            value={filters.search}
+            placeholder="Search cards"
+            onChange={(e) => onChange({ ...filters, search: e.target.value })}
+            className="w-full bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          />
+        );
       case "assignee":
         return (
           <div role="group" aria-label="Assignee">
@@ -291,6 +306,7 @@ export default function FilterPanel({
       role="dialog"
       aria-label="Filter"
       data-testid="filter-panel"
+      data-shortcut-scope="popover"
       onKeyDown={onPanelKeyDown}
       style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN) }}
       className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto"
@@ -338,7 +354,9 @@ export default function FilterPanel({
 
       <div className="border-t border-line pt-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2 pb-1">Saved filters</h3>
-        {savedFilters.length === 0 ? (
+        {savedFiltersLoading ? (
+          <p role="status" className="px-2 py-1 text-xs text-fg-muted italic">Loading…</p>
+        ) : savedFilters.length === 0 ? (
           <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet. Save one from the filter bar.</p>
         ) : (
           <ul aria-label="Saved filters" className="space-y-0.5">
@@ -374,7 +392,7 @@ export default function FilterPanel({
   return (
     <>
       {/* Tooltip clones its child and takes over the child's ref, so the trigger ref lives on the button inside this span. */}
-      <Tooltip content="Filters">
+      <Tooltip content="Filters" disabled={open}>
         <span className="inline-flex shrink-0">
         <button
           ref={triggerRef}

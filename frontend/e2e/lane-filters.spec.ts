@@ -46,9 +46,12 @@ test.describe('lane filters', () => {
 
     await page.getByRole('button', { name: /^filters/i }).click()
 
-    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
-
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301 — the panel's Lanes row hands off to the real Lanes popover.
+    await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: /^Lanes/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Lane filters' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Lane filters' })).toHaveCount(0)
+    // The handoff also revealed the filter bar, which the rest of the test uses.
     const filters = page.getByRole('search', { name: 'Board filters' })
     await filters.getByRole('button', { name: 'Lanes', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })

@@ -955,6 +955,19 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
     })
 
+    it('single-key shortcuts do not fire from inside the open Filter panel (#2301)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+      const panel = screen.getByRole('dialog', { name: 'Filter' })
+      const row = within(panel).getByRole('button', { name: /^Label/ })
+      row.focus()
+      fireEvent.keyDown(row, { key: 's' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      // No dialog target: the shortcut still works.
+      fireEvent.keyDown(document.body, { key: 's' })
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    })
+
     it('S switches to the Summary view', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterPanel from '../components/Board/FilterPanel'
 import { EMPTY_FILTER } from '../components/Board/FilterBar'
@@ -72,7 +72,7 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
     const rows = within(screen.getByRole('list', { name: 'Filterable fields' })).getAllByRole('button')
     expect(rows.map((r) => r.textContent)).toEqual([
-      'AssigneeAny', 'LabelAny', 'PriorityAny', 'Due dateAny', 'BlockedAny',
+      'SearchAny', 'AssigneeAny', 'LabelAny', 'PriorityAny', 'Due dateAny', 'BlockedAny',
       'RegionAny', 'NotesAny', 'BudgetAny', 'Go liveAny', 'ApprovedAny',
     ])
     expect(screen.getByText('Saved filters')).toBeInTheDocument()
@@ -271,6 +271,63 @@ describe('FilterPanel (#2301)', () => {
     await u.tab()
     // Focus goes to the trigger and the native Tab then moves on to the next toolbar control.
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('Tab off the last control hands focus to the trigger, so the native Tab continues to the next toolbar control', async () => {
+    const u = userEvent.setup()
+    setup()
+    const trigger = screen.getByRole('button', { name: /^Filters/ })
+    await u.click(trigger)
+    const last = screen.getByRole('button', { name: /Show filter bar/ })
+    last.focus()
+    fireEvent.keyDown(last, { key: 'Tab' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('a scroll outside the panel closes it; a scroll inside it does not', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    fireEvent.scroll(screen.getByRole('list', { name: 'Filterable fields' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.scroll(screen.getByRole('dialog'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.scroll(document)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows and edits the search query through filters.search', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: { ...EMPTY_FILTER, search: 'x' } })
+    await open(u)
+    const row = screen.getByRole('button', { name: /^Search/ })
+    expect(row).toHaveTextContent('x')
+    await u.click(row)
+    await u.type(screen.getByRole('textbox', { name: 'Search cards' }), 'y')
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, search: 'xy' })
+  })
+
+  it('suppresses the Filters tooltip while the panel is open', async () => {
+    const u = userEvent.setup()
+    setup()
+    const trigger = screen.getByRole('button', { name: /^Filters/ })
+    await u.click(trigger)
+    fireEvent.mouseEnter(trigger.parentElement as HTMLElement)
+    trigger.focus()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('shows a loading state, not the empty message, while saved filters load', async () => {
+    const u = userEvent.setup()
+    render(
+      <FilterPanel board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} activeCount={0} icon={null}
+        savedFilters={[]} savedFiltersLoading activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false} onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} />,
+    )
+    await u.click(screen.getByRole('button', { name: /^Filters/ }))
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.queryByText(/No saved filters yet/)).toBeNull()
   })
 
   it('Shift+Tab off Find a field closes the panel', async () => {

@@ -168,6 +168,7 @@ export default function BoardViewMenu(props: Props) {
       role="dialog"
       aria-label="View options"
       data-testid="view-menu-panel"
+      data-shortcut-scope="popover"
       onKeyDown={onPanelKeyDown}
       onFocusCapture={(e) => { lastFocusRef.current = e.target }}
       style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}

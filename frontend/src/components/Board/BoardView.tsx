@@ -1722,6 +1722,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         tag === "SELECT" ||
         (e.target as HTMLElement).closest?.('[contenteditable="true"]')
       ) return;
+      // An open Filter panel or View menu is a dialog over the board: focus on a
+      // row or button inside it must not fire the board's single-key shortcuts
+      // (h, a, e, y, f, /, .) behind it (#2301). Scoped to those popovers, not
+      // every role="dialog", so the card detail's behavior is unchanged.
+      if ((e.target as HTMLElement).closest?.('[data-shortcut-scope="popover"]')) return;
       // ⌘⇧E / Ctrl+Shift+E — open export modal (only when export is permitted)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
         if (!canExport) return;
@@ -2686,6 +2691,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               activeCount={activeCount}
               icon={FilterIcon}
               savedFilters={savedFilters}
+              savedFiltersLoading={savedFiltersLoading}
               activeFilterId={activeFilterId}
               onLoadSaved={(sf) => { setFilters(hydrateFilter(sf)); setActiveFilterId(sf.id); }}
               filterBarShown={showFilters}
