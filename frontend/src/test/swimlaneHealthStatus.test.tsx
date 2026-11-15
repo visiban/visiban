@@ -75,7 +75,7 @@ const defaultProps = () => ({
 
 
 // Lane health status (#2243): the manual pin on a swimlane, admin-edited,
-// never inherited from or rolled up to the board.
+// never inherited from the board (on an auto health board it rolls up, #2245).
 const patchMock = vi.mocked(patchSwimlane)
 const lane = (health_status: Swimlane['health_status']): Swimlane => ({ ...swimlane, health_status })
 

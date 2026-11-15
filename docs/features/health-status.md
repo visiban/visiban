@@ -118,7 +118,7 @@ A status set by hand drifts when nobody revisits it. A board admin can have Visi
 - **Off track at** *N* **flagged cards** or more: **Off track**. *N* is an absolute count of cards in the lane, not a share of its open cards. It is set per board, 1 to 1000, default 3.
 - A lane with **no open cards** has no calculated status. Its pill reads *No open cards*.
 
-The board's calculated status is the **worst** of its lanes' statuses (a status set by hand on a lane counts as that lane's status). Cards that are in no lane count toward the board's totals only.
+The board's calculated status is the **worst** of its lanes' statuses (a status set by hand on a lane counts as that lane's status). Every card is in a lane, so the board's counts are its lanes' counts added up.
 
 **A status set by hand always wins.** Setting a status on the board or a lane *pins* it: the pin is shown, and the calculated value is still visible next to it in the editor (*Calculated: At risk*, *Set by hand: Off track*). To go back to the calculated value, choose **Clear pin (use calculated)** or **Use calculated status** and save. On a board, the order is: the board's own pin, then the calculated value, then the nearest group above.
 
@@ -128,11 +128,11 @@ The board's calculated status is the **worst** of its lanes' statuses (a status 
 
 **When the time updates.** A status that changes is pushed to everyone viewing the board at once. A run that changes nothing (the same status and counts as last time) is not pushed, so on another open tab or another person's screen *Computed 3h ago* updates on reload or on the next change; the person who clicked **Recompute now** sees the new time straight away.
 
-**Never computed.** The nightly run is a [scheduled job](../administration/scheduled-jobs.md) (`compute_health_status`, 02:00 by default). On an install that does not run the scheduler, the status reads **Never computed** until someone uses **Recompute now**; Visiban never shows an old calculated value as current.
+**Never computed.** The nightly run is a [scheduled job](../administration/scheduled-jobs.md) (`compute_health_status`, 02:00 by default). Turning automatic health on calculates the board and its lanes at once, so they show the time of that run (*Computed 3h ago*). On an install that does not run the scheduler nothing updates them after that: the time keeps aging until someone uses **Recompute now**, so an old calculated value always says how old it is. **Never computed** is shown for a lane added since the last run, and for any board or lane that has no calculation time yet.
 
 **Times are UTC.** The job runs in UTC and a due date is a plain date, so "overdue" turns over at midnight UTC, not your local midnight. For a team far from UTC a card can read as overdue a few hours early or late.
 
-**History.** A calculated change of the board's status is listed in its **History** as **Automatic**, with the reason (for example *Auto: 3 overdue, 2 stale*). Lane changes are not recorded.
+**History.** A calculated change of the board's status is listed in its **History** as **Automatic**, with the reason (for example *Auto: 1 lane off track (Acme)* or *Auto: every lane on track*). Lane changes are not recorded.
 
 Groups are not calculated: a group's status is still set by hand, and the group roll-up is a separate future change.
 

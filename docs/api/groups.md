@@ -184,13 +184,13 @@ An update that arrives while the group is being deleted waits for the delete to 
 ```json
 {
   "results": [
-    {"from_status": "on_track", "to_status": "at_risk", "changed_by": {"id": 3, "username": "priya", "display_name": "Priya", "avatar_url": ""}, "changed_at": "2026-11-14T10:00:00Z", "note": "vendor slipped API delivery"}
+    {"from_status": "on_track", "to_status": "at_risk", "changed_by": {"id": 3, "username": "priya", "display_name": "Priya", "avatar_url": ""}, "changed_at": "2026-11-14T10:00:00Z", "note": "vendor slipped API delivery", "kind": "manual", "reason": null}
   ],
   "has_more": false
 }
 ```
 
-A row whose `from_status` equals `to_status` is a reconfirm. A `null` status means "nothing set here" (inherit). `changed_by` is `null` for a removed account or an automatic change. `has_more` is `true` when older changes exist; they are kept (they are deleted only with the group) but this endpoint does not page past the 20 most recent. History is never imported or exported. These endpoints and fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
+A row whose `from_status` equals `to_status` is a reconfirm. A `null` status means "nothing set here" (inherit). `changed_by` is `null` for a removed account or an automatic change. *(1.3+, #2245)* Each row also has `kind` and `reason`, the same fields as the [board health history](boards.md#get-apiv1boardsidhealth-history). A group's status is never calculated, so a group row is always `kind: "manual"` with `reason: null`. `has_more` is `true` when older changes exist; they are kept (they are deleted only with the group) but this endpoint does not page past the 20 most recent. History is never imported or exported. These endpoints and fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
 
 ### `DELETE /api/v1/groups/{id}/`
 Delete a group. Requires the group owner, who must also hold an admin membership on the group itself, or a site admin. *(1.3+)* The owner must hold an admin membership on the group itself; ownership alone, or a membership on a subgroup or an ancestor, is not enough, and the caller gets the same `403`. A group member who is not the owner gets `403 Forbidden` with `{"detail": "Only the group owner can delete this group."}`; a caller who cannot see the group at all gets `404`.

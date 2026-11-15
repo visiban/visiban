@@ -26,8 +26,9 @@ export interface HealthFields {
 
 /**
  * Which entity a health control edits. Boards and groups inherit through the
- * group tree (#1133); a swimlane (#2243) never inherits and never rolls up, so
- * its null means "no status" and its popover has no Inherit choice.
+ * group tree (#1133); a swimlane (#2243) never inherits, so its null means "no
+ * status" and its popover has no Inherit choice. On a board with auto health
+ * on (#2245), a lane's status rolls up into the board's calculated status.
  */
 export type HealthEntityKind = "board" | "group" | "swimlane";
 

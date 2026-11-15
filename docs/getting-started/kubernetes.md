@@ -539,7 +539,7 @@ helm upgrade visiban helm/visiban --namespace visiban --reuse-values \
   --set scheduledJobs.enabled=true
 ```
 
-That schedules `notify_due_soon` (07:00) and `notify_stale_cards` (08:00). The two prune jobs delete data, so you turn each on individually. [Scheduled Jobs](../administration/scheduled-jobs.md) covers every key, and how to check and trigger runs.
+That schedules `notify_due_soon` (07:00), `notify_stale_cards` (08:00) and `compute_health_status` (02:00, which only touches boards with [auto health status](../features/health-status.md) turned on). The two prune jobs delete data, so you turn each on individually. [Scheduled Jobs](../administration/scheduled-jobs.md) covers every key, and how to check and trigger runs.
 
 ## Health check endpoints
 

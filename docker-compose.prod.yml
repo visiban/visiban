@@ -141,8 +141,9 @@ services:
       start_period: 30s
       retries: 3
 
-  # Runs the daily maintenance commands (#1157) — notify_due_soon at 07:00 UTC
-  # and notify_stale_cards at 08:00 UTC by default; the prune jobs only when
+  # Runs the daily maintenance commands (#1157) — notify_due_soon at 07:00 UTC,
+  # notify_stale_cards at 08:00 UTC and compute_health_status (#2245) at
+  # 02:00 UTC by default; the prune jobs only when
   # their SCHEDULE_* variable is set. See docs/administration/scheduled-jobs.md.
   # Opt-in via the `scheduler` profile, so an existing `docker compose up -d`
   # starts exactly what it did before. Enable it with COMPOSE_PROFILES=scheduler

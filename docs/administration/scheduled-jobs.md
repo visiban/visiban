@@ -15,7 +15,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
   their notification preferences never receive those notifications, in the bell
   or by email;
 - the `notifications` and `board_events` tables grow without bound;
-- boards with [auto health status](../features/health-status.md) turned on are never computed, and show "Never computed" (only a board admin's **Recompute now** updates them).
+- boards with [auto health status](../features/health-status.md) turned on are calculated only once, when auto is turned on, and then only when a board admin uses **Recompute now**; their *Computed …* time keeps aging, and a lane added since shows "Never computed".
 
 | Command | What it does | Default time (UTC) | On by default when the scheduler is enabled |
 |---|---|---|---|
@@ -167,7 +167,7 @@ kubectl create job -n <namespace> --from=cronjob/visiban-notify-due-soon notify-
 
 ## Auto health status job
 
-`compute_health_status` *(1.3+, #2245)* computes each lane's status from its own open cards, and the board's from its lanes, for every board with **Auto health status** turned on. It is the same code as a board admin's **Recompute now**. Each board is computed in its own transaction under its own row lock, so two runs at once (the job and a manual recompute) never record a change twice. One board that fails is logged and skipped; the command then exits non-zero. "Overdue" uses the server's date in UTC, so for a team far from UTC a card can turn overdue a few hours early or late. With the scheduler off, auto boards show "Never computed" until an admin recomputes them.
+`compute_health_status` *(1.3+, #2245)* computes each lane's status from its own open cards, and the board's from its lanes, for every board with **Auto health status** turned on. It is the same code as a board admin's **Recompute now**. Each board is computed in its own transaction under its own row lock, so two runs at once (the job and a manual recompute) never record a change twice. One board that fails is logged and skipped; the command then exits non-zero. "Overdue" uses the server's date in UTC, so for a team far from UTC a card can turn overdue a few hours early or late. With the scheduler off, an auto board keeps the values of its last run (the one made when auto was turned on, or the last **Recompute now**), and its *Computed …* time shows how old they are; a lane added since that run shows "Never computed".
 
 ## Retention settings
 
