@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import SeparatorPlus from "./SeparatorPlus";
-import { renderedTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
+import { measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 interface Props {
   isAdmin: boolean;
@@ -30,14 +30,14 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
     const startWidth = currentWidth ?? 0;
-    // Measured once at the press: the track's rendered width before the drag.
-    const rendered = setWidth ? renderedTrackLeftOf(ref.current, sepIndex) : 0;
+    // Measured once at the press: the track's layout before the drag.
+    const measure = setWidth ? measureTrackLeftOf(ref.current, sepIndex) : null;
     startInsertGesture(
       e,
       () => {
         if (isAdmin) onOpenAdd();
       },
-      setWidth ? (delta) => setWidth(resizedColumnWidth(startWidth, rendered, delta)) : undefined,
+      setWidth ? (delta) => setWidth(resizedColumnWidth(startWidth, measure, delta)) : undefined,
     );
   };
 

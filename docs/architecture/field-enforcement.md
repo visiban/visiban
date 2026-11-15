@@ -57,7 +57,7 @@ Classified from a code review on 2026-10-04; see the tracking issues for known g
 | `BoardMembership.is_moderator` | `can_modify_others_content()` in `boards/permissions.py`, called by the card service and the comment, attachment, and checklist views | Field visibility on `member.*` events is gated separately by `moderator_field_visible()` |
 | `GroupMembership.role` | Inherited into board roles through `get_board_role()` (nearest ancestor wins; explicit board membership overrides) | — |
 | `Board.share_token_expires_at` | `boards/views/share.py` returns `410 Gone` after expiry | — |
-| `CustomFieldDefinition.show_on_card` (max 2), `SwimlaneCustomFieldDefinition.show_on_row` (max 3) | Serializer validation | — |
+| `CustomFieldDefinition.show_on_card` (max 2), `SwimlaneCustomFieldDefinition.show_on_row` (max 8) | Serializer validation | `show_on_row` is a legacy flag kept for the API contract; it has no effect on the board since 1.3, where the swimlane band shows fields by order |
 | `SwimlaneCustomFieldDefinition.is_admin_only` | Read filter in `SwimlaneSerializer` / `SwimlaneAdminSerializer`, REST and broadcast payloads | — |
 | `SiteSetting.registration_mode` | `RegistrationAdapter` and `SocialRegistrationAdapter.is_open_for_signup` in `accounts/adapter.py` | Covers password and social signup |
 | `SiteSetting.uploads_enabled` | Card attachment upload (`boards/views/cards.py`) | Scoped to attachments, as its description says. Board import (JSON, CSV, Trello) also takes a multipart file and does not consult it |

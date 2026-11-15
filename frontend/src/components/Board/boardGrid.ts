@@ -24,8 +24,10 @@ export const BOARD_GRID_MIN_WIDTH = 1240;
  * Narrowest a normal column may get before the grid scrolls instead. The spec's
  * 1240px threshold is sized for the 7-column reference board; without a per-track
  * floor a 15-column board would squeeze every column to ~70px at 1240px. 160px is
- * the per-column resize clamp's minimum (`COLUMN_WIDTH_MIN`); it does not scale with a
- * column's weight, so resizing never moves the scroll threshold.
+ * the per-column resize clamp's minimum (`COLUMN_WIDTH_MIN`). It holds for every
+ * column, resized or not: `boardGridMinWidth` sizes the grid so the column with the
+ * least width per fr still gets its floor, so widening one column can move the
+ * scroll threshold.
  */
 export const BOARD_TRACK_FLOOR = 160;
 /** Hidden and collapsed columns keep their 40px stub. */
@@ -68,12 +70,23 @@ function frTrack(fr: number): string {
 
 function trackSize(track: BoardTrack): string {
   if (track === "narrow") return `${BOARD_NARROW_TRACK}px`;
-  if (track === "split") return frTrack(2);
-  if (track === "column") return frTrack(1);
-  return frTrack((track.kind === "split" ? 2 : 1) * (track.width / DEFAULT_COLUMN_WIDTH));
+  return frTrack(trackFr(track));
 }
 
-function trackFloor(track: BoardTrack): number {
+/** A track's fr weight in the template; 0 for a fixed-px stub. */
+function trackFr(track: BoardTrack): number {
+  if (track === "narrow") return 0;
+  if (track === "split") return 2;
+  if (track === "column") return 1;
+  return (track.kind === "split" ? 2 : 1) * (track.width / DEFAULT_COLUMN_WIDTH);
+}
+
+/**
+ * Narrowest px width a track may render at: 160 for a column, two 160px
+ * sub-columns plus their 8px gap for a split stage, 40 for a stub. BoardView
+ * publishes these on the grid as `data-track-floors` for `measureTrackLeftOf`.
+ */
+export function trackFloor(track: BoardTrack): number {
   if (track === "narrow") return BOARD_NARROW_TRACK;
   const kind = typeof track === "string" ? track : track.kind;
   if (kind === "split") return BOARD_TRACK_FLOOR * 2 + BOARD_GRID_GAP;
@@ -94,12 +107,30 @@ export function boardGridTemplate(tracks: readonly BoardTrack[]): string {
 /**
  * Minimum width of the grid's content box. Below it the board scrolls sideways
  * inside `[data-board-scroll]`; the page never does.
+ *
+ * The fr tracks share the fr space in proportion to their weights, so summing
+ * their floors is not enough once columns are resized: with one column at 600
+ * and six at 220, the six would render at 133px. The fr space is instead sized
+ * so the track with the most floor per fr gets its floor:
+ * `frSpace = sum(fr) * max(floor / fr)`. Every other track then renders above
+ * its floor. For an unresized board of plain columns this is `160 * n`, as before.
  */
 export function boardGridMinWidth(tracks: readonly BoardTrack[]): number {
   if (tracks.length === 0) return BOARD_GRID_MIN_WIDTH;
-  const floors = tracks.reduce((sum, t) => sum + trackFloor(t), 0);
-  const separators = BOARD_GRID_GUTTER * 2 + BOARD_GRID_GAP * (tracks.length - 1);
-  return Math.max(BOARD_GRID_MIN_WIDTH, floors + separators);
+  let fixed = BOARD_GRID_GUTTER * 2 + BOARD_GRID_GAP * (tracks.length - 1);
+  let frSum = 0;
+  let floorPerFr = 0;
+  for (const t of tracks) {
+    const fr = trackFr(t);
+    if (fr === 0) {
+      fixed += trackFloor(t);
+    } else {
+      frSum += fr;
+      floorPerFr = Math.max(floorPerFr, trackFloor(t) / fr);
+    }
+  }
+  // Rounded up so float weights (230 / 220) never leave a column a hair under its floor.
+  return Math.max(BOARD_GRID_MIN_WIDTH, Math.ceil(fixed + frSum * floorPerFr - 1e-6));
 }
 
 /** 1-based grid line of the column track at `index` (separators sit between). */
@@ -143,32 +174,111 @@ export function startInsertGesture(
   window.addEventListener("mouseup", onUp);
 }
 
-/**
- * Rendered px width of the column track to the left of separator `sepIndex`, read
- * from the resolved `grid-template-columns` of the grid row `el` sits in. Returns
- * 0 when it cannot be measured (no layout, as in jsdom).
- */
-export function renderedTrackLeftOf(el: HTMLElement | null, sepIndex: number): number {
-  if (!el || sepIndex < 1) return 0;
-  let grid = el.parentElement;
-  while (grid && getComputedStyle(grid).display !== "grid") grid = grid.parentElement;
-  if (!grid) return 0;
-  // Resolved value: one px size per track, e.g. "16px 204.5px 8px ...".
-  const tracks = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
-  const m = /^([\d.]+)px$/.exec(tracks[columnTrackLine(sepIndex - 1) - 1] ?? "");
-  return m ? Number(m[1]) : 0;
+/** What a separator drag needs to know about the layout, measured once at the press. */
+export interface TrackResizeMeasure {
+  /** Rendered px width of the column being resized (r). */
+  rendered: number;
+  /** Its fr weight in the specified template. */
+  fr: number;
+  /** Sum of the other fr tracks' weights (S_o). */
+  otherFr: number;
+  /**
+   * px per fr at which another fr track reaches its floor (k_o, the largest
+   * floor / fr among them). When the grid is held open by `boardGridMinWidth`,
+   * each fr renders at this many px. 0 when unknown.
+   */
+  otherFloorPerFr: number;
+  /** px the fr tracks share when the grid is not held open by its min width (C). */
+  fluidFrSpace: number;
+}
+
+const SPECIFIED_TRACK = /minmax\(\s*0(?:px)?\s*,\s*([\d.]+)fr\s*\)|([\d.]+)px/g;
+
+/** The specified template's tracks, each its fr weight or `null` for a px track. */
+function specifiedTracks(template: string): (number | null)[] {
+  return Array.from(template.matchAll(SPECIFIED_TRACK), (m) => (m[1] !== undefined ? Number(m[1]) : null));
 }
 
 /**
- * The saved width a separator drag asks for. Columns are fr tracks, so the saved
- * width is a weight, not the rendered width: the drag scales the weight by how much
- * it grows the rendered track (`startWidth * (rendered + delta) / rendered`). When
- * the track was not measured, the drag adds the delta to the saved width as before
- * the shared template. `setColumnWidth` clamps the result to 160..600.
+ * Measures the column track to the left of separator `sepIndex` in the grid row
+ * `el` sits in. The fr weights come from the row's specified `grid-template-columns`
+ * (its inline style), the rendered px from the resolved one; px tracks (gutters,
+ * separators, 40px stubs) are fixed and take no part. The board grid wrapper
+ * (`[data-track-floors]`) supplies the track floors and, through its parent (the
+ * scroll box), the width the grid would have without its min width.
+ * Returns null when it cannot be measured (no layout, as in jsdom).
  */
-export function resizedColumnWidth(startWidth: number, renderedPx: number, deltaPx: number): number {
-  if (renderedPx > 0) return Math.round((startWidth * Math.max(1, renderedPx + deltaPx)) / renderedPx);
-  return startWidth + deltaPx;
+export function measureTrackLeftOf(el: HTMLElement | null, sepIndex: number): TrackResizeMeasure | null {
+  if (!el || sepIndex < 1) return null;
+  let grid = el.parentElement;
+  while (grid && getComputedStyle(grid).display !== "grid") grid = grid.parentElement;
+  if (!grid) return null;
+  const specified = specifiedTracks(grid.style.gridTemplateColumns);
+  // Resolved value: one px size per track, e.g. "16px 204.5px 8px ...".
+  const resolved = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).map((v) => {
+    const m = /^([\d.]+)px$/.exec(v);
+    return m ? Number(m[1]) : NaN;
+  });
+  if (specified.length === 0 || specified.length !== resolved.length || resolved.some(Number.isNaN)) return null;
+  const t = columnTrackLine(sepIndex - 1) - 1;
+  const fr = specified[t];
+  if (!fr) return null;
+  let frPx = 0;
+  let fixedPx = 0;
+  let otherFr = 0;
+  specified.forEach((s, i) => {
+    if (s === null) {
+      fixedPx += resolved[i];
+    } else {
+      frPx += resolved[i];
+      if (i !== t) otherFr += s;
+    }
+  });
+  let fluidFrSpace = frPx;
+  let otherFloorPerFr = 0;
+  const wrapper = grid.closest<HTMLElement>("[data-track-floors]");
+  if (wrapper) {
+    const box = wrapper.parentElement;
+    const wrapWidth = wrapper.getBoundingClientRect().width;
+    if (box && wrapWidth > 0) {
+      const cs = getComputedStyle(box);
+      const view = box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      // Anything between the wrapper's edge and this row's tracks (none today).
+      const insets = Math.max(0, wrapWidth - (frPx + fixedPx));
+      if (view > 0) fluidFrSpace = Math.max(view, BOARD_GRID_MIN_WIDTH) - insets - fixedPx;
+    }
+    (wrapper.dataset.trackFloors ?? "").split(/\s+/).filter(Boolean).forEach((floor, c) => {
+      const i = columnTrackLine(c) - 1;
+      const w = specified[i];
+      if (i !== t && w) otherFloorPerFr = Math.max(otherFloorPerFr, Number(floor) / w);
+    });
+  }
+  return { rendered: resolved[t], fr, otherFr, otherFloorPerFr, fluidFrSpace };
+}
+
+/**
+ * The saved width a separator drag asks for, so the column's right edge stays
+ * under the pointer. Columns are fr tracks, so the saved width is a weight and
+ * raising it also raises the sum every track divides the fr space by. With the
+ * target width `T = r + d` and the new weight `f`, the column renders at
+ * `max(C * f / (S_o + f), k_o * f)`: the fluid share of the fr space, or, once the
+ * grid is held open by `boardGridMinWidth`, `k_o` px per fr. Both grow with `f`, so
+ * the weight that renders exactly `T` is the smaller of their inverses:
+ *   `f = min(T * S_o / (C - T), T / k_o)`  (the first is unreachable when T >= C)
+ * and the saved width scales with it, `w' = w * f / fr`, clamped to 160..600.
+ * When the track was not measured (jsdom), the drag adds the delta to the saved
+ * width as before the shared template.
+ */
+export function resizedColumnWidth(startWidth: number, m: TrackResizeMeasure | null, deltaPx: number): number {
+  if (!m || m.rendered <= 0 || m.fr <= 0) return startWidth + deltaPx;
+  // The only fr track fills the row whatever its weight; there is nothing to resize against.
+  if (m.otherFr <= 0) return startWidth;
+  const target = Math.max(1, m.rendered + deltaPx);
+  const fluid = target < m.fluidFrSpace ? (target * m.otherFr) / (m.fluidFrSpace - target) : Infinity;
+  const held = m.otherFloorPerFr > 0 ? target / m.otherFloorPerFr : Infinity;
+  const fr = Math.min(fluid, held);
+  if (!Number.isFinite(fr)) return COLUMN_WIDTH_MAX;
+  return Math.round(clampColumnWidth((startWidth * fr) / m.fr));
 }
 
 /** CSS variable on the board scroll box: its visible (client) width in px. */

@@ -19,7 +19,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
-import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, renderedTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
+import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -595,11 +595,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const handleSepMouseDown = (canResizeSep || canInsert)
             ? (e: React.MouseEvent<HTMLDivElement>) => {
                 const startWidth = prevCol ? clampColumnWidth(colWidths?.get(prevCol.id)) : 0;
-                const rendered = canResizeSep ? renderedTrackLeftOf(e.currentTarget, colIdx) : 0;
+                const measure = canResizeSep ? measureTrackLeftOf(e.currentTarget, colIdx) : null;
                 startInsertGesture(
                   e,
                   () => { if (canInsert) onInsertColumn!(col.id); },
-                  canResizeSep ? (delta) => setColumnWidth!(prevCol!.id, resizedColumnWidth(startWidth, rendered, delta)) : undefined,
+                  canResizeSep ? (delta) => setColumnWidth!(prevCol!.id, resizedColumnWidth(startWidth, measure, delta)) : undefined,
                 );
               }
             : undefined;

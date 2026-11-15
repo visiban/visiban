@@ -921,6 +921,29 @@ describe('BoardView', () => {
     expect(seps[1].className).toContain('cursor-col-resize')
   })
 
+  it('publishes each column track floor on the board grid for a separator drag (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 440 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    const grid = screen.getByTestId('board-grid')
+    const n = screen.getByTestId('board-header-row').style.gridTemplateColumns.match(/fr\)/g)!.length
+    expect(grid.getAttribute('data-track-floors')).toBe(Array(n).fill('160').join(' '))
+  })
+
+  // A saved width is a track weight, not px: the column drag overlay takes its
+  // size from the dragged header cell (DragOverlay), never from the saved width.
+  it('sizes the column drag overlay from the dragged cell, not the saved width (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 600 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    act(() => {
+      capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+    })
+    const overlay = screen.getByTestId('column-drag-overlay')
+    expect(overlay.style.width).toBe('')
+    expect(overlay.className).toContain('w-full')
+  })
+
   it('has no label-panel corner cell in the header row (#2271)', () => {
     render(<BoardView {...defaultProps()} />)
     const header = screen.getByTestId('board-header-row')

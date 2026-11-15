@@ -243,7 +243,15 @@ test.describe('board view', () => {
 
     // No add-column modal: a drag is not a click.
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect.poll(async () => (await headerTrack()).width).toBeGreaterThan(before.width + 40)
+    // The dragged edge ends under the pointer: a column's saved width is an fr
+    // weight, and the resize accounts for the other tracks' share (#2300), so the
+    // separator follows the pointer rather than lagging behind it.
+    const pointerX = handle.x + handle.width / 2 + 120
+    await expect.poll(async () => {
+      const box = (await seps.nth(1).boundingBox())!
+      return Math.abs(box.x + box.width / 2 - pointerX)
+    }).toBeLessThanOrEqual(2)
+    expect((await headerTrack()).width).toBeGreaterThan(before.width + 118)
     const after = await headerTrack()
     const n = await laneCells.count()
     expect(n).toBeGreaterThan(0)

@@ -44,19 +44,22 @@ describe('ColumnSeparator (#1990, #2300)', () => {
     expect(setWidth).not.toHaveBeenCalled()
   })
 
-  it('scales the saved width by the rendered track width when it can be measured', () => {
+  it('keeps the dragged edge under the pointer when the track can be measured', () => {
     const { sep, setWidth } = setup(true)
+    sep.parentElement!.style.gridTemplateColumns = '16px minmax(0, 1fr) 8px minmax(0, 3fr) 16px'
     const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => (
       el === sep.parentElement
-        ? ({ display: 'grid', gridTemplateColumns: '16px 100px 8px 100px 16px' } as CSSStyleDeclaration)
+        ? ({ display: 'grid', gridTemplateColumns: '16px 100px 8px 300px 16px' } as CSSStyleDeclaration)
         : ({ display: 'block', gridTemplateColumns: 'none' } as CSSStyleDeclaration)
     ))
     fireEvent.mouseDown(sep, { clientX: 100 })
     fireEvent.mouseMove(window, { clientX: 150 })
     fireEvent.mouseUp(window)
     spy.mockRestore()
-    // Saved 200 rendered at 100px; +50px is 1.5x the track, so 1.5x the weight.
-    expect(setWidth).toHaveBeenLastCalledWith(300)
+    // 1fr of 4 renders at 100 of the 400px fr space. To render at 150 it needs
+    // 400 * f / (3 + f) = 150, so f = 1.8: the saved 200 becomes 360. Scaling by
+    // the track alone (300) would leave the edge 15px behind the pointer.
+    expect(setWidth).toHaveBeenLastCalledWith(360)
   })
 
   it('a non-admin can still drag to resize', () => {
