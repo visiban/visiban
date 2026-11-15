@@ -16,8 +16,6 @@ import {
   lensFilterActiveCount,
 } from "./lensDims";
 
-
-
 interface Props {
   connection: LensConnection;
   cardLayout: CardLayout;
@@ -133,7 +131,7 @@ export default function LensToolbar({
           aria-keyshortcuts="f"
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
-          {showFilters ? "Hide filters" : "Filters"}
+          Filters
           {!showFilters && activeCount > 0 && (
             <span className="ml-1.5 bg-primary-emphasis/20 text-info rounded-full px-1.5 py-0.5 font-medium">
               {activeCount}
@@ -158,9 +156,9 @@ export default function LensToolbar({
         </button>
       </Tooltip>
 
-      {/* Lens-specific pivot controls. `portalMenu` stays (#1161): the tab group
-          beside them is an `overflow-x-auto` box and the page can clip an
-          in-flow `absolute top-full` menu; a portal is immune to both. */}
+      {/* Lens-specific pivot controls. `portalMenu` stays (#1161): an in-flow
+          `absolute top-full` menu can be clipped by an `overflow` ancestor
+          (the tab group scrolls on its own); a portal is immune. */}
       <SingleSelectDropdown
         label="Columns: Status"
         options={COLUMN_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Columns: ${o.label}` }))}

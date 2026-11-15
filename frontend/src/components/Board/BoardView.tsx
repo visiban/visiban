@@ -2689,6 +2689,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   };
   const onShowAllSwimlanes = () => expandAllSwimlanes();
   const onShowAllColumns = () => expandAllColumns();
+  const allLanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
 
   return (
     <>
@@ -2773,7 +2774,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onChange={handleGridOverlayChange}
                   />
                 }
-                allSwimlanesCollapsed={board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length}
+                allSwimlanesCollapsed={allLanesCollapsed}
                 allSwimlanesExpanded={allSwimlanesExpanded}
                 allColumnsCollapsed={board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length}
                 allColumnsExpanded={allColumnsExpanded}
@@ -2986,12 +2987,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           columnCount={board.columns.length}
           laneCount={board.swimlanes.length}
           cardCount={showChipCountsValue.all}
-          allLanesCollapsed={board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length}
-          onToggleLanes={
-            board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length
-              ? onShowAllSwimlanes
-              : onHideAllSwimlanes
-          }
+          allLanesCollapsed={allLanesCollapsed}
+          onToggleLanes={allLanesCollapsed ? onShowAllSwimlanes : onHideAllSwimlanes}
         />
       )}
 
