@@ -54,6 +54,7 @@ import BoardViewMenu from "./BoardViewMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
+import FilterPanel from "./FilterPanel";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
@@ -2678,24 +2679,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-2 flex-wrap">
-            <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
-              <button type="button"
-                data-tour-step="filter"
-                onClick={() => setShowFilters((v) => !v)}
-                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
-                aria-pressed={showFilters || activeCount > 0}
-                aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
-                aria-keyshortcuts="F"
-              >
-                {FilterIcon}
-                Filter
-                {activeCount > 0 && (
-                  <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
-                    {activeCount}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
+            <FilterPanel
+              board={board}
+              filters={effectiveFilters}
+              onChange={(next) => { setActiveFilterId(null); setFilters(next); }}
+              activeCount={activeCount}
+              icon={FilterIcon}
+              savedFilters={savedFilters}
+              activeFilterId={activeFilterId}
+              onLoadSaved={(sf) => { setFilters(hydrateFilter(sf)); setActiveFilterId(sf.id); }}
+              filterBarShown={showFilters}
+              onToggleFilterBar={() => setShowFilters((v) => !v)}
+              onOpenLaneFilters={openLaneFilters}
+              userDateFormat={userDateFormat}
+            />
             <span ref={presetPickerRef} className="contents">
               <BoardViewMenu
                 icon={ViewMenuIcon}

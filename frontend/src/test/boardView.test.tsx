@@ -647,9 +647,16 @@ describe('BoardView', () => {
     expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
+  // #2301 — the Filter button opens the Filter panel; its footer reveals the full filter bar.
+  async function showFilterBar() {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Filters/ }))
+    await user.click(screen.getByRole('button', { name: /Show filter bar/ }))
+  }
+
   it('FilterBar renders in its own row below the toolbar', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     const filterBar = screen.getByTestId('filter-bar')
     const toolbar = screen.getByTestId('board-toolbar')
     // FilterBar should not be a descendant of the toolbar row
@@ -741,10 +748,10 @@ describe('BoardView', () => {
     expect(screen.getByText('Stalled Card')).toBeInTheDocument()
   })
 
-  it('clicking Filters toggles filter bar', async () => {
+  it('the Filter panel footer toggles the filter bar', async () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
@@ -992,9 +999,9 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
     })
 
-    it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
+    it('Filters toolbar button announces the Filter panel it opens (#2301)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'F')
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-haspopup', 'dialog')
     })
 
     it('single-letter shortcuts are suppressed when focus is in an input', () => {
@@ -2233,11 +2240,12 @@ describe('BoardView', () => {
       expect(overflowItem(/^Export board/)).toHaveTextContent('⌘⇧E')
     })
 
-    it('Filters and Activity drawer tooltips advertise their keyboard shortcuts', () => {
+    it('Filters and Activity drawer tooltips name the control; the drawer advertises its shortcut', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Filters').getAttribute('data-tooltip')).toBe('Filters (F)')
+      // The Filter panel wraps its button in the tooltip's span so it can keep its own trigger ref.
+      expect(screen.getByLabelText('Filters').parentElement?.getAttribute('data-tooltip')).toBe('Filters')
       expect(screen.getByLabelText('Open activity drawer').getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
     })
 
@@ -2275,7 +2283,7 @@ describe('BoardView', () => {
 
     it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const search = screen.getByRole('search', { name: 'Board filters' })
       expect(search).toBeInTheDocument()
     })
@@ -2347,7 +2355,7 @@ describe('BoardView', () => {
     it('pressing "c" in an INPUT does not trigger collapse', async () => {
       render(<BoardView {...defaultProps()} />)
       // Open the filter bar which contains an INPUT
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const filterBar = screen.getByTestId('filter-bar')
       // No crash or unexpected state change should occur
       expect(filterBar).toBeInTheDocument()
