@@ -1355,7 +1355,7 @@ def _dwell_by_swimlane(flow, visits):
 
 
 def completed_dwell_by_swimlane(flow, flow_range):
-    """Completed dwell grouped for the heatmap's Throughput mode."""
+    """Completed dwell grouped for the heatmap's In period mode."""
     return _dwell_by_swimlane(
         flow,
         (

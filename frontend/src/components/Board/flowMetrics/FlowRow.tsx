@@ -78,25 +78,28 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
                 <span className="text-sm font-semibold text-fg truncate">{column.name}</span>
                 {column.bottleneck && <span className="text-xs font-semibold text-warning uppercase tracking-wide">Bottleneck</span>}
                 <Squares column={column} alpha={columnAlpha(index, columns.length)} />
-                <span id={`${column.uid}-flow-stats`} className="text-xs text-fg-secondary">
-                  {column.limit !== null ? `${column.count} of ${column.limit}` : `${column.count} now`}
-                  {over > 0 && <span className="text-danger font-semibold">{`, ${over} over limit`}</span>}
-                </span>
-                <span className="text-xs text-fg-secondary">
-                  {column.medianWait !== null ? `${formatDays(column.medianWait)} median wait` : "Median wait not available"}
-                </span>
-                {column.queueDelta !== null && (
-                  <span className={`text-xs ${column.queueDelta > 0 ? "text-warning font-semibold" : "text-fg-tertiary"}`}>
-                    {column.queueDelta > 0 && since
-                      ? `Queue +${column.queueDelta} since ${formatDate(since)}`
-                      : column.queueDelta < 0 && since ? `Queue ${column.queueDelta} since ${formatDate(since)}` : "Queue steady"}
+                {/* The aria-label replaces the box's content, so the description carries every stat. */}
+                <span id={`${column.uid}-flow-stats`} className="flex flex-col gap-2">
+                  <span className="text-xs text-fg-secondary">
+                    {column.limit !== null ? `${column.count} of ${column.limit}` : `${column.count} now`}
+                    {over > 0 && <span className="text-danger font-semibold">{`, ${over} over limit`}</span>}
                   </span>
-                )}
+                  <span className="text-xs text-fg-secondary">
+                    {column.medianWait !== null ? `${formatDays(column.medianWait)} median wait` : "Median wait not available"}
+                  </span>
+                  {column.queueDelta !== null && (
+                    <span className={`text-xs ${column.queueDelta > 0 ? "text-warning font-semibold" : "text-fg-tertiary"}`}>
+                      {column.queueDelta > 0 && since
+                        ? `Queue +${column.queueDelta} since ${formatDate(since)}`
+                        : column.queueDelta < 0 && since ? `Queue ${column.queueDelta} since ${formatDate(since)}` : "Queue steady"}
+                    </span>
+                  )}
+                </span>
               </button>
             </div>
           );
         })}
-        <Connector rate={rate} note="finished" maxRate={maxRate} warn={false} />
+        <Connector rate={rate} note="finished" maxRate={maxRate} warn={bottleneckIndex !== -1} />
         <div className="min-w-[110px] bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1 justify-center" data-testid="flow-done-box">
           <span className="text-sm font-semibold text-fg">Done</span>
           <span className="text-xl font-semibold text-fg font-mono">{throughput ? throughput.total : "—"}</span>

@@ -192,7 +192,7 @@ export function bottleneckSentence(
   }
   const band = cumulative?.columns.find((c) => c.column_uid === uid);
   if (band && band.start_count !== null && band.end_count !== null) {
-    const limit = filtered ? null : columns.find((c) => c.uid === uid)?.wip_limit ?? null;
+    const limit = filtered || !columns.find((c) => c.uid === uid)?.wip_limit ? null : columns.find((c) => c.uid === uid)?.wip_limit ?? null;
     let queue = `The queue grew from ${band.start_count} to ${pluralize(band.end_count, "card")}`;
     if (limit !== null) queue += ` against a limit of ${limit}`;
     if (band.entered_per_week !== null && band.left_per_week !== null) {

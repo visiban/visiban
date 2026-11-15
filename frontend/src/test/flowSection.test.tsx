@@ -62,13 +62,16 @@ const analytics: AnalyticsData = {
   }],
 }
 
-function Harness({ onOpenColumn = () => {}, data = analytics }: { onOpenColumn?: (uid: string) => void; data?: AnalyticsData | null }) {
+function Harness({ onOpenColumn = () => {}, data = analytics, filtered = false, cols = columns, cum = cumulative }: {
+  onOpenColumn?: (uid: string) => void; data?: AnalyticsData | null; filtered?: boolean
+  cols?: { uid: string; wip_limit: number | null }[]; cum?: FlowCumulativeFlow
+}) {
   const [view, setView] = useState<ChartPanelView>('chart')
   const [mode, setMode] = useState<'age' | 'throughput'>('age')
   return (
     <FlowSection
-      analytics={{ data }} cumulative={cumulative} dwell={dwell} wipAge={wipAge} throughput={throughput}
-      columns={columns} mode={mode} onModeChange={setMode} view={view} onViewChange={setView}
+      analytics={{ data }} cumulative={cum} dwell={dwell} wipAge={wipAge} throughput={throughput}
+      columns={cols} filtered={filtered} mode={mode} onModeChange={setMode} view={view} onViewChange={setView}
       filters={{ days: 30, swimlaneId: null, labelId: null }} settled onOpenColumn={onOpenColumn}
     />
   )
@@ -85,7 +88,10 @@ describe('the flow row and time bar (#2262)', () => {
     expect(review).toHaveTextContent('6.2d median wait')
     expect(review).toHaveTextContent('Queue +7 since Aug 16')
     expect(review.className).toContain('border-warning')
-    expect(within(review).getAllByTestId('flow-square')).toHaveLength(5)
+    const squares = within(review).getAllByTestId('flow-square')
+    expect(squares).toHaveLength(5)
+    squares.forEach((s) => expect((s as HTMLElement).style.backgroundImage).toContain('repeating-linear-gradient'))
+    expect((within(boxes[0]).getAllByTestId('flow-square')[0] as HTMLElement).style.backgroundImage).not.toContain('repeating-linear-gradient')
     expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(2)
     expect(boxes[0]).toHaveTextContent('Queue steady')
     expect(screen.getByText(/Hollow squares are over the limit/)).toBeInTheDocument()
@@ -98,8 +104,60 @@ describe('the flow row and time bar (#2262)', () => {
     const segments = screen.getAllByTestId('time-segment')
     expect(segments.map((s) => s.getAttribute('data-bottleneck'))).toEqual(['false', 'true'])
     expect(segments[1].className).toContain('bg-warning')
+    expect(segments[1].style.backgroundImage).toContain('repeating-linear-gradient')
+    expect(segments[0].style.backgroundImage).not.toContain('repeating-linear-gradient')
     expect(screen.getByTestId('time-total')).toHaveTextContent('7.6d')
     expect(screen.getByText('All cards')).toBeInTheDocument()
+  })
+
+  it('colors the connector into Done after the bottleneck, and leaves connectors before it neutral', () => {
+    render(<Harness />)
+    const spans = screen.getAllByTestId('flow-connector').map((c) => c.querySelector('[aria-hidden="true"]')!.className)
+    expect(spans[0]).toContain('bg-line-strong')
+    expect(spans[1]).toContain('bg-line-strong')
+    expect(spans[2]).toContain('bg-warning')
+  })
+
+  it('keeps the last connector neutral when no bottleneck is named', () => {
+    render(<Harness cum={{ ...cumulative, bottleneck_column_uid: null }} />)
+    const spans = screen.getAllByTestId('flow-connector').map((c) => c.querySelector('[aria-hidden="true"]')!.className)
+    expect(spans[2]).toContain('bg-line-strong')
+  })
+
+  it('makes the time bar scroller a keyboard-reachable region', () => {
+    render(<Harness />)
+    const region = screen.getByRole('region', { name: 'Where the time goes, scrolls sideways' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region.className).toContain('focus:ring-2')
+  })
+
+  it('describes each box with its count, median wait and queue change', () => {
+    render(<Harness />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    const description = document.getElementById(review.getAttribute('aria-describedby')!)!
+    expect(description).toHaveTextContent('7 of 5, 2 over limit')
+    expect(description).toHaveTextContent('6.2d median wait')
+    expect(description).toHaveTextContent('Queue +7 since Aug 16')
+  })
+
+  it('shows only the count, with no limit wording, while a filter is on', () => {
+    render(<Harness filtered />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    expect(review).toHaveTextContent('7 now')
+    expect(review).not.toHaveTextContent('of 5')
+    expect(review).not.toHaveTextContent('over limit')
+    expect(within(review).queryAllByTestId('flow-square-over')).toHaveLength(0)
+    expect(within(review).getAllByTestId('flow-square')).toHaveLength(7)
+    expect(screen.queryByText(/Hollow squares/)).toBeNull()
+  })
+
+  it('treats a limit of 0 as no limit', () => {
+    render(<Harness cols={[{ uid: 'ready', wip_limit: 0 }, { uid: 'review', wip_limit: 0 }]} />)
+    const review = screen.getAllByTestId('flow-column-box')[1]
+    expect(review).toHaveTextContent('7 now')
+    expect(review).not.toHaveTextContent('over limit')
+    expect(within(review).queryAllByTestId('flow-square-over')).toHaveLength(0)
+    expect(buildColumnSelection('review', { cumulative, dwell, wipAge, columns: [{ uid: 'review', wip_limit: 0 }] }).limit).toBeNull()
   })
 
   it('opens the column from its box', async () => {
@@ -151,11 +209,11 @@ describe('the column drawer (#2262)', () => {
       .toMatchObject({ name: 'this column', count: 0, medianWait: null, pastP85: null })
   })
 
-  function Host({ onOpenCard = () => {} }: { onOpenCard?: (id: number) => void }) {
+  function Host({ onOpenCard = () => {}, pick = selection }: { onOpenCard?: (id: number) => void; pick?: DrillSelection }) {
     const [drill, setDrill] = useState<DrillSelection | null>(null)
     return (
       <>
-        <button type="button" onClick={() => setDrill(selection)}>open it</button>
+        <button type="button" onClick={() => setDrill(pick)}>open it</button>
         {drill && (
           <FlowDrillDrawer
             boardId={1} selection={drill} cards={new Map(cards.map((c) => [c.uid, c]))}
@@ -184,6 +242,34 @@ describe('the column drawer (#2262)', () => {
     expect(onOpenCard).toHaveBeenCalledWith(cards[1].id)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(opener).toHaveFocus()
+  })
+
+  it('omits the limit from the drawer while a filter is on', async () => {
+    const filteredSelection = buildColumnSelection('review', { cumulative, dwell, wipAge, columns }, true)
+    expect(filteredSelection.limit).toBeNull()
+    render(<Host pick={filteredSelection} />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('7 cards in this column now')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/limit/)).toBeNull()
+    expect(within(dialog).queryByText('7 of 5')).toBeNull()
+  })
+
+  it('moves focus to the first revealed row after "Show N more", and Tab stays in the drawer', async () => {
+    const extra = buildColumnSelection('review', { cumulative, dwell, wipAge, columns })
+    render(<Host pick={extra} />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Show 1 more' }))
+    const rows = within(dialog).getAllByRole('listitem')
+    expect(rows).toHaveLength(6)
+    expect(rows[5].querySelector('button')).toHaveFocus()
+    for (let i = 0; i < 20; i += 1) {
+      await userEvent.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+    await userEvent.tab({ shift: true })
+    expect(dialog.contains(document.activeElement)).toBe(true)
   })
 
   it('drills into a card and back, and closes with Escape', async () => {

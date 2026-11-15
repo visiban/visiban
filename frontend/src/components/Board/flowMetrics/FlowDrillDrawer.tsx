@@ -197,6 +197,11 @@ function ColumnBody({
   onClose: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const firstRevealed = useRef<HTMLButtonElement>(null);
+  // "Show N more" unmounts on click; hand focus to the first newly revealed row so it stays inside the drawer.
+  useEffect(() => {
+    if (showAll) firstRevealed.current?.focus();
+  }, [showAll]);
   const [oldest, ...rest] = selection.cards;
   const shown = showAll ? rest : rest.slice(0, COLUMN_PREVIEW);
   const oldestCard = oldest ? cards.get(oldest.uid) : undefined;
@@ -259,10 +264,11 @@ function ColumnBody({
         <section aria-label="Other cards, oldest first" className="flex flex-col gap-1">
           <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Oldest first</h3>
           <ul className="flex flex-col">
-            {shown.map((card) => (
+            {shown.map((card, rowIndex) => (
               <li key={card.uid}>
                 <button
                   type="button"
+                  ref={rowIndex === COLUMN_PREVIEW ? firstRevealed : undefined}
                   onClick={() => onChange({ kind: "card", uid: card.uid, facts: cardFacts(card, selection.name), dwell: card.dwell, back: selection })}
                   className="w-full flex items-baseline justify-between gap-3 px-2 py-1.5 text-left text-sm rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >

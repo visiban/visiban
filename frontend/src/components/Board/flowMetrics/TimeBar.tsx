@@ -17,7 +17,7 @@ export default function TimeBar({ columns }: { columns: FlowRowColumn[] }) {
     <div className="flex flex-col gap-2" data-testid="time-bar">
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
         <span className="text-sm text-fg-secondary w-20 shrink-0">All cards</span>
-        <div className="flex-1 min-w-0 overflow-x-auto"><div className="flex h-8 rounded gap-px bg-line bg-clip-padding min-w-full w-max" role="img"
+        <div className="flex-1 min-w-0 overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" role="region" aria-label="Where the time goes, scrolls sideways" tabIndex={0}><div className="flex h-8 rounded gap-px bg-line bg-clip-padding min-w-full w-max" role="img"
           aria-label={`Median days in each column: ${segments.map((s) => `${s.column.name} ${formatDays(s.column.medianWait)}`).join(", ")}. Total ${formatDays(total)}.`}>
           {segments.map(({ column, index }) => (
             <div

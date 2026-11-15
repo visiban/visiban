@@ -24,6 +24,8 @@ interface Props {
   onViewChange: (view: ChartPanelView) => void;
   /** The period the numbers on screen were fetched for. */
   filters: FlowFilters;
+  /** A swimlane or label filter is on: the board-wide WIP limit no longer applies to the counts shown. */
+  filtered?: boolean;
   /** Every request has answered once: a missing response is then a failure, not a load. */
   settled: boolean;
   onOpenColumn: (uid: string) => void;
@@ -79,9 +81,9 @@ function TableBody({ analytics, mode, onModeChange, days }: Pick<Props, "analyti
  * period; its period, swimlane and label come from the page's filter bar.
  */
 export default function FlowSection({
-  analytics, cumulative, dwell, wipAge, throughput, columns, mode, onModeChange, view, onViewChange, filters, settled, onOpenColumn,
+  analytics, cumulative, dwell, wipAge, throughput, columns, mode, onModeChange, view, onViewChange, filters, filtered = false, settled, onOpenColumn,
 }: Props) {
-  const row = cumulative ? buildFlowRow(cumulative, dwell, wipAge, columns) : [];
+  const row = cumulative ? buildFlowRow(cumulative, dwell, wipAge, columns, filtered) : [];
   return (
     <ChartPanel
       title="How work flows"

@@ -25,11 +25,21 @@ export function connectorNote(index: number, col: Pick<FlowCumulativeColumn, "en
   return "move on";
 }
 
+/**
+ * The WIP limit to compare a column's count with, or null for "no limit". A
+ * limit of 0 means unlimited (as in ColumnHeader), and a swimlane or label
+ * filter leaves a count that no longer matches the board-wide limit.
+ */
+export function effectiveLimit(wipLimit: number | null | undefined, filtered: boolean): number | null {
+  return filtered || !wipLimit ? null : wipLimit;
+}
+
 export function buildFlowRow(
   cumulative: FlowCumulativeFlow,
   dwell: FlowDwell | undefined,
   wipAge: FlowWipAge | undefined,
   columns: Pick<Column, "uid" | "wip_limit">[],
+  filtered = false,
 ): FlowRowColumn[] {
   return cumulative.columns
     .filter((c): c is FlowCumulativeColumn & { column_uid: string } => !c.is_done && c.column_uid !== null)
@@ -37,7 +47,7 @@ export function buildFlowRow(
       uid: c.column_uid,
       name: c.column_name ?? "Column",
       count: wipAge?.samples.filter((s) => s.column_uid === c.column_uid).length ?? 0,
-      limit: columns.find((col) => col.uid === c.column_uid)?.wip_limit ?? null,
+      limit: effectiveLimit(columns.find((col) => col.uid === c.column_uid)?.wip_limit, filtered),
       medianWait: dwell?.columns.find((d) => d.column_uid === c.column_uid)?.percentiles.p50 ?? null,
       enteredPerWeek: c.entered_per_week,
       queueDelta: c.start_count !== null && c.end_count !== null ? c.end_count - c.start_count : null,
@@ -56,5 +66,5 @@ export function doneRate(cumulative: FlowCumulativeFlow): number | null {
 /** In-progress columns run from a light to a dark step of the chart hue, in board order (shared by the row and the bar). */
 export const columnAlpha = (index: number, total: number) => (total <= 1 ? 0.7 : 0.4 + (0.6 * index) / (total - 1));
 
-/** The bottleneck's hatch, drawn over the warning fill. HTML twin of the SVG pattern; #2268 unifies the two. */
+/** The bottleneck's hatch, drawn over the warning fill. HTML twin of the SVG pattern on the cumulative flow chart; unifying the two is tracked in #2285. */
 export const HATCH = "repeating-linear-gradient(135deg, rgb(0 0 0 / 0.28) 0 3px, transparent 3px 8px)";

@@ -94,7 +94,7 @@ export default function AnalyticsOverview({
     onViewChange: (view: ChartPanelView) => setViews((current) => ({ ...current, [panel]: view })),
   });
 
-  const openColumn = (uid: string) => setDrill(buildColumnSelection(uid, { cumulative, dwell, wipAge, columns }));
+  const openColumn = (uid: string) => setDrill(buildColumnSelection(uid, { cumulative, dwell, wipAge, columns }, filtered));
 
   // Period-labelled copy names the period the numbers on screen were fetched for, not the live selection.
   const shownDays = (fetchedFilters ?? filters).days;
@@ -194,6 +194,7 @@ export default function AnalyticsOverview({
               onModeChange={setMode}
               {...panelView("flow")}
               filters={shownFilters}
+              filtered={filtered}
               settled={settled}
               onOpenColumn={openColumn}
             />

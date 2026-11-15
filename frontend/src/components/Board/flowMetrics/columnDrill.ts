@@ -1,4 +1,5 @@
 import type { Column, FlowCumulativeFlow, FlowDwell, FlowWipAge } from "../../../types";
+import { effectiveLimit } from "./flowRowData";
 import type { DrillSelection } from "./FlowDrillDrawer";
 
 /**
@@ -14,6 +15,7 @@ export function buildColumnSelection(
     wipAge: FlowWipAge | undefined;
     columns: Pick<Column, "uid" | "wip_limit">[];
   },
+  filtered = false,
 ): Extract<DrillSelection, { kind: "column" }> {
   const name = cumulative?.columns.find((c) => c.column_uid === uid)?.column_name
     ?? wipAge?.columns.find((c) => c.column_uid === uid)?.column_name
@@ -27,7 +29,7 @@ export function buildColumnSelection(
     kind: "column",
     uid,
     name,
-    limit: columns.find((c) => c.uid === uid)?.wip_limit ?? null,
+    limit: effectiveLimit(columns.find((c) => c.uid === uid)?.wip_limit, filtered),
     count: samples.length,
     medianWait: dwell?.columns.find((c) => c.column_uid === uid)?.percentiles.p50 ?? null,
     pastP85: p85 === null ? null : samples.filter((s) => s.value_days > p85).length,

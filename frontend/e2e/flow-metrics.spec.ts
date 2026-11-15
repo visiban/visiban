@@ -225,8 +225,12 @@ test.describe('flow metrics dashboard', () => {
     await expect(row).toBeVisible()
     expect(await row.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
-    await page.getByTestId('flow-column-box').filter({ hasText: 'Doing' }).click()
+    const box = page.getByTestId('flow-column-box').filter({ hasText: 'Doing' })
+    await box.click()
     await expect(page.getByRole('dialog', { name: 'Doing' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Doing' })).toBeHidden()
+    await expect(box).toBeFocused()
   })
 
   test('draws all four charts with direct labels and percentile lines', async ({ page }) => {
