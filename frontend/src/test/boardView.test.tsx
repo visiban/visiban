@@ -2238,12 +2238,22 @@ describe('BoardView', () => {
       expect(statusRegions.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('Row 2 is a <nav> landmark labeled "Board toolbar" with h-10', () => {
+    it('Row 2 is a <nav> landmark labeled "Board toolbar" with a 40px minimum height', () => {
       render(<BoardView {...defaultProps()} />)
       const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
       expect(nav.tagName).toBe('NAV')
-      expect(nav.className).toMatch(/\bh-10\b/)
+      expect(nav.className).toMatch(/(^|\s)min-h-10(\s|$)/)
       expect(nav.className).toMatch(/bg-surface/)
+    })
+
+    it('the toolbar row wraps instead of scrolling sideways', () => {
+      render(<BoardView {...defaultProps()} />)
+      const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
+      const row = screen.getByTestId('board-toolbar')
+      for (const el of [nav, row]) {
+        expect(el.className).toMatch(/(^|\s)flex-wrap(\s|$)/)
+        expect(el.className).not.toMatch(/overflow-x-auto|min-w-max/)
+      }
     })
 
     it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {

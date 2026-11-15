@@ -346,7 +346,7 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 | **Move to...** | Move all selected cards to a target column (each card stays in its current swimlane) |
 | **Assign to...** | Set or clear the assignee on all selected cards |
 | **Priority...** | Set priority on all selected cards |
-| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived** panel in the toolbar |
+| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived cards** panel (toolbar **View** menu, **Show archived cards**) |
 | **Delete** | Delete all selected cards (with confirmation) |
 
 On the shared demo, the toolbar's **Archive** and **Delete** are dimmed with the demo notice and do nothing.
@@ -434,29 +434,28 @@ Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`
 
 ### Board toolbar layout
 
-The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:
+The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:
 
-- **Zone 1** — view tabs (Board / Summary / History / Analytics)
-- **Zone 2** — board controls (Preset, Collapse split button, Filters, Overlay, Layout toggle, Archived)
-- **Zone 3** (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)
-- **Trailing cluster** — overflow kebab (`⋮`) and connection status; always visible
+- **View tabs** (Board / Summary / History / Analytics)
+- **Filter** button (also `f`)
+- **View** button, which opens the View menu
+- **Activity** button, which opens the activity drawer
+- The overflow menu (`...`) and the connection status, always visible
 
-**Collapse button:** a split control. Clicking the main segment collapses or expands everything at once (preserving one-click muscle memory); clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.
+**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel.
 
-**Overflow kebab (`⋮`):** contains Export, Keyboard shortcuts, and Replay onboarding tour. Below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into it too, so the toolbar degrades gracefully without hiding functionality. The first time you visit a board at that viewport size, the kebab auto-expands once so the folded controls are visible. After that, a small first-encounter dot marks the kebab until you click it.
-
-The toolbar scrolls horizontally when it's wider than the viewport, with the trailing cluster (overflow kebab and connection status) pinned to the right edge so it's always reachable. This applies at any width, not just narrow phones.
+**Overflow menu (`...`):** contains Export, Board settings (admins), Keyboard shortcuts, and Replay onboarding tour. A small first-run dot marks the menu until you open it.
 
 ## Card layout
 
-The toolbar's **compact layout toggle** (icon button) switches between two card display modes:
+The **Card layout** control in the toolbar's **View** menu switches between two card display modes:
 
 | Mode | Description |
 |---|---|
 | **Expanded** (default) | Full card face with title, priority border, label pills, assignee avatar, checklist progress, and due date |
 | **Compact** | Narrower cards showing title and priority indicator only — useful on dense boards with many cards per cell. An aging card's title starts with a small bar meter that shows its aging step, since compact cards have no `Stale · Nd` badge (see [Card aging tint](card-history.md#card-aging-tint)) |
 
-The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The toggle's `aria-pressed` attribute reflects the compact state for screen reader users.
+The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.
 
 ## Filtering
 
@@ -579,7 +578,7 @@ Saved filters are private to each user; other board members cannot see or modify
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Pick an **Overlay** from the dropdown in the board toolbar, next to **Filters**, to shade each cell of the grid from a single number per cell. An overlay is a reading layer drawn *on top of* the grid, not a different view of it. The grid keeps its exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop, card creation, and filtering all behave the same.
+Pick an **Overlay** from the dropdown in the board toolbar's **View** menu, to shade each cell of the grid from a single number per cell. An overlay is a reading layer drawn *on top of* the grid, not a different view of it. The grid keeps its exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop, card creation, and filtering all behave the same.
 
 | Overlay | What it shows |
 |---|---|
@@ -670,7 +669,7 @@ Presets are built in; you cannot create or edit your own yet.
 
 ### Choosing a preset
 
-Pick a preset from the **Preset** dropdown (bookmark icon) at the start of the board toolbar's controls. Each option shows a one-line summary, and the board's default preset is labeled **Board default**. The trigger reads **Preset** when no preset is active and the preset's name when one is.
+Pick a preset from the **Preset** dropdown (bookmark icon) at the top of the board toolbar's **View** menu. Each option shows a one-line summary, and the board's default preset is labeled **Board default**. The trigger reads **Preset** when no preset is active and the preset's name when one is.
 
 Choosing a preset saves its density as your [personal density override](#personal-density-override) and its overlay as your [overlay](#grid-overlays) choice for that board, and records which preset you chose, all in this browser. A notice confirms the change, for example **Applied “Default”**, with an **Undo** button that puts back your previous settings. The notice closes by itself after a few seconds (longer when a link applied the preset), and waits while your pointer or keyboard focus is on it. While it is showing, the **Preset** dropdown also offers **Undo**, so you can reach it from the keyboard.
 
@@ -754,7 +753,7 @@ Archive and restore events **are included** in the board History view by default
 
 ### Export
 
-Click **Export** in the board toolbar to download the board data:
+Open the overflow menu (`...`) in the board toolbar and choose **Export** to download the board data:
 
 - **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.

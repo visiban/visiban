@@ -65,8 +65,9 @@ export default function BoardViewMenu(props: Props) {
     setOpen(false);
     setAnchor(null);
   };
-  // Priority 24, below a picker's own menu (25), so Escape closes that menu first.
-  useDropdownEscape(open, close, triggerRef, 24);
+  // Popover tier 25; the pickers inside pass escapePriority={26} so Escape closes
+  // an open picker menu first.
+  useDropdownEscape(open, close, triggerRef, 25);
 
   useEffect(() => {
     if (!open) return;

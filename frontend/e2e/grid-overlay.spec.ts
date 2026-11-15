@@ -56,7 +56,8 @@ async function pickOverlay(page: Page, name: string) {
   // The trigger reads "Overlay" at rest and takes the active overlay's own name while one is on.
   await openViewMenu(page)
   await page.getByRole('button', { name: /^(Overlay|Card count|Dwell time)$/ }).click()
-  await page.getByRole('menuitem', { name }).click()  // Close the View panel so it does not cover the board.
+  // Close the View panel so it does not cover the board.
+  await page.getByRole('menuitem', { name }).click()
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('view-menu-panel')).toBeHidden()
 }
@@ -166,5 +167,19 @@ test.describe('grid overlay picker menu and filters', () => {
 
     await expect(legend(page)).toContainText('No values match the active filters.')
     await expect(page.getByRole('img', { name: /^Card count:/ })).toHaveCount(0)
+  })
+})
+
+// #2269: the toolbar wraps at phone width; the page itself must never scroll sideways.
+test.describe('board toolbar at phone width', () => {
+  test.use({ viewport: { width: 390, height: 800 } })
+
+  test('the page has no sideways scroll', async ({ page }) => {
+    await openBoard(page)
+    await expect(page.getByRole('navigation', { name: 'Board toolbar' })).toBeVisible()
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
   })
 })

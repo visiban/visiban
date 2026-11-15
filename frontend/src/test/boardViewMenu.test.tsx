@@ -8,6 +8,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardViewMenu from '../components/Board/BoardViewMenu'
+import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
 
 function setup(overrides: Partial<React.ComponentProps<typeof BoardViewMenu>> = {}) {
   const props: React.ComponentProps<typeof BoardViewMenu> = {
@@ -37,6 +38,30 @@ const trigger = () => screen.getByRole('button', { name: 'View' })
 const panel = () => within(screen.getByRole('dialog', { name: 'View options' }))
 
 describe('BoardViewMenu', () => {
+  it('Escape closes an open picker menu first, then the View panel', async () => {
+    setup({
+      presetPicker: (
+        <SingleSelectDropdown
+          label="Preset"
+          portalMenu
+          escapePriority={26}
+          options={[{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }]}
+          selected={null}
+          onChange={vi.fn()}
+        />
+      ),
+    })
+    const user = userEvent.setup()
+    await user.click(trigger())
+    await user.click(screen.getByRole('button', { name: /Preset/ }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'View options' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('is closed at rest and exposes aria-expanded on its button', async () => {
     setup()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

@@ -43,8 +43,6 @@ import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
 import { canEditSwimlaneFieldOrder } from "../../utils/swimlaneFieldOrder";
 import BoardExportModal from "./BoardExportModal";
-import { useExportSeenPref } from "../../hooks/useExportSeenPref";
-import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
 import { useOverflowSeenPref } from "../../hooks/useOverflowSeenPref";
 import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
 import OverflowMenu from "../Layout/OverflowMenu";
@@ -1328,8 +1326,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (showExport && !canExport) setShowExport(false);
   }, [showExport, canExport]);
-  const [, markExportSeen] = useExportSeenPref();
-  const [, markShortcutsSeen] = useShortcutsSeenPref();
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const isLargeViewport = useIsLargeViewport();
@@ -1732,7 +1728,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
         if (!canExport) return;
         e.preventDefault();
-        markExportSeen();
         setShowExport(true);
         return;
       }
@@ -1843,7 +1838,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // never needs to re-subscribe when those inputs change. We pin only the
     // deps that actually change the handler's decision surface.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above; only the decision-surface deps are pinned
-  }, [toggleCollapsedSwimlane, canExport, markExportSeen, isAdmin]);
+  }, [toggleCollapsedSwimlane, canExport, isAdmin]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
   useEffect(() => {
@@ -2479,7 +2474,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         icon: ExportIcon,
         shortcut: formatShortcut({ mod: true, shift: true, key: "E" }),
         onSelect: () => {
-          markExportSeen();
           setShowExport(true);
         },
       });
@@ -2499,7 +2493,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       icon: ShortcutsIcon,
       shortcut: "?",
       onSelect: () => {
-        markShortcutsSeen();
         setShowShortcuts(true);
       },
     });
@@ -2521,8 +2514,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [
     isAdmin,
     canExport,
-    markExportSeen,
-    markShortcutsSeen,
     currentUser,
     replayTour,
   ]);
@@ -2732,6 +2723,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     className="w-full"
                     labelClassName="truncate min-w-0"
                     triggerTitle={activePreset?.name}
+                    escapePriority={26}
                     options={presetOptions}
                     selected={activePreset?.id ?? null}
                     onChange={handlePresetChange}
@@ -2765,6 +2757,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     triggerPrefix={OverlayIcon}
                     portalMenu
                     className="w-full"
+                    escapePriority={26}
                     options={gridOverlayOptions}
                     selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
                     onChange={handleGridOverlayChange}
