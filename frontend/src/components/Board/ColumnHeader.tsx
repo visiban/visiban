@@ -135,7 +135,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
     () => (addCardLanes ?? []).map((lane, i) => ({
       id: String(lane.id),
       label: lane.collapsed ? `${lane.name} (collapsed)` : lane.name,
-      icon: <span className="block mx-auto w-2.5 h-2.5 rounded-full ring-1 ring-line-strong" style={{ backgroundColor: lane.color }} />,
+      icon: <span className="block mx-auto w-2.5 h-2.5 rounded-full color-dot" style={{ backgroundColor: lane.color }} />,
       separatorBefore: i > 0,
       onSelect: () => onAddCardRef.current?.(lane.id),
     })),

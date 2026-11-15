@@ -134,6 +134,36 @@ test.describe('board view', () => {
     expect(n!.height).toBeCloseTo(b!.height, 0)
   })
 
+  test('blank space below cards in a short populated cell is one big add target (#2319)', async ({ page }) => {
+    const mk = (id: number, column: number, position: number) => ({
+      ...CARD,
+      id,
+      uid: `cardblank${id}`,
+      column,
+      title: `Blank card ${id}`,
+      position,
+    })
+    // Done is tall (five cards, creation off); To Do (addable) holds one, so its cell has blank
+    // space below the card.
+    const doneCards = [1, 2, 3, 4, 5].map((n) => mk(300 + n, COLUMN_DONE.id, n))
+    const board = { ...BOARD_FULL, cards: [...doneCards, mk(400, COLUMN_TODO.id, 1)] }
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/full/`)
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/cards/`)
+    await routeBoard(page, board)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const todoCard = page.locator('[data-card-id="400"]')
+    await expect(todoCard).toBeVisible({ timeout: 10_000 })
+    const cell = page.locator('[data-board-cell]').filter({ has: todoCard })
+    const addBtn = cell.getByRole('button', { name: '+ Add card' })
+    await addBtn.hover()
+    // The button fills the blank well space, far taller than a single-row strip.
+    await expect.poll(async () => (await addBtn.boundingBox())!.height).toBeGreaterThan(40)
+    // Clicking the lower blank area (not the top text line) opens the new-card input.
+    const box = (await addBtn.boundingBox())!
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height - 6)
+    await expect(page.getByPlaceholder('Card title…')).toBeVisible()
+  })
+
   test('the grid scrolls sideways inside its own box on a narrow window (#2270)', async ({ page }) => {
     await page.setViewportSize({ width: 400, height: 700 })
     await page.goto(`/boards/${BOARD_FULL.id}`)

@@ -48,7 +48,7 @@ Hovering the glyph shows the full time and the reason ("Blocked 3d 5h: Waiting o
 
 ### Show blocked only
 
-Click **Blocked only** in the filter row to show just the blocked cards. Its number is how many cards on the board are blocked. It counts manual blocks and relation blocks alike. While it is on, a **Blocked only ✕** chip appears with your other filters; click it to clear the filter. The setting is remembered per board.
+Click **Filter** and choose the **Blocked** row (or click **Blocked only** in the filter bar) to show just the blocked cards. Its number is how many cards on the board are blocked. It counts manual blocks and relation blocks alike. While it is on, a **Blocked only ✕** chip appears with your other filters; click it to clear the filter. The setting is remembered per board.
 
 ### Summary view
 

@@ -28,6 +28,8 @@ test.describe('saved filters', () => {
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByRole('button', { name: /^filters/i }).click()
+    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
+    await page.getByRole('button', { name: /show filter bar/i }).click()
     await page.locator('[data-board-search="true"]').fill('task')
 
     await page.getByRole('button', { name: 'Saved filters' }).click()

@@ -266,13 +266,16 @@ vi.mock('../components/Board/ArchivedCardsPanel', async () => {
   }
   return { default: ArchivedPanelMock }
 })
+// #2301 — the Filter panel lists these; tests that need a preset set them.
+let mockSavedFilters: { id: number; name: string; state_json: Record<string, unknown>; state_version: number; created_at: string }[] = []
+const mockHydrateFilter = vi.fn()
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
-    savedFilters: [],
+    savedFilters: mockSavedFilters,
     loading: false,
     saveFilter: vi.fn(),
     removeFilter: vi.fn(),
-    hydrateFilter: vi.fn(),
+    hydrateFilter: mockHydrateFilter,
   }),
 }))
 vi.mock('../components/Board/MovementHistoryView', () => ({
@@ -649,9 +652,16 @@ describe('BoardView', () => {
     expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
+  // #2301 — the Filter button opens the Filter panel; its footer reveals the full filter bar.
+  async function showFilterBar() {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Filters/ }))
+    await user.click(screen.getByRole('button', { name: /Show filter bar/ }))
+  }
+
   it('FilterBar renders in its own row below the toolbar', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     const filterBar = screen.getByTestId('filter-bar')
     const toolbar = screen.getByTestId('board-toolbar')
     // FilterBar should not be a descendant of the toolbar row
@@ -743,10 +753,10 @@ describe('BoardView', () => {
     expect(screen.getByText('Stalled Card')).toBeInTheDocument()
   })
 
-  it('clicking Filters toggles filter bar', async () => {
+  it('the Filter panel footer toggles the filter bar', async () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
@@ -947,6 +957,19 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
     })
 
+    it('single-key shortcuts do not fire from inside the open Filter panel (#2301)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+      const panel = screen.getByRole('dialog', { name: 'Filter' })
+      const row = within(panel).getByRole('button', { name: /^Label/ })
+      row.focus()
+      fireEvent.keyDown(row, { key: 's' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      // No dialog target: the shortcut still works.
+      fireEvent.keyDown(document.body, { key: 's' })
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    })
+
     it('S switches to the Summary view', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
@@ -994,9 +1017,9 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
     })
 
-    it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
+    it('Filters toolbar button announces the Filter panel it opens (#2301)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'F')
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-haspopup', 'dialog')
     })
 
     it('single-letter shortcuts are suppressed when focus is in an input', () => {
@@ -2235,11 +2258,12 @@ describe('BoardView', () => {
       expect(overflowItem(/^Export board/)).toHaveTextContent('⌘⇧E')
     })
 
-    it('Filters and Activity drawer tooltips advertise their keyboard shortcuts', () => {
+    it('Filters and Activity drawer tooltips name the control; the drawer advertises its shortcut', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Filters').getAttribute('data-tooltip')).toBe('Filters (F)')
+      // The Filter panel wraps its button in the tooltip's span so it can keep its own trigger ref.
+      expect(screen.getByLabelText('Filters').parentElement?.getAttribute('data-tooltip')).toBe('Filters')
       expect(screen.getByLabelText('Open activity drawer').getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
     })
 
@@ -2277,7 +2301,7 @@ describe('BoardView', () => {
 
     it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const search = screen.getByRole('search', { name: 'Board filters' })
       expect(search).toBeInTheDocument()
     })
@@ -2349,7 +2373,7 @@ describe('BoardView', () => {
     it('pressing "c" in an INPUT does not trigger collapse', async () => {
       render(<BoardView {...defaultProps()} />)
       // Open the filter bar which contains an INPUT
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const filterBar = screen.getByTestId('filter-bar')
       // No crash or unexpected state change should occur
       expect(filterBar).toBeInTheDocument()
@@ -3557,5 +3581,61 @@ describe('BoardView lane filters (#2205)', () => {
     rerender(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
     expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  describe('Filter panel wiring (#2301)', () => {
+    const preset = { id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }
+    const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: /^Filters/ }))
+      return screen.getByRole('dialog', { name: 'Filter' })
+    }
+    beforeEach(() => {
+      mockSavedFilters = [preset]
+      mockHydrateFilter.mockReset()
+      mockHydrateFilter.mockReturnValue({
+        search: '', assigneeIds: [], labelIds: [], priorities: ['high'], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [],
+      })
+    })
+    afterEach(() => { mockSavedFilters = [] })
+
+    it('choosing a saved filter hydrates it into the filters and marks it active', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      expect(mockHydrateFilter).toHaveBeenCalledWith(preset)
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(panel).getByRole('button', { name: /^Priority/ })).toHaveTextContent('High')
+    })
+
+    it('editing a filter in the panel clears the active preset, like the filter bar', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(within(panel).getByRole('button', { name: /^Priority/ }))
+      await user.click(within(panel).getByRole('checkbox', { name: 'High' }))
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('the Lanes row closes the panel and opens the filter bar for the Lanes popover', async () => {
+      const lanesDef = {
+        id: 1, uid: 'sfuid0000001', name: 'F1', field_type: 'text' as const, choices: [], position: 1,
+        show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+        number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      }
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: [lanesDef] }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+      const panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
+    })
   })
 })
