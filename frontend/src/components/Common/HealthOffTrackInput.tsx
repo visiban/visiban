@@ -31,6 +31,9 @@ export default function HealthOffTrackInput({ value, onSave, disabled = false }:
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const focused = useRef(false);
+  // Enter commits, then the blur that usually follows would commit the same
+  // value again while the first PATCH is in flight: one save at a time.
+  const savingRef = useRef(false);
 
   // A remote board.updated reaches the input unless the user is typing in it.
   useEffect(() => {
@@ -46,7 +49,8 @@ export default function HealthOffTrackInput({ value, onSave, disabled = false }:
       return;
     }
     setError(null);
-    if (next === value) return;
+    if (next === value || savingRef.current) return;
+    savingRef.current = true;
     try {
       await onSave(next);
       setSaved(true);
@@ -54,14 +58,17 @@ export default function HealthOffTrackInput({ value, onSave, disabled = false }:
       setDraft(String(value));
       setSaved(false);
       setError("Failed to save the threshold. Please try again.");
+    } finally {
+      savingRef.current = false;
     }
   };
 
   const describedBy = [`${id}-hint`, disabled ? `${id}-disabled` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ");
 
   return (
-    <div className={`flex flex-col gap-1.5 ${disabled ? "opacity-60" : ""}`}>
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-1.5">
+      {/* Only the input row dims; the hints explaining why stay full opacity. */}
+      <div className={`flex items-center gap-2 ${disabled ? "opacity-60" : ""}`}>
         <label htmlFor={id} className="text-sm text-fg-tertiary">Off track at</label>
         <input
           id={id}

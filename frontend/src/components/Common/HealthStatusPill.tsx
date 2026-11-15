@@ -46,7 +46,7 @@ interface Props {
 /** 12px pin: a status set by hand on an auto-health board (#2245). */
 export function PinGlyph() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-fg-tertiary" data-health-origin-glyph="manual">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0" data-health-origin-glyph="manual">
       <path d="M4.5 1.5h3l-.5 3 2 2H3l2-2-.5-3zM6 6.5V11" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -55,7 +55,7 @@ export function PinGlyph() {
 /** 12px sparkle: a status calculated automatically (#2245). */
 export function AutoGlyph() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-fg-tertiary" data-health-origin-glyph="computed">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0" data-health-origin-glyph="computed">
       <path d="M6 1.5l1.1 2.9L10 5.5 7.1 6.6 6 9.5 4.9 6.6 2 5.5l2.9-1.1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
     </svg>
   );

@@ -154,6 +154,7 @@ const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
 // referenced with aria-describedby by the control it explains.
 const DENSITY_SET_BY_PRESET_ID = "density-set-by-preset";
 const DENSITY_OVERRIDE_DESCRIPTION_ID = "density-override-description";
+const HEALTH_AUTO_DESCRIPTION_ID = "health-auto-description";
 
 /** #1967 — true when share link issue time `a` is later than `b`. Falls back
  *  to "different" when either value does not parse, so a malformed value can
@@ -350,6 +351,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
   const [cardAgingError, setCardAgingError] = useState<string | null>(null);
   const [healthAutoError, setHealthAutoError] = useState<string | null>(null);
+  const [healthAutoSaving, setHealthAutoSaving] = useState(false);
+  const healthAutoSavingRef = useRef(false);
   // Tracks the last value actually persisted to the server, independent of the
   // (already-updated-on-keystroke) state above, so a failed save can revert to
   // the right value instead of the just-typed one.
@@ -958,12 +961,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // #2245: not optimistic; the server answers with the board's resolved
   // health (turning auto on or off changes the effective value and origin).
   const handleHealthAutoToggle = async (next: boolean) => {
+    // One PATCH at a time: a second click while saving would race the first.
+    if (healthAutoSavingRef.current) return;
+    healthAutoSavingRef.current = true;
+    setHealthAutoSaving(true);
     setHealthAutoError(null);
     try {
       const updated = await patchBoard(board.id, { health_auto_enabled: next });
       onMergeBoardFields?.(pickBoardHealth(updated));
     } catch {
       setHealthAutoError("Failed to save automatic health status. Please try again.");
+    } finally {
+      healthAutoSavingRef.current = false;
+      setHealthAutoSaving(false);
     }
   };
   const handleHealthOffTrackSave = async (next: number) => {
@@ -1675,7 +1685,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <ToggleField
                       checked={board.health_auto_enabled}
                       onChange={(v) => { void handleHealthAutoToggle(v); }}
+                      ariaDisabled={healthAutoSaving}
                       label="Calculate health status automatically"
+                      descriptionId={HEALTH_AUTO_DESCRIPTION_ID}
+                      aria-describedby={HEALTH_AUTO_DESCRIPTION_ID}
                       description="Each night, lanes are rated from their open cards: overdue, stale, or blocked. The board shows the worst lane. A status you set by hand always wins."
                     />
                     {healthAutoError && <p role="alert" className="text-danger text-xs">{healthAutoError}</p>}

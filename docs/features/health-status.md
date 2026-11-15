@@ -126,6 +126,8 @@ The board's calculated status is the **worst** of its lanes' statuses (a status 
 
 **Recompute now.** Board admins can run the calculation at once with **Recompute now**, in **Board Settings** → **Health status** (next to *Last computed*) and at the bottom of the board's status editor. It is limited to 30 runs per hour per person.
 
+**When the time updates.** A status that changes is pushed to everyone viewing the board at once. A run that changes nothing (the same status and counts as last time) is not pushed, so on another open tab or another person's screen *Computed 3h ago* updates on reload or on the next change; the person who clicked **Recompute now** sees the new time straight away.
+
 **Never computed.** The nightly run is a [scheduled job](../administration/scheduled-jobs.md) (`compute_health_status`, 02:00 by default). On an install that does not run the scheduler, the status reads **Never computed** until someone uses **Recompute now**; Visiban never shows an old calculated value as current.
 
 **Times are UTC.** The job runs in UTC and a due date is a plain date, so "overdue" turns over at midnight UTC, not your local midnight. For a team far from UTC a card can read as overdue a few hours early or late.

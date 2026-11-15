@@ -147,8 +147,11 @@ class ComputeTests(_AutoBoardMixin, TestCase):
             with self.captureOnCommitCallbacks(execute=False) as callbacks:
                 compute_board_health(self.board.pk)
             self.assertEqual(frames, [])  # nothing before commit
-            for callback in callbacks:
-                callback()
+            # The lane callbacks queue their own publish, so run them where
+            # nested on_commit callbacks are captured and executed too.
+            with self.captureOnCommitCallbacks(execute=True):
+                for callback in callbacks:
+                    callback()
         events = [f["event"] for f in frames]
         # First run: both lanes go from never computed to a value.
         self.assertEqual(events.count("swimlane.updated"), 2)
@@ -160,6 +163,44 @@ class ComputeTests(_AutoBoardMixin, TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 compute_board_health(self.board.pk)
         self.assertEqual(frames, [])
+
+
+    def test_lane_payloads_are_built_after_commit(self):
+        """The lanes are read and serialized in the on_commit callback, not under the row lock."""
+        self._card(self.acme, title="late", due_date=YESTERDAY())
+        with _capture_frames() as frames:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                compute_board_health(self.board.pk)
+            # A write between the run and its commit callbacks shows in the
+            # payload only if the payload is built after the run.
+            Swimlane.objects.filter(pk=self.acme.pk).update(name="Acme renamed")
+            with self.captureOnCommitCallbacks(execute=True):
+                for callback in callbacks:
+                    callback()
+        lanes = {f["data"]["id"]: f["data"] for f in frames if f["event"] == "swimlane.updated"}
+        self.assertEqual(set(lanes), {self.acme.pk, self.beta.pk})
+        self.assertEqual(lanes[self.acme.pk]["name"], "Acme renamed")
+        self.assertEqual(lanes[self.acme.pk]["computed_health_status"], "at_risk")
+        self.assertTrue(all(f.get("actor_id") is None for f in frames if f["event"] == "swimlane.updated"))
+
+    def test_lane_broadcast_query_count_is_flat(self):
+        def queries_for(lane_count):
+            board = _make_board(self.admin, health_auto_enabled=True)
+            column = _make_column(board, "Todo", 0)
+            for i in range(lane_count):
+                lane = Swimlane.objects.create(board=board, name=f"L{i}", position=i)
+                _make_card(column, lane, title=f"c{i}")
+            with _capture_frames(), self.captureOnCommitCallbacks(execute=False) as callbacks:
+                compute_board_health(board.pk)
+            with CaptureQueriesContext(connection) as ctx, self.captureOnCommitCallbacks(execute=False):
+                for callback in callbacks:
+                    callback()
+            # Each lane persists its own event row (an INSERT); the lane read
+            # and serialization must not grow with the lane count.
+            return [q["sql"] for q in ctx.captured_queries if not q["sql"].lstrip().upper().startswith("INSERT")]
+
+        queries_for(1)  # warm per-process caches
+        self.assertEqual(len(queries_for(1)), len(queries_for(5)))
 
 
 class SerializerTests(_AutoBoardMixin, TestCase):
@@ -269,6 +310,27 @@ class SettingsToggleTests(_AutoBoardMixin, TestCase):
         self.assertIsNone(self.board.computed_health_status)
 
 
+class SettingsPatchRbacTests(_AutoBoardMixin, TestCase):
+    """Only board admins may change the auto health settings on PATCH (#2245)."""
+
+    def setUp(self):
+        self._setup_board()
+        self.client = APIClient()
+
+    def test_non_admin_member_403_and_non_member_404(self):
+        member = _make_user("ah_patch_member")
+        _make_membership(self.board, member, BoardMembership.Role.MEMBER)
+        outsider = _make_user("ah_patch_outsider")
+        for body in ({"health_auto_enabled": False}, {"health_off_track_cards": 5}):
+            self.client.force_authenticate(member)
+            self.assertEqual(self.client.patch(f"/api/v1/boards/{self.board.pk}/", body, format="json").status_code, 403, body)
+            self.client.force_authenticate(outsider)
+            self.assertEqual(self.client.patch(f"/api/v1/boards/{self.board.pk}/", body, format="json").status_code, 404, body)
+        self.board.refresh_from_db()
+        self.assertTrue(self.board.health_auto_enabled)
+        self.assertEqual(self.board.health_off_track_cards, Board._meta.get_field("health_off_track_cards").default)
+
+
 class RecomputeEndpointTests(_AutoBoardMixin, TestCase):
     def setUp(self):
         self._setup_board()
@@ -286,7 +348,7 @@ class RecomputeEndpointTests(_AutoBoardMixin, TestCase):
         self.assertEqual({sw["id"] for sw in body["swimlanes"]}, {self.acme.pk, self.beta.pk})
 
     def test_non_admin_roles_403(self):
-        for role in (BoardMembership.Role.MEMBER, BoardMembership.Role.VIEWER):
+        for role in (BoardMembership.Role.MEMBER, BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
             user = _make_user(f"ah_{role}")
             _make_membership(self.board, user, role)
             self.client.force_authenticate(user)
@@ -297,7 +359,40 @@ class RecomputeEndpointTests(_AutoBoardMixin, TestCase):
         self.assertEqual(self.client.post(self.url).status_code, 404)
 
     def test_unauthenticated_401(self):
-        self.assertIn(self.client.post(self.url).status_code, (401, 403))
+        self.assertEqual(self.client.post(self.url).status_code, 401)
+
+    def test_site_admin_200(self):
+        self.client.force_authenticate(_make_user("ah_site", can_access_all_content=True))
+        self.assertEqual(self.client.post(self.url).status_code, 200)
+
+    def test_group_inherited_admin_200_and_member_403(self):
+        from groups.models import Group, GroupMembership
+
+        group = Group.objects.create(name="AH team", owner=self.admin)
+        Board.objects.filter(pk=self.board.pk).update(group=group)
+        for role, expected in ((GroupMembership.Role.ADMIN, 200), (GroupMembership.Role.MEMBER, 403)):
+            user = _make_user(f"ah_group_{role}")
+            GroupMembership.objects.create(group=group, user=user, role=role)
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.post(self.url).status_code, expected, role)
+
+    def test_recompute_query_count_is_flat_in_lane_count(self):
+        def queries_for(lane_count):
+            board = _make_board(self.admin, health_auto_enabled=True)
+            column = _make_column(board, "Todo", 0)
+            for i in range(lane_count):
+                lane = Swimlane.objects.create(board=board, name=f"L{i}", position=i)
+                _make_card(column, lane, title=f"c{i}")
+            cache.clear()
+            with CaptureQueriesContext(connection) as ctx:
+                response = self.client.post(f"/api/v1/boards/{board.pk}/health-recompute/")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()["swimlanes"]), lane_count)
+            return len(ctx.captured_queries)
+
+        self.client.force_authenticate(self.admin)
+        queries_for(1)  # warm per-process caches
+        self.assertEqual(queries_for(1), queries_for(5))
 
     def test_auto_off_409(self):
         Board.objects.filter(pk=self.board.pk).update(health_auto_enabled=False)

@@ -243,7 +243,7 @@ export default function HealthStatusPopover({
   };
   const top = useAnchoredPlacement(panelRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
-    deps: [error, historyOpen, history],
+    deps: [error, historyOpen, history, auto !== null, health_status],
     onResize: dismissForLayout,
     onOutsideScroll: dismissForLayout,
   });

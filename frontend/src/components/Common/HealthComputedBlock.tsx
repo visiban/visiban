@@ -39,6 +39,8 @@ export function HealthRecomputeButton({ onRecompute, autoEnabled, className = ""
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  // Visible "Recomputed" cue; the live region carries the announcement.
+  const [done, setDone] = useState(false);
   const busyRef = useRef(false);
   const hintId = `health-recompute-hint-${useId()}`;
   const disabled = !autoEnabled;
@@ -49,9 +51,11 @@ export function HealthRecomputeButton({ onRecompute, autoEnabled, className = ""
     setBusy(true);
     setError(null);
     setAnnouncement("");
+    setDone(false);
     try {
       await onRecompute();
       setAnnouncement("Health status recomputed.");
+      setDone(true);
     } catch (err) {
       setError(healthRecomputeErrorMessage(err));
     } finally {
@@ -69,13 +73,18 @@ export function HealthRecomputeButton({ onRecompute, autoEnabled, className = ""
         aria-busy={busy ? true : undefined}
         aria-disabled={busy ? true : undefined}
         aria-describedby={disabled ? hintId : undefined}
-        className="btn-secondary text-sm self-start"
+        className="self-start inline-flex items-center gap-2 text-sm border border-line-strong text-fg px-3 py-1.5 rounded font-medium transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {busy ? "Recomputing…" : "Recompute now"}
       </button>
       {disabled && <span id={hintId} className="text-xs text-fg-tertiary">Turn on automatic health status first.</span>}
       <span role="status" aria-live="polite" className="sr-only">{announcement}</span>
-      {error && <span role="alert" className="text-danger text-xs">{error}</span>}
+      {/* Always rendered so an error or the success cue never shifts the layout. */}
+      <p className="text-xs min-h-4" data-testid="health-recompute-feedback">
+        {error
+          ? <span role="alert" className="text-danger">{error}</span>
+          : done && <span aria-hidden="true" className="text-success">Recomputed</span>}
+      </p>
     </div>
   );
 }

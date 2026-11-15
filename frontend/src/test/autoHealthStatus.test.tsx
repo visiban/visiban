@@ -103,7 +103,10 @@ describe('HealthStatusPill origin (#2245)', () => {
     const button = screen.getByRole('button')
     expect(button).toHaveAccessibleName(/^Health status: At risk ?, calculated automatically$/)
     expect(button).toHaveAccessibleDescription('Computed 3h ago')
-    expect(button.querySelector('[data-health-origin-glyph="computed"]')).not.toBeNull()
+    const glyph = button.querySelector('[data-health-origin-glyph="computed"]')
+    expect(glyph).not.toBeNull()
+    // currentColor only: the glyph takes the pill's on-tint text color.
+    expect(glyph?.getAttribute('class')).not.toMatch(/text-/)
   })
 
   it('shows a pin glyph for a status set by hand', () => {
@@ -197,8 +200,11 @@ describe('HealthStatusControl on an auto board (#2245)', () => {
     const button = await screen.findByRole('button', { name: 'Recompute now' })
     await user.click(button)
     expect(screen.getByRole('button', { name: 'Recomputing…' })).toHaveAttribute('aria-busy', 'true')
+    // The feedback slot is there before any result, so nothing shifts.
+    expect(screen.getByTestId('health-recompute-feedback')).toBeEmptyDOMElement()
     resolve()
     await waitFor(() => expect(screen.getByText('Health status recomputed.')).toBeInTheDocument())
+    expect(screen.getByTestId('health-recompute-feedback')).toHaveTextContent('Recomputed')
     await user.click(screen.getByRole('button', { name: 'Recompute now' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Automatic health status is turned off for this board.')
     await user.click(screen.getByRole('button', { name: 'Recompute now' }))
@@ -265,5 +271,23 @@ describe('HealthOffTrackInput (#2245)', () => {
     const input = screen.getByLabelText('Off track at')
     expect(input).toBeDisabled()
     expect(input).toHaveAccessibleDescription(/Turn on automatic health status to set this\./)
+    // Only the input row dims; the hint saying why stays full opacity.
+    const hint = screen.getByText('Turn on automatic health status to set this.')
+    expect(hint.closest('.opacity-60')).toBeNull()
+    expect(input.closest('.opacity-60')).not.toBeNull()
+  })
+
+  it('Enter then blur while the save is in flight sends one PATCH', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let resolve!: () => void
+    const onSave = vi.fn(() => new Promise<void>((r) => { resolve = r }))
+    render(<HealthOffTrackInput value={3} onSave={onSave} />)
+    const input = screen.getByLabelText('Off track at')
+    await user.clear(input)
+    await user.type(input, '6{Enter}')
+    await user.tab()
+    expect(onSave).toHaveBeenCalledTimes(1)
+    resolve()
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 })

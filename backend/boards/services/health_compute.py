@@ -179,14 +179,32 @@ def _write_board_rollup(board, lanes, *, counts=None, now=None, user=None, broad
 
 
 def _broadcast_lanes(board_id, lane_ids):
-    from .. import broadcast as _broadcast
-    from ..serializers import SwimlaneSerializer
-    from ..views.swimlanes import _refetch_swimlane
-    from ..models import Swimlane
+    """Queue one ``swimlane.updated`` (no actor) per lane in ``lane_ids``, sent after commit.
 
-    for lane in Swimlane.objects.filter(pk__in=lane_ids).order_by("position", "pk"):
-        data = SwimlaneSerializer(_refetch_swimlane(lane)).data
-        _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, data, actor_id=None)
+    Only the ids are collected under the row locks; the lanes are read and
+    serialized in the ``on_commit`` callback, in one prefetched query, so the
+    lock is never held while payloads are built (one query per lane before).
+    A rolled-back run queues nothing, as ``record_board_event`` guarantees for
+    the events themselves.
+    """
+    ids = list(lane_ids)
+    transaction.on_commit(lambda: _send_lane_updates(board_id, ids))
+
+
+def _send_lane_updates(board_id, lane_ids):
+    from .. import broadcast as _broadcast
+    from ..models import Swimlane
+    from ..serializers import SwimlaneSerializer, _swimlane_custom_field_prefetch
+
+    lanes = (
+        Swimlane.objects.filter(board_id=board_id, pk__in=lane_ids)
+        .prefetch_related(_swimlane_custom_field_prefetch())
+        .order_by("position", "pk")
+    )
+    for lane in lanes:
+        _broadcast.record_board_event(
+            board_id, _broadcast.EVT_SWIMLANE_UPDATED, SwimlaneSerializer(lane).data, actor_id=None,
+        )
 
 
 def compute_board_health(board_id, *, broadcast_board=True):

@@ -3648,6 +3648,22 @@ describe('BoardSettingsModal automatic health status (#2245)', () => {
     await waitFor(() => expect(onMerge).toHaveBeenCalledWith(expect.objectContaining({ health_auto_enabled: true, health_status_origin: 'computed' })))
   })
 
+  it('describes the toggle with its visible text and ignores a second click while saving', async () => {
+    const user = userEvent.setup()
+    let resolve!: (b: typeof fakeBoard) => void
+    mockPatchBoard.mockClear()
+    mockPatchBoard.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} onMergeBoardFields={vi.fn()} />)
+    const toggle = screen.getByRole('switch', { name: 'Calculate health status automatically' })
+    expect(toggle).toHaveAccessibleDescription(/A status you set by hand always wins\./)
+    await user.click(toggle)
+    await user.click(toggle)
+    const autoPatches = mockPatchBoard.mock.calls.filter(([, body]) => 'health_auto_enabled' in (body as object))
+    expect(autoPatches).toHaveLength(1)
+    resolve({ ...fakeBoard, health_auto_enabled: true })
+    await waitFor(() => expect(toggle).not.toHaveAttribute('aria-disabled', 'true'))
+  })
+
   it('shows an error when the toggle fails', async () => {
     const user = userEvent.setup()
     mockPatchBoard.mockRejectedValueOnce(new Error('x'))

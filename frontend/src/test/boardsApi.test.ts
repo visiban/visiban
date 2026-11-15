@@ -15,6 +15,7 @@ vi.mock('../api/client', () => {
 
 import client from '../api/client'
 import {
+  recomputeBoardHealth,
   listBoardInviteLinks,
   createBoardInviteLink,
   sendBoardInviteEmail,
@@ -107,6 +108,12 @@ describe('Board API wrappers', () => {
     mockClient.put.mockResolvedValue({ data: { id: 1, name: 'Updated' } })
     await updateBoard(1, { name: 'Updated' })
     expect(mockClient.put).toHaveBeenCalledWith('/api/v1/boards/1/', { name: 'Updated' })
+  })
+
+  it('recomputeBoardHealth POSTs health-recompute and returns the board and lanes (#2245)', async () => {
+    mockClient.post.mockResolvedValueOnce({ data: { board: { id: 7 }, swimlanes: [] } })
+    await expect(recomputeBoardHealth(7)).resolves.toEqual({ board: { id: 7 }, swimlanes: [] })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/7/health-recompute/')
   })
 
   it('deleteBoard sends DELETE', async () => {

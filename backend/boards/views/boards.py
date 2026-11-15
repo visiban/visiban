@@ -48,7 +48,7 @@ from ..permissions import (
 from ..serializers import (
     EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
-    BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer,
+    BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch,
 )
 from ..services.feed import (
     cursor_row_visible,
@@ -609,7 +609,13 @@ class BoardViewSet(
                 status=status.HTTP_409_CONFLICT,
             )
         annotated = self.get_queryset().get(pk=board.pk)
-        lanes = Swimlane.objects.filter(board_id=board.pk).order_by("position", "pk")
+        # The same prefetch as the swimlane list, so the lanes serialize in a
+        # fixed number of queries however many the board has.
+        lanes = (
+            Swimlane.objects.filter(board_id=board.pk)
+            .prefetch_related(_swimlane_custom_field_prefetch())
+            .order_by("position", "pk")
+        )
         return Response({
             "board": BoardSerializer(annotated, context={"request": request}).data,
             "swimlanes": SwimlaneSerializer(lanes, many=True).data,
