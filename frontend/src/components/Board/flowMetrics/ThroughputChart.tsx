@@ -38,7 +38,7 @@ function ThroughputLegend() {
 
 /**
  * The weekly run chart: values printed on the points, the median dashed and
- * labelled, and a hollow diamond per week for cards started (#2260, #2264).
+ * labeled, and a hollow diamond per week for cards started (#2260, #2264).
  */
 export default function ThroughputChart({ data, labelledBy, onSelect }: Props) {
   const { samples } = data;

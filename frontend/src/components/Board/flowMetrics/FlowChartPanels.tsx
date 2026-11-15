@@ -7,7 +7,7 @@ import type { ChartPanelView, ChartTableColumn } from "../../Common/Chart";
 import CumulativeFlowChart from "./CumulativeFlowChart";
 import CycleTimeChart from "./CycleTimeChart";
 import {
-  ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
+  ageMarkColor, ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
   sparseNote, throughputSummary, wipAgeSummary,
 } from "./flowFormat";
 import ThroughputChart from "./ThroughputChart";
@@ -186,7 +186,9 @@ export function WipAgePanel({
     },
   ];
   const hasBlocked = data.samples.some((s) => s.is_blocked);
-  const hasWarm = zones.p50 !== null && data.samples.some((s) => s.value_days > (zones.p50 as number));
+  // Name a color only when a mark of that color is drawn (ageMarkColor is what the chart paints).
+  const hasOrange = data.samples.some((s) => ageMarkColor(s, zones) === "warning");
+  const hasRed = data.samples.some((s) => ageMarkColor(s, zones) === "danger");
   const hasRinged = zones.p85 !== null && data.samples.some((s) => s.value_days > (zones.p85 as number));
   return (
     <ChartPanel
@@ -200,7 +202,7 @@ export function WipAgePanel({
         excludedNote(data.excluded_incomplete_history),
         hasBlocked ? "Squares are blocked cards." : null,
         hasRinged ? "Ringed cards are past the 85th percentile." : null,
-        hasWarm ? "Orange marks are older than half of finished cards; red marks are past the 85th percentile." : null,
+        agingColorNote(hasOrange, hasRed),
       ])}
       testId="flow-wip-age"
       table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress." />}
@@ -210,6 +212,14 @@ export function WipAgePanel({
   );
 }
 
+
+/** The color note names only the colors on screen: orange (past P50), red (past P85), or both. */
+function agingColorNote(orange: boolean, red: boolean): string | null {
+  if (orange && red) return "Orange marks are older than half of finished cards; red marks are past the 85th percentile.";
+  if (orange) return "Orange marks are older than half of finished cards.";
+  if (red) return "Red marks are past the 85th percentile.";
+  return null;
+}
 
 const PULSE = "bg-surface-hover animate-pulse motion-reduce:animate-none";
 /** The chart frame's height in `ChartFrame` (260px), so a skeleton chart block is as tall as the real one. */

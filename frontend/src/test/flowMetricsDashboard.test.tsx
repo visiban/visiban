@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
 import type { ComponentProps } from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { REFERENCE_LABEL_MARGIN } from '../components/Common/Chart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
@@ -1017,6 +1017,32 @@ describe('named chart colors (#2264)', () => {
     expect(image.querySelector('[data-age-color="warning"] circle')?.getAttribute('fill')).toContain('--warning')
     expect(image.querySelector('[data-age-color="danger"] circle[r="8"]')?.getAttribute('stroke')).toContain('--danger')
     expect(screen.getByTestId('flow-wip-age')).toHaveTextContent('Orange marks')
+  })
+
+  it('names an aging color in the note only when a mark of that color is on screen', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    const note = async (values: number[]) => {
+      mockAll({ age: { ...age, sample_size: values.length, cards: [cardA, cardB], samples: values.map((v, i) => at(`n${i}`, v)) } })
+      await renderLoaded()
+      return screen.getByTestId('flow-wip-age')
+    }
+    // Only orange (past P50 = 4, within P85 = 8): no red named.
+    let panel = await note([2, 6])
+    expect(panel).toHaveTextContent('Orange marks are older than half of finished cards.')
+    expect(panel).not.toHaveTextContent('red marks')
+    cleanup()
+    // Only red (past P85): no orange named.
+    panel = await note([2, 9])
+    expect(panel).toHaveTextContent('Red marks are past the 85th percentile.')
+    expect(panel).not.toHaveTextContent('Orange marks')
+    cleanup()
+    // Neither: no color note.
+    panel = await note([2, 3])
+    expect(panel).not.toHaveTextContent(/Orange marks|Red marks|red marks/)
+    cleanup()
+    // Both.
+    panel = await note([6, 9])
+    expect(panel).toHaveTextContent('Orange marks are older than half of finished cards; red marks are past the 85th percentile.')
   })
 
   it('adds no tier for a withheld percentile', () => {
