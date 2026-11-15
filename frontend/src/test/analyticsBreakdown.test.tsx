@@ -10,6 +10,10 @@ import {
   breakdownFields, breakdownKey, breakdownNote, breakdownNoun, breakdownParams, cardGroupColor, groupIndexOf, groupName,
   groupNamesOf, inGroup, markOpacity,
 } from '../components/Board/flowMetrics/breakdown'
+import ThroughputChart from '../components/Board/flowMetrics/ThroughputChart'
+import WipAgeChart from '../components/Board/flowMetrics/WipAgeChart'
+import CycleTimeChart from '../components/Board/flowMetrics/CycleTimeChart'
+import AnalyticsFilterBar from '../components/Board/flowMetrics/AnalyticsFilterBar'
 import { GROUP_COLORS, groupColor, groupTint } from '../utils/chartScale'
 import type {
   FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowGroupBase, FlowThroughput, FlowWipAge,
@@ -338,14 +342,14 @@ describe('isolating a group (#2268)', () => {
     expect(rects.map(opacityOf)).toEqual(['1', '0.2'])
     const rows = screen.getAllByTestId('time-bar-group')
     // Only the bar dims; the name and total stay readable.
-    expect(within(rows[1]).getByRole('region').className).toContain('opacity-20')
-    expect(within(rows[0]).getByRole('region').className).not.toContain('opacity-20')
-    expect(rows[1].className).not.toContain('opacity-20')
+    expect(within(rows[1]).getByRole('region')).toHaveStyle({ opacity: '0.2' })
+    expect(within(rows[0]).getByRole('region').style.opacity).toBe('')
+    expect(rows[1].style.opacity).toBe('')
     expect(screen.getByTestId('group-legend')).toHaveTextContent('Select it again')
 
     await userEvent.click(chips[0])
     expect(chips[0]).toHaveAttribute('aria-pressed', 'false')
-    expect([...cycle.querySelectorAll('circle[data-group-color]')].map(opacityOf)).toEqual(['1', '1'])
+    expect([...cycle.querySelectorAll('circle[data-group-color]')].map(opacityOf)).toEqual([null, null])
 
     await userEvent.click(chips[1])
     await pick('label')
@@ -406,6 +410,10 @@ describe('breakdown helpers', () => {
 const css = readFileSync('src/index.css', 'utf8')
 const darkBlock = css.slice(css.indexOf(':root,'), css.indexOf('[data-theme="light"] {'))
 const lightBlock = css.slice(css.indexOf('[data-theme="light"] {'))
+const hueOf = ([r, g, b]: number[]) => {
+  const max = Math.max(r, g, b); const d = max - Math.min(r, g, b)
+  return ((max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360
+}
 const rgbOf = (block: string, name: string): number[] => {
   const line = block.split('\n').find((l) => l.trim().startsWith(`--${name}:`))
   if (!line) throw new Error(`--${name} missing`)
@@ -436,6 +444,17 @@ describe('--chart-cat-* tokens (#2268)', () => {
         const hue = ((max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360
         expect(hue >= 350 || hue < 20 || (hue >= 80 && hue <= 165), `${r} ${g} ${b} hue ${hue}`).toBe(false)
       }
+      // Orange (about 10 to 45 degrees) reads as the warning tint, so no token sits there ...
+      for (const n of names.filter((x) => x !== 'chart-cat-5')) {
+        const hue = hueOf(rgbOf(block, n))
+        expect(hue >= 10 && hue < 45, `${n} hue ${hue}`).toBe(false)
+      }
+      // ... except cat-5, spec-mandated (analytics-redesign.md § Chart colors): it is a yellow-orange kept apart
+      // from the warning tint by contrast alone, and a group's name never relies on color.
+      const cat5 = hueOf(rgbOf(block, 'chart-cat-5'))
+      expect(cat5 >= 30 && cat5 < 70, `chart-cat-5 hue ${cat5}`).toBe(true)
+      {
+      }
     }
   })
   it('is exposed to Tailwind', () => {
@@ -456,5 +475,74 @@ describe('isolation follows the groups on screen (#2268)', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     await screen.findByRole('button', { name: 'Other team' })
     expect(screen.getAllByTestId('group-chip').every((c) => c.getAttribute('aria-pressed') === 'false')).toBe(true)
+  })
+})
+
+describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', () => {
+  const noop = () => {}
+  const g = (key: string, name: string): FlowGroupBase => ({ key, name, member_keys: [key] })
+  const two = [g('1', 'Platform'), g('2', 'Growth')]
+  const tp = (count: number, parts: number[], started = 0) => ({
+    definition: 'tp', period: 'week', total: count, median: null, cards: [],
+    samples: [{ start: '2026-06-01', count, card_uids: [], started, by_group: parts.map((n, i) => ({ key: String(i + 1), count: n, card_uids: [] })) }],
+    grouping: { by: 'label', field_id: null, excluded: 0, groups: two },
+  }) as unknown as FlowThroughput
+  const stackBox = (c: HTMLElement) => {
+    const rects = [...c.querySelectorAll('[data-stacked-week] rect')]
+    const ys = rects.map((r) => Number(r.getAttribute('y')))
+    const bottoms = rects.map((r) => Number(r.getAttribute('y')) + Number(r.getAttribute('height')))
+    return { top: Math.min(...ys), bottom: Math.max(...bottoms), label: Number(c.querySelector('[data-stacked-week] text')!.getAttribute('y')) }
+  }
+
+  it('Throughput scales to a stack that sums above the count (a card counts once per label) and labels above it', () => {
+    const { container } = render(<ThroughputChart data={tp(2, [2, 2])} labelledBy="x" onSelect={noop} />)
+    const { top, label } = stackBox(container)
+    expect(top).toBeGreaterThanOrEqual(0)
+    expect(label).toBeLessThan(top)
+    expect(label).toBeGreaterThan(0)
+    expect(screen.queryAllByText('2').length).toBeGreaterThan(0)
+  })
+
+  it('Throughput scales and labels a stack shorter than the printed total (excluded cards)', () => {
+    const { container } = render(<ThroughputChart data={tp(5, [1, 1])} labelledBy="x" onSelect={noop} />)
+    const { top, label } = stackBox(container)
+    expect(top).toBeGreaterThanOrEqual(0)
+    expect(label).toBeLessThan(top)
+  })
+
+  const cards = [cardA]
+  const age = (isolated: number | null) => ({
+    definition: 'a', sample_size: 1, excluded_incomplete_history: 0, cycle_time_percentiles: { p50: 1, p85: 2, p95: 3 },
+    columns: [{ column_uid: 'c', column_name: 'Doing' }], cards,
+    samples: [{ card_uid: cardA.uid, column_uid: 'c', value_days: 9, start: '2026-06-01T00:00:00Z', dwell_by_column: [], is_blocked: false, blocked_days: 0, group_keys: ['1'] }],
+    grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: two },
+  }) as unknown as FlowWipAge
+  const renderAge = (data: FlowWipAge, isolated: number | null) =>
+    render(<WipAgeChart data={data} cards={new Map(cards.map((c) => [c.uid, c]))} labelledBy="x" onSelect={noop} isolated={isolated} />)
+
+  it('Aging dims the mark of an isolated-out card but keeps its printed name at full strength', () => {
+    const { container } = renderAge(age(1), 1)
+    const text = container.querySelector('text.fill-fg')!
+    expect(text).toHaveTextContent(/Fix the/)
+    expect(text.closest('[opacity]')).toBeNull()
+    expect(container.querySelector('g[data-age-color] > g[opacity="0.2"] circle')).not.toBeNull()
+  })
+
+  it('None emits no opacity attribute on Aging and Cycle time marks', () => {
+    const plain = age(null); delete (plain as { grouping?: unknown }).grouping
+    const a = renderAge(plain, null)
+    expect(a.container.querySelector('[opacity]')).toBeNull()
+    const cycle = {
+      definition: 'c', sample_size: 1, excluded_incomplete_history: 0, percentiles: { p50: 1, p85: 2, p95: null }, cards,
+      samples: [{ card_uid: cardA.uid, value_days: 3, start: '2026-06-01T00:00:00Z', end: new Date().toISOString(), reopened: false }],
+    } as unknown as FlowCycleTime
+    const c = render(<CycleTimeChart data={cycle} cards={new Map()} days={30} labelledBy="y" onSelect={noop} />)
+    expect(c.container.querySelector('[opacity]')).toBeNull()
+  })
+
+  it('None keeps the Export wrapper right-aligned as before', () => {
+    render(<AnalyticsFilterBar filters={{ days: 90, swimlaneId: null, labelId: null }} onFiltersChange={noop} swimlanes={[]} labels={[]}
+      breakdown={{ by: 'none' }} onBreakdownChange={noop} actions={<span data-testid="act" />} />)
+    expect(screen.getByTestId('act').parentElement!.className).toBe('ml-auto flex items-center gap-2')
   })
 })

@@ -1,7 +1,7 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
 import { CHART_COLORS, axisTicks, linearScale, neutralTint, niceCeil } from "../../../utils/chartScale";
 import type { FlowAgeSample, FlowCard, FlowWipAge } from "../../../types";
-import { cardGroupColor, markOpacity } from "./breakdown";
+import { cardGroupColor, markOpacityAttr } from "./breakdown";
 import { ageMarkColor, ageMarkLabel, percentileLines } from "./flowFormat";
 
 const COLUMN_LABEL_CHARS = 12;
@@ -107,13 +107,15 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
             {placed.map(({ sample, x, y: cy, pastP85 }) => {
               const color = ageMarkColor(sample, zones);
               return (
-              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined} data-age-color={color} data-group-color={groups.length > 0 ? markColor(sample, color) : undefined} opacity={markOpacity(groups, isolated, sample.group_keys)}>
+              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined} data-age-color={color} data-group-color={groups.length > 0 ? markColor(sample, color) : undefined}>
+                <g opacity={markOpacityAttr(groups, isolated, sample.group_keys)}>
                 {pastP85 && <circle cx={x} cy={cy} r={8} fill="none" stroke={fill(sample, color)} strokeWidth={1.5} />}
                 {sample.is_blocked ? (
                   <rect x={x - 4} y={cy - 4} width={8} height={8} fill={fill(sample, color)} />
                 ) : (
                   <circle cx={x} cy={cy} r={4} fill={fill(sample, color)} />
                 )}
+                </g>
                 {named.has(sample.card_uid) && (
                   // On the side with room, so a name in the last column stays in the plot.
                   <text

@@ -119,6 +119,7 @@ A filter change refreshes every panel once. The panels keep showing the previous
 - Up to five groups get a color. With more, the five largest are shown and the rest collapse into a neutral **Other**.
 - **Labels:** a card with several labels is counted once in each.
 - **Custom fields:** cards with no value for the field are left out.
+- When no card in the view has a value to break down by, a status line replaces the legend ("No cards in this view have a swimlane to break down by.", or the same for label or the field) and the charts stay uncolored.
 - Groups use each card's current swimlane, labels and field values, like the filters.
 
 ### Bottleneck
@@ -139,7 +140,7 @@ One row, left to right, inside a box that scrolls sideways when the panel is nar
 - **Column box** for each in-progress column, a button that opens the [column drawer](#column-drawer): the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). **Squares beyond the WIP limit are hollow**, outlined in the danger color. The bottleneck's box has the warning border.
 - A final connector and a **Done** box with the number of cards finished in the period.
 
-**Where the time goes** sits under the row: one bar, "All cards", segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.
+**Where the time goes** sits under the row: one bar, "All cards" (or one bar per group under [Break down by](#break-down-by)), segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.
 
 A **Chart | Table** switch on the panel changes it to the [dwell time heatmap](#dwell-time-heatmap) table.
 

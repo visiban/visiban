@@ -61,7 +61,7 @@ export default function AnalyticsFilterBar({
       {breakdown && onBreakdownChange && (
         <BreakdownControl breakdown={breakdown} onChange={onBreakdownChange} fields={breakdownFields} />
       )}
-      {actions && <div className={`${breakdown ? "" : "ml-auto "}flex items-center gap-2`}>{actions}</div>}
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -79,7 +79,7 @@ function BreakdownControl({ breakdown, onChange, fields }: {
   const isActive = (v: Breakdown) =>
     v.by === breakdown.by && (v.by !== "custom_field" || (breakdown.by === "custom_field" && breakdown.fieldId === v.fieldId));
   return (
-    <div className="ml-auto flex flex-wrap items-center gap-2 min-w-0">
+    <div className="flex flex-wrap items-center gap-2 min-w-0">
       <span id="breakdown-label" className="text-xs text-fg-tertiary">Break down by</span>
       <div role="group" aria-labelledby="breakdown-label" data-testid="breakdown-control" className="inline-flex flex-wrap rounded overflow-hidden border border-line-strong">
         {options.map((o, i) => (

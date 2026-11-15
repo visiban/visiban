@@ -1,6 +1,6 @@
 import type { FlowGroupingParams } from "../../../api/flowMetrics";
 import type { CustomFieldDefinition, FlowGroupBase, FlowGrouping } from "../../../types";
-import { groupColor } from "../../../utils/chartScale";
+import { ISOLATED_OPACITY, groupColor } from "../../../utils/chartScale";
 
 /**
  * The Overview's "Break down by" choice (#2268). `field` is the card custom
@@ -67,7 +67,12 @@ export function cardGroupColor(groups: readonly FlowGroupBase[], keys: readonly 
 /** Opacity of a mark when one group is isolated: full for its members, 20% for the rest. */
 export function markOpacity(groups: readonly FlowGroupBase[], isolated: number | null, keys: readonly string[] | undefined): number {
   if (isolated === null) return 1;
-  return inGroup(groups, isolated, keys) ? 1 : 0.2;
+  return inGroup(groups, isolated, keys) ? 1 : ISOLATED_OPACITY;
+}
+
+/** The `opacity` attribute for a mark: absent unless a group is isolated, so None (and no isolation) renders the pre-breakdown DOM. */
+export function markOpacityAttr(groups: readonly FlowGroupBase[], isolated: number | null, keys: readonly string[] | undefined): number | undefined {
+  return isolated === null ? undefined : markOpacity(groups, isolated, keys);
 }
 
 /** The legend note for what a breakdown leaves out or double counts. */

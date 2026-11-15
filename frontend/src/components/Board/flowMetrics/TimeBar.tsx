@@ -1,4 +1,4 @@
-import { chartTint } from "../../../utils/chartScale";
+import { ISOLATED_OPACITY, chartTint } from "../../../utils/chartScale";
 import { formatDays } from "./flowFormat";
 import type { FlowRowColumn } from "./flowRowData";
 import { columnAlpha, HATCH } from "./flowRowData";
@@ -30,14 +30,14 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
           className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3"
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-fg sm:w-28 shrink-0 min-w-0">
-            <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color, opacity: isolated === null || isolated === gi ? 1 : 0.2 }} />
+            <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color, opacity: isolated === null || isolated === gi ? 1 : ISOLATED_OPACITY }} />
             <span className="truncate" title={group.name}>{group.name}</span>
           </span>
           <div className="flex-1 min-w-0">
             {segments.length === 0 ? (
               <span className="text-sm text-fg-tertiary">Too few finished cards.</span>
             ) : (
-              <div className={`overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${isolated === null || isolated === gi ? "" : "opacity-20"}`} role="region" aria-label={`Where the time goes for ${group.name}, scrolls sideways`} tabIndex={0}>
+              <div className={`overflow-x-auto rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset`} style={isolated === null || isolated === gi ? undefined : { opacity: ISOLATED_OPACITY }} role="region" aria-label={`Where the time goes for ${group.name}, scrolls sideways`} tabIndex={0}>
                 <div
                   className="flex h-8 rounded gap-px bg-line bg-clip-padding min-w-[8rem]"
                   style={{ width: `${(total / longest) * 100}%` }}

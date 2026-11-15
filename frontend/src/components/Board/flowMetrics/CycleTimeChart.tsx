@@ -1,7 +1,7 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
 import { CHART_HUE, axisTicks, chartTint, linearScale, niceCeil } from "../../../utils/chartScale";
 import type { FlowCard, FlowCycleTime, FlowCycleTimeSample } from "../../../types";
-import { cardGroupColor, markOpacity } from "./breakdown";
+import { cardGroupColor, markOpacityAttr } from "./breakdown";
 import { formatDate, formatDays, percentileLines } from "./flowFormat";
 
 const DAY_MS = 86_400_000;
@@ -51,7 +51,7 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
               <circle
                 key={sample.card_uid}
                 data-group-color={group ?? undefined}
-                opacity={markOpacity(groups, isolated, sample.group_keys)}
+                opacity={markOpacityAttr(groups, isolated, sample.group_keys)}
                 cx={x(new Date(sample.end).getTime())}
                 cy={y(sample.value_days)}
                 r={4}

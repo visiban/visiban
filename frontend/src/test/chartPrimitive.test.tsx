@@ -72,6 +72,12 @@ describe('chart hit targets', () => {
     expect(onSelect).toHaveBeenCalledTimes(3)
   })
 
+  it('a point rings in a raw group color when given one', () => {
+    const { container } = render(<svg><ChartPointHit x={1} y={1} label="Dot" color="rgb(var(--chart-cat-2))" onSelect={() => {}} /></svg>)
+    const ring = container.querySelectorAll('circle')[1]
+    expect(ring).toHaveAttribute('stroke', 'rgb(var(--chart-cat-2))')
+  })
+
   it('a band is a named button outside the tab order', () => {
     const onSelect = vi.fn()
     render(<svg><ChartBandHit x={0} width={10} geometry={geometry} label="Jun 1: 3 cards" onSelect={onSelect} /></svg>)

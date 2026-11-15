@@ -1,5 +1,5 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
-import { CHART_COLORS, CHART_HUE, LINE_DASH, axisTicks, linearScale, niceCeil } from "../../../utils/chartScale";
+import { CHART_COLORS, CHART_HUE, ISOLATED_OPACITY, LINE_DASH, axisTicks, linearScale, niceCeil } from "../../../utils/chartScale";
 import type { FlowThroughput, FlowThroughputSample } from "../../../types";
 import { colorOfGroup } from "./breakdown";
 import { formatDate } from "./flowFormat";
@@ -17,6 +17,9 @@ const DIAMOND_RADIUS = 4.5;
 // The plot's right inset keeps the last diamond (offset right of its week) inside the plot, clear of the
 // reference-label column that starts 6px past x1.
 const PLOT_INSET_RIGHT = STARTED_OFFSET + DIAMOND_RADIUS + 3;
+
+/** A stacked week's drawn height: by_group can sum above `count` (a card counts once per label) or below it (cards with no value are left out). */
+const stackTotal = (s: FlowThroughputSample) => (s.by_group ?? []).reduce((sum, part) => sum + part.count, 0);
 
 /** A hollow diamond centered on (x, y): the "started" marker, a shape distinct from the finished dot. */
 const diamond = (x: number, y: number, r = DIAMOND_RADIUS) => `${x},${y - r} ${x + r},${y} ${x},${y + r} ${x - r},${y}`;
@@ -51,7 +54,7 @@ export default function ThroughputChart({ data, labelledBy, onSelect, isolated =
   const { samples } = data;
   const groups = data.grouping?.groups ?? [];
   const stacked = groups.length > 0;
-  const top = niceCeil(Math.max(1, ...samples.map((s) => Math.max(s.count, s.started)), data.median ?? 0));
+  const top = niceCeil(Math.max(1, ...samples.map((s) => Math.max(s.count, s.started, stackTotal(s))), data.median ?? 0));
   const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, samples.length - 1)], [x0 + 8, x1 - PLOT_INSET_RIGHT]);
   return (
     <>
@@ -102,11 +105,11 @@ export default function ThroughputChart({ data, labelledBy, onSelect, isolated =
                         fill={colorOfGroup(groups, gi)}
                         stroke="rgb(var(--surface))"
                         strokeWidth={1}
-                        opacity={isolated === null || isolated === gi ? 1 : 0.2}
+                        opacity={isolated === null || isolated === gi ? 1 : ISOLATED_OPACITY}
                       />
                     );
                   })}
-                  <text x={x(index)} y={y(sample.count) - 6} textAnchor="middle" className="fill-fg text-xs">
+                  <text x={x(index)} y={y(Math.max(sample.count, stackTotal(sample))) - 6} textAnchor="middle" className="fill-fg text-xs">
                     {sample.count}
                   </text>
                 </g>
