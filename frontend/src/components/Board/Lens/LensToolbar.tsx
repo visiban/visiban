@@ -91,6 +91,7 @@ export default function LensToolbar({
           bordered h-9 buttons; the lens-specific pivots follow. No vertical
           dividers: Row 2 has none (#2269). */}
       <SplitButton
+        size="toolbar"
         primaryLabel={noneCollapsed ? "Collapse" : "Expand"}
         primaryAriaLabel={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}
         primaryTitle={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}

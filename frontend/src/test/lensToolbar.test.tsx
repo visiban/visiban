@@ -117,6 +117,9 @@ describe('LensToolbar', () => {
       setup()
       expect(screen.getByRole('button', { name: 'Filters' })).toHaveClass('h-9', 'border')
       expect(screen.getByRole('button', { name: /card layout/i })).toHaveClass('h-9', 'border')
+      const collapse = screen.getByRole('button', { name: 'Hide all swimlanes' })
+      expect(collapse.parentElement).toHaveClass('h-9', 'border', 'border-line-strong')
+      expect(collapse).toHaveClass('text-sm', 'px-3')
     })
 
     it('Collapse primary hides all lanes via the URL sentinel, then offers Expand', async () => {

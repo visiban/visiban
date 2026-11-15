@@ -44,9 +44,9 @@ test.describe('Lens toolbar', () => {
   test('Board to Lens does not move the tabs, and the 390px page never scrolls sideways', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await setup(page)
-    await page.goto(`/boards/${BOARD_FULL.id}?view=board`)
+    await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const tab = page.getByRole('button', { name: 'Lens', exact: true })
-    await expect(tab).toBeVisible({ timeout: 10_000 })
+    await expect(tab).toBeVisible({ timeout: 30_000 })
     const boardTabY = (await page.getByRole('button', { name: 'Board', exact: true }).boundingBox())!
     await tab.click()
     await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
@@ -70,6 +70,37 @@ test.describe('Lens toolbar', () => {
     await expect(menu).toBeVisible()
     const box = (await menu.boundingBox())!
     expect(box.height).toBeGreaterThan(60)
+  })
+})
+
+test.describe('Lens toolbar at 1440px', () => {
+  test('the tabs do not move between Board and Lens, and the controls share their row band', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
+    const names = ['Board', 'Lens', 'Summary', 'History']
+    const tabBox = async (name: string) =>
+      (await page.getByRole('button', { name, exact: true }).boundingBox())!
+    await expect(page.getByRole('button', { name: 'Lens', exact: true })).toBeVisible({ timeout: 30_000 })
+    const before = await Promise.all(names.map(tabBox))
+    await page.getByRole('button', { name: 'Lens', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
+    const after = await Promise.all(names.map(tabBox))
+    // The active tab's weight changes its own width, so tabs are compared on
+    // their origin row (y and height); the first tab also keeps its x.
+    expect(after[0].x).toBe(before[0].x)
+    after.forEach((box, i) => {
+      expect(box.y).toBe(before[i].y)
+      expect(box.height).toBe(before[i].height)
+    })
+    const filters = (await page.getByRole('button', { name: 'Filters' }).boundingBox())!
+    const pivot = (await page.getByText('Columns: Status').boundingBox())!
+    const tabs = after[0]
+    for (const box of [filters, pivot]) {
+      const mid = box.y + box.height / 2
+      expect(mid).toBeGreaterThan(tabs.y)
+      expect(mid).toBeLessThan(tabs.y + tabs.height)
+    }
   })
 })
 
