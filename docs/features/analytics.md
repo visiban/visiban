@@ -146,7 +146,7 @@ A **Chart | Table** switch on the panel changes it to the [dwell time heatmap](#
 
 ### Column drawer
 
-Opens from a column box or from the bottleneck panel's **See the N cards** button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its time by column and an **Open card** button, then the other cards oldest first. Five show at first; **Show N more** reveals the rest. Choosing a card in the list shows its transitions, with **Back** returning to the column. The drawer does not yet show a card's swimlane; that is tracked in #2283.
+Opens from a column box or from the bottleneck panel's **See the N cards** button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its owner, swimlane and blocked state, its time by column and an **Open card** button, then the other cards oldest first. Five show at first; **Show N more** reveals the rest. Choosing a card in the list shows its transitions, with **Back** returning to the column.
 
 ### Headline tiles
 

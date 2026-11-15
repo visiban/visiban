@@ -15,7 +15,7 @@ const payload = (items: FlowAttentionItem[]): FlowAttention => ({
   stalled_threshold_days: 7,
   cycle_time_percentiles: { p50: 11, p85: 19, p95: null },
   items,
-  cards: items.map((i) => ({ uid: i.card_uid, id: Number(i.card_uid.slice(4)), title: `Card ${i.card_uid.slice(4)}`, archived: false, assignee: null })),
+  cards: items.map((i) => ({ uid: i.card_uid, id: Number(i.card_uid.slice(4)), title: `Card ${i.card_uid.slice(4)}`, archived: false, assignee: null, swimlane: { id: 1, name: 'Lane' } })),
 })
 const ok = (data: FlowAttention) => ({ data, error: undefined }) as never
 const many = (n: number) => Array.from({ length: n }, (_, i) => item(i + 1))

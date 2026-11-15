@@ -267,6 +267,9 @@ class CardFlow:
     # The manual block's free text, mirrored from the open ``CardBlock`` onto
     # the card row (#1149), so it rides the same query as ``blocked_at`` (#2281).
     blocked_reason: str = ""
+    # The current swimlane's name, joined on the card query (#2283), so the
+    # drill-down's directory can name it without a query of its own.
+    swimlane_name: str = ""
     has_creation: bool = False
     created_in_done: bool = False
     # Created, then the first transition reached a done column: the card has
@@ -536,10 +539,11 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
             assignee_id=row["assignee_id"], created_at=row["created_at"],
             archived_at=row["archived_at"], blocked_at=row["blocked_at"],
             column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
+            swimlane_name=row["swimlane__name"],
         )
         for row in selected.order_by("id").values(
             "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
-            "archived_at", "blocked_at", "column__uid", "blocked_reason",
+            "archived_at", "blocked_at", "column__uid", "blocked_reason", "swimlane__name",
         )
     ]
 
@@ -616,7 +620,9 @@ def load_recent_dwell(board, flow_range, *, columns, swimlane_id=None, label_id=
 def card_directory(flow, uids):
     """Who and what each uid in a response is: the drill-down's cards and owners.
 
-    One query for the assignees; the rest was loaded with the cards. A response
+    One query for the assignees; the rest, the swimlane's name included, was
+    loaded with the cards. ``swimlane`` is the card's current lane, the one the
+    swimlane filter reads, so every card has one. A response
     names cards by uid, and archived cards are not on the board payload, so the
     client cannot resolve them from what it already holds. Transitions come from
     the existing card movements endpoint, by the ``id`` returned here.
@@ -639,6 +645,7 @@ def card_directory(flow, uids):
             "title": card.title,
             "archived": card.archived_at is not None,
             "assignee": assignees.get(card.assignee_id),
+            "swimlane": {"id": card.swimlane_id, "name": card.swimlane_name},
         }
         for card in cards
     ]

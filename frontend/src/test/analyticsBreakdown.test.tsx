@@ -43,8 +43,8 @@ const throughputMock = vi.mocked(getFlowThroughput)
 const ageMock = vi.mocked(getFlowWipAge)
 const dwellMock = vi.mocked(getFlowDwell)
 
-const cardA: FlowCard = { uid: 'a'.repeat(16), id: 1, title: 'Fix the login', archived: false, assignee: null }
-const cardB: FlowCard = { uid: 'b'.repeat(16), id: 2, title: 'Ship the docs', archived: false, assignee: null }
+const cardA: FlowCard = { uid: 'a'.repeat(16), id: 1, title: 'Fix the login', archived: false, assignee: null, swimlane: { id: 1, name: 'Lane' } }
+const cardB: FlowCard = { uid: 'b'.repeat(16), id: 2, title: 'Ship the docs', archived: false, assignee: null, swimlane: { id: 1, name: 'Lane' } }
 
 const group = (key: string | null, name: string | null): FlowGroupBase => ({ key, name, member_keys: key === null ? ['x', 'y'] : [key] })
 const THREE = [group('1', 'Platform'), group('2', 'Growth'), group('3', 'Support')]

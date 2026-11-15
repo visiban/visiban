@@ -14,6 +14,7 @@ const dateDaysAgo = (days: number) => isoDaysAgo(days).slice(0, 10)
 const owner = { id: 7, username: 'pat', display_name: 'Pat Lee', avatar_url: '' }
 const flowCard = (n: number) => ({
   uid: `flowcard${String(n).padStart(8, '0')}`, id: n === 0 ? CARD.id : 1000 + n, title: n === 0 ? CARD.title : `Flow card ${n}`, archived: false, assignee: n % 2 ? owner : null,
+  swimlane: { id: BOARD_FULL.swimlanes[0].id, name: BOARD_FULL.swimlanes[0].name },
 })
 const cards = Array.from({ length: 24 }, (_, n) => flowCard(n))
 const columnUids = ['col-backlog', 'col-doing', 'col-review', 'col-done']

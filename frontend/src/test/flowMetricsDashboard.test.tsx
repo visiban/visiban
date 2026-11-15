@@ -60,8 +60,8 @@ const attentionMock = vi.mocked(getFlowAttention)
 const analyticsMock = vi.mocked(getBoardAnalytics)
 
 const owner = { id: 7, username: 'pat', display_name: 'Pat Lee', avatar_url: '' }
-const cardA: FlowCard = { uid: 'a'.repeat(16), id: 1, title: 'Fix the login', archived: false, assignee: owner }
-const cardB: FlowCard = { uid: 'b'.repeat(16), id: 2, title: 'Old archived job', archived: true, assignee: null }
+const cardA: FlowCard = { uid: 'a'.repeat(16), id: 1, title: 'Fix the login', archived: false, assignee: owner, swimlane: { id: 1, name: 'Lane' } }
+const cardB: FlowCard = { uid: 'b'.repeat(16), id: 2, title: 'Old archived job', archived: true, assignee: null, swimlane: { id: 1, name: 'Lane' } }
 
 const cycle: FlowCycleTime = {
   definition: 'cycle definition',

@@ -776,7 +776,7 @@ const attentionPayload = (items: { id: number; title: string; days: number }[]):
   items: items.map((c) => ({
     card_uid: `uid-${c.id}`, column_uid: 'col', swimlane_id: 1, age_days: c.days, unmoved_days: c.days, reasons: ['stalled'], block_reason: null,
   })),
-  cards: items.map((c) => ({ uid: `uid-${c.id}`, id: c.id, title: c.title, archived: false, assignee: null })),
+  cards: items.map((c) => ({ uid: `uid-${c.id}`, id: c.id, title: c.title, archived: false, assignee: null, swimlane: { id: 1, name: 'Lane' } })),
 })
 
 describe('AnalyticsView passes column names to Needs attention (#2263)', () => {

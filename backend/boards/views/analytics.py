@@ -497,6 +497,11 @@ _FLOW_CARD_FIELD = inline_serializer(
         "title": serializers.CharField(),
         "archived": serializers.BooleanField(),
         "assignee": BoardUserSerializer(allow_null=True),
+        "swimlane": inline_serializer(
+            name="FlowCardSwimlane",
+            help_text="The card's current swimlane (added in 1.3, #2283).",
+            fields={"id": serializers.IntegerField(), "name": serializers.CharField()},
+        ),
     },
 )
 

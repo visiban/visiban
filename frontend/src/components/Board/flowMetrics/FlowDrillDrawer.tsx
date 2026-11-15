@@ -228,7 +228,7 @@ function ColumnBody({
             <span className="font-mono text-sm text-fg-secondary shrink-0">{formatDays(oldest.days)}</span>
           </div>
           <span className="text-xs text-fg-tertiary">
-            {ownerName(oldestCard)}{oldest.blocked ? " · Blocked now" : ""}
+            {[ownerName(oldestCard), oldestCard?.swimlane.name, oldest.blocked ? "Blocked now" : null].filter(Boolean).join(" · ")}
           </span>
           <div className="flex flex-col gap-1" role="group" aria-label="Time by column">
             {oldest.dwell.map((entry, index) => (

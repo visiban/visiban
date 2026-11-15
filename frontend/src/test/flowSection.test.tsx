@@ -16,6 +16,7 @@ vi.mock('../api/cards', () => ({ getCardMovements: vi.fn(() => Promise.resolve([
 
 const cards: FlowCard[] = Array.from({ length: 8 }, (_, i) => ({
   uid: `card-${i}`.padEnd(16, 'x'), id: i + 1, title: `Card ${i}`, archived: false, assignee: null,
+  swimlane: { id: 10 + (i % 2), name: `Lane ${i % 2}` },
 }))
 const col = (uid: string | null, name: string | null, over: Partial<FlowCumulativeFlow['columns'][number]> = {}) => ({
   column_uid: uid, column_name: name, is_done: false, start_count: 1, end_count: 1, entered: 0, left: 0, entered_per_week: 5, left_per_week: 5, ...over,
@@ -293,6 +294,23 @@ describe('the column drawer (#2262)', () => {
     expect(within(screen.getByRole('dialog')).getByText('Oldest first')).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it("names the oldest card's owner, swimlane and blocked state (#2283)", async () => {
+    const [first, ...others] = selection.cards
+    const lane = cards.find((c) => c.uid === first.uid)!.swimlane.name
+    render(<Host pick={{ ...selection, cards: [{ ...first, blocked: true }, ...others] }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const oldest = within(screen.getByRole('dialog')).getByRole('region', { name: 'Oldest card' })
+    expect(within(oldest).getByText(`Unassigned · ${lane} · Blocked now`)).toBeInTheDocument()
+  })
+
+  it('leaves no dangling separator when the oldest card is not in the directory', () => {
+    const unblocked = { ...selection, cards: [{ ...selection.cards[0], blocked: false }] }
+    render(<FlowDrillDrawer boardId={1} selection={unblocked} cards={new Map()} onChange={() => {}} onClose={() => {}} />)
+    const oldest = within(screen.getByRole('dialog')).getByRole('region', { name: 'Oldest card' })
+    expect(within(oldest).getByText('Unassigned')).toBeInTheDocument()
+    expect(oldest.textContent).not.toContain('·')
   })
 
   it('says so for an empty column', async () => {
