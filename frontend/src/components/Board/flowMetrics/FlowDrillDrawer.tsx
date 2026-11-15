@@ -247,7 +247,7 @@ function ColumnBody({
             ))}
           </div>
           <p className="text-sm text-fg-secondary">
-            {formatDays(oldest.inColumnDays)} of its {formatDays(oldest.days)} in progress {oldest.inColumnDays === 1 ? "was" : "were"} spent in {selection.name}.
+            {formatDays(oldest.inColumnDays)} of its {formatDays(oldest.days)} in progress {Number(oldest.inColumnDays.toFixed(1)) === 1 ? "was" : "were"} spent in {selection.name}.
           </p>
           {oldestCard && onOpenCard && !oldestCard.archived && (
             <div>

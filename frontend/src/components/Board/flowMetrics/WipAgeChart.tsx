@@ -43,7 +43,10 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
   const markColor = (sample: FlowAgeSample, age: string) =>
     groups.length > 0 ? (cardGroupColor(groups, sample.group_keys, isolated) ?? "neutral") : age;
   const zones = data.cycle_time_percentiles;
-  const top = niceCeil(Math.max(1, ...data.samples.map((s) => s.value_days), zones.p95 ?? zones.p85 ?? 0));
+  // A sample whose column is not in `columns` has no band, so it must not set the axis or a legend tier (#2297).
+  const known = new Set(data.columns.map((column) => column.column_uid));
+  const plotted = data.samples.filter((sample) => known.has(sample.column_uid));
+  const top = niceCeil(Math.max(1, ...plotted.map((s) => s.value_days), zones.p95 ?? zones.p85 ?? 0));
   const fill = (sample: FlowAgeSample, age: keyof typeof CHART_COLORS) => {
     const c = markColor(sample, age);
     return c in CHART_COLORS ? CHART_COLORS[c as keyof typeof CHART_COLORS] : c;
@@ -73,7 +76,7 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
   };
 
   // Tier swatches only for tiers with a mark on screen, and none under a breakdown (marks then take group colors).
-  const drawn = new Set(data.samples.map((sample) => ageMarkColor(sample, zones)));
+  const drawn = new Set(plotted.map((sample) => ageMarkColor(sample, zones)));
   const tiers = groups.length > 0 ? [] : (["neutral", "warning", "danger"] as AgeTier[]).filter((tier) => drawn.has(tier));
   return (
     <>

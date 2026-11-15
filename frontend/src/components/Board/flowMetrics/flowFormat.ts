@@ -12,7 +12,10 @@ import type {
  * before rounding (ADR #1532).
  */
 /** One decimal, and "<0.1d" rather than a misleading "0.0d" for a real but tiny value (#2297). */
-export const formatDays = (days: number) => (days > 0 && days < 0.05 ? "<0.1d" : `${days.toFixed(1)}d`);
+export const formatDays = (days: number) => (isTinyDays(days) ? "<0.1d" : `${days.toFixed(1)}d`);
+
+/** A real duration that one decimal would show as 0.0. */
+export const isTinyDays = (days: number) => days > 0 && days < 0.05;
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -109,7 +112,7 @@ export function ageMarkColor(sample: FlowAgeSample, zones: FlowPercentiles): Cha
 
 /** The accessible name of an aging dot, and of its table row's button. */
 export function ageMarkLabel(sample: FlowAgeSample, title: string, zones: FlowPercentiles) {
-  const parts = [title, `${sample.value_days.toFixed(1)} days in progress`];
+  const parts = [title, `${sample.value_days.toFixed(1)} ${dayUnit(sample.value_days)} in progress`];
   if (zones.p95 !== null && sample.value_days > zones.p95) parts.push("beyond 95th percentile");
   else if (zones.p85 !== null && sample.value_days > zones.p85) parts.push("beyond 85th percentile");
   if (sample.is_blocked) parts.push("blocked");

@@ -389,6 +389,34 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText('99d')).not.toBeInTheDocument()
   })
 
+  describe('server-rounded cell under the threshold (#2297)', () => {
+    const served = async (pct: number) => {
+      mockGetBoardAnalytics.mockResolvedValue({
+        days: 30, columns: ['To Do'],
+        swimlanes: [{
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 7 }, is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 7 }, age_is_outlier: { 'To Do': false },
+          throughput_avg_days_per_column: { 'To Do': 7 }, throughput_is_outlier: { 'To Do': false },
+          throughput_card_count_per_column: { 'To Do': 3 },
+          deal_velocity_days: null, stalled_cards: [],
+        }],
+        stalled_threshold_days: 7, staleness_threshold_days: 7, stale_warning_pct: pct,
+      })
+      renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+      return (await screen.findByText('7d')).closest('td') as HTMLElement
+    }
+    it('stays yellow under a normal warning band', async () => {
+      expect((await served(50)).className).toContain('bg-warning')
+    })
+    it('stays green when the yellow band is off', async () => {
+      expect((await served(0)).className).toContain('bg-success')
+    })
+    it('stays green when the yellow band begins at the threshold', async () => {
+      expect((await served(100)).className).toContain('bg-success')
+    })
+  })
+
   it('In period mode renders throughput_avg_days_per_column values', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FlowAttention, FlowAttentionItem } from "../../../types";
 import { PanelPlaceholder } from "./FlowChartPanels";
-import { dayUnit, formatNumber } from "./flowFormat";
+import { dayUnit, formatDays, formatNumber } from "./flowFormat";
 import type { Result } from "./useAnalyticsOverviewData";
 
 const PREVIEW_ROWS = 5;
@@ -99,7 +99,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
                   <span className="block text-xs text-fg-tertiary group-hover:text-fg-secondary truncate" title={where}>{where}</span>
                 </span>
                 <span aria-label={item.age_days !== null ? `${days(age(item))} old` : `${days(age(item))} without movement`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
-                  {Math.round(age(item))}d
+                  {formatDays(age(item))}
                 </span>
               </>
             );

@@ -1,4 +1,4 @@
-import { agingStage } from "../../../utils/agingTint";
+import { agingStage, warningFraction } from "../../../utils/agingTint";
 import ActiveMark from "../../Common/ActiveMark";
 import type { AnalyticsData, SwimlaneStat, ViewMode } from "./heatmap";
 
@@ -144,7 +144,12 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
                     // The served average is rounded (6.96 reads 7.0); the server's flag
                     // compares the unrounded one, so it decides the top tier (#2297).
                     const outlier = (mode === "age" ? sw.age_is_outlier : sw.throughput_is_outlier)?.[col];
-                    if (tier === "high" && outlier === false) tier = "warning";
+                    if (tier === "high" && outlier === false) {
+                      // Under the threshold by the unrounded value: yellow only if a yellow band
+                      // exists below it (off at 0, empty at 100), else green.
+                      const warn = warningFraction(warningPct);
+                      tier = warn !== null && warn < 1 ? "warning" : "ok";
+                    }
                     const level = tier !== null ? HEAT_LEVELS[tier] : null;
                     return (
                       <td

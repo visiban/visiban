@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AnalyticsView from '../components/Board/AnalyticsView'
-import { barScale, findingText, niceCeil, sortRows } from '../components/Board/flowMetrics/swimlanesFormat'
+import { barScale, cycleText, findingText, niceCeil, sortRows } from '../components/Board/flowMetrics/swimlanesFormat'
 
 vi.mock('../api/boards', () => ({ getBoardAnalytics: vi.fn() }))
 vi.mock('../api/flowMetrics', async () => ({
@@ -210,6 +210,10 @@ describe('Swimlanes view', () => {
 })
 
 describe('swimlanesFormat', () => {
+  it('uses the singular for a median that shows as 1.0', () => {
+    expect(cycleText(row({ median_days: 0.96, p85_days: null }) as never)).toMatch(/^1\.0 day median/)
+    expect(cycleText(row({ median_days: 2, p85_days: null }) as never)).toMatch(/^2\.0 days median/)
+  })
   it('rounds the shared scale up to a round number', () => {
     expect(niceCeil(24)).toBe(50)
     expect(niceCeil(17)).toBe(20)

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Column, FlowBlocked, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
 import { wipCount } from "./flowRowData";
 import { blockedTimeText } from "./BlockedSection";
-import { PERCENTILE_APPEARS_AT, cardsPastP85, columnsOverLimit, dayUnit, formatNumber, pluralize } from "./flowFormat";
+import { PERCENTILE_APPEARS_AT, cardsPastP85, columnsOverLimit, dayUnit, formatNumber, isTinyDays, pluralize } from "./flowFormat";
 
 interface Props {
   cycle: FlowCycleTime | undefined;
@@ -74,7 +74,7 @@ function CycleTile({ cycle }: { cycle: FlowCycleTime }) {
     );
   }
   return (
-    <Tile label="Cycle time" value={formatNumber(p50)} unit={days(p50)} provisional={p85 === null}>
+    <Tile label="Cycle time" value={isTinyDays(p50) ? "<0.1" : formatNumber(p50)} unit={days(p50)} provisional={p85 === null}>
       {p85 === null
         ? `Median of ${pluralize(n, "card")}. The 85% figure appears at ${PERCENTILE_APPEARS_AT.p85}.`
         : `Half finish within this. 85% within ${formatNumber(p85)} ${days(p85)}. Based on ${pluralize(n, "card")}.`}

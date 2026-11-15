@@ -802,7 +802,7 @@ describe('flow summaries', () => {
     expect(ageMarkLabel({ ...sample, is_blocked: false, value_days: 9 }, 'T', age.cycle_time_percentiles))
       .toBe('T, 9.0 days in progress, beyond 85th percentile')
     expect(ageMarkLabel({ ...sample, is_blocked: false, value_days: 1 }, 'T', age.cycle_time_percentiles))
-      .toBe('T, 1.0 days in progress')
+      .toBe('T, 1.0 day in progress')
   })
 })
 
@@ -875,6 +875,13 @@ describe('the bottleneck panel (#2261)', () => {
 
 describe('the headline tiles (#2261)', () => {
   const tile = (label: string) => screen.getByRole('heading', { name: label, level: 3 }).closest('div')!.parentElement as HTMLElement
+
+  it('shows a tiny cycle time as <0.1, not 0.0', async () => {
+    mockAll({ cycle: { ...cycle, percentiles: { ...cycle.percentiles, p50: 0.02 } } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Cycle time')).toHaveTextContent('<0.1days')
+    expect(tile('Cycle time')).not.toHaveTextContent('0.0')
+  })
 
   it('state each number with its supporting sentence', async () => {
     mockAll()
@@ -1408,5 +1415,16 @@ describe('rounding and wording edge cases (#2297)', () => {
       />,
     )
     expect(container.querySelectorAll('g[data-age-color]')).toHaveLength(1)
+  })
+
+  it('keeps an unknown-column sample out of the axis and the legend tiers', () => {
+    const base = { ...age.samples[0], is_blocked: false, value_days: 2 }
+    const render1 = (samples: typeof age.samples) =>
+      render(<WipAgeChart data={{ ...age, samples, cycle_time_percentiles: { p50: null, p85: null, p95: null } }} cards={new Map()} labelledBy="x" onSelect={() => {}} />)
+    const plain = render1([base])
+    const axisPlain = plain.container.textContent
+    plain.unmount()
+    const withGone = render1([base, { ...base, card_uid: 'gone', column_uid: 'col-deleted', value_days: 400 }])
+    expect(withGone.container.textContent).toBe(axisPlain)
   })
 })

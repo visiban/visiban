@@ -1,4 +1,5 @@
 import type { FlowSwimlaneComparison, FlowSwimlaneRow } from "../../../types";
+import { dayUnit } from "./flowFormat";
 
 /** Spec constants the server also applies (#2266); the page only words them. */
 export const MEDIAN_APPEARS_AT = 5;
@@ -73,7 +74,7 @@ export function cycleText(row: FlowSwimlaneRow): string {
       ? "No median yet: no cards finished."
       : `No median yet: only ${row.finished} ${row.finished === 1 ? "card" : "cards"} finished.`;
   }
-  const median = `${row.median_days.toFixed(1)} days median`;
+  const median = `${row.median_days.toFixed(1)} ${dayUnit(row.median_days)} median`;
   return row.p85_days === null
     ? `${median} · 85% line needs ${P85_APPEARS_AT} finished cards`
     : `${median} · 85% finish within ${dayText(row.p85_days)} days`;
