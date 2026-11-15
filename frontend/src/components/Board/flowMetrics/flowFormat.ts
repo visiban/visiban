@@ -163,9 +163,11 @@ const daysText = (days: number) => `${formatNumber(days)} ${days === 1 ? "day" :
 /** "Cards wait 6.2 days here, about half of the whole cycle. The queue grew …" from returned numbers only. */
 export function bottleneckSentence(
   uid: string,
-  { cumulative, dwell, cycle, columns }: {
+  { cumulative, dwell, cycle, columns, filtered = false }: {
     cumulative: FlowCumulativeFlow | undefined; dwell: FlowDwell | undefined; cycle: FlowCycleTime | undefined;
     columns: { uid: string; wip_limit: number | null }[];
+    /** A swimlane or label filter is on: a filtered queue against the board-wide limit is meaningless, so the limit is left out. */
+    filtered?: boolean;
   },
 ): string {
   const parts: string[] = [];
@@ -178,7 +180,7 @@ export function bottleneckSentence(
   }
   const band = cumulative?.columns.find((c) => c.column_uid === uid);
   if (band && band.start_count !== null && band.end_count !== null) {
-    const limit = columns.find((c) => c.uid === uid)?.wip_limit ?? null;
+    const limit = filtered ? null : columns.find((c) => c.uid === uid)?.wip_limit ?? null;
     let queue = `The queue grew from ${band.start_count} to ${pluralize(band.end_count, "card")}`;
     if (limit !== null) queue += ` against a limit of ${limit}`;
     if (band.entered_per_week !== null && band.left_per_week !== null) {

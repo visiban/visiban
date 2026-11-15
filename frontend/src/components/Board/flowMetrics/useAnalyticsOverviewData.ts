@@ -40,7 +40,9 @@ function settle<T>(outcome: PromiseSettledResult<T>): Result<T> {
  * only before the first answer, which is the only time panels show skeletons.
  */
 export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, attempt: number) {
-  const [results, setResults] = useState<OverviewResults | null>(null);
+  // The filters travel with the answers they fetched, swapped in together, so period-labelled copy
+  // never names a period the numbers on screen were not computed for.
+  const [settled, setSettled] = useState<{ results: OverviewResults; filters: FlowFilters } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
       getBoardAnalytics(boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }),
     ]).then(([cycle, throughput, cumulative, wipAge, dwell, blocked, attention, analytics]) => {
       if (!current) return;
-      setResults({
+      setSettled({ filters, results: {
         cycle: settle(cycle),
         throughput: settle(throughput),
         cumulative: settle(cumulative),
@@ -67,12 +69,14 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
         blocked: settle(blocked),
         attention: settle(attention),
         analytics: settle(analytics as PromiseSettledResult<AnalyticsData | null>),
-      });
+      } });
       setLoading(false);
     });
     return () => { current = false; };
   }, [boardId, filters, attempt]);
 
+  const results = settled?.results ?? null;
+  const fetchedFilters = settled?.filters ?? null;
   const failed = results !== null && Object.values(results).some((result) => result.error !== undefined);
-  return { results, loading, failed };
+  return { results, fetchedFilters, loading, failed };
 }

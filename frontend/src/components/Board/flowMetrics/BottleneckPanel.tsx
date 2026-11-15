@@ -7,6 +7,8 @@ interface Props {
   cycle: FlowCycleTime | undefined;
   wipAge: FlowWipAge | undefined;
   columns: Pick<Column, "uid" | "wip_limit">[];
+  /** A swimlane or label filter is on: the sentence leaves out the board-wide WIP limit. */
+  filtered?: boolean;
   /** Set when a request this panel needs failed: say so instead of a skeleton. */
   failed?: boolean;
   onOpenColumn: (uid: string) => void;
@@ -38,7 +40,7 @@ const SECONDARY_BUTTON = "px-3 py-1.5 text-sm rounded border border-line-strong 
  * way to its cards. The warning border is the bottleneck's system signal.
  */
 export default function BottleneckPanel({
-  cumulative, dwell, cycle, wipAge, columns, failed = false, onOpenColumn, onGoToBoard,
+  cumulative, dwell, cycle, wipAge, columns, filtered = false, failed = false, onOpenColumn, onGoToBoard,
 }: Props) {
   const uid = cumulative?.bottleneck_column_uid ?? null;
   const name = uid !== null ? cumulative?.columns.find((c) => c.column_uid === uid)?.column_name ?? null : null;
@@ -61,7 +63,7 @@ export default function BottleneckPanel({
       {cumulative && uid !== null ? (
         <>
           <h2 id="analytics-bottleneck-heading" className="text-xl font-semibold text-fg break-words">{name ?? "Deleted column"}</h2>
-          <p className="text-sm text-fg-secondary">{bottleneckSentence(uid, { cumulative, dwell, cycle, columns })}</p>
+          <p className="text-sm text-fg-secondary">{bottleneckSentence(uid, { cumulative, dwell, cycle, columns, filtered })}</p>
           <div className="flex flex-wrap items-center gap-2">
             {count > 0 && (
               <button type="button" onClick={() => onOpenColumn(uid)} className={PRIMARY_BUTTON}>

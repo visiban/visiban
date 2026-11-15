@@ -64,7 +64,7 @@ export default function AnalyticsOverview({
   // Here, not in the panels, so a panel's Chart | Table choice outlives a refetch.
   const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
-  const { results, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt);
+  const { results, fetchedFilters, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt);
 
   const cycle = results?.cycle.data;
   const throughput = results?.throughput.data;
@@ -97,6 +97,8 @@ export default function AnalyticsOverview({
     openCards(`Cards in ${name} now`, oldestFirst);
   };
 
+  // Period-labelled copy names the period the numbers on screen were fetched for, not the live selection.
+  const shownDays = (fetchedFilters ?? filters).days;
   const busy = loading && results !== null;
   const settled = results !== null;
   const filtered = filters.swimlaneId !== null || filters.labelId !== null;
@@ -173,6 +175,7 @@ export default function AnalyticsOverview({
                 cycle={cycle}
                 wipAge={wipAge}
                 columns={columns}
+                filtered={filtered}
                 failed={settled && !cumulative}
                 onOpenColumn={openColumn}
                 onGoToBoard={onGoToBoard}
@@ -191,7 +194,7 @@ export default function AnalyticsOverview({
             </RegionSlot>
           </div>
           <RegionSlot busy={busy}>
-            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={filters} />
+            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={{ ...filters, days: shownDays }} />
           </RegionSlot>
           <ChartRow>
             <RegionSlot busy={busy}>
@@ -218,11 +221,11 @@ export default function AnalyticsOverview({
           <ChartRow>
             <RegionSlot busy={busy}>
               {cycle
-                ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={filters.days} onSelect={selectCycleSample} />
+                ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} />
                 : <PanelPlaceholder title="Cycle time" failed={settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>
-              <BlockedSection blocked={results?.blocked} days={filters.days} />
+              <BlockedSection blocked={results?.blocked} days={shownDays} />
             </RegionSlot>
           </ChartRow>
         </>

@@ -788,6 +788,63 @@ describe('the headline tiles (#2261)', () => {
     await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
     expect(tile('Work in progress')).toHaveTextContent('1 card past 8 days.')
   })
+
+  it('drops the limit from the bottleneck sentence under a filter', async () => {
+    const grown: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => c.column_uid === 'col-doing'
+        ? { ...c, start_count: 2, end_count: 5, entered_per_week: 3.5, left_per_week: 2 }
+        : c),
+    }
+    mockAll({ cumulative: grown })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }] })
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('against a limit of 3')
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(screen.getByTestId('analytics-bottleneck')).not.toHaveTextContent('limit'))
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('The queue grew from 2 to 5 cards, because')
+  })
+
+  it('says why when the period has no days, and "Cards in progress now." when a filter hides the rest', async () => {
+    mockAll({
+      cumulative: { ...cumulative, bottleneck_column_uid: null, days: [] },
+      age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
+    })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column's queue grew in this period.")
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
+    expect(tile('Work in progress')).toHaveTextContent('Cards in progress now.')
+  })
+
+  it('shows a per-tile and a bottleneck error when one endpoint fails, and the other panels still render', async () => {
+    mockAll()
+    cumulativeMock.mockRejectedValue(new Error('no'))
+    blockedMock.mockRejectedValue(new Error('no'))
+    await renderLoaded()
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Could not load the bottleneck.')
+    expect(tile('Blocked time')).toHaveTextContent('Could not load.')
+    expect(tile('Cycle time')).toHaveTextContent('4.0days')
+    expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
+  })
+})
+
+describe('period labels during a refetch (#2261)', () => {
+  it('keep naming the period of the numbers on screen until the new answers arrive', async () => {
+    mockAll()
+    await renderLoaded()
+    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
+    let release: (value: FlowBlocked) => void = () => {}
+    blockedMock.mockReturnValue(new Promise<FlowBlocked>((resolve) => { release = resolve }))
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    await waitFor(() => expect(blockedMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
+    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
+    expect(screen.queryByText('Blocked time (last 30 days)')).not.toBeInTheDocument()
+    release(blocked)
+    expect(await screen.findByText('Blocked time (last 30 days)')).toBeInTheDocument()
+  })
 })
 
 describe('one filter selection for the whole Overview (#2261)', () => {
