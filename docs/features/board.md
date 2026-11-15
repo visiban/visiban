@@ -87,7 +87,7 @@ Click the chevron on the band to collapse a swimlane and save vertical space. Wh
 - While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).
 - A calm row-limit line is hidden, and an over-limit one stays.
 - The edit (✎) button, drag handle and focus-mode crosshair remain.
-- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's collapse menu (**Hide all swimlanes** and **Show all swimlanes**).
+- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's **View** menu (**Collapse all** and **Expand all** under swimlanes).
 
 Admins can double-click the swimlane band to open the Edit Swimlane modal.
 
@@ -255,7 +255,7 @@ Cards are calm so the urgent ones stand out. The bold title is the text before `
 
 A board admin chooses one of three layouts in **Board Settings → Display → Card density**:
 
-| Tier | Best for | What appears on the card face | Pinned swimlane values per row |
+| Tier | Best for | What appears on the card face | Pinned swimlane values per row (no effect on the swimlane band since 1.3, #2303) |
 |---|---|---|---|
 | **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
 | **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count | 5 |
@@ -676,7 +676,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the swimlane band, which shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.

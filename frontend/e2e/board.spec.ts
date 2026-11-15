@@ -85,6 +85,34 @@ test.describe('board view', () => {
     await expect(page.getByRole('button', { name: `Add card to ${COLUMN_TODO.name}`, exact: true })).toBeInViewport()
   })
 
+  test('a tall cell does not stretch the cards in its neighbor cell (#2270)', async ({ page }) => {
+    // Six same-shaped cards pile up in To Do; Done holds one with identical content.
+    const mk = (id: number, column: number, position: number) => ({
+      ...CARD,
+      id,
+      uid: `cardstretch${id}`,
+      column,
+      title: `Stretch card ${id}`,
+      position,
+    })
+    const todoCards = [1, 2, 3, 4, 5, 6].map((n) => mk(100 + n, COLUMN_TODO.id, n))
+    const doneCard = mk(200, COLUMN_DONE.id, 1)
+    const board = { ...BOARD_FULL, cards: [...todoCards, doneCard] }
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/full/`)
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/cards/`)
+    await routeBoard(page, board)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const baseline = page.locator('[data-card-id="101"]')
+    const neighbor = page.locator('[data-card-id="200"]')
+    await expect(baseline).toBeVisible({ timeout: 10_000 })
+    await expect(neighbor).toBeVisible()
+    const [b, n] = [await baseline.boundingBox(), await neighbor.boundingBox()]
+    // The To Do cell is several cards tall; the Done card must keep its natural height.
+    const lastTodo = await page.locator('[data-card-id="106"]').boundingBox()
+    expect(lastTodo!.y + lastTodo!.height - b!.y).toBeGreaterThan(b!.height * 4)
+    expect(n!.height).toBeCloseTo(b!.height, 0)
+  })
+
   test('the grid scrolls sideways inside its own box on a narrow window (#2270)', async ({ page }) => {
     await page.setViewportSize({ width: 400, height: 700 })
     await page.goto(`/boards/${BOARD_FULL.id}`)
