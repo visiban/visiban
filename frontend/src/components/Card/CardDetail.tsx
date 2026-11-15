@@ -63,7 +63,7 @@ import { checklistToday } from "../../utils/checklistFaceSuffix";
 function checklistFaceFields(items: CardChecklistItem[]) {
   const open = items.filter((i) => !i.is_checked);
   return {
-    checklist_open_due_dates: open.flatMap((i) => (i.due_date ? [i.due_date] : [])).sort(),
+    checklist_open_due_dates: open.flatMap((i) => (i.due_date ? [i.due_date] : [])).sort((a, b) => a.localeCompare(b)),
     checklist_open_assignee_ids: open.flatMap((i) => (i.assignee ? [i.assignee.id] : [])),
   };
 }

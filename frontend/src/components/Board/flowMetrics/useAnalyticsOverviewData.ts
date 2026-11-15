@@ -51,7 +51,8 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     setLoading(true);
     // With no breakdown the calls are exactly as before (no third argument).
     const extra: [FlowGroupingParams?] = grouping ? [grouping] : [];
-    Promise.allSettled([
+    // allSettled never rejects and the `current` flag guards late answers, so fire-and-forget is safe.
+    void Promise.allSettled([
       getFlowCycleTime(boardId, filters, ...extra),
       getFlowThroughput(boardId, filters, ...extra),
       getFlowCumulativeFlow(boardId, filters),
