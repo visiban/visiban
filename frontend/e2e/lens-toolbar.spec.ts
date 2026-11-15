@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth } from './helpers'
 import { BOARD_FULL, USER } from './fixtures/board'
 
@@ -40,6 +40,13 @@ async function setup(page: Page) {
   })
 }
 
+// A control's box, waiting out the frame where the toolbar is between renders: right after
+// Board to Lens (and on first paint) boundingBox() can return null for a tab that exists.
+async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  await expect.poll(async () => (await locator.boundingBox()) !== null).toBe(true)
+  return (await locator.boundingBox())!
+}
+
 test.describe('Lens toolbar', () => {
   test('Board to Lens does not move the tabs, and the 390px page never scrolls sideways', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
@@ -47,10 +54,10 @@ test.describe('Lens toolbar', () => {
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const tab = page.getByRole('button', { name: 'Lens', exact: true })
     await expect(tab).toBeVisible({ timeout: 30_000 })
-    const boardTabY = (await page.getByRole('button', { name: 'Board', exact: true }).boundingBox())!
+    const boardTabY = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     await tab.click()
     await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
-    const after = (await page.getByRole('button', { name: 'Board', exact: true }).boundingBox())!
+    const after = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     expect(Math.abs(after.x - boardTabY.x)).toBeLessThan(1)
     expect(Math.abs(after.y - boardTabY.y)).toBeLessThan(1)
     const overflow = await page.evaluate(
@@ -103,8 +110,7 @@ test.describe('Lens toolbar at 1440px', () => {
     await setup(page)
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const names = ['Board', 'Lens', 'Summary', 'History']
-    const tabBox = async (name: string) =>
-      (await page.getByRole('button', { name, exact: true }).boundingBox())!
+    const tabBox = (name: string) => boxOf(page.getByRole('button', { name, exact: true }))
     await expect(page.getByRole('button', { name: 'Lens', exact: true })).toBeVisible({ timeout: 30_000 })
     const before = await Promise.all(names.map(tabBox))
     await page.getByRole('button', { name: 'Lens', exact: true }).click()
