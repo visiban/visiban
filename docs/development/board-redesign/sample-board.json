@@ -1,0 +1,395 @@
+{
+  "note": "Sample data used by every board-redesign screenshot. Not a Visiban export format; seed a fixture board from it for the fidelity check.",
+  "columns": [
+    {
+      "name": "Prospect",
+      "color": "#94a3b8",
+      "wip_limit": null,
+      "sub_columns": []
+    },
+    {
+      "name": "Qualified",
+      "color": "#4ade80",
+      "wip_limit": 6,
+      "sub_columns": []
+    },
+    {
+      "name": "Discovery",
+      "color": "#a78bfa",
+      "wip_limit": 8,
+      "sub_columns": [
+        "In discovery",
+        "Ready for demo"
+      ]
+    },
+    {
+      "name": "Demo",
+      "color": "#fbbf24",
+      "wip_limit": null,
+      "sub_columns": []
+    },
+    {
+      "name": "Proposal Sent",
+      "color": "#fb923c",
+      "wip_limit": null,
+      "sub_columns": []
+    },
+    {
+      "name": "Negotiation",
+      "color": "#f87171",
+      "wip_limit": 4,
+      "sub_columns": []
+    },
+    {
+      "name": "Closed Won",
+      "color": "#34d399",
+      "wip_limit": null,
+      "sub_columns": []
+    }
+  ],
+  "tracks": {
+    "column": "Discovery",
+    "names": [
+      "Technical",
+      "Business"
+    ]
+  },
+  "swimlanes": [
+    {
+      "name": "North America",
+      "color": "#eab308",
+      "fields": {
+        "Regional VP": "Avery Brooks",
+        "Quarterly quota": "$600,000",
+        "Team size": "6",
+        "Forecast": "Commit"
+      },
+      "wip_limit": 10
+    },
+    {
+      "name": "APAC",
+      "color": "#f97316",
+      "fields": {
+        "Regional VP": "Priya Raman",
+        "Quarterly quota": "$750,000",
+        "Team size": "8",
+        "Forecast": "Best case"
+      },
+      "wip_limit": 8
+    },
+    {
+      "name": "EMEA",
+      "color": "#8b5cf6",
+      "fields": {
+        "Regional VP": "Marcus Hale",
+        "Quarterly quota": "$900,000",
+        "Team size": "9",
+        "Forecast": "Commit"
+      },
+      "wip_limit": 12
+    }
+  ],
+  "cards": [
+    {
+      "swimlane": "North America",
+      "column": "Qualified",
+      "title": "Rio Health Network -- Hospital Operations Board",
+      "label": "Enterprise",
+      "deal_value": 33000,
+      "status": "stale",
+      "status_detail": 56
+    },
+    {
+      "swimlane": "North America",
+      "column": "Qualified",
+      "title": "Meridian Consulting -- 120-Seat Strategic Deal",
+      "label": "Enterprise",
+      "deal_value": 27000,
+      "status": "stale",
+      "status_detail": 104
+    },
+    {
+      "swimlane": "North America",
+      "column": "Qualified",
+      "title": "Riyadh Oil -- Operations Compliance Board",
+      "label": "Renewal",
+      "deal_value": 41000,
+      "status": "overdue",
+      "status_detail": "Oct 11"
+    },
+    {
+      "swimlane": "North America",
+      "column": "Qualified",
+      "title": "Busan Shipping -- Fleet Operations Board",
+      "label": "SMB",
+      "deal_value": 27000,
+      "status": "stale",
+      "status_detail": 65
+    },
+    {
+      "swimlane": "North America",
+      "column": "Discovery",
+      "title": "Sakura Electronics -- 100-Seat Engineering Board",
+      "label": "Enterprise",
+      "deal_value": 52000,
+      "status": "stale",
+      "status_detail": 39,
+      "sub_column": "In discovery",
+      "tracks": {
+        "Technical": "done",
+        "Business": "open"
+      }
+    },
+    {
+      "swimlane": "North America",
+      "column": "Discovery",
+      "title": "Thames Capital -- Investment Pipeline Board",
+      "label": "Renewal",
+      "deal_value": 38000,
+      "status": "overdue",
+      "status_detail": "Nov 12",
+      "sub_column": "Ready for demo",
+      "tracks": {
+        "Technical": "done",
+        "Business": "done"
+      }
+    },
+    {
+      "swimlane": "North America",
+      "column": "Discovery",
+      "title": "Southern Cross Media -- Content Calendar License",
+      "label": "SMB",
+      "deal_value": 12000,
+      "status": "overdue",
+      "status_detail": "Nov 9",
+      "sub_column": "In discovery",
+      "tracks": {
+        "Technical": "open",
+        "Business": "open"
+      }
+    },
+    {
+      "swimlane": "North America",
+      "column": "Discovery",
+      "title": "Stockholm SaaS -- 80-Seat Platform Migration",
+      "label": "SMB",
+      "deal_value": 95000,
+      "status": "on track",
+      "status_detail": null,
+      "sub_column": "Ready for demo",
+      "tracks": {
+        "Technical": "done",
+        "Business": "done"
+      }
+    },
+    {
+      "swimlane": "North America",
+      "column": "Negotiation",
+      "title": "Manila BPO -- Operations Kanban 200 Seats",
+      "label": "SMB",
+      "deal_value": 88000,
+      "status": "overdue",
+      "status_detail": "Oct 10"
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Prospect",
+      "title": "Andean Mining Corp -- Safety Compliance Board",
+      "label": "Renewal",
+      "deal_value": 24000,
+      "status": "stale",
+      "status_detail": 83
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Qualified",
+      "title": "Dragon Logistics -- Cross-Border Shipping Tracker",
+      "label": "Enterprise",
+      "deal_value": 39000,
+      "status": "stale",
+      "status_detail": 98
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Qualified",
+      "title": "Clyde Engineering -- Manufacturing Workflow",
+      "label": "Upsell",
+      "deal_value": 31000,
+      "status": "overdue",
+      "status_detail": "Oct 22"
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Qualified",
+      "title": "Oslo Energy -- Renewable Project Board",
+      "label": "Enterprise",
+      "deal_value": 19000,
+      "status": "stale",
+      "status_detail": 49
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Qualified",
+      "title": "Bangkok Retail -- Store Operations Board",
+      "label": "SMB",
+      "deal_value": 35000,
+      "status": "stale",
+      "status_detail": 91
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Discovery",
+      "title": "EuroTech Solutions -- Engineering Workflow",
+      "label": "Renewal",
+      "deal_value": 46000,
+      "status": "stale",
+      "status_detail": 76,
+      "sub_column": "Ready for demo",
+      "tracks": {
+        "Technical": "done",
+        "Business": "na"
+      }
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Discovery",
+      "title": "Pinnacle Health -- HIPAA Module Add-on",
+      "label": "Enterprise",
+      "deal_value": 22000,
+      "status": "stale",
+      "status_detail": 48,
+      "sub_column": "In discovery",
+      "tracks": {
+        "Technical": "open",
+        "Business": "na"
+      }
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Proposal Sent",
+      "title": "Outback Mining -- Safety Incident Board",
+      "label": "SMB",
+      "deal_value": 29000,
+      "status": "overdue",
+      "status_detail": "Sep 24"
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Proposal Sent",
+      "title": "Abu Dhabi Finance -- Investment Pipeline License",
+      "label": "Renewal",
+      "deal_value": 64000,
+      "status": "overdue",
+      "status_detail": "Nov 1"
+    },
+    {
+      "swimlane": "APAC",
+      "column": "Proposal Sent",
+      "title": "Kyoto Pharmaceuticals -- Drug Pipeline Board",
+      "label": "Enterprise",
+      "deal_value": 42000,
+      "status": "stale",
+      "status_detail": 39
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Prospect",
+      "title": "Coral Bay Resorts -- Property Management",
+      "label": "SMB",
+      "deal_value": 32000,
+      "status": "stale",
+      "status_detail": 54
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Discovery",
+      "title": "Pampa Agritech -- Field Operations Tracker",
+      "label": "Upsell",
+      "deal_value": 14000,
+      "status": "stale",
+      "status_detail": 45,
+      "sub_column": "In discovery",
+      "tracks": {
+        "Technical": "open",
+        "Business": "done"
+      }
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Discovery",
+      "title": "Helsinki Gaming -- Sprint Board License",
+      "label": "SMB",
+      "deal_value": 28000,
+      "status": "due soon",
+      "status_detail": "3 days",
+      "sub_column": "In discovery",
+      "tracks": {
+        "Technical": "done",
+        "Business": "open"
+      }
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Demo",
+      "title": "Nordic Finance Group -- SOC 2 Compliance Package",
+      "label": "Enterprise",
+      "deal_value": 57000,
+      "status": "overdue",
+      "status_detail": "Oct 25"
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Demo",
+      "title": "Qatar Airways Cargo -- Logistics Board Deal",
+      "label": "Upsell",
+      "deal_value": 73000,
+      "status": "overdue",
+      "status_detail": "Oct 28"
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Demo",
+      "title": "Ho Chi Minh Tech -- Engineering Board License",
+      "label": "SMB",
+      "deal_value": 18000,
+      "status": "on track",
+      "status_detail": null
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Proposal Sent",
+      "title": "Harbour Digital -- 40-Seat Startup Deal",
+      "label": "Enterprise",
+      "deal_value": 16000,
+      "status": "overdue",
+      "status_detail": "Oct 21"
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Proposal Sent",
+      "title": "Dublin Analytics -- Data Team Kanban",
+      "label": "Renewal",
+      "deal_value": 21000,
+      "status": "overdue",
+      "status_detail": "Oct 29"
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Negotiation",
+      "title": "Brightwave Systems -- 300-Seat Migration",
+      "label": "Upsell",
+      "deal_value": 120000,
+      "status": "overdue",
+      "status_detail": "Oct 7"
+    },
+    {
+      "swimlane": "EMEA",
+      "column": "Closed Won",
+      "title": "Zurich Insurance -- Claims Workflow",
+      "label": "Upsell",
+      "deal_value": 36000,
+      "status": "on track",
+      "status_detail": null
+    }
+  ]
+}
