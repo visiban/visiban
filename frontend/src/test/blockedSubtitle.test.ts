@@ -18,6 +18,13 @@ describe('blockedSubtitle (#2282)', () => {
     expect(blockedSubtitle(make(2, []), 30)).toBe(SAME)
   })
 
+  it('falls back to the listed reasons when reason_count is absent', () => {
+    // The type declares reason_count as always present; the `??` fallback in
+    // blockedSubtitle is defensive, so the cast simulates an older payload.
+    const data = { ...make(2, []), reason_count: undefined } as unknown as Parameters<typeof blockedSubtitle>[0]
+    expect(blockedSubtitle(data, 30)).toBe(SAME)
+  })
+
   it('counts distinct reasons before the cap, not the capped list', () => {
     // One listed reason of 11 distinct: a 10% share, not "the same reason".
     expect(blockedSubtitle({ ...make(1, [], 11), total: { days: 10, blocks: 11 } }, 30)).toBe(FIXED)
