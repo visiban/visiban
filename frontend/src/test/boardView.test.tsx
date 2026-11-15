@@ -266,13 +266,16 @@ vi.mock('../components/Board/ArchivedCardsPanel', async () => {
   }
   return { default: ArchivedPanelMock }
 })
+// #2301 — the Filter panel lists these; tests that need a preset set them.
+let mockSavedFilters: { id: number; name: string; state_json: Record<string, unknown>; state_version: number; created_at: string }[] = []
+const mockHydrateFilter = vi.fn()
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
-    savedFilters: [],
+    savedFilters: mockSavedFilters,
     loading: false,
     saveFilter: vi.fn(),
     removeFilter: vi.fn(),
-    hydrateFilter: vi.fn(),
+    hydrateFilter: mockHydrateFilter,
   }),
 }))
 vi.mock('../components/Board/MovementHistoryView', () => ({
@@ -3563,5 +3566,61 @@ describe('BoardView lane filters (#2205)', () => {
     rerender(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
     expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  describe('Filter panel wiring (#2301)', () => {
+    const preset = { id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }
+    const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: /^Filters/ }))
+      return screen.getByRole('dialog', { name: 'Filter' })
+    }
+    beforeEach(() => {
+      mockSavedFilters = [preset]
+      mockHydrateFilter.mockReset()
+      mockHydrateFilter.mockReturnValue({
+        search: '', assigneeIds: [], labelIds: [], priorities: ['high'], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [],
+      })
+    })
+    afterEach(() => { mockSavedFilters = [] })
+
+    it('choosing a saved filter hydrates it into the filters and marks it active', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      expect(mockHydrateFilter).toHaveBeenCalledWith(preset)
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(panel).getByRole('button', { name: /^Priority/ })).toHaveTextContent('High')
+    })
+
+    it('editing a filter in the panel clears the active preset, like the filter bar', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(within(panel).getByRole('button', { name: /^Priority/ }))
+      await user.click(within(panel).getByRole('checkbox', { name: 'High' }))
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('the Lanes row closes the panel and opens the filter bar for the Lanes popover', async () => {
+      const lanesDef = {
+        id: 1, uid: 'sfuid0000001', name: 'F1', field_type: 'text' as const, choices: [], position: 1,
+        show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+        number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      }
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: [lanesDef] }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+      const panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
+    })
   })
 })

@@ -5,7 +5,8 @@ import { userDisplayName } from "../../types";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
-import { formatCustomFieldValue } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { isLaneFilterActive, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
@@ -85,11 +86,21 @@ export default function FilterPanel({
       close();
     };
     document.addEventListener("mousedown", onDown);
-    window.addEventListener("resize", close);
+    // A soft keyboard resizes the viewport (height only) when the Find input
+    // takes focus; closing on that would shut the panel as it opens. Ignore a
+    // height-only resize while focus is inside the panel.
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      const widthChanged = window.innerWidth !== lastWidth;
+      lastWidth = window.innerWidth;
+      if (!widthChanged && panelRef.current?.contains(document.activeElement)) return;
+      close();
+    };
+    window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
@@ -218,10 +229,15 @@ export default function FilterPanel({
     if (v.kind !== "choice" && v.kind !== "multi_choice") return null;
     const kind = v.kind;
     const values = v.values;
-    const choices = def.field_type === "checkbox" ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] : def.choices.map((c) => ({ value: c, label: c }));
+    const choices = def.field_type === "checkbox" ? [{ value: "true", label: "Yes", color: undefined as string | undefined }, { value: "false", label: "No", color: undefined as string | undefined }] : def.choices.map((c) => {
+      // Same dot as the filter bar's dropdown filter; multi-select entries carry none there.
+      if (def.field_type === "multi_select") return { value: c, label: c, color: undefined };
+      const key = explicitChoiceColor(def, c);
+      return { value: c, label: c, color: key ? CHOICE_COLORS[key].base : choiceColor(c) };
+    });
     return (
       <div role="group" aria-label={def.name}>
-        {choices.map((c) => checkbox(c.value, c.label, values.includes(c.value), () => setCustom(def.id, { kind, values: toggleIn(values, c.value) })))}
+        {choices.map((c) => checkbox(c.value, c.label, values.includes(c.value), () => setCustom(def.id, { kind, values: toggleIn(values, c.value) }), c.color))}
       </div>
     );
   };
@@ -276,7 +292,7 @@ export default function FilterPanel({
       aria-label="Filter"
       data-testid="filter-panel"
       onKeyDown={onPanelKeyDown}
-      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}
+      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN) }}
       className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto"
     >
       <h2 className="text-sm font-semibold text-fg">Filter</h2>
@@ -308,7 +324,7 @@ export default function FilterPanel({
                 onClick={onRow}
                 aria-expanded={row.id === "lanes" ? undefined : isOpen}
                 aria-haspopup={row.id === "lanes" ? "dialog" : undefined}
-                className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${active ? "bg-info/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
+                className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${active ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
               >
                 <span className="flex items-center gap-1.5 shrink-0"><ActiveMark active={active} testId="filter-row-mark" />{row.label}</span>
                 <span className={`truncate text-right ${active ? "" : "text-fg-secondary font-normal"}`}>{row.value ?? "Any"}</span>
@@ -332,7 +348,7 @@ export default function FilterPanel({
                   type="button"
                   aria-pressed={activeFilterId === sf.id}
                   onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
-                  className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${activeFilterId === sf.id ? "bg-info/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
+                  className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${activeFilterId === sf.id ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
                 >
                   <ActiveMark active={activeFilterId === sf.id} testId="saved-filter-mark" />
                   <span className="truncate">{sf.name}</span>

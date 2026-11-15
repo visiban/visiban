@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterPanel from '../components/Board/FilterPanel'
 import { EMPTY_FILTER } from '../components/Board/FilterBar'
@@ -292,5 +292,56 @@ describe('FilterPanel (#2301)', () => {
     await u.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'Hide filter bar' })).toBeInTheDocument()
+  })
+
+  it('an active row and the active saved filter use the persistent-active fill, never bg-info (#2301)', async () => {
+    const u = userEvent.setup()
+    setup({ filters: { ...EMPTY_FILTER, priorities: ['high'] }, activeFilterId: 5 })
+    await open(u)
+    for (const el of [screen.getByRole('button', { name: /^Priority/ }), screen.getByRole('button', { name: 'My open work' })]) {
+      expect(el.className).toContain('bg-primary-emphasis/10')
+      expect(el.className).toContain('text-info-on-tint')
+      expect(el.className).not.toContain('bg-info/')
+    }
+    expect(screen.getByRole('button', { name: /^Assignee/ }).className).not.toContain('bg-primary-emphasis')
+  })
+
+  it('stays open on a height-only resize while focus is inside (soft keyboard), closes otherwise', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+    // Width change closes even with focus inside.
+    const w = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: w + 100 })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: w })
+    // Focus outside the panel: a resize closes as before.
+    await open(u)
+    act(() => { (document.activeElement as HTMLElement).blur() })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows a color dot on dropdown choices but none on multi-select choices', async () => {
+    const u = userEvent.setup()
+    const board = makeBoard({
+      custom_field_definitions: [
+        cf({ id: 7, name: 'Region', field_type: 'dropdown', choices: ['EMEA', 'APAC'], position: 0 }),
+        cf({ id: 8, name: 'Tags', field_type: 'multi_select', choices: ['a', 'b'], position: 1 }),
+      ] as never,
+    })
+    setup({ board })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: /^Region/ }))
+    const region = screen.getByRole('group', { name: 'Region' })
+    const dots = region.querySelectorAll('span[aria-hidden="true"]')
+    expect(dots).toHaveLength(2)
+    dots.forEach((d) => expect((d as HTMLElement).style.backgroundColor).not.toBe(''))
+    await u.click(screen.getByRole('button', { name: /^Tags/ }))
+    expect(screen.getByRole('group', { name: 'Tags' }).querySelectorAll('span[aria-hidden="true"]')).toHaveLength(0)
   })
 })

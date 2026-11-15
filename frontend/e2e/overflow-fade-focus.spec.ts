@@ -197,6 +197,8 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText('Card 0').first()).toBeVisible({ timeout: 10_000 })
     await page.getByRole('button', { name: /^filters/i }).click()
+    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
+    await page.getByRole('button', { name: /show filter bar/i }).click()
     await page.getByRole('button', { name: /\+ filter/i }).click()
     await page.getByRole('checkbox', { name: /assignee/i }).check()
     await page.keyboard.press('Escape')
