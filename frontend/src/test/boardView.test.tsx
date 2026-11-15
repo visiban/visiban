@@ -150,9 +150,9 @@ vi.mock('../components/Board/ColumnHeader', async () => {
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
+  default: ({ swimlane, gridTemplate, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; gridTemplate?: string; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
+      <div data-testid={`swim-${swimlane.id}`} data-grid-template={gridTemplate} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -444,7 +444,7 @@ describe('BoardView', () => {
       }
 
       // Far-left separator (insert position 0) puts a not-done column first: take-over note.
-      const separators = Array.from(container.querySelectorAll('div.cursor-col-resize'))
+      const separators = Array.from(container.querySelectorAll('[data-testid="column-separator"]'))
       fireEvent.mouseDown(separators[0])
       fireEvent.mouseUp(window)
       expect(await screen.findByTestId('intake-takeover-note')).toBeInTheDocument()
@@ -883,6 +883,29 @@ describe('BoardView', () => {
     render(<BoardView currentUser={fakeUser} />)
     await userEvent.setup().click(overflowItem(/^Board settings/))
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
+  })
+
+  // #2300: one grid template for the header row and every lane, with a 1240px floor below
+  // which the grid scrolls inside [data-board-scroll].
+  it('gives the header row and every lane the same grid template (#2300)', () => {
+    render(<BoardView {...defaultProps()} />)
+    const header = screen.getByTestId('board-header-row')
+    const tpl = header.style.gridTemplateColumns
+    expect(tpl).toMatch(/^16px minmax\(0, 1fr\)( 8px minmax\(0, 1fr\))* 16px$/)
+    const lanes = document.querySelectorAll('[data-grid-template]')
+    expect(lanes.length).toBeGreaterThan(0)
+    lanes.forEach((lane) => expect(lane.getAttribute('data-grid-template')).toBe(tpl))
+    expect(screen.getByTestId('board-grid').style.minWidth).toBe('1240px')
+    const scroll = document.querySelector('[data-board-scroll]') as HTMLElement
+    expect(scroll.contains(screen.getByTestId('board-grid'))).toBe(true)
+    expect(scroll.style.getPropertyValue('--board-view-w')).toMatch(/px$/)
+  })
+
+  it('gives a collapsed column a 40px track in the shared template (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ collapsedColumnIds: [10] }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    expect(screen.getByTestId('board-header-row').style.gridTemplateColumns).toMatch(/^16px 40px 8px /)
   })
 
   it('has no label-panel corner cell in the header row (#2271)', () => {
@@ -1509,8 +1532,8 @@ describe('BoardView', () => {
   it('clicking a column separator opens AddColumnModal', async () => {
     const { container } = render(<BoardView {...defaultProps()} />)
     await act(async () => {})
-    // ColumnSeparators are 16px-wide divs with cursor-col-resize; trigger mousedown+mouseup (no drag)
-    const separators = container.querySelectorAll('.cursor-col-resize')
+    // Header ColumnSeparators fill their grid track (#2300); trigger mousedown+mouseup (no drag)
+    const separators = container.querySelectorAll('[data-testid="column-separator"]')
     expect(separators.length).toBeGreaterThan(0)
     const sep = separators[0] as HTMLElement
     fireEvent.mouseDown(sep, { clientX: 100 })

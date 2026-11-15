@@ -53,8 +53,10 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
 
   return (
     <div
-      className={`relative shrink-0 flex items-stretch select-none ${setWidth ? "cursor-col-resize" : "cursor-pointer"}`}
-      style={{ width: 16 }}
+      // No fixed width: the separator fills its track of the board's shared grid
+      // template (#2300), 16px at the outer edges and 8px between columns.
+      className={`relative flex items-stretch select-none ${setWidth ? "cursor-col-resize" : "cursor-pointer"}`}
+      data-testid="column-separator"
       onMouseEnter={() => onSepHoverChange(sepIndex)}
       onMouseLeave={() => onSepHoverChange(null)}
       onMouseDown={handleMouseDown}

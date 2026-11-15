@@ -33,6 +33,8 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 - Column headers are sticky on horizontal scroll.
 - Column headers stay visible when the board scrolls vertically, and the grid scrolls sideways inside its own box when the window is narrow.
+- All columns share the board's width equally, with 8 px between them, and the header row, every swimlane and every collapsed swimlane use the same column grid, so columns line up in every row. Below 1240 px of board width (or about 160 px per column on a board with many columns) the grid scrolls sideways inside its own box; the page never scrolls sideways. Columns can no longer be resized by dragging their edge. *Changed in 1.3 (#2300).*
+- On a board wider than the window, each swimlane's header band stays pinned to the left edge while the grid scrolls sideways, so the lane name, its fields and its counts at the right stay in view. *Changed in 1.3 (#2305).*
 - Each column header is a panel tinted with the column color: color dot, name (it wraps rather than truncating), an add-card button, a thin WIP meter and a count line. With no limit the line reads `2 cards` and there is no meter; under a limit it reads `2 / 4` with the meter in the column color; at the limit `4 / 4` with a full meter; over the limit `8 / 6 over` in warning text with a full warning-colored meter. A weight budget that is exceeded adds `Weight 14/10` to the same line. *Changed in 1.3 (#2270).*
 - When enforcement is enabled, moves into a full column are blocked (`409` error); board admins can override with `?force=true` (soft) or are denied entirely under hard mode.
 
@@ -179,9 +181,9 @@ Columns represent pipeline stages. Each column has:
 
 ### Adding columns and swimlanes
 
-The 16 px separators between columns and between swimlane rows are interactive insertion handles:
+The separators between columns (8 px, 16 px at the board's outer edges) and between swimlane rows (16 px) are interactive insertion handles:
 
-- **Column separators** (vertical, between columns): hover to see a centered **+**; click to insert a new column to the right; drag left/right to resize the column to the left.
+- **Column separators** (vertical, between columns): hover to see a centered **+**; click to insert a new column to the right. Since 1.3 (#2300) columns share the board's width equally, so dragging a separator no longer resizes a column.
 - **Row separators** (horizontal, between swimlane rows): hover to see a **+** at each column's center; click to insert a new swimlane below; drag up/down to resize the swimlane above.
 
 Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator: the column highlight extends through every row separator, and the row highlight extends across the full board width.

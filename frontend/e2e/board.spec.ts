@@ -174,6 +174,77 @@ test.describe('board view', () => {
     expect(m.page).toBeLessThanOrEqual(m.win)
   })
 
+  // #2300: one grid template for the header row and the lanes. Below 1240px of board
+  // width the grid scrolls inside its own box, and the columns stay aligned both ways.
+  test('below 1240px the shared grid scrolls in its own box and stays aligned (#2300)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 700 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const scroller = page.locator('[data-board-scroll]')
+    const headerRow = page.getByTestId('board-header-row')
+    await expect(headerRow).toBeVisible({ timeout: 10_000 })
+    const m = await scroller.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, page: document.documentElement.scrollWidth, win: window.innerWidth }))
+    expect(m.cw).toBeLessThan(1240)
+    expect(m.sw).toBeGreaterThanOrEqual(1240)
+    expect(m.page).toBeLessThanOrEqual(m.win)
+
+    const header = headerRow.getByText(COLUMN_DONE.name, { exact: true }).first()
+    const cell = page.locator(`[data-board-cell][data-column-id="${COLUMN_DONE.id}"]`).first()
+    await scroller.evaluate((el) => {
+      const spacer = document.createElement('div')
+      spacer.style.height = '1500px'
+      el.firstElementChild!.appendChild(spacer)
+      el.scrollLeft = 150
+      el.scrollTop = 40
+    })
+    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100)
+    const tplHeader = await headerRow.evaluate((el) => getComputedStyle(el).gridTemplateColumns)
+    const tplLane = await cell.evaluate((el) => {
+      let row = el.parentElement
+      while (row && getComputedStyle(row).display !== 'grid') row = row.parentElement
+      return row ? getComputedStyle(row).gridTemplateColumns : 'no grid row'
+    })
+    // Same resolved track sizes in px, so every column lines up.
+    expect(tplLane).toBe(tplHeader)
+    const [h, c] = [await header.boundingBox(), await cell.boundingBox()]
+    expect(h).not.toBeNull()
+    // The header's name sits inside the column; the cell spans the same track.
+    expect(h!.x).toBeGreaterThanOrEqual(c!.x - 1)
+    expect(h!.x).toBeLessThan(c!.x + c!.width)
+  })
+
+  // #2305: on a board wider than the window, the swimlane band (name and stats) stays
+  // in view while the grid scrolls sideways.
+  test('the swimlane band keeps its name and stats in view after scrolling sideways (#2305)', async ({ page }) => {
+    const extra = Array.from({ length: 9 }, (_, i) => ({
+      ...COLUMN_TODO,
+      id: 900 + i,
+      uid: `colwide00${i}`,
+      name: `Wide ${i}`,
+      position: 10 + i,
+    }))
+    const board = { ...BOARD_FULL, columns: [...BOARD_FULL.columns, ...extra] }
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/full/`)
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/cards/`)
+    await routeBoard(page, board)
+    await page.setViewportSize({ width: 1440, height: 800 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const scroller = page.locator('[data-board-scroll]')
+    const band = page.getByTestId('swimlane-band').first()
+    await expect(band).toBeVisible({ timeout: 10_000 })
+    const m = await scroller.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }))
+    expect(m.sw).toBeGreaterThan(m.cw)
+    await scroller.evaluate((el) => { el.scrollLeft = el.scrollWidth })
+    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100)
+    await expect(band.getByTestId('swimlane-name')).toBeInViewport({ ratio: 1 })
+    await expect(band.getByTestId('swimlane-card-count')).toBeInViewport({ ratio: 1 })
+    const [bandBox, scrollBox] = [await band.boundingBox(), await scroller.boundingBox()]
+    expect(bandBox!.x).toBeGreaterThanOrEqual(scrollBox!.x)
+    expect(bandBox!.x + bandBox!.width).toBeLessThanOrEqual(scrollBox!.x + scrollBox!.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+    // The last column's cell is reachable: the band does not cover the grid.
+    await expect(page.locator(`[data-board-cell][data-column-id="908"]`).first()).toBeInViewport()
+  })
+
   test('moves a card between columns via drag-and-drop', async ({ page }) => {
     let moveRequestBody: unknown = null
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/move/`, async (route) => {

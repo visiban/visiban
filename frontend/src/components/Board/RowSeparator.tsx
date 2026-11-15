@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import SeparatorPlus from "./SeparatorPlus";
+import { columnTrackLine, separatorTrackLine } from "./boardGrid";
 
 const DRAG_THRESHOLD = 4; // px — movement beyond this is a resize, not a click
 
@@ -10,13 +11,17 @@ interface Props {
   currentHeight?: number;
   /** Called continuously while dragging to resize the swimlane above. */
   setHeight?: (h: number) => void;
-  /** X offset (px) of the currently-hovered column separator — renders the column strip through this row. */
-  hoveredSepX?: number | null;
-  /** Center X of each column — renders a "+" at each position when this row sep is hovered. */
-  colCenterXs?: number[];
+  /** The board's shared `grid-template-columns` (#2300). The "+" glyphs and the
+   *  hovered column strip are laid out on it, so they line up with the columns
+   *  without any pixel math. Omitted: neither renders. */
+  gridTemplate?: string;
+  /** Number of column tracks in `gridTemplate`: one "+" per column when hovered. */
+  columnCount?: number;
+  /** Index of the hovered column separator (0 = far left), continued through this row. */
+  hoveredSepIndex?: number | null;
 }
 
-export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, hoveredSepX, colCenterXs }: Props) {
+export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, gridTemplate, columnCount = 0, hoveredSepIndex }: Props) {
   const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startHeight: number; dragging: boolean } | null>(null);
@@ -74,21 +79,22 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       {/* Bottom line */}
       <div className={`w-full h-px transition-colors ${hovered ? "bg-info/50" : "bg-surface-active/70"}`} />
 
-      {/* "+" at each column center — mirrors ColumnSeparator showing "+" at each swimlane row */}
-      {isAdmin && hovered && colCenterXs?.map((cx, i) => (
-        <SeparatorPlus
-          key={i}
-          className="absolute text-[10px] pointer-events-none"
-          style={{ left: cx, top: "50%", transform: "translate(-50%, -50%)" }}
-        />
-      ))}
-
-      {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}
-      {hoveredSepX != null && (
-        <div className="absolute inset-y-0 flex pointer-events-none" style={{ left: hoveredSepX, width: 16 }}>
-          <div className="w-px self-stretch bg-info/50" />
-          <div className="flex-1 bg-info/5" />
-          <div className="w-px self-stretch bg-info/50" />
+      {gridTemplate && ((isAdmin && hovered && columnCount > 0) || hoveredSepIndex != null) && (
+        <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateColumns: gridTemplate }}>
+          {/* "+" at each column center — mirrors ColumnSeparator showing "+" at each swimlane row */}
+          {isAdmin && hovered && Array.from({ length: columnCount }, (_, i) => (
+            <div key={i} className="flex items-center justify-center" style={{ gridColumn: columnTrackLine(i), gridRow: 1 }}>
+              <SeparatorPlus className="text-[10px]" />
+            </div>
+          ))}
+          {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}
+          {hoveredSepIndex != null && (
+            <div className="flex" style={{ gridColumn: separatorTrackLine(hoveredSepIndex), gridRow: 1 }} data-testid="row-separator-column-strip">
+              <div className="w-px self-stretch bg-info/50" />
+              <div className="flex-1 bg-info/5" />
+              <div className="w-px self-stretch bg-info/50" />
+            </div>
+          )}
         </div>
       )}
     </div>

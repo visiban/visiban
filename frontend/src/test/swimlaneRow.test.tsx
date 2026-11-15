@@ -132,6 +132,50 @@ describe('SwimlaneRow', () => {
     expect(screen.queryByTestId('swimlane-stale-count')).toBeNull()
   })
 
+  // #2300: the cells row uses the board's shared template; #2305: the band is pinned left
+  // and capped to the visible width so its stats stay on screen while the grid scrolls.
+  it('lays the cells out on the shared grid template it is given', () => {
+    const tpl = '16px minmax(0, 1fr) 8px 40px 16px'
+    render(<SwimlaneRow {...defaultProps()} gridTemplate={tpl} collapsed />)
+    const strip = screen.getByTestId('swimlane-collapsed-strip')
+    expect(strip.className).toContain('grid')
+    expect(strip.style.gridTemplateColumns).toBe(tpl)
+  })
+
+  it('builds a template from its columns when none is passed', () => {
+    render(<SwimlaneRow {...defaultProps()} collapsed />)
+    const strip = screen.getByTestId('swimlane-collapsed-strip')
+    expect(strip.style.gridTemplateColumns).toBe(`16px ${columns.map(() => 'minmax(0, 1fr)').join(' 8px ')} 16px`)
+    // A strip cell fills its track rather than carrying a pixel width.
+    expect(screen.getByTestId(`swimlane-strip-cell-${columns[0].id}`).style.width).toBe('')
+  })
+
+  it('pins the band to the left edge and caps it to the visible board width (#2305)', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    const band = screen.getByTestId('swimlane-band')
+    expect(band.className).toContain('sticky')
+    expect(band.className).toContain('left-4')
+    expect(band.getAttribute('style')).toContain('max-width: calc(var(--board-view-w, 100%) - 32px)')
+    // The stats live inside the pinned band, so they move with it.
+    expect(within(band).getByTestId('swimlane-band-stats')).toBeInTheDocument()
+  })
+
+  it('inserts a column from a cell separator on release, and not for a non-admin (#2300)', () => {
+    const onInsertColumn = vi.fn()
+    const { container, unmount } = render(<SwimlaneRow {...defaultProps()} onInsertColumn={onInsertColumn} />)
+    const sep = container.querySelector('.cursor-pointer.select-none') as HTMLElement
+    expect(container.querySelector('.cursor-col-resize')).toBeNull()
+    fireEvent.mouseDown(sep)
+    expect(onInsertColumn).not.toHaveBeenCalled()
+    fireEvent.mouseUp(window)
+    expect(onInsertColumn).toHaveBeenCalledWith(columns[0].id)
+    fireEvent.mouseUp(window)
+    expect(onInsertColumn).toHaveBeenCalledTimes(1)
+    unmount()
+    const { container: c2 } = render(<SwimlaneRow {...defaultProps()} isAdmin={false} onInsertColumn={onInsertColumn} />)
+    expect(c2.querySelector('.cursor-pointer.select-none')).toBeNull()
+  })
+
   it('has no tint styles when the lane has no color', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, color: '' }} />)
     expect(screen.getByTestId('swimlane-band').className).toContain('bg-surface')
