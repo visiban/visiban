@@ -1806,6 +1806,17 @@ class NeedsAttentionTests(FlowFixture):
         self.assertEqual((items[by_relation.uid]["reasons"][0], items[by_relation.uid]["block_reason"]), ("blocked", None))
         self.assertEqual(items[both.uid]["block_reason"], "vendor")
 
+    def test_a_stale_reason_with_no_blocked_at_is_not_a_block_reason(self):
+        # "blocked" comes from the relation, so the reason clause passes and only
+        # the blocked_at guard keeps the leftover text off the item.
+        blocker = self.path(self.backlog, 2)
+        card = self.path(self.backlog, 40, self.doing, 30)
+        CardRelation.objects.create(from_card=blocker, to_card=card, relation_type=CardRelation.Type.BLOCKS)
+        Card.objects.filter(pk=card.pk).update(blocked_at=None, blocked_reason="stale")
+        item = self.items()[card.uid]
+        self.assertIn("blocked", item["reasons"])
+        self.assertIsNone(item["block_reason"])
+
 
 class FlowRedesignEndpointTests(EndpointFixture):
     """The three #2260 endpoints over HTTP, and their documented shapes."""
