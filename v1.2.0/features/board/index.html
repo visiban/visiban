@@ -1176,7 +1176,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Card density">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#show-chips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Show chips
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Show chips">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5080,25 +5091,32 @@
 <p>The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as <code>cell:{column_id}:{swimlane_id}</code>.</p>
 <ul>
 <li>Column headers are sticky on horizontal scroll.</li>
-<li>Over-limit columns gain a 2 px top accent strip — red for over-WIP, amber for over-weight — visible across the room. The single stat line beneath the column name flips to the over-limit message (e.g. <code>⚠ Over WIP · 6/5</code>); when calm, only <code>N cards</code> is shown. <em>Changed in 1.1 (#963).</em></li>
+<li>Column headers stay visible when the board scrolls vertically, and the grid scrolls sideways inside its own box when the window is narrow.</li>
+<li>Each column header is a panel tinted with the column color: color dot, name (it wraps rather than truncating), an add-card button, a thin WIP meter and a count line. With no limit the line reads <code>2 cards</code> and there is no meter; under a limit it reads <code>2 / 4</code> with the meter in the column color; at the limit <code>4 / 4</code> with a full meter; over the limit <code>8 / 6 over</code> in warning text with a full warning-colored meter. A weight budget that is exceeded adds <code>Weight 14/10</code> to the same line. <em>Changed in 1.3 (#2270).</em></li>
 <li>When enforcement is enabled, moves into a full column are blocked (<code>409</code> error); board admins can override with <code>?force=true</code> (soft) or are denied entirely under hard mode.</li>
 </ul>
 <h3 id="adding-a-card-to-a-cell">Adding a card to a cell<a class="headerlink" href="#adding-a-card-to-a-cell" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Changed in 1.1</strong> — empty cells now read as a discoverable click target instead of hiding the <strong>+ Add card</strong> affordance in the bottom-left corner.</p>
 </blockquote>
-<p>An empty cell shows a dashed inset border with <strong>+ Add card</strong> centered; the affordance highlights on hover or keyboard focus.</p>
+<p>An empty cell shows one quiet <strong>+</strong>; the whole cell is the add target. On hover or keyboard focus it gains a dashed edge and the label <strong>Add card</strong>. Its accessible name is <code>Add card to {column} in {swimlane}</code>. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.</p>
 <ul>
 <li>Click anywhere in the cell, or press <strong>Tab</strong> to focus it then <strong>Enter</strong>/<strong>Space</strong>, to open the inline new-card input.</li>
-<li>The dashed border disappears the moment a card lives in the cell; populated cells keep the <strong>+ Add card</strong> button anchored at the bottom for additional cards.</li>
+<li>A populated cell keeps the <strong>+ Add card</strong> button anchored at the bottom for additional cards. The add-card button in a column header opens the new-card input in that column's first visible lane.</li>
 <li>Double-click and right-click on a cell still work for power users. Since 1.3 a right-click <strong>on a card</strong> opens that card's <a href="#card-actions-menu">actions menu</a> instead; right-click the empty space in the cell to add a card.</li>
 </ul>
 <p>Card creation requires the column's <em>Allow card creation</em> setting and at least the Member role.</p>
 <h2 id="swimlanes">Swimlanes<a class="headerlink" href="#swimlanes" title="Permanent link">&para;</a></h2>
-<p>Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), so you can identify swimlanes at a glance even on a dense board.</p>
+<p>Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane has a full-width <strong>header band</strong> tinted with the swimlane's color. Left to right it holds:</p>
+<ul>
+<li>a collapse chevron (it points down when expanded and turns to point right when collapsed);</li>
+<li>a small square in the swimlane color, then the name in larger semibold type (admins also see the contact email, and a set <a href="../health-status/#lane-status">health status</a> follows the name);</li>
+<li>the swimlane's first two field values as <code>Label value</code> pairs, then a <strong>+N</strong> button for the rest (it reveals them in place and then reads <strong>Less</strong>; see <a href="../custom-fields/#swimlane-fields-in-the-lane-band">Swimlane fields in the lane band</a>);</li>
+<li>at the right: <strong>N overdue</strong> and <strong>N stale</strong> (each omitted when zero), the <a href="#swimlane-limits">row limit</a> line when the row has one, and the card count (<code>7 cards</code>).</li>
+</ul>
+<p>The band wraps onto a second line when it runs out of room. The old left label panel is gone, so the cards start at the left edge of the board.</p>
 <p><strong>Resizing:</strong></p>
 <ul>
-<li><strong>Label sidebar:</strong> drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width persists per board in localStorage.</li>
 <li><strong>Row height:</strong> drag the bottom edge of any swimlane row to set a minimum height. Height persists per swimlane per board in localStorage.</li>
 </ul>
 <p>Each swimlane has the following fields:</p>
@@ -5116,11 +5134,11 @@
 </tr>
 <tr>
 <td>Color</td>
-<td>Left-edge stripe color on the label panel. Pick a preset or a <a href="#custom-colors">custom color</a></td>
+<td>Tint and color square on the header band. Pick a preset or a <a href="#custom-colors">custom color</a></td>
 </tr>
 <tr>
 <td>Contact email</td>
-<td>Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers)</td>
+<td>Optional; set when you create the swimlane. Displayed in the header band for admins only (hidden from members and viewers)</td>
 </tr>
 <tr>
 <td>Notes</td>
@@ -5144,15 +5162,16 @@
 <p class="admonition-title">Contact email isn't editable after creation yet</p>
 <p>Contact email can only be set in the <strong>Add Swimlane</strong> dialog. The <strong>Edit Swimlane</strong> modal covers name, color, swimlane field values and <a href="#swimlane-limits">limits</a>, not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.</p>
 </div>
-<p>Click the chevron on the label panel to collapse a swimlane and save vertical space. When collapsed:</p>
+<p>Click the chevron on the band to collapse a swimlane and save vertical space. When collapsed:</p>
 <ul>
-<li>The row shrinks to its minimum height; the stored row min-height is ignored.</li>
-<li>Each column cell keeps the column's full width and renders as a centered count pill (empty cells show nothing).</li>
-<li>A set health status stays visible as a shape beside the lane name; a lane with no status shows nothing extra.</li>
-<li>The contact email and edit (✎) button are hidden; the drag handle and the focus-mode crosshair remain.</li>
-<li>Click the chevron again to expand and restore full card visibility.</li>
+<li>The band stays, with its fields, counts and health status, and the cells are replaced by one strip aligned to the columns. The stored row min-height is ignored.</li>
+<li>Under each column the strip shows the swimlane's card count (an en dash when there are none) and one small square per card: red for overdue, orange for stale, blue otherwise. The number is always there, so the squares never carry meaning alone; screen readers read <code>Qualified: 4 cards, 1 overdue, 2 stale</code>. A card in a done column never counts as stale.</li>
+<li>While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).</li>
+<li>A calm row-limit line is hidden, and an over-limit one stays.</li>
+<li>The edit (✎) button, drag handle and focus-mode crosshair remain.</li>
+<li>Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. <strong>Collapse all</strong> and <strong>Expand all</strong> for swimlanes live in the toolbar's <strong>View</strong> menu (<strong>Collapse all</strong> and <strong>Expand all</strong> under swimlanes).</li>
 </ul>
-<p>Admins can double-click the swimlane label to open the Edit Swimlane modal.</p>
+<p>Admins can double-click the swimlane band to open the Edit Swimlane modal.</p>
 <h3 id="swimlane-limits">Swimlane limits<a class="headerlink" href="#swimlane-limits" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1150)</p>
@@ -5164,7 +5183,7 @@
 <li><strong>Columns that count.</strong> Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.</li>
 <li><strong>When the row is full.</strong> <strong>Follow board settings</strong> (the default) applies the board's <strong>Enforce WIP limits</strong>, <strong>Enforce WIP hard</strong> and <strong>Enforce weight limits</strong> rules, exactly as for columns. <strong>Block, admins can override</strong> refuses the move and lets a board admin move anyway. <strong>Block for everyone</strong> is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns.</li>
 </ul>
-<p><strong>What the row shows.</strong> Once a row has a limit, its label panel shows one state line under the name, worst state first:</p>
+<p><strong>What the row shows.</strong> Once a row has a limit, its band shows one state line in the right-hand stats, worst state first:</p>
 <table>
 <thead>
 <tr>
@@ -5179,11 +5198,11 @@
 </tr>
 <tr>
 <td>At the limit</td>
-<td><code>WIP 5/5 · at limit</code>, only when the board's <strong>Show at-limit WIP indicator</strong> setting is on (as for columns); otherwise the line reads <code>WIP 5/5</code></td>
+<td><code>WIP 5/5 · at limit</code>, only when the board's <strong>Show at-limit WIP indicator</strong> setting is on; otherwise the line reads <code>WIP 5/5</code></td>
 </tr>
 <tr>
 <td>Over the WIP limit</td>
-<td><code>⚠ Over WIP · 5/4</code> in red, with a red line across the top of the label panel (<code>⛔</code> when the row is in hard mode)</td>
+<td><code>⚠ Over WIP · 5/4</code> in red, with a red line across the top of the band (<code>⛔</code> when the row is in hard mode)</td>
 </tr>
 <tr>
 <td>Over the weight limit</td>
@@ -5191,7 +5210,7 @@
 </tr>
 </tbody>
 </table>
-<p>The small bar next to the text is decorative; the words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.</p>
+<p>The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.</p>
 <p><strong>What a move does.</strong> A move is checked against a row only when it adds to the row's count: the card enters one of the row's counted columns from another row, from a column of this row that does not count, or by being created or restored there. Moving a card between two counted columns of the same row never trips the row's limit. While you drag a card over a cell whose column or row is full, the cell gets a red ring and names the limit (for example <code>⚠ WIP limit 5/5 · Payouts</code>). With the keyboard, the screen reader announcement for each cell includes the same verdict. If you drop anyway, the move is refused with the same toast as a column limit, naming the row; when a column limit and a row limit both trip, the toast names both. Board admins get <strong>Move anyway (admin override)</strong> for a soft limit, never for a hard one.</p>
 <p>Board import restores row limits as exported and does not check them, as with column limits.</p>
 <h3 id="swimlane-focus-mode">Swimlane focus mode<a class="headerlink" href="#swimlane-focus-mode" title="Permanent link">&para;</a></h3>
@@ -5199,7 +5218,7 @@
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
 <p>Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction, which helps on dense boards with many swimlanes.</p>
-<p><strong>Entering focus mode:</strong> hover over any swimlane label panel to reveal the crosshair icon (⊙) in the top-right corner of the label, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.</p>
+<p><strong>Entering focus mode:</strong> hover over any swimlane band to reveal the crosshair icon (⊙) at its right end, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.</p>
 <p><strong>What changes when focus is active:</strong></p>
 <ul>
 <li>All other swimlane rows are collapsed and their cards are hidden.</li>
@@ -5231,8 +5250,8 @@
 <p>Columns represent pipeline stages. Each column has:</p>
 <ul>
 <li><strong>Name</strong> and <strong>color</strong> — a preset or a <a href="#custom-colors">custom color</a></li>
-<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header carries a single calm <code>N cards</code> stat line when within budget; when the limit is exceeded the line flips to <code>⚠ Over WIP · count/limit</code> and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
-<li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows <code>Weight weight/limit</code> and the header gains a 2 px amber top accent strip. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a <code>409</code> error; board admins can override with <code>?force=true</code>. Lowering a card's weight is never blocked. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
+<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header shows <code>count / limit</code> with a meter; when the limit is exceeded the line reads <code>count / limit over</code> in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
+<li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds <code>Weight weight/limit</code> in warning text. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a <code>409</code> error; board admins can override with <code>?force=true</code>. Lowering a card's weight is never blocked. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
 <li><strong>Intake column note</strong> (since 1.3) — the board's first column that is not done is its intake column, where new work arrives. Its <strong>Edit settings</strong> shows a short note under the <strong>Done column</strong> setting: Analytics never names that column as the bottleneck, because a growing queue there is demand, not a hold-up. It still appears in cumulative flow, WIP, WIP aging, dwell, and cycle-time. <strong>More</strong> explains why and links to <a href="../analytics/#bottleneck">how the bottleneck is chosen</a>. The role follows position: reordering columns, or adding a not-done column to the left of the intake column, moves it to the new first not-done column. <strong>Add Column</strong> tells you when the new column will take over the role.</li>
@@ -5253,7 +5272,7 @@
 <li><strong>Row separators</strong> (horizontal, between swimlane rows): hover to see a <strong>+</strong> at each column's center; click to insert a new swimlane below; drag up/down to resize the swimlane above.</li>
 </ul>
 <p>Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator: the column highlight extends through every row separator, and the row highlight extends across the full board width.</p>
-<p>The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the swimlane label sidebar on drag.</p>
+<p>The far-left separator (before the first board column) follows the same design. There is no swimlane sidebar to resize, so it only inserts a column at the first position on click.</p>
 <h3 id="column-trash-zone">Column trash zone<a class="headerlink" href="#column-trash-zone" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Changed in 1.1</strong> — the trash zone is now opt-in, gated behind ⌥ (Alt). Reorder is the default; deletion is a deliberate gesture. The new column kebab menu (<code>⋮</code>) is the discoverable, keyboard-accessible alternative.</p>
@@ -5288,7 +5307,7 @@
 <p>See <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
 <h3 id="at-limit-wip-indicator">At-limit WIP indicator<a class="headerlink" href="#at-limit-wip-indicator" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>The column header's stat line only flips out of its calm state to warn about the <em>over</em>-limit case (<code>⚠ Over WIP · count/limit</code>). A column sitting exactly <em>at</em> its WIP limit still reads as an ordinary <code>N cards</code> line. The <strong>Show at-limit WIP indicator</strong> board setting (off by default, admin-only, in <strong>Board Settings → Rules → Limit enforcement</strong>) adds ambient visibility for that at-limit state:</p>
+<p><strong>As of 1.3 (#2270) the column header always shows <code>count / limit</code> and a full meter at the limit, so this setting no longer changes the header.</strong> It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm <code>N cards</code> state for the <em>over</em>-limit case, and the <strong>Show at-limit WIP indicator</strong> board setting (off by default, admin-only, in <strong>Board Settings → Rules → Limit enforcement</strong>) added the at-limit state:</p>
 <ul>
 <li><strong>Off (default):</strong> a column at its WIP limit shows <code>N cards</code>, unchanged from the calm state.</li>
 <li><strong>On:</strong> a column at its WIP limit shows <code>WIP N/N</code> in place of the card count, styled the same as the calm state (<code>text-fg-muted</code>, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)".</li>
@@ -5310,7 +5329,7 @@
 <li><strong>From the keyboard:</strong> Tab to the control and press Enter or Space to open it; focus starts on the square. Arrow keys move the square and the hue slider. Tab reaches the fields and buttons in order, and Enter in any field or slider applies.</li>
 </ul>
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
-<p>Cards are compact tiles with a full colored border indicating priority. <strong>How much metadata appears on each card depends on the board's <em>Card density</em> setting</strong> (Comfortable / Standard / Dense — see <a href="#card-density">Card density</a> below). The colored border carries priority, except at Comfortable density, where an overdue card takes the red (danger) border and a due-soon card the amber (warning) border; a manual block is red at every density. The Compact card layout is never tinted. When urgency owns the border, priority is read from the card's accessible name and the peek. The assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.</p>
+<p>Cards are calm so the urgent ones stand out. The bold title is the text before <code>--</code> (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an <strong>overdue</strong> card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: <strong>Overdue Nov 12</strong> (red text, flag icon), <strong>Stale 39d</strong> (amber text, clock icon) or <strong>Due in 3 days</strong> (secondary text, flag icon). Every status carries words and an icon as well as color. <strong>How much metadata appears on each card depends on the board's <em>Card density</em> setting</strong> (Comfortable / Standard / Dense; see <a href="#card-density">Card density</a> below). The assignee avatar sits at the end of the label row (at the bottom-right under Classic). Under the <strong>Classic</strong> <a href="#board-presets">preset</a>, cards keep their earlier colored priority border and urgency badge.</p>
 <h3 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.1</strong> — replaces the previous per-user <em>hide field</em> toggles (Labels / Due date / Assignee / Priority badge / Last moved).</p>
@@ -5322,33 +5341,35 @@
 <th>Tier</th>
 <th>Best for</th>
 <th>What appears on the card face</th>
-<th>Pinned swimlane values per row</th>
+<th>Pinned swimlane values per row (no effect on the swimlane band since 1.3, #2303)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Comfortable</strong> <em>(default for new boards)</em></td>
 <td>Sam-style occasional users; teams who want a clean glanceable board</td>
-<td>One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + <code>+N</code> overflow pill, checklist progress, assignee avatar</td>
+<td>One status line (Overdue · Due soon · Stale) under the details, one primary label + <code>+N</code> overflow pill, checklist progress, assignee avatar</td>
 <td>3</td>
 </tr>
 <tr>
 <td><strong>Standard</strong></td>
 <td>Mid-density boards — extra signal without the full wall</td>
-<td>Adds a second label, due date (when not folded into the urgency badge), weight pill (when <code>&gt;1</code>), attachment count</td>
+<td>Adds a second label, due date (when not folded into the status line), weight pill (when <code>&gt;1</code>), attachment count</td>
 <td>5</td>
 </tr>
 <tr>
 <td><strong>Dense</strong> <em>(default for boards upgraded from 1.0)</em></td>
 <td>Power users who use every field every day</td>
-<td>Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge</td>
+<td>A single row: the title, a short status (<em>Overdue</em>, <em>Due soon</em> or <em>39d</em>) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout)</td>
 <td>8</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Urgency badge:</strong> at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a <em>replacement</em> at lower densities, not an addition. The flag and stopwatch icons appear under the <strong>Default</strong> <a href="#board-presets">board preset</a>; with <strong>Classic</strong> or no preset the badge keeps its earlier ⚑ / ⏱ text symbols and the dense due date stays plain colored text.</p>
+<p><strong>Status line:</strong> it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to <em>Overdue</em>, <em>Due soon</em> or the idle days (<em>39d</em>). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under <strong>Classic</strong> or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.</p>
+<h3 id="show-chips">Show chips<a class="headerlink" href="#show-chips" title="Permanent link">&para;</a></h3>
+<p>A <strong>Show</strong> row above the column headers has four chips: <strong>All cards</strong>, <strong>Overdue</strong>, <strong>Stale</strong> and <strong>Due soon</strong>, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (<code>?show=overdue</code>, <code>?show=stale</code> or <code>?show=due_soon</code>) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.</p>
 <p>Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the <strong>card peek</strong> (hover for 600 ms) as a single muted line — <code>Weight 5 · 3 attachments</code>. The full detail panel always shows everything.</p>
-<p><strong>Upgrading from 1.0:</strong> existing boards are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).</p>
+<p><strong>Upgrading from 1.0:</strong> existing boards are migrated to <strong>Dense</strong> so they keep their compact density until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).</p>
 <h4 id="personal-density-override">Personal density override<a class="headerlink" href="#personal-density-override" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>Any board member, not just admins, can flip <strong>Use my own density</strong> in <strong>Board Settings → Display</strong> and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974). Since 1.3 a <a href="#board-presets">board preset</a> you apply can set this override too, and the Display tab then says which preset set it. An override you set yourself, including one from before 1.3, is never attributed to a preset, even when its value matches one. When the board has a default preset that sets a density, turning the override off returns you to that preset's density.</p>
@@ -5395,7 +5416,7 @@
 </tr>
 <tr>
 <td>Priority</td>
-<td><code>low</code> / <code>medium</code> / <code>high</code> / <code>urgent</code> — shown as a full colored border (except overdue/due-soon cards at Comfortable, which take the urgency hue) and a filled badge on the card face (low is unmarked)</td>
+<td><code>low</code> / <code>medium</code> / <code>high</code> / <code>urgent</code>; shown as a colored border and a filled badge on the card face under the Classic preset, and otherwise read from the card's accessible name and the peek (only overdue cards have a colored border; Dense shows an explicit badge)</td>
 </tr>
 <tr>
 <td>Assignee</td>
@@ -5407,7 +5428,7 @@
 </tr>
 <tr>
 <td>Due date</td>
-<td>Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red</td>
+<td>Optional date; past dates are disabled in the picker; shown on the card in the status line (for example <em>Overdue Nov 12</em> or <em>Due in 3 days</em>) with a flag icon; only an overdue card has a colored (red) border</td>
 </tr>
 <tr>
 <td>Weight</td>
@@ -5669,7 +5690,7 @@
 <tbody>
 <tr>
 <td><strong>Expanded</strong> (default)</td>
-<td>Full card face with title, priority border, label pills, assignee avatar, checklist progress, and due date</td>
+<td>Full card face with title, label pills, assignee avatar, checklist progress, and a status line (only an overdue card has a colored border)</td>
 </tr>
 <tr>
 <td><strong>Compact</strong></td>
@@ -6005,7 +6026,7 @@
 <tbody>
 <tr>
 <td><strong>Classic</strong></td>
-<td>The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the number of pinned swimlane chips shown per row, which follows card density as everywhere else (#1417, owner decision 2026-11-13): the board's own <a href="#card-density">card density</a>, no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic.</td>
+<td>The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and <code>+N</code> like every preset (#2271, superseding #1417): the board's own <a href="#card-density">card density</a>, no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic.</td>
 </tr>
 <tr>
 <td><strong>Default</strong></td>

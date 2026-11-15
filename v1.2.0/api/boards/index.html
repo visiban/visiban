@@ -5752,12 +5752,12 @@
 <tr>
 <td><code>show_wip_at_limit</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, a column's header stat row shows a calm <code>WIP n/n</code> indicator (in place of the card count) once the column's card count exactly equals its <code>wip_limit</code> (default: <code>false</code>). Purely ambient — does not affect move enforcement. Admin-only when writing. See the <a href="../../features/board/#at-limit-wip-indicator">At-limit WIP indicator</a> feature doc. Added in 1.2 (#973).</td>
+<td>When <code>true</code>, a swimlane row's WIP line shows a calm <code>at limit</code> reading once the row's card count exactly equals its <code>wip_limit</code> (default: <code>false</code>); column headers ignore it. Purely ambient — does not affect move enforcement. Admin-only when writing. See the <a href="../../features/board/#at-limit-wip-indicator">At-limit WIP indicator</a> feature doc. Added in 1.2 (#973).</td>
 </tr>
 <tr>
 <td><code>show_row_chip_field_names</code></td>
 <td>boolean</td>
-<td>When <code>true</code> (the default), pinned swimlane field chips in a row's label panel show <code>Field name: value</code>. When <code>false</code>, they show the value alone; the name stays in the chip's tooltip, for screen readers, and in the row's <code>+N</code> field list. Checkbox fields always show their name, and card-face chips are unaffected. Display only. Admin-only when writing. See <a href="../../features/custom-fields/#hiding-field-names-on-row-chips">Hiding field names on row chips</a>. Added in 1.2 (#1418).</td>
+<td>When <code>true</code> (the default), pinned swimlane field chips in a row's header band show <code>Field name: value</code>. When <code>false</code>, they show the value alone; the name stays in the chip's tooltip, for screen readers, and in the row's <code>+N</code> field list. Checkbox fields always show their name, and card-face chips are unaffected. Display only. Admin-only when writing. See <a href="../../features/custom-fields/#hiding-field-names-on-row-chips">Hiding field names on row chips</a>. Added in 1.2 (#1418).</td>
 </tr>
 <tr>
 <td><code>stale_warning_pct</code></td>
