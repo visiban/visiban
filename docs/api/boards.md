@@ -423,8 +423,12 @@ Time-in-stage heatmap derived from `CardMovement` records.
 |---|---|---|---|
 | `days` | integer | `30` | Must be a positive integer (`≥ 1`, `≤ 365`). Returns `400` if non-integer, `≤ 0`, or `> 365`. |
 | `stalled_days` | integer | board's `staleness_threshold_days` | When provided, overrides the board setting for stalled-card detection in this request only. Must be a positive integer (`≥ 1`, `≤ 90`). Returns `400` if non-integer, `≤ 0`, or `> 90`. Omit to use the board's configured threshold. |
+| `swimlane_id` | integer | none | Only cards currently in this swimlane, as on the [flow metrics](#flow-metrics) endpoints. Narrows the dwell, velocity, stalled-card and `blocked` sections together; `swimlanes` lists only that swimlane. |
+| `label_id` | integer | none | Only cards currently carrying this label. Combines with `swimlane_id` (both must match). |
 
-> **Added in 1.2**
+A `swimlane_id` or `label_id` that is not on this board, including one that belongs to another board, returns the same `400` as one that does not exist. Without either parameter the response is unchanged.
+
+> **Added in 1.2** (`swimlane_id` and `label_id`: 1.3)
 
 An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "...", "code": "invalid_query_param"}` (before 1.2 the body had `detail` only), the API-wide shape for a bad query parameter — see [Error responses](index.md#error-responses).
 

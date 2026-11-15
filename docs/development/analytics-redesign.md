@@ -297,8 +297,8 @@ All additions are additive; no existing field, endpoint or parameter changes. Th
 | Flow row | WIP limit per column | Yes, on the column |
 | Where the time goes | Median days per column for the selected filters | No (the heatmap returns averages) |
 | Throughput | Cards started per week | No |
-| Blocked tile and list | Blocked totals and reasons for the same period and filters as the flow charts | Partly: the analytics endpoint accepts 1 to 365 days, but takes no swimlane or label filter |
-| Needs attention | Stalled cards for the same period and filters | Partly: not filtered by swimlane or label |
+| Blocked tile and list | Blocked totals and reasons for the same period and filters as the flow charts | Partly: the analytics endpoint accepts 1 to 365 days and, from 1.3, optional `swimlane_id` and `label_id` filters |
+| Needs attention | Stalled cards for the same period and filters | Partly: filtered by the optional `swimlane_id` and `label_id` on the analytics endpoint (1.3+) |
 | Breakdowns (#458) | Each flow metric grouped by swimlane, label or custom field | No |
 | Swimlanes tab (#458) | Rolling median and share of elapsed time blocked, per swimlane | No |
 

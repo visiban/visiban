@@ -401,6 +401,14 @@ describe('Board API wrappers', () => {
     })
   })
 
+  it('getBoardAnalytics sends swimlane_id and label_id when given', async () => {
+    mockClient.get.mockResolvedValue({ data: {} })
+    await getBoardAnalytics(1, 14, undefined, { swimlaneId: 5, labelId: 9 })
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/1/analytics/', {
+      params: { days: 14, swimlane_id: 5, label_id: 9 },
+    })
+  })
+
   it('createColumn sends POST to board columns endpoint', async () => {
     mockClient.post.mockResolvedValue({ data: { id: 1 } })
     await createColumn(3, { name: 'To Do', color: '#ff0000' })
