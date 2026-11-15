@@ -131,9 +131,9 @@ class _Slot:
 class GroupedFlow:
     """The ranked groups, shared by all four endpoints so they agree on order and colors.
 
-    Ranking reads the active cards (live outside a done column, first completion
-    in the range or on one of its bucketed days, or a visit closed in the range), not any one endpoint's
-    samples, so a group keeps its place, and its color, across the charts. A
+    Ranking reads the active cards (in progress: started and not done; first
+    completion in the range or on one of its bucketed days; or a visit closed in
+    the range), not any one endpoint's samples, so a group keeps its place, and its color, across the charts. A
     group may therefore be listed with size 0 on one endpoint.
     """
 
