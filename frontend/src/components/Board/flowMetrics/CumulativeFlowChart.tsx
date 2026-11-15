@@ -1,7 +1,8 @@
 import { useId } from "react";
 import { ChartBandHit, ChartFrame } from "../../Common/Chart";
-import { CHART_COLORS, CHART_HUE, axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels, warningTint } from "../../../utils/chartScale";
+import { CHART_COLORS, CHART_HUE, axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels } from "../../../utils/chartScale";
 import type { FlowCumulativeFlow } from "../../../types";
+import { HATCH_SVG } from "./hatch";
 import { bandKey, bandName, formatDate } from "./flowFormat";
 
 const LABEL_CHARS = 16;
@@ -77,9 +78,9 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
         return (
           <>
             <defs>
-              <pattern id={hatchId} patternUnits="userSpaceOnUse" width={6} height={6} patternTransform="rotate(45)">
-                <rect width={6} height={6} fill={warningTint(0.2)} />
-                <line x1={3} y1={0} x2={3} y2={6} stroke={CHART_COLORS.warning} strokeWidth={2} />
+              <pattern id={hatchId} {...HATCH_SVG.pattern}>
+                <rect {...HATCH_SVG.ground} />
+                <line {...HATCH_SVG.stripe} />
               </pattern>
             </defs>
             {paths}

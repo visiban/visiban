@@ -25,7 +25,7 @@ function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
           <span
             key={i}
             data-testid="flow-square"
-            className={`w-3 h-3 rounded-sm ${column.bottleneck ? "bg-warning" : ""}`}
+            className={`w-3 h-3 rounded-sm`}
             style={column.bottleneck ? { backgroundImage: HATCH } : { background: chartTint(alpha) }}
           />
         ) : (
