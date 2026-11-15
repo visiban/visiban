@@ -257,6 +257,71 @@ describe('what each chart does under a breakdown (#2268)', () => {
   })
 })
 
+describe('marks and fallbacks under a breakdown (#2268)', () => {
+  it('Aging keeps the ring past P85 and the square for blocked, and draws a card in no group neutral', async () => {
+    ageMock.mockImplementation(async (_b, _f, g) => g ? {
+      ...baseAge,
+      samples: [
+        { ...baseAge.samples[0], group_keys: ['1'], is_blocked: true, blocked_days: 2 },
+        { ...baseAge.samples[1], group_keys: ['nobody'] },
+      ],
+      grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: THREE.map((x) => ({ ...x, sample_size: 1 })) },
+    } : baseAge)
+    await renderLoaded()
+    await pick('swimlane')
+    await screen.findByTestId('group-legend')
+    const marks = [...screen.getByTestId('flow-wip-age').querySelectorAll('g[data-group-color]')]
+    expect(marks.map((m) => m.getAttribute('data-group-color'))).toEqual(['rgb(var(--chart-cat-1))', 'neutral'])
+    // 10 days is past P85 (8): ringed, and blocked: a square. The 2-day card is a plain dot.
+    expect(marks[0].querySelector('rect')).not.toBeNull()
+    expect(marks[0].querySelectorAll('circle')).toHaveLength(1)
+    expect(marks[1].querySelector('rect')).toBeNull()
+    expect(marks[1].querySelectorAll('circle')).toHaveLength(1)
+  })
+
+  it('Cycle time keeps its percentile lines and one dot per card under a breakdown', async () => {
+    await renderLoaded()
+    await pick('swimlane')
+    await screen.findByTestId('group-legend')
+    expect(screen.getByTestId('flow-cycle-time').querySelectorAll('circle[data-group-color]')).toHaveLength(2)
+  })
+
+  it('Where the time goes says so when a group has no finished-card medians', async () => {
+    dwellMock.mockImplementation(async (_b, _f, g) => g ? {
+      ...baseDwell,
+      grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: THREE.map((x, i) => ({ ...x, sample_size: 3, columns: i === 2 ? [] : [{ ...baseDwell.columns[0], percentiles: { p50: 1 + i, p85: 5, p95: null } }] })) },
+    } : baseDwell)
+    await renderLoaded()
+    await pick('swimlane')
+    await screen.findByTestId('group-legend')
+    const rows = screen.getAllByTestId('time-bar-group')
+    expect(rows).toHaveLength(3)
+    expect(rows[2]).toHaveTextContent('Too few finished cards.')
+    expect(rows[0]).not.toHaveTextContent('Too few finished cards.')
+  })
+})
+
+describe('a breakdown with no groups (#2268)', () => {
+  it.each([['swimlane', 'swimlane', 'swimlane'], ['label', 'label', 'label'], ['size', 'Size', 'custom_field']] as const)(
+    'says so in the legend\'s place for %s, politely, instead of drawing like None', async (entry, noun, by) => {
+      mockEndpoints([], by, by === 'custom_field' ? 11 : null)
+      await renderLoaded()
+      await pick(entry)
+      const note = await screen.findByTestId('group-legend-empty')
+      expect(note).toHaveAttribute('role', 'status')
+      expect(note).toHaveTextContent(`No cards in this view have a ${noun} to break down by.`)
+      expect(screen.queryByTestId('group-legend')).toBeNull()
+    })
+
+  it('shows no such line with None or with groups', async () => {
+    await renderLoaded()
+    expect(screen.queryByTestId('group-legend-empty')).toBeNull()
+    await pick('swimlane')
+    await screen.findByTestId('group-legend')
+    expect(screen.queryByTestId('group-legend-empty')).toBeNull()
+  })
+})
+
 describe('isolating a group (#2268)', () => {
   const opacityOf = (el: Element) => el.getAttribute('opacity')
 

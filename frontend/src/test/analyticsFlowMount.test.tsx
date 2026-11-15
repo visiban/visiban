@@ -102,6 +102,19 @@ async function showFlowTable() {
   await userEvent.click(within(group).getByRole('button', { name: 'table' }))
 }
 
+describe('AnalyticsView passes the board custom fields to the breakdown control (#2268)', () => {
+  it('offers a segment for a dropdown field and none for a text field', async () => {
+    const customFields = [
+      { id: 11, name: 'Size', field_type: 'dropdown' as const, position: 0 },
+      { id: 12, name: 'Notes', field_type: 'text' as const, position: 1 },
+    ]
+    render(<AnalyticsView {...props} customFields={customFields} />)
+    await screen.findByTestId('flow-wip-age')
+    expect(screen.getByRole('button', { name: 'Break down by size' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Break down by notes/i })).toBeNull()
+  })
+})
+
 describe('AnalyticsView: one filter bar drives the page without remounting the charts', () => {
   it('makes one request per endpoint when the tab opens', async () => {
     render(<AnalyticsView {...props} />)

@@ -162,6 +162,12 @@ export default function AnalyticsOverview({
           onIsolate={setIsolated}
         />
       )}
+      {legendGrouping && !legendGroups && !empty && (
+        // A breakdown with no groups would otherwise draw exactly like None, with nothing to say why.
+        <p role="status" className="text-sm text-fg-tertiary" data-testid="group-legend-empty">
+          No cards in this view have a {noun ?? "group"} to break down by.
+        </p>
+      )}
       <p role="status" className="sr-only">
         {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (narrowed ? "No cards match these filters" : "Nothing has moved yet") : "")}
       </p>
