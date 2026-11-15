@@ -92,7 +92,7 @@ const attention: FlowAttention = { definition: 'a', stalled_threshold_days: 7, c
 
 /** Every endpoint answers grouped when called with a grouping (third argument), plain otherwise. */
 function mockEndpoints(groups: FlowGroupBase[] = THREE, by: 'swimlane' | 'label' | 'custom_field' = 'swimlane', fieldId: number | null = null) {
-  const grouping = <G extends FlowGroupBase>(extra: (g: FlowGroupBase, i: number) => G) => ({ by, field_id: fieldId, excluded: 0, groups: groups.map(extra) })
+  const grouping = <G extends FlowGroupBase>(extra: (g: FlowGroupBase, i: number) => G) => ({ by, field_id: fieldId, excluded: 0, overlapping: false, groups: groups.map(extra) })
   cycleMock.mockImplementation(async (_b, _f, g) => g ? {
     ...baseCycle,
     samples: [{ ...baseCycle.samples[0], group_keys: ['1'] }, { ...baseCycle.samples[1], group_keys: ['2'] }],
@@ -269,7 +269,7 @@ describe('marks and fallbacks under a breakdown (#2268)', () => {
         { ...baseAge.samples[0], group_keys: ['1'], is_blocked: true, blocked_days: 2 },
         { ...baseAge.samples[1], group_keys: ['nobody'] },
       ],
-      grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: THREE.map((x) => ({ ...x, sample_size: 1 })) },
+      grouping: { by: 'swimlane', field_id: null, excluded: 0, overlapping: false, groups: THREE.map((x) => ({ ...x, sample_size: 1 })) },
     } : baseAge)
     await renderLoaded()
     await pick('swimlane')
@@ -293,7 +293,7 @@ describe('marks and fallbacks under a breakdown (#2268)', () => {
   it('Where the time goes says so when a group has no finished-card medians', async () => {
     dwellMock.mockImplementation(async (_b, _f, g) => g ? {
       ...baseDwell,
-      grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: THREE.map((x, i) => ({ ...x, sample_size: 3, columns: i === 2 ? [] : [{ ...baseDwell.columns[0], percentiles: { p50: 1 + i, p85: 5, p95: null } }] })) },
+      grouping: { by: 'swimlane', field_id: null, excluded: 0, overlapping: false, groups: THREE.map((x, i) => ({ ...x, sample_size: 3, columns: i === 2 ? [] : [{ ...baseDwell.columns[0], percentiles: { p50: 1 + i, p85: 5, p95: null } }] })) },
     } : baseDwell)
     await renderLoaded()
     await pick('swimlane')
@@ -483,7 +483,7 @@ describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', ()
   const tp = (count: number, parts: number[], started = 0) => ({
     definition: 'tp', period: 'week', total: count, median: null, cards: [],
     samples: [{ start: '2026-06-01', count, card_uids: [], started, by_group: parts.map((n, i) => ({ key: String(i + 1), count: n, card_uids: [] })) }],
-    grouping: { by: 'label', field_id: null, excluded: 0, groups: two },
+    grouping: { by: 'label', field_id: null, excluded: 0, overlapping: true, groups: two },
   }) as unknown as FlowThroughput
   const stackBox = (c: HTMLElement) => {
     const rects = [...c.querySelectorAll('[data-stacked-week] rect')]
@@ -513,7 +513,7 @@ describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', ()
     definition: 'a', sample_size: 1, excluded_incomplete_history: 0, cycle_time_percentiles: { p50: 1, p85: 2, p95: 3 },
     columns: [{ column_uid: 'c', column_name: 'Doing' }], cards,
     samples: [{ card_uid: cardA.uid, column_uid: 'c', value_days: 9, start: '2026-06-01T00:00:00Z', dwell_by_column: [], is_blocked: false, blocked_days: 0, group_keys: ['1'] }],
-    grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: two },
+    grouping: { by: 'swimlane', field_id: null, excluded: 0, overlapping: false, groups: two },
   }) as unknown as FlowWipAge
   const renderAge = (data: FlowWipAge, isolated: number | null) =>
     render(<WipAgeChart data={data} cards={new Map(cards.map((c) => [c.uid, c]))} labelledBy="x" onSelect={noop} isolated={isolated} />)

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FlowAttention, FlowAttentionItem } from "../../../types";
 import { PanelPlaceholder } from "./FlowChartPanels";
+import { dayUnit, formatDays, formatNumber } from "./flowFormat";
 import type { Result } from "./useAnalyticsOverviewData";
 
 const PREVIEW_ROWS = 5;
@@ -15,7 +16,8 @@ interface Props {
   onOpenCard?: (cardId: number) => void;
 }
 
-const days = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "day" : "days"}`;
+// One decimal, as the tile and chart show the same p85 (8.4, not "8 days") (#2297).
+const days = (n: number) => `${formatNumber(n)} ${dayUnit(n)}`;
 
 /**
  * The reason line: every reason the card qualifies for, in the service's order, except that
@@ -97,7 +99,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
                   <span className="block text-xs text-fg-tertiary group-hover:text-fg-secondary truncate" title={where}>{where}</span>
                 </span>
                 <span aria-label={item.age_days !== null ? `${days(age(item))} old` : `${days(age(item))} without movement`} className={`font-mono text-sm font-semibold shrink-0 ${pastP85 ? "text-danger" : "text-warning"}`}>
-                  {Math.round(age(item))}d
+                  {formatDays(age(item))}
                 </span>
               </>
             );

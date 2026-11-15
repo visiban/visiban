@@ -125,7 +125,9 @@ def percentile(sorted_values, p):
     n = len(sorted_values)
     if n < MIN_PERCENTILE_SAMPLE_SIZE:
         return None
-    rank = percentile_rank(p, n)
+    # p0 gives rank 0, and sorted_values[-1] would return the max: nearest
+    # rank's p0 is the smallest value (#2297).
+    rank = max(percentile_rank(p, n), 1)
     if rank >= n:
         return None
     return sorted_values[rank - 1]
@@ -204,6 +206,16 @@ def date_range(from_date, to_date, *, now=None):
 def _iso(moment):
     """A UTC ISO 8601 timestamp, the form the rest of the API serves."""
     return moment.astimezone(_UTC).isoformat().replace("+00:00", "Z")
+
+
+def _ordered_by_end(pairs):
+    """The samples of ``(end_datetime, sample)`` pairs, oldest end first.
+
+    Sorted by the datetime, never by the served string: ``_iso`` drops zero
+    microseconds, so ``…:05Z`` would sort after ``…:05.500000Z`` (#2297).
+    """
+    pairs.sort(key=lambda pair: pair[0])
+    return [sample for _, sample in pairs]
 
 
 def _days_between(start, end):
@@ -286,6 +298,9 @@ class CardFlow:
     # request, for "needs attention" (#2260). None when it has none.
     last_moved_at: datetime.datetime | None = None
     reopens: list = field(default_factory=list)
+    # Done entries from a not-done column after the first completion: each
+    # closes the round of work its reopen started (#2297).
+    recompletions: list = field(default_factory=list)
     visits: list = field(default_factory=list)
     placements: list = field(default_factory=list)
 
@@ -455,6 +470,8 @@ def _analyze_card(flow, rows, done_uids, now):
         chain_head = mv.to_key
         if flow.completion_at is None and mv.to_key in done_uids:
             flow.completion_at = mv.moved_at
+        elif mv.to_key in done_uids and mv.from_key not in done_uids:
+            flow.recompletions.append(mv.moved_at)
         if mv.from_key in done_uids and mv.to_key not in done_uids:
             flow.reopens.append(mv.moved_at)
 
@@ -686,11 +703,11 @@ def lead_time(flow, flow_range):
         if card.completion_at < card.lead_start:
             excluded += 1
             continue
-        samples.append(
-            _completion_sample(card, card.lead_start, _days_between(card.lead_start, card.completion_at))
-        )
-    samples.sort(key=lambda s: s["end"])
-    return _duration_response("lead_time", samples, excluded)
+        samples.append((
+            card.completion_at,
+            _completion_sample(card, card.lead_start, _days_between(card.lead_start, card.completion_at)),
+        ))
+    return _duration_response("lead_time", _ordered_by_end(samples), excluded)
 
 
 def cycle_time(flow, flow_range):
@@ -703,15 +720,15 @@ def cycle_time(flow, flow_range):
             continue
         if card.complete_history:
             if card.cycle_start is not None:
-                samples.append(
-                    _completion_sample(card, card.cycle_start, _days_between(card.cycle_start, card.completion_at))
-                )
+                samples.append((
+                    card.completion_at,
+                    _completion_sample(card, card.cycle_start, _days_between(card.cycle_start, card.completion_at)),
+                ))
         elif not (card.created_in_done or card.straight_to_done):
             # Left out only for its history. A card that would have no cycle
             # time anyway is not an exclusion.
             excluded += 1
-    samples.sort(key=lambda s: s["end"])
-    return _duration_response("cycle_time", samples, excluded)
+    return _duration_response("cycle_time", _ordered_by_end(samples), excluded)
 
 
 def _column_entries(flow):
@@ -754,16 +771,15 @@ def completed_dwell(flow, flow_range):
         if not visit.measured or value is None:
             excluded += 1
             continue
-        samples.append({
+        samples.append((visit.end, {
             "card_uid": card.uid,
             "column_uid": flow.column_ref(visit.key),
             "value_days": value,
             "start": _iso(visit.start),
             "end": _iso(visit.end),
             "reopened": card.reopened_after(visit.end),
-        })
-    samples.sort(key=lambda s: s["end"])
-    return _dwell_response(flow, samples, excluded)
+        }))
+    return _dwell_response(flow, _ordered_by_end(samples), excluded)
 
 
 def column_dwell(flow, flow_range):
@@ -920,6 +936,12 @@ def blocked_time(flow, flow_range):
     recreated under the same name is a different column (ADR "Current column"). A
     block in a column that no longer exists has no per-column line, but it counts
     toward ``total`` and ``top_reasons``.
+
+    Column names are unique on a board (``unique_together``), so keying by name
+    merges no two live columns. Each per-column ``days`` is rounded on its own,
+    so they need not add up to ``total.days``; ``seconds_per_column`` sums
+    exactly (#2297). Reasons rank by block count here; ``blocked_summary``
+    (``metrics/blocked``) ranks by time, and MCP serves both.
 
     Rows are summed in Python rather than in SQL because of the reason clustering.
     The row count is the blocks overlapping the range on one board, which stays
@@ -1491,15 +1513,19 @@ def swimlane_trend(points, finished):
     return {"direction": _compare_to(last, first), "first_days": first, "last_days": last}
 
 
-def _rolling_points(samples, flow_range):
+def _rolling_points(samples, flow_range, now):
     """Eight rolling medians over windows half as long as the period.
 
     Window ``i`` ends at ``start + W + i * W / 7`` for ``W`` = half the period, so
-    every window is full width and the last ends at the end of the period.
-    ``samples`` are ``(end, value_days)``. A window with under 5 cards withholds
-    its median, like every other median.
+    every window is full width and the last ends at the end of the period, or
+    at now when the period ends later: a date range ending today runs to
+    tomorrow's midnight, and windows reaching past now would hold no cards
+    there and fall under the 5-card floor (#2297). ``samples`` are
+    ``(end, value_days)``. A window with under 5 cards withholds its median,
+    like every other median.
     """
-    half = (flow_range.end - flow_range.start) / 2
+    end = max(min(flow_range.end, now), flow_range.start)
+    half = (end - flow_range.start) / 2
     step = half / (SWIMLANE_TREND_POINTS - 1)
     points = []
     for i in range(SWIMLANE_TREND_POINTS):
@@ -1534,21 +1560,46 @@ def swimlane_group_values(board, definition):
     return values, groups
 
 
-def _in_progress_windows(flow, flow_range):
-    """``{card_id: (begin, end)}``: when each card was in progress inside the range.
+def _in_progress_spans(card):
+    """``(begin, end_or_None)`` for each round of work: first, and after every reopen.
 
-    From the cycle start to completion (or archive, or now), clipped to the
-    range. Cards without a measured cycle start have no window.
+    The first runs from the cycle start to the first completion. Each reopen
+    starts another that runs to the next done entry; an open one ends where the
+    caller says (archive or now). A card with no cycle start still gets its
+    reopen rounds, as its age does (ADR "Reopened cards").
+    """
+    spans = []
+    if card.cycle_start is not None:
+        spans.append((card.cycle_start, card.completion_at))
+    later = sorted(card.recompletions)
+    for reopen in card.reopens:
+        close = next((t for t in later if t > reopen), None)
+        spans.append((reopen, close))
+    return spans
+
+
+def _in_progress_windows(flow, flow_range):
+    """``{card_id: [(begin, end), ...]}``: when each card was in progress inside the range.
+
+    From the cycle start to the first completion, and from every reopen to the
+    next completion (an open round ends at archive, or now), clipped to the
+    range. Post-reopen time counts, so blocked share covers the same in-progress
+    time that age and ``in_progress`` count (#2297; decisions.md "Blocked
+    share"). Cards with neither a measured cycle start nor a reopen have no window.
     """
     end_of_range = min(flow.now, flow_range.end)
     windows = {}
     for card in flow.cards:
-        if not card.complete_history or card.cycle_start is None:
+        if not card.complete_history:
             continue
-        begin = max(card.cycle_start, flow_range.start)
-        end = min(card.completion_at or card.archived_at or flow.now, end_of_range)
-        if end > begin:
-            windows[card.id] = (begin, end)
+        clipped = []
+        for begin, end in _in_progress_spans(card):
+            begin = max(begin, flow_range.start)
+            end = min(end or card.archived_at or flow.now, end_of_range)
+            if end > begin:
+                clipped.append((begin, end))
+        if clipped:
+            windows[card.id] = clipped
     return windows
 
 
@@ -1573,19 +1624,17 @@ def _lane_blocked_and_elapsed(flow, flow_range):
     windows = _in_progress_windows(flow, flow_range)
     spans: dict[int, list] = {}
     for card_id, _column_id, _reason, begin, end in _block_spans(flow, flow_range):
-        window = windows.get(card_id)
-        if window is None:
-            continue
-        begin, end = max(begin, window[0]), min(end, window[1])
-        if end > begin:
-            spans.setdefault(card_id, []).append((begin, end))
+        for low, high in windows.get(card_id, ()):
+            b, e = max(begin, low), min(end, high)
+            if e > b:
+                spans.setdefault(card_id, []).append((b, e))
     blocked: dict[int, float] = {}
     elapsed: dict[int, float] = {}
     for card in flow.cards:
         window = windows.get(card.id)
         if window is None:
             continue
-        elapsed[card.swimlane_id] = elapsed.get(card.swimlane_id, 0.0) + (window[1] - window[0]).total_seconds()
+        elapsed[card.swimlane_id] = elapsed.get(card.swimlane_id, 0.0) + _union_seconds(window)
         blocked[card.swimlane_id] = blocked.get(card.swimlane_id, 0.0) + _union_seconds(spans.get(card.id, ()))
     return blocked, elapsed
 
@@ -1603,8 +1652,9 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
     is for the same filters (label, period) and every swimlane.
 
     Blocked share is the lane's blocked seconds over its in-progress seconds,
-    both counted only while each card was in progress inside the range. Cards
-    without a cycle start have no elapsed time and no share.
+    both counted only while each card was in progress inside the range: from
+    its cycle start to its first completion, and again from each reopen. A card
+    with neither a cycle start nor a reopen has no window and no share.
     """
     done_uids = flow.done_uids
     samples = cycle_time(flow, flow_range)["samples"]
@@ -1630,7 +1680,7 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
         values = sorted(v for _, v in lane_samples)
         finished = len(values)
         median = percentile(values, 50)
-        points = _rolling_points(lane_samples, flow_range)
+        points = _rolling_points(lane_samples, flow_range, flow.now)
         total = lane_elapsed.get(lane.id)
         rows.append({
             "id": lane.id,

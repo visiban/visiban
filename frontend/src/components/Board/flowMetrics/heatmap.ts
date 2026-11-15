@@ -7,7 +7,10 @@ export interface StalledCard {
   id: number;
   uid: string;
   title: string;
+  /** Whole days, floored. */
   days_since_move: number;
+  /** The same span to 0.1 day, unfloored (#2297). */
+  days_since_move_exact: number;
 }
 
 export interface SwimlaneStat {

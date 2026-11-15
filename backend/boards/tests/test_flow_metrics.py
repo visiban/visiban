@@ -2663,17 +2663,38 @@ class SwimlaneComparisonTests(EndpointFixture):
         self.user.save(update_fields=["must_change_password"])
         self.assertEqual(self.client.get(self.url("swimlanes")).status_code, 403)
 
-    def test_a_reopened_cards_time_after_the_reopen_is_not_blocked_share(self):
-        # Pins the rule in decisions.md: the in-progress window ends at the FIRST completion.
+    def test_a_reopened_cards_time_after_the_reopen_counts_toward_blocked_share(self):
+        # Pins the rule in decisions.md (#2297): blocked share counts every round
+        # of work, the one after a reopen included, as age and in_progress do.
         card = self.path(self.backlog, 30, self.doing, 15, self.done, 10, self.review, 5, lane=self.lane)
         block = lambda begin, end: CardBlock.objects.create(  # noqa: E731
             card=card, board=self.board, reason="r", blocked_at=self.ago(begin), unblocked_at=self.ago(end),
         )
         block(14, 13)  # 1 of the 5 days before the first completion
-        block(4, 2)    # after the reopen: counts on neither side
+        block(8, 6)    # while done, between the rounds: counts on neither side
+        block(4, 2)    # 2 of the 5 days since the reopen
         row = self.lane_row(self.get(), self.lane)
         self.assertEqual(row["in_progress"], 1)
-        self.assertAlmostEqual(row["blocked_share"], 1 / 5, places=3)
+        self.assertAlmostEqual(row["blocked_share"], 3 / 10, places=3)
+
+    def test_a_round_after_a_reopen_ends_at_the_next_completion(self):
+        card = self.path(
+            self.backlog, 30, self.doing, 20, self.done, 15, self.review, 10, self.done, 6, lane=self.lane,
+        )
+        CardBlock.objects.create(
+            card=card, board=self.board, reason="r", blocked_at=self.ago(9), unblocked_at=self.ago(2),
+        )
+        # Rounds: 20->15 (5 days) and 10->6 (4 days). The block counts 9->6 only.
+        row = self.lane_row(self.get(), self.lane)
+        self.assertEqual(row["in_progress"], 0)
+        self.assertAlmostEqual(row["blocked_share"], 3 / 9, places=3)
+
+    def test_rolling_windows_of_a_date_range_ending_today_stop_at_now(self):
+        today = timezone.now().date()
+        body = self.get(from_date=(today - datetime.timedelta(days=39)).isoformat(), to_date=today.isoformat())
+        last = datetime.datetime.fromisoformat(self.lane_row(body, self.lane)["rolling_median"][-1]["at"])
+        self.assertLessEqual(last, timezone.now())
+        self.assertAlmostEqual((timezone.now() - last).total_seconds(), 0, delta=60)
 
     def test_label_filter_applies_and_swimlane_filter_is_ignored(self):
         label = Label.objects.create(board=self.board, name="L")
@@ -2806,3 +2827,157 @@ class SwimlaneComparisonTests(EndpointFixture):
         names = {p["name"] for p in operation["parameters"] if p["in"] == "query"}
         self.assertTrue({"days", "from_date", "to_date", "label_id", "group_by_field_id"} <= names)
         self.assertNotIn("swimlane_id", names)
+
+
+class AnalyticsEdgeCaseTests(FlowFixture):
+    """#2297: rounding before thresholds, sort order, boundaries, p0, unions."""
+
+    def test_p0_is_the_minimum_not_the_maximum(self):
+        self.assertEqual(fm.percentile([1, 2, 3, 4, 5], 0), 1)
+
+    def test_samples_in_one_second_sort_by_time_not_by_their_iso_strings(self):
+        whole = self.path(self.backlog, 20, self.doing, 10, self.done, 2)
+        half = self.path(self.backlog, 20, self.doing, 10, self.done, 2)
+        instant = self.ago(2).replace(microsecond=0)
+        CardMovement.objects.filter(card=whole, to_column=self.done).update(moved_at=instant)
+        # As strings "...:00.500000Z" (half) sorts before "...:00Z" (whole),
+        # though it is half a second later.
+        CardMovement.objects.filter(card=half, to_column=self.done).update(
+            moved_at=instant + datetime.timedelta(microseconds=500_000),
+        )
+        flow = self.flow()
+        for metric in (fm.cycle_time, fm.lead_time):
+            with self.subTest(metric=metric.__name__):
+                self.assertEqual([s["card_uid"] for s in metric(flow, self.last())["samples"]], [whole.uid, half.uid])
+        dwell = [s["card_uid"] for s in fm.completed_dwell(flow, self.last())["samples"] if s["column_uid"] == self.doing.uid]
+        self.assertEqual(dwell, [whole.uid, half.uid])
+
+    def test_a_completion_exactly_at_the_range_start_counts_and_at_its_end_does_not(self):
+        at_start = self.path(self.backlog, 40, self.doing, 35, self.done, 30)
+        at_end = self.path(self.backlog, 40, self.doing, 35, self.done, 0)
+        uids = {s["card_uid"] for s in fm.cycle_time(self.flow(), self.last(30))["samples"]}
+        self.assertIn(at_start.uid, uids)
+        self.assertNotIn(at_end.uid, uids)
+
+    def test_a_first_move_at_the_creation_instant_still_starts_the_cycle(self):
+        card = self.path(self.backlog, 10, self.doing, 10, self.done, 5)
+        flow = self.flow()
+        self.assertEqual(self.by_card(fm.cycle_time(flow, self.last()))[card.uid]["value_days"], 5.0)
+        self.assertEqual(self.by_card(fm.lead_time(flow, self.last()))[card.uid]["value_days"], 5.0)
+
+    def test_union_seconds_counts_overlap_and_nesting_once(self):
+        t = lambda d: self.ago(d)  # noqa: E731
+        self.assertEqual(fm._union_seconds([(t(10), t(5)), (t(8), t(6)), (t(7), t(2))]), 8 * 86400)
+        self.assertEqual(fm._union_seconds([(t(10), t(9)), (t(5), t(4))]), 2 * 86400)
+        self.assertEqual(fm._union_seconds([]), 0.0)
+
+    def test_blocked_summary_counts_a_deleted_columns_block_in_the_total_only(self):
+        temp = Column.objects.create(board=self.board, name="Temp", position=9)
+        card = self.path(self.backlog, 40, self.doing, 35)
+        CardBlock.objects.create(
+            card=card, board=self.board, column=temp, column_name=temp.name, column_uid=temp.uid,
+            reason="Gone", blocked_at=self.ago(10), unblocked_at=self.ago(8),
+        )
+        temp.delete()
+        payload = fm.blocked_summary(fm.load_live_wip(self.board, now=self.now), self.last(30))
+        self.assertEqual(payload["total"], {"days": 2, "blocks": 1})
+        self.assertEqual(sum(c["blocks"] for c in payload["columns"]), 0)
+        self.assertEqual([(r["reason"], r["days"]) for r in payload["reasons"]], [("Gone", 2)])
+
+    def test_one_sided_date_ranges(self):
+        from boards.views.analytics import FlowMetricsQuerySerializer
+
+        today = timezone.now().date()
+        only_to = FlowMetricsQuerySerializer(data={"to_date": "2026-05-31"}, context={"board": self.board})
+        self.assertTrue(only_to.is_valid(), only_to.errors)
+        span = only_to.validated_data["to_date"] - only_to.validated_data["from_date"]
+        self.assertEqual(span.days + 1, 90)
+        only_from = FlowMetricsQuerySerializer(
+            data={"from_date": (today - datetime.timedelta(days=9)).isoformat()}, context={"board": self.board},
+        )
+        self.assertTrue(only_from.is_valid(), only_from.errors)
+        self.assertEqual(only_from.validated_data["to_date"], today)
+
+
+class AnalyticsRoundingTests(FlowFixture):
+    """#2297: the /analytics/ outlier flags, velocity and stalled days."""
+
+    def setUp(self):
+        super().setUp()
+        self.now = timezone.now()
+
+    analytics = HeatmapRecomputeTests.analytics
+
+    def test_outlier_flags_compare_the_unrounded_mean(self):
+        self.path(self.backlog, 20, self.doing, 6.96)
+        row = self.analytics()
+        self.assertEqual(row["age_avg_days_per_column"]["Doing"], 7.0)
+        self.assertFalse(row["age_is_outlier"]["Doing"])
+        self.path(self.backlog, 20, self.doing, 7.2)
+        self.assertTrue(self.analytics()["age_is_outlier"]["Doing"])
+
+    def test_deal_velocity_leaves_out_cards_that_were_only_created(self):
+        self.path(self.backlog, 3)
+        self.path(self.backlog, 10, self.doing, 4)
+        self.assertAlmostEqual(self.analytics()["deal_velocity_days"], 6.0, delta=0.1)
+
+    def test_deal_velocity_counts_a_move_out_of_a_since_deleted_column(self):
+        # CardMovement.from_column is SET_NULL, so the move's from_column_id
+        # goes NULL with the column; it is still a real move (#2297).
+        temp = Column.objects.create(board=self.board, name="Temp", position=9)
+        self.path(temp, 10, self.doing, 4)
+        temp.delete()
+        self.assertAlmostEqual(self.analytics()["deal_velocity_days"], 6.0, delta=0.1)
+
+    def test_stalled_cards_carry_unfloored_days(self):
+        card = self.path(self.backlog, 20, self.doing, 7.9)
+        stalled = next(s for s in self.analytics()["stalled_cards"] if s["id"] == card.id)
+        self.assertEqual(stalled["days_since_move"], 7)
+        self.assertEqual(stalled["days_since_move_exact"], 7.9)
+
+
+class GroupingEdgeCaseTests(GroupingFixture):
+    """#2297: the overlapping flag, checkbox groups, empty groups, per-group sizes."""
+
+    def test_overlapping_is_true_only_when_a_card_is_in_two_groups(self):
+        red, blue = Label.objects.create(board=self.board, name="red"), Label.objects.create(board=self.board, name="blue")
+        self.wip().labels.add(red)
+        self.wip().labels.add(blue)
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric, case="disjoint"):
+                self.assertIs(self.get(metric, group_by="label")["grouping"]["overlapping"], False)
+        self.wip().labels.add(red, blue)
+        self.completed().labels.add(red, blue)
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric, case="shared"):
+                self.assertIs(self.get(metric, group_by="label")["grouping"]["overlapping"], True)
+                self.assertIs(self.get(metric, group_by="swimlane")["grouping"]["overlapping"], False)
+
+    def test_overlapping_ignores_cards_that_finished_before_the_range(self):
+        red, blue = Label.objects.create(board=self.board, name="red"), Label.objects.create(board=self.board, name="blue")
+        self.wip().labels.add(red)
+        old = self.path(self.backlog, 210, self.doing, 205, self.done, 200)
+        old.labels.add(red, blue)
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric):
+                body = self.get(metric, group_by="label", days=30)
+                self.assertIs(body["grouping"]["overlapping"], False)
+
+    def test_checkbox_groups_and_per_group_sample_sizes(self):
+        flag = self.field(field_type=CustomFieldDefinition.FieldType.CHECKBOX)
+        for _ in range(2):
+            self.value(self.wip(), flag, "true")
+        self.value(self.wip(), flag, "false")
+        self.wip()
+        grouping = self.get("wip-age", group_by="custom_field", group_by_field_id=flag.id)["grouping"]
+        self.assertEqual(
+            [(g["key"], g["name"], g["sample_size"]) for g in grouping["groups"]], [("true", None, 2), ("false", None, 1)],
+        )
+        self.assertEqual(grouping["excluded"], 1)
+
+    def test_a_group_with_no_active_card_is_left_out(self):
+        idle = self.lanes(3)[2]
+        self.path(self.backlog, 5, lane=idle)  # never started: active on no endpoint
+        self.wip(lane=self.lane)
+        keys = [g["key"] for g in self.get("cycle-time", group_by="swimlane")["grouping"]["groups"]]
+        self.assertEqual(keys, [str(self.lane.id)])

@@ -109,7 +109,12 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                         "id": serializers.IntegerField(),
                         "uid": serializers.CharField(),
                         "title": serializers.CharField(),
-                        "days_since_move": serializers.IntegerField(),
+                        "days_since_move": serializers.IntegerField(
+                            help_text="Whole days since the card last moved, floored. Kept an integer for compatibility.",
+                        ),
+                        "days_since_move_exact": serializers.FloatField(
+                            help_text="Days since the card last moved, rounded to 0.1 (#2297).",
+                        ),
                     },
                 ),
             },
@@ -521,6 +526,13 @@ def _grouping_field(prefix, aggregates):
             "field_id": serializers.IntegerField(allow_null=True),
             "excluded": serializers.IntegerField(
                 help_text="Counted in this endpoint's unit: what belongs to no group (no value, or a stale one).",
+            ),
+            "overlapping": serializers.BooleanField(
+                help_text=(
+                    "True when at least one of the cards active in the range counts in two or more "
+                    "groups (label grouping), so group sizes can add up to more than an endpoint's "
+                    "ungrouped total. It reflects label overlap across the cards active in the range, not per endpoint."
+                ),
             ),
             "groups": inline_serializer(
                 name=f"{prefix}Group",
@@ -1200,6 +1212,8 @@ class BoardAnalyticsMixin:
         for _c in all_cards:
             cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
 
+        # swimlane id -> unrounded (avg, age, throughput) means, for the outlier flags.
+        raw_means: dict[int, tuple] = {}
         for swimlane in swimlanes:
             cards = cards_by_swimlane.get(swimlane.id, [])
             # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
@@ -1279,10 +1293,18 @@ class BoardAnalyticsMixin:
                 # _first_moved_at annotation gives the card's true first-ever movement
                 # so cycle time is measured from origin — important for cards older than
                 # the 2× prefetch buffer where movements[0] is not the true start.
+                # A card whose only movement is its creation row has not moved
+                # yet: its 0.0 days is no cycle, and would pull the average down
+                # (#2297). Creation is always a card's first movement, so the last
+                # one is a creation row only when it is the only one, and it is
+                # then also the card's first-ever movement. from_column_id is not
+                # a usable test: it goes NULL when a column is deleted, which
+                # would drop a real move out of it.
                 if (
                     movements
                     and movements[-1].moved_at >= period_cutoff
                     and card._first_moved_at is not None
+                    and not (len(movements) == 1 and movements[0].moved_at == card._first_moved_at)
                 ):
                     deal_velocity_days.append(
                         (movements[-1].moved_at - card._first_moved_at).total_seconds() / 86400
@@ -1304,15 +1326,28 @@ class BoardAnalyticsMixin:
                             "uid": card.uid,
                             "title": card.title,
                             "days_since_move": (now - last_moved_at).days,
+                            # The floor above shows a card 7.9 days unmoved as "7"
+                            # under a 7-day threshold; this one matches Needs
+                            # attention's unfloored days (#2297).
+                            "days_since_move_exact": round((now - last_moved_at).total_seconds() / 86400, 1),
                         })
 
-            def _avg(vals: list[float]) -> float | None:
-                return round(sum(vals) / len(vals), 1) if vals else None
+            def _mean(vals: list[float]) -> float | None:
+                return sum(vals) / len(vals) if vals else None
 
-            avg_days = {col.name: _avg(col_dwells[col.name]) for col in active_columns}
-            throughput_avg = {col.name: _avg(throughput_dwells.get(col.uid, [])) for col in active_columns}
+            def _rounded(means: dict) -> dict:
+                return {k: (round(v, 1) if v is not None else None) for k, v in means.items()}
+
+            # Outliers compare the unrounded means: a rounded 6.96 reads 7.0 and
+            # would flag against a 7-day threshold it never reached (#2297).
+            raw_avg = {col.name: _mean(col_dwells[col.name]) for col in active_columns}
+            raw_throughput = {col.name: _mean(throughput_dwells.get(col.uid, [])) for col in active_columns}
+            raw_age = {col.name: _mean(age_dwells.get(col.uid, [])) for col in active_columns}
+            avg_days = _rounded(raw_avg)
+            throughput_avg = _rounded(raw_throughput)
             throughput_count = {col.name: len(throughput_dwells.get(col.uid, [])) for col in active_columns}
-            age_avg = {col.name: _avg(age_dwells.get(col.uid, [])) for col in active_columns}
+            age_avg = _rounded(raw_age)
+            raw_means[swimlane.id] = (raw_avg, raw_age, raw_throughput)
 
             swimlane_results.append({
                 "id": swimlane.id,
@@ -1345,28 +1380,14 @@ class BoardAnalyticsMixin:
         # (not effective_stalled_days) so heatmap cell coloring is anchored to the board's
         # configured threshold regardless of any stalled_days query-param override.
         threshold = board.staleness_threshold_days
+        def _flags(means: dict) -> dict:
+            return {col.name: means[col.name] is not None and means[col.name] >= threshold for col in active_columns}
+
         for sw in swimlane_results:
-            sw["is_outlier"] = {
-                col.name: (
-                    sw["avg_days_per_column"][col.name] is not None
-                    and sw["avg_days_per_column"][col.name] >= threshold
-                )
-                for col in active_columns
-            }
-            sw["age_is_outlier"] = {
-                col.name: (
-                    sw["age_avg_days_per_column"][col.name] is not None
-                    and sw["age_avg_days_per_column"][col.name] >= threshold
-                )
-                for col in active_columns
-            }
-            sw["throughput_is_outlier"] = {
-                col.name: (
-                    sw["throughput_avg_days_per_column"][col.name] is not None
-                    and sw["throughput_avg_days_per_column"][col.name] >= threshold
-                )
-                for col in active_columns
-            }
+            raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
+            sw["is_outlier"] = _flags(raw_avg)
+            sw["age_is_outlier"] = _flags(raw_age)
+            sw["throughput_is_outlier"] = _flags(raw_throughput)
 
         return Response({
             "days": days,

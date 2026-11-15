@@ -11,7 +11,11 @@ import type {
  * only here: the server sends full precision, because percentiles are taken
  * before rounding (ADR #1532).
  */
-export const formatDays = (days: number) => `${days.toFixed(1)}d`;
+/** One decimal, and "<0.1d" rather than a misleading "0.0d" for a real but tiny value (#2297). */
+export const formatDays = (days: number) => (isTinyDays(days) ? "<0.1d" : `${days.toFixed(1)}d`);
+
+/** A real duration that one decimal would show as 0.0. */
+export const isTinyDays = (days: number) => days > 0 && days < 0.05;
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -108,7 +112,7 @@ export function ageMarkColor(sample: FlowAgeSample, zones: FlowPercentiles): Cha
 
 /** The accessible name of an aging dot, and of its table row's button. */
 export function ageMarkLabel(sample: FlowAgeSample, title: string, zones: FlowPercentiles) {
-  const parts = [title, `${sample.value_days.toFixed(1)} days in progress`];
+  const parts = [title, `${sample.value_days.toFixed(1)} ${dayUnit(sample.value_days)} in progress`];
   if (zones.p95 !== null && sample.value_days > zones.p95) parts.push("beyond 95th percentile");
   else if (zones.p85 !== null && sample.value_days > zones.p85) parts.push("beyond 85th percentile");
   if (sample.is_blocked) parts.push("blocked");
@@ -130,6 +134,9 @@ export const pluralize = plural;
 
 /** A number for a tile: whole numbers as is, others to one decimal. */
 export const formatNumber = (value: number) => (Number.isInteger(value) ? String(value) : value.toFixed(1));
+
+/** "day" or "days" for the number as `formatNumber` shows it: 0.96 shows "1.0", so "1.0 day" (#2297). */
+export const dayUnit = (value: number) => (Number(formatNumber(value)) === 1 ? "day" : "days");
 
 /**
  * The bottleneck column's share of the cycle (#2261): the column's median
@@ -175,7 +182,7 @@ export function cardsPastP85({ samples, cycle_time_percentiles: zones }: Pick<Fl
   return samples.filter((s) => s.value_days > (zones.p85 as number)).length;
 }
 
-const daysText = (days: number) => `${formatNumber(days)} ${days === 1 ? "day" : "days"}`;
+const daysText = (days: number) => `${formatNumber(days)} ${dayUnit(days)}`;
 
 /** "Cards wait 6.2 days here, about half of the whole cycle. The queue grew …" from returned numbers only. */
 export function bottleneckSentence(
@@ -201,7 +208,9 @@ export function bottleneckSentence(
     let queue = `The queue grew from ${band.start_count} to ${pluralize(band.end_count, "card")}`;
     if (limit !== null) queue += ` against a limit of ${limit}`;
     if (band.entered_per_week !== null && band.left_per_week !== null) {
-      queue += `, because ${formatNumber(band.entered_per_week)} cards arrive each week and ${formatNumber(band.left_per_week)} leave`;
+      const arriving = formatNumber(band.entered_per_week);
+      const leaving = formatNumber(band.left_per_week);
+      queue += `, because ${arriving} ${arriving === "1" ? "card arrives" : "cards arrive"} each week and ${leaving} ${leaving === "1" ? "card leaves" : "cards leave"}`;
     }
     parts.push(`${queue}.`);
   }

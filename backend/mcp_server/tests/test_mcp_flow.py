@@ -97,6 +97,29 @@ class BoardFlowMetricsTests(McpFlowFixture):
         self.assertEqual(result["blocked"]["total"]["blocks"], 1)
         self.assertEqual(result["blocked"]["days_per_column"]["Review"], 1)
 
+    def test_blocked_summary_ranks_reasons_by_time_like_the_rest_endpoint(self):
+        # #2297: "blocked" ranks by count; "blocked_summary" is metrics/blocked, ranked by time.
+        card = self.path(self.backlog, 20, self.doing, 15)
+        for start, end in ((10, 9.5), (9, 8.5)):
+            CardBlock.objects.create(
+                card=card, board=self.board, column=self.doing, reason="Often", blocked_at=self.ago(start),
+                unblocked_at=self.ago(end),
+            )
+        CardBlock.objects.create(
+            card=card, board=self.board, column=self.doing, reason="Long", blocked_at=self.ago(8),
+            unblocked_at=self.ago(3),
+        )
+        result = self.call("board_flow_metrics", board_id=self.board.id)
+        self.assertEqual([r["reason"] for r in result["blocked"]["top_reasons"]], ["Often", "Long"])
+        summary = result["blocked_summary"]
+        self.assertEqual([r["reason"] for r in summary["reasons"]], ["Long", "Often"])
+        client = APIClient()
+        client.force_authenticate(self.user)
+        rest = client.get(f"/api/v1/boards/{self.board.id}/metrics/blocked/", {"days": 90})
+        self.assertEqual(rest.status_code, 200, rest.content)
+        self.assertEqual(summary["reasons"], rest.json()["reasons"])
+        self.assertEqual(summary["total"]["blocks"], rest.json()["total"]["blocks"])
+
     def test_matches_the_rest_endpoints_for_the_same_inputs(self):
         self.seed_completed()
         client = APIClient()

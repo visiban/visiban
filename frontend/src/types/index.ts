@@ -2016,6 +2016,8 @@ export interface FlowGrouping<G extends FlowGroupBase> {
   field_id: number | null;
   /** In the endpoint's own unit: what belongs to no group. */
   excluded: number;
+  /** True when some card counts in two or more groups (labels), so group sizes add up to more than the total (#2297). */
+  overlapping: boolean;
   groups: G[];
 }
 

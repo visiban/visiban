@@ -37,10 +37,10 @@ describe('Needs attention (#2263)', () => {
     // Order is the service's; the client never re-sorts (a 28d card after a 12d one stays there).
     expect(rows[1]).toHaveTextContent('Card 2')
     expect(rows[1]).toHaveTextContent('In progress · Platform · blocked, past 19 days')
-    expect(rows[1]).toHaveTextContent('28d')
+    expect(rows[1]).toHaveTextContent('28.0d')
     expect(rows[0]).toHaveTextContent('Card 1')
     expect(rows[2]).toHaveTextContent('Review · Mobile · no movement for 9 days')
-    expect(rows[2]).toHaveTextContent('9d')
+    expect(rows[2]).toHaveTextContent('9.0d')
     expect(within(rows[2]).getByLabelText('9 days without movement')).toBeInTheDocument()
     expect(within(rows[0]).getByLabelText('12 days old')).toBeInTheDocument()
   })
@@ -71,8 +71,8 @@ describe('Needs attention (#2263)', () => {
 
   it('colors age danger past the 85th percentile and warning otherwise', () => {
     renderIt([item(1, { age_days: 30 }), item(2, { age_days: 5, reasons: ['blocked'] })])
-    expect(screen.getByText('30d')).toHaveClass('text-danger')
-    expect(screen.getByText('5d')).toHaveClass('text-warning')
+    expect(screen.getByText('30.0d')).toHaveClass('text-danger')
+    expect(screen.getByText('5.0d')).toHaveClass('text-warning')
   })
 
   it('falls back to the card uid and drops an unknown column and swimlane', () => {
@@ -81,7 +81,7 @@ describe('Needs attention (#2263)', () => {
     render(<AttentionSection attention={ok(data)} swimlanes={[]} />)
     const row = screen.getByRole('listitem')
     expect(row).toHaveTextContent('uid-1')
-    expect(row).toHaveTextContent(/^uid-1blocked1d$/)
+    expect(row).toHaveTextContent(/^uid-1blocked1.0d$/)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -140,5 +140,20 @@ describe('Needs attention (#2263)', () => {
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
     rerender(<AttentionSection attention={{ data: undefined, error: new Error('x') } as never} swimlanes={[]} />)
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
+  })
+})
+
+describe('Needs attention precision (#2297)', () => {
+  it('names the p85 to one decimal, as the tile and chart do', () => {
+    const data = { ...payload([item(1, { age_days: 9 })]), cycle_time_percentiles: { p50: 4, p85: 8.4, p95: null } }
+    render(<AttentionSection attention={ok(data)} swimlanes={swimlanes} columns={columns} />)
+    expect(screen.getByText(/past 8\.4 days/)).toBeInTheDocument()
+  })
+
+  it('shows the badge, the reason and the aria-label at the same one-decimal precision', () => {
+    const data = { ...payload([item(1, { age_days: 8.46 })]), cycle_time_percentiles: { p50: 4, p85: 8.4, p95: null } }
+    render(<AttentionSection attention={ok(data)} swimlanes={swimlanes} columns={columns} />)
+    const badge = screen.getByLabelText('8.5 days old')
+    expect(badge).toHaveTextContent('8.5d')
   })
 })
