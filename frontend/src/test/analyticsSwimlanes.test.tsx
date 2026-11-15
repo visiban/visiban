@@ -231,7 +231,7 @@ describe('swimlanesFormat', () => {
   it('names one slower lane alone and sorts missing medians last', () => {
     const two = findingText(data([lanes[1], row({ id: 7, name: 'Mobile', median_days: 14.2, status: 'slower' })]))
     expect(two.heading).toBe('Platform and Mobile are where cards slow down')
-    expect(two.sentence).toMatch(/^Both take 14.2 days or more against a board median of 11\./)
+    expect(two.sentence).toMatch(/^Both take 14\.2 days or more against a board median of 11\./)
     expect(findingText(data([lanes[1]])).heading).toBe('Platform is where cards slow down')
     expect(sortRows(lanes as never, 'fastest').at(-1)!.name).toBe('Design')
     expect(sortRows(lanes as never, 'blocked')[0].name).toBe('Platform')
