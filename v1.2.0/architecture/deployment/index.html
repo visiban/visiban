@@ -4793,6 +4793,16 @@
 <td>Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data</td>
 </tr>
 <tr>
+<td><code>valkey.primary.maxmemory</code></td>
+<td><code>128mb</code></td>
+<td>Valkey memory ceiling (#1130). Empty means no ceiling</td>
+</tr>
+<tr>
+<td><code>valkey.primary.maxmemoryPolicy</code></td>
+<td><code>volatile-lru</code></td>
+<td>Eviction policy applied when <code>maxmemory</code> is reached</td>
+</tr>
+<tr>
 <td><code>valkey.auth.enabled</code></td>
 <td><code>false</code></td>
 <td>Require a password on the bundled Valkey (#1211). Needs exactly one of the two keys below</td>

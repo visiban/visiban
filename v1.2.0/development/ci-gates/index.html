@@ -4672,7 +4672,7 @@ any CI job — see below.</p>
 <p>Run <code>python scripts/_paths.py --self-test</code> to exercise the helper (<code>..</code> traversal, symlink escape, filesystem-root cwd); the <code>rbac-coverage</code> job runs it.</p>
 <h2 id="scheduled-pipelines">Scheduled pipelines<a class="headerlink" href="#scheduled-pipelines" title="Permanent link">&para;</a></h2>
 <p><strong>Why it matters:</strong> A scheduled pipeline on <code>main</code> runs the <strong>whole</strong> pipeline, not just the schedule-gated jobs: the <code>$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code> rules match a schedule, and <code>changes:</code> rules evaluate true on one. Every extra schedule costs a full pipeline (about 48 jobs).</p>
-<p>So the project keeps <strong>three</strong> schedules (#1383, #1384), not one per job. All three use the <code>America/New_York</code> time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:</p>
+<p>So the project keeps <strong>three</strong> schedules (#1383, #1384), not one per job. All three use the <code>America/New_York</code> time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart (the weekly mutation run's worst case is now up to 150 minutes per shard, #2111, plus the report job, so check the gap before moving a schedule), clear of the TruePPM project's own schedules:</p>
 <table>
 <thead>
 <tr>

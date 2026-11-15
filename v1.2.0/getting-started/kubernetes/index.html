@@ -4876,6 +4876,16 @@
 <td>Container resources.</td>
 </tr>
 <tr>
+<td><code>valkey.primary.maxmemory</code></td>
+<td><code>128mb</code></td>
+<td>Valkey memory ceiling, kept below the container limit. Empty means no ceiling.</td>
+</tr>
+<tr>
+<td><code>valkey.primary.maxmemoryPolicy</code></td>
+<td><code>volatile-lru</code></td>
+<td>Eviction policy applied when <code>maxmemory</code> is reached.</td>
+</tr>
+<tr>
 <td><code>valkey.commonConfiguration</code></td>
 <td>AOF on, RDB snapshots off</td>
 <td>Extra <code>valkey.conf</code> lines.</td>

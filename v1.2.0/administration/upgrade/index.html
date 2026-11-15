@@ -4892,6 +4892,15 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.</p>
 <h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
+<p class="admonition-title">Valkey now has a memory ceiling and an eviction policy</p>
+<p>Since 1.3, Valkey runs with <code>maxmemory</code> and <code>maxmemory-policy volatile-lru</code> (#1130), so a busy instance evicts old cache entries instead of growing until it is OOM-killed.</p>
+<ul>
+<li><strong>Helm.</strong> Installs are now capped at <code>valkey.primary.maxmemory</code> (default <code>128mb</code>). If you raised <code>valkey.primary.resources.limits.memory</code>, raise <code>valkey.primary.maxmemory</code> with it. Set <code>maxmemory</code> to an empty string to remove the ceiling.</li>
+<li><strong>Valkey restarts once.</strong> The config checksum changes, so the upgrade restarts the Valkey pod one time and WebSocket clients reconnect.</li>
+<li><strong>Production Compose.</strong> <code>docker-compose.prod.yml</code> defaults to <code>VALKEY_MAXMEMORY=256mb</code>. See <a href="../configuration/#valkey-memory-limit-and-eviction">Valkey memory limit and eviction</a>.</li>
+</ul>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Board owners are protected, and non-admin updates answer <code>403</code> before <code>400</code></p>
 <p>Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191, #2225):</p>
 <ul>

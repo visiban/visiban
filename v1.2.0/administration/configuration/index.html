@@ -3582,6 +3582,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#valkey-memory-limit-and-eviction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Valkey memory limit and eviction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#webhooks" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4704,6 +4715,10 @@
 <td>Valkey authentication password — required in production; the Valkey service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -hex 32</code> (base64 output can contain <code>/</code>, which breaks the URL)</td>
 </tr>
 <tr>
+<td><code>VALKEY_MAXMEMORY</code></td>
+<td>Valkey memory ceiling for <code>docker-compose.prod.yml</code> (default <code>256mb</code>, for example <code>512mb</code>). The eviction policy is fixed at <code>volatile-lru</code>. Keep it below the container memory limit; see <a href="#valkey-memory-limit-and-eviction">Valkey memory limit and eviction</a></td>
+</tr>
+<tr>
 <td><code>REDIS_URL_PASSWORD</code></td>
 <td>Not set under Compose, which puts the password into <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> itself (from <code>REDIS_PASSWORD</code>). The Helm chart sets it from a Secret when <code>valkey.auth.enabled</code> is true or <code>externalRedis.existingSecret</code> is set. The backend percent-encodes it into both URLs, so any character is safe, and keeps a username in the URL (<code>redis://user@host:6379/0</code>, a Redis ACL user). It refuses to start if a URL already carries a password too, because the two would compete.</td>
 </tr>
@@ -4954,6 +4969,42 @@
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
 <p>A transaction that writes <a href="../../api/events/">change feed</a> events holds one PostgreSQL advisory lock per board it writes events on, until it commits (#2053). The lock lets feed readers tell that no lower event id is still committing. Writers never wait for each other on it. PostgreSQL keeps every session's locks in one shared table of <code>max_locks_per_transaction × (max_connections + max_prepared_transactions)</code> entries: 6,400 at the defaults (64 × 100).</p>
 <p>An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none for the deleted boards themselves, plus one per other board where a deleted card was blocking a card (that card gets a <code>card.updated</code>). A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with <code>out of shared memory</code> and the hint <code>You might need to increase max_locks_per_transaction</code>, raise <code>max_locks_per_transaction</code> in <code>postgresql.conf</code> (or the chart's PostgreSQL configuration) and restart PostgreSQL.</p>
+<h2 id="valkey-memory-limit-and-eviction">Valkey memory limit and eviction<a class="headerlink" href="#valkey-memory-limit-and-eviction" title="Permanent link">&para;</a></h2>
+<p>Valkey holds only short-lived state: the Channels layer (WebSocket groups, db 0) and the Django cache (db 1). The cache carries rate-limit counters, single-use WebSocket tickets, Git lens fetch locks, filter caches and, if you set a cache <code>SESSION_ENGINE</code>, sessions. Every one of these keys is written with a TTL. Nothing in Valkey is a system of record: PostgreSQL is.</p>
+<p>Without a ceiling, Valkey grows until the container or pod is OOM-killed, which drops every WebSocket connection. Visiban therefore ships a ceiling and an eviction policy in all three deployments:</p>
+<table>
+<thead>
+<tr>
+<th>Deployment</th>
+<th>Ceiling</th>
+<th>Policy</th>
+<th>How to change it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Development <code>docker-compose.yml</code></td>
+<td><code>256mb</code></td>
+<td><code>volatile-lru</code></td>
+<td>Edit the <code>valkey</code> service <code>command</code></td>
+</tr>
+<tr>
+<td>Production <code>docker-compose.prod.yml</code></td>
+<td><code>256mb</code></td>
+<td><code>volatile-lru</code></td>
+<td>Set <code>VALKEY_MAXMEMORY</code> in <code>.env</code> (for example <code>512mb</code>)</td>
+</tr>
+<tr>
+<td>Helm chart</td>
+<td><code>128mb</code> (pod limit is <code>192Mi</code>)</td>
+<td><code>volatile-lru</code></td>
+<td><code>valkey.primary.maxmemory</code> and <code>valkey.primary.maxmemoryPolicy</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why <code>volatile-lru</code> and not <code>allkeys-lru</code>.</strong> <code>volatile-lru</code> evicts only keys that carry a TTL and returns an error on a write that would need to evict a key without one. Today that is the same set of keys, but it means a future key that must not disappear (a lock or counter written without an expiry) is never silently dropped. <code>noeviction</code> is the wrong choice here: at the ceiling it would make every Channels and cache write fail, which is an outage rather than a degraded cache.</p>
+<p><strong>What eviction costs.</strong> Keys go in least-recently-used order, so under sustained pressure an idle user's cache entry, ticket or counter can be evicted early. The effects are small and self-healing: a cache miss recomputes, a WebSocket reconnects with a fresh ticket, a rate-limit window restarts, and a cache-backed session signs the user out. If <code>evicted_keys</code> in <code>valkey-cli INFO stats</code> keeps rising, raise the ceiling rather than the policy. Keep the ceiling below the container or pod memory limit, because AOF rewrites and client buffers need headroom.</p>
+<p>Under Helm, a <code>maxmemory</code> line in <code>valkey.commonConfiguration</code> comes after the chart's own and wins. Set <code>valkey.primary.maxmemory</code> to an empty string to remove the ceiling. For an external Valkey or Redis (<code>externalRedis</code>), set <code>maxmemory</code> and <code>maxmemory-policy volatile-lru</code> on that server yourself.</p>
 <h2 id="webhooks">Webhooks<a class="headerlink" href="#webhooks" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.3</strong> (#863).</p>
