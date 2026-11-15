@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useState } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import OverflowMenu from '../components/Layout/OverflowMenu'
 import ArchivedCardsPanel from '../components/Board/ArchivedCardsPanel'
 import type { BoardFull, Card } from '../types'
 import type { ArchivedCardsPage } from '../api/cards'
@@ -176,52 +174,13 @@ describe('ArchivedCardsPanel', () => {
     })
   })
 
-  it('calls onClose when the close button is clicked', async () => {
+})
+
+describe('ArchivedCardsPanel — Escape and restore refusals', () => {
+  it('Escape closes the panel', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([]))
     const onClose = vi.fn()
     render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
-    await waitFor(() => screen.getByLabelText('Close'))
-    await userEvent.click(screen.getByLabelText('Close'))
-    expect(onClose).toHaveBeenCalledOnce()
-  })
-
-  it('calls onClose when backdrop is clicked', async () => {
-    mockGetArchivedCards.mockResolvedValue(makePage([]))
-    const onClose = vi.fn()
-    const { container } = render(
-      <ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />
-    )
-    await waitFor(() => screen.getByText(/No archived cards/))
-    // The backdrop is the absolute div behind the panel
-    const backdrop = container.querySelector('.absolute.inset-0') as HTMLElement
-    await userEvent.click(backdrop)
-    expect(onClose).toHaveBeenCalledOnce()
-  })
-})
-
-// #1376 — the pointer-only backdrop is decorative: keyboard parity is the Close button + Escape
-describe('ArchivedCardsPanel — keyboard (#1376)', () => {
-  it('hides the click-only backdrop from assistive tech and offers a keyboard-operable Close', async () => {
-    mockGetArchivedCards.mockResolvedValue(makePage([]))
-    const onClose = vi.fn()
-    const { container } = render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
-    expect(container.querySelector('.bg-backdrop\\/50')).toHaveAttribute('aria-hidden', 'true')
-    const user = userEvent.setup()
-    const close = screen.getAllByRole('button').find((b) => /close/i.test(b.getAttribute('aria-label') ?? ''))!
-    close.focus()
-    await user.keyboard('{Enter}')
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
-  it('backdrop has no focusable descendant and Escape closes the panel', async () => {
-    mockGetArchivedCards.mockResolvedValue(makePage([]))
-    const onClose = vi.fn()
-    const { container } = render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
-    const backdrop = container.querySelector('[aria-hidden="true"].absolute.inset-0') as HTMLElement
-    expect(backdrop).not.toBeNull()
-    expect(backdrop.querySelector('button, a, input, [tabindex]')).toBeNull()
     await userEvent.setup().keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -693,91 +652,20 @@ describe('ArchivedCardsPanel follows other clients (#2062)', () => {
   })
 })
 
-describe('ArchivedCardsPanel focus management (#1732)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
-  })
-
-  function Host() {
-    const [open, setOpen] = useState(false)
-    return (
-      <>
-        <button onClick={() => setOpen(true)}>Open archive</button>
-        {open && <ArchivedCardsPanel board={fakeBoard} onClose={() => setOpen(false)} onUnarchived={vi.fn()} />}
-      </>
-    )
-  }
-
-  it('Tab cycles within the panel and never reaches the board behind it', async () => {
-    const user = userEvent.setup()
-    render(<Host />)
-    await user.click(screen.getByText('Open archive'))
-    const dialog = await screen.findByRole('dialog', { name: 'Archived cards' })
-    await screen.findByText('Old feature')
-    for (let i = 0; i < 8; i++) {
-      await user.tab()
-      expect(dialog.contains(document.activeElement)).toBe(true)
-    }
-    for (let i = 0; i < 8; i++) {
-      await user.tab({ shift: true })
-      expect(dialog.contains(document.activeElement)).toBe(true)
-    }
-  })
-
-  it('restores focus to the opener on close', async () => {
-    const user = userEvent.setup()
-    render(<Host />)
-    const opener = screen.getByText('Open archive')
-    await user.click(opener)
-    await screen.findByRole('dialog')
-    await user.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(opener).toHaveFocus()
-  })
-
-  it('opened from an OverflowMenu item: Tab stays trapped and Escape returns focus to the kebab (#1775)', async () => {
-    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
-    function Harness() {
-      const [open, setOpen] = useState(false)
-      return (
-        <>
-          <OverflowMenu items={[{ id: 'a', label: 'Show archived cards', onSelect: () => setOpen(true) }]} />
-          {open && (
-            <ArchivedCardsPanel board={fakeBoard} onClose={() => setOpen(false)} onUnarchived={vi.fn()} />
-          )}
-        </>
-      )
-    }
-    const user = userEvent.setup()
-    render(<Harness />)
-    const kebab = screen.getByRole('button', { name: 'More board actions' })
-    await user.click(kebab)
-    await user.click(screen.getByRole('menuitem', { name: 'Show archived cards' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Archived cards' })
-    await waitFor(() => expect(screen.getByText('Old feature')).toBeInTheDocument())
-    await user.tab()
-    expect(dialog).toContainElement(document.activeElement as HTMLElement)
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(kebab).toHaveFocus()
-  })
-})
-
-describe('ArchivedCardsPanel embedded in the Activity drawer (#2274)', () => {
+describe('ArchivedCardsPanel hosted in the Activity drawer (#2274)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('renders the list without a dialog, backdrop or close button, and Escape still closes it', async () => {
+  it('renders the list without a dialog, backdrop or close button, and Escape closes it', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
     const onClose = vi.fn()
-    render(<ArchivedCardsPanel embedded board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
     await waitFor(() => screen.getByText('Old feature'))
     expect(screen.getByTestId('archived-list')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
-    expect(screen.getByText('Archived cards (1)')).toBeInTheDocument()
+    expect(screen.getByText('(1)')).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -787,7 +675,7 @@ describe('ArchivedCardsPanel embedded in the Activity drawer (#2274)', () => {
     const restored: Card = { ...archivedCard, archived_at: null }
     mockUnarchiveCard.mockResolvedValue(restored)
     const onUnarchived = vi.fn()
-    render(<ArchivedCardsPanel embedded board={fakeBoard} onClose={vi.fn()} onUnarchived={onUnarchived} />)
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={onUnarchived} />)
     await waitFor(() => screen.getByText('Old feature'))
     await userEvent.click(screen.getByText('Unarchive'))
     await waitFor(() => expect(onUnarchived).toHaveBeenCalledWith(restored))

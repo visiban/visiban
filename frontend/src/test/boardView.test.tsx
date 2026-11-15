@@ -966,7 +966,7 @@ describe('BoardView', () => {
       expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
     })
 
-    it('Y toggles the archived cards panel', () => {
+    it('Y toggles the Archived tab of the Activity drawer', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
       fireEvent.keyDown(document, { key: 'y' })
@@ -1365,6 +1365,35 @@ describe('BoardView', () => {
       })
       expect(screen.getByTestId('card-detail')).toBeInTheDocument()
       expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+    })
+
+    it('Y while a card is open leaves only the drawer, and the Archived tab takes focus', () => {
+      mockSearchParams = new URLSearchParams('card=1')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [openCardFixture] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
+      expect(screen.getByRole('complementary', { name: 'Activity' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Archived' })).toHaveFocus()
+    })
+
+    it('a ?card= link arriving while the drawer is open shows only the card sheet', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [openCardFixture] }) })
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Open activity drawer' }))
+      expect(screen.getByRole('complementary', { name: 'Activity' })).toBeInTheDocument()
+      act(() => { mockLiveSetParams?.(new URLSearchParams("card=1")) })
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+      expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+    })
+
+    it('closing the drawer returns focus to the Activity button', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Open activity drawer' }))
+      expect(screen.getByRole('tab', { name: 'Recent' })).toHaveFocus()
+      fireEvent.click(screen.getByRole('button', { name: 'Close activity drawer', pressed: true }))
+      expect(screen.getByRole('button', { name: 'Open activity drawer' })).toHaveFocus()
     })
 
     it('Y opens the drawer on its Archived tab and a second Y closes it', () => {
@@ -2156,7 +2185,7 @@ describe('BoardView', () => {
       const toast = within(region).getByTestId('archive-toast')
       expect(toast).toHaveAttribute('data-variant', 'success')
       expect(toast).toHaveTextContent('Card archived')
-      await user.click(within(toast).getByRole('button', { name: 'View in Archived panel' }))
+      await user.click(within(toast).getByRole('button', { name: 'View in Archived' }))
       expect(screen.getByTestId('archived-panel')).toBeInTheDocument()
       expect(screen.queryByTestId('archive-toast')).toBeNull()
     })
@@ -2177,7 +2206,7 @@ describe('BoardView', () => {
       const stops = Array.from(grid.querySelectorAll<HTMLElement>('button, [tabindex="0"]'))
       stops[stops.length - 1].focus()
       await user.tab()
-      expect(screen.getByRole('button', { name: 'View in Archived panel' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'View in Archived' })).toHaveFocus()
     })
   })
 

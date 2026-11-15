@@ -2686,7 +2686,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </>
         ) : confirmAction === "archive" ? (
           <>
-            <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
+            <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived tab of the Activity drawer.</p>
             <div role="status" aria-live="polite" aria-atomic="true">
               {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
             </div>

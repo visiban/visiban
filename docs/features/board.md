@@ -214,7 +214,7 @@ Hard enforcement is **off by default**. Enable it in **Board Settings → Rules 
 **Where limits are checked:** WIP and weight limits, soft or hard, are checked whenever a card is moved into a column, created in it, or restored into it from the archive, and weight limits also when a card's weight is raised. *Changed in 1.2 (#1428): before 1.2 only moves were checked.* Since 1.3 the same paths also check a swimlane's own limits; see [Swimlane limits](#swimlane-limits).
 
 - [Board import](#import) is the one exception: it restores a board as it was exported, so an imported column can start out over its limit.
-- When a new card or a restore is refused, the add-card field or the **Archived cards** panel says which limit was reached, and the card stays where it was.
+- When a new card or a restore is refused, the add-card field or the **Archived** tab of the Activity drawer says which limit was reached, and the card stays where it was.
 - When a weight increase is refused, the card detail shows the reason under the weight control and the weight reverts.
 
 See [Field Enforcement](../architecture/field-enforcement.md).
@@ -360,7 +360,7 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 | **Move to...** | Move all selected cards to a target column (each card stays in its current swimlane) |
 | **Assign to...** | Set or clear the assignee on all selected cards |
 | **Priority...** | Set priority on all selected cards |
-| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived cards** panel (toolbar **View** menu, **Show archived cards**) |
+| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived** tab of the Activity drawer (<kbd>Y</kbd>, or toolbar **View** menu, **Show archived cards**; a separate panel before 1.3) |
 | **Delete** | Delete all selected cards (with confirmation) |
 
 On the shared demo, the toolbar's **Archive** and **Delete** are dimmed with the demo notice and do nothing.
@@ -434,7 +434,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | `l` | Switch to the Lens view (when Issue Board Lens is connected) |
 | `e` | Collapse or expand every swimlane and column at once |
 | `c` | Collapse the swimlane you last hovered |
-| `y` | Toggle the Archived cards panel |
+| `y` | Toggle the Archived tab of the Activity drawer |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
 | `⌘K` / `Ctrl+K` | Open the command palette |
 | `Menu` / `Shift+F10` | Open the focused card's [actions menu](#card-actions-menu) |

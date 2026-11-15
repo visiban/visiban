@@ -1314,7 +1314,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #2274 — one drawer, two tabs. null = closed. Archived cards live in its
   // Archived tab, so Y / the View menu / the archive toast open that tab.
   const [drawerView, setDrawerView] = useState<DrawerTab | null>(null);
-  const drawerOpen = drawerView !== null;
+  // Structural exclusion with the card sheet (#2274): the drawer is never open
+  // while a card is selected, whatever order the two states change in.
+  const drawerOpen = drawerView !== null && selectedCard === null;
   const setDrawerOpen = useCallback(
     (v: boolean | ((p: boolean) => boolean)) =>
       setDrawerView((cur) => ((typeof v === "function" ? v(cur !== null) : v) ? (cur ?? "recent") : null)),
@@ -1322,7 +1324,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   );
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const showArchived = drawerView === "archived";
+  const showArchived = drawerView === "archived" && selectedCard === null;
   const setShowArchived = useCallback(
     (v: boolean | ((p: boolean) => boolean)) =>
       setDrawerView((cur) => ((typeof v === "function" ? v(cur === "archived") : v) ? "archived" : cur === "archived" ? null : cur)),
@@ -1399,7 +1401,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       title: "Card archived",
       durationMs: 5000,
       action: {
-        label: "View in Archived panel",
+        label: "View in Archived",
         onAction: () => { setShowArchived(true); dismissToast(ARCHIVE_TOAST_KEY); },
       },
       testId: "archive-toast",
@@ -1716,8 +1718,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #2274 — the drawer and the card sheet (peek) never show together: opening
   // either closes the other. Each effect fires only on its own change, so the
   // one that was opened last wins.
-  useEffect(() => { if (drawerOpen) setSelectedCard(null); }, [drawerOpen]);
+  useEffect(() => { if (drawerView !== null) setSelectedCard(null); }, [drawerView]);
   useEffect(() => { if (selectedCard) setDrawerView(null); }, [selectedCard]);
+  // Closing the drawer returns focus to the Activity button, or to the board
+  // region if that button is not on the toolbar. A card opening closes it too;
+  // then the sheet owns focus, and focus is left alone unless it was dropped.
+  const activityButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerWasOpenRef = useRef(false);
+  useEffect(() => {
+    const wasOpen = drawerWasOpenRef.current;
+    drawerWasOpenRef.current = drawerOpen;
+    if (!wasOpen || drawerOpen || selectedCard) return;
+    const a = document.activeElement;
+    if (a && a !== document.body) return;
+    const btn = activityButtonRef.current;
+    if (btn && btn.isConnected) btn.focus();
+    else document.querySelector<HTMLElement>("[data-board-scroll]")?.focus();
+  }, [drawerOpen, selectedCard]);
   // A sheet closing ends its block-form request.
   useEffect(() => { if (!selectedCard) setBlockFormRequest(null); }, [selectedCard]);
 
@@ -1805,7 +1822,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         }
         return;
       } else if (e.key === "y") {
-        // `y` toggles the archived cards panel. Avoids `a` because that's
+        // `y` toggles the Archived tab of the Activity drawer. Avoids `a` because that's
         // reserved for the Analytics view tab above.
         e.preventDefault();
         setShowArchived((v) => !v);
@@ -2782,6 +2799,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </span>
             <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
               <button type="button"
+                ref={activityButtonRef}
                 onClick={() => setDrawerOpen((v) => !v)}
                 aria-pressed={drawerOpen}
                 aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
@@ -2987,7 +3005,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
-        <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
@@ -3209,7 +3227,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onTabChange={setDrawerView}
             archivedContent={
               <ArchivedCardsPanel
-                embedded
                 board={board}
                 onClose={() => setDrawerView(null)}
                 onUnarchived={(card) => { onCardUnarchived(card); }}

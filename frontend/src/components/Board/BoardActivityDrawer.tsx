@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { formatRelativeTime } from "../../utils/date";
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
+import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
 
 export type ActivityEntry = {
   id: string;
@@ -59,6 +60,14 @@ export default function BoardActivityDrawer({
     onTabChange?.(next);
     tabRefs.current[next]?.focus();
   };
+  // #2274 — below `lg` the floating sheet would cover the whole board and
+  // clip off-screen, so it becomes a full-height right edge panel instead.
+  const isLarge = useIsLargeViewport();
+  // Focus the active tab on open and whenever the host switches tabs (Y, the
+  // View menu, the archive toast), so keyboard users land inside the drawer.
+  useEffect(() => {
+    tabRefs.current[drawerTab]?.focus();
+  }, [drawerTab]);
   const [tab, setTab] = useState<FilterTab>("all");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(DEFAULT_WINDOW);
 
@@ -84,7 +93,15 @@ export default function BoardActivityDrawer({
   ];
 
   return (
-    <aside aria-label="Activity" className="w-80 bg-surface border-l border-line flex flex-col shrink-0">
+    <aside
+      aria-label="Activity"
+      data-testid="activity-drawer"
+      className={`w-96 max-w-full bg-surface border-line shadow-xl flex flex-col ${
+        isLarge
+          ? "absolute top-2 right-3 z-30 max-h-[calc(100%-1rem)] rounded-lg border"
+          : "fixed inset-y-0 right-0 z-40 border-l"
+      }`}
+    >
       {/* Header */}
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
@@ -123,7 +140,7 @@ export default function BoardActivityDrawer({
               }`}
             >
               {t.label}
-              {active && <span aria-hidden="true" data-testid="drawer-tab-underline" className="absolute inset-x-0 -bottom-px h-0.5 bg-info" />}
+              {active && <span aria-hidden="true" data-testid="drawer-tab-underline" className="absolute inset-x-0 -bottom-px h-0.5 bg-primary-emphasis" />}
             </button>
           );
         })}
@@ -216,7 +233,7 @@ export default function BoardActivityDrawer({
         <button
           type="button"
           onClick={onOpenHistory}
-          className="text-info underline hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+          className="text-fg-secondary underline hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         >
           Open the full History view
         </button>

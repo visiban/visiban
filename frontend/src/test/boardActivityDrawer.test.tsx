@@ -2,6 +2,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import BoardActivityDrawer from "../components/Board/BoardActivityDrawer";
 import type { ActivityEntry } from "../components/Board/BoardActivityDrawer";
+import { useIsLargeViewport } from "../hooks/useIsLargeViewport";
+
+vi.mock("../hooks/useIsLargeViewport", () => ({ useIsLargeViewport: vi.fn(() => true) }));
 
 // Fixed reference time so tests are deterministic regardless of real clock.
 const NOW = new Date("2026-04-18T12:00:00Z").getTime();
@@ -159,7 +162,9 @@ describe("BoardActivityDrawer", () => {
       render(<BoardActivityDrawer {...defaultProps} />);
       expect(screen.getByRole("tab", { name: "Recent" })).toHaveAttribute("aria-selected", "true");
       expect(screen.getByRole("tab", { name: "Archived" })).toHaveAttribute("aria-selected", "false");
-      expect(screen.getByTestId("drawer-tab-underline")).toBeInTheDocument();
+      expect(screen.getByTestId("drawer-tab-underline")).toHaveClass("bg-primary-emphasis");
+      expect(screen.getByRole("button", { name: /open the full history view/i })).toHaveClass("text-fg-secondary");
+      expect(screen.getByRole("tab", { name: "Recent" })).toHaveFocus();
       expect(screen.getByRole("group", { name: "Activity kind filter" })).toBeInTheDocument();
     });
 
@@ -191,6 +196,25 @@ describe("BoardActivityDrawer", () => {
       expect(screen.queryByText("@kelly")).not.toBeInTheDocument();
       expect(screen.queryByRole("group", { name: "Activity kind filter" })).not.toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "Archived" })).toHaveAttribute("aria-selected", "true");
+    });
+  });
+
+  describe("placement (#2274)", () => {
+    it("floats top right over the board on a large viewport", () => {
+      vi.mocked(useIsLargeViewport).mockReturnValue(true);
+      render(<BoardActivityDrawer {...defaultProps} />);
+      const aside = screen.getByTestId("activity-drawer");
+      expect(aside).toHaveClass("absolute", "top-2", "right-3", "rounded-lg", "shadow-xl");
+      expect(aside).not.toHaveClass("fixed");
+    });
+
+    it("becomes a full-height right edge panel below the large breakpoint", () => {
+      vi.mocked(useIsLargeViewport).mockReturnValue(false);
+      render(<BoardActivityDrawer {...defaultProps} />);
+      const aside = screen.getByTestId("activity-drawer");
+      expect(aside).toHaveClass("fixed", "inset-y-0", "right-0", "max-w-full");
+      expect(aside).not.toHaveClass("absolute");
+      vi.mocked(useIsLargeViewport).mockReturnValue(true);
     });
   });
 });

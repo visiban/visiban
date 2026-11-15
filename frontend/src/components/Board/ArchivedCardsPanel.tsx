@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, Card, User } from "../../types";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
 import { getArchivedCards } from "../../api/cards";
@@ -16,15 +15,9 @@ interface Props {
   currentUser?: User | null;
   /** Subscribe to the board's card.* socket frames (#2062); returns the unsubscribe. */
   subscribeCardEvents?: (listener: (event: BoardEvent) => void) => () => void;
-  /**
-   * Render only the list (no backdrop, dialog, header or focus trap) so the
-   * Activity drawer's Archived tab can host it (#2274). Loading, restore,
-   * permission and live-update behavior is identical either way.
-   */
-  embedded?: boolean;
 }
 
-export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents, embedded = false }: Props) {
+export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents }: Props) {
   const [loadedCards, setCards] = useState<Card[]>([]);
   const [loadedTotal, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -34,17 +27,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const [loadError, setLoadError] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Escape closes the Archived view either way (parity with the old modal);
-  // embedded in the drawer nothing traps focus or steals it on mount.
+  // Hosted by the Activity drawer's Archived tab (#2274): non-modal, so no focus
+  // trap. Escape still closes it, as the old standalone modal did.
   useEscapeStack(onClose, 30);
-
-  // #1732 — aria-modal panel: trap Tab, restore focus to the opener on close.
-  useFocusTrap(panelRef, !embedded);
-  useEffect(() => {
-    if (!embedded) panelRef.current?.focus();
-  }, [embedded]);
 
   useEffect(() => {
     setLoading(true);
@@ -330,7 +315,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const hasMore = cards.length < total;
 
   const list = (
-    <div className={embedded ? "px-4 py-3" : "flex-1 overflow-y-auto px-5 py-4"}>
+    <div className="px-4 py-3">
       {loading && (
         <div className="flex items-center justify-center py-8 text-fg-tertiary text-sm">Loading…</div>
       )}
@@ -398,46 +383,12 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     </div>
   );
 
-  if (embedded) {
-    return (
+  return (
       <div data-testid="archived-list">
         <p className="px-4 pt-3 text-xs text-fg-tertiary">
-          Archived cards{shownTotal > 0 && ` (${shownTotal})`}
+          Archived cards{shownTotal > 0 && <span className="ml-1">({shownTotal})</span>}
         </p>
         {list}
       </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop — decorative pointer-only dismiss; keyboard parity is Escape + the Close button (#1376) */}
-      <div className="absolute inset-0 bg-backdrop/50" aria-hidden="true" onClick={onClose} />
-
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Archived cards"
-        tabIndex={-1}
-        className="relative w-96 max-w-full h-full bg-surface border-l border-line shadow-xl flex flex-col outline-none"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
-          <h2 className="text-sm font-medium text-fg">
-            Archived cards{shownTotal > 0 && <span className="ml-2 text-fg-tertiary font-normal">({shownTotal})</span>}
-          </h2>
-          <button type="button"
-            onClick={onClose}
-            className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        {list}
-      </div>
-    </div>
   );
 }
