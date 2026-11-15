@@ -393,6 +393,14 @@ describe('the panels', () => {
     expect(within(screen.getByTestId('flow-cumulative')).queryByTestId('cfd-legend')).toBeNull()
   })
 
+  it('gives the three chart legends distinct accessible names (#2284)', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    mockAll({ age: { ...age, sample_size: 1, cards: [cardA, cardB], samples: [at('n1', 2)] } })
+    await renderLoaded()
+    const names = ['Throughput legend', 'Cumulative flow legend', 'WIP aging legend']
+    for (const name of names) expect(screen.getByRole('list', { name })).toBeInTheDocument()
+  })
+
   it('shows the deleted band when it holds cards', async () => {
     mockAll({
       cumulative: {
@@ -1141,6 +1149,23 @@ describe('named chart colors (#2264)', () => {
         onSelect={() => {}}
       />,
     )
+    expect(container.querySelector('[data-legend-tier]')).toBeNull()
+  })
+
+  it('keys the blocked square, with no tier items, under a breakdown (#2284)', () => {
+    const { container } = render(
+      <WipAgeChart
+        data={{
+          ...age,
+          samples: [{ ...age.samples[0], is_blocked: true }],
+          grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: [{ key: 'a', name: 'A', sample_size: 1 }] },
+        } as unknown as FlowWipAge}
+        cards={new Map()}
+        labelledBy="x"
+        onSelect={() => {}}
+      />,
+    )
+    expect(container.querySelector('[data-legend-blocked]')).toHaveTextContent('Blocked card')
     expect(container.querySelector('[data-legend-tier]')).toBeNull()
   })
 
