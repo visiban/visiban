@@ -25,6 +25,7 @@ import { useJoinedToast } from "../components/Common/useJoinedToast";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
 import HealthStatusControl from "../components/Common/HealthStatusControl";
 import { HealthListingPill } from "../components/Common/HealthStatusPill";
+import HealthReviewDaysInput from "../components/Common/HealthReviewDaysInput";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoardModal";
@@ -1048,12 +1049,27 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       health_status_changed_at: updated.health_status_changed_at,
       health_status_changed_by: updated.health_status_changed_by,
       health_status_note: updated.health_status_note,
+      health_review_days: updated.health_review_days,
+      health_review_due_at: updated.health_review_due_at,
     } : prev);
     // Also refetched by this save's own group.updated event; done here as
     // well so the actor's page converges even when the socket is down.
     refreshHealthListings();
     return updated;
   }, [groupId, refreshHealthListings, writeGroup]);
+
+  // #2244: "Review status every N days". Not optimistic: the server resolves
+  // health_review_due_at, and the subgroups and boards that inherit this
+  // group's status get a new due time too, so the listings are refetched.
+  const handleHealthReviewDaysSave = useCallback(async (next: number | null) => {
+    const updated = await updateGroup(groupId, { health_review_days: next });
+    writeGroup((prev) => prev ? {
+      ...prev,
+      health_review_days: updated.health_review_days,
+      health_review_due_at: updated.health_review_due_at,
+    } : prev);
+    refreshHealthListings();
+  }, [groupId, writeGroup, refreshHealthListings]);
   const fetchGroupHealthHistory = useCallback(() => getGroupHealthHistory(groupId), [groupId]);
 
   const adminMembers = members.filter(
@@ -1249,6 +1265,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   health_status_changed_at={group.health_status_changed_at}
                   health_status_changed_by={group.health_status_changed_by}
                   health_status_note={group.health_status_note}
+                  health_review_due_at={group.health_review_due_at}
                   onSave={handleHealthSave}
                   onConfirm={handleHealthSave}
                   fetchHistory={fetchGroupHealthHistory}
@@ -1588,6 +1605,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
             {/* Invite links */}
             <InviteLinkPanel scope={{ kind: "group", id: groupId }} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
+
+            {/* Health status review (#2244) */}
+            <section aria-labelledby="group-health-review-heading">
+              <h2 id="group-health-review-heading" className="text-fg font-semibold mb-1">Health status review</h2>
+              <p className="text-fg-muted text-sm mb-4">Ask for this group&rsquo;s health status to be confirmed or changed regularly.</p>
+              <HealthReviewDaysInput
+                entityKind="group"
+                value={group.health_review_days}
+                onSave={handleHealthReviewDaysSave}
+              />
+            </section>
 
             {/* Board defaults */}
             <section>

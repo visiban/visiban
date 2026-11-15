@@ -8,6 +8,7 @@ import { canDeleteBoard } from "../../utils/canDeleteBoard";
 import { visibleRowChipCount } from "../../utils/swimlaneRowChips";
 import { POPOVER_VIEWPORT_MARGIN, useInputAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
+import HealthReviewDaysInput from "../Common/HealthReviewDaysInput";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
@@ -78,6 +79,12 @@ interface Props {
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+  /**
+   * #2244: merge server-resolved fields from a non-optimistic save (the review
+   * setting's `health_review_due_at` is computed by the server), so the header
+   * cue updates even when the socket is down.
+   */
+  onMergeBoardFields?: (patch: Partial<BoardFull>) => void;
   /** #974 — the current user's personal card-density override for this
    *  board, or null when following the board admin's default. Gated
    *  independently of `viewPrefs`/onToggleHidden* — density override and
@@ -205,7 +212,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -937,6 +944,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   };
 
+  // #2244: not optimistic, because only the server can resolve the new
+  // health_review_due_at (the clock may belong to an ancestor group).
+  const handleHealthReviewDaysSave = async (next: number | null) => {
+    const updated = await patchBoard(board.id, { health_review_days: next });
+    onMergeBoardFields?.({
+      health_review_days: updated.health_review_days,
+      health_review_due_at: updated.health_review_due_at,
+    });
+  };
+
   const handleStalenessWarningPctBlur = async () => {
     const clamped = Math.max(0, Math.min(100, stalenessWarningPct));
     const previous = syncedStalenessWarningPctRef.current;
@@ -1626,6 +1643,22 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   </div>
                 ) : (
                   <p className="text-sm text-fg-secondary">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
+                )}
+              </section>
+
+              {/* #2244 — health review cue, beside the stale-card threshold */}
+              <section aria-labelledby="health-review-heading">
+                <h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Health status review</h3>
+                {isAdmin ? (
+                  <HealthReviewDaysInput
+                    entityKind="board"
+                    value={board.health_review_days}
+                    onSave={handleHealthReviewDaysSave}
+                  />
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    {board.health_review_days === null ? "Off" : `Every ${board.health_review_days} ${board.health_review_days === 1 ? "day" : "days"}`}
+                  </p>
                 )}
               </section>
             </div>

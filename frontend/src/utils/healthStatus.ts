@@ -86,6 +86,46 @@ export function healthSetLine(changedAt: string | null, changedBy: BoardUser | n
   return `Set ${when} by ${healthSetterName(changedBy)}`;
 }
 
+/**
+ * The review-cue fields (#2244). `health_review_due_at` is resolved by the
+ * server from whoever owns the status shown (this entity, or the source group
+ * of an inherited value); the client only compares it with now.
+ */
+export interface HealthReviewFields extends HealthFields {
+  health_review_due_at?: string | null;
+  health_status_changed_at?: string | null;
+}
+
+export interface HealthReviewCue {
+  /** Whole days since the status shown was last set or confirmed. */
+  days: number;
+  /** "Not reviewed in 18 days": the visible cue and its accessible text. */
+  text: string;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The ONLY builder of the "not reviewed" cue (#2244): null while the status is
+ * within its review window, when the setting is off, when no status applies,
+ * or when its change time was never recorded (all of which the server sends as
+ * a null `health_review_due_at`). The age is counted from the entity's own
+ * `health_status_changed_at`, or from `health_status_source.changed_at` when
+ * the value is inherited, so it always matches the "Set … ago" line.
+ */
+export function healthReviewCue(fields: HealthReviewFields, now: number = Date.now()): HealthReviewCue | null {
+  const dueAt = fields.health_review_due_at;
+  if (!dueAt || !fields.effective_health_status) return null;
+  const due = new Date(dueAt).getTime();
+  if (Number.isNaN(due) || now < due) return null;
+  const inherited = fields.health_status === null;
+  const since = inherited ? fields.health_status_source?.changed_at ?? null : fields.health_status_changed_at ?? null;
+  const sinceMs = since ? new Date(since).getTime() : NaN;
+  if (Number.isNaN(sinceMs)) return null;
+  const days = Math.max(1, Math.floor((now - sinceMs) / DAY_MS));
+  return { days, text: `Not reviewed in ${days} ${days === 1 ? "day" : "days"}` };
+}
+
 const TOOLTIP_NOTE_MAX = 120;
 
 /**

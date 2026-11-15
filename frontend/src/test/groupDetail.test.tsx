@@ -148,7 +148,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null,
   id: 1, name: 'Engineering', description: '', owner: fakeUser,
   parent: null, parent_name: null,
   member_count: 2, board_count: 1, subgroup_count: 0, created_at: '',
@@ -1694,6 +1694,18 @@ describe('GroupDetail', () => {
         expect(screen.getByRole('button', { name: 'low' })).toHaveAttribute('aria-pressed', 'false')
       })
       expect(screen.getByRole('button', { name: 'low' })).not.toHaveClass('bg-info/20')
+    })
+
+    it('saves the health review setting and merges the resolved due time (#2244)', async () => {
+      mockUpdateGroup.mockResolvedValue({ ...fakeGroup, health_review_days: 7, health_review_due_at: '2026-12-01T00:00:00Z' })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Health status review')
+      const input = screen.getByLabelText('Review status every')
+      fireEvent.change(input, { target: { value: '7' } })
+      fireEvent.blur(input)
+      await waitFor(() => expect(mockUpdateGroup).toHaveBeenCalledWith(1, { health_review_days: 7 }))
+      await waitFor(() => expect(input).toHaveValue(7))
+      expect(await screen.findByText('Saved')).toBeInTheDocument()
     })
 
     it('toggling a priority button calls updateGroupBoardDefaults', async () => {

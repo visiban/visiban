@@ -88,7 +88,7 @@ const fakeMember2: User = {
 }
 
 const fakeBoard: BoardFull = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,
@@ -3605,3 +3605,28 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
     expect(screen.getByRole('group', { name: 'Your personal density override' })).toHaveAccessibleDescription(/Set by preset “Default”/)
   })
 })
+
+describe('BoardSettingsModal health status review (#2244)', () => {
+  it('admins save the review setting and merge the server-resolved due time', async () => {
+    const user = userEvent.setup()
+    mockPatchBoard.mockResolvedValueOnce({ ...fakeBoard, health_review_days: 10, health_review_due_at: '2026-12-01T00:00:00Z' })
+    const onMerge = vi.fn()
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} onMergeBoardFields={onMerge} />)
+    const input = screen.getByLabelText('Review status every')
+    await user.type(input, '10')
+    await user.tab()
+    await waitFor(() => expect(mockPatchBoard).toHaveBeenCalledWith(fakeBoard.id, { health_review_days: 10 }))
+    await waitFor(() => expect(onMerge).toHaveBeenCalledWith({ health_review_days: 10, health_review_due_at: '2026-12-01T00:00:00Z' }))
+  })
+
+  it('non-admins read the setting', () => {
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
+    expect(screen.getByText('Health status review')).toBeInTheDocument()
+    expect(screen.getByText('Off')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Review status every')).not.toBeInTheDocument()
+    unmount()
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, health_review_days: 5 }} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
+    expect(screen.getByText('Every 5 days')).toBeInTheDocument()
+  })
+})
+

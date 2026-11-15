@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { HEALTH_STATUS_LABELS, type HealthStatus } from "../../constants/healthStatus";
 import {
-  getHealthDisplay, healthCaption, healthStatusAnnouncement, healthTitle,
+  getHealthDisplay, healthCaption, healthReviewCue, healthStatusAnnouncement, healthTitle,
   type HealthAttribution, type HealthEntityKind, type HealthFields,
 } from "../../utils/healthStatus";
 import { formatDateTimeUser, type UserDatePrefs } from "../../utils/date";
 import type { HealthHistory } from "../../types";
-import HealthStatusPill from "./HealthStatusPill";
+import HealthStatusPill, { HealthReviewCueBadge } from "./HealthStatusPill";
 import HealthStatusPopover from "./HealthStatusPopover";
 
 interface Props extends HealthFields, Partial<HealthAttribution> {
@@ -67,6 +67,8 @@ interface Props extends HealthFields, Partial<HealthAttribution> {
    * trigger (set <-> unset) never destroys an open editor and its draft.
    */
   onOpenChange?: (open: boolean) => void;
+  /** #2244: when the status shown is due for review; past it the "Not reviewed" cue shows. Boards and groups only. */
+  health_review_due_at?: string | null;
 }
 
 /** 16px half-filled circle: "a status could go here", in currentColor. */
@@ -95,6 +97,7 @@ export default function HealthStatusControl({
   trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce, onOpenChange,
   health_status, effective_health_status, health_status_source,
   health_status_changed_at = null, health_status_changed_by = null, health_status_note = null,
+  health_review_due_at = null,
 }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
   const fields = { health_status, effective_health_status, health_status_source };
@@ -170,6 +173,12 @@ export default function HealthStatusControl({
       {captionText}
     </span>
   ) : null;
+  // "Not reviewed in N days" (#2244), for every viewer who sees the status.
+  // Lanes have no review clock.
+  const reviewCue = isLane || display.value === "none" ? null : healthReviewCue({
+    ...fields, health_review_due_at, health_status_changed_at,
+  });
+  const reviewBadge = reviewCue ? <HealthReviewCueBadge cue={reviewCue} compact={collapseLabel} /> : null;
   // Always mounted, so a change of its text is announced (frontend/CLAUDE.md § Inline status messages).
   const liveRegion = <span role="status" aria-live="polite" className="sr-only">{announcement}</span>;
 
@@ -220,6 +229,7 @@ export default function HealthStatusControl({
             className={className}
             onClick={openFromTrigger}
           />
+          {reviewBadge}
           {caption}
           {liveRegion}
           {popover(true)}
@@ -238,6 +248,7 @@ export default function HealthStatusControl({
           title={healthTitle(display, "static", attribution, health_status_source, entityKind)}
           className={className}
         />
+        {reviewBadge}
         {caption}
         {liveRegion}
       </>
@@ -281,6 +292,7 @@ export default function HealthStatusControl({
           onClick={toggle}
         />
       )}
+      {reviewBadge}
       {caption}
       {liveRegion}
       {popover(false)}
