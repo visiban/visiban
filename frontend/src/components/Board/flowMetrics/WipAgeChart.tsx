@@ -2,6 +2,8 @@ import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN 
 import { CHART_COLORS, axisTicks, linearScale, neutralTint, niceCeil } from "../../../utils/chartScale";
 import type { FlowAgeSample, FlowCard, FlowWipAge } from "../../../types";
 import { cardGroupColor, markOpacityAttr } from "./breakdown";
+import { WipAgeLegend } from "./FlowLegends";
+import type { AgeTier } from "./FlowLegends";
 import { ageMarkColor, ageMarkLabel, percentileLines } from "./flowFormat";
 
 const COLUMN_LABEL_CHARS = 12;
@@ -68,7 +70,11 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
     });
   };
 
+  // Tier swatches only for tiers with a mark on screen, and none under a breakdown (marks then take group colors).
+  const drawn = new Set(data.samples.map((sample) => ageMarkColor(sample, zones)));
+  const tiers = groups.length > 0 ? [] : (["neutral", "warning", "danger"] as AgeTier[]).filter((tier) => drawn.has(tier));
   return (
+    <>
     <ChartFrame
       labelledBy={labelledBy}
       margin={{ right: REFERENCE_LABEL_MARGIN }}
@@ -148,6 +154,8 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
         ))
       }
     />
+    <WipAgeLegend tiers={tiers} />
+    </>
   );
 }
 
