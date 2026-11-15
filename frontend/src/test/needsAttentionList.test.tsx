@@ -45,18 +45,22 @@ describe('Needs attention (#2263)', () => {
     expect(within(rows[0]).getByLabelText('12 days old')).toBeInTheDocument()
   })
 
-  it('names the block reason after "blocked", truncated with the full line in the title (#2281)', () => {
+  it('names the block reason after "blocked", last, truncated with the full line in the title (#2281)', () => {
     renderIt([
-      item(1, { reasons: ['blocked', 'past_p85'], block_reason: 'waiting on security review' }),
-      item(2, { reasons: ['blocked'], block_reason: null }),
+      item(1, { reasons: ['blocked', 'past_p85'], block_reason: 'waiting on legal, security' }),
+      item(2, { reasons: ['blocked', 'past_p85'], block_reason: null }),
+      item(3, { reasons: ['blocked'], block_reason: 'waiting on security review' }),
     ])
     const rows = screen.getAllByRole('listitem')
-    const line = within(rows[0]).getByText('Review · Mobile · blocked: waiting on security review, past 19 days')
+    // Free text goes last, so a long one cannot truncate the fixed reasons out of view.
+    const line = within(rows[0]).getByText('Review · Mobile · past 19 days, blocked: waiting on legal, security')
     expect(line).toHaveClass('truncate')
-    expect(line).toHaveAttribute('title', 'Review · Mobile · blocked: waiting on security review, past 19 days')
-    // No reason text (a relation block, or a block with none): the bare word, no dangling colon.
-    expect(rows[1]).toHaveTextContent('Review · Mobile · blocked')
+    expect(line).toHaveAttribute('title', 'Review · Mobile · past 19 days, blocked: waiting on legal, security')
+    // No reason text (a relation block, or a block with none): the bare word, in the service's order.
+    expect(rows[1]).toHaveTextContent('Review · Mobile · blocked, past 19 days')
     expect(rows[1]).not.toHaveTextContent('blocked:')
+    // The spec's row.
+    expect(rows[2]).toHaveTextContent('Review · Mobile · blocked: waiting on security review')
   })
 
   it('renders a block reason as text, never as markup (#2281)', () => {
