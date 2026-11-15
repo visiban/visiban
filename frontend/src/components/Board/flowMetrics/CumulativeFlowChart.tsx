@@ -21,15 +21,22 @@ interface Props {
 /**
  * One-hue alpha bands, 1px separators and direct labels; the bottleneck band is
  * hatched in the warning color and Done is neutral (#2264). Finished work sits at the bottom, so the top edge is arrivals and the
- * done band's top edge is departures: the gap between them is work in progress.
+ * done band's top edge is departures: the gap between them is work in progress. The deleted-columns band sits directly above
+ * Done, never under it (#2289): its cards are unplaceable, and putting it below Done would add them to the departures line.
  */
 export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: Props) {
   const hatchId = `cfd-hatch-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const { days } = data;
-  // Bottom of the stack first. The deleted band is shown only when it holds cards.
-  const bands = [...data.columns]
+  // Bottom of the stack first: Done, then the deleted band, then the other columns (#2289). The server sends board
+  // order with the deleted band last, so a plain reverse would put it under Done. The deleted band is shown only when it holds cards.
+  const shown = [...data.columns]
     .reverse()
     .filter((column) => column.column_uid !== null || days.some((day) => (day.counts[bandKey(column)] ?? 0) > 0));
+  const bands = [
+    ...shown.filter((column) => column.is_done),
+    ...shown.filter((column) => !column.is_done && column.column_uid === null),
+    ...shown.filter((column) => !column.is_done && column.column_uid !== null),
+  ];
   const totals = days.map((day) => bands.reduce((sum, band) => sum + (day.counts[bandKey(band)] ?? 0), 0));
   const top = niceCeil(Math.max(1, ...totals));
   const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, days.length - 1)], [x0, x1]);
@@ -69,7 +76,7 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
           }
           const alpha = 0.6 - (0.45 * bandIndex) / Math.max(1, bands.length - 1);
           return (
-            <g key={key} data-band={key}>
+            <g key={key} data-band={key} data-top-count={lastUpper}>
               <polygon
                 points={[...upper, ...[...lower].reverse()].join(" ")}
                 fill={isBottleneck ? `url(#${hatchId})` : (band.is_done ? neutralTint : chartTint)(Number(alpha.toFixed(2)))}
@@ -98,17 +105,22 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
       }}
       hits={(geometry) => {
         const x = xScale(geometry.x0, geometry.x1);
-        const width = (geometry.x1 - geometry.x0) / Math.max(1, days.length);
-        return days.map((day, index) => (
+        // Points sit (n - 1) gaps apart, so each hit area is one gap wide, centered on its point and clipped to the plot.
+        const width = (geometry.x1 - geometry.x0) / Math.max(1, days.length - 1);
+        return days.map((day, index) => {
+          const left = days.length === 1 ? geometry.x0 : Math.max(geometry.x0, x(index) - width / 2);
+          const right = days.length === 1 ? geometry.x1 : Math.min(geometry.x1, x(index) + width / 2);
+          return (
           <ChartBandHit
             key={day.date}
-            x={x(index) - width / 2}
-            width={width}
+            x={left}
+            width={right - left}
             geometry={geometry}
             label={`${formatDate(day.date)}: ${totals[index]} ${totals[index] === 1 ? "card" : "cards"}`}
             onSelect={() => onSelectDay(day.date)}
           />
-        ));
+          );
+        });
       }}
     />
     {hasBottleneck && <CumulativeFlowLegend />}

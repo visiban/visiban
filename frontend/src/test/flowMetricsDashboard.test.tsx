@@ -415,6 +415,54 @@ describe('the panels', () => {
     expect(within(screen.getByTestId('flow-cumulative')).getByRole('img')).toHaveTextContent('Deleted columns')
   })
 
+  it('stacks Done at the bottom with the deleted band above it, so Done tops out at departures (#2289)', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        // Server order: board order with the deleted band last.
+        columns: [
+          ...cumulative.columns.filter((c) => c.column_uid !== null),
+          cumulative.columns.find((c) => c.column_uid === null)!,
+        ],
+        days: [
+          { date: '2026-06-01', counts: { 'col-doing': 2, 'col-done': 4, null: 3 } },
+          { date: '2026-06-02', counts: { 'col-doing': 2, 'col-done': 5, null: 3 } },
+        ],
+        bottleneck_column_uid: null,
+      },
+    })
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-cumulative')
+    const order = Array.from(panel.querySelectorAll('[data-band]')).map((g) => g.getAttribute('data-band'))
+    expect(order.indexOf('col-done')).toBe(0)
+    expect(order.indexOf('null')).toBe(1)
+    const top = (key: string) => Number(Array.from(panel.querySelectorAll('[data-band]')).find((g) => g.getAttribute('data-band') === key)?.getAttribute('data-top-count'))
+    expect(top('col-done')).toBe(5)
+    expect(top('null')).toBe(8)
+    expect(top('col-doing')).toBe(10)
+  })
+
+  it('keeps each day hit area one gap wide and inside the plot (#2289)', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        days: [
+          { date: '2026-06-01', counts: { 'col-doing': 1, 'col-done': 0, null: 0 } },
+          { date: '2026-06-02', counts: { 'col-doing': 1, 'col-done': 1, null: 0 } },
+          { date: '2026-06-03', counts: { 'col-doing': 1, 'col-done': 2, null: 0 } },
+        ],
+      },
+    })
+    await renderLoaded()
+    const hits = within(screen.getByTestId('flow-cumulative')).getAllByRole('button', { name: /card/ })
+    const rects = hits.map((h) => h.querySelector('rect') as SVGRectElement)
+    const [a, b, c] = rects.map((r) => ({ x: Number(r.getAttribute('x')), w: Number(r.getAttribute('width')) }))
+    expect(a.w).toBeCloseTo(b.w / 2, 3)
+    expect(c.w).toBeCloseTo(b.w / 2, 3)
+    expect(a.x + a.w).toBeCloseTo(b.x, 3)
+    expect(b.x + b.w).toBeCloseTo(c.x, 3)
+  })
+
   it('squares blocked cards, rings cards past P85, and names them in column order', async () => {
     await renderLoaded()
     const panel = screen.getByTestId('flow-wip-age')
