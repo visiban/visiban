@@ -128,6 +128,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
   // onAddCard is an inline closure upstream, so read it through a ref to keep `laneItems` stable.
   const onAddCardRef = useRef(onAddCard);
   onAddCardRef.current = onAddCard;
+  // Keyed on lane content, not array identity: a board reload hands down fresh lane objects with
+  // the same content, and a new `items` identity would yank focus back to the first menu item.
+  const lanesKey = JSON.stringify(addCardLanes ?? []);
   const laneItems = useMemo<OverflowItem[]>(
     () => (addCardLanes ?? []).map((lane, i) => ({
       id: String(lane.id),
@@ -136,7 +139,8 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
       separatorBefore: i > 0,
       onSelect: () => onAddCardRef.current?.(lane.id),
     })),
-    [addCardLanes],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lanesKey is the serialized content of addCardLanes
+    [lanesKey],
   );
   const kebabItems = useMemo<OverflowItem[]>(
     () => [

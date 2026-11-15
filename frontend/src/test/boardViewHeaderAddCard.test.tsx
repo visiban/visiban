@@ -2,9 +2,9 @@
  * BoardView wiring for the column-header add-card button (#2270, #2317): one lane adds directly,
  * several lanes ask which one, and a collapsed lane is expanded first.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ADD_CARD_EVENT } from '../utils/addCardEvent'
 import BoardView from '../components/Board/BoardView'
@@ -81,10 +81,18 @@ vi.mock('../components/Board/AnalyticsView', () => ({
 }))
 // SwimlaneRow double: one cell per column, exposing the same data attributes as BoardCell and
 // recording the add-card request the header sends (#2317). A collapsed lane renders no cells.
+// `lateCells.on` makes a lane mount its cells one commit after it expands, to exercise the
+// requestAnimationFrame fallback in BoardView's pending add-card effect.
+const lateCells = vi.hoisted(() => ({ on: false }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, columns, collapsed }: { swimlane: { id: number; name: string }; columns: { id: number }[]; collapsed: boolean }) => (
+  default: function SwimlaneRowDouble({ swimlane, columns, collapsed }: { swimlane: { id: number; name: string }; columns: { id: number }[]; collapsed: boolean }) {
+    // While collapsed, arm the delay; on expand the effect below flips it one commit after the
+    // parent's effect has already looked for the cells.
+    const [ready, setReady] = React.useState(true)
+    React.useEffect(() => { setReady(!collapsed || !lateCells.on) }, [collapsed])
+    return (
     <div data-testid={`swim-${swimlane.id}`}>
-      {!collapsed && columns.map((c) => (
+      {!collapsed && ready && columns.map((c) => (
         <div
           key={c.id}
           data-board-cell
@@ -100,7 +108,8 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
         />
       ))}
     </div>
-  ),
+    )
+  },
 }))
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card }: { card: { title: string } }) => <div>{card.title}</div>,
@@ -328,6 +337,57 @@ describe('BoardView — column-header add card (#2317)', () => {
     } finally {
       Object.defineProperty(window, 'innerWidth', { value: prev, configurable: true })
     }
+  })
+
+  describe('lane cells that mount a frame late', () => {
+    afterEach(() => { lateCells.on = false; vi.restoreAllMocks() })
+
+    function collapsedLaneBoard() {
+      setBoard([LANES[0], { ...LANES[1], is_collapsed: true }])
+      localStorage.setItem('board:1:view-prefs', JSON.stringify({ collapsedSwimlaneIds: [21] }))
+    }
+
+    it('retries on the next animation frame, then opens the input', async () => {
+      collapsedLaneBoard()
+      lateCells.on = true
+      render(<BoardView />)
+      const frames: FrameRequestCallback[] = []
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+      await userEvent.click(screen.getByTestId('column-add-card'))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Mobile (collapsed)' }))
+      await screen.findByTestId('cell-21-10')
+      expect(frames.length).toBeGreaterThan(0)
+      expect(screen.getByTestId('cell-21-10')).not.toHaveAttribute('data-adding')
+      act(() => { frames.forEach((cb) => cb(0)) })
+      expect(screen.getByTestId('cell-21-10')).toHaveAttribute('data-adding', 'true')
+    })
+
+    it('cancels the pending frame when the board unmounts first', async () => {
+      collapsedLaneBoard()
+      lateCells.on = true
+      const view = render(<BoardView />)
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 4242)
+      const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+      await userEvent.click(screen.getByTestId('column-add-card'))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Mobile (collapsed)' }))
+      await screen.findByTestId('cell-21-10')
+      view.unmount()
+      expect(cancel).toHaveBeenCalledWith(4242)
+    })
+  })
+
+  it('keeps arrow-key focus in the lane menu when the board reloads with new swimlane objects', async () => {
+    setBoard(LANES)
+    const { rerender } = render(<BoardView />)
+    await userEvent.click(screen.getByTestId('column-add-card'))
+    await userEvent.keyboard('{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Mobile' })).toHaveFocus()
+    // A WebSocket update replaces board.swimlanes with equal-content copies.
+    setBoard(LANES.map((l) => ({ ...l })))
+    rerender(<BoardView />)
+    // The menu's focus-first-item effect runs on a 0ms timer; let it fire before asserting.
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    expect(screen.getByRole('menuitem', { name: 'Mobile' })).toHaveFocus()
   })
 
   it('no + for a column that disallows card creation', () => {
