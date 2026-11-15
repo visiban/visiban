@@ -745,7 +745,8 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
   "items": [
     {
       "card_uid": "3a9f1c2d7e4b8a05", "column_uid": "col0000001", "swimlane_id": 3,
-      "age_days": 15.4, "unmoved_days": 9.2, "reasons": ["blocked", "past_p85", "stalled"]
+      "age_days": 15.4, "unmoved_days": 9.2, "reasons": ["blocked", "past_p85", "stalled"],
+      "block_reason": "waiting on security review"
     }
   ],
   "cards": []
@@ -753,6 +754,7 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
 ```
 
 - Each card not archived and not in a done column appears once, with every reason that applies, in this order: `blocked` (manually or by a relation), `past_p85` (in progress, and its age is greater than `cycle_time_percentiles.p85`; never when that is `null`), `stalled` (its last movement of any kind is more than `stalled_threshold_days` ago, the board's `staleness_threshold_days`).
+- `block_reason` (*added in 1.3, #2281*) is the text of the card's manual block, trimmed of surrounding whitespace, when `reasons` includes `blocked`. It is `null` when the card is not blocked, when it is blocked only by a relation (which has no text), and when its block has no reason or only whitespace; it is never an empty string. It is free text a board member wrote, so render it as text, never as HTML.
 - `age_days` is `null` for a card that is not in progress, such as one that has not left its first column or has incomplete history. `unmoved_days` is `null` for a card with no movement.
 - Items run oldest first by `age_days`, then by `unmoved_days`, `null` last in both, then by card.
 

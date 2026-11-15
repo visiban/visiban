@@ -2148,6 +2148,11 @@ export interface FlowAttentionItem {
   unmoved_days: number | null;
   /** Never empty, in the order blocked, past_p85, stalled. */
   reasons: FlowAttentionReason[];
+  /**
+   * The manual block's free text, trimmed, when `reasons` includes "blocked" (#2281).
+   * Null when not blocked, blocked only by a relation, or the block has no text; never "".
+   */
+  block_reason: string | null;
 }
 
 export interface FlowAttention {

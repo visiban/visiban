@@ -99,7 +99,7 @@ const attention = {
   definition: 'blocked, past the 85th percentile, or stalled.',
   stalled_threshold_days: 7,
   cycle_time_percentiles: { p50: 4.2, p85: 8.1, p95: 12.6 },
-  items: [{ card_uid: cards[5].uid, column_uid: 'col-doing', swimlane_id: BOARD_FULL.swimlanes[0].id, age_days: 12, unmoved_days: 9, reasons: ['stalled'] }],
+  items: [{ card_uid: cards[5].uid, column_uid: 'col-doing', swimlane_id: BOARD_FULL.swimlanes[0].id, age_days: 12, unmoved_days: 9, reasons: ['stalled'], block_reason: null }],
   cards: [cards[5]],
 }
 

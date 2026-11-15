@@ -17,11 +17,20 @@ interface Props {
 
 const days = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "day" : "days"}`;
 
-/** The reason line: every reason the card qualifies for, in the service's order. */
+/**
+ * The reason line: every reason the card qualifies for, in the service's order, except that
+ * a block with text goes last (#2281). The text is free (up to 500 characters, commas and all),
+ * so ahead of the short fixed reasons it would truncate them out of view and blur where it ends.
+ * It is only ever rendered as a text node; the row's `truncate` plus `title` carry a long one,
+ * and the card detail shows it in full. The backend trims it and sends null, never "", for none.
+ */
 function reasonText(item: FlowAttentionItem, p85: number | null, stalledDays: number | null): string {
-  return item.reasons
+  const reasons = item.block_reason
+    ? [...item.reasons.filter((r) => r !== "blocked"), ...item.reasons.filter((r) => r === "blocked")]
+    : item.reasons;
+  return reasons
     .map((r) => {
-      if (r === "blocked") return "blocked";
+      if (r === "blocked") return item.block_reason ? `blocked: ${item.block_reason}` : "blocked";
       if (r === "past_p85") return p85 !== null ? `past ${days(p85)}` : "past the 85th percentile";
       return stalledDays !== null ? `no movement for ${days(stalledDays)}` : "no movement";
     })

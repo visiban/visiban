@@ -8,7 +8,7 @@ const swimlanes = [{ id: 1, name: 'Mobile' }, { id: 2, name: 'Platform' }]
 const columns = [{ uid: 'c-review', name: 'Review' }, { uid: 'c-doing', name: 'In progress' }]
 
 const item = (n: number, over: Partial<FlowAttentionItem> = {}): FlowAttentionItem => ({
-  card_uid: `uid-${n}`, column_uid: 'c-review', swimlane_id: 1, age_days: n, unmoved_days: null, reasons: ['past_p85'], ...over,
+  card_uid: `uid-${n}`, column_uid: 'c-review', swimlane_id: 1, age_days: n, unmoved_days: null, reasons: ['past_p85'], block_reason: null, ...over,
 })
 const payload = (items: FlowAttentionItem[]): FlowAttention => ({
   definition: 'd',
@@ -43,6 +43,30 @@ describe('Needs attention (#2263)', () => {
     expect(rows[2]).toHaveTextContent('9d')
     expect(within(rows[2]).getByLabelText('9 days without movement')).toBeInTheDocument()
     expect(within(rows[0]).getByLabelText('12 days old')).toBeInTheDocument()
+  })
+
+  it('names the block reason after "blocked", last, truncated with the full line in the title (#2281)', () => {
+    renderIt([
+      item(1, { reasons: ['blocked', 'past_p85'], block_reason: 'waiting on legal, security' }),
+      item(2, { reasons: ['blocked', 'past_p85'], block_reason: null }),
+      item(3, { reasons: ['blocked'], block_reason: 'waiting on security review' }),
+    ])
+    const rows = screen.getAllByRole('listitem')
+    // Free text goes last, so a long one cannot truncate the fixed reasons out of view.
+    const line = within(rows[0]).getByText('Review · Mobile · past 19 days, blocked: waiting on legal, security')
+    expect(line).toHaveClass('truncate')
+    expect(line).toHaveAttribute('title', 'Review · Mobile · past 19 days, blocked: waiting on legal, security')
+    // No reason text (a relation block, or a block with none): the bare word, in the service's order.
+    expect(rows[1]).toHaveTextContent('Review · Mobile · blocked, past 19 days')
+    expect(rows[1]).not.toHaveTextContent('blocked:')
+    // The spec's row.
+    expect(rows[2]).toHaveTextContent('Review · Mobile · blocked: waiting on security review')
+  })
+
+  it('renders a block reason as text, never as markup (#2281)', () => {
+    const { container } = renderIt([item(1, { reasons: ['blocked'], block_reason: '<img src=x onerror=alert(1)>' })])
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByRole('listitem')).toHaveTextContent('blocked: <img src=x onerror=alert(1)>')
   })
 
   it('colors age danger past the 85th percentile and warning otherwise', () => {
