@@ -247,7 +247,7 @@ Columns, swimlanes, new card labels and a [group's shared labels](groups.md#grou
 
 ## Cards
 
-Cards are compact tiles with a full colored border indicating priority. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense — see [Card density](#card-density) below). The colored border carries priority, except at Comfortable density, where an overdue card takes the red (danger) border and a due-soon card the amber (warning) border; a manual block is red at every density. The Compact card layout is never tinted. When urgency owns the border, priority is read from the card's accessible name and the peek. The assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.
+Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the bottom-right. Under the **Classic** [preset](#board-presets), cards keep their earlier colored priority border and urgency badge.
 
 ### Card density
 
@@ -261,7 +261,11 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 | **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count | 5 |
 | **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge | 8 |
 
-**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a *replacement* at lower densities, not an addition. The flag and stopwatch icons appear under the **Default** [board preset](#board-presets); with **Classic** or no preset the badge keeps its earlier ⚑ / ⏱ text symbols and the dense due date stays plain colored text.
+**Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under **Classic** or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.
+
+### Show chips
+
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -309,7 +313,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Rich text with a toolbar (bold, italic, code, lists, heading, blockquote); stored as markdown. See [Card Descriptions](card-descriptions.md). |
-| Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border (except overdue/due-soon cards at Comfortable, which take the urgency hue) and a filled badge on the card face (low is unmarked) |
+| Priority | `low` / `medium` / `high` / `urgent`; shown as a colored border and a filled badge on the card face under the Classic preset, and otherwise read from the card's accessible name and the peek (only overdue cards have a colored border; Dense shows an explicit badge) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
 | Due date | Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red |

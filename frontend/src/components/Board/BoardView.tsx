@@ -101,6 +101,8 @@ import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId
 import { buildGridOverlayState } from "../../gridOverlays/slot";
 import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../utils/filterCards";
+import { parseShowChip, showChipCardIds, showChipCounts, type ShowChipKey } from "../../utils/showChips";
+import ShowChips from "./ShowChips";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -2032,20 +2034,40 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   effectiveFiltersRef.current = effectiveFilters;
 
+  // Show chips (#2272): a quick view in the URL (`?show=`), deliberately not in
+  // the persisted or saved filter state. It narrows the Filter panel's result
+  // further, so both apply; column and lane counts keep reading the whole board.
+  const showChip = parseShowChip(searchParams.get("show"));
+  const setShowChip = useCallback((next: ShowChipKey) => {
+    setSearchParams((prev) => {
+      if (next === "all") prev.delete("show");
+      else prev.set("show", next);
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
+  const showChipCountsValue = useMemo(
+    () => showChipCounts(board.cards, board.columns),
+    // todayStr: the clock read that moves the overdue boundary at local midnight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- todayStr is a re-compute trigger, not an input
+    [board.cards, board.columns, todayStr],
+  );
+
   const filteredCardIds: Set<number> | null = useMemo(() => {
     const filters = effectiveFilters;
     const clientFiltersActive = hasActiveClientFilters(filters);
 
-    if (!clientFiltersActive && searchMatchIds === null) return null;
-
-    if (!clientFiltersActive && searchMatchIds !== null) {
-      // Only server search is active — return its result directly as a Set.
-      return searchMatchIds;
-    }
-
+    let base: Set<number> | null;
+    if (!clientFiltersActive && searchMatchIds === null) base = null;
+    // Only server search is active — use its result directly as a Set.
+    else if (!clientFiltersActive && searchMatchIds !== null) base = searchMatchIds;
     // filterCards handles the server search intersection via its searchResults param.
-    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
-  }, [effectiveFilters, searchMatchIds, board.cards, todayStr, board.custom_field_definitions]);
+    else base = new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
+
+    if (showChip === "all") return base;
+    const chipIds = showChipCardIds(board.cards, board.columns, showChip);
+    if (base === null) return chipIds;
+    return new Set([...chipIds].filter((id) => base.has(id)));
+  }, [effectiveFilters, searchMatchIds, board.cards, board.columns, todayStr, board.custom_field_definitions, showChip]);
 
   /**
    * #1147 — the active overlay's per-cell values for the whole grid, built once per
@@ -2929,6 +2951,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{dndAnnouncement}</div>
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{overlayAnnouncement}</div>
+
+      {board.columns.length > 0 && (
+        <ShowChips
+          active={showChip}
+          counts={showChipCountsValue}
+          onChange={setShowChip}
+          columnCount={board.columns.length}
+          laneCount={board.swimlanes.length}
+          cardCount={showChipCountsValue.all}
+        />
+      )}
 
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
