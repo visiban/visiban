@@ -69,14 +69,14 @@ export default function AnalyticsView({
   const { filters, setFilters } = useAnalyticsFilters();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState<"overview" | "swimlanes">("overview");
+  // The title row names the period of the numbers on screen, not the live selection (it lags during a refetch).
+  const [fetchedFilters, setFetchedFilters] = useState<FlowFilters | null>(null);
   // One update: the Overview mounts already filtered to the lane, never unfiltered first.
   const openSwimlane = useCallback((swimlaneId: number) => {
     setFilters((f) => ({ ...f, swimlaneId }));
     setFetchedFilters(null);
     setView("overview");
   }, [setFilters]);
-  // The title row names the period of the numbers on screen, not the live selection (it lags during a refetch).
-  const [fetchedFilters, setFetchedFilters] = useState<FlowFilters | null>(null);
   return (
     <div className="flex-1 overflow-y-auto bg-sunken" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">

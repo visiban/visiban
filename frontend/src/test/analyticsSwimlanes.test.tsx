@@ -77,7 +77,7 @@ describe('Swimlanes view', () => {
   it('renders slower, in line, faster and small-sample rows by the spec rules', async () => {
     await openSwimlanes()
     const rows = screen.getAllByTestId('swimlane-row')
-    const byName = (n: string) => rows.find((r) => within(r).queryByRole('button', { name: new RegExp(`^${n},`) }))!
+    const byName = (n: string) => rows.find((r) => within(r).queryByRole('button', { name: `${n}, open in Overview` }))!
     const platform = byName('Platform')
     expect(platform).toHaveTextContent('Slower than the board')
     expect(platform).toHaveTextContent('14.5 days median · 85% within 24 days')
