@@ -1045,6 +1045,20 @@ export interface Board {
   health_status_changed_at: string | null;
   health_status_changed_by: BoardUser | null;
   health_status_note: string | null;
+  /**
+   * #2244 — "review status every N days" (1-365), or null for off. Writable
+   * by whoever may change this entity's settings.
+   */
+  health_review_days: number | null;
+  /**
+   * #2244 — when the status shown is due for review: the owner's
+   * `health_status_changed_at` plus the owner's `health_review_days` (the
+   * owner is this entity when it sets its own value, else the
+   * `health_status_source` group). Null when off, unset, or never recorded.
+   * A fixed time, so a long-open page stays correct; render with
+   * `healthReviewCue`.
+   */
+  health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Board admins write it with `patchBoard`. */
   default_preset: BoardPresetId | null;
 }
@@ -1181,6 +1195,20 @@ export interface BoardFull {
   health_status_changed_at: string | null;
   health_status_changed_by: BoardUser | null;
   health_status_note: string | null;
+  /**
+   * #2244 — "review status every N days" (1-365), or null for off. Writable
+   * by whoever may change this entity's settings.
+   */
+  health_review_days: number | null;
+  /**
+   * #2244 — when the status shown is due for review: the owner's
+   * `health_status_changed_at` plus the owner's `health_review_days` (the
+   * owner is this entity when it sets its own value, else the
+   * `health_status_source` group). Null when off, unset, or never recorded.
+   * A fixed time, so a long-open page stays correct; render with
+   * `healthReviewCue`.
+   */
+  health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Read-only here (written with `patchBoard`). */
   default_preset: BoardPresetId | null;
 
@@ -1264,6 +1292,20 @@ export interface Group {
   health_status_changed_at: string | null;
   health_status_changed_by: BoardUser | null;
   health_status_note: string | null;
+  /**
+   * #2244 — "review status every N days" (1-365), or null for off. Writable
+   * by whoever may change this entity's settings.
+   */
+  health_review_days: number | null;
+  /**
+   * #2244 — when the status shown is due for review: the owner's
+   * `health_status_changed_at` plus the owner's `health_review_days` (the
+   * owner is this entity when it sets its own value, else the
+   * `health_status_source` group). Null when off, unset, or never recorded.
+   * A fixed time, so a long-open page stays correct; render with
+   * `healthReviewCue`.
+   */
+  health_review_due_at: string | null;
   // Only present on the retrieve endpoint (GroupDetailSerializer); absent on list.
   ancestors?: { id: number; name: string }[];
 }

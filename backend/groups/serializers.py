@@ -14,7 +14,7 @@ from .models import (
     _GROUP_TRAVERSAL_MAX_DEPTH, user_has_group_access,
     user_is_group_admin,
 )
-from .health import HealthStatus, build_health_map, resolve_health, valid_health_status
+from .health import HealthStatus, build_health_map, resolve_health, resolve_review_due_at, valid_health_status
 
 # Schema for the root-first ancestor breadcrumb returned by
 # GroupDetailSerializer.get_ancestors (#1119) — a plain list-of-``{id, name}`` dict, not
@@ -243,6 +243,25 @@ _HEALTH_NOTE_HELP = (
 #: The three read-only last-change fields (#2242), for Meta.fields lists.
 HEALTH_HISTORY_FIELDS = ["health_status_changed_at", "health_status_changed_by", "health_status_note"]
 
+#: The review-cue fields (#2244), for Meta.fields lists.
+HEALTH_REVIEW_FIELDS = ["health_review_days", "health_review_due_at"]
+HEALTH_REVIEW_DAYS_MAX = 365
+HEALTH_REVIEW_DAYS_HELP = (
+    "Review this entity's own health status every N days (#2244), 1-365, or "
+    "null for off (the default). Once the status is older than N days since it "
+    "was last set or reconfirmed, it is shown as not reviewed. Written by "
+    "whoever may change the entity's settings."
+)
+_HEALTH_REVIEW_DUE_AT_HELP = (
+    "When the status shown is due for review (#2244): the owner's "
+    "health_status_changed_at plus the owner's health_review_days, where the "
+    "owner is this entity when it sets its own value and the "
+    "health_status_source group when the value is inherited. Null when the "
+    "owner's setting is off, there is no status, or its change time was never "
+    "recorded. Past this time the status is not reviewed; a reconfirm "
+    "(POST .../health-status/ with the same value) moves it forward."
+)
+
 
 class HealthStatusSourceSerializer(serializers.Serializer):
     """Schema of ``health_status_source`` (#1133): the ancestor group supplying the value."""
@@ -302,6 +321,13 @@ class HealthStatusFieldsMixin(serializers.Serializer):
     health_status_note = serializers.CharField(
         read_only=True, allow_null=True, help_text=_HEALTH_NOTE_HELP,
     )
+    # #2244. Validated here, at the boundary; the model column is a plain
+    # nullable smallint.
+    health_review_days = serializers.IntegerField(
+        min_value=1, max_value=HEALTH_REVIEW_DAYS_MAX, allow_null=True, required=False,
+        help_text=HEALTH_REVIEW_DAYS_HELP,
+    )
+    health_review_due_at = serializers.SerializerMethodField(help_text=_HEALTH_REVIEW_DUE_AT_HELP)
 
     def _health_start(self, obj):  # pragma: no cover - abstract
         raise NotImplementedError
@@ -318,13 +344,22 @@ class HealthStatusFieldsMixin(serializers.Serializer):
         # by the inputs, not just the pk, so a row re-serialized after a write
         # in the same request is never answered from a stale entry.
         start = self._health_start(obj)
-        key = (obj.pk, obj.health_status, start[1])
+        key = (
+            obj.pk, obj.health_status, start[1],
+            getattr(obj, "health_status_changed_at", None), getattr(obj, "health_review_days", None),
+        )
         cache = self.__dict__.setdefault("_health_cache", {})
         if key not in cache:
             health_map = self.__dict__.get("_health_map")
             if health_map is None:
                 health_map = {} if valid_health_status(obj.health_status) else build_health_map([start])
-            cache[key] = resolve_health(obj.health_status, start[1], health_map)
+            effective, source = resolve_health(obj.health_status, start[1], health_map)
+            # Same map, same walk: the review clock costs no query (#2244).
+            due_at = resolve_review_due_at(
+                obj.health_status, getattr(obj, "health_status_changed_at", None),
+                getattr(obj, "health_review_days", None), start[1], health_map,
+            )
+            cache[key] = (effective, source, due_at)
         return cache[key]
 
     @extend_schema_field(serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True))
@@ -334,6 +369,12 @@ class HealthStatusFieldsMixin(serializers.Serializer):
     @extend_schema_field(HealthStatusSourceSerializer(allow_null=True))
     def get_health_status_source(self, obj):
         return self._health(obj)[1]
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_health_review_due_at(self, obj):
+        due_at = self._health(obj)[2]
+        # Rendered like the model DateTimeFields beside it.
+        return None if due_at is None else serializers.DateTimeField().to_representation(due_at)
 
 
 def full_group_access(group):
@@ -483,7 +524,7 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "default_board_member_role", "allowed_priorities", "shared_labels",
             "is_starred", "navigation_only", "can_place_boards",
             "health_status", "effective_health_status", "health_status_source",
-            *HEALTH_HISTORY_FIELDS,
+            *HEALTH_HISTORY_FIELDS, *HEALTH_REVIEW_FIELDS,
         ]
         read_only_fields = [
             "owner", "created_at", "shared_labels", "is_starred", "navigation_only",
@@ -539,6 +580,10 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         "health_status_changed_at": None,
         "health_status_changed_by": None,
         "health_status_note": None,
+        # #2244: the review setting is the group's own configuration too, and
+        # the due time would disclose its status age.
+        "health_review_days": None,
+        "health_review_due_at": None,
     }
 
     def _is_navigation_only(self, obj) -> bool:

@@ -28,7 +28,7 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # does, but lazily, inside its methods).
 from groups.health import HealthStatus
 from groups.serializers import (
-    HEALTH_HISTORY_FIELDS, HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
+    HEALTH_HISTORY_FIELDS, HEALTH_REVIEW_DAYS_HELP, HEALTH_REVIEW_FIELDS, HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
 )
 
 from .broadcast import (
@@ -3704,7 +3704,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4101,6 +4101,11 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         help_text=HEALTH_STATUS_HELP,
     )
     # Read-only here like every field of /full/; written through
+    # PATCH /boards/{id}/ (BoardSerializer). Overrides the mixin's writable one.
+    health_review_days = serializers.IntegerField(
+        read_only=True, allow_null=True, help_text=HEALTH_REVIEW_DAYS_HELP,
+    )
+    # Read-only here like every field of /full/; written through
     # PATCH /boards/{id}/ (BoardSerializer).
     default_preset = serializers.ChoiceField(
         choices=BoardPresetId.choices, allow_null=True, read_only=True,
@@ -4118,6 +4123,8 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "health_status", "effective_health_status", "health_status_source",
             *HEALTH_HISTORY_FIELDS,
             "default_preset",
+            # Additive (#2244): the review cue.
+            *HEALTH_REVIEW_FIELDS,
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.

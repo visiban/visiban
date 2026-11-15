@@ -22,7 +22,7 @@ afterEach(() => { vi.useRealTimers() })
 
 const own = (v: HealthStatus, extra: Record<string, unknown> = {}) => ({
   health_status: v, effective_health_status: v, health_status_source: null,
-  health_status_changed_at: daysAgo(3), health_status_changed_by: PRIYA, health_status_note: null, ...extra,
+  health_status_changed_at: daysAgo(3), health_status_changed_by: PRIYA, health_status_note: null, health_review_days: null, health_review_due_at: null, ...extra,
 })
 
 function renderControl(props: Partial<React.ComponentProps<typeof HealthStatusControl>> = {}) {

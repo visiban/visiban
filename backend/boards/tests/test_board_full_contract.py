@@ -363,6 +363,9 @@ _BOARD_FULL_SPEC = {
     "health_status_source": _FieldSpec((dict,), nullable=True),
     # #1146: null = no board default.
     "default_preset": _FieldSpec((str,), nullable=True, enum=_DEFAULT_PRESET_ENUM),
+    # #2244: null = review cue off / nothing to review.
+    "health_review_days": _FieldSpec((int,), nullable=True),
+    "health_review_due_at": _FieldSpec((str,), nullable=True),
 }
 
 

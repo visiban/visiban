@@ -248,6 +248,12 @@ class Board(models.Model):
         related_name="+", db_index=False,
     )
     health_status_note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
+    # "Review status every N days" (#2244): null = off (the default). Past
+    # health_status_changed_at + N days the status is shown as not reviewed;
+    # a reconfirm (POST .../health-status/ with the same value) resets the
+    # clock. Range 1..365 is enforced by the serializer. No index: nothing
+    # filters on it.
+    health_review_days = models.PositiveSmallIntegerField(null=True, blank=True)
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board

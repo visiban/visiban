@@ -411,6 +411,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "health_status_changed_at", "health_status_changed_by", "health_status_note",
             # Additive (#1146): the board's default preset id.
             "default_preset",
+            # Additive (#2244): the review cue.
+            "health_review_days", "health_review_due_at",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

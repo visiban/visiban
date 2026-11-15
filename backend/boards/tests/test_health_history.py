@@ -467,3 +467,144 @@ class HealthWriterEntryPointTests(SimpleTestCase):
         self.assertEqual(writable, {
             "BoardSerializer", "GroupSerializer", "GroupDetailSerializer", "BoardImportResponseSerializer",
         })
+
+
+class HealthReviewCueTests(TestCase):
+    """The "review status every N days" cue (#2244).
+
+    ``health_review_due_at`` is the owner's ``health_status_changed_at`` plus
+    the owner's ``health_review_days``; the owner is the entity when it sets
+    its own value, or the source group when the value is inherited.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="rv_admin", password="pw")
+        self.member = User.objects.create_user(username="rv_member", password="pw")
+        self.sub_member = User.objects.create_user(username="rv_sub", password="pw")
+        self.root = Group.objects.create(name="RvRoot", owner=self.admin)
+        self.child = Group.objects.create(name="RvChild", owner=self.admin, parent=self.root)
+        GroupMembership.objects.create(group=self.root, user=self.admin, role=GroupMembership.Role.ADMIN)
+        GroupMembership.objects.create(group=self.child, user=self.sub_member, role=GroupMembership.Role.MEMBER)
+        self.board = Board.objects.create(name="RvB", owner=self.admin, group=self.child)
+        BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+        self.url = f"/api/v1/boards/{self.board.pk}/"
+
+    def _patch(self, url, body, user=None):
+        with patch(BOARD_BROADCAST), patch(GROUP_BROADCAST):
+            return _client(user or self.admin).patch(url, body, format="json")
+
+    def _post(self, url, status, user=None):
+        with patch(BOARD_BROADCAST), patch(GROUP_BROADCAST):
+            return _client(user or self.admin).post(f"{url}health-status/", {"status": status}, format="json")
+
+    @staticmethod
+    def _dt(value):
+        from django.utils.dateparse import parse_datetime
+        return None if value is None else parse_datetime(value)
+
+    def test_due_at_is_changed_at_plus_days_and_null_when_off(self):
+        self._post(self.url, "at_risk")
+        body = _client(self.admin).get(self.url).json()
+        self.assertIsNone(body["health_review_days"])
+        self.assertIsNone(body["health_review_due_at"])
+        r = self._patch(self.url, {"health_review_days": 7})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["health_review_days"], 7)
+        changed_at = self._dt(r.json()["health_status_changed_at"])
+        self.assertEqual(self._dt(r.json()["health_review_due_at"]), changed_at + timezone.timedelta(days=7))
+        for payload in (
+            _client(self.member).get(f"{self.url}full/").json(),
+            [b for b in _client(self.member).get("/api/v1/boards/").json()["results"] if b["id"] == self.board.pk][0],
+        ):
+            self.assertEqual(payload["health_review_days"], 7)
+            self.assertEqual(self._dt(payload["health_review_due_at"]), changed_at + timezone.timedelta(days=7))
+        # Null turns the cue off again.
+        r = self._patch(self.url, {"health_review_days": None})
+        self.assertIsNone(r.json()["health_review_due_at"])
+
+    def test_past_threshold_then_reconfirm_clears(self):
+        self._patch(self.url, {"health_review_days": 7})
+        self._post(self.url, "on_track")
+        stale = timezone.now() - timezone.timedelta(days=18)
+        Board.objects.filter(pk=self.board.pk).update(health_status_changed_at=stale)
+        body = _client(self.member).get(self.url).json()
+        self.assertLess(self._dt(body["health_review_due_at"]), timezone.now())
+        # Reconfirm: the same value through the action resets the clock.
+        r = self._post(self.url, "on_track")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertGreater(self._dt(r.json()["health_review_due_at"]), timezone.now())
+        latest = BoardHealthChange.objects.order_by("-id").first()
+        self.assertEqual((latest.from_status, latest.to_status), ("on_track", "on_track"))
+
+    def test_status_without_recorded_change_gets_no_cue(self):
+        # Set before #2242 (no changed_at): no cue and no backfill.
+        Board.objects.filter(pk=self.board.pk).update(health_status="at_risk", health_review_days=1)
+        body = _client(self.admin).get(self.url).json()
+        self.assertEqual(body["health_review_days"], 1)
+        self.assertIsNone(body["health_review_due_at"])
+        # No status at all: no cue either.
+        Board.objects.filter(pk=self.board.pk).update(health_status=None)
+        self.assertIsNone(_client(self.admin).get(self.url).json()["health_review_due_at"])
+
+    def test_inherited_status_uses_the_source_groups_clock(self):
+        self._patch(self.url, {"health_review_days": 30})
+        self._patch(f"/api/v1/groups/{self.root.pk}/", {"health_review_days": 3})
+        self._post(f"/api/v1/groups/{self.root.pk}/", "off_track")
+        body = _client(self.admin).get(self.url).json()
+        source_changed = self._dt(body["health_status_source"]["changed_at"])
+        self.assertEqual(body["health_status_source"]["id"], self.root.pk)
+        self.assertEqual(self._dt(body["health_review_due_at"]), source_changed + timezone.timedelta(days=3))
+        child = _client(self.admin).get(f"/api/v1/groups/{self.child.pk}/").json()
+        self.assertEqual(self._dt(child["health_review_due_at"]), source_changed + timezone.timedelta(days=3))
+        # The source group's setting off: no cue, whatever the board's own setting.
+        self._patch(f"/api/v1/groups/{self.root.pk}/", {"health_review_days": None})
+        self.assertIsNone(_client(self.admin).get(self.url).json()["health_review_due_at"])
+        # The board's own status: its own clock and setting.
+        r = self._post(self.url, "on_track")
+        self.assertEqual(
+            self._dt(r.json()["health_review_due_at"]),
+            self._dt(r.json()["health_status_changed_at"]) + timezone.timedelta(days=30),
+        )
+
+    def test_validation_one_to_365(self):
+        for bad in (0, -1, 366, "soon"):
+            r = self._patch(self.url, {"health_review_days": bad})
+            self.assertEqual(r.status_code, 400, bad)
+            self.assertIn("health_review_days", r.content.decode())
+            r = self._patch(f"/api/v1/groups/{self.root.pk}/", {"health_review_days": bad})
+            self.assertEqual(r.status_code, 400, bad)
+        for good in (1, 365):
+            self.assertEqual(self._patch(self.url, {"health_review_days": good}).json()["health_review_days"], good)
+            r = self._patch(f"/api/v1/groups/{self.root.pk}/", {"health_review_days": good})
+            self.assertEqual(r.json()["health_review_days"], good)
+        self.assertEqual(Board.objects.get(pk=self.board.pk).health_review_days, 365)
+
+    def test_only_settings_writers_may_change_it(self):
+        self.assertEqual(self._patch(self.url, {"health_review_days": 5}, user=self.member).status_code, 403)
+        r = self._patch(f"/api/v1/groups/{self.child.pk}/", {"health_review_days": 5}, user=self.sub_member)
+        self.assertEqual(r.status_code, 403)
+        self.assertIsNone(Board.objects.get(pk=self.board.pk).health_review_days)
+        self.assertIsNone(Group.objects.get(pk=self.child.pk).health_review_days)
+
+    def test_navigation_only_group_withholds_review_fields(self):
+        self._patch(f"/api/v1/groups/{self.root.pk}/", {"health_review_days": 3})
+        self._post(f"/api/v1/groups/{self.root.pk}/", "at_risk")
+        rows = {g["id"]: g for g in _client(self.sub_member).get("/api/v1/groups/").json()["results"]}
+        self.assertTrue(rows[self.root.pk]["navigation_only"])
+        self.assertIsNone(rows[self.root.pk]["health_review_days"])
+        self.assertIsNone(rows[self.root.pk]["health_review_due_at"])
+        detail = _client(self.sub_member).get(f"/api/v1/groups/{self.root.pk}/").json()
+        self.assertIsNone(detail["health_review_days"])
+        self.assertIsNone(detail["health_review_due_at"])
+
+    def test_board_updated_carries_review_fields(self):
+        self._post(self.url, "at_risk")
+        with patch(BOARD_BROADCAST) as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                r = _client(self.admin).patch(self.url, {"health_review_days": 14}, format="json")
+        self.assertEqual(r.status_code, 200)
+        payload = [c[0][2] for c in mock_broadcast.call_args_list if c[0][1] == "board.updated"][0]
+        self.assertEqual(payload["health_review_days"], 14)
+        self.assertEqual(payload["health_review_due_at"], r.json()["health_review_due_at"])
+        self.assertIsNotNone(payload["health_review_due_at"])

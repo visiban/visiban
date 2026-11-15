@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership
-from groups.health import build_health_map, resolve_health
+from groups.health import build_health_map, resolve_health, resolve_review_due_at
 from groups.models import Group, GroupMembership, HealthStatus, _GROUP_TRAVERSAL_MAX_DEPTH
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -80,6 +80,37 @@ class HealthResolverUnitTests(TestCase):
             health_map = build_health_map([(None, a[-1].pk), (None, b[-1].pk)])
         self.assertEqual(resolve_health(None, a[-1].pk, health_map), ("at_risk", {"id": a[0].pk, "name": "A1", "changed_at": None}))
         self.assertEqual(resolve_health(None, b[-1].pk, health_map), ("on_track", {"id": b[1].pk, "name": "B2", "changed_at": None}))
+
+
+class HealthReviewResolverUnitTests(TestCase):
+    """``resolve_review_due_at`` (#2244): whose clock applies, from the same map."""
+
+    def setUp(self):
+        from django.utils import timezone
+        self.now = timezone.now()
+        self.owner = User.objects.create_user(username="hs_review_unit", password="pass")
+
+    def test_own_value_uses_own_clock(self):
+        import datetime
+        due = resolve_review_due_at("at_risk", self.now, 5, None, {})
+        self.assertEqual(due, self.now + datetime.timedelta(days=5))
+        self.assertIsNone(resolve_review_due_at("at_risk", self.now, None, None, {}))
+        self.assertIsNone(resolve_review_due_at("at_risk", None, 5, None, {}))
+        self.assertIsNone(resolve_review_due_at(None, self.now, 5, None, {}))
+
+    def test_inherited_value_uses_source_clock_and_unloaded_chain_carries_it(self):
+        import datetime
+        groups = _chain(self.owner, 3, prefix="R")
+        Group.objects.filter(pk=groups[0].pk).update(
+            health_status="off_track", health_status_changed_at=self.now, health_review_days=2,
+        )
+        with CaptureQueriesContext(connection) as ctx:
+            health_map = build_health_map([(None, groups[-1].pk)])
+        self.assertEqual(len(ctx), 1)
+        self.assertEqual(health_map[groups[0].pk].health_review_days, 2)
+        # The entity's own setting does not apply to an inherited value.
+        due = resolve_review_due_at(None, None, 30, groups[-1].pk, health_map)
+        self.assertEqual(due, self.now + datetime.timedelta(days=2))
 
 
 class BoardHealthStatusTests(TestCase):
@@ -538,7 +569,13 @@ class HealthStatusQueryCountTests(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(username="qhs_owner", password="pass")
-        self.root = Group.objects.create(name="Root", owner=self.owner, health_status="at_risk")
+        from django.utils import timezone
+        # A review setting and a change time (#2244), so every row inheriting
+        # from the root also resolves a due time, from the same map.
+        self.root = Group.objects.create(
+            name="Root", owner=self.owner, health_status="at_risk",
+            health_review_days=7, health_status_changed_at=timezone.now(),
+        )
         GroupMembership.objects.create(group=self.root, user=self.owner, role=GroupMembership.Role.ADMIN)
         self.client = APIClient()
         self.client.force_authenticate(self.owner)
@@ -581,6 +618,7 @@ class HealthStatusQueryCountTests(TestCase):
         self.assertGreater(len(rows), 1)
         effective = {row["effective_health_status"] for row in rows}
         self.assertTrue(effective <= {"at_risk", "on_track"}, effective)
+        self.assertTrue(any(row["health_review_due_at"] for row in rows))
 
     def test_board_list(self):
         self._assert_constant(lambda: "/api/v1/boards/")
