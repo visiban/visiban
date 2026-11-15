@@ -1356,6 +1356,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filter-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter panel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5674,7 +5685,7 @@
 <p>The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:</p>
 <ul>
 <li><strong>View tabs</strong> (Board / Summary / History / Analytics)</li>
-<li><strong>Filter</strong> button (also <code>f</code>)</li>
+<li><strong>Filter</strong> button, which opens the <a href="#filter-panel">Filter panel</a> (press <code>f</code> to toggle the filter bar instead)</li>
 <li><strong>View</strong> button, which opens the View menu</li>
 <li><strong>Activity</strong> button, which opens the activity drawer</li>
 <li>The overflow menu (<code>...</code>) and the connection status, always visible</li>
@@ -5702,8 +5713,17 @@
 </tbody>
 </table>
 <p>The preference is stored per user in <code>localStorage</code> under the key <code>user:prefs:card-layout</code> and persists across boards and sessions. The control's <code>aria-pressed</code> state reflects the compact layout for screen reader users.</p>
+<h2 id="filter-panel">Filter panel<a class="headerlink" href="#filter-panel" title="Permanent link">&para;</a></h2>
+<p>The toolbar's <strong>Filter</strong> button opens a panel with:</p>
+<ul>
+<li>A <strong>Find a field</strong> box (focused on open) that narrows the rows below it by name.</li>
+<li>One row per filterable field: <strong>Assignee</strong>, <strong>Label</strong>, <strong>Priority</strong>, <strong>Due date</strong>, <strong>Blocked</strong>, <strong>Lanes</strong> (when you can see swimlane fields) and each custom field. A row shows its current value, or <strong>Any</strong> when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.</li>
+<li>Your <strong>saved filters</strong>. Click one to load it and close the panel. Saving and deleting stay in the filter bar.</li>
+<li>A footer button, <strong>Show filter bar</strong> (or <strong>Hide filter bar</strong>), for search, scope, <strong>My cards</strong> and saving a filter.</li>
+</ul>
+<p>The <strong>Lanes</strong> row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other, in the URL and in saved filters. Pressing <code>f</code> still toggles the filter bar, not the panel.</p>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
-<p>Click <strong>Filter</strong> in the toolbar (or press <code>f</code>) to open the filter bar. Press <code>/</code> to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.</p>
+<p>Click <strong>Filter</strong> in the toolbar to open the <a href="#filter-panel">Filter panel</a>, then choose <strong>Show filter bar</strong> in its footer to open the full filter bar. Press <code>f</code> to toggle the filter bar directly. Press <code>/</code> to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.</p>
 <table>
 <thead>
 <tr>
