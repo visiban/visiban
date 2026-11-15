@@ -176,4 +176,35 @@ describe('useBoardPan', () => {
     act(() => { fireEvent.mouseMove(document, { clientX: 50, clientY: 0 }) })
     expect((el as unknown as { scrollLeft: number }).scrollLeft).toBe(100)
   })
+
+  it('does not arm pan when Space is pressed on a focused card face (it opens the peek)', () => {
+    const el = makeScrollEl()
+    renderPan(el)
+    const card = document.createElement('div')
+    card.setAttribute('data-card-id', '1')
+    const inner = document.createElement('span')
+    card.appendChild(inner)
+    el.appendChild(card)
+    act(() => { fireEvent.keyDown(inner, { code: 'Space' }) })
+    expect(el.style.cursor).toBe('')
+  })
+
+  it('does not arm pan when Space was already handled (defaultPrevented)', () => {
+    const el = makeScrollEl()
+    renderPan(el)
+    const btn = document.createElement('div')
+    el.appendChild(btn)
+    btn.addEventListener('keydown', (e) => e.preventDefault())
+    act(() => { fireEvent.keyDown(btn, { code: 'Space' }) })
+    expect(el.style.cursor).toBe('')
+  })
+
+  it('still arms pan when Space is pressed outside a card', () => {
+    const el = makeScrollEl()
+    renderPan(el)
+    const other = document.createElement('div')
+    el.appendChild(other)
+    act(() => { fireEvent.keyDown(other, { code: 'Space' }) })
+    expect(el.style.cursor).toBe('grab')
+  })
 })

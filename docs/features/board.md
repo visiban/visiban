@@ -286,14 +286,14 @@ Empty cells show a dashed border to indicate they are valid drop targets even wh
 
 ### Card peek sheet
 
-*New in 1.3 (#2273).* Click a card, or focus it and press **Enter**, to open its **peek sheet**: a 400 px read-only sheet over the right side of the board. It floats over the grid and never resizes it. At 640 px and narrower it fills the screen. Top to bottom it shows:
+*New in 1.3 (#2273).* Click a card, or focus it and press **Enter** or **Space**, to open its **peek sheet**: a 400 px read-only sheet over the right side of the board. It floats over the grid and never resizes it. At 640 px and narrower it fills the screen. Top to bottom it shows:
 
 - the swimlane name and a **Close** button, then the title and a short description;
 - a banner when the card is overdue (**Was due Nov 12**) or stale (**No movement for 39 days**);
 - **Status**: the previous stage, the current stage (marked, with a border and bold text, not color alone) and the next stage;
-- **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved, and a note such as **2 of 8 pinned to the card**;
+- **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved, and, when the board has custom fields, a note such as **2 of 8 pinned to the card**;
 - **Time in each column**: one segmented bar and a list of days per column, with the current column in bold. A column the card visited twice is added up;
-- **History**: the card's moves, newest first;
+- **History**: the card's moves, newest first, each with a relative time (**39 d ago**) and the exact date and time on hover;
 - **Open card** (opens the full [detail panel](#card-detail-panel)) and **Move** (a column and swimlane picker; shown to people who can edit the card).
 
 The open card is marked on the board with the same ring as the detail panel. Click another card to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card still switches the panel instead of peeking. Opening a card from a link, the command palette or a relation opens the detail panel directly.
@@ -368,7 +368,7 @@ A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
 ### Board panning
 
-Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.
+Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens its [peek sheet](#card-peek-sheet) instead of panning; Space anywhere else pans.
 
 ## Bulk card operations
 

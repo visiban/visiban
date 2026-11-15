@@ -4,7 +4,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import type { BoardFull, Card, CardMovement } from "../../types";
-import { formatDateStr, formatRelativeTime, formatDueDate } from "../../utils/date";
+import { formatDateStr, formatDateTime, formatRelativeTime, formatDueDate } from "../../utils/date";
+import { relativeTime } from "../../utils/relativeTime";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
 import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
 import type { MoveOutcome } from "../../hooks/useBoard";
@@ -251,7 +252,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       <span
         key={kind}
         aria-current={kind === "current" ? "step" : undefined}
-        className={`px-2 py-1 rounded-full text-xs border ${
+        className={`px-2 py-1 rounded-md text-xs border ${
           kind === "current"
             ? "font-semibold text-fg border-primary-emphasis bg-primary-emphasis/15"
             : "text-fg-secondary border-line"
@@ -270,7 +271,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       aria-labelledby="card-peek-title"
       tabIndex={-1}
       data-testid="card-peek-sheet"
-      className="fixed z-50 bg-surface text-fg outline-none border border-line shadow-xl flex flex-col max-[640px]:inset-0 max-[640px]:rounded-none min-[641px]:right-4 min-[641px]:top-24 min-[641px]:bottom-3 min-[641px]:w-[400px] min-[641px]:rounded-lg"
+      className="fixed z-50 bg-surface text-fg outline-none border border-line shadow-xl flex flex-col max-[640px]:inset-0 max-[640px]:rounded-none min-[641px]:right-4 min-[641px]:top-24 min-[641px]:bottom-auto min-[641px]:max-h-[calc(100vh-6.75rem)] min-[641px]:w-[400px] min-[641px]:rounded-lg"
     >
       <div className="flex items-start justify-between gap-2 px-4 pt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{lane?.name ?? ""}</p>
@@ -285,7 +286,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-5">
         <div>
           <h2 id="card-peek-title" className="text-lg font-semibold text-fg break-words">{card.title}</h2>
           {descriptionText && (
@@ -321,7 +322,9 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         <section aria-labelledby="peek-fields">
           <div className="flex items-baseline justify-between mb-2">
             <h3 id="peek-fields" className="text-sm font-semibold">Fields</h3>
-            <span className="text-xs text-fg-secondary">{pinnedNote(board.custom_field_definitions ?? [])}</span>
+            {(board.custom_field_definitions ?? []).length > 0 && (
+              <span className="text-xs text-fg-secondary">{pinnedNote(board.custom_field_definitions ?? [])}</span>
+            )}
           </div>
           <dl className="space-y-2 text-sm">
             {fields.map(({ definition, value }) => (
@@ -400,7 +403,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               {history.map((m) => (
                 <li key={m.id} className="flex justify-between gap-3">
                   <span className="text-fg min-w-0 break-words">{describeMovement(m)}</span>
-                  <span className="text-fg-secondary shrink-0">{formatRelativeTime(m.moved_at)}</span>
+                  <span className="text-fg-secondary shrink-0" title={formatDateTime(m.moved_at, userDateFormat)}>{relativeTime(Date.parse(m.moved_at), Date.now())}</span>
                 </li>
               ))}
             </ul>

@@ -86,8 +86,8 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   ),
 }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, cards, onCardClick, currentCardId }: { swimlane: { id: number }; cards: Array<{ id: number; title: string }>; onCardClick: (c: unknown) => void; currentCardId: number | null }) => (
-    <div data-testid={`swim-${swimlane.id}`} data-current={String(currentCardId)}>
+  default: ({ swimlane, cards, onCardClick, currentCardId, onOpenCardMenu }: { swimlane: { id: number }; cards: Array<{ id: number; title: string }>; onCardClick: (c: unknown) => void; currentCardId: number | null; onOpenCardMenu?: unknown }) => (
+    <div data-testid={`swim-${swimlane.id}`} data-current={String(currentCardId)} data-menu={onOpenCardMenu ? '1' : '0'}>
       {cards.map((c) => <button key={c.id} data-card-id={c.id} onClick={() => onCardClick(c)}>{`open ${c.title}`}</button>)}
     </div>
   ),
@@ -348,5 +348,39 @@ describe('BoardView card peek (#2273)', () => {
     fireEvent.keyDown(document.body, { key: 'b' })
     expect(await screen.findByTestId('swim-20')).toBeInTheDocument()
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+  })
+
+  it('withholds the card context menu while the peek is open and restores it on close', async () => {
+    render(<BoardView />)
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '1')
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '0')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '1')
+  })
+
+  it('shows the lane notice when a teammate edit hides the peeked card lane', async () => {
+    const aeField = {
+      id: 7, uid: 'slf000000007', name: 'AE', field_type: 'dropdown' as const, choices: ['Priya', 'Sam'], position: 0,
+      show_on_row: true, is_admin_only: false, is_required: false, help_text: '', number_prefix: '', number_suffix: '',
+      number_decimals: null, choice_colors: {}, created_at: '',
+    }
+    const laneWith = (ae: string) => ({
+      ...makeBoard().swimlanes[0], custom_field_values: [{ field_definition: 7, value: ae }],
+    })
+    mockSearchParams = new URLSearchParams(`f_lanes=${encodeURIComponent('1.[{"f":7,"o":"is","v":"Priya"}]')}`)
+    const boardFor = (ae: string) => makeBoard({
+      swimlanes: [laneWith(ae), { ...laneWith('Priya'), id: 21, uid: 'laneuid00002', name: 'Customer B', position: 1 }],
+      swimlane_custom_field_definitions: [aeField],
+      cards: [makeCard(1, 10, 20), makeCard(2, 10, 21)],
+    })
+    mockBoardContextValue = defaultContext({ board: boardFor('Priya') })
+    const { rerender } = render(<BoardView />)
+    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    mockBoardContextValue = defaultContext({ board: boardFor('Sam') })
+    rerender(<BoardView />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.getAllByText(/is now hidden because it no longer matches your lane filters/).length).toBeGreaterThan(0)
   })
 })

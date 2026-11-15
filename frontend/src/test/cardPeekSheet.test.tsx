@@ -55,6 +55,36 @@ describe('CardPeekSheet', () => {
     expect(cls).not.toMatch(/(^|\s)sm:/)
   })
 
+  it('is content-height with a max height from 641px, not pinned to the viewport bottom', () => {
+    setup()
+    const cls = screen.getByTestId('card-peek-sheet').className
+    expect(cls).toContain('min-[641px]:bottom-auto')
+    expect(cls).toContain('min-[641px]:max-h-[calc(100vh-6.75rem)]')
+    expect(cls).not.toContain('min-[641px]:bottom-3')
+  })
+
+  it('renders stage chips as rounded rectangles, not pills', () => {
+    setup()
+    const chip = screen.getByTestId('card-peek-sheet').querySelector('[aria-current="step"]') as HTMLElement
+    expect(chip.className).toContain('rounded-md')
+    expect(chip.className).not.toContain('rounded-full')
+  })
+
+  it('shows history times relative with the absolute timestamp as the title', async () => {
+    setup()
+    const history = await screen.findByTestId('card-peek-history')
+    const rows = within(history).getAllByRole('listitem')
+    const time = rows[0].querySelector('span[title]') as HTMLElement
+    expect(time.textContent).toBe('39 d ago')
+    expect(time.getAttribute('title')).toMatch(/\d/)
+    expect(within(history).getByText('53 d ago')).toBeInTheDocument()
+  })
+
+  it('hides the pinned note when the board has no custom fields', () => {
+    setup({ board: { ...board, custom_field_definitions: [] } as unknown as BoardFull })
+    expect(screen.queryByText(/pinned to the card/)).not.toBeInTheDocument()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     getCardMovements.mockResolvedValue(movements)

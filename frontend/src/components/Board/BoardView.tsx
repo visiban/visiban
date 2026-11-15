@@ -2041,7 +2041,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     hiddenIds: laneFilterHiddenIds,
     filterKey: laneFilterKey,
     focusedSwimlaneId,
-    openCardSwimlaneId: selectedCard?.swimlane ?? null,
+    // The peeked card counts too: focus sits in the sheet while it is open, so its lane would otherwise hide silently.
+    openCardSwimlaneId: liveSelectedCard?.swimlane ?? peekCard?.swimlane ?? null,
   });
   // A lane edited from this client (row rename, field values) is "mine" for the notice.
   const handleLocalSwimlaneUpdated = useCallback((s: Swimlane) => {
