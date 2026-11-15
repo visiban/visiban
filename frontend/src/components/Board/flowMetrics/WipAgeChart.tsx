@@ -1,6 +1,7 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
 import { CHART_COLORS, axisTicks, linearScale, neutralTint, niceCeil } from "../../../utils/chartScale";
 import type { FlowAgeSample, FlowCard, FlowWipAge } from "../../../types";
+import { cardGroupColor, markOpacity } from "./breakdown";
 import { ageMarkColor, ageMarkLabel, percentileLines } from "./flowFormat";
 
 const COLUMN_LABEL_CHARS = 12;
@@ -23,6 +24,8 @@ interface Props {
   cards: Map<string, FlowCard>;
   labelledBy: string;
   onSelect: (sample: FlowAgeSample) => void;
+  /** The isolated group's index under a breakdown (#2268); the rest drop to 20%. */
+  isolated?: number | null;
 }
 
 /**
@@ -31,9 +34,17 @@ interface Props {
  * Blocked cards are squares; cards past P85 are ringed and named. Marks are neutral
  * up to P50, `warning` past it and `danger` past P85 (#2264): the card aging tint.
  */
-export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props) {
+export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolated = null }: Props) {
+  const groups = data.grouping?.groups ?? [];
+  // Under a breakdown a mark takes its group color; the ring and square still say past P85 and blocked.
+  const markColor = (sample: FlowAgeSample, age: string) =>
+    (groups.length > 0 ? cardGroupColor(groups, sample.group_keys) : null) ?? age;
   const zones = data.cycle_time_percentiles;
   const top = niceCeil(Math.max(1, ...data.samples.map((s) => s.value_days), zones.p95 ?? zones.p85 ?? 0));
+  const fill = (sample: FlowAgeSample, age: keyof typeof CHART_COLORS) => {
+    const c = markColor(sample, age);
+    return c in CHART_COLORS ? CHART_COLORS[c as keyof typeof CHART_COLORS] : c;
+  };
   const columnIndex = new Map(data.columns.map((column, index) => [column.column_uid, index]));
   const bandwidth = (x0: number, x1: number) => (x1 - x0) / Math.max(1, data.columns.length);
 
@@ -95,12 +106,12 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
             {placed.map(({ sample, x, y: cy, pastP85 }) => {
               const color = ageMarkColor(sample, zones);
               return (
-              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined} data-age-color={color}>
-                {pastP85 && <circle cx={x} cy={cy} r={8} fill="none" stroke={CHART_COLORS[color]} strokeWidth={1.5} />}
+              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined} data-age-color={color} data-group-color={groups.length > 0 ? markColor(sample, color) : undefined} opacity={markOpacity(groups, isolated, sample.group_keys)}>
+                {pastP85 && <circle cx={x} cy={cy} r={8} fill="none" stroke={fill(sample, color)} strokeWidth={1.5} />}
                 {sample.is_blocked ? (
-                  <rect x={x - 4} y={cy - 4} width={8} height={8} fill={CHART_COLORS[color]} />
+                  <rect x={x - 4} y={cy - 4} width={8} height={8} fill={fill(sample, color)} />
                 ) : (
-                  <circle cx={x} cy={cy} r={4} fill={CHART_COLORS[color]} />
+                  <circle cx={x} cy={cy} r={4} fill={fill(sample, color)} />
                 )}
                 {named.has(sample.card_uid) && (
                   // On the side with room, so a name in the last column stays in the plot.
@@ -127,7 +138,7 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
             x={x}
             y={y}
             tabbable
-            color={ageMarkColor(sample, zones)}
+            color={markColor(sample, ageMarkColor(sample, zones))}
             label={ageMarkLabel(sample, cards.get(sample.card_uid)?.title ?? sample.card_uid, zones)}
             onSelect={() => onSelect(sample)}
           />

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type {
-  FlowAgeSample, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowCycleTimeSample, FlowThroughput, FlowThroughputSample, FlowWipAge,
+  FlowAgeSample, FlowCard, FlowGroupBase, FlowCumulativeFlow, FlowCycleTime, FlowCycleTimeSample, FlowThroughput, FlowThroughputSample, FlowWipAge,
 } from "../../../types";
 import { ChartNullValue, ChartPanel, ChartTable } from "../../Common/Chart";
 import type { ChartPanelView, ChartTableColumn } from "../../Common/Chart";
@@ -10,6 +10,7 @@ import {
   ageMarkColor, ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
   sparseNote, throughputSummary, wipAgeSummary,
 } from "./flowFormat";
+import { colorOfGroup, groupNamesOf } from "./breakdown";
 import ThroughputChart from "./ThroughputChart";
 import WipAgeChart from "./WipAgeChart";
 
@@ -32,16 +33,41 @@ export function CardButton({ label, title, onClick }: { label?: string; title: s
   );
 }
 
+/** What a breakdown colors by ("swimlane", "label" or a field name) and the isolated group's index (#2268). */
+export interface BreakdownProps {
+  noun?: string;
+  isolated?: number | null;
+}
+
 export interface PanelViewProps {
   view: ChartPanelView;
   onViewChange: (view: ChartPanelView) => void;
 }
 
+/** The group column of a table view (#2268): the group's name next to its color dot, `—` when the card is in none. */
+function GroupCell({ groups, keys }: { groups: FlowGroupBase[]; keys: string[] | undefined }) {
+  const names = groupNamesOf(groups, keys);
+  if (names.length === 0) return <ChartNullValue />;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-2">
+      {groups.filter((g) => keys?.some((k) => g.member_keys.includes(k))).map((g) => (
+        <span key={g.key ?? "other"} className="inline-flex items-center gap-1">
+          <span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ backgroundColor: colorOfGroup(groups, groups.indexOf(g)) }} />
+          {groupNamesOf([g], g.member_keys)[0]}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+const withMeaning = (summary: string, noun: string | undefined, verb: string) => (noun ? `${summary} ${verb} ${noun}.` : summary);
+
 const compact = (notes: (string | null)[]) => notes.filter((note): note is string => note !== null);
 
 export function CycleTimePanel({
-  data, cards, days, onSelect, view, onViewChange,
-}: PanelViewProps & { data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void }) {
+  data, cards, days, onSelect, view, onViewChange, noun, isolated,
+}: PanelViewProps & BreakdownProps & { data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void }) {
+  const groups = data.grouping?.groups ?? [];
   const columns: ChartTableColumn<FlowCycleTimeSample>[] = [
     {
       key: "card",
@@ -59,6 +85,7 @@ export function CycleTimePanel({
       },
     },
     { key: "reopened", header: "Reopened", render: (s) => (s.reopened ? "Yes" : <ChartNullValue />) },
+    ...(groups.length > 0 ? [{ key: "group", header: noun ? `Group (${noun})` : "Group", render: (s: FlowCycleTimeSample) => <GroupCell groups={groups} keys={s.group_keys} /> }] : []),
   ];
   const hasReopened = data.samples.some((s) => s.reopened);
   return (
@@ -66,7 +93,7 @@ export function CycleTimePanel({
       view={view}
       onViewChange={onViewChange}
       title="Cycle time"
-      summary={cycleTimeSummary(data)}
+      summary={withMeaning(cycleTimeSummary(data), groups.length > 0 ? noun : undefined, "Dots are colored by")}
       definition={`Cycle time: ${data.definition}`}
       notes={compact([
         data.sample_size > 0 ? `${data.sample_size} ${data.sample_size === 1 ? "card" : "cards"}.` : null,
@@ -77,14 +104,15 @@ export function CycleTimePanel({
       testId="flow-cycle-time"
       table={<ChartTable label="Cycle time per card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} />}
     >
-      {(labelledBy) => <CycleTimeChart data={data} cards={cards} days={days} labelledBy={labelledBy} onSelect={onSelect} />}
+      {(labelledBy) => <CycleTimeChart data={data} cards={cards} days={days} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} />}
     </ChartPanel>
   );
 }
 
 export function ThroughputPanel({
-  data, onSelect, view, onViewChange,
-}: PanelViewProps & { data: FlowThroughput; onSelect: (s: FlowThroughputSample) => void }) {
+  data, onSelect, view, onViewChange, noun, isolated,
+}: PanelViewProps & BreakdownProps & { data: FlowThroughput; onSelect: (s: FlowThroughputSample) => void }) {
+  const groups = data.grouping?.groups ?? [];
   const columns: ChartTableColumn<FlowThroughputSample>[] = [
     { key: "start", header: "Week of", render: (s) => formatDate(s.start) },
     {
@@ -103,13 +131,20 @@ export function ThroughputPanel({
       ),
     },
     { key: "started", header: "Started", numeric: true, render: (s) => (s.started === 0 ? <ChartNullValue /> : s.started) },
+    // One count column per group, so a stacked segment is never only a color.
+    ...groups.map((g, gi) => ({
+      key: `group-${g.key ?? "other"}`,
+      header: `${groupNamesOf([g], g.member_keys)[0]}${noun ? ` (${noun})` : ""}`,
+      numeric: true,
+      render: (s: FlowThroughputSample) => s.by_group?.[gi]?.count || <ChartNullValue />,
+    })),
   ];
   return (
     <ChartPanel
       view={view}
       onViewChange={onViewChange}
       title="Throughput"
-      summary={throughputSummary(data)}
+      summary={withMeaning(throughputSummary(data), groups.length > 0 ? noun : undefined, "Bars are stacked by")}
       definition={`Throughput: ${data.definition}`}
       notes={compact([
         data.median === null && data.samples.length > 0 ? "Too few whole weeks to draw a median." : null,
@@ -118,7 +153,7 @@ export function ThroughputPanel({
       testId="flow-throughput"
       table={<ChartTable label="Cards finished per week" columns={columns} rows={data.samples} rowKey={(s) => s.start} />}
     >
-      {(labelledBy) => <ThroughputChart data={data} labelledBy={labelledBy} onSelect={onSelect} />}
+      {(labelledBy) => <ThroughputChart data={data} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} />}
     </ChartPanel>
   );
 }
@@ -160,8 +195,9 @@ export function CumulativeFlowPanel({
 }
 
 export function WipAgePanel({
-  data, cards, onSelect, view, onViewChange,
-}: PanelViewProps & { data: FlowWipAge; cards: Map<string, FlowCard>; onSelect: (s: FlowAgeSample) => void }) {
+  data, cards, onSelect, view, onViewChange, noun, isolated,
+}: PanelViewProps & BreakdownProps & { data: FlowWipAge; cards: Map<string, FlowCard>; onSelect: (s: FlowAgeSample) => void }) {
+  const groups = data.grouping?.groups ?? [];
   const zones = data.cycle_time_percentiles;
   const names = new Map(data.columns.map((c) => [c.column_uid, c.column_name]));
   const columns: ChartTableColumn<FlowAgeSample>[] = [
@@ -184,6 +220,7 @@ export function WipAgePanel({
         return owner ? owner.display_name || owner.username : <ChartNullValue />;
       },
     },
+    ...(groups.length > 0 ? [{ key: "group", header: noun ? `Group (${noun})` : "Group", render: (s: FlowAgeSample) => <GroupCell groups={groups} keys={s.group_keys} /> }] : []),
   ];
   const hasBlocked = data.samples.some((s) => s.is_blocked);
   // Name a color only when a mark of that color is drawn (ageMarkColor is what the chart paints).
@@ -195,19 +232,19 @@ export function WipAgePanel({
       view={view}
       onViewChange={onViewChange}
       title="WIP aging"
-      summary={wipAgeSummary(data)}
+      summary={withMeaning(wipAgeSummary(data), groups.length > 0 ? noun : undefined, "Marks are colored by")}
       definition={`Age: ${data.definition}`}
       notes={compact([
         data.sample_size > 0 ? sparseNote(zones) : null,
         excludedNote(data.excluded_incomplete_history),
         hasBlocked ? "Squares are blocked cards." : null,
         hasRinged ? "Ringed cards are past the 85th percentile." : null,
-        agingColorNote(hasOrange, hasRed),
+        groups.length > 0 ? null : agingColorNote(hasOrange, hasRed),
       ])}
       testId="flow-wip-age"
       table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress." />}
     >
-      {(labelledBy) => <WipAgeChart data={data} cards={cards} labelledBy={labelledBy} onSelect={onSelect} />}
+      {(labelledBy) => <WipAgeChart data={data} cards={cards} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} />}
     </ChartPanel>
   );
 }

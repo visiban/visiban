@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { FlowFilters } from "../../api/flowMetrics";
-import type { Column } from "../../types";
+import type { Column, CustomFieldDefinition } from "../../types";
 import AnalyticsOverview from "./flowMetrics/AnalyticsOverview";
 import AnalyticsSwimlanes from "./flowMetrics/AnalyticsSwimlanes";
 import { formatDate } from "./flowMetrics/flowFormat";
@@ -19,6 +19,8 @@ interface Props {
   labels?: { id: number; name: string }[];
   /** The board's columns: WIP limits for the bottleneck panel and tiles (#2261). */
   columns?: (Pick<Column, "uid" | "wip_limit"> & { name?: string })[];
+  /** The board's card custom fields: dropdown and checkbox ones are "Break down by" entries (#2268). */
+  customFields?: Pick<CustomFieldDefinition, "id" | "name" | "field_type" | "position">[];
   /** Shown in the title row. */
   boardName?: string;
   /** Swimlane custom fields, for the Swimlanes view's "Group lanes by" (#2267). */
@@ -64,7 +66,7 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
  * its position whatever any region is doing.
  */
 export default function AnalyticsView({
-  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [],
+  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [], customFields,
 }: Props) {
   const { filters, setFilters } = useAnalyticsFilters();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -118,6 +120,7 @@ export default function AnalyticsView({
           swimlanes={swimlanes}
           labels={labels}
           columns={columns}
+          customFields={customFields}
           currentUserRole={currentUserRole}
           onOpenCard={onOpenCard}
           onGoToBoard={onGoToBoard}

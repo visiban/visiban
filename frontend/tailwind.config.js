@@ -55,6 +55,11 @@ export default {
         "primary-hover": "rgb(var(--primary-hover) / <alpha-value>)",
         "primary-emphasis": "rgb(var(--primary-emphasis) / <alpha-value>)",
         "primary-soft": "rgb(var(--primary-soft) / <alpha-value>)",
+        "chart-cat-1": "rgb(var(--chart-cat-1) / <alpha-value>)",
+        "chart-cat-2": "rgb(var(--chart-cat-2) / <alpha-value>)",
+        "chart-cat-3": "rgb(var(--chart-cat-3) / <alpha-value>)",
+        "chart-cat-4": "rgb(var(--chart-cat-4) / <alpha-value>)",
+        "chart-cat-5": "rgb(var(--chart-cat-5) / <alpha-value>)",
 
         // Primary CTA fill — darker than `--primary` in light mode (issue #855) so
         // white-on-fill comfortably clears WCAG AAA. Matches `--primary` in dark mode.

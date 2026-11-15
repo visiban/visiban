@@ -74,3 +74,20 @@ export function spreadLabels(positions: number[], gap: number): number[] {
   for (const { y, index } of order) result[index] = y;
   return result;
 }
+
+/**
+ * The five breakdown group colors (#2268, `--chart-cat-1` to `-5`). A group's
+ * index in the response's `groups` is its color; "Other" is last and neutral.
+ * Only a breakdown uses them (`frontend/CLAUDE.md` § Charts).
+ */
+export const GROUP_COLORS = [1, 2, 3, 4, 5].map((n) => `rgb(var(--chart-cat-${n}))`);
+
+/** A step of a group's color, for a fill that must sit under text or beside a mark. */
+export const groupTint = (index: number, alpha: number) => `rgb(var(--chart-cat-${(index % GROUP_COLORS.length) + 1}) / ${alpha})`;
+
+/** The color of the group at `index`; the "Other" group (`key` null) is neutral. */
+export const groupColor = (index: number, other = false): string =>
+  other ? CHART_COLORS.neutral : GROUP_COLORS[index % GROUP_COLORS.length];
+
+/** A mark outside the isolated group keeps this much of its strength. */
+export const ISOLATED_OPACITY = 0.2;
