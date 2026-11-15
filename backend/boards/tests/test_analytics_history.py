@@ -688,6 +688,30 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
         self.assertAlmostEqual(avg, 5.0, delta=0.2)
 
+    def test_consecutive_same_column_swimlane_moves_do_not_split_the_stay(self):
+        """#2295: two swimlane-only moves (20d, 10d ago) are still one 30-day To Do stay."""
+        self._move(self.card, self.col_todo, days_ago=100)
+        self._same_column_row(CardMovement.MovementType.MOVE, days_ago=20)
+        self._same_column_row(CardMovement.MovementType.MOVE, days_ago=10)
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertAlmostEqual(avg, 30.0, delta=0.2)
+
+    def test_archived_then_unarchived_rows_do_not_split_the_stay(self):
+        """#2295: ARCHIVED (25d) + UNARCHIVED (15d) A->A rows on an active card stay one 30-day stay.
+
+        The existing dwell logic does not subtract archived time for a card that is
+        active again, so the single continuous stay runs to now.
+        """
+        self._move(self.card, self.col_todo, days_ago=100)
+        self._same_column_row(CardMovement.MovementType.ARCHIVED, days_ago=25)
+        self._same_column_row(CardMovement.MovementType.UNARCHIVED, days_ago=15)
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertAlmostEqual(avg, 30.0, delta=0.2)
+
     def test_pre_buffer_seed_adds_no_queries_per_card(self):
         self._move(self.card, self.col_todo, days_ago=100)
         url = self._analytics_url() + "?days=30"
