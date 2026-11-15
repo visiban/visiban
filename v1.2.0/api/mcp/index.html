@@ -5293,7 +5293,7 @@
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1151)</p>
 </blockquote>
-<p>Flow metrics for one board over a rolling window, from the same service as the REST <a href="../../features/analytics/"><code>metrics/*</code> endpoints</a> (ADR #1532; both default to 90 days): cycle time and throughput equal <code>GET /boards/{id}/metrics/cycle-time</code> and <code>/throughput</code> for the same <code>days</code> and <code>swimlane_id</code>; WIP counts and blocked time come from the same service but are not those REST responses. WIP has no REST endpoint of its own (the closest is <code>metrics/wip-age/</code>'s <code>columns[].wip_count</code>). The <code>blocked</code> block follows the window and <code>swimlane_id</code> (since #2280), but it has the shape of the older <code>/analytics/</code> blocked-time block, not of <code>metrics/blocked/</code>: days rounded to 0.1, columns keyed by name rather than <code>column_uid</code>, and reasons ranked by how many blocks they have, then by time. All board roles may call it; it needs only <code>mcp:read</code> and spends from the <a href="#rate-limiting">compute bucket</a>.</p>
+<p>Flow metrics for one board over a rolling window, from the same service as the REST <a href="../../features/analytics/"><code>metrics/*</code> endpoints</a> (ADR #1532; both default to 90 days): cycle time and throughput equal <code>GET /boards/{id}/metrics/cycle-time</code> and <code>/throughput</code> for the same <code>days</code> and <code>swimlane_id</code>; WIP counts and the <code>blocked</code> block come from the same service but are not those REST responses; <code>blocked_summary</code> is. WIP has no REST endpoint of its own (the closest is <code>metrics/wip-age/</code>'s <code>columns[].wip_count</code>). The <code>blocked</code> block follows the window and <code>swimlane_id</code> (since #2280), but it has the shape of the older <code>/analytics/</code> blocked-time block, not of <code>metrics/blocked/</code>: days rounded to 0.1, columns keyed by name rather than <code>column_uid</code>, and reasons ranked by how many blocks they have, then by time. All board roles may call it; it needs only <code>mcp:read</code> and spends from the <a href="#rate-limiting">compute bucket</a>.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>window_days</code> (integer 1 to 365, default <code>90</code>, the REST <code>days</code> default); <code>swimlane_id</code> (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a <code>validation_error</code> keyed by the argument. Type coercion and the rejection of non-integers (<code>30.5</code>, <code>"abc"</code>) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.</p>
 <p><strong>Returns:</strong></p>
 <table>
@@ -5327,6 +5327,10 @@
 <tr>
 <td><code>blocked</code></td>
 <td><code>{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}</code>, keyed by column name; the same object as the <code>/analytics/</code> blocked-time block (#1149), cut by <code>swimlane_id</code> when one is given. <code>days</code> and <code>total_days</code> are rounded to 0.1; <code>top_reasons</code> is ordered by block count, then by time.</td>
+</tr>
+<tr>
+<td><code>blocked_summary</code></td>
+<td><em>New in 1.3.</em> The same payload as the REST <code>metrics/blocked</code> endpoint for the same window and <code>swimlane_id</code>, with reasons ranked by blocked time (not block count, as in <code>blocked</code>).</td>
 </tr>
 </tbody>
 </table>

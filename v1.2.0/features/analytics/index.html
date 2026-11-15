@@ -4730,13 +4730,14 @@
 <h4 id="done-column-exclusion">Done column exclusion<a class="headerlink" href="#done-column-exclusion" title="Permanent link">&para;</a></h4>
 <p>Columns marked <code>is_done = true</code> are excluded from dwell-time calculations and hidden from the heatmap, because time in a done column is post-completion idle time. The API response lists the excluded column names in <code>done_columns</code>, and a footer note reads "N done column(s) not shown".</p>
 <h4 id="velocity-column">Velocity column<a class="headerlink" href="#velocity-column" title="Permanent link">&para;</a></h4>
-<p>The rightmost column shows <strong>Velocity</strong> per swimlane: the average <code>deal_velocity_days</code>, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A dash (<code>—</code>) means no velocity data for that swimlane.</p>
+<p>The rightmost column shows <strong>Velocity</strong> per swimlane: the average <code>deal_velocity_days</code>, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A card that has only been created, and never moved, is left out rather than counted as 0 days (<em>changed in 1.3</em>, #2297). A dash (<code>—</code>) means no velocity data for that swimlane.</p>
 <h4 id="color-coding">Color-coding<a class="headerlink" href="#color-coding" title="Permanent link">&para;</a></h4>
 <p>Cells are colored from the board's <code>staleness_threshold_days</code> and <code>stale_warning_pct</code>. The warning boundary is <code>threshold * stale_warning_pct / 100</code>, the share of the threshold a card has used.</p>
 <ul>
 <li>With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.</li>
 <li>A value of <code>0</code> turns the yellow band off, so cells are green until the threshold.</li>
 <li>The card <a href="../card-history/#card-aging-tint">aging tint</a> uses the same boundary.</li>
+<li>A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as <code>7.0d</code> but stays green against a 7-day threshold when the yellow band is off, or when it begins at the threshold, and yellow otherwise (<em>changed in 1.3</em>, #2297).</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Changed in 1.2 (#1841)</p>
