@@ -4,6 +4,7 @@ import { createColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
+import { IntakeNoteIcon } from "./IntakeColumnCallout";
 import ModalWrapper from "../shared/ModalWrapper";
 import { isImeComposing } from "../../utils/imeComposition";
 
@@ -88,16 +89,14 @@ export default function AddColumnModal({ boardId, onAdded, onClose, boardColors,
         {willBecomeIntake && (
           <div
             role="note"
+            aria-label="Intake column"
             data-testid="intake-takeover-note"
             className="flex gap-2 rounded-lg border border-line bg-sunken px-3 py-2.5 text-xs text-fg-secondary"
           >
-            <svg viewBox="0 0 16 16" className="w-4 h-4 shrink-0 text-fg-tertiary" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1.5 8h7M6 5.5 8.5 8 6 10.5" />
-              <rect x="9.5" y="3" width="5" height="10" rx="1" />
-            </svg>
+            <IntakeNoteIcon className="w-4 h-4" />
             <p>
               {replacesIntake
-                ? "This column will become the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck. The current intake column becomes eligible to be named again."
+                ? "This column will become the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck. The current intake column can be named as the bottleneck again."
                 : "This will be the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck."}
             </p>
           </div>

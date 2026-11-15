@@ -97,7 +97,7 @@ describe('AddColumnModal take-over note (#2298)', () => {
     renderAdd({ willBecomeIntake: true, replacesIntake: true })
     const note = screen.getByTestId('intake-takeover-note')
     expect(note).toHaveTextContent(/will become the board's intake column/)
-    expect(note).toHaveTextContent(/current intake column becomes eligible/)
+    expect(note).toHaveTextContent(/current intake column can be named as the bottleneck again/)
     expect(note.textContent ?? '').not.toMatch(/exclud/i)
   })
 
@@ -105,6 +105,6 @@ describe('AddColumnModal take-over note (#2298)', () => {
     renderAdd({ willBecomeIntake: true, replacesIntake: false })
     const note = screen.getByTestId('intake-takeover-note')
     expect(note).toHaveTextContent(/This will be the board's intake column/)
-    expect(note.textContent ?? '').not.toMatch(/eligible/)
+    expect(note.textContent ?? '').not.toMatch(/bottleneck again/)
   })
 })
