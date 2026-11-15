@@ -4674,7 +4674,7 @@
 </tr>
 <tr>
 <td>Work in progress</td>
-<td>Cards in progress now</td>
+<td>Every card not archived in a not-done column now, started or not (changed by #2287/#2293)</td>
 <td>Columns over their limit and cards past the 85th percentile</td>
 </tr>
 <tr>
@@ -4744,7 +4744,7 @@
 <ul>
 <li>One horizontal bar per group. With no breakdown there is one bar, "All cards".</li>
 <li>Each bar is segmented by in-progress column; a segment's width is the median days in that column and it is labeled with that number.</li>
-<li>The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The total is printed at the end.</li>
+<li>The bar's total length is proportional to the group's total, so the longest bar is the slowest group. The sum of the medians is printed at the end, with a note of how many columns were left out for lack of data (changed by #2287/#2293).</li>
 <li>The bottleneck column's segment is hatched.</li>
 <li>This replaces the dwell heatmap as the lead visual. The heatmap is not deleted: it becomes this panel's <strong>Table</strong> view, behind the same Chart | Table switch the charts have. The screenshots do not draw that switch.</li>
 <li>The table is today's heatmap table: swimlane rows, column cells with the three-level cue, the velocity column, and the admin-only CSV export. Its period follows the filter bar.</li>

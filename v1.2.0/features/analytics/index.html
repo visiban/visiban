@@ -4547,6 +4547,7 @@
 <li><strong>Blocked time:</strong> the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.</li>
 <li><strong>Needs attention:</strong> the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.</li>
 </ul>
+<p>"Created" in lead time means the card's creation movement, the first history row that places it in a column. A card with no creation movement, for example one imported without its history, starts at its <code>created_at</code> instead. The two can differ for an imported card.</p>
 <h2 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h2>
 <p>A table of all swimlanes with:</p>
 <ul>
@@ -4620,7 +4621,7 @@
 <li><strong>Throughput</strong> bars stack by group. <strong>WIP aging</strong> marks and <strong>Cycle time</strong> dots take the group color; aging marks keep the ring (past the 85th percentile) and the square (blocked).</li>
 <li>Each chart's summary says what the color means, and its table view has a group column, so color is never the only cue. <strong>Cumulative flow</strong> does not change.</li>
 <li>Up to five groups get a color. With more, the five largest are shown and the rest collapse into a neutral <strong>Other</strong>.</li>
-<li><strong>Labels:</strong> a card with several labels is counted once in each.</li>
+<li><strong>Labels:</strong> a card with several labels is counted once in each, so the group numbers can add up to more than the board's.</li>
 <li><strong>Custom fields:</strong> cards with no value for the field are left out.</li>
 <li>When no card in the view has a value to break down by, a status line replaces the legend ("No cards in this view have a swimlane to break down by.", or the same for label or the field) and the charts stay uncolored.</li>
 <li>Groups use each card's current swimlane, labels and field values, like the filters.</li>
@@ -4632,18 +4633,18 @@
 <li><strong>Share of the cycle:</strong> the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.</li>
 <li><strong>Queue:</strong> cards in the column at the start and end of the period, the column's WIP limit when one is set, and how many cards arrive and leave per week.</li>
 </ul>
-<p><strong>See the N cards</strong> opens the <a href="#column-drawer">column drawer</a> for that column; <strong>Open on board</strong> goes back to the board. Without a bottleneck the panel says <strong>Too early to say</strong> (no 85th percentile of cycle time yet) or <strong>No bottleneck</strong> (no column's queue grew in the period).</p>
+<p><strong>See the N cards</strong> opens the <a href="#column-drawer">column drawer</a> for that column; <strong>Open on board</strong> goes back to the board. Without a bottleneck the panel says <strong>Too early to say</strong> (no 85th percentile of cycle time yet) or <strong>No bottleneck</strong> (no column's queue grew in the period). Both also cover a board where only the first column's queue grew, since that column is never named.</p>
 <h3 id="how-work-flows">How work flows<a class="headerlink" href="#how-work-flows" title="Permanent link">&para;</a></h3>
 <p>One row, left to right, inside a box that scrolls sideways when the panel is narrower than 980px:</p>
 <ul>
 <li><strong>Connector</strong> before each column: cards per week entering it, a bar whose thickness follows that rate, and a one- or two-word note ("started", "move on", "fewer leave"). Connectors are neutral, and warning-colored after the bottleneck.</li>
-<li><strong>Column box</strong> for each in-progress column, a button that opens the <a href="#column-drawer">column drawer</a>: the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). <strong>Squares beyond the WIP limit are hollow</strong>, outlined in the danger color. The bottleneck's box has the warning border.</li>
-<li>A final connector and a <strong>Done</strong> box with the number of cards finished in the period.</li>
+<li><strong>Column box</strong> for each in-progress column, a button that opens the <a href="#column-drawer">column drawer</a>: the name, one square per card in the column now (every card not archived in it, as the column header counts them, including cards that have not started; at most 30 are drawn, then "+N more", and the count beside them stays exact), "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). <strong>Squares beyond the WIP limit are hollow</strong>, outlined in the danger color. The bottleneck's box has the warning border.</li>
+<li>A final connector and a <strong>Done</strong> box with the number of cards finished in the period: every card whose first entry into a done column falls in the selected range, partial weeks included. It uses the same date window as the cycle time, so it can be higher than the Throughput chart, which counts whole weeks only. It can also be higher than the number of cards in the cycle-time chart, because it counts every finished card, including one that went straight to done or has incomplete history; cycle time needs a start, so those cards have no cycle time.</li>
 </ul>
-<p><strong>Where the time goes</strong> sits under the row: one bar, "All cards" (or one bar per group under <a href="#break-down-by">Break down by</a>), segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.</p>
+<p><strong>Where the time goes</strong> sits under the row: one bar, "All cards" (or one bar per group under <a href="#break-down-by">Break down by</a>), segmented by in-progress column. A segment's width is the column's median days, labeled with that number (a segment too narrow to hold it drops the number: in both bars it shows on hover and in the segment's accessible name, and the single bar's legend also names it; under a breakdown the legend names the columns only, because the all-cards medians would contradict the group bars). The number printed at the end is the sum of those medians, not the cycle time, and the panel says how many columns were left out of it for lack of enough finished cards, for example "3 columns without enough data left out"; under a breakdown each group's bar says it for that group. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.</p>
 <p>A <strong>Chart | Table</strong> switch on the panel changes it to the <a href="#dwell-time-heatmap">dwell time heatmap</a> table.</p>
 <h3 id="column-drawer">Column drawer<a class="headerlink" href="#column-drawer" title="Permanent link">&para;</a></h3>
-<p>Opens from a column box or from the bottleneck panel's <strong>See the N cards</strong> button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its owner, swimlane and blocked state, its time by column and an <strong>Open card</strong> button, then the other cards oldest first. Five show at first; <strong>Show N more</strong> reveals the rest. Choosing a card in the list shows its transitions, with <strong>Back</strong> returning to the column.</p>
+<p>Opens from a column box or from the bottleneck panel's <strong>See the N cards</strong> button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L" (the same count as the column box), three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its owner, swimlane and blocked state, its time by column and an <strong>Open card</strong> button, then the other cards oldest first. Five show at first; <strong>Show N more</strong> reveals the rest. Only cards with an age are listed: cards that have not started, or have missing history, count toward N, and a note says how many are not listed. Choosing a card in the list shows its transitions, with <strong>Back</strong> returning to the column.</p>
 <h3 id="headline-tiles">Headline tiles<a class="headerlink" href="#headline-tiles" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4662,11 +4663,11 @@
 <tr>
 <td><strong>Throughput</strong></td>
 <td>Median cards per week</td>
-<td>How many whole weeks, and how many cards finished</td>
+<td>How many whole weeks, and how many cards finished in the selected range, partial weeks included (the number in the Done box; it counts every finished card, even one with no start, so it can exceed the cycle-time sample)</td>
 </tr>
 <tr>
 <td><strong>Work in progress</strong></td>
-<td>Cards in progress now</td>
+<td>Cards in the in-progress columns now, including cards that have not started (the total of the flow row's counts)</td>
 <td>Columns over their WIP limit, and cards past the 85th percentile</td>
 </tr>
 <tr>
@@ -4676,7 +4677,8 @@
 </tr>
 </tbody>
 </table>
-<p>A tile shows only what the server returns. Without a median it shows a dash and says when the median appears ("Median appears at 5. 3 so far."); with a median but no 85th percentile it is marked <strong>Provisional</strong>. With too few whole weeks, Throughput shows the cards finished so far instead of a weekly median. With a swimlane or label filter on, Work in progress leaves out the over-limit count, because a WIP limit counts every card in the column.</p>
+<p>A tile shows only what the server returns. Without a median it shows a dash and says when the median appears ("Median appears at 5. 3 so far."); with a median but no 85th percentile it is marked <strong>Provisional</strong>. With too few whole weeks, Throughput shows the cards finished so far instead of a weekly median. With a swimlane or label filter on, Work in progress leaves out the over-limit count, because a WIP limit counts every card in the column. The over-limit count counts every card in the column too, including cards that have not started, as the column header does.</p>
+<p><strong>Medians.</strong> Every median on this page is the nearest-rank 50th percentile: with an even number of values it is the lower of the two middle values (of 6 values, the 3rd), never their average. The <code>board_medians</code> field of the older <code>GET /api/v1/boards/{id}/analytics/</code> response uses the conventional median, which averages the two middle values, so it can differ from the medians here even over the same visits.</p>
 <h3 id="flow-metrics">Flow metrics<a class="headerlink" href="#flow-metrics" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
 <p>Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a <strong>Chart | Table</strong> toggle. They follow the page's <a href="#filters">filters</a>. All dates are UTC, and weekends count.</p>
@@ -4697,12 +4699,12 @@
 <tr>
 <td><strong>Throughput</strong></td>
 <td>How many cards finish per week.</td>
-<td>One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a <strong>Started</strong> column. Started under-reports on imported boards. Today's unfinished week is left out, so a partial week never reads as a slow one.</td>
+<td>One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a <strong>Started</strong> column. Started under-reports on imported boards. Only whole Monday-to-Sunday weeks inside the range are shown: the partial week at the start of the range and today's unfinished week at its end are both left out, so a partial week never reads as a slow one. A 30-day range covers 21 or 28 days and 90 days always 84.</td>
 </tr>
 <tr>
 <td><strong>Cumulative flow</strong></td>
 <td>Whether work arrives faster than it finishes. A widening band is a queue.</td>
-<td>One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, leaving out the first column that is not done (where new work arrives), named in a small key under the chart. The Done band is gray.</td>
+<td>One band per column, labeled at its right edge, finished work at the bottom, then the deleted-columns band when it holds cards, so the top of the Done band is the number of finished cards. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, leaving out the first column that is not done (where new work arrives), named in a small key under the chart. The Done band is gray.</td>
 </tr>
 <tr>
 <td><strong>WIP aging</strong></td>
@@ -4813,7 +4815,7 @@
 </blockquote>
 <p><strong>Current</strong> and <strong>In period</strong> follow the <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a>. Before, a swimlane-only move reset a card's age and split its stay in <strong>In period</strong>, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.</p>
 <h3 id="needs-attention">Needs attention<a class="headerlink" href="#needs-attention" title="Permanent link">&para;</a></h3>
-<p>Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. A <a href="../blocked-cards/">manually blocked</a> card names its block's reason, as in "blocked: waiting on security review", after any other reasons so a long one does not hide them; the line is cut to fit the row, and hovering it or opening the card shows it in full. A card blocked only by another card shows just "blocked". Five rows show at first; <strong>All N cards</strong> expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.</p>
+<p>Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card with no movement history, such as an imported one, counts days without movement from when it was created. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. A <a href="../blocked-cards/">manually blocked</a> card names its block's reason, as in "blocked: waiting on security review", after any other reasons so a long one does not hide them; the line is cut to fit the row, and hovering it or opening the card shows it in full. A card blocked only by another card shows just "blocked". Five rows show at first; <strong>All N cards</strong> expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.</p>
 <ul>
 <li><strong>Default threshold:</strong> the board's <code>staleness_threshold_days</code>.</li>
 <li><strong>Override:</strong> none. This list always uses the board's threshold. The <code>stalled_days</code> query parameter applies only to the analytics endpoint's own stalled list, not to this list or to the heatmap coloring.</li>
