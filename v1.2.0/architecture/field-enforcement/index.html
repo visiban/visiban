@@ -4496,9 +4496,9 @@
 <td>—</td>
 </tr>
 <tr>
-<td><code>CustomFieldDefinition.show_on_card</code> (max 2), <code>SwimlaneCustomFieldDefinition.show_on_row</code> (max 3)</td>
+<td><code>CustomFieldDefinition.show_on_card</code> (max 2), <code>SwimlaneCustomFieldDefinition.show_on_row</code> (max 8)</td>
 <td>Serializer validation</td>
-<td>—</td>
+<td><code>show_on_row</code> is a legacy flag kept for the API contract; it has no effect on the board since 1.3, where the swimlane band shows fields by order</td>
 </tr>
 <tr>
 <td><code>SwimlaneCustomFieldDefinition.is_admin_only</code></td>
