@@ -40,11 +40,13 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 > **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
 
-An empty cell shows one quiet **+**; the whole cell is the add target. On hover or keyboard focus it gains a dashed edge and the label **Add card**. Its accessible name is `Add card to {column} in {swimlane}`. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.
+An empty cell shows one quiet **+**; the whole cell is the add target. A populated cell's blank space below the cards is the add target too (see below). On hover or keyboard focus it gains a dashed edge and the label **Add card**. Its accessible name is `Add card to {column} in {swimlane}`. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.
 
 - Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
-- A populated cell keeps the **+ Add card** button anchored at the bottom for additional cards. The add-card button in a column header opens the new-card input in that column's first visible lane.
+- In a populated cell, the **+ Add card** button fills the blank space below the cards, so clicking anywhere in that space adds a card. On hover or keyboard focus it shows a dashed edge and the label **Add card**; it is hidden during a card drag. The add-card button in a column header opens the new-card input in that column's first visible lane.
 - Double-click and right-click on a cell still work for power users. Since 1.3 a right-click **on a card** opens that card's [actions menu](#card-actions-menu) instead; right-click the empty space in the cell to add a card.
+
+> **Changed in 1.3 (#2319)** — the **+ Add card** button in a populated cell used to be a small strip at the bottom; it now fills the blank space below the cards.
 
 Card creation requires the column's *Allow card creation* setting and at least the Member role.
 

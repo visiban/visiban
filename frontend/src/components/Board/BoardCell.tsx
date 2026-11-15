@@ -344,7 +344,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           onClick={() => setAdding(true)}
           // On an overlay tint fg-faint sinks out of sight, and this button sits on the
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
-          className={`group/addbtn relative flex-1 min-h-8 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-hover/30 focus:border-dashed focus:border-line-strong focus:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "invisible pointer-events-none" : ""}`}
+          className={`group/addbtn flex-1 min-h-8 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-hover/30 focus:border-dashed focus:border-line-strong focus:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "invisible pointer-events-none" : ""}`}
         >
           <span aria-hidden="true" className="text-base leading-none">+</span>
           <span aria-hidden="true" className="hidden group-hover/addbtn:inline group-focus/addbtn:inline ml-1.5">Add card</span>

@@ -124,7 +124,7 @@ Screenshot: `components.png`.
 
 - A cell is a well (the deepest surface) with 6px padding and 6px between cards.
 - Lane height follows the tallest cell. An empty cell is 56px tall.
-- An empty cell shows a quiet plus sign and the whole cell is the add target. On hover or focus it gains a dashed border and the label "Add card".
+- An empty cell shows a quiet plus sign and the whole cell is the add target. On hover or focus it gains a dashed border and the label "Add card". A populated cell's blank space below the cards is a full-height "+ Add card" button with the same hover look.
 - A split cell is one well with a dashed vertical divider between its sub-columns.
 
 ## Cards

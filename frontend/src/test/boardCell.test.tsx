@@ -374,7 +374,7 @@ describe('BoardCell', () => {
     props.cards = [makeCard({ id: 1 })]
     render(<BoardCell {...props} />)
     // Populated cells keep the dense info-rich layout — the cell wrapper is no
-    // longer a button, the bottom-aligned button is the only create affordance.
+    // longer a button, the fill-height button is the only create affordance.
     expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Add card' })).toBeInTheDocument()
   })
