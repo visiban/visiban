@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import statistics
+from types import SimpleNamespace
 
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
@@ -1128,6 +1129,7 @@ class BoardAnalyticsMixin:
         # velocity and stall-detection data that may predate the window. All
         # three are correlated subqueries compiled into the main SELECT — no
         # extra round-trips to the database (still 2 queries: cards + prefetch).
+        buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
         _last_mv_qs = _mv_qs.order_by("-moved_at")
         all_cards = list(
@@ -1145,6 +1147,13 @@ class BoardAnalyticsMixin:
                 _first_moved_at=Subquery(
                     _mv_qs.order_by("moved_at").values("moved_at")[:1]
                 ),
+                # The column the card was in when the movement prefetch window opens
+                # (its last movement before the buffer). Seeds the frozen clamped
+                # dwell for a column entered before the buffer (#2295). NULL when
+                # the card had no earlier movement.
+                _pre_buffer_col_id=Subquery(
+                    _mv_qs.filter(moved_at__lt=buffer_cutoff).order_by("-moved_at", "-id").values("to_column_id")[:1]
+                ),
             )
             .prefetch_related(
                 Prefetch(
@@ -1161,7 +1170,7 @@ class BoardAnalyticsMixin:
                     # Load only the fields the algorithm reads; order at the DB level so
                     # the per-card Python sort is eliminated.
                     queryset=CardMovement.objects.filter(
-                        moved_at__gte=period_cutoff - datetime.timedelta(days=days)
+                        moved_at__gte=buffer_cutoff
                     ).only(
                         "card_id", "to_column_id", "moved_at"
                     ).order_by("moved_at"),
@@ -1191,7 +1200,23 @@ class BoardAnalyticsMixin:
                 movements = list(card.movements.all())
 
                 # ── Clamped dwell (the frozen avg_days_per_column) ──────────────
-                for i, mv in enumerate(movements):
+                # A column entered before the prefetch buffer has no prefetched
+                # movement of its own: seed it with a leading stand-in dated at the
+                # buffer start, whose clamp to period_cutoff gives the in-window
+                # dwell. It also covers an archived card with no prefetched
+                # movements. An active card with none is the long-dwelling case below.
+                dwell_moves = movements
+                if card._pre_buffer_col_id is not None and (movements or card.archived_at is not None):
+                    stand_in = SimpleNamespace(to_column_id=card._pre_buffer_col_id, moved_at=buffer_cutoff)
+                    # Leading in-buffer movements into the same column (swimlane-only
+                    # moves, archived/unarchived rows) continue the stay the stand-in
+                    # already carries; keeping any would split one visit into several
+                    # dwell entries. Skip every leading one, not just the first.
+                    first_other = 0
+                    while first_other < len(movements) and movements[first_other].to_column_id == card._pre_buffer_col_id:
+                        first_other += 1
+                    dwell_moves = [stand_in, *movements[first_other:]]
+                for i, mv in enumerate(dwell_moves):
                     col_name = col_id_to_name.get(mv.to_column_id)
                     if not col_name:
                         continue
@@ -1202,7 +1227,7 @@ class BoardAnalyticsMixin:
                         continue
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
-                    exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
+                    exit_ = dwell_moves[i + 1].moved_at if i + 1 < len(dwell_moves) else (card.archived_at or now)
                     # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue

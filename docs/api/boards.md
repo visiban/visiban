@@ -636,7 +636,7 @@ Nothing here compares with an earlier period. The response shape is additive and
 }
 ```
 
-The last column, `column_uid: null`, is one band for every deleted column; in `counts` it is the key `"null"`. `bottleneck_column_uid` is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie), or `null` when none grew.
+The last column, `column_uid: null`, is one band for every deleted column; in `counts` it is the key `"null"`. `bottleneck_column_uid` is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie). The first not-done (intake) column is excluded. It is `null` when no column grew or only one column is not done.
 
 Each column also carries its flow across the range *(added in 1.3, #2260)*, the done columns and the `null` band included:
 
@@ -687,7 +687,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
 }
 ```
 
-`columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
+`columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, clipped to the age clock so the values sum to `value_days`, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
 
 #### `GET /api/v1/boards/{id}/metrics/dwell/`
 
