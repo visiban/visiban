@@ -10,6 +10,7 @@ import BottleneckPanel from "./BottleneckPanel";
 import {
   CumulativeFlowPanel, CycleTimePanel, PanelPlaceholder, RegionSlot, ThroughputPanel, WipAgePanel,
 } from "./FlowChartPanels";
+import { NoHistoryState, NoMatchState, isNarrowed } from "./FlowEmptyStates";
 import FlowDrillDrawer from "./FlowDrillDrawer";
 import FlowSection from "./FlowSection";
 import { exportCsv, loadViewMode, saveViewMode } from "./heatmap";
@@ -105,7 +106,12 @@ export default function AnalyticsOverview({
   const shownDays = (fetchedFilters ?? filters).days;
   const busy = loading && results !== null;
   const settled = results !== null;
-  const filtered = filters.swimlaneId !== null || filters.labelId !== null;
+  // The empty block follows the data on screen, so its chips and copy follow the filters that data was fetched
+  // for, not the live selection: otherwise a pending refetch would show the wrong state.
+  const shownFilters = fetchedFilters ?? filters;
+  // Board-wide WIP-limit wording follows the same fetched filters: the dimmed data on screen was not narrowed by the live selection.
+  const filtered = shownFilters.swimlaneId !== null || shownFilters.labelId !== null;
+  const narrowed = isNarrowed(shownFilters);
   const empty = cycle && throughput && cumulative && wipAge ? isEmpty(cycle, throughput, cumulative, wipAge) : false;
   const canExport = currentUserRole === "admin" || currentUserRole === "site_admin";
   const exportable = analytics?.swimlanes ? analytics : null;
@@ -128,7 +134,7 @@ export default function AnalyticsOverview({
         ) : undefined}
       />
       <p role="status" className="sr-only">
-        {loading ? (results === null ? "Loading flow metrics" : "Updating") : ""}
+        {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (narrowed ? "No cards match these filters" : "Nothing has moved yet") : "")}
       </p>
       {failed && (
         <div className="flex flex-wrap items-center gap-2">
@@ -147,27 +153,12 @@ export default function AnalyticsOverview({
         </div>
       )}
       {empty ? (
-        // The whole board has nothing to show: one block in place of regions 5 to 9 (#2264 redesigns it).
-        <div className="flex flex-col items-center justify-center gap-2 py-8" data-testid="flow-empty">
-          <svg className="w-10 h-10 text-fg-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6" />
-          </svg>
-          {filtered ? (
-            <p className="text-sm font-medium text-fg-tertiary">No cards match these filters.</p>
-          ) : (
-            <>
-              <p className="text-sm font-medium text-fg-tertiary">No flow history yet</p>
-              {onGoToBoard && (
-                <button
-                  type="button"
-                  onClick={onGoToBoard}
-                  className="px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Go to board
-                </button>
-              )}
-            </>
-          )}
+        // Nothing to draw: one block in place of regions 5 to 9. Going from here to data remounts
+        // the charts, which is safe because it follows the data itself, not a sibling's state.
+        <div aria-busy={busy} className={`min-w-0 transition-opacity motion-reduce:transition-none ${busy ? "opacity-60" : ""}`}>
+          {narrowed
+            ? <NoMatchState filters={shownFilters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} onBeforeChange={() => headingRef?.current?.focus()} />
+            : <NoHistoryState onGoToBoard={onGoToBoard} />}
         </div>
       ) : (
         <>
@@ -198,13 +189,13 @@ export default function AnalyticsOverview({
             </RegionSlot>
           </div>
           <RegionSlot busy={busy}>
-            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={{ ...filters, days: shownDays }} />
+            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={shownFilters} />
           </RegionSlot>
           <ChartRow>
             <RegionSlot busy={busy}>
               {cumulative
                 ? <CumulativeFlowPanel {...panelView("cumulative")} data={cumulative} onSelectDay={selectDay} />
-                : <PanelPlaceholder title="Cumulative flow" failed={settled} />}
+                : <PanelPlaceholder title="Cumulative flow" failed={settled} loadingNote={!settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>
               {throughput

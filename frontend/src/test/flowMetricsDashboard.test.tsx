@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRef } from 'react'
 import type { ComponentProps } from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { REFERENCE_LABEL_MARGIN } from '../components/Common/Chart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
   PERCENTILE_APPEARS_AT, bottleneckSentence, columnsOverLimit, shareOfCycle, shareOfCyclePhrase,
-  ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
+  ageMarkColor, ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
 } from '../components/Board/flowMetrics/flowFormat'
 import type {
   FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
@@ -186,6 +187,12 @@ describe('FlowMetricsDashboard states', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading flow metrics')
     expect(screen.getByTestId('analytics-bottleneck')).toBeInTheDocument()
     expect(screen.queryByTestId('flow-cycle-time')).not.toBeInTheDocument()
+    // Skeletons are sized like the final panels (#2264): four chart frames at the real 260px, with the note lines.
+    const frames = screen.getAllByTestId('panel-skeleton')
+    const chartBlocks = frames.flatMap((frame) => [...frame.querySelectorAll('.h-\\[260px\\]')])
+    expect(chartBlocks).toHaveLength(4)
+    expect(screen.getByText('Loading flow metrics…')).toBeInTheDocument()
+    for (const block of chartBlocks) expect(block.className).toContain('motion-reduce:animate-none')
     unmount()
 
     mockAll()
@@ -219,7 +226,8 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     const onGoToBoard = vi.fn()
     render(<FlowMetricsDashboard {...props} onGoToBoard={onGoToBoard} />)
-    expect(await screen.findByText('No flow history yet')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    expect(screen.getByText('Example of what you will see.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Go to board' }))
     expect(onGoToBoard).toHaveBeenCalled()
   })
@@ -230,8 +238,8 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
-    expect(await screen.findByText('No cards match these filters.')).toBeInTheDocument()
-    expect(screen.queryByText('No flow history yet')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No cards match these filters' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nothing has moved yet' })).not.toBeInTheDocument()
   })
 
   it('renders four panels with a 90-day default request', async () => {
@@ -356,7 +364,8 @@ describe('the panels', () => {
     expect(svg).not.toHaveTextContent('Deleted columns')
     const fill = panel.querySelector('[data-band="col-doing"] polygon')?.getAttribute('fill')
     expect(fill).toMatch(/^url\(#cfd-hatch-/)
-    expect(panel.querySelector('[data-band="col-done"] polygon')?.getAttribute('fill')).toContain('--primary-emphasis')
+    expect(panel.querySelector('[data-band="col-done"] polygon')?.getAttribute('fill')).toContain('--border-strong')
+    expect(panel.querySelector('pattern line')?.getAttribute('stroke')).toContain('--warning')
     expect(panel).toHaveTextContent('The hatched band is the bottleneck.')
   })
 
@@ -393,6 +402,35 @@ describe('the panels', () => {
     // The blocked card past P85 is the one ringed: its square sits at the ring's center.
     const square = image.querySelector('[data-blocked="true"] rect') as SVGRectElement
     expect(Number(rings[0].getAttribute('cx'))).toBe(Number(square.getAttribute('x')) + 4)
+  })
+
+  it('tints the zones above P50 and P85 with the neutral tint at 5% and 10%, never the chart hue', async () => {
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    expect(image.querySelector('[data-age-zone="p50"]')?.getAttribute('fill')).toBe('rgb(var(--border-strong) / 0.05)')
+    expect(image.querySelector('[data-age-zone="p85"]')?.getAttribute('fill')).toBe('rgb(var(--border-strong) / 0.1)')
+    expect(image.querySelector('rect[fill*="primary-emphasis"]')).toBeNull()
+  })
+
+  it('strokes the Done band top edge neutral (the contrast exception) and labels it only when it has height', async () => {
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
+    expect(image.querySelector('[data-band="col-doing"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--primary-emphasis))')
+    expect(image).toHaveTextContent('Done')
+  })
+
+  it('draws no Done label while the Done band is empty, but still strokes it neutral', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        days: cumulative.days.map((day) => ({ ...day, counts: { ...day.counts, 'col-done': 0 } })),
+      },
+    })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-cumulative')).getByRole('img')
+    expect(image.querySelector('[data-band="col-done"] polyline')?.getAttribute('stroke')).toBe('rgb(var(--fg-tertiary))')
+    expect(image).not.toHaveTextContent('Done')
   })
 
   it('rings nothing and draws no zones without a P85', async () => {
@@ -445,7 +483,7 @@ describe('the panels', () => {
     await userEvent.click(within(screen.getByTestId('flow-throughput')).getByRole('button', { name: 'table' }))
     const weeks = within(screen.getByRole('region', { name: 'Cards finished per week' }))
     expect(weeks.getByRole('button', { name: /2 cards the week of/ })).toBeInTheDocument()
-    expect(weeks.getByText('—')).toBeInTheDocument()
+    expect(weeks.getAllByText('—').length).toBeGreaterThan(0)
 
     await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: 'table' }))
     const days = within(screen.getByRole('region', { name: 'Cards per column per day' }))
@@ -858,6 +896,24 @@ describe('period labels during a refetch (#2261)', () => {
   })
 })
 
+describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
+  it('follows the filters the dimmed data was fetched for, not the live selection', async () => {
+    mockAll()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    ageMock.mockImplementation(async () => { await gate; return age })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(ageMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: 3, labelId: null }))
+    // Still the unfiltered answers on screen, so the board-wide clause must stay.
+    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    release()
+    await waitFor(() => expect(screen.queryByText(/column over its limit/)).not.toBeInTheDocument())
+  })
+})
+
 describe('one filter selection for the whole Overview (#2261)', () => {
   it('sends every request with the same filters and closes an open drawer on a change', async () => {
     mockAll()
@@ -902,5 +958,190 @@ describe('share of the cycle and limits (#2261)', () => {
 
   it('names the sample sizes at which percentiles appear', () => {
     expect(PERCENTILE_APPEARS_AT).toEqual({ p50: 5, p85: 7, p95: 20 })
+  })
+})
+
+describe('the throughput started marker (#2264)', () => {
+  it('draws a hollow diamond per week, a legend, and a Started table column', async () => {
+    mockAll({ throughput: { ...throughput, samples: [{ ...throughput.samples[0], started: 5 }, throughput.samples[1]] } })
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-throughput')
+    const marks = [...within(panel).getByRole('img').querySelectorAll('polygon[data-started]')]
+    expect(marks).toHaveLength(2)
+    expect(marks[0].getAttribute('fill')).toBe('none')
+    expect(within(panel).getByTestId('throughput-legend')).toHaveTextContent('FinishedStarted')
+    await userEvent.click(within(panel).getByRole('button', { name: 'table' }))
+    const table = within(screen.getByRole('region', { name: 'Cards finished per week' }))
+    expect(table.getByRole('columnheader', { name: 'Started' })).toBeInTheDocument()
+    expect(table.getByText('5')).toBeInTheDocument()
+  })
+})
+
+describe('the throughput started marker placement (#2264)', () => {
+  it('keeps the last diamond inside the plot, clear of the reference-label column', async () => {
+    mockAll({ throughput: { ...throughput, samples: [{ ...throughput.samples[0], started: 5 }, { ...throughput.samples[1], started: 5 }] } })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-throughput')).getByRole('img')
+    const width = Number(image.getAttribute('width'))
+    const xs = [...image.querySelectorAll('polygon[data-started]')].flatMap((mark) =>
+      (mark.getAttribute('points') ?? '').split(' ').map((point) => Number(point.split(',')[0])))
+    expect(Math.max(...xs)).toBeLessThanOrEqual(width - REFERENCE_LABEL_MARGIN)
+  })
+})
+
+describe('the no-history example (#2264)', () => {
+  it('draws the chart icon and an example bar with a hatched bottleneck segment', async () => {
+    mockAll(empty)
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByRole('heading', { name: 'Nothing has moved yet' })
+    expect(screen.getByTestId('flow-empty-icon')).toHaveAttribute('aria-hidden', 'true')
+    const hatched = screen.getByTestId('flow-empty-example').querySelectorAll('[data-hatched="true"]')
+    expect(hatched).toHaveLength(1)
+    expect((hatched[0] as HTMLElement).style.background).toContain('--warning')
+  })
+})
+
+describe('named chart colors (#2264)', () => {
+  it('colors aging marks neutral to P50, warning past it, danger past P85', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    mockAll({
+      age: {
+        ...age, sample_size: 3, cards: [cardA, cardB],
+        samples: [at('x1', 2), at('x2', 6), at('x3', 9)],
+      },
+    })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    const colors = [...image.querySelectorAll('[data-age-color]')].map((g) => g.getAttribute('data-age-color'))
+    expect(colors).toEqual(['neutral', 'warning', 'danger'])
+    expect(image.querySelector('[data-age-color="warning"] circle')?.getAttribute('fill')).toContain('--warning')
+    expect(image.querySelector('[data-age-color="danger"] circle[r="8"]')?.getAttribute('stroke')).toContain('--danger')
+    expect(screen.getByTestId('flow-wip-age')).toHaveTextContent('Orange marks')
+  })
+
+  it('names an aging color in the note only when a mark of that color is on screen', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    const note = async (values: number[]) => {
+      mockAll({ age: { ...age, sample_size: values.length, cards: [cardA, cardB], samples: values.map((v, i) => at(`n${i}`, v)) } })
+      await renderLoaded()
+      return screen.getByTestId('flow-wip-age')
+    }
+    // Only orange (past P50 = 4, within P85 = 8): no red named.
+    let panel = await note([2, 6])
+    expect(panel).toHaveTextContent('Orange marks are older than half of finished cards.')
+    expect(panel).not.toHaveTextContent('red marks')
+    cleanup()
+    // Only red (past P85): no orange named.
+    panel = await note([2, 9])
+    expect(panel).toHaveTextContent('Red marks are past the 85th percentile.')
+    expect(panel).not.toHaveTextContent('Orange marks')
+    cleanup()
+    // Neither: no color note.
+    panel = await note([2, 3])
+    expect(panel).not.toHaveTextContent(/Orange marks|Red marks|red marks/)
+    cleanup()
+    // Both.
+    panel = await note([6, 9])
+    expect(panel).toHaveTextContent('Orange marks are older than half of finished cards; red marks are past the 85th percentile.')
+  })
+
+  it('adds no tier for a withheld percentile', () => {
+    const sample = age.samples[0]
+    expect(ageMarkColor(sample, { p50: null, p85: null, p95: null })).toBe('neutral')
+    expect(ageMarkColor(sample, { p50: 4, p85: null, p95: null })).toBe('warning')
+  })
+})
+
+describe('the page states (#2264)', () => {
+  it('names every active filter, removes one chip at a time and offers a wider period', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    const state = await screen.findByTestId('flow-no-match')
+    expect(state).toHaveTextContent('No card in the Customer A swimlane moved in the last 90 days.')
+    await userEvent.click(within(state).getByRole('button', { name: 'Remove filter: Customer A' }))
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+  })
+
+  it('shows Show last 90 days only for a shorter period, and Clear all filters resets everything', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    expect(screen.queryByRole('button', { name: 'Show last 90 days' })).not.toBeInTheDocument()
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    const state = await screen.findByTestId('flow-no-match')
+    expect(within(state).getByRole('button', { name: 'Remove filter: Last 30 days' })).toBeInTheDocument()
+    // states.png: the period shortcut is the primary button, above the secondary Clear all filters.
+    const show = within(state).getByRole('button', { name: 'Show last 90 days' })
+    const clear = within(state).getByRole('button', { name: 'Clear all filters' })
+    expect(show).toHaveClass('bg-button-primary')
+    expect(clear).toHaveClass('border-line-strong')
+    expect(clear).not.toHaveClass('bg-button-primary')
+    expect(show.compareDocumentPosition(clear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.click(show)
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear all filters' }))
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+  })
+
+  it('keeps the no-match state, dimmed, while a refetch after Clear all filters is pending (#2264)', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await screen.findByTestId('flow-no-match')
+    // The next answer is held back; the page must keep describing the filters it was fetched for.
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    cycleMock.mockImplementation(async () => { await gate; return empty.cycle })
+    throughputMock.mockImplementation(async () => { await gate; return empty.throughput })
+    cumulativeMock.mockImplementation(async () => { await gate; return empty.cumulative })
+    ageMock.mockImplementation(async () => { await gate; return empty.age })
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    expect(screen.getByRole('heading', { name: 'No cards match these filters' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nothing has moved yet' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('flow-no-match').parentElement).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByTestId('flow-no-match').parentElement?.className).toContain('opacity-60')
+    release()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No cards match these filters' })).not.toBeInTheDocument()
+  })
+
+  it('keeps "Nothing has moved yet" while a refetch after picking a filter is pending (#2264)', async () => {
+    mockAll(empty)
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByRole('heading', { name: 'Nothing has moved yet' })
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    cycleMock.mockImplementation(async () => { await gate; return empty.cycle })
+    throughputMock.mockImplementation(async () => { await gate; return empty.throughput })
+    cumulativeMock.mockImplementation(async () => { await gate; return empty.cumulative })
+    ageMock.mockImplementation(async () => { await gate; return empty.age })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    expect(screen.getByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
+    expect(screen.queryByTestId('flow-no-match')).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByTestId('flow-no-match')).toBeInTheDocument()
+  })
+
+  it('says too little data on the bottleneck and tiles while charts still draw', async () => {
+    mockAll({
+      cycle: { ...cycle, sample_size: 6, percentiles: { p50: 4, p85: null, p95: null } },
+      cumulative: { ...cumulative, bottleneck_column_uid: null },
+    })
+    await renderLoaded()
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Too early to say')
+    expect(screen.getByTestId('analytics-tiles')).toHaveTextContent('Provisional')
+    expect(screen.getByTestId('flow-cumulative')).toBeInTheDocument()
   })
 })

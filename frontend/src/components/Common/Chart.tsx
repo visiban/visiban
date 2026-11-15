@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
-import { CHART_HUE, spreadLabels } from "../../utils/chartScale";
+import { CHART_COLORS, CHART_HUE, spreadLabels } from "../../utils/chartScale";
+import type { ChartColor } from "../../utils/chartScale";
 import ActiveMark from "./ActiveMark";
 
 /**
@@ -142,6 +143,8 @@ export interface ReferenceLine {
   label: string;
   dash?: string;
   strokeWidth?: number;
+  /** A named color exception; the chart hue when omitted. */
+  color?: ChartColor;
 }
 
 /** The right margin a chart reserves for reference-line labels ("85th · 12.6d"). */
@@ -159,7 +162,7 @@ export function ChartReferenceLines({ lines, geometry }: { lines: ReferenceLine[
         <g key={line.label}>
           <line
             x1={geometry.x0} x2={geometry.x1} y1={line.y} y2={line.y}
-            stroke={CHART_HUE} strokeWidth={line.strokeWidth ?? 1.5} strokeDasharray={line.dash}
+            stroke={CHART_COLORS[line.color ?? "hue"]} strokeWidth={line.strokeWidth ?? 1.5} strokeDasharray={line.dash}
           />
           <text x={geometry.x1 + 6} y={labelY[index]} dy="0.32em" className="fill-fg-secondary text-xs">
             {line.label}
@@ -187,10 +190,12 @@ interface ChartHitProps {
    * stops take one.
    */
   tabbable?: boolean;
+  /** The hover and focus ring's named color; the chart hue when omitted. */
+  color?: ChartColor;
 }
 
 /** A point's interactive target: 24px whatever the mark's size, ringed on hover and focus. */
-export function ChartPointHit({ x, y, label, onSelect, tabbable = false }: ChartHitProps & { x: number; y: number }) {
+export function ChartPointHit({ x, y, label, onSelect, tabbable = false, color = "hue" }: ChartHitProps & { x: number; y: number }) {
   return (
     <g
       role="button"
@@ -203,7 +208,7 @@ export function ChartPointHit({ x, y, label, onSelect, tabbable = false }: Chart
       <title>{label}</title>
       <circle cx={x} cy={y} r={12} fill="transparent" />
       <circle
-        cx={x} cy={y} r={8} fill="none" stroke={CHART_HUE} strokeWidth={2}
+        cx={x} cy={y} r={8} fill="none" stroke={CHART_COLORS[color]} strokeWidth={2}
         className="opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity motion-reduce:transition-none"
       />
     </g>

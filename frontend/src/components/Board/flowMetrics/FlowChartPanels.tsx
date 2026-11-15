@@ -7,7 +7,7 @@ import type { ChartPanelView, ChartTableColumn } from "../../Common/Chart";
 import CumulativeFlowChart from "./CumulativeFlowChart";
 import CycleTimeChart from "./CycleTimeChart";
 import {
-  ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
+  ageMarkColor, ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
   sparseNote, throughputSummary, wipAgeSummary,
 } from "./flowFormat";
 import ThroughputChart from "./ThroughputChart";
@@ -102,6 +102,7 @@ export function ThroughputPanel({
         </button>
       ),
     },
+    { key: "started", header: "Started", numeric: true, render: (s) => (s.started === 0 ? <ChartNullValue /> : s.started) },
   ];
   return (
     <ChartPanel
@@ -110,7 +111,10 @@ export function ThroughputPanel({
       title="Throughput"
       summary={throughputSummary(data)}
       definition={`Throughput: ${data.definition}`}
-      notes={compact([data.median === null && data.samples.length > 0 ? "Too few whole weeks to draw a median." : null])}
+      notes={compact([
+        data.median === null && data.samples.length > 0 ? "Too few whole weeks to draw a median." : null,
+        data.samples.length > 0 ? "Diamonds are cards started that week. Started under-reports on imported boards." : null,
+      ])}
       testId="flow-throughput"
       table={<ChartTable label="Cards finished per week" columns={columns} rows={data.samples} rowKey={(s) => s.start} />}
     >
@@ -182,6 +186,9 @@ export function WipAgePanel({
     },
   ];
   const hasBlocked = data.samples.some((s) => s.is_blocked);
+  // Name a color only when a mark of that color is drawn (ageMarkColor is what the chart paints).
+  const hasOrange = data.samples.some((s) => ageMarkColor(s, zones) === "warning");
+  const hasRed = data.samples.some((s) => ageMarkColor(s, zones) === "danger");
   const hasRinged = zones.p85 !== null && data.samples.some((s) => s.value_days > (zones.p85 as number));
   return (
     <ChartPanel
@@ -195,6 +202,7 @@ export function WipAgePanel({
         excludedNote(data.excluded_incomplete_history),
         hasBlocked ? "Squares are blocked cards." : null,
         hasRinged ? "Ringed cards are past the 85th percentile." : null,
+        agingColorNote(hasOrange, hasRed),
       ])}
       testId="flow-wip-age"
       table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress." />}
@@ -205,21 +213,48 @@ export function WipAgePanel({
 }
 
 
+/** The color note names only the colors on screen: orange (past P50), red (past P85), or both. */
+function agingColorNote(orange: boolean, red: boolean): string | null {
+  if (orange && red) return "Orange marks are older than half of finished cards; red marks are past the 85th percentile.";
+  if (orange) return "Orange marks are older than half of finished cards.";
+  if (red) return "Red marks are past the 85th percentile.";
+  return null;
+}
+
+const PULSE = "bg-surface-hover animate-pulse motion-reduce:animate-none";
+/** The chart frame's height in `ChartFrame` (260px), so a skeleton chart block is as tall as the real one. */
+const CHART_BLOCK = "h-[260px]";
+
 /**
  * A region's frame while it has no data to draw: the skeleton on first load,
- * or what failed. Sized like the panel it stands in for, so the page does not
- * jump when the data arrives.
+ * or what failed. A chart-sized skeleton (the default) has the shape of a
+ * `ChartPanel`: title, summary line, the 260px chart, two note lines. A shorter
+ * one (`height`) stands in for a list panel. Both are sized like the panel
+ * they replace, so the page does not jump when the data arrives (#2264).
+ * `loadingNote` shows the visible "Loading flow metrics..." line in the
+ * summary's place; the pulse stops under `prefers-reduced-motion`.
  */
-export function PanelPlaceholder({ title, failed, height = "h-56" }: { title: string; failed: boolean; height?: string }) {
+export function PanelPlaceholder({ title, failed, height = CHART_BLOCK, loadingNote = false }: {
+  title: string; failed: boolean; height?: string; loadingNote?: boolean;
+}) {
+  const chart = height === CHART_BLOCK;
   return (
-    <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-3 min-w-0">
+    <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 min-w-0" data-testid="panel-skeleton">
       <h2 className="text-sm font-semibold text-fg">{title}</h2>
       {failed ? (
-        <p className="text-sm text-fg-tertiary">Could not load this panel.</p>
+        <p className={`text-sm text-fg-tertiary ${chart ? "min-h-[320px]" : ""}`}>Could not load this panel.</p>
       ) : (
-        <div aria-hidden="true" className="flex flex-col gap-3">
-          <div className="h-3 w-2/3 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
-          <div className={`${height} rounded bg-surface-hover animate-pulse motion-reduce:animate-none`} />
+        <div aria-hidden="true" className="flex flex-col gap-2">
+          {chart && (loadingNote
+            ? <p className="text-sm text-fg-secondary">Loading flow metrics…</p>
+            : <div className={`h-5 w-2/3 rounded ${PULSE}`} />)}
+          <div className={`${height} rounded ${PULSE}`} />
+          {chart && (
+            <>
+              <div className={`h-4 w-3/4 rounded ${PULSE}`} />
+              <div className={`h-4 w-1/2 rounded ${PULSE}`} />
+            </>
+          )}
         </div>
       )}
     </div>

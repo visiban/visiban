@@ -1,5 +1,5 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
-import { CHART_HUE, LINE_DASH, axisTicks, linearScale, niceCeil } from "../../../utils/chartScale";
+import { CHART_COLORS, CHART_HUE, LINE_DASH, axisTicks, linearScale, niceCeil } from "../../../utils/chartScale";
 import type { FlowThroughput, FlowThroughputSample } from "../../../types";
 import { formatDate } from "./flowFormat";
 
@@ -9,12 +9,43 @@ interface Props {
   onSelect: (sample: FlowThroughputSample) => void;
 }
 
-/** The weekly run chart: values printed on the points, the median dashed and labelled. */
+const STARTED_OFFSET = 10;
+const DIAMOND_RADIUS = 4.5;
+// The plot's right inset keeps the last diamond (offset right of its week) inside the plot, clear of the
+// reference-label column that starts 6px past x1.
+const PLOT_INSET_RIGHT = STARTED_OFFSET + DIAMOND_RADIUS + 3;
+
+/** A hollow diamond centered on (x, y): the "started" marker, a shape distinct from the finished dot. */
+const diamond = (x: number, y: number, r = DIAMOND_RADIUS) => `${x},${y - r} ${x + r},${y} ${x},${y + r} ${x - r},${y}`;
+
+/** What the two marks mean, in the shapes the chart draws (color is never the only carrier). */
+function ThroughputLegend() {
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary" aria-label="Legend" data-testid="throughput-legend">
+      <li className="flex items-center gap-1.5">
+        <svg width={12} height={12} aria-hidden="true"><circle cx={6} cy={6} r={4} fill={CHART_HUE} /></svg>
+        Finished
+      </li>
+      <li className="flex items-center gap-1.5">
+        <svg width={12} height={12} aria-hidden="true">
+          <polygon points={diamond(6, 6)} fill="none" stroke={CHART_COLORS.neutral} strokeWidth={1.5} />
+        </svg>
+        Started
+      </li>
+    </ul>
+  );
+}
+
+/**
+ * The weekly run chart: values printed on the points, the median dashed and
+ * labeled, and a hollow diamond per week for cards started (#2260, #2264).
+ */
 export default function ThroughputChart({ data, labelledBy, onSelect }: Props) {
   const { samples } = data;
-  const top = niceCeil(Math.max(1, ...samples.map((s) => s.count), data.median ?? 0));
-  const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, samples.length - 1)], [x0 + 8, x1 - 8]);
+  const top = niceCeil(Math.max(1, ...samples.map((s) => Math.max(s.count, s.started)), data.median ?? 0));
+  const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, samples.length - 1)], [x0 + 8, x1 - PLOT_INSET_RIGHT]);
   return (
+    <>
     <ChartFrame
       labelledBy={labelledBy}
       margin={{ right: REFERENCE_LABEL_MARGIN }}
@@ -50,6 +81,16 @@ export default function ThroughputChart({ data, labelledBy, onSelect }: Props) {
                 </text>
               </g>
             ))}
+            {samples.map((sample, index) => (
+              <polygon
+                key={`started-${sample.start}`}
+                data-started={sample.started}
+                points={diamond(x(index) + STARTED_OFFSET, y(sample.started))}
+                fill="none"
+                stroke={CHART_COLORS.neutral}
+                strokeWidth={1.5}
+              />
+            ))}
           </>
         );
       }}
@@ -69,5 +110,7 @@ export default function ThroughputChart({ data, labelledBy, onSelect }: Props) {
           ));
       }}
     />
+    {samples.length > 0 && <ThroughputLegend />}
+    </>
   );
 }

@@ -169,6 +169,33 @@ test.describe('flow metrics dashboard', () => {
     await expect(page.getByTestId('flow-wip-age')).toBeVisible()
   })
 
+  test('a filter that matches nothing shows the no-match state, and Clear all filters restores the page (#2264)', async ({ page }) => {
+    await openAnalytics(page)
+    // Registered last, so it answers first: only a swimlane-filtered request is empty.
+    const none = { none: { p50: null, p85: null, p95: null } }.none
+    const emptyBodies: Record<string, unknown> = {
+      'cycle-time': { ...cycleTime, sample_size: 0, percentiles: none, samples: [], cards: [] },
+      throughput: { ...throughput, total: 0, median: null, samples: [], cards: [] },
+      'cumulative-flow': { ...cumulativeFlow, days: [], bottleneck_column_uid: null },
+      'wip-age': { ...wipAge, sample_size: 0, cycle_time_percentiles: none, samples: [], cards: [] },
+    }
+    for (const [name, body] of Object.entries(emptyBodies)) {
+      await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) =>
+        route.request().url().includes('swimlane_id=')
+          ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+          : route.fallback(),
+      )
+    }
+    await page.getByRole('button', { name: /^Swimlane/ }).click()
+    await page.getByRole('menuitem').first().click()
+    const state = page.getByTestId('flow-no-match')
+    await expect(state.getByRole('heading', { name: 'No cards match these filters' })).toBeVisible()
+    await expect(state.getByRole('list', { name: 'Active filters' }).getByRole('button')).toHaveCount(1)
+    await state.getByRole('button', { name: 'Clear all filters' }).click()
+    await expect(state).toBeHidden()
+    await expect(page.getByTestId('flow-wip-age')).toBeVisible()
+  })
+
   test('has no sideways page scroll at 390px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await openAnalytics(page)

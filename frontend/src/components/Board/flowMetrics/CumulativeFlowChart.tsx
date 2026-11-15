@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { ChartBandHit, ChartFrame } from "../../Common/Chart";
-import { CHART_HUE, axisTicks, chartTint, linearScale, niceCeil, spreadLabels } from "../../../utils/chartScale";
+import { CHART_COLORS, CHART_HUE, axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels, warningTint } from "../../../utils/chartScale";
 import type { FlowCumulativeFlow } from "../../../types";
 import { bandKey, bandName, formatDate } from "./flowFormat";
 
@@ -18,7 +18,7 @@ interface Props {
 
 /**
  * One-hue alpha bands, 1px separators and direct labels; the bottleneck band is
- * hatched. Finished work sits at the bottom, so the top edge is arrivals and the
+ * hatched in the warning color and Done is neutral (#2264). Finished work sits at the bottom, so the top edge is arrivals and the
  * done band's top edge is departures: the gap between them is work in progress.
  */
 export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: Props) {
@@ -67,9 +67,9 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
             <g key={key} data-band={key}>
               <polygon
                 points={[...upper, ...[...lower].reverse()].join(" ")}
-                fill={isBottleneck ? `url(#${hatchId})` : chartTint(Number(alpha.toFixed(2)))}
+                fill={isBottleneck ? `url(#${hatchId})` : (band.is_done ? neutralTint : chartTint)(Number(alpha.toFixed(2)))}
               />
-              <polyline points={upper.join(" ")} fill="none" stroke={CHART_HUE} strokeWidth={1} />
+              <polyline points={upper.join(" ")} fill="none" stroke={band.is_done ? CHART_COLORS.neutral : CHART_HUE} strokeWidth={1} />
             </g>
           );
         });
@@ -78,8 +78,8 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
           <>
             <defs>
               <pattern id={hatchId} patternUnits="userSpaceOnUse" width={6} height={6} patternTransform="rotate(45)">
-                <rect width={6} height={6} fill={chartTint(0.2)} />
-                <line x1={0} y1={0} x2={0} y2={6} stroke={CHART_HUE} strokeWidth={2} />
+                <rect width={6} height={6} fill={warningTint(0.2)} />
+                <line x1={3} y1={0} x2={3} y2={6} stroke={CHART_COLORS.warning} strokeWidth={2} />
               </pattern>
             </defs>
             {paths}

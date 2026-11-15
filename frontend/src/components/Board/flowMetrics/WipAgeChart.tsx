@@ -1,7 +1,7 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
-import { CHART_HUE, axisTicks, chartTint, linearScale, niceCeil } from "../../../utils/chartScale";
+import { CHART_COLORS, axisTicks, linearScale, neutralTint, niceCeil } from "../../../utils/chartScale";
 import type { FlowAgeSample, FlowCard, FlowWipAge } from "../../../types";
-import { ageMarkLabel, percentileLines } from "./flowFormat";
+import { ageMarkColor, ageMarkLabel, percentileLines } from "./flowFormat";
 
 const COLUMN_LABEL_CHARS = 12;
 const RING_LABEL_CHARS = 10;
@@ -28,7 +28,8 @@ interface Props {
 /**
  * Each in-progress card over its column, by age. The zones are cycle-time
  * percentiles: a dot in them is already older than most finished cards ever got.
- * Blocked cards are squares; cards past P85 are ringed and named.
+ * Blocked cards are squares; cards past P85 are ringed and named. Marks are neutral
+ * up to P50, `warning` past it and `danger` past P85 (#2264): the card aging tint.
  */
 export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props) {
   const zones = data.cycle_time_percentiles;
@@ -79,24 +80,27 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
         const width = geometry.x1 - geometry.x0;
         return (
           <>
-            {zones.p85 !== null && (
+            {zones.p50 !== null && (
               <rect
-                x={geometry.x0} width={width} y={zones.p95 !== null ? y(zones.p95) : geometry.y0}
-                height={y(zones.p85) - (zones.p95 !== null ? y(zones.p95) : geometry.y0)}
-                fill={chartTint(0.08)}
+                data-age-zone="p50"
+                x={geometry.x0} width={width} y={zones.p85 !== null ? y(zones.p85) : geometry.y0}
+                height={y(zones.p50) - (zones.p85 !== null ? y(zones.p85) : geometry.y0)}
+                fill={neutralTint(0.05)}
               />
             )}
-            {zones.p95 !== null && (
-              <rect x={geometry.x0} width={width} y={geometry.y0} height={y(zones.p95) - geometry.y0} fill={chartTint(0.16)} />
+            {zones.p85 !== null && (
+              <rect data-age-zone="p85" x={geometry.x0} width={width} y={geometry.y0} height={y(zones.p85) - geometry.y0} fill={neutralTint(0.1)} />
             )}
             <ChartReferenceLines lines={percentileLines(zones, y)} geometry={geometry} />
-            {placed.map(({ sample, x, y: cy, pastP85 }) => (
-              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined}>
-                {pastP85 && <circle cx={x} cy={cy} r={8} fill="none" stroke={CHART_HUE} strokeWidth={1.5} />}
+            {placed.map(({ sample, x, y: cy, pastP85 }) => {
+              const color = ageMarkColor(sample, zones);
+              return (
+              <g key={sample.card_uid} data-blocked={sample.is_blocked || undefined} data-age-color={color}>
+                {pastP85 && <circle cx={x} cy={cy} r={8} fill="none" stroke={CHART_COLORS[color]} strokeWidth={1.5} />}
                 {sample.is_blocked ? (
-                  <rect x={x - 4} y={cy - 4} width={8} height={8} fill={CHART_HUE} />
+                  <rect x={x - 4} y={cy - 4} width={8} height={8} fill={CHART_COLORS[color]} />
                 ) : (
-                  <circle cx={x} cy={cy} r={4} fill={CHART_HUE} />
+                  <circle cx={x} cy={cy} r={4} fill={CHART_COLORS[color]} />
                 )}
                 {named.has(sample.card_uid) && (
                   // On the side with room, so a name in the last column stays in the plot.
@@ -111,7 +115,8 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
                   </text>
                 )}
               </g>
-            ))}
+              );
+            })}
           </>
         );
       }}
@@ -122,6 +127,7 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect }: Props
             x={x}
             y={y}
             tabbable
+            color={ageMarkColor(sample, zones)}
             label={ageMarkLabel(sample, cards.get(sample.card_uid)?.title ?? sample.card_uid, zones)}
             onSelect={() => onSelect(sample)}
           />
