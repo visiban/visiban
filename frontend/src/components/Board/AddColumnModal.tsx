@@ -13,9 +13,13 @@ interface Props {
   onClose: () => void;
   /** Colors in use on the board, offered in the custom color popover (#2098). */
   boardColors?: BoardColor[];
+  /** The new column would be the board's first not-done column (#2298). */
+  willBecomeIntake?: boolean;
+  /** ...and another not-done column is the intake today, so it loses the role. */
+  replacesIntake?: boolean;
 }
 
-export default function AddColumnModal({ boardId, onAdded, onClose, boardColors }: Props) {
+export default function AddColumnModal({ boardId, onAdded, onClose, boardColors, willBecomeIntake, replacesIntake }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
   const [wipLimit, setWipLimit] = useState("");
@@ -81,6 +85,23 @@ export default function AddColumnModal({ boardId, onAdded, onClose, boardColors 
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
           <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
         </div>
+        {willBecomeIntake && (
+          <div
+            role="note"
+            data-testid="intake-takeover-note"
+            className="flex gap-2 rounded-lg border border-line bg-sunken px-3 py-2.5 text-xs text-fg-secondary"
+          >
+            <svg viewBox="0 0 16 16" className="w-4 h-4 shrink-0 text-fg-tertiary" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.5 8h7M6 5.5 8.5 8 6 10.5" />
+              <rect x="9.5" y="3" width="5" height="10" rx="1" />
+            </svg>
+            <p>
+              {replacesIntake
+                ? "This column will become the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck. The current intake column becomes eligible to be named again."
+                : "This will be the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck."}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 mt-5">

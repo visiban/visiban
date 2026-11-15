@@ -107,6 +107,7 @@ import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../ut
 import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
+import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
@@ -2101,6 +2102,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [gridOverlay, gridOverlayNow, board.columns, board.swimlanes, board.cards, hiddenColumnIds, renderHiddenSwimlaneIds, filteredCardIds],
   );
 
+  // The intake column (#2298) comes from the full column list in array order, never a view-filtered one.
+  const intakeColumnId = useMemo(() => firstNotDoneColumn(board.columns)?.id ?? null, [board.columns]);
+
   const handleColumnAdded = useCallback((col: Column) => {
     onColumnAdded(col);
     if (insertPosition !== null) {
@@ -3261,6 +3265,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     cards={board.cards.filter((c) => c.column === col.id)}
                     boardId={board.id}
                     boardColors={boardColors}
+                    isIntakeColumn={col.id === intakeColumnId}
                     isAdmin={isAdmin}
                     onColumnUpdated={handleColumnUpdated}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
@@ -3568,6 +3573,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <AddColumnModal
           boardId={board.id}
           boardColors={boardColors}
+          willBecomeIntake={wouldBecomeIntakeColumn(board.columns, insertPosition)}
+          replacesIntake={intakeColumnId !== null}
           onAdded={handleColumnAdded}
           onClose={() => { setShowAddColumn(false); setInsertPosition(null); }}
         />

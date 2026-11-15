@@ -1510,6 +1510,8 @@ The "Lens" view renders one public GitHub/GitLab repo's issues as a read-only ka
 
 An informational callout inside a card or form (not a full-width chrome strip) uses `role="note"` — static, not announced — with `rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary`. It is a deliberate deviation from § Mode indicator banners / § Degraded-state site banners, which are chrome strips. Copyable values (credentials, IDs) go in `<code className="font-mono text-fg select-all">` so one click selects them. **Superseded (#1179):** the reset time is no longer hardcoded — it is interpolated from site-config's `demo_next_reset_at` via `formatClockTime()`; see § Hosted demo surfaces.
 
+**Neutral variant (#2298):** a note that explains state rather than promotes something uses `role="note"` with `rounded-lg border border-line bg-sunken px-3 py-3 text-sm text-fg-secondary` and a `text-fg-tertiary` icon (`WebhookServiceNotice`, `IntakeColumnCallout`, the Add Column take-over note). Body text inside it stays `text-fg-secondary`, never `fg-tertiary`, for dark-mode contrast. An optional disclosure inside it is a native `<button type="button">` with `aria-expanded` and `aria-controls` pointing at a `hidden`-toggled region (not conditionally rendered, so the id always resolves).
+
 ## Hosted demo surfaces (#1179)
 
 The public demo (`demo_mode`, read from site-config via `useInstanceFlags()`, never from the deprecated `User.demo_mode`, #1913) runs behind a server-side, deny-by-default write fence: everything except card create/edit/move, archive and checklist writes answers `403 {"code": "demo_read_only"}`. The SPA's job is to make refused things look refused **before** the visitor tries them.
