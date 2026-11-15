@@ -2483,6 +2483,16 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeDisabled()
     })
 
+    it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      expect(screen.getByRole('button', { name: 'Expand all lanes' })).toBeInTheDocument()
+      expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeEnabled()
+      await user.click(screen.getByRole('button', { name: 'Expand all lanes' }))
+      expect(screen.getByRole('button', { name: 'Collapse all lanes' })).toBeInTheDocument()
+    })
+
     it('controls carry a visible keyboard-focus ring', () => {
       render(<BoardView {...defaultProps()} />)
       expect(openViewPanel().getByRole('button', { name: 'Collapse all' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)

@@ -191,12 +191,12 @@ Clicking Refresh inside the cooldown keeps showing the data you already have; th
 
 ### Toolbar and view options
 
-> **Changed in 1.2**
+> **Changed in 1.3**
 
-The lens sits on the board's tab row, but its toolbar keeps the old scrolling layout until #2302 moves it onto the board's new toolbar. The pivot dropdowns, a board-style **Filters** toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between **Board** and **Lens** no longer shifts the layout.
+The lens uses the same toolbar row as the board: the view tabs sit on the left, and the lens controls (**Collapse**, **Filters**, the card-layout toggle and the **Columns** and **Swimlanes** pivot dropdowns) sit on the right. Switching between **Board** and **Lens** does not move the tabs. The row wraps onto a second line on a narrow screen instead of scrolling sideways, so every control stays reachable by mouse and keyboard.
 
 - **Compact layout** matches the board: cards flow two-per-row rather than shrinking, and the lens reuses your existing per-board card-layout preference.
-- **Narrow screens:** below the large breakpoint, the card-layout toggle moves into a **Lens actions** menu instead of pushing the row into a sideways scroll.
+- **Narrow screens:** nothing folds into a menu. At phone widths the controls drop to a second line and the page never scrolls sideways.
 - **Shortcuts:** the lens picks up the board's keyboard shortcuts. <kbd>F</kbd> toggles the filter row, and <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> switches card layout (see [Keyboard shortcuts](keyboard-shortcuts.md)).
 
 On the lens, **Compact** goes a step further than on the native board: it strips cards down to the essentials (issue number, state, multi-lane indicator, title) for an at-a-glance scan. This is separate from the board's admin-set [Card density](board.md#card-density); the lens has no admin-controlled density, only this one per-user toggle.

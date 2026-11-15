@@ -2551,28 +2551,28 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
-        {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
-            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row).
-            The Lens toolbar keeps this old layout until #2302 moves it onto
-            the board's new toolbar; the row scrolls instead of wrapping. */}
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
-          <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
-            <div className="flex items-center gap-2 h-full min-w-max">
+        {/* Shared Row 2 (#2302) — the SAME wrapping structure as the board's
+            toolbar below, so switching Board↔Lens does not shift the tabs and
+            the row never scrolls sideways. */}
+        <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-              {/* Inside its own Lens boundary: before the toolbar was split out of
-                  LensView, all lens chrome sat inside the boundary below. Without
-                  this, a throw from LensToolbar escapes the Lens section and takes
-                  down the whole board page instead of just the lens pane. */}
-              <SectionErrorBoundary section="Lens">
-                <LensToolbar
-                  connection={lensConnection}
-                  cardLayout={cardLayout}
-                  onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-                  showFilters={lensShowFilters}
-                  onToggleFilters={() => setLensShowFilters((v) => !v)}
-                />
-              </SectionErrorBoundary>
             </div>
+            <div className="flex-1" />
+            {/* Inside its own Lens boundary: before the toolbar was split out of
+                LensView, all lens chrome sat inside the boundary below. Without
+                this, a throw from LensToolbar escapes the Lens section and takes
+                down the whole board page instead of just the lens pane. */}
+            <SectionErrorBoundary section="Lens">
+              <LensToolbar
+                connection={lensConnection}
+                cardLayout={cardLayout}
+                onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                showFilters={lensShowFilters}
+                onToggleFilters={() => setLensShowFilters((v) => !v)}
+              />
+            </SectionErrorBoundary>
           </div>
         </nav>
         {cardActionNotice}
@@ -2986,6 +2986,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           columnCount={board.columns.length}
           laneCount={board.swimlanes.length}
           cardCount={showChipCountsValue.all}
+          allLanesCollapsed={board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length}
+          onToggleLanes={
+            board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length
+              ? onShowAllSwimlanes
+              : onHideAllSwimlanes
+          }
         />
       )}
 
