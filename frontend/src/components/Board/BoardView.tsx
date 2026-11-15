@@ -2052,22 +2052,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [board.cards, board.columns, todayStr],
   );
 
-  const filteredCardIds: Set<number> | null = useMemo(() => {
+  // The Filter panel and search result alone, before the Show chip narrows it.
+  // `hiddenCount` and its "Clear" control belong to this set: a chip is cleared
+  // from the Show row, not from the filter bar.
+  const panelFilteredCardIds: Set<number> | null = useMemo(() => {
     const filters = effectiveFilters;
     const clientFiltersActive = hasActiveClientFilters(filters);
-
-    let base: Set<number> | null;
-    if (!clientFiltersActive && searchMatchIds === null) base = null;
+    if (!clientFiltersActive && searchMatchIds === null) return null;
     // Only server search is active — use its result directly as a Set.
-    else if (!clientFiltersActive && searchMatchIds !== null) base = searchMatchIds;
+    if (!clientFiltersActive && searchMatchIds !== null) return searchMatchIds;
     // filterCards handles the server search intersection via its searchResults param.
-    else base = new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
+    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
+  }, [effectiveFilters, searchMatchIds, board.cards, todayStr, board.custom_field_definitions]);
 
-    if (showChip === "all") return base;
+  const filteredCardIds: Set<number> | null = useMemo(() => {
+    if (showChip === "all") return panelFilteredCardIds;
     const chipIds = showChipCardIds(board.cards, board.columns, showChip);
-    if (base === null) return chipIds;
-    return new Set([...chipIds].filter((id) => base.has(id)));
-  }, [effectiveFilters, searchMatchIds, board.cards, board.columns, todayStr, board.custom_field_definitions, showChip]);
+    if (panelFilteredCardIds === null) return chipIds;
+    return new Set([...chipIds].filter((id) => panelFilteredCardIds.has(id)));
+  }, [panelFilteredCardIds, board.cards, board.columns, showChip]);
 
   /**
    * #1147 — the active overlay's per-cell values for the whole grid, built once per
@@ -2456,8 +2459,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const activeCount = countActiveFilters(effectiveFilters);
 
-  const hiddenCount = filteredCardIds !== null
-    ? board.cards.filter((c) => !c.archived_at).length - filteredCardIds.size
+  const hiddenCount = panelFilteredCardIds !== null
+    ? board.cards.filter((c) => !c.archived_at).length - panelFilteredCardIds.size
     : 0;
 
   // Overflow menu items are computed unconditionally — the memo must sit above
@@ -2894,7 +2897,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
       {!allLanesFilteredOut && filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
-          No cards match the active filters.
+          {showChip !== "all" && (panelFilteredCardIds === null || panelFilteredCardIds.size > 0)
+            ? "No cards match the selected Show chip. Choose All cards to see every card."
+            : "No cards match the active filters."}
         </div>
       )}
       {cardActionNotice}

@@ -149,4 +149,15 @@ describe('CardItem — calm face (#2272)', () => {
     expect(screen.getByText('A -- B')).toBeInTheDocument()
     expect(screen.queryByTestId('card-subtitle')).toBeNull()
   })
+
+  it('keeps an overdue compact card from resting on border color alone', () => {
+    const { container } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" compact />)
+    expect(container.querySelector('svg[data-testid="urgency-glyph-overdue"]')).not.toBeNull()
+    expect(container.querySelector('p .sr-only')?.textContent).toBe('Overdue, ')
+  })
+
+  it('gives a one-line Standard title a tooltip with the full text', () => {
+    render(<CardItem card={makeCard({ title: 'A fairly long plain title' })} density="standard" />)
+    expect(screen.getByText('A fairly long plain title').closest('p')).toHaveAttribute('title', 'A fairly long plain title')
+  })
 })

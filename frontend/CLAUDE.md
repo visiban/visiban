@@ -660,6 +660,7 @@ The "Show" row sits above the column headers (`components/Board/ShowChips.tsx`):
 - **Exactly one chip is active; All cards is the default.** The active chip is marked by `font-semibold`, `border-info` and `bg-primary/20` together, plus `aria-pressed`, so it never rests on color alone.
 - **Swatches are the legend for the collapsed-lane squares.** They import `STATUS_SQUARE_CLASS` from `constants/laneStatus.ts`; never redefine the colors. Due soon has no square, so its swatch is `bg-fg-tertiary`.
 - **A chip is a quick view, not a saved filter.** It lives in the URL as `?show=overdue|stale|due_soon` (absent means All cards), is not written to localStorage or saved filters, and ANDs with the Filter panel. `BoardView` folds it into `filteredCardIds`, so every lane and sub-column filters the same way, while column counts, WIP meters and lane counts keep reading the whole column and lane.
+- The chips are pills (`rounded-full`), the sanctioned exception to the generic button radius, per the spec. A polite status region announces "Showing N overdue cards" when a chip is active.
 - Counts exclude archived cards and ignore every filter; a stale card in a done column is not stale (same rule as the card face).
 
 ## Avatar chips

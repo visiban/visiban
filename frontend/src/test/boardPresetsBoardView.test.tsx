@@ -839,11 +839,11 @@ describe('BoardView — Show chips (#2272)', () => {
 
   it('shows All cards, Overdue, Stale and Due soon with whole-board counts and the totals', () => {
     renderBoard(chipBoard())
-    expect(chip(/^All cards 5$/)).toHaveAttribute('aria-pressed', 'true')
-    expect(chip(/^Overdue 1$/)).toHaveAttribute('aria-pressed', 'false')
+    expect(chip(/^All cards 5 cards$/)).toHaveAttribute('aria-pressed', 'true')
+    expect(chip(/^Overdue 1 card$/)).toHaveAttribute('aria-pressed', 'false')
     // Stale ignores a done column, like the card face.
-    expect(chip(/^Stale 1$/)).toBeInTheDocument()
-    expect(chip(/^Due soon 1$/)).toBeInTheDocument()
+    expect(chip(/^Stale 1 card$/)).toBeInTheDocument()
+    expect(chip(/^Due soon 1 card$/)).toBeInTheDocument()
     expect(screen.getByTestId('board-totals')).toHaveTextContent('1 swimlane · 3 columns · 5 cards')
   })
 
@@ -863,7 +863,7 @@ describe('BoardView — Show chips (#2272)', () => {
     expect(screen.queryByText('Soon one')).not.toBeInTheDocument()
     expect(screen.queryByText('Stale one')).not.toBeInTheDocument()
     // Counts keep showing the whole board.
-    expect(chip(/^All cards 5$/)).toBeInTheDocument()
+    expect(chip(/^All cards 5 cards$/)).toBeInTheDocument()
 
     await user.click(chip(/^All cards/))
     expect(urlHistory[urlHistory.length - 1].has('show')).toBe(false)
@@ -890,5 +890,10 @@ describe('BoardView — Show chips (#2272)', () => {
     renderBoard(chipBoard())
     await user.click(chip(/^Due soon/))
     expect(Object.keys(localStorage).some((k) => /filters/.test(k) && /due_soon/.test(localStorage.getItem(k) ?? ''))).toBe(false)
+  })
+
+  it('says so when only the chip empties the board, and does not count chip-hidden cards as filtered out', () => {
+    renderBoard(makeBoard({ cards: [makeCard(1, { title: 'Calm one' })] }), 'show=overdue')
+    expect(screen.getByText(/No cards match the selected Show chip/)).toBeInTheDocument()
   })
 })

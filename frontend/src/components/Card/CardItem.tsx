@@ -792,10 +792,18 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       )}
       <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
-        <p title={splitTitle && !showSubtitle ? card.title : undefined} className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
+        <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
           menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-14" : " [@media(pointer:coarse)]:group-focus-within:pr-14") : ""
         }`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
+          {/* The compact layout has no status line, so the overdue border would be
+              the only signal; a flag and words keep it from resting on color alone (#2272). */}
+          {isOverdueCard && compact && (
+            <>
+              <UrgencyGlyph kind="overdue" className="inline-block w-3 h-3 mr-1 align-[-0.125em] text-danger" />
+              <span className="sr-only">Overdue, </span>
+            </>
+          )}
           {calmFace && !compact ? (splitTitle ? splitTitle.head : card.title) : card.title}
           {prioritySuffix && <span className="sr-only" data-testid="card-priority-sr">{prioritySuffix}</span>}
         </p>

@@ -48,10 +48,10 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
             aria-pressed={on}
             data-show-chip={key}
             onClick={() => onChange(key)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            className={`inline-flex items-center gap-1.5 rounded-full border transition-colors px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               on
                 ? "border-info bg-primary/20 text-fg font-semibold"
-                : "border-line bg-surface-hover text-fg-secondary font-normal hover:text-fg"
+                : "border-line bg-surface-hover text-fg-secondary font-normal hover:text-fg hover:border-line-strong"
             }`}
           >
             <span
@@ -60,10 +60,14 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
             />
             <span>{SHOW_CHIP_LABEL[key]}</span>
             <span className="tabular-nums">{counts[key]}</span>
+            <span className="sr-only">{counts[key] === 1 ? "card" : "cards"}</span>
           </button>
         );
       })}
       <div className="flex-1" />
+      <span className="sr-only" role="status" data-testid="show-chip-status">
+        {active === "all" ? "" : `Showing ${counts[active]} ${SHOW_CHIP_LABEL[active].toLowerCase()} ${counts[active] === 1 ? "card" : "cards"}`}
+      </span>
       <span className="text-xs text-fg-secondary" data-testid="board-totals">
         {plural(laneCount, "swimlane", "swimlanes")} · {plural(columnCount, "column", "columns")} · {plural(cardCount, "card", "cards")}
       </span>
