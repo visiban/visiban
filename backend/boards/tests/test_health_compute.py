@@ -443,3 +443,92 @@ class ConcurrentRunTests(_AutoBoardMixin, TransactionTestCase):
         self.assertEqual(BoardHealthChange.objects.filter(board=self.board).count(), 1)
         self.board.refresh_from_db()
         self.assertEqual(self.board.computed_health_status, "at_risk")
+
+
+class FixRoundTests(_AutoBoardMixin, TestCase):
+    """Completeness-check findings on #2245: every write path keeps auto health consistent."""
+
+    def setUp(self):
+        self._setup_board()
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def _url(self, suffix=""):
+        return f"/api/v1/boards/{self.board.pk}/{suffix}"
+
+    def test_staleness_threshold_change_recomputes_on_auto_board(self):
+        # 5 days untouched: fresh under the default 7-day rule, stale under 3.
+        card = self._card(self.acme, title="quiet")
+        type(card).objects.filter(pk=card.pk).update(created_at=timezone.now() - datetime.timedelta(days=5))
+        Board.objects.filter(pk=self.board.pk).update(staleness_threshold_days=7)
+        compute_board_health(self.board.pk)
+        self.acme.refresh_from_db()
+        self.assertEqual(self.acme.computed_health_status, "on_track")
+        data = self.client.patch(self._url(), {"staleness_threshold_days": 3}, format="json").json()
+        self.acme.refresh_from_db()
+        self.assertEqual(self.acme.health_computed_counts["stale"], 1)
+        self.assertEqual(self.acme.computed_health_status, "at_risk")
+        self.assertEqual(data["computed_health_status"], "at_risk")
+
+    def test_lane_created_with_pin_rolls_up_board(self):
+        self._card(self.acme, title="fine")
+        compute_board_health(self.board.pk)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.computed_health_status, "on_track")
+        response = self.client.post(
+            self._url("swimlanes/"), {"name": "Gamma", "health_status": "off_track"}, format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.computed_health_status, "off_track")
+        self.assertIn("Gamma", BoardHealthChange.objects.filter(board=self.board).latest("id").reason)
+
+    def test_clearing_a_pin_returns_to_computed(self):
+        self._card(self.acme, title="late", due_date=YESTERDAY())
+        compute_board_health(self.board.pk)
+        lane_url = self._url(f"swimlanes/{self.acme.pk}/")
+        self.client.patch(self._url(), {"health_status": "off_track"}, format="json")
+        self.client.patch(lane_url, {"health_status": "on_track"}, format="json")
+        # The lane first: its pin feeds the board's roll-up.
+        lane = self.client.patch(lane_url, {"health_status": None}, format="json").json()
+        data = self.client.patch(self._url(), {"health_status": None}, format="json").json()
+        self.assertEqual((data["effective_health_status"], data["health_status_origin"]), ("at_risk", "computed"))
+        self.assertEqual((lane["effective_health_status"], lane["health_status_origin"]), ("at_risk", "computed"))
+
+    def test_turning_off_records_history_and_broadcasts_lanes(self):
+        self._card(self.acme, title="late", due_date=YESTERDAY())
+        self._card(self.beta, title="fine")
+        compute_board_health(self.board.pk)
+        with _capture_frames() as frames, self.captureOnCommitCallbacks(execute=True):
+            self.client.patch(self._url(), {"health_auto_enabled": False}, format="json")
+        row = BoardHealthChange.objects.filter(board=self.board).latest("id")
+        self.assertEqual((row.kind, row.from_status, row.to_status), ("computed", "at_risk", None))
+        self.assertEqual(row.changed_by, self.admin)
+        lane_frames = [f["data"] for f in frames if f["event"] == "swimlane.updated"]
+        self.assertEqual(sorted(d["id"] for d in lane_frames), sorted([self.acme.pk, self.beta.pk]))
+        self.assertTrue(all(d["health_status_origin"] is None for d in lane_frames))
+
+    def test_rollup_decides_from_the_locked_row_not_the_callers_read(self):
+        from boards.services.health_compute import rollup_board_health
+
+        compute_board_health(self.board.pk)
+        stale = Board.objects.get(pk=self.board.pk)
+        stale.health_auto_enabled = False  # the caller's pre-lock read
+        Swimlane.objects.filter(pk=self.acme.pk).update(health_status="off_track")
+        with transaction.atomic():
+            self.assertTrue(rollup_board_health(stale))
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.computed_health_status, "off_track")
+
+    def test_auto_off_board_never_reports_computed_origin(self):
+        # A row left inconsistent by a direct ORM write: the flag wins.
+        self._card(self.acme, title="late", due_date=YESTERDAY())
+        compute_board_health(self.board.pk)
+        Board.objects.filter(pk=self.board.pk).update(health_auto_enabled=False)
+        data = self.client.get(self._url()).json()
+        self.assertIsNone(data["health_status_origin"])
+        self.assertIsNone(data["effective_health_status"])
+        full = self.client.get(self._url("full/")).json()
+        self.assertIsNone(full["health_status_origin"])
+        lane = next(sw for sw in full["swimlanes"] if sw["id"] == self.acme.pk)
+        self.assertEqual((lane["effective_health_status"], lane["health_status_origin"]), (None, None))

@@ -334,12 +334,27 @@ class HealthStatusFieldsMixin(serializers.Serializer):
     def _health_start(self, obj):  # pragma: no cover - abstract
         raise NotImplementedError
 
+    @staticmethod
+    def _computed(obj):
+        """A board's stored computed status, or ``None`` when auto health is off (#2245).
+
+        Turning auto off clears the computed columns on every write path, so
+        this is defensive: a row left behind by a direct ORM or shell write
+        never reports origin ``computed`` on a board that is not computing.
+        Groups have neither attribute. The flag is read only when a computed
+        value is stored, so a board without one costs nothing extra.
+        """
+        computed = getattr(obj, "computed_health_status", None)
+        if computed is not None and not getattr(obj, "health_auto_enabled", False):
+            return None
+        return computed
+
     def prime_health_map(self, items):
         """Build one ancestor map for every row of a list (see HealthStatusListSerializer)."""
         self._health_map = build_health_map(
             self._health_start(obj) for obj in items
             if not valid_health_status(obj.health_status)
-            and not valid_health_status(getattr(obj, "computed_health_status", None))
+            and not valid_health_status(self._computed(obj))
         )
 
     def _health(self, obj):
@@ -348,7 +363,7 @@ class HealthStatusFieldsMixin(serializers.Serializer):
         # in the same request is never answered from a stale entry.
         start = self._health_start(obj)
         # Boards only (#2245): stored while auto health is on, else null.
-        computed = getattr(obj, "computed_health_status", None)
+        computed = self._computed(obj)
         key = (
             obj.pk, obj.health_status, start[1],
             getattr(obj, "health_status_changed_at", None), getattr(obj, "health_review_days", None),

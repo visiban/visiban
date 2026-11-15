@@ -923,15 +923,31 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "limit_enforcement": {"help_text": field_enforcement.SWIMLANE_LIMIT_ENFORCEMENT},
         }
 
+    @staticmethod
+    def _computed(obj):
+        """The lane's stored computed status, or ``None`` on a board with auto off (#2245).
+
+        Defensive, like the board's (``HealthStatusFieldsMixin._computed``):
+        every write path clears a lane's computed columns when its board stops
+        computing. The board is consulted only when it is already loaded on
+        the lane (``/full/`` prefetches lanes from the board, which caches it),
+        never fetched: the lane list and the broadcasts would pay one query
+        per lane. Elsewhere the write paths are the guarantee.
+        """
+        computed = valid_health_status(obj.computed_health_status)
+        if computed and Swimlane.board.is_cached(obj) and not obj.board.health_auto_enabled:
+            return None
+        return computed
+
     @extend_schema_field(serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True))
     def get_effective_health_status(self, obj):
-        return valid_health_status(obj.health_status) or valid_health_status(obj.computed_health_status)
+        return valid_health_status(obj.health_status) or self._computed(obj)
 
     @extend_schema_field(serializers.ChoiceField(choices=["manual", "computed"], allow_null=True))
     def get_health_status_origin(self, obj):
         if valid_health_status(obj.health_status):
             return "manual"
-        if valid_health_status(obj.computed_health_status):
+        if self._computed(obj):
             return "computed"
         return None
 

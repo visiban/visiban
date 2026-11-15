@@ -504,12 +504,20 @@ class BoardViewSet(
             # Auto health (#2245): read from the locked row, like the status.
             old_auto = board.health_auto_enabled
             old_off_track_cards = board.health_off_track_cards
+            old_staleness_days = board.staleness_threshold_days
             serializer.save()
             board = serializer.instance
             record_if_changed(
                 board, change_model=BoardHealthChange, from_status=old_health_status, user=self.request.user,
             )
-            self._apply_auto_health_change(board, old_auto, old_off_track_cards)
+            # Auto health on/off or a rule-input change (#2245); the admin
+            # takes the same service path.
+            from ..services.health_compute import apply_auto_health_change
+
+            apply_auto_health_change(
+                board, old_auto=old_auto, old_off_track_cards=old_off_track_cards,
+                old_staleness_days=old_staleness_days, user=self.request.user,
+            )
             board_id = board.id
             if board.group_id != old_group_id:
                 # A group-derived admin role can end with the group change; a
@@ -518,28 +526,6 @@ class BoardViewSet(
                 from ..services.share_links import revoke_lapsed_share_links
                 revoke_lapsed_share_links(board_ids=[board_id])
             self._persist_and_broadcast_board_updated(board_id, old_group_id)
-
-    def _apply_auto_health_change(self, board, old_auto, old_off_track_cards):
-        """Turning auto health on computes now; off clears every computed value (#2245).
-
-        Runs inside perform_update's transaction, holding the board row lock,
-        before its ``board.updated``: that one event carries the new computed
-        values, so the compute sends no second ``board.updated``
-        (``broadcast_board=False``). A threshold change on an auto board
-        recomputes too, so the stored value never answers to the old rule.
-        """
-        from ..services.health_compute import clear_computed_health, compute_board_health
-
-        if old_auto and not board.health_auto_enabled:
-            clear_computed_health(board, user=self.request.user)
-        elif board.health_auto_enabled and (
-            not old_auto or board.health_off_track_cards != old_off_track_cards
-        ):
-            compute_board_health(board.pk, broadcast_board=False)
-            # The PATCH response is rendered from this instance.
-            board.refresh_from_db(fields=[
-                "computed_health_status", "health_computed_at", "health_computed_counts",
-            ])
 
     def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
         """Persist ``board.updated`` and schedule its fanout on commit; return the payload.

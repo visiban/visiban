@@ -263,17 +263,19 @@ def compute_board_health(board_id, *, broadcast_board=True):
 def rollup_board_health(board, *, user=None):
     """Re-derive an auto board's computed status from its stored lane values (no card query).
 
-    Called inside a lane pin write (``PATCH`` with ``health_status``) or a lane
-    delete, after the write, by a caller that holds the board row lock. A
-    no-op on a board with auto health off. The lanes' own computed values are
-    left as the last run stored them.
+    Called inside a lane write that changes what the roll-up reads (a lane
+    created or edited with ``health_status``, a lane deleted, a lane moved in
+    the admin), after the write, by a caller that holds the board row lock.
+    ``board`` is a board or a board id. A no-op on a board with auto health
+    off or gone. The flag is decided from the row re-read here, under the
+    caller's lock, never from the caller's earlier read: a roll-up racing
+    "turn auto on" must not skip the board (#2245 R1-6). The lanes' own
+    computed values are left as the last run stored them.
     """
     from ..models import Board, Swimlane
 
-    if not board.health_auto_enabled:
-        return False
-    board = Board.objects.get(pk=board.pk)
-    if not board.health_auto_enabled:
+    board = Board.objects.filter(pk=getattr(board, "pk", board)).first()
+    if board is None or not board.health_auto_enabled:
         return False
     lanes = list(Swimlane.objects.filter(board_id=board.pk).only(
         "id", "name", "health_status", "computed_health_status",
@@ -311,3 +313,30 @@ def clear_computed_health(board, *, user=None):
         )
     if lane_ids:
         _broadcast_lanes(board.pk, lane_ids)
+
+
+def apply_auto_health_change(board, *, old_auto, old_off_track_cards, old_staleness_days, user=None):
+    """Turning auto health on computes now; off clears every computed value (#2245).
+
+    The one path for every writer of the auto health settings (the board
+    PATCH and the Django admin), so the two can never leave different state.
+    The caller holds the board row lock, has saved ``board``, and sends its
+    own ``board.updated`` after this returns: that one event carries the new
+    computed values, so the compute sends no second one
+    (``broadcast_board=False``). A change of either rule input on an auto
+    board (``health_off_track_cards``, or ``staleness_threshold_days``, which
+    decides "stale") recomputes too, so the stored value never answers to the
+    old rule. ``user`` is recorded on the "turned off" history row.
+    """
+    if old_auto and not board.health_auto_enabled:
+        clear_computed_health(board, user=user)
+    elif board.health_auto_enabled and (
+        not old_auto
+        or board.health_off_track_cards != old_off_track_cards
+        or board.staleness_threshold_days != old_staleness_days
+    ):
+        compute_board_health(board.pk, broadcast_board=False)
+        # The caller's response or event is rendered from this instance.
+        board.refresh_from_db(fields=[
+            "computed_health_status", "health_computed_at", "health_computed_counts",
+        ])

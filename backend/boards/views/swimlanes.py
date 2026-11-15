@@ -253,6 +253,11 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
                     )
+                if serializer.validated_data.get("health_status"):
+                    # A lane created with a pin feeds an auto board's roll-up
+                    # at once, as a PATCH of the pin does (#2245); the board
+                    # row is locked above. No-op when auto is off.
+                    rollup_board_health(board)
                 # Broadcast uses the public serializer — contact_email, notes, and
                 # is_admin_only custom field values must not be sent to viewer-role
                 # members who are connected via WebSocket.
