@@ -17,11 +17,15 @@ interface Props {
 
 const days = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "day" : "days"}`;
 
-/** The reason line: every reason the card qualifies for, in the service's order. */
+/**
+ * The reason line: every reason the card qualifies for, in the service's order.
+ * A block's reason is free text a member typed (#2281): it is only ever rendered as a text
+ * node, and the row's `truncate` plus `title` carry a long one.
+ */
 function reasonText(item: FlowAttentionItem, p85: number | null, stalledDays: number | null): string {
   return item.reasons
     .map((r) => {
-      if (r === "blocked") return "blocked";
+      if (r === "blocked") return item.block_reason ? `blocked: ${item.block_reason}` : "blocked";
       if (r === "past_p85") return p85 !== null ? `past ${days(p85)}` : "past the 85th percentile";
       return stalledDays !== null ? `no movement for ${days(stalledDays)}` : "no movement";
     })

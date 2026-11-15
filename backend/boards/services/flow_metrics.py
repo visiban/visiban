@@ -264,6 +264,9 @@ class CardFlow:
     archived_at: datetime.datetime | None
     blocked_at: datetime.datetime | None
     column_uid: str
+    # The manual block's free text, mirrored from the open ``CardBlock`` onto
+    # the card row (#1149), so it rides the same query as ``blocked_at`` (#2281).
+    blocked_reason: str = ""
     has_creation: bool = False
     created_in_done: bool = False
     # Created, then the first transition reached a done column: the card has
@@ -532,11 +535,11 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
             id=row["id"], uid=row["uid"], title=row["title"], swimlane_id=row["swimlane_id"],
             assignee_id=row["assignee_id"], created_at=row["created_at"],
             archived_at=row["archived_at"], blocked_at=row["blocked_at"],
-            column_uid=row["column__uid"],
+            column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
         )
         for row in selected.order_by("id").values(
             "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
-            "archived_at", "blocked_at", "column__uid",
+            "archived_at", "blocked_at", "column__uid", "blocked_reason",
         )
     ]
 
@@ -1072,6 +1075,19 @@ def age(flow, flow_range):
 ATTENTION_REASONS = ("blocked", "past_p85", "stalled")
 
 
+def _attention_block_reason(card, reasons):
+    """The manual block's text for an item marked ``blocked``, or None (#2281).
+
+    Only a manual block carries text: a card blocked only by a relation (#449)
+    has none, and neither does one whose ``blocked_at`` is clear (a stale
+    reason left on the row is not a block). An empty or whitespace-only reason
+    is None, never "", so a client has one "no reason" case to handle.
+    """
+    if "blocked" not in reasons or card.blocked_at is None:
+        return None
+    return card.blocked_reason.strip() or None
+
+
 def needs_attention(flow, flow_range, *, stalled_days):
     """Live cards outside done that are blocked, past the cycle-time p85, or stalled (#2260).
 
@@ -1115,6 +1131,7 @@ def needs_attention(flow, flow_range, *, stalled_days):
                 "age_days": age_days,
                 "unmoved_days": unmoved_days,
                 "reasons": reasons,
+                "block_reason": _attention_block_reason(card, reasons),
             }
             for card, age_days, unmoved_days, reasons in entries
         ],

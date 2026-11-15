@@ -868,6 +868,13 @@ _ATTENTION_RESPONSE = inline_serializer(
                     child=serializers.ChoiceField(choices=list(flow_metrics.ATTENTION_REASONS)),
                     help_text="Never empty, in the order blocked, past_p85, stalled.",
                 ),
+                "block_reason": serializers.CharField(
+                    allow_null=True,
+                    help_text=(
+                        "The manual block's reason, trimmed, when reasons include blocked. Null when the "
+                        "card is not blocked, is blocked only by a relation, or its block has no reason."
+                    ),
+                ),
             },
         ),
         "cards": _FLOW_CARD_FIELD,

@@ -8,7 +8,7 @@ const swimlanes = [{ id: 1, name: 'Mobile' }, { id: 2, name: 'Platform' }]
 const columns = [{ uid: 'c-review', name: 'Review' }, { uid: 'c-doing', name: 'In progress' }]
 
 const item = (n: number, over: Partial<FlowAttentionItem> = {}): FlowAttentionItem => ({
-  card_uid: `uid-${n}`, column_uid: 'c-review', swimlane_id: 1, age_days: n, unmoved_days: null, reasons: ['past_p85'], ...over,
+  card_uid: `uid-${n}`, column_uid: 'c-review', swimlane_id: 1, age_days: n, unmoved_days: null, reasons: ['past_p85'], block_reason: null, ...over,
 })
 const payload = (items: FlowAttentionItem[]): FlowAttention => ({
   definition: 'd',
@@ -43,6 +43,26 @@ describe('Needs attention (#2263)', () => {
     expect(rows[2]).toHaveTextContent('9d')
     expect(within(rows[2]).getByLabelText('9 days without movement')).toBeInTheDocument()
     expect(within(rows[0]).getByLabelText('12 days old')).toBeInTheDocument()
+  })
+
+  it('names the block reason after "blocked", truncated with the full line in the title (#2281)', () => {
+    renderIt([
+      item(1, { reasons: ['blocked', 'past_p85'], block_reason: 'waiting on security review' }),
+      item(2, { reasons: ['blocked'], block_reason: null }),
+    ])
+    const rows = screen.getAllByRole('listitem')
+    const line = within(rows[0]).getByText('Review · Mobile · blocked: waiting on security review, past 19 days')
+    expect(line).toHaveClass('truncate')
+    expect(line).toHaveAttribute('title', 'Review · Mobile · blocked: waiting on security review, past 19 days')
+    // No reason text (a relation block, or a block with none): the bare word, no dangling colon.
+    expect(rows[1]).toHaveTextContent('Review · Mobile · blocked')
+    expect(rows[1]).not.toHaveTextContent('blocked:')
+  })
+
+  it('renders a block reason as text, never as markup (#2281)', () => {
+    const { container } = renderIt([item(1, { reasons: ['blocked'], block_reason: '<img src=x onerror=alert(1)>' })])
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByRole('listitem')).toHaveTextContent('blocked: <img src=x onerror=alert(1)>')
   })
 
   it('colors age danger past the 85th percentile and warning otherwise', () => {

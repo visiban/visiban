@@ -1376,6 +1376,8 @@ class EndpointQueryCountTests(EndpointFixture):
             # Assigned, so attention's directory runs its assignee query at both sizes.
             Card.objects.filter(pk=wip.pk).update(assignee=owner if i % 2 else self.user)
             CardBlock.objects.create(card=wip, board=self.board, reason="r", blocked_at=self.ago(1))
+            # Mirrored as block_card does, so attention's block_reason is read at both sizes (#2281).
+            Card.objects.filter(pk=wip.pk).update(blocked_at=self.ago(1), blocked_reason="r")
 
     def count(self, metric):
         with CaptureQueriesContext(connection) as ctx:
@@ -1385,6 +1387,7 @@ class EndpointQueryCountTests(EndpointFixture):
             # An empty list would skip the relation and directory queries this guards.
             self.assertTrue(resp.json()["items"])
             self.assertTrue(any(card["assignee"] for card in resp.json()["cards"]))
+            self.assertTrue(any(item["block_reason"] for item in resp.json()["items"]))
         return len(ctx)
 
     def test_each_endpoint_stays_within_budget_and_does_not_grow(self):
@@ -1769,6 +1772,40 @@ class NeedsAttentionTests(FlowFixture):
         self.row(card, self.doing, self.review, -2)
         self.assertEqual(self.items()[card.uid]["unmoved_days"], 30)
 
+    def blocked_card(self, reason):
+        card = self.path(self.backlog, 40, self.doing, 30)
+        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(1), blocked_reason=reason)
+        return card
+
+    def test_a_manual_block_carries_its_reason_trimmed(self):
+        card = self.blocked_card("  waiting on security review\n")
+        self.assertEqual(self.items()[card.uid]["block_reason"], "waiting on security review")
+
+    def test_a_block_with_no_text_has_a_null_reason_never_empty(self):
+        for reason in ("", "   ", "\t\n"):
+            with self.subTest(reason=reason):
+                card = self.blocked_card(reason)
+                item = self.items()[card.uid]
+                self.assertIn("blocked", item["reasons"])
+                self.assertIsNone(item["block_reason"])
+
+    def test_a_card_that_is_not_blocked_has_a_null_reason(self):
+        card = self.path(self.backlog, 20)
+        # A reason left on the row with blocked_at clear is not a block.
+        Card.objects.filter(pk=card.pk).update(blocked_reason="stale text")
+        item = self.items()[card.uid]
+        self.assertEqual((item["reasons"], item["block_reason"]), (["stalled"], None))
+
+    def test_a_relation_block_alone_has_no_reason_and_a_manual_one_wins(self):
+        blocker = self.path(self.backlog, 2)
+        by_relation = self.path(self.backlog, 40, self.doing, 30)
+        both = self.blocked_card("vendor")
+        for target in (by_relation, both):
+            CardRelation.objects.create(from_card=blocker, to_card=target, relation_type=CardRelation.Type.BLOCKS)
+        items = self.items()
+        self.assertEqual((items[by_relation.uid]["reasons"][0], items[by_relation.uid]["block_reason"]), ("blocked", None))
+        self.assertEqual(items[both.uid]["block_reason"], "vendor")
+
 
 class FlowRedesignEndpointTests(EndpointFixture):
     """The three #2260 endpoints over HTTP, and their documented shapes."""
@@ -1798,7 +1835,7 @@ class FlowRedesignEndpointTests(EndpointFixture):
             card=card, board=self.board, column=self.doing, column_name="Doing", column_uid=self.doing.uid,
             reason="Vendor", blocked_at=self.ago(5),
         )
-        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(5))
+        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(5), blocked_reason="Vendor")
         dwell = self.client.get(self.url("dwell")).json()
         self.assert_documented("FlowDwell", dwell)
         self.assert_documented("FlowDwellColumn", dwell["columns"][0])
@@ -1811,6 +1848,7 @@ class FlowRedesignEndpointTests(EndpointFixture):
         attention = self.client.get(self.url("attention")).json()
         self.assert_documented("FlowAttention", attention)
         self.assert_documented("FlowAttentionItem", attention["items"][0])
+        self.assertEqual(attention["items"][0]["block_reason"], "Vendor")
         self.assertEqual([c["uid"] for c in attention["cards"]], [card.uid])
         cfd = self.client.get(self.url("cumulative-flow")).json()
         self.assert_documented("FlowCumulativeFlowColumn", cfd["columns"][0])
