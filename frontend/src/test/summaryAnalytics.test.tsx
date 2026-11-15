@@ -750,75 +750,16 @@ const attentionPayload = (items: { id: number; title: string; days: number }[]):
   cards: items.map((c) => ({ uid: `uid-${c.id}`, id: c.id, title: c.title, archived: false, assignee: null })),
 })
 
-describe('AnalyticsView stalled cards, from metrics/attention (#2261)', () => {
-  const swimlanes = [{ id: 1, name: 'Customer A' }]
-  beforeEach(() => {
+describe('AnalyticsView passes column names to Needs attention (#2263)', () => {
+  it('shows the column name on a row', async () => {
     vi.clearAllMocks()
-    localStorage.clear()
     mockGetBoardAnalytics.mockResolvedValue({
       days: 90, columns: [], swimlanes: [], stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
     })
-  })
-
-  it('lists stalled cards oldest first with their swimlane and the threshold', async () => {
-    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([
-      { id: 100, title: 'Stale Card', days: 14 }, { id: 101, title: 'Older Card', days: 20 },
-    ]))
-    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
-    expect(await screen.findByText('Stale Card')).toBeInTheDocument()
-    expect(screen.getByText('14d')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Stalled cards (>7 days without movement)' })).toBeInTheDocument()
-    expect(screen.getByText('2 cards stalled')).toBeInTheDocument()
-    const rows = within(screen.getByRole('table', { name: 'Stalled cards' })).getAllByRole('row').slice(1)
-    expect(rows[0]).toHaveTextContent('Customer AOlder Card20d')
-  })
-
-  it('ignores attention items that are not stalled', async () => {
-    const payload = attentionPayload([{ id: 1, title: 'Solo Card', days: 9 }, { id: 2, title: 'Blocked Card', days: 3 }])
-    payload.items[1].reasons = ['blocked']
-    vi.mocked(getFlowAttention).mockResolvedValue(payload)
-    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
-    expect(await screen.findByText('1 card stalled')).toBeInTheDocument()
-    expect(screen.queryByText('Blocked Card')).not.toBeInTheDocument()
-  })
-
-  it('says so when no card is stalled', async () => {
-    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([]))
-    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
-    expect(await screen.findByText('No card in progress has gone that long without moving.')).toBeInTheDocument()
-    expect(screen.queryByRole('table', { name: 'Stalled cards' })).not.toBeInTheDocument()
-  })
-
-  it('pages 25 rows at a time', async () => {
-    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload(
-      Array.from({ length: 30 }, (_, i) => ({ id: i + 1, title: `Card ${i + 1}`, days: 100 - i })),
-    ))
-    const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
-    expect(await screen.findByText('1–25 of 30')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Next →' }))
-    expect(screen.getByText('26–30 of 30')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '← Prev' }))
-    expect(screen.getByText('1–25 of 30')).toBeInTheDocument()
-  })
-
-  it('opens a card on click, Enter and Space; the row is a tab stop only with onOpenCard (#1376)', async () => {
-    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([{ id: 42, title: 'Stale Card', days: 14 }]))
-    const onOpenCard = vi.fn()
-    const user = userEvent.setup()
-    const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
-    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
-    expect(row).toHaveAttribute('tabindex', '0')
-    await user.click(row)
-    row.focus()
-    await user.keyboard('{Enter}')
-    await user.keyboard(' ')
-    expect(onOpenCard).toHaveBeenCalledTimes(3)
-    expect(onOpenCard).toHaveBeenCalledWith(42)
-    unmount()
-
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect((await screen.findByText('Stale Card')).closest('tr')).not.toHaveAttribute('tabindex')
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([{ id: 7, title: 'Slow Card', days: 20 }]))
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={[{ id: 1, name: 'Mobile' }]} columns={[{ uid: 'col', name: 'Doing', wip_limit: null }]} />)
+    expect(await screen.findByText('Slow Card')).toBeInTheDocument()
+    expect(screen.getByText(/Doing · Mobile/)).toBeInTheDocument()
   })
 })
 

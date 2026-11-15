@@ -25,7 +25,7 @@ interface Props {
   swimlanes: { id: number; name: string }[];
   labels: { id: number; name: string }[];
   /** The board's columns, for WIP limits (matched on `uid`). */
-  columns?: Pick<Column, "uid" | "wip_limit">[];
+  columns?: (Pick<Column, "uid" | "wip_limit"> & { name?: string })[];
   currentUserRole?: string | null;
   onOpenCard?: (cardId: number) => void;
   onGoToBoard?: () => void;
@@ -219,7 +219,7 @@ export default function AnalyticsOverview({
                 : <PanelPlaceholder title="WIP aging" failed={settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>
-              <AttentionSection attention={results?.attention} swimlanes={swimlanes} onOpenCard={onOpenCard} />
+              <AttentionSection attention={results?.attention} swimlanes={swimlanes} columns={columns} onOpenCard={onOpenCard} />
             </RegionSlot>
           </ChartRow>
           <ChartRow>

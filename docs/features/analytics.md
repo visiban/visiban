@@ -69,8 +69,8 @@ Time-in-stage and flow data derived from `CardMovement` records, on one scrollin
 3. **Bottleneck** panel and four [headline tiles](#headline-tiles).
 4. The [dwell time heatmap](#dwell-time-heatmap).
 5. **Cumulative flow** and **Throughput**, side by side.
-6. **WIP aging** and the [stalled cards](#stalled-cards).
-7. **Cycle time** and [blocked time](#blocked-time).
+6. **WIP aging** and the [Needs attention](#needs-attention).
+7. **Cycle time** and [Why cards get blocked](#why-cards-get-blocked).
 8. A footnote on days, time zone and filters.
 
 From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7.
@@ -194,23 +194,22 @@ Analytics includes archived cards as part of the historical record.
 
 **Age** and **Throughput** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's **Age** and split its stay in **Throughput**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.
 
-### Stalled cards
+### Needs attention
 
-Next to WIP aging, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
+Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. Five rows show at first; **All N cards** expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.
 
 - **Default threshold:** the board's `staleness_threshold_days`.
-- **Override:** pass the `stalled_days` query parameter to the analytics endpoint. It affects only that endpoint's stalled list, not the heatmap coloring.
-- **Filters:** the table follows the page's [filters](#filters); it is built from `GET /api/v1/boards/{id}/metrics/attention/`.
+- **Override:** none. This list always uses the board's threshold. The `stalled_days` query parameter applies only to the analytics endpoint's own stalled list, not to this list or to the heatmap coloring.
+- **Filters:** the list follows the page's [filters](#filters); it is built from `GET /api/v1/boards/{id}/metrics/attention/`.
 - **Excluded:** archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.
 
-### Blocked time
+### Why cards get blocked
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Next to Cycle time, **Blocked time (last N days)** shows how long cards were [manually blocked](blocked-cards.md) during the selected period, and why:
+Next to Cycle time, **Why cards get blocked** ranks the reasons cards were [manually blocked](blocked-cards.md) during the selected period, longest first:
 
-- **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed. A block in a column that was since deleted has no line here, even if a new column has the same name; it still counts toward the reasons below.
-- **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
+- **Each reason:** the days it cost, the number of blocks, and a red bar sized against the longest reason. A footnote says which column most blocks started in. At most ten reasons show. Reasons that differ only in capitals or spacing count as one.
 
 A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
 
