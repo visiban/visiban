@@ -385,7 +385,7 @@ describe('BoardCell', () => {
     props.cards = [makeCard({ id: 1 })]
     const { container } = render(<BoardCell {...props} />)
     const btn = screen.getByRole('button', { name: '+ Add card' })
-    expect(btn).toHaveClass('flex-1', 'hover:border-dashed', 'hover:border-line-strong', 'hover:bg-surface-hover/30')
+    expect(btn).toHaveClass('flex-1', 'focus:ring-2', 'hover:border-dashed', 'hover:border-line-strong', 'hover:bg-surface-hover/30')
     expect(btn).not.toHaveClass('invisible')
     expect(screen.getByText('Add card', { selector: 'span' })).toHaveClass('hidden', 'group-hover/addbtn:inline')
     expect(container.firstElementChild).toHaveClass('flex', 'flex-col')
