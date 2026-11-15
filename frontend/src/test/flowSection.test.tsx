@@ -88,7 +88,7 @@ describe('the flow row and time bar (#2262)', () => {
     expect(within(review).getAllByTestId('flow-square')).toHaveLength(5)
     expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(2)
     expect(boxes[0]).toHaveTextContent('Queue steady')
-    expect(screen.getByText(/hollow squares are over the limit/)).toBeInTheDocument()
+    expect(screen.getByText(/Hollow squares are over the limit/)).toBeInTheDocument()
     expect(screen.getByTestId('flow-done-box')).toHaveTextContent('102')
     expect(screen.getByText('7.8 / wk')).toBeInTheDocument()
   })

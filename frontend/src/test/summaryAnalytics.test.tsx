@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+/** The heatmap is the flow panel's Table view since #2262. */
+async function showTable() {
+  const group = await screen.findByRole('group', { name: 'How work flows view' })
+  await userEvent.click(within(group).getByRole('button', { name: 'table' }))
+}
+
+/** Renders the Analytics view with the flow panel on its Table view, where the heatmap lives. */
+function renderTable(ui: Parameters<typeof render>[0]) {
+  const result = render(ui)
+  const group = screen.getByRole('group', { name: 'How work flows view' })
+  fireEvent.click(within(group).getByRole('button', { name: 'table' }))
+  return result
+}
+
 import SummaryView from '../components/Board/SummaryView'
 import AnalyticsView from '../components/Board/AnalyticsView'
 
@@ -275,7 +289,7 @@ describe('AnalyticsView', () => {
 
   it('shows loading spinner', () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(screen.getByText(/Loading analytics/)).toBeInTheDocument()
     // Canonical spinner element is present
     expect(document.querySelector('.animate-spin')).not.toBeNull()
@@ -283,7 +297,7 @@ describe('AnalyticsView', () => {
 
   it('shows empty state when API returns null (#672)', async () => {
     mockGetBoardAnalytics.mockResolvedValue(null)
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('No analytics data')).toBeInTheDocument()
     expect(screen.getByText(/Move cards between columns/)).toBeInTheDocument()
   })
@@ -293,13 +307,13 @@ describe('AnalyticsView', () => {
       days: 30, columns: [], swimlanes: null,
       stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('No analytics data')).toBeInTheDocument()
   })
 
   it('shows error on failure', async () => {
     mockGetBoardAnalytics.mockRejectedValue(new Error('fail'))
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
   })
 
@@ -312,10 +326,10 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByRole('group', { name: 'Analytics view mode' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Age' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Throughput' })).toBeInTheDocument()
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByRole('group', { name: 'Table mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Current' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'In period' })).toBeInTheDocument()
   })
 
   it('description line appears only in throughput mode and names the filter bar period', async () => {
@@ -328,10 +342,11 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('button', { name: 'Age' })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await showTable()
+    await screen.findByRole('button', { name: 'Current' })
     expect(screen.queryByText(/exited in the last/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    await user.click(screen.getByRole('button', { name: 'In period' }))
     expect(screen.getByText(/exited in the last 90 days/)).toBeInTheDocument()
   })
 
@@ -357,7 +372,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     // Default age mode — shows 20d from age_avg_days_per_column
     expect(await screen.findByText('20d')).toBeInTheDocument()
     expect(screen.queryByText('5d')).not.toBeInTheDocument()
@@ -386,9 +401,10 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('button', { name: 'Throughput' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Throughput' }))
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await showTable()
+    await screen.findByRole('button', { name: 'In period' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'In period' }))
     // Throughput mode — shows 5d from throughput_avg_days_per_column
     expect(screen.getByText('5d')).toBeInTheDocument()
     expect(screen.queryByText('20d')).not.toBeInTheDocument()
@@ -415,7 +431,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
 
     // Column headers must be visible in the heatmap thead
     expect(await screen.findByText('Backlog')).toBeInTheDocument()
@@ -454,7 +470,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: pct,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     await screen.findByText('Acme Corp')
     const cells = within(screen.getByRole('table', { name: 'Dwell time heatmap' })).getAllByRole('cell')
     const values = Object.values(avgs)
@@ -483,7 +499,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     await screen.findByText('Acme Corp')
 
     const table = screen.getByRole('table', { name: 'Dwell time heatmap' })
@@ -516,7 +532,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Export CSV')).toBeInTheDocument()
   })
 
@@ -529,8 +545,9 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByRole('button', { name: 'Age' })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await showTable()
+    await screen.findByRole('button', { name: 'Current' })
     expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
   })
 
@@ -551,7 +568,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     // Heatmap table always renders — no empty-period message
     expect(await screen.findByText('Customer A')).toBeInTheDocument()
     expect(screen.queryByText(/No card movements/)).not.toBeInTheDocument()
@@ -576,7 +593,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('14d')
     expect(cell.className).toMatch(/danger/)
   })
@@ -601,7 +618,7 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     // 50% warning of 14d = 7d; avg=8 is >=7 but <14 → yellow
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('8d')
     expect(cell.className).toMatch(/warning/)
   })
@@ -626,7 +643,7 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     // avg=3 is below 7d warning boundary → green
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('3d')
     expect(cell.className).toMatch(/success/)
   })
@@ -649,7 +666,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     await screen.findByText('To Do')
     expect(screen.queryByRole('columnheader', { name: 'Done' })).not.toBeInTheDocument()
   })
@@ -664,7 +681,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('1 done column not shown')).toBeInTheDocument()
   })
 
@@ -678,7 +695,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('2 done columns not shown')).toBeInTheDocument()
   })
 
@@ -692,8 +709,9 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByRole('button', { name: 'Age' })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await showTable()
+    await screen.findByRole('button', { name: 'Current' })
     expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
   })
 
@@ -706,8 +724,9 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByRole('button', { name: 'Age' })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await showTable()
+    await screen.findByRole('button', { name: 'Current' })
     expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
   })
 
@@ -732,7 +751,7 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByText('Customer A')
     expect(screen.getByText('30d')).toBeInTheDocument()
     expect(screen.queryByText('≥30d')).not.toBeInTheDocument()
@@ -771,27 +790,27 @@ describe('AnalyticsView keeps the Overview mounted (#448, #2261)', () => {
 
   it('shows the heatmap loading and failure inside its own region', async () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
-    const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    const { unmount } = renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(screen.getByText(/Loading analytics/)).toBeInTheDocument()
     expect(screen.getByTestId('flow-metrics')).toBeInTheDocument()
     unmount()
 
     mockGetBoardAnalytics.mockRejectedValue(new Error('fail'))
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
     expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
   })
 
   it('still shows the charts when the analytics payload has no swimlanes', async () => {
     mockGetBoardAnalytics.mockResolvedValue({} as never)
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('No analytics data')).toBeInTheDocument()
     expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
   })
 
   it('shows the Beta badge in the title row and the guidance in the footnote', async () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
-    render(<AnalyticsView boardId={1} currentUserRole="member" boardName="Roadmap" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="member" boardName="Roadmap" />)
     expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText(/data may be incomplete in some configurations/)).toBeInTheDocument()
   })
@@ -817,9 +836,9 @@ describe('AnalyticsView Export CSV in the filter bar (#2261)', () => {
     const names: string[] = []
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { names.push(this.download) })
     const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await user.click(await screen.findByRole('button', { name: 'Export CSV' }))
-    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    await user.click(screen.getByRole('button', { name: 'In period' }))
     await user.click(screen.getByRole('button', { name: 'Export CSV' }))
     expect(names).toEqual(['analytics-age-90d.csv', 'analytics-throughput-90d.csv'])
     const read = (blob: Blob) => new Promise<string>((resolve) => {
@@ -827,7 +846,7 @@ describe('AnalyticsView Export CSV in the filter bar (#2261)', () => {
       reader.onload = () => resolve(reader.result as string)
       reader.readAsText(blob)
     })
-    expect(await read(blobs[0])).toBe('Swimlane,Current age (To Do, days),Velocity (days),Stalled cards\nCustomer A,8,12,0')
+    expect(await read(blobs[0])).toBe('Swimlane,Current (To Do, days),Velocity (days),Stalled cards\nCustomer A,8,12,0')
     expect(await read(blobs[1])).toContain('Customer A,3,12,0')
   })
 })

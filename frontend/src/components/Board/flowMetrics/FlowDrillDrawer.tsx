@@ -225,13 +225,13 @@ function ColumnBody({
           <span className="text-xs text-fg-tertiary">
             {ownerName(oldestCard)}{oldest.blocked ? " · Blocked now" : ""}
           </span>
-          <div className="flex flex-col gap-1" aria-label="Time by column">
+          <div className="flex flex-col gap-1" role="group" aria-label="Time by column">
             {oldest.dwell.map((entry, index) => (
               <div key={`${entry.name}-${index}`} className="grid grid-cols-[6rem_1fr_3.5rem] items-center gap-2 text-xs">
-                <span className="text-fg-secondary truncate" title={entry.name}>{entry.name}</span>
+                <span className={`truncate ${entry.name === selection.name ? "font-semibold text-fg" : "text-fg-secondary"}`} title={entry.name}>{entry.name}</span>
                 <span className="h-2 rounded-sm bg-surface-hover" aria-hidden="true">
                   <span
-                    className={`block h-2 rounded-sm ${entry.name === selection.name ? "bg-warning" : "bg-primary-emphasis"}`}
+                    className="block h-2 rounded-sm bg-primary-emphasis"
                     style={{ width: `${longest > 0 ? (entry.days / longest) * 100 : 0}%` }}
                   />
                 </span>

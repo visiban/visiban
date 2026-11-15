@@ -29,6 +29,17 @@ interface Props {
   onOpenColumn: (uid: string) => void;
 }
 
+/** Names only the shapes on screen: hollow squares when a column is over its limit, the warning connectors when a bottleneck is drawn. */
+function flowNote(row: ReturnType<typeof buildFlowRow>): string {
+  const parts = ["Each square is a card in that column now."];
+  if (row.some((c) => c.limit !== null && c.count > c.limit)) parts.push("Hollow squares are over the limit.");
+  parts.push(row.some((c) => c.bottleneck)
+    ? "Connectors show cards per week moving on; orange ones come after the bottleneck."
+    : "Connectors show cards per week moving on.");
+  parts.push("Select a column to see its cards.");
+  return parts.join(" ");
+}
+
 function Loading({ failed }: { failed: boolean }) {
   return failed
     ? <p className="text-sm text-fg-tertiary py-8 text-center">Could not load how work flows.</p>
@@ -45,7 +56,14 @@ function TableBody({ analytics, mode, onModeChange, days }: Pick<Props, "analyti
       </div>
     );
   }
-  if (analytics === undefined) return <Loading failed={false} />;
+  if (analytics === undefined) {
+    return (
+      <div className="flex items-center justify-center py-12 gap-2">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-fg-tertiary">Loading analytics…</span>
+      </div>
+    );
+  }
   if (analytics.error !== undefined) return <p className="text-sm text-danger py-8 text-center">Failed to load analytics.</p>;
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-8">
@@ -68,7 +86,7 @@ export default function FlowSection({
     <ChartPanel
       title="How work flows"
       summary={cumulative ? cumulativeFlowSummary(cumulative) : "Where cards queue and how long they wait."}
-      notes={view === "chart" && cumulative ? ["Each square is a card in that column now; hollow squares are over the limit. Connectors show cards per week moving on. Select a column to see its cards."] : []}
+      notes={view === "chart" && cumulative ? [flowNote(row)] : []}
       testId="analytics-flow"
       view={view}
       onViewChange={onViewChange}

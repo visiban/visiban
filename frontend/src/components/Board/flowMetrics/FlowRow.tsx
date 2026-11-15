@@ -1,11 +1,8 @@
 import { chartTint } from "../../../utils/chartScale";
 import type { FlowCumulativeFlow, FlowThroughput } from "../../../types";
-import { formatDate, formatDays, formatNumber, pluralize } from "./flowFormat";
+import { formatDate, formatDays, formatNumber } from "./flowFormat";
 import type { FlowRowColumn } from "./flowRowData";
-import { doneRate } from "./flowRowData";
-
-/** In-progress columns run from a light to a dark step of the chart hue, in board order. */
-const columnAlpha = (index: number, total: number) => (total <= 1 ? 0.7 : 0.4 + (0.6 * index) / (total - 1));
+import { columnAlpha, doneRate, HATCH } from "./flowRowData";
 
 function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: string; maxRate: number; warn: boolean }) {
   // Thickness is proportional to the rate; a null rate keeps the thinnest bar.
@@ -14,7 +11,7 @@ function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: s
     <div className="flex flex-col items-center justify-center gap-1 w-24 shrink-0" data-testid="flow-connector">
       <span className="text-xs font-semibold text-fg whitespace-nowrap">{rate === null ? "—" : `${formatNumber(rate)} / wk`}</span>
       <span aria-hidden="true" className={`w-full rounded-full ${warn ? "bg-warning" : "bg-line-strong"}`} style={{ height: thickness }} />
-      <span className="text-xs text-fg-tertiary whitespace-nowrap">{note}</span>
+      <span className="text-xs text-fg-tertiary whitespace-nowrap truncate max-w-full" title={note}>{note}</span>
     </div>
   );
 }
@@ -29,7 +26,7 @@ function Squares({ column, alpha }: { column: FlowRowColumn; alpha: number }) {
             key={i}
             data-testid="flow-square"
             className={`w-3 h-3 rounded-sm ${column.bottleneck ? "bg-warning" : ""}`}
-            style={column.bottleneck ? undefined : { background: chartTint(alpha) }}
+            style={column.bottleneck ? { backgroundImage: HATCH } : { background: chartTint(alpha) }}
           />
         ) : (
           <span key={i} data-testid="flow-square-over" className="w-3 h-3 rounded-sm border-2 border-danger" />
@@ -58,7 +55,7 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
   const bottleneckIndex = columns.findIndex((c) => c.bottleneck);
   const rate = doneRate(cumulative);
   return (
-    <div className="overflow-x-auto min-w-0" data-testid="flow-row" role="region" aria-label="How work flows" tabIndex={0}>
+    <div className="overflow-x-auto min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" data-testid="flow-row" role="region" aria-label="How work flows" tabIndex={0}>
       <div className="flex items-stretch min-w-[980px] py-1">
         {columns.map((column, index) => {
           const over = column.limit !== null ? Math.max(0, column.count - column.limit) : 0;
@@ -73,15 +70,17 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
               <button
                 type="button"
                 onClick={() => onOpenColumn(column.uid)}
-                aria-label={`${column.name}, ${pluralize(column.count, "card")}${column.limit !== null ? ` of limit ${column.limit}` : ""}. Show its cards`}
+                aria-describedby={`${column.uid}-flow-stats`}
+                aria-label={`${column.name}${column.bottleneck ? ", bottleneck" : ""}. Show its cards`}
                 data-testid="flow-column-box"
                 className={`flex-1 min-w-[150px] text-left bg-sunken border rounded-lg p-3 flex flex-col gap-2 hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${column.bottleneck ? "border-warning" : "border-line"}`}
               >
                 <span className="text-sm font-semibold text-fg truncate">{column.name}</span>
+                {column.bottleneck && <span className="text-xs font-semibold text-warning uppercase tracking-wide">Bottleneck</span>}
                 <Squares column={column} alpha={columnAlpha(index, columns.length)} />
-                <span className="text-xs text-fg-secondary">
+                <span id={`${column.uid}-flow-stats`} className="text-xs text-fg-secondary">
                   {column.limit !== null ? `${column.count} of ${column.limit}` : `${column.count} now`}
-                  {over > 0 && <span className="text-warning font-semibold">{`, ${over} over limit`}</span>}
+                  {over > 0 && <span className="text-danger font-semibold">{`, ${over} over limit`}</span>}
                 </span>
                 <span className="text-xs text-fg-secondary">
                   {column.medianWait !== null ? `${formatDays(column.medianWait)} median wait` : "Median wait not available"}

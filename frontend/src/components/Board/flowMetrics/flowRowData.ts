@@ -52,3 +52,9 @@ export function doneRate(cumulative: FlowCumulativeFlow): number | null {
   if (rates.length === 0 || rates.every((r) => r === null)) return null;
   return rates.reduce<number>((sum, r) => sum + (r ?? 0), 0);
 }
+
+/** In-progress columns run from a light to a dark step of the chart hue, in board order (shared by the row and the bar). */
+export const columnAlpha = (index: number, total: number) => (total <= 1 ? 0.7 : 0.4 + (0.6 * index) / (total - 1));
+
+/** The bottleneck's hatch, drawn over the warning fill. HTML twin of the SVG pattern; #2268 unifies the two. */
+export const HATCH = "repeating-linear-gradient(135deg, rgb(0 0 0 / 0.28) 0 3px, transparent 3px 8px)";

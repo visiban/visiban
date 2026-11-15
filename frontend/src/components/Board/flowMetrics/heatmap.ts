@@ -1,6 +1,6 @@
 /**
  * The dwell heatmap's data (`GET /boards/{id}/analytics/`), its remembered
- * Age / Throughput mode and its CSV export (#2261: moved out of AnalyticsView).
+ * Current / In period mode and its CSV export (#2261: moved out of AnalyticsView).
  */
 
 export interface StalledCard {
