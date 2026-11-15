@@ -541,7 +541,7 @@ Keys are strings: the swimlane or label id, the dropdown choice text, or `"true"
 
 **Percentiles** are nearest-rank, in days at full precision (round for display). A percentile is `null` when its sample is too small: `p50` needs 5 values, `p85` needs 7 and `p95` needs 20. Clients draw nothing for a `null`, and never recompute it.
 
-**`cards`.** The responses name cards by `uid`. `cards` lists each one they name, as `{uid, id, title, archived, assignee}`, so a client can show a card's title and owner, including an archived card's, without another request. For its transitions, use [`GET /api/v1/boards/{board_id}/cards/{id}/movements/`](cards.md) with that `id`.
+**`cards`.** The responses name cards by `uid`. `cards` lists each one they name, as `{uid, id, title, archived, assignee, swimlane}`, so a client can show a card's title and owner, including an archived card's, without another request. `swimlane` *(added in 1.3, #2283)* is the card's current swimlane, as `{id, name}`; every card has one. For its transitions, use [`GET /api/v1/boards/{board_id}/cards/{id}/movements/`](cards.md) with that `id`.
 
 #### `GET /api/v1/boards/{id}/metrics/cycle-time/`
 
@@ -561,7 +561,10 @@ Keys are strings: the swimlane or label id, the dropdown choice text, or `"true"
     }
   ],
   "cards": [
-    { "uid": "3a9f1c2d7e4b8a05", "id": 42, "title": "Fix login", "archived": false, "assignee": null }
+    {
+      "uid": "3a9f1c2d7e4b8a05", "id": 42, "title": "Fix login", "archived": false, "assignee": null,
+      "swimlane": { "id": 7, "name": "Platform" }
+    }
   ]
 }
 ```

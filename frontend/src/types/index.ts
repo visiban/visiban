@@ -1942,6 +1942,8 @@ export interface FlowCard {
   title: string;
   archived: boolean;
   assignee: BoardUser | null;
+  /** The card's current swimlane (#2283); every card has one. */
+  swimlane: { id: number; name: string };
 }
 
 /**

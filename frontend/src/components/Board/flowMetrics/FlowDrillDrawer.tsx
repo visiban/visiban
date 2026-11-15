@@ -227,8 +227,10 @@ function ColumnBody({
             <span className="text-sm font-medium text-fg min-w-0 truncate">{oldestCard?.title ?? oldest.uid}</span>
             <span className="font-mono text-sm text-fg-secondary shrink-0">{formatDays(oldest.days)}</span>
           </div>
-          <span className="text-xs text-fg-tertiary">
-            {ownerName(oldestCard)}{oldest.blocked ? " · Blocked now" : ""}
+          {/* break-words: a lane name with no spaces must not overflow the drawer. `swimlane?` guards a
+              response from an API older than #2283 during a rolling deploy. */}
+          <span className="text-xs text-fg-tertiary min-w-0 break-words">
+            {[ownerName(oldestCard), oldestCard?.swimlane?.name, oldest.blocked ? "Blocked now" : null].filter(Boolean).join(" · ")}
           </span>
           <div className="flex flex-col gap-1" role="group" aria-label="Time by column">
             {oldest.dwell.map((entry, index) => (

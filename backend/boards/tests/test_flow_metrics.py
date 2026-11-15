@@ -1237,6 +1237,24 @@ class EndpointResponseTests(EndpointFixture):
         self.assertEqual(
             sorted(body["cards"][0]["assignee"]), ["avatar_url", "display_name", "id", "username"],
         )
+        self.assertEqual(body["cards"][0]["swimlane"], {"id": self.lane.id, "name": "Lane"})
+
+    def test_directory_names_each_cards_current_swimlane(self):
+        # The column drawer's oldest card shows its swimlane (#2283): the lane the
+        # card is in now, as the swimlane filter reads it, archived cards included.
+        here = self.path(self.backlog, 20, self.doing, 16)
+        moved = self.path(self.backlog, 20, self.doing, 12, lane=self.other_lane)
+        gone = self.path(self.backlog, 20, self.doing, 16, self.done, 10, archived=2, lane=self.other_lane)
+        Swimlane.objects.filter(pk=self.other_lane.pk).update(name="Renamed")
+        lanes = {}
+        for metric in ("wip-age", "cycle-time"):
+            for card in self.client.get(self.url(metric)).json()["cards"]:
+                lanes[card["uid"]] = card["swimlane"]
+        self.assertEqual(lanes, {
+            here.uid: {"id": self.lane.id, "name": "Lane"},
+            moved.uid: {"id": self.other_lane.id, "name": "Renamed"},
+            gone.uid: {"id": self.other_lane.id, "name": "Renamed"},
+        })
 
     def test_percentiles_are_null_with_their_sample_size_below_the_floor(self):
         for _ in range(4):
