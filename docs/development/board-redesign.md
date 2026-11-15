@@ -237,7 +237,7 @@ Screenshot: `board-phone.png`.
 - A split stage adds a two-part segmented control for its sub-columns.
 - Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line.
 - Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.
-- Tabs: Board, Summary, Analytics, Activity. Filter and search are icon buttons in the header.
+- The same four tabs as desktop: Board, Summary, History, Analytics. Search, Activity and Filter are icon buttons in the header; the Filter button also opens the View options.
 - Every target is at least 44px. No sideways page scroll at 390px.
 
 ## Design tokens
@@ -296,6 +296,8 @@ Each child issue rewrites the `frontend/CLAUDE.md` section it replaces, in the s
 | § Column headers; § Board grid cells | #2270 |
 | § Swimlane label panel | #2271 |
 | § Cards; § Card density; § Card border urgency tint | #2272 |
+| § Card detail sheet placement, if the peek changes it | #2273 |
+| § Empty states; § Placement limits on the board | #2276 |
 | Classic rules in § Board presets | #2279 |
 
 ## Fidelity check
