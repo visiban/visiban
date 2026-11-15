@@ -798,7 +798,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Cycle time')).toHaveTextContent('Half finish within this. 85% within 8.1 days. Based on 7 cards.')
     expect(tile('Throughput')).toHaveTextContent('1/ week')
     expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 2 cards finished.')
-    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit. 1 card past 8 days.')
+    expect(tile('Work in progress')).toHaveTextContent('0 columns over their limit. 1 card past 8 days.')
     expect(tile('Blocked time')).toHaveTextContent('3.5days')
     expect(tile('Blocked time')).toHaveTextContent('2 blocks. 1 card blocked right now.')
   })
@@ -814,7 +814,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Cycle time')).toHaveTextContent('Median appears at 5. 3 so far.')
     expect(tile('Throughput')).toHaveTextContent('2cards so far')
     expect(tile('Throughput')).toHaveTextContent('Too few whole weeks for a weekly median. 2 so far.')
-    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit.')
+    expect(tile('Work in progress')).toHaveTextContent('0 columns over their limit.')
     expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 3 so far.')
     expect(tile('Work in progress')).not.toHaveTextContent('past')
   })
@@ -957,6 +957,23 @@ describe('share of the cycle and limits (#2261)', () => {
     expect(columnsOverLimit({ samples }, [
       { uid: 'col-doing', wip_limit: 1 }, { uid: 'col-review', wip_limit: 1 }, { uid: 'col-qa', wip_limit: null },
     ])).toBe(1)
+  })
+
+  it('treats a limit of 0 or null as no limit and counts a real limit', () => {
+    const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }]
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
+    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
+  })
+
+  it('leaves "against a limit" out of the bottleneck sentence for a limit of 0', () => {
+    const grown: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: null, left_per_week: null })),
+    }
+    const withLimit = (wip_limit: number) => bottleneckSentence('col-doing', { cumulative: grown, dwell, cycle, columns: [{ uid: 'col-doing', wip_limit }] })
+    expect(withLimit(0)).not.toContain('against a limit')
+    expect(withLimit(3)).toContain('against a limit of 3')
   })
 
   it('names the sample sizes at which percentiles appear', () => {

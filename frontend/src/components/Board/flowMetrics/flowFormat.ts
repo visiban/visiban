@@ -1,5 +1,6 @@
 import { LINE_DASH } from "../../../utils/chartScale";
 import type { ChartColor } from "../../../utils/chartScale";
+import { effectiveLimit } from "./flowRowData";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
   FlowAgeSample, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
@@ -159,7 +160,7 @@ export function columnsOverLimit(
   columns: { uid: string; wip_limit: number | null }[],
 ): number {
   return columns.filter(
-    (column) => column.wip_limit !== null
+    (column) => !!column.wip_limit
       && wipAge.samples.filter((s) => s.column_uid === column.uid).length > column.wip_limit,
   ).length;
 }
@@ -192,7 +193,7 @@ export function bottleneckSentence(
   }
   const band = cumulative?.columns.find((c) => c.column_uid === uid);
   if (band && band.start_count !== null && band.end_count !== null) {
-    const limit = filtered || !columns.find((c) => c.uid === uid)?.wip_limit ? null : columns.find((c) => c.uid === uid)?.wip_limit ?? null;
+    const limit = effectiveLimit(columns.find((c) => c.uid === uid)?.wip_limit, filtered);
     let queue = `The queue grew from ${band.start_count} to ${pluralize(band.end_count, "card")}`;
     if (limit !== null) queue += ` against a limit of ${limit}`;
     if (band.entered_per_week !== null && band.left_per_week !== null) {
