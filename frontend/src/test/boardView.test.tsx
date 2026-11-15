@@ -608,6 +608,16 @@ describe('BoardView', () => {
       first.remove(); second.remove()
     })
 
+    it('withholds the header add-card button when every lane is collapsed (no cell to hear it)', async () => {
+      const base = makeBoard()
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: base.swimlanes.map((l) => ({ ...l, is_collapsed: true })) }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      await waitFor(() => expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'true'))
+      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+    })
+
     it('a viewer gets no header add-card button', () => {
       mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
       render(<BoardView {...defaultProps()} />)

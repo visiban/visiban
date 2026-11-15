@@ -30,7 +30,7 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { sw
   const wip = swimlane.wip_limit;
   const weight = swimlane.weight_limit;
   // "At limit" is the board's opt-in ambient indicator (Board.show_wip_at_limit),
-  // as on the column header; off, an at-limit row reads like an under-limit
+  // (it applies to swimlane rows only; the column header ignores it); off, an at-limit row reads like an under-limit
   // one. The two over-limit states are violations and always show.
   const state = reading.state === "at" && !showAtLimit ? "under" : reading.state;
   // The line names the metric that decided the state (laneLimitState).

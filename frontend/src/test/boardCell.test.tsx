@@ -147,6 +147,17 @@ describe('BoardCell', () => {
     expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toBeInTheDocument()
   })
 
+  it('keeps the card stack content-sized so a tall neighbor cell cannot stretch its cards (#2270)', () => {
+    const { container } = render(<BoardCell {...defaultProps()} />)
+    const cell = container.querySelector('[data-board-cell]') as HTMLElement
+    expect(cell).not.toHaveClass('h-full')
+    const stacks = cell.querySelectorAll('.flex-col, .grid-cols-2')
+    expect(stacks.length).toBeGreaterThan(0)
+    stacks.forEach((el) => {
+      expect(el).not.toHaveClass('h-full', 'flex-1', 'grow')
+    })
+  })
+
   it('hides + Add card when canEdit is false', () => {
     const props = defaultProps()
     props.canEdit = false

@@ -1999,6 +1999,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
   );
+  const hasRenderedLane = useMemo(
+    () => board.swimlanes.some((s) => !renderHiddenSwimlaneIds.has(s.id) && !collapsedSwimlaneIds.has(s.id)),
+    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
+  );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
   // The collapsed-lanes strip counts only lanes the reader can see collapsed:
@@ -3024,7 +3028,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
-                    onAddCard={canEdit && col.allow_card_creation ? () => requestAddCard(col.id) : undefined}
+                    // No rendered lane cell (every lane collapsed or filtered out) means nothing
+                    // would hear the request, so the control is withheld rather than left dead.
+                    onAddCard={canEdit && col.allow_card_creation && hasRenderedLane ? () => requestAddCard(col.id) : undefined}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}

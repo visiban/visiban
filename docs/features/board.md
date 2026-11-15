@@ -101,7 +101,7 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 | State | Line |
 |---|---|
 | Under the limit | `WIP 4/6` |
-| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on (as for columns); otherwise the line reads `WIP 5/5` |
+| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on; otherwise the line reads `WIP 5/5` |
 | Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the label panel (`⛔` when the row is in hard mode) |
 | Over the weight limit | `Over weight · 18/12` in red |
 
