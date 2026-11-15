@@ -273,7 +273,7 @@ When the selected window has no movement data at all (a new board, or a period b
 
 ### CSV export
 
-Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
+Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users. Names in the export are quoted where needed, and leading `=`, `+`, `-` and `@` characters are removed, the same as the board CSV export.
 
 ### API reference
 

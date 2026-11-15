@@ -38,12 +38,19 @@ describe("buildCsv", () => {
     const header = buildCsv(data("Lane", 'Q,"A"'), "age").split("\n")[0];
     expect(header).toBe('Swimlane,"Current (Q,""A"", days)",Velocity (days),Stalled cards');
   });
-  it("neutralizes leading formula characters in swimlane and header names", () => {
-    const csv = buildCsv(data("=Lane", "@Col"), "age");
-    const [h, r] = csv.split("\n");
-    // The header cell starts with the mode label, so the column name is never a leading character.
-    expect(h).toBe('Swimlane,"Current (@Col, days)",Velocity (days),Stalled cards');
+  it("strips a leading formula character from swimlane names", () => {
+    const [, r] = buildCsv(data("=Lane", "Col"), "age").split("\n");
     expect(r.startsWith("Lane,")).toBe(true);
+  });
+  it("keeps a formula-looking column name inside the header cell", () => {
+    // Every header cell starts with a fixed label ("Current ("), so a column
+    // name is never the leading character and needs no stripping.
+    const [h] = buildCsv(data("Lane", "@Col"), "age").split("\n");
+    expect(h).toBe('Swimlane,"Current (@Col, days)",Velocity (days),Stalled cards');
+  });
+  it("quotes a column name containing a newline in the header", () => {
+    const csv = buildCsv(data("Lane", "A\nB"), "age");
+    expect(csv.startsWith('Swimlane,"Current (A\nB, days)",')).toBe(true);
   });
   it("leaves a negative numeric dwell value as a number", () => {
     expect(buildCsv(data("L", "C", -1.5), "age").split("\n")[1]).toBe("L,-1.5,,0");
