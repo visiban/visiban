@@ -65,7 +65,7 @@ To monitor how many GitHub/GitLab API calls the lens makes on your instance, see
 
 Only **board admins** can configure the lens.
 
-1. Open the board and click **Settings** (the gear icon in the toolbar).
+1. Open the board and open the **More board actions** menu (`...`) in the toolbar and choose **Board settings**.
 2. Select the **Lens** tab.
 3. Choose the **Provider**: GitHub or GitLab.
 4. Enter the repository in `owner/repo` format, for example `acme/backend` or `torvalds/linux`.

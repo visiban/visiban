@@ -17,12 +17,19 @@ async function openBoard(page: Page, search = '') {
   await expect(page.locator('[data-card-id]').filter({ hasText: CARD.title })).toBeVisible({ timeout: 10_000 })
 }
 
+// #2269: Preset, Overlay and the other display controls live in the View menu.
+async function openViewMenu(page: Page) {
+  if (!(await page.getByTestId('view-menu-panel').isVisible())) {
+    await page.getByRole('button', { name: 'View', exact: true }).click()
+  }
+}
+
 function toolbar(page: Page) {
   return page.getByRole('navigation', { name: 'Board toolbar' })
 }
 
 function presetTrigger(page: Page) {
-  return toolbar(page).getByRole('button', { name: /^Preset(:|$)/ })
+  return page.getByTestId('view-menu-panel').getByRole('button', { name: /^Preset(:|$)/ })
 }
 
 function stored(page: Page, key: string) {
@@ -31,8 +38,10 @@ function stored(page: Page, key: string) {
 
 test('choosing a preset applies it, links it, and can be undone', async ({ page }) => {
   await openBoard(page)
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset')
 
+  await openViewMenu(page)
   await presetTrigger(page).click()
   const menu = page.getByRole('menu')
   await expect(menu).toBeVisible()
@@ -40,6 +49,7 @@ test('choosing a preset applies it, links it, and can be undone', async ({ page 
   expect((await menu.boundingBox())!.height).toBeGreaterThan(60)
   await menu.getByRole('menuitemradio', { name: /^Default/ }).click()
 
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
   await expect(page).toHaveURL(/[?&]preset=default/)
   expect(await stored(page, DENSITY_KEY)).toBe('standard')
@@ -47,6 +57,7 @@ test('choosing a preset applies it, links it, and can be undone', async ({ page 
   await expect(notice).toContainText('Applied “Default”')
 
   await notice.getByRole('button', { name: 'Undo' }).click()
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset')
   expect(await stored(page, DENSITY_KEY)).toBeNull()
   await expect(page).not.toHaveURL(/preset=/)
@@ -54,20 +65,24 @@ test('choosing a preset applies it, links it, and can be undone', async ({ page 
 
 test('changing the overlay marks the preset Modified, and Reset restores it', async ({ page }) => {
   await openBoard(page)
+  await openViewMenu(page)
   await presetTrigger(page).click()
   await page.getByRole('menuitemradio', { name: /^Default/ }).click()
 
-  await toolbar(page).getByRole('button', { name: 'Overlay' }).click()
+  await page.getByTestId('view-menu-panel').getByRole('button', { name: 'Overlay' }).click()
   await page.getByRole('menuitem', { name: 'Card count' }).click()
 
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default, modified')
   await expect(page.getByTestId('preset-modified-tag')).toBeVisible()
   await expect(page).not.toHaveURL(/preset=/)
 
+  await openViewMenu(page)
   await presetTrigger(page).click()
   await expect(page.getByText('Overlay: Card count (preset: No overlay)')).toBeVisible()
   await page.getByRole('menuitem', { name: 'Reset to “Default”' }).click()
 
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
   await expect(page.getByTestId('preset-modified-tag')).toHaveCount(0)
   await expect(page.getByTestId('preset-notice')).toContainText('Reset to “Default”')
@@ -84,6 +99,7 @@ test('a ?preset= link overrides the member’s own settings', async ({ page }) =
     }
   }, [DENSITY_KEY, OVERLAY_KEY])
   await openBoard(page, '?preset=classic')
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Classic')
   await expect.poll(() => stored(page, OVERLAY_KEY)).toBe('none')
   expect(await stored(page, DENSITY_KEY)).toBeNull()
@@ -93,6 +109,7 @@ test('a ?preset= link overrides the member’s own settings', async ({ page }) =
 
 test('the picker is reachable by keyboard and its menu roves with the arrow keys', async ({ page }) => {
   await openBoard(page)
+  await openViewMenu(page)
   await presetTrigger(page).focus()
   await page.keyboard.press('Enter')
   await page.keyboard.press('ArrowDown')
@@ -100,7 +117,9 @@ test('the picker is reachable by keyboard and its menu roves with the arrow keys
   await page.keyboard.press('End')
   await expect(page.getByRole('menuitemradio', { name: /^Default/ })).toBeFocused()
   await page.keyboard.press('Enter')
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toBeFocused()
 })
 
@@ -116,6 +135,7 @@ test('a ?preset= link shows the Undo notice, and Undo restores the member settin
   const notice = page.getByTestId('preset-notice')
   await expect(notice).toContainText('Applied “Default” from the link')
   await notice.getByRole('button', { name: 'Undo' }).click()
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset')
   expect(await stored(page, DENSITY_KEY)).toBe('dense')
   expect(await stored(page, OVERLAY_KEY)).toBe('card-count')
@@ -128,6 +148,7 @@ test('the command palette applies a preset with the same Undo notice', async ({ 
   const input = page.getByPlaceholder(/search cards/i)
   await input.fill('apply preset: default')
   await page.keyboard.press('Enter')
+  await openViewMenu(page)
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
   await expect(page.getByTestId('preset-notice')).toContainText('Applied “Default”')
   expect(await stored(page, DENSITY_KEY)).toBe('standard')

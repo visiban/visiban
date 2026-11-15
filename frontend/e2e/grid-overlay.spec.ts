@@ -14,6 +14,13 @@ import { BOARD_FULL, CARD, COLUMN_DONE, COLUMN_TODO, LABEL_BUG, SWIMLANE } from 
 const COLUMN_DOING = { ...COLUMN_TODO, id: 3, uid: 'col0000003w', name: 'Doing', position: 1 }
 const COLUMN_FINISHED = { ...COLUMN_DONE, position: 2 }
 
+// #2269: Preset, Overlay and the other display controls live in the View menu.
+async function openViewMenu(page: Page) {
+  if (!(await page.getByTestId('view-menu-panel').isVisible())) {
+    await page.getByRole('button', { name: 'View', exact: true }).click()
+  }
+}
+
 function card(id: number, column: number, title: string) {
   return { ...CARD, id, uid: `card00000${id}x`, column, title, labels: [] }
 }
@@ -47,8 +54,11 @@ async function openBoard(page: Page, cards: unknown[] = CARDS) {
 
 async function pickOverlay(page: Page, name: string) {
   // The trigger reads "Overlay" at rest and takes the active overlay's own name while one is on.
+  await openViewMenu(page)
   await page.getByRole('button', { name: /^(Overlay|Card count|Dwell time)$/ }).click()
-  await page.getByRole('menuitem', { name }).click()
+  await page.getByRole('menuitem', { name }).click()  // Close the View panel so it does not cover the board.
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('view-menu-panel')).toBeHidden()
 }
 
 const cellOf = (page: Page, title: string) =>
@@ -123,6 +133,7 @@ for (const scheme of ['light', 'dark'] as const) {
 test.describe('grid overlay picker menu and filters', () => {
   test('the picker menu opens at its button, lists the overlays, and closes on Escape', async ({ page }) => {
     await openBoard(page)
+    await openViewMenu(page)
     const button = page.getByRole('button', { name: /^Overlay$/ })
     await button.click()
     const menu = page.getByRole('menu')

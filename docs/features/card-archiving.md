@@ -21,7 +21,7 @@ Click **Archive card** in the card detail panel to hide a card from the board. I
 | Action | How | Result |
 |---|---|---|
 | Archive | Open the card, click **Archive card** in the footer, confirm | Card is immediately hidden from the board |
-| View | Click **Archived** in the board toolbar | Panel lists each archived card's title, its column and swimlane, and the date archived |
+| View | Open **View** in the board toolbar and choose **Show archived cards** | Panel lists each archived card's title, its column and swimlane, and the date archived |
 | Unarchive | Click **Unarchive** next to a card in that panel | Card returns to its original column and swimlane position |
 
 **Permission:** member role or higher, for both archiving and unarchiving. Viewers and collaborators cannot.

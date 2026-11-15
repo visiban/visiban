@@ -119,7 +119,7 @@ The sidebar reads the current URL via React Router's `useLocation` hook and extr
 
 Below the `lg` breakpoint (1024 px), the persistent sidebar collapses into a hamburger drawer. Tap the menu icon in the mobile top bar to slide it in as a full-height overlay; tap the backdrop, the close button, or a nav item to dismiss it. The rest of the app (Dashboard, boards, groups, settings) renders normally at any width, with nothing blocked.
 
-- **Board toolbar:** the strip scrolls horizontally when it runs out of room, while the overflow kebab menu (`⋮`) and connection status stay pinned at the right edge so they're always reachable.
+- **Board toolbar:** the **Board**, **Summary**, **History** and **Analytics** tabs sit on the left, with **Filter**, **View** and **Activity** buttons, the overflow menu (`...`: export, board settings, keyboard shortcuts) and the connection status on the right. On narrow screens the row wraps onto a second line instead of scrolling sideways. **View** holds the preset, card density, card layout, overlay, collapse and expand actions, and archived cards.
 - **Board grid:** scrolls horizontally too. The Kanban grid, swimlane panel, and card interactions stay fully usable on a phone or portrait-mode tablet.
 - **Public routes:** join links, share links, email confirmation, and password reset render outside the authenticated shell, so invites and account recovery always work from a phone.
 

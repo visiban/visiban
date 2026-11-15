@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ToastProvider } from '../contexts/ToastContext'
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, Card, User, CustomFieldDefinition } from '../types'
@@ -216,7 +216,15 @@ function renderBoard(board: BoardFull = makeBoard(), search = '', currentUser: U
   return render(<ToastProvider><BoardView currentUser={currentUser} /></ToastProvider>)
 }
 
+// The Preset picker lives in the View menu (#2269): open it on first use.
+function openViewMenu() {
+  if (!screen.queryByTestId('view-menu-panel')) {
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+  }
+}
+
 function presetTrigger(): HTMLElement {
+  openViewMenu()
   return screen.getByRole('button', { name: /^Preset(:|$)/ })
 }
 
@@ -231,6 +239,7 @@ async function choosePreset(user: ReturnType<typeof userEvent.setup>, name: stri
 }
 
 async function chooseOverlay(user: ReturnType<typeof userEvent.setup>, name: string) {
+  openViewMenu()
   await user.click(screen.getByRole('button', { name: /^Overlay$|^Card count$/ }))
   await user.click(screen.getByRole('menuitem', { name }))
 }
@@ -390,10 +399,11 @@ describe('BoardView — board presets (#1146)', () => {
       renderBoard()
       await choosePreset(user, 'Default')
       await user.click(within(screen.getByTestId('preset-notice')).getByRole('button', { name: 'Undo' }))
-      expect(presetTrigger()).toHaveFocus()
+      // The picker lives in the View menu (#2269), so focus returns to its button.
+      expect(screen.getByRole('button', { name: 'View' })).toHaveFocus()
       await choosePreset(user, 'Classic')
       await user.click(screen.getByRole('button', { name: 'Dismiss notification' }))
-      expect(presetTrigger()).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'View' })).toHaveFocus()
     })
 
     it('describes the menu with what changed', async () => {

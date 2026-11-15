@@ -14,6 +14,13 @@ const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 const COLUMN_DOING = { ...COLUMN_TODO, id: 3, uid: 'col0000003w', name: 'Doing', position: 1 }
 const COLUMN_FINISHED = { ...COLUMN_DONE, position: 2 }
 
+// #2269: Preset, Overlay and the other display controls live in the View menu.
+async function openViewMenu(page: Page) {
+  if (!(await page.getByTestId('view-menu-panel').isVisible())) {
+    await page.getByRole('button', { name: 'View', exact: true }).click()
+  }
+}
+
 function card(id: number, column: number, title: string, enteredDaysAgo: number | null) {
   return {
     ...CARD,
@@ -56,8 +63,11 @@ async function openBoard(page: Page, cards: unknown[] = CARDS) {
 }
 
 async function selectDwell(page: Page) {
+  await openViewMenu(page)
   await page.getByRole('button', { name: /^Overlay$/ }).click()
-  await page.getByRole('menuitem', { name: 'Dwell time' }).click()
+  await page.getByRole('menuitem', { name: 'Dwell time' }).click()  // Close the View panel so it does not cover the board.
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('view-menu-panel')).toBeHidden()
 }
 
 const cellOf = (page: Page, title: string) =>
@@ -192,6 +202,7 @@ test.describe('dwell time overlay', () => {
     await openBoard(page)
     await selectDwell(page)
     await expect(page.getByRole('group', { name: 'Dwell time overlay scale' })).toBeVisible()
+    await openViewMenu(page)
     await page.getByRole('button', { name: 'Dwell time' }).click()
     await page.getByRole('menuitem', { name: 'None' }).click()
     await expect(page.getByRole('group', { name: /overlay scale/ })).toHaveCount(0)

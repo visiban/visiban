@@ -24,7 +24,7 @@ describe('useNavbarSearchLabel', () => {
   it('returns Search cards on a board route', () => {
     mockPathname.mockReturnValue('/boards/42')
     const { result } = renderHook(() => useNavbarSearchLabel())
-    expect(result.current.placeholder).toBe('Search cards…')
+    expect(result.current.placeholder).toBe('Search cards, people, labels, fields')
     expect(result.current.ariaLabel).toContain('Search cards')
   })
 

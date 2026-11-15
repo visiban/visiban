@@ -47,10 +47,12 @@ import { useExportSeenPref } from "../../hooks/useExportSeenPref";
 import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
 import { useOverflowSeenPref } from "../../hooks/useOverflowSeenPref";
 import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
-import SplitButton from "../Common/SplitButton";
 import OverflowMenu from "../Layout/OverflowMenu";
 import type { OverflowItem } from "../Layout/OverflowMenu";
 import { formatShortcut } from "../../utils/platform";
+import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import { OverlayIcon, PresetIcon } from "./toolbarIcons";
+import BoardViewMenu from "./BoardViewMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
@@ -85,7 +87,6 @@ import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
-import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon, PresetIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
@@ -99,8 +100,6 @@ import { usePresetNoticeToast } from "./usePresetNoticeToast";
 import { useOverlayClock } from "../../hooks/useOverlayClock";
 import { dwellOverlay } from "../../gridOverlays/builtin/dwell";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
-import SingleSelectDropdown from "../Common/SingleSelectDropdown";
-import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { buildGridOverlayState } from "../../gridOverlays/slot";
 import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../utils/filterCards";
@@ -108,7 +107,6 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
-import ActiveUnderline from "../Common/ActiveUnderline";
 import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
@@ -183,13 +181,14 @@ export function ViewToggle({
     >
       <button
         onClick={() => onChange(val)}
-        className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
           view === val
-            ? "bg-primary text-on-primary font-medium"
+            ? "text-fg font-bold border-primary"
             : muted
-              ? "text-fg-secondary italic hover:text-fg hover:bg-surface-active"
-              : "text-fg-secondary hover:text-fg hover:bg-surface-active"
+              ? "text-fg-secondary italic border-transparent hover:text-fg"
+              : "text-fg-secondary border-transparent hover:text-fg"
         }`}
+        aria-current={view === val ? "page" : undefined}
         aria-keyshortcuts={shortcut.toUpperCase()}
         {...(muted ? { "data-deemphasized": "true" } : {})}
         {...(tourStep ? { "data-tour-step": tourStep } : {})}
@@ -199,7 +198,7 @@ export function ViewToggle({
     </Tooltip>
   );
   return (
-    <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
+    <div className="flex items-center gap-1">
       {btn("Board", "board", "b", undefined, showLens && deemphasizeBoard)}
       {showLens && btn("Lens", "lens", "l")}
       {btn("Summary", "summary", "s")}
@@ -207,11 +206,12 @@ export function ViewToggle({
       <Tooltip content="Analytics (A)">
         <button
           onClick={() => onChange("analytics")}
-          className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
             view === "analytics"
-              ? "bg-primary text-on-primary font-medium"
-              : "text-fg-secondary hover:text-fg hover:bg-surface-active"
+              ? "text-fg font-bold border-primary"
+              : "text-fg-secondary border-transparent hover:text-fg"
           }`}
+          aria-current={view === "analytics" ? "page" : undefined}
           aria-keyshortcuts="A"
         >
           <span className="flex items-center gap-1.5">
@@ -236,13 +236,19 @@ export function ViewToggle({
 // Layout icons live in ./toolbarIcons so the lens toolbar renders the exact
 // same nodes — board↔lens parity is a design requirement (#1064).
 
-const ArchivedIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" strokeLinejoin="round" />
-    <rect x="2" y="3" width="20" height="5" rx="1" />
-    <line x1="10" y1="12" x2="14" y2="12" strokeLinecap="round" />
+const FilterIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+    <path d="M4 6h16M7 12h10M10 18h4" />
   </svg>
 );
+
+const ViewMenuIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16M15 4v16" />
+  </svg>
+);
+
 const ActivityDrawerIcon = (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
     <circle cx="5" cy="7" r="1.5" fill="currentColor" stroke="none" />
@@ -1322,40 +1328,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (showExport && !canExport) setShowExport(false);
   }, [showExport, canExport]);
-  const [exportSeen, markExportSeen] = useExportSeenPref();
-  const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
+  const [, markExportSeen] = useExportSeenPref();
+  const [, markShortcutsSeen] = useShortcutsSeenPref();
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const isLargeViewport = useIsLargeViewport();
-  // At sub-`lg` viewports the secondary toolbar controls (Layout, Archived,
-  // Activity drawer, Settings, Export, Shortcuts) fold into the overflow
-  // kebab menu. At `lg` the overflow is additive (it offers a second path to
-  // Export / Shortcuts plus a home for Replay onboarding tour). The `sm`
-  // horizontal-scroll behavior is carried by the scroll container's
-  // `overflow-x-auto`, so no separate md/sm branch is needed here.
-  const foldToolbarControls = !isLargeViewport;
-  // #971 — at sub-`lg` viewports the secondary controls fold into the kebab,
-  // and the static first-encounter dot was too passive for occasional users
-  // (Sam): they assumed the features were gone. Once per browser the menu
-  // auto-expands ~600ms after first encountering a folded layout, then the
-  // dot is cleared. Cancelled if the user opens the menu themselves first
-  // (the cleanup fires when overflowSeen flips true mid-delay).
-  const overflowAutoExpandedRef = useRef(false);
-  useEffect(() => {
-    if (overflowAutoExpandedRef.current) return;
-    if (!foldToolbarControls) return;
-    if (overflowSeen) return;
-    const timer = window.setTimeout(() => {
-      // Re-check the ref at fire time: the `.` keyboard shortcut may have
-      // opened the menu in the meantime without changing `overflowSeen`,
-      // and we don't want to spuriously re-open after Jordan dismisses it.
-      if (overflowAutoExpandedRef.current) return;
-      overflowAutoExpandedRef.current = true;
-      markOverflowSeen();
-      setOverflowOpen(true);
-    }, 600);
-    return () => window.clearTimeout(timer);
-  }, [foldToolbarControls, overflowSeen, markOverflowSeen]);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // A drop into a confirm-on-entry column waiting on its checklist (#1101).
   const [pendingPolicyMove, setPendingPolicyMove] = useState<{
@@ -1853,11 +1830,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setShowShortcuts((v) => !v);
       } else if (e.key === ".") {
         // Bare `.` — open the overflow menu. Guarded by the input-tag check
-        // above so a period typed into a text field does not fire. Mark the
-        // auto-expand as already-fired so the pending #971 timer doesn't
-        // re-open the menu after Jordan dismisses it.
+        // above so a period typed into a text field does not fire. 
         e.preventDefault();
-        overflowAutoExpandedRef.current = true;
         setOverflowOpen((v) => !v);
       }
     };
@@ -2496,43 +2470,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const overflowItems: OverflowItem[] = useMemo(() => {
     const items: OverflowItem[] = [];
 
-    // Section 1 — folded Row 2 view controls (only at md and sm)
-    if (foldToolbarControls) {
-      items.push({
-        id: "layout",
-        label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
-        icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
-        shortcut: formatShortcut({ mod: true, shift: true, key: "L" }),
-        onSelect: () => setCardLayout(cardLayout === "compact" ? "expanded" : "compact"),
-      });
-      items.push({
-        id: "archived",
-        label: showArchived ? "Hide archived cards" : "Show archived cards",
-        icon: ArchivedIcon,
-        shortcut: "Y",
-        onSelect: () => setShowArchived((v) => !v),
-      });
-      items.push({
-        id: "drawer",
-        label: drawerOpen ? "Close activity drawer" : "Open activity drawer",
-        icon: ActivityDrawerIcon,
-        shortcut: formatShortcut({ mod: true, key: "\\" }),
-        onSelect: () => setDrawerOpen((v) => !v),
-      });
-      if (isAdmin) {
-        items.push({
-          id: "settings",
-          label: "Board settings",
-          icon: SettingsIcon,
-          shortcut: formatShortcut({ mod: true, key: "," }),
-          onSelect: () => setShowSettings(true),
-        });
-      }
-    }
-
-    // Section 2 — board tools (always available at every breakpoint)
-    const section2Separator = foldToolbarControls;
-    let section2First = true;
+    // Export, board settings and keyboard shortcuts only (#2269); every other
+    // control that used to sit in the toolbar lives in the View menu.
     if (canExport) {
       items.push({
         id: "export",
@@ -2543,9 +2482,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           markExportSeen();
           setShowExport(true);
         },
-        separatorBefore: section2Separator && section2First,
       });
-      section2First = false;
+    }
+    if (isAdmin) {
+      items.push({
+        id: "settings",
+        label: "Board settings",
+        icon: SettingsIcon,
+        shortcut: formatShortcut({ mod: true, key: "," }),
+        onSelect: () => setShowSettings(true),
+      });
     }
     items.push({
       id: "shortcuts",
@@ -2556,7 +2502,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         markShortcutsSeen();
         setShowShortcuts(true);
       },
-      separatorBefore: section2Separator && section2First,
     });
 
     // Section 3 — help (only when a user is signed in and can reset the tour)
@@ -2574,11 +2519,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
     return items;
   }, [
-    foldToolbarControls,
-    cardLayout,
-    setCardLayout,
-    showArchived,
-    drawerOpen,
     isAdmin,
     canExport,
     markExportSeen,
@@ -2734,18 +2674,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // the 1.0 single-button behavior so muscle memory is not disturbed.
   // Rendered in the card-layout tooltip and in the overflow-menu label so the
   // chord display stays consistent with the rest of the shortcut tooltips.
-  const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
 
-  const onCollapsePrimary = () => {
-    if (focusedSwimlaneId !== null) exitFocus();
-    if (allExpanded) {
-      collapseAllColumns(board.columns.map((c) => c.id));
-      collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
-    } else {
-      expandAllColumns();
-      expandAllSwimlanes();
-    }
-  };
   const onHideAllSwimlanes = () => {
     if (focusedSwimlaneId !== null) exitFocus();
     collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
@@ -2754,296 +2683,136 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (focusedSwimlaneId !== null) exitFocus();
     collapseAllColumns(board.columns.map((c) => c.id));
   };
-  const onHideEverything = () => {
-    if (focusedSwimlaneId !== null) exitFocus();
-    collapseAllColumns(board.columns.map((c) => c.id));
-    collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
-  };
   const onShowAllSwimlanes = () => expandAllSwimlanes();
   const onShowAllColumns = () => expandAllColumns();
-  const onShowEverything = () => {
-    expandAllColumns();
-    expandAllSwimlanes();
-  };
 
   return (
     <>
-      {/* Primary toolbar row — scrollable region + pinned trailing cluster.
-          At sub-`lg` viewports (md/sm) the secondary controls fold into the
-          overflow kebab; at `lg` the overflow is additive. The trailing
-          cluster (overflow + ConnectionStatus) sits outside the scrollable
-          region so `⋮` stays visible when the scroll strip overflows at `sm`. */}
-      <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
-      <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
-      <div data-testid="board-toolbar" className="flex items-center gap-2 h-full min-w-max">
-        {/* Zone 1: View navigation */}
-        <div data-tour-step="view-tabs">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-        </div>
-
-        {/* Divider 1 */}
-        <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
-
-        {/* Zone 2: Board controls */}
-        <div className="flex items-center gap-1">
-          {/* Board preset picker (#1146). First in Zone 2, right after the divider:
-              a preset bundles how this zone's own presentation controls are set
-              (density, overlay), so it leads them. Never folds into the overflow
-              kebab, for the same reason as the Overlay picker: it is a selection,
-              not an action. `portalMenu` because Row 2 clips in-flow menus. The
-              trigger reads "Preset" with nothing active, else the preset's name,
-              truncated at 10rem, plus a dashed "Modified" tag once the board no
-              longer matches it. Choosing the active preset again re-applies it.
-              `ariaLabel` only while a preset is active, so the name at rest is
-              "Preset", not "Preset: Preset". Options are menuitemradio so the
-              active preset is exposed, not color-only. While an apply notice is up,
-              its Undo is also a menu action here: the notice sits far later in the
-              tab order than its 8s timer allows a keyboard user to reach. */}
-          <span ref={presetPickerRef} className="contents">
-          <SingleSelectDropdown<BoardPresetId>
-            label="Preset"
-            ariaLabel={activePreset ? "Preset" : undefined}
-            ariaLabelDetail={presetModified ? "modified" : undefined}
-            optionRole="menuitemradio"
-            triggerPrefix={PresetIcon}
-            portalMenu
-            className="!text-xs max-w-[10rem]"
-            labelClassName="truncate min-w-0"
-            triggerTitle={activePreset?.name}
-            options={presetOptions}
-            selected={activePreset?.id ?? null}
-            onChange={handlePresetChange}
-            triggerSuffix={
-              presetModified ? (
-                <span data-testid="preset-modified-tag" className="shrink-0 border border-dashed border-line-strong rounded px-1 text-fg-secondary">
-                  Modified
-                </span>
-              ) : undefined
-            }
-            menuHeader={
-              presetModified && activePreset ? (
-                <>
-                  <span className="block font-medium text-fg-secondary">Modified from “{activePreset.name}”</span>
-                  {boardPreset.differences.map((d) => (
-                    <span key={d.element} className="block">{formatPresetDifference(d)}</span>
-                  ))}
-                </>
-              ) : undefined
-            }
-            menuActions={presetMenuActions}
-          />
-          </span>
-          <SplitButton
-            primaryLabel={allExpanded ? "Collapse" : "Expand"}
-            primaryAriaLabel={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
-            primaryTitle={allExpanded ? "Hide all swimlanes and columns (E)" : "Show all swimlanes and columns (E)"}
-            primaryAriaKeyshortcuts="E"
-            menuAriaLabel="Collapse menu"
-            onPrimary={onCollapsePrimary}
-            renderMenu={({ close }) => {
-              // Menu items are disabled when the action would be a no-op — e.g.
-              // "Hide all swimlanes" is disabled once every swimlane is already
-              // collapsed. This teaches the mental model without removing
-              // entries; the menu shape is stable regardless of current state.
-              const allSwimlanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
-              const allColumnsCollapsed = board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length;
-              const renderItem = (
-                label: string,
-                onClick: () => void,
-                disabled: boolean,
-              ) => (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return;
-                    onClick();
-                    close();
-                  }}
-                  className={`w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed ${MENU_ITEM_FOCUS_RING}`}
-                >
-                  {label}
-                </button>
-              );
-              return (
-                <>
-                  {renderItem("Hide all swimlanes", onHideAllSwimlanes, allSwimlanesCollapsed)}
-                  {renderItem("Hide all columns", onHideAllColumns, allColumnsCollapsed)}
-                  {renderItem("Hide everything", onHideEverything, allSwimlanesCollapsed && allColumnsCollapsed)}
-                  <div role="separator" className="mx-4 my-1">
-                    <div className="h-px bg-sunken" />
-                    <div className="h-px bg-surface-active/50" />
-                  </div>
-                  {renderItem("Show all swimlanes", onShowAllSwimlanes, allSwimlanesExpanded)}
-                  {renderItem("Show all columns", onShowAllColumns, allColumnsExpanded)}
-                  {renderItem("Show everything", onShowEverything, allExpanded)}
-                </>
-              );
-            }}
-          />
-          <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
-            <button type="button"
-              data-tour-step="filter"
-              onClick={() => setShowFilters((v) => !v)}
-              className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
-              aria-pressed={showFilters || activeCount > 0}
-              aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
-              aria-keyshortcuts="F"
-            >
-              {showFilters ? "Hide filters" : "Filters"}
-              {!showFilters && activeCount > 0 && (
-                <span className="ml-1.5 bg-primary-emphasis/20 text-info rounded-full px-1.5 py-0.5 font-medium">
-                  {activeCount}
-                </span>
-              )}
-              <ActiveUnderline active={showFilters || activeCount > 0} />
-            </button>
-          </Tooltip>
-          {/* Overlay picker (#1147). Zone 2, right after Filters: Filters changes
-              *which cards*, the overlay changes *what is drawn over the cells*.
-              Deliberately never folded into the overflow kebab — an OverflowItem
-              carries an action, not a selection, and the picker fits inside Row 2's
-              never-folded set at every supported width. `portalMenu` is required:
-              Row 2's strip is `overflow-x-auto` on an `h-10` box, which clips an
-              in-flow dropdown menu to 40px. `selected` maps None to null so the
-              trigger reads "Overlay" at rest and takes the primitive's active
-              treatment — with the overlay's own name — exactly when one is on. */}
-          <SingleSelectDropdown
-            label="Overlay"
-            triggerPrefix={OverlayIcon}
-            portalMenu
-            // Row 2 is a text-xs strip (Filters, Archived, SplitButton all text-xs) but
-            // the primitive's own base is text-sm, so this needs `!` to win.
-            className="!text-xs"
-            options={gridOverlayOptions}
-            selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
-            onChange={handleGridOverlayChange}
-          />
-          {!foldToolbarControls && (
-          <Tooltip content={
-            cardLayout === "compact"
-              ? `Switch to expanded card layout (${layoutShortcutLabel})`
-              : `Switch to compact card layout (${layoutShortcutLabel})`
-          }>
-            <button type="button"
-              onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-              aria-pressed={cardLayout === "compact"}
-              aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
-              className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                cardLayout === "compact"
-                  ? "text-info-on-tint bg-primary-emphasis/10"
-                  : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
-              }`}
-            >
-              {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
-              <ActiveUnderline active={cardLayout === "compact"} />
-            </button>
-          </Tooltip>
-          )}
-          {!foldToolbarControls && (
-          <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
-            <button type="button"
-              onClick={() => setShowArchived((v) => !v)}
-              className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning-on-tint bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
-              aria-pressed={showArchived}
-              aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
-              aria-keyshortcuts="Y"
-            >
-              Archived
-              <ActiveUnderline active={showArchived} />
-            </button>
-          </Tooltip>
-          )}
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {!foldToolbarControls && (
-        <>
-        {/* Divider 2 */}
-        <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
-
-        {/* Zone 3: Utilities (direct at lg; folded into overflow at md/sm) */}
-        <div className="flex items-center gap-1">
-          <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
-            <button type="button"
-              onClick={() => setDrawerOpen((v) => !v)}
-              aria-pressed={drawerOpen}
-              aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-              className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                drawerOpen ? "text-info-on-tint bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
-              }`}
-            >
-              {ActivityDrawerIcon}
-              <ActiveUnderline active={drawerOpen} />
-            </button>
-          </Tooltip>
-          <Tooltip content="Keyboard shortcuts (?)">
-            <button type="button"
-              onClick={() => { markShortcutsSeen(); setShowShortcuts((v) => !v); }}
-              className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              aria-label={showShortcuts ? "Close keyboard shortcuts" : "Keyboard shortcuts"}
-              aria-pressed={showShortcuts}
-            >
-              {ShortcutsIcon}
-              {!shortcutsSeen && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
-              )}
-              <ActiveUnderline active={showShortcuts} />
-            </button>
-          </Tooltip>
-          {canExport && (
-          <Tooltip content={`Export board (${formatShortcut({ mod: true, shift: true, key: "E" })})`}>
-            <button type="button"
-              onClick={() => { markExportSeen(); setShowExport(true); }}
-              className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              aria-label="Export board"
-            >
-              {ExportIcon}
-              {!exportSeen && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
-              )}
-            </button>
-          </Tooltip>
-          )}
-          {isAdmin && (
-            <Tooltip content={`Board settings (${formatShortcut({ mod: true, key: "," })})`}>
-              <button
-                type="button"
-                onClick={() => setShowSettings(true)}
-                className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                aria-label="Board settings"
+      {/* Primary toolbar row (#2269): tabs on the left; Filter, View, Activity,
+          the overflow menu and the connection status on the right. Nothing
+          folds by viewport: the row wraps instead, so no control is ever
+          hidden and the page never scrolls sideways. Connection status is the
+          last item and stays pinned to the trailing edge. */}
+      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-0.5">
+        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
+          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto">
+            <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
+              <button type="button"
+                data-tour-step="filter"
+                onClick={() => setShowFilters((v) => !v)}
+                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
+                aria-pressed={showFilters || activeCount > 0}
+                aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+                aria-keyshortcuts="F"
               >
-                {SettingsIcon}
+                {FilterIcon}
+                Filter
+                {activeCount > 0 && (
+                  <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
+                    {activeCount}
+                  </span>
+                )}
               </button>
             </Tooltip>
-          )}
+            <span ref={presetPickerRef} className="contents">
+              <BoardViewMenu
+                icon={ViewMenuIcon}
+                presetPicker={
+                  <SingleSelectDropdown<BoardPresetId>
+                    label="Preset"
+                    ariaLabel={activePreset ? "Preset" : undefined}
+                    ariaLabelDetail={presetModified ? "modified" : undefined}
+                    optionRole="menuitemradio"
+                    triggerPrefix={PresetIcon}
+                    portalMenu
+                    className="w-full"
+                    labelClassName="truncate min-w-0"
+                    triggerTitle={activePreset?.name}
+                    options={presetOptions}
+                    selected={activePreset?.id ?? null}
+                    onChange={handlePresetChange}
+                    triggerSuffix={
+                      presetModified ? (
+                        <span data-testid="preset-modified-tag" className="shrink-0 border border-dashed border-line-strong rounded px-1 text-fg-secondary">
+                          Modified
+                        </span>
+                      ) : undefined
+                    }
+                    menuHeader={
+                      presetModified && activePreset ? (
+                        <>
+                          <span className="block font-medium text-fg-secondary">Modified from “{activePreset.name}”</span>
+                          {boardPreset.differences.map((d) => (
+                            <span key={d.element} className="block">{formatPresetDifference(d)}</span>
+                          ))}
+                        </>
+                      ) : undefined
+                    }
+                    menuActions={presetMenuActions}
+                  />
+                }
+                density={effectiveCardDensity}
+                onDensityChange={setCardDensityOverride}
+                cardLayout={cardLayout}
+                onCardLayoutChange={setCardLayout}
+                overlayPicker={
+                  <SingleSelectDropdown
+                    label="Overlay"
+                    triggerPrefix={OverlayIcon}
+                    portalMenu
+                    className="w-full"
+                    options={gridOverlayOptions}
+                    selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
+                    onChange={handleGridOverlayChange}
+                  />
+                }
+                allSwimlanesCollapsed={board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length}
+                allSwimlanesExpanded={allSwimlanesExpanded}
+                allColumnsCollapsed={board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length}
+                allColumnsExpanded={allColumnsExpanded}
+                onCollapseSwimlanes={onHideAllSwimlanes}
+                onExpandSwimlanes={onShowAllSwimlanes}
+                onCollapseColumns={onHideAllColumns}
+                onExpandColumns={onShowAllColumns}
+                showArchived={showArchived}
+                onToggleArchived={() => setShowArchived((v) => !v)}
+              />
+            </span>
+            <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
+              <button type="button"
+                onClick={() => setDrawerOpen((v) => !v)}
+                aria-pressed={drawerOpen}
+                aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
+                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  drawerOpen ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
+                }`}
+              >
+                {ActivityDrawerIcon}
+                Activity
+              </button>
+            </Tooltip>
+            <OverflowMenu
+              items={overflowItems}
+              showDot={!overflowSeen}
+              onDismissDot={markOverflowSeen}
+              externalOpen={overflowOpen}
+              onExternalOpenChange={setOverflowOpen}
+            />
+          </div>
         </div>
-        </>
-        )}
-      </div>
-      </div>
-      {/* Pinned trailing cluster — overflow kebab + connection status.
-          Lives outside the scrollable region so `⋮` stays visible at `sm`
-          when the inner strip overflows horizontally. */}
-      <div className="flex items-center gap-1 shrink-0 h-full px-2 border-l border-line bg-surface">
-        <OverflowMenu
-          items={overflowItems}
-          showDot={!overflowSeen}
-          onDismissDot={markOverflowSeen}
-          externalOpen={overflowOpen}
-          onExternalOpenChange={setOverflowOpen}
-        />
-        <ConnectionStatus
-          status={socketStatus}
-          lastEventAt={socketLastEventAt}
-          reconnectAttempt={socketReconnectAttempt}
-          onRefresh={silentReload}
-          tourStep="live-indicator"
-        />
-      </div>
+        <div className="flex items-center shrink-0 ml-auto">
+          <ConnectionStatus
+            status={socketStatus}
+            lastEventAt={socketLastEventAt}
+            reconnectAttempt={socketReconnectAttempt}
+            onRefresh={silentReload}
+            tourStep="live-indicator"
+          />
+        </div>
       </nav>
 
       {/* Filter row — own row so it doesn't compress the toolbar */}

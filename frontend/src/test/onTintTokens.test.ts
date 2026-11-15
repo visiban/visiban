@@ -869,9 +869,10 @@ describe('child text tones on a resting bg-surface-hover track (#2030)', () => {
   const view = readFileSync('src/components/Board/BoardView.tsx', 'utf8')
   const editor = readFileSync('src/components/Card/RichTextEditor.tsx', 'utf8')
 
-  it('ViewToggle: every tab rests at fg-secondary on the bg-surface-hover track', () => {
+  it('ViewToggle: every tab rests at fg-secondary on the toolbar surface, with no bg-surface-hover track (#2269)', () => {
     const toggle = view.slice(view.indexOf('const btn = '), view.indexOf('Tooltip content="Analytics (A)"') + 1200)
-    expect(toggle).toContain('flex items-center gap-0.5 bg-surface-hover rounded p-0.5')
+    expect(toggle).not.toContain('bg-surface-hover rounded p-0.5')
+    expect(toggle).toContain('border-b-2')
     const rest = [...toggle.matchAll(/: muted\s*\? "([^"]*)"\s*: "([^"]*)"|: "(text-fg-[a-z]+ [^"]*)"/g)]
     expect(rest.length).toBeGreaterThanOrEqual(2)
     expect(toggle).not.toMatch(/"text-fg-(tertiary|muted|faint)[ "]/)
