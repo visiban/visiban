@@ -36,9 +36,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Embedded in the drawer there is no modal: Escape falls through (false) and
-  // nothing traps focus or steals it on mount.
-  useEscapeStack(embedded ? () => false : onClose, 30);
+  // Escape closes the Archived view either way (parity with the old modal);
+  // embedded in the drawer nothing traps focus or steals it on mount.
+  useEscapeStack(onClose, 30);
 
   // #1732 — aria-modal panel: trap Tab, restore focus to the opener on close.
   useFocusTrap(panelRef, !embedded);
@@ -358,7 +358,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 key={card.id}
                 className="bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1.5"
               >
-                <span className="text-sm text-fg font-medium">{card.title}</span>
+                <span className="text-sm text-fg font-medium break-words">{card.title}</span>
                 <span className="text-xs text-fg-tertiary">
                   {columnName(card.column)} · {swimlaneName(card.swimlane)}
                 </span>

@@ -769,7 +769,7 @@ describe('ArchivedCardsPanel embedded in the Activity drawer (#2274)', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the list without a dialog, backdrop or close button, and Escape does not close it', async () => {
+  it('renders the list without a dialog, backdrop or close button, and Escape still closes it', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
     const onClose = vi.fn()
     render(<ArchivedCardsPanel embedded board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
@@ -779,7 +779,7 @@ describe('ArchivedCardsPanel embedded in the Activity drawer (#2274)', () => {
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     expect(screen.getByText('Archived cards (1)')).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    expect(onClose).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('still restores a card', async () => {

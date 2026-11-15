@@ -89,7 +89,7 @@ export default function BoardActivityDrawer({
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
           <div className="text-sm font-medium text-fg">Activity</div>
-          <div className="text-xs text-fg-tertiary">Live · board events</div>
+          <div className="text-xs text-fg-tertiary">{drawerTab === "archived" ? "Restore archived cards" : "Live · board events"}</div>
         </div>
         <button type="button"
           onClick={onClose}
@@ -118,7 +118,7 @@ export default function BoardActivityDrawer({
               tabIndex={active ? 0 : -1}
               onClick={() => onTabChange?.(t.id)}
               onKeyDown={onTabKeyDown}
-              className={`relative py-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
+              className={`relative px-1 py-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
                 active ? "text-fg font-medium" : "text-fg-tertiary hover:text-fg"
               }`}
             >
@@ -136,7 +136,7 @@ export default function BoardActivityDrawer({
         className="flex-1 min-h-0 flex flex-col"
       >
       {drawerTab === "archived" ? (
-        <div className="flex-1 overflow-y-auto">{archivedContent}</div>
+        <div className="flex-1 overflow-y-auto" tabIndex={0}>{archivedContent}</div>
       ) : (
       <>
       {/* Filter tabs */}
@@ -185,7 +185,7 @@ export default function BoardActivityDrawer({
       </div>
 
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-xs">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-xs" tabIndex={0}>
         {filtered.length === 0 ? (
           <p className="text-fg-muted italic text-center py-8">No activity yet</p>
         ) : (
@@ -214,6 +214,7 @@ export default function BoardActivityDrawer({
       {/* Footer */}
       <div className="px-4 py-2 border-t border-line text-xs text-fg-muted flex items-center justify-between">
         <button
+          type="button"
           onClick={onOpenHistory}
           className="text-info underline hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         >
