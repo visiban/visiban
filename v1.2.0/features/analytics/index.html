@@ -4830,7 +4830,7 @@
 <h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
 <p>When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.</p>
 <h3 id="csv-export">CSV export<a class="headerlink" href="#csv-export" title="Permanent link">&para;</a></h3>
-<p>Click <strong>Export CSV</strong>, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named <code>analytics-{mode}-{days}d.csv</code>. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users.</p>
+<p>Click <strong>Export CSV</strong>, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named <code>analytics-{mode}-{days}d.csv</code>. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users. Names in the export are quoted where needed, and leading <code>=</code>, <code>+</code>, <code>-</code> and <code>@</code> characters are removed, the same as the board CSV export.</p>
 <h3 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>
 <p><strong>API:</strong> <code>GET /api/v1/boards/{id}/analytics/?days=30</code>. The charts use the <a href="../../api/boards/#flow-metrics">flow metrics endpoints</a>.</p>
 <table>
