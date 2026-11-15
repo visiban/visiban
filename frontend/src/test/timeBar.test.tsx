@@ -77,6 +77,14 @@ describe('Where the time goes: the sum of medians is not a silent total (#2293)'
 })
 
 describe('time bar surfaces (#2311)', () => {
+  it('uses the panel surface for the grouped bar gutter too', () => {
+    const groups = [{ name: 'Platform', color: 'red', medians: new Map<string, number | null>([['a', 5], ['b', 5]]) }]
+    render(<TimeBar columns={[col('a', 5), col('b', 5)]} groups={groups} />)
+    const grouped = within(screen.getAllByTestId('time-bar-group')[0]).getByRole('img')
+    expect(grouped.className).toContain('bg-surface')
+    expect(grouped.className).not.toContain('bg-line')
+  })
+
   it('uses the panel surface for the gutter, a shadowed chip and a secondary-ink legend', () => {
     render(<TimeBar columns={[col('a', 5), col('b', 5)]} />)
     expect(screen.getByRole('img').className).toContain('bg-surface')

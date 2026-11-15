@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { chartTint } from '../utils/chartScale'
+import { columnAlpha } from '../components/Board/flowMetrics/flowRowData'
 import { HATCH_CSS, HATCH_GROUND_COLOR, HATCH_PERIOD, HATCH_SPEC, HATCH_STRIPE_COLOR } from '../components/Board/flowMetrics/hatch'
 import { useRef } from 'react'
 import type { ComponentProps } from 'react'
@@ -219,6 +221,8 @@ describe('FlowMetricsDashboard states', () => {
     // The failed panel says so in its own frame; the others still draw.
     expect(screen.getByTestId('flow-throughput')).toBeInTheDocument()
     expect(screen.getByText('Could not load this panel.')).toBeInTheDocument()
+    expect(screen.getByText('Some panels failed to load.').className).toContain('text-danger-on-tint')
+    expect(screen.getByRole('button', { name: 'Retry' }).className).toContain('bg-surface')
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByTestId('flow-cycle-time')).toBeInTheDocument()
     expect(cycleMock).toHaveBeenCalledTimes(2)
@@ -357,6 +361,29 @@ describe('the panels', () => {
     await renderLoaded()
     expect(within(screen.getByTestId('flow-throughput')).getByRole('img')).not.toHaveTextContent('Median')
     expect(screen.getByTestId('flow-throughput')).toHaveTextContent('Too few whole weeks to draw a median.')
+  })
+
+  it('fills each in-progress band with the shared columnAlpha ramp (#2311)', async () => {
+    const twoColumns: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: [
+        { ...cumulative.columns[0], column_uid: 'col-a', column_name: 'A' },
+        { ...cumulative.columns[0], column_uid: 'col-b', column_name: 'B' },
+        cumulative.columns[1],
+      ],
+      days: [
+        { date: '2026-06-01', counts: { 'col-a': 1, 'col-b': 1, 'col-done': 0, null: 0 } },
+        { date: '2026-06-02', counts: { 'col-a': 2, 'col-b': 2, 'col-done': 3, null: 0 } },
+      ],
+      bottleneck_column_uid: null,
+    }
+    mockAll({ cumulative: twoColumns })
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-cumulative')
+    const fillOf = (uid: string) => panel.querySelector(`[data-band="${uid}"] polygon`)?.getAttribute('fill')
+    expect(fillOf('col-a')).toBe(chartTint(Number(columnAlpha(0, 2).toFixed(2))))
+    expect(fillOf('col-b')).toBe(chartTint(Number(columnAlpha(1, 2).toFixed(2))))
+    expect(fillOf('col-a')).not.toBe(fillOf('col-b'))
   })
 
   it('hatches the bottleneck, labels bands directly and hides an empty deleted band', async () => {
@@ -885,7 +912,7 @@ describe('the headline tiles (#2261)', () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
     expect(tile('Cycle time')).toHaveTextContent('4.0days')
-    // Hierarchy (#2311): a bold primary-ink number, a small unit, an uppercase label, and a danger over-limit.
+    // Hierarchy (#2311): a bold primary-ink number, a small unit and an uppercase label. The danger over-limit is pinned in the #2287 test below.
     const cycle = tile('Cycle time')
     expect(within(cycle).getByRole('heading', { name: 'Cycle time' }).className).toContain('uppercase')
     expect(within(cycle).getByRole('heading', { name: 'Cycle time' }).className).toContain('font-semibold')
@@ -1090,6 +1117,7 @@ describe('share of the cycle and limits (#2261)', () => {
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }] })
     const wipTile = screen.getByRole('heading', { name: 'Work in progress', level: 3 }).closest('div')!.parentElement as HTMLElement
     expect(wipTile).toHaveTextContent('1 column over its limit.')
+    expect(within(wipTile).getByText(/1 column over its limit\./).className).toContain('text-danger font-semibold')
     expect(columnsOverLimit({ columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 5 }], samples: [] }, [
       { uid: 'col-doing', wip_limit: 3 },
     ])).toBe(1)

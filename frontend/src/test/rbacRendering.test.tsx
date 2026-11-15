@@ -77,6 +77,8 @@ describe('RBAC conditional rendering', () => {
       await waitFor(() => {
         expect(screen.getByText('Export CSV')).toBeInTheDocument()
       })
+      // Rests on the panel surface so a bg-page ground does not show through it (#2311).
+      expect(screen.getByText('Export CSV').className).toContain('bg-surface')
     })
 
     it('shows Export CSV button for site_admin role', async () => {

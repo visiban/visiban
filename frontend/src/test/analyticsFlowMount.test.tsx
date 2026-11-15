@@ -94,6 +94,12 @@ describe('AnalyticsView title row (#2012, #2261)', () => {
     expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText(/results are best used as directional guidance/)).toBeInTheDocument()
   })
+
+  it('sits on the page ground, never the sunken one (#2311)', () => {
+    render(<AnalyticsView {...props} />)
+    expect(screen.getByTestId('analytics-page').className).toContain('bg-page')
+    expect(screen.getByTestId('analytics-page').className).not.toContain('bg-sunken')
+  })
 })
 
 /** The heatmap is the flow panel's Table view since #2262. */

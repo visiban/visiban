@@ -272,10 +272,10 @@ function ColumnBody({
                   type="button"
                   ref={rowIndex === COLUMN_PREVIEW ? firstRevealed : undefined}
                   onClick={() => onChange({ kind: "card", uid: card.uid, facts: cardFacts(card, selection.name), dwell: card.dwell, back: selection })}
-                  className="w-full flex items-baseline justify-between gap-3 px-2 py-1.5 text-left text-sm rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="group w-full flex items-baseline justify-between gap-3 px-2 py-1.5 text-left text-sm rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <span className="text-fg-secondary min-w-0 truncate">{cards.get(card.uid)?.title ?? card.uid}</span>
-                  <span className="font-mono text-xs text-fg-tertiary shrink-0">{formatDays(card.days)}</span>
+                  <span className="font-mono text-xs text-fg-tertiary group-hover:text-fg-secondary shrink-0">{formatDays(card.days)}</span>
                 </button>
               </li>
             ))}
@@ -341,10 +341,10 @@ function CardList({
                 <button
                   type="button"
                   onClick={() => onSelectCard(uid)}
-                  className="w-full flex items-baseline justify-between gap-3 px-2 py-1.5 text-left text-sm rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="group w-full flex items-baseline justify-between gap-3 px-2 py-1.5 text-left text-sm rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <span className="text-fg-secondary min-w-0 truncate">{cards.get(uid)?.title ?? uid}</span>
-                  <span className="text-xs text-fg-tertiary shrink-0">{ownerName(cards.get(uid))}</span>
+                  <span className="text-xs text-fg-tertiary group-hover:text-fg-secondary shrink-0">{ownerName(cards.get(uid))}</span>
                 </button>
               </li>
             ))}

@@ -85,10 +85,12 @@ describe('Needs attention (#2263)', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('brightens the secondary line on row hover for contrast', () => {
+  it('brightens the secondary line on row hover and signals hover with a border, not a fill', () => {
     renderIt([item(1)], vi.fn())
     const row = screen.getByRole('button')
     expect(row).toHaveClass('group')
+    expect(row).toHaveClass('hover:border-line-emphasis')
+    expect(row.className).not.toContain('hover:bg-surface-hover')
     expect(within(row).getByText(/Review · Mobile/)).toHaveClass('group-hover:text-fg-secondary')
   })
 

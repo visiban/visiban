@@ -354,6 +354,23 @@ describe('the column drawer (#2262)', () => {
     expect(opener).toHaveFocus()
   })
 
+  it('keeps drill row meta readable on the hover fill (#2311)', async () => {
+    const { container, unmount } = render(<Host />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const colButton = within(screen.getByRole('dialog')).getAllByRole('listitem')[0].querySelector('button')!
+    expect(colButton.className).toContain('group')
+    expect(colButton.querySelector('.text-fg-tertiary')!.className).toContain('group-hover:text-fg-secondary')
+    unmount()
+    const uid = cards[0].uid
+    const picked: DrillSelection = { kind: 'cards', title: 'Day', groups: [{ label: null, uids: [uid] }] }
+    render(<Host pick={picked} />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const cardButton = within(screen.getByRole('dialog')).getAllByRole('listitem')[0].querySelector('button')!
+    expect(cardButton.className).toContain('group')
+    expect(cardButton.querySelector('.text-fg-tertiary')!.className).toContain('group-hover:text-fg-secondary')
+    expect(container).toBeDefined()
+  })
+
   it('omits the limit from the drawer while a filter is on', async () => {
     const filteredSelection = buildColumnSelection('review', { cumulative, dwell, wipAge, columns }, true)
     expect(filteredSelection.limit).toBeNull()
