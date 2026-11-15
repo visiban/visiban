@@ -371,6 +371,9 @@ describe('BoardView — column-header add card (#2317)', () => {
       await userEvent.click(screen.getByTestId('column-add-card'))
       await userEvent.click(screen.getByRole('menuitem', { name: 'Mobile (collapsed)' }))
       await screen.findByTestId('cell-21-10')
+      // Clear first: the effect cleanup also runs on dependency changes, so only a call made by
+      // the unmount itself proves the pending frame is canceled with the board.
+      cancel.mockClear()
       view.unmount()
       expect(cancel).toHaveBeenCalledWith(4242)
     })
