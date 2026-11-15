@@ -7,7 +7,7 @@ import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
   PERCENTILE_APPEARS_AT, bottleneckSentence, columnsOverLimit, shareOfCycle, shareOfCyclePhrase,
-  ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
+  ageMarkColor, ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
 } from '../components/Board/flowMetrics/flowFormat'
 import type {
   FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
@@ -219,7 +219,8 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     const onGoToBoard = vi.fn()
     render(<FlowMetricsDashboard {...props} onGoToBoard={onGoToBoard} />)
-    expect(await screen.findByText('No flow history yet')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    expect(screen.getByText('Example of what you will see.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Go to board' }))
     expect(onGoToBoard).toHaveBeenCalled()
   })
@@ -230,8 +231,8 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
-    expect(await screen.findByText('No cards match these filters.')).toBeInTheDocument()
-    expect(screen.queryByText('No flow history yet')).not.toBeInTheDocument()
+    expect(await screen.findByText('No cards match these filters')).toBeInTheDocument()
+    expect(screen.queryByText('Nothing has moved yet')).not.toBeInTheDocument()
   })
 
   it('renders four panels with a 90-day default request', async () => {
@@ -356,7 +357,8 @@ describe('the panels', () => {
     expect(svg).not.toHaveTextContent('Deleted columns')
     const fill = panel.querySelector('[data-band="col-doing"] polygon')?.getAttribute('fill')
     expect(fill).toMatch(/^url\(#cfd-hatch-/)
-    expect(panel.querySelector('[data-band="col-done"] polygon')?.getAttribute('fill')).toContain('--primary-emphasis')
+    expect(panel.querySelector('[data-band="col-done"] polygon')?.getAttribute('fill')).toContain('--border-strong')
+    expect(panel.querySelector('pattern line')?.getAttribute('stroke')).toContain('--warning')
     expect(panel).toHaveTextContent('The hatched band is the bottleneck.')
   })
 
@@ -445,7 +447,7 @@ describe('the panels', () => {
     await userEvent.click(within(screen.getByTestId('flow-throughput')).getByRole('button', { name: 'table' }))
     const weeks = within(screen.getByRole('region', { name: 'Cards finished per week' }))
     expect(weeks.getByRole('button', { name: /2 cards the week of/ })).toBeInTheDocument()
-    expect(weeks.getByText('—')).toBeInTheDocument()
+    expect(weeks.getAllByText('—').length).toBeGreaterThan(0)
 
     await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: 'table' }))
     const days = within(screen.getByRole('region', { name: 'Cards per column per day' }))
@@ -902,5 +904,90 @@ describe('share of the cycle and limits (#2261)', () => {
 
   it('names the sample sizes at which percentiles appear', () => {
     expect(PERCENTILE_APPEARS_AT).toEqual({ p50: 5, p85: 7, p95: 20 })
+  })
+})
+
+describe('the throughput started marker (#2264)', () => {
+  it('draws a hollow diamond per week, a legend, and a Started table column', async () => {
+    mockAll({ throughput: { ...throughput, samples: [{ ...throughput.samples[0], started: 5 }, throughput.samples[1]] } })
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-throughput')
+    const marks = [...within(panel).getByRole('img').querySelectorAll('polygon[data-started]')]
+    expect(marks).toHaveLength(2)
+    expect(marks[0].getAttribute('fill')).toBe('none')
+    expect(within(panel).getByTestId('throughput-legend')).toHaveTextContent('FinishedStarted')
+    await userEvent.click(within(panel).getByRole('button', { name: 'table' }))
+    const table = within(screen.getByRole('region', { name: 'Cards finished per week' }))
+    expect(table.getByRole('columnheader', { name: 'Started' })).toBeInTheDocument()
+    expect(table.getByText('5')).toBeInTheDocument()
+  })
+})
+
+describe('named chart colors (#2264)', () => {
+  it('colors aging marks neutral to P50, warning past it, danger past P85', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    mockAll({
+      age: {
+        ...age, sample_size: 3, cards: [cardA, cardB],
+        samples: [at('x1', 2), at('x2', 6), at('x3', 9)],
+      },
+    })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    const colors = [...image.querySelectorAll('[data-age-color]')].map((g) => g.getAttribute('data-age-color'))
+    expect(colors).toEqual(['neutral', 'warning', 'danger'])
+    expect(image.querySelector('[data-age-color="warning"] circle')?.getAttribute('fill')).toContain('--warning')
+    expect(image.querySelector('[data-age-color="danger"] circle[r="8"]')?.getAttribute('stroke')).toContain('--danger')
+    expect(screen.getByTestId('flow-wip-age')).toHaveTextContent('Amber marks')
+  })
+
+  it('adds no tier for a withheld percentile', () => {
+    const sample = age.samples[0]
+    expect(ageMarkColor(sample, { p50: null, p85: null, p95: null })).toBe('neutral')
+    expect(ageMarkColor(sample, { p50: 4, p85: null, p95: null })).toBe('warning')
+  })
+})
+
+describe('the page states (#2264)', () => {
+  it('names every active filter, removes one chip at a time and offers a wider period', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    const state = await screen.findByTestId('flow-no-match')
+    expect(state).toHaveTextContent('No card in the Customer A swimlane moved in the last 90 days.')
+    await userEvent.click(within(state).getByRole('button', { name: 'Remove filter: Customer A' }))
+    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+  })
+
+  it('shows Show last 90 days only for a shorter period, and Clear all filters resets everything', async () => {
+    mockAll()
+    render(<FlowMetricsDashboard {...props} />)
+    await screen.findByTestId('flow-cycle-time')
+    expect(screen.queryByRole('button', { name: 'Show last 90 days' })).not.toBeInTheDocument()
+    mockAll(empty)
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    const state = await screen.findByTestId('flow-no-match')
+    expect(within(state).getByRole('button', { name: 'Remove filter: Last 30 days' })).toBeInTheDocument()
+    await userEvent.click(within(state).getByRole('button', { name: 'Show last 90 days' }))
+    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear all filters' }))
+    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+  })
+
+  it('says too little data on the bottleneck and tiles while charts still draw', async () => {
+    mockAll({
+      cycle: { ...cycle, sample_size: 6, percentiles: { p50: 4, p85: null, p95: null } },
+      cumulative: { ...cumulative, bottleneck_column_uid: null },
+    })
+    await renderLoaded()
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Too early to say')
+    expect(screen.getByTestId('analytics-tiles')).toHaveTextContent('Provisional')
+    expect(screen.getByTestId('flow-cumulative')).toBeInTheDocument()
   })
 })

@@ -10,6 +10,7 @@ import BottleneckPanel from "./BottleneckPanel";
 import {
   CumulativeFlowPanel, CycleTimePanel, PanelPlaceholder, RegionSlot, ThroughputPanel, WipAgePanel,
 } from "./FlowChartPanels";
+import { NoHistoryState, NoMatchState, isNarrowed } from "./FlowEmptyStates";
 import FlowDrillDrawer from "./FlowDrillDrawer";
 import FlowSection from "./FlowSection";
 import { exportCsv, loadViewMode, saveViewMode } from "./heatmap";
@@ -147,28 +148,11 @@ export default function AnalyticsOverview({
         </div>
       )}
       {empty ? (
-        // The whole board has nothing to show: one block in place of regions 5 to 9 (#2264 redesigns it).
-        <div className="flex flex-col items-center justify-center gap-2 py-8" data-testid="flow-empty">
-          <svg className="w-10 h-10 text-fg-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6" />
-          </svg>
-          {filtered ? (
-            <p className="text-sm font-medium text-fg-tertiary">No cards match these filters.</p>
-          ) : (
-            <>
-              <p className="text-sm font-medium text-fg-tertiary">No flow history yet</p>
-              {onGoToBoard && (
-                <button
-                  type="button"
-                  onClick={onGoToBoard}
-                  className="px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Go to board
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        // Nothing to draw: one block in place of regions 5 to 9. Going from here to data remounts
+        // the charts, which is safe because it follows the data itself, not a sibling's state.
+        isNarrowed(filters)
+          ? <NoMatchState filters={filters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} />
+          : <NoHistoryState onGoToBoard={onGoToBoard} />
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-w-0">

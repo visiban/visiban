@@ -6,6 +6,31 @@ export const CHART_HUE = "rgb(var(--primary-emphasis))";
 /** A step of the chart hue. Alpha steps, never a categorical palette. */
 export const chartTint = (alpha: number) => `rgb(var(--primary-emphasis) / ${alpha})`;
 
+/**
+ * The Analytics tab's named color exceptions (#2264; `frontend/CLAUDE.md` § Charts,
+ * `docs/development/analytics-redesign.md` § Chart colors). Always pass one of
+ * these by name: a chart never reaches for an ad hoc status color. Shape and
+ * position still carry every meaning the color does.
+ *
+ * - `warning`: the bottleneck, and aging marks past the 50th percentile.
+ * - `danger`: aging marks past the 85th percentile, blocked and over-limit marks.
+ * - `neutral`: aging marks up to the 50th percentile, and the Done band.
+ */
+export const CHART_COLORS = {
+  hue: CHART_HUE,
+  warning: "rgb(var(--warning))",
+  danger: "rgb(var(--danger))",
+  neutral: "rgb(var(--fg-tertiary))",
+} as const;
+
+export type ChartColor = keyof typeof CHART_COLORS;
+
+/** A step of the neutral tone (the `border-line-strong` family), for a Done band. */
+export const neutralTint = (alpha: number) => `rgb(var(--border-strong) / ${alpha})`;
+
+/** A step of the warning color, for a hatched bottleneck band's ground. */
+export const warningTint = (alpha: number) => `rgb(var(--warning) / ${alpha})`;
+
 /** Second encodings for overlapping lines, so they read without color. */
 export const LINE_DASH = { dashed: "6 4", dotted: "1.5 3.5" } as const;
 

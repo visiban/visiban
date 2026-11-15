@@ -73,7 +73,7 @@ Time-in-stage and flow data derived from `CardMovement` records, on one scrollin
 7. **Cycle time** and [Why cards get blocked](#why-cards-get-blocked).
 8. A footnote on days, time zone and filters.
 
-From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7.
+From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7 (see [Page states](#page-states)).
 
 <span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.
 
@@ -121,9 +121,9 @@ Four charts built from the movement log, so you can see how long work takes and 
 | Chart | Read it as | Marks |
 |---|---|---|
 | **Cycle time** | How long finished work took. "85th · 8.1d" means 85% of these cards took 8.1 days or less. | One point per finished card. 50th percentile dashed, 85th solid and heavier, 95th dotted. A hollow point was reopened after finishing, and keeps its first finish. |
-| **Throughput** | How many cards finish per week. | One point per whole week, its count printed on it, the median dashed. Today's unfinished week is left out, so a partial week never reads as a slow one. |
-| **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labelled at its right edge, finished work at the bottom. The hatched band is the bottleneck: the column that is not done and grew the most across the range. |
-| **WIP aging** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. A ringed card is past the 85th percentile, a square is blocked. |
+| **Throughput** | How many cards finish per week. | One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a **Started** column. Started under-reports on imported boards. Today's unfinished week is left out, so a partial week never reads as a slow one. |
+| **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labelled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range. The Done band is gray. |
+| **WIP aging** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. Dots are gray up to the 50th percentile, orange past it, and red past the 85th percentile. A ringed card is past the 85th percentile, a square is blocked, so color is never the only cue. |
 
 **Too few cards.** A percentile line appears only with enough cards behind it: the 50th needs 5, the 85th needs 7 and the 95th needs 20. Until then the chart leaves that line out and says so, rather than presenting one card's time as a trend. The throughput median needs five whole weeks.
 
@@ -132,6 +132,13 @@ Four charts built from the movement log, so you can see how long work takes and 
 **See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column. **Open card** opens the card; an archived card has no **Open card**.
 
 **Keyboard.** Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.
+
+### Page states
+
+- **Loading.** Each region shows a gray block the size of its final panel, and the filters stay usable. A refetch keeps the previous numbers on screen, dimmed.
+- **Nothing has moved yet.** A board with no card movement shows a short explanation, a dimmed example bar labeled as an example, and **Go to board**.
+- **Too little data.** The page still renders. The bottleneck panel says "Too early to say" with the reason, and a tile marks its value **Provisional** and says what is withheld and when it appears.
+- **No cards match these filters.** The message names the active swimlane, label and period, with one removable chip per filter. **Show last 90 days** appears when the period is shorter than 90 days, and **Clear all filters** resets everything. It does not predict how many cards a wider filter would match.
 
 ### Dwell time heatmap
 

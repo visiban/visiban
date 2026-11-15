@@ -102,6 +102,7 @@ export function ThroughputPanel({
         </button>
       ),
     },
+    { key: "started", header: "Started", numeric: true, render: (s) => (s.started === 0 ? <ChartNullValue /> : s.started) },
   ];
   return (
     <ChartPanel
@@ -110,7 +111,10 @@ export function ThroughputPanel({
       title="Throughput"
       summary={throughputSummary(data)}
       definition={`Throughput: ${data.definition}`}
-      notes={compact([data.median === null && data.samples.length > 0 ? "Too few whole weeks to draw a median." : null])}
+      notes={compact([
+        data.median === null && data.samples.length > 0 ? "Too few whole weeks to draw a median." : null,
+        data.samples.length > 0 ? "Diamonds are cards started that week. Started under-reports on imported boards." : null,
+      ])}
       testId="flow-throughput"
       table={<ChartTable label="Cards finished per week" columns={columns} rows={data.samples} rowKey={(s) => s.start} />}
     >
@@ -182,6 +186,7 @@ export function WipAgePanel({
     },
   ];
   const hasBlocked = data.samples.some((s) => s.is_blocked);
+  const hasWarm = zones.p50 !== null && data.samples.some((s) => s.value_days > (zones.p50 as number));
   const hasRinged = zones.p85 !== null && data.samples.some((s) => s.value_days > (zones.p85 as number));
   return (
     <ChartPanel
@@ -195,6 +200,7 @@ export function WipAgePanel({
         excludedNote(data.excluded_incomplete_history),
         hasBlocked ? "Squares are blocked cards." : null,
         hasRinged ? "Ringed cards are past the 85th percentile." : null,
+        hasWarm ? "Amber marks are older than half of finished cards; red marks are past the 85th percentile." : null,
       ])}
       testId="flow-wip-age"
       table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress." />}

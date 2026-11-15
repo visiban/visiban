@@ -1,4 +1,5 @@
 import { LINE_DASH } from "../../../utils/chartScale";
+import type { ChartColor } from "../../../utils/chartScale";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
   FlowAgeSample, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
@@ -87,6 +88,17 @@ export function percentileLines(percentiles: FlowPercentiles, y: (days: number) 
     lines.push({ y: y(percentiles.p95), label: percentileLabel("95th", percentiles.p95), dash: LINE_DASH.dotted });
   }
   return lines;
+}
+
+/**
+ * The named color of an aging mark (#2264): neutral up to the 50th percentile,
+ * `warning` past it, `danger` past the 85th. A withheld percentile (null) adds
+ * no tier. Color repeats what the ring and the zone lines already say.
+ */
+export function ageMarkColor(sample: FlowAgeSample, zones: FlowPercentiles): ChartColor {
+  if (zones.p85 !== null && sample.value_days > zones.p85) return "danger";
+  if (zones.p50 !== null && sample.value_days > zones.p50) return "warning";
+  return "neutral";
 }
 
 /** The accessible name of an aging dot, and of its table row's button. */
