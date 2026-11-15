@@ -3,7 +3,7 @@ import type { Column, FlowCumulativeFlow, FlowDwell, FlowThroughput, FlowWipAge 
 import { ChartPanel } from "../../Common/Chart";
 import type { ChartPanelView } from "../../Common/Chart";
 import DwellTable, { ViewModeToggle } from "./DwellTable";
-import FlowRow from "./FlowRow";
+import FlowRow, { squareCounts } from "./FlowRow";
 import { buildFlowRow } from "./flowRowData";
 import { cumulativeFlowSummary } from "./flowFormat";
 import type { AnalyticsData, ViewMode } from "./heatmap";
@@ -40,7 +40,7 @@ interface Props {
 /** Names only the shapes on screen: hollow squares when a column is over its limit, the warning connectors when a bottleneck is drawn. */
 function flowNote(row: ReturnType<typeof buildFlowRow>): string {
   const parts = ["Each square is a card in that column now."];
-  if (row.some((c) => c.limit !== null && c.count > c.limit)) parts.push("Hollow squares are over the limit.");
+  if (row.some((c) => squareCounts(c).hollow > 0)) parts.push("Hollow squares are over the limit.");
   parts.push(row.some((c) => c.bottleneck)
     ? "Connectors show cards per week moving on; orange ones come after the bottleneck."
     : "Connectors show cards per week moving on.");

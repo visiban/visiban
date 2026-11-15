@@ -1,5 +1,6 @@
 import type { Column, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowWipAge } from "../../../types";
 import { bottleneckSentence, formatDate, pluralize } from "./flowFormat";
+import { wipCount } from "./flowRowData";
 
 interface Props {
   cumulative: FlowCumulativeFlow | undefined;
@@ -15,19 +16,24 @@ interface Props {
   onGoToBoard?: () => void;
 }
 
+/**
+ * The first column that is not done is never named (#2290): it is where new
+ * work arrives, so a board where only that queue grew has no bottleneck
+ * either, and the sentences say so rather than "no queue grew".
+ */
 function noBottleneck(cumulative: FlowCumulativeFlow, cycle: FlowCycleTime | undefined) {
   if (cycle && cycle.percentiles.p85 === null) {
     return {
       heading: "Too early to say",
-      reason: `${pluralize(cycle.sample_size, "card")} ${cycle.sample_size === 1 ? "has" : "have"} finished and no column's queue has grown yet. A bottleneck is named when one does.`,
+      reason: `${pluralize(cycle.sample_size, "card")} ${cycle.sample_size === 1 ? "has" : "have"} finished and no column after the first has a growing queue yet. A bottleneck is named when one does.`,
     };
   }
   const { days } = cumulative;
   return {
     heading: "No bottleneck",
     reason: days.length > 0
-      ? `No column's queue grew between ${formatDate(days[0].date)} and ${formatDate(days[days.length - 1].date)}.`
-      : "No column's queue grew in this period.",
+      ? `No column after the first grew its queue between ${formatDate(days[0].date)} and ${formatDate(days[days.length - 1].date)}. The first column is where new work arrives, so it is never named.`
+      : "No column after the first grew its queue in this period. The first column is where new work arrives, so it is never named.",
   };
 }
 
@@ -44,7 +50,7 @@ export default function BottleneckPanel({
 }: Props) {
   const uid = cumulative?.bottleneck_column_uid ?? null;
   const name = uid !== null ? cumulative?.columns.find((c) => c.column_uid === uid)?.column_name ?? null : null;
-  const count = uid !== null ? (wipAge?.samples.filter((s) => s.column_uid === uid).length ?? 0) : 0;
+  const count = uid !== null ? wipCount(wipAge, uid) : 0;
   const empty = cumulative && uid === null ? noBottleneck(cumulative, cycle) : null;
   return (
     <section

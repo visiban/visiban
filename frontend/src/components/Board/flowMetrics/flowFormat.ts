@@ -1,6 +1,6 @@
 import { LINE_DASH } from "../../../utils/chartScale";
 import type { ChartColor } from "../../../utils/chartScale";
-import { effectiveLimit } from "./flowRowData";
+import { effectiveLimit, wipCount } from "./flowRowData";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
   FlowAgeSample, FlowBlocked, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
@@ -61,8 +61,12 @@ export function cumulativeFlowSummary({ columns, bottleneck_column_uid: bottlene
     : "No column that is not done grew in this range.";
 }
 
-export function wipAgeSummary({ sample_size: n, samples, cycle_time_percentiles: zones }: FlowWipAge): string {
-  if (n === 0) return "No cards are in progress.";
+export function wipAgeSummary({ sample_size: n, samples, columns, cycle_time_percentiles: zones }: FlowWipAge): string {
+  if (n === 0) {
+    // Live WIP (#2287) counts unstarted cards too, so no ages does not mean no work in progress.
+    const live = columns.reduce((sum, c) => sum + (c.wip_count ?? 0), 0);
+    return live > 0 ? "No card in progress has an age yet." : "No cards are in progress.";
+  }
   if (zones.p85 === null) return `${plural(n, "card")} in progress.`;
   const past = cardsPastP85({ samples, cycle_time_percentiles: zones });
   return `${past} of ${plural(n, "card")} in progress ${past === 1 ? "is" : "are"} past the 85th percentile.`;
@@ -152,16 +156,16 @@ export function shareOfCyclePhrase(share: number): string {
 }
 
 /**
- * How many board columns hold more in-progress cards than their WIP limit.
- * Counts the aging samples per column, so it agrees with the aging chart.
+ * How many board columns hold more cards than their WIP limit. Counts every
+ * card not archived in the column (`wipCount`), as the column header does, so
+ * cards that have not started count too (#2287).
  */
 export function columnsOverLimit(
-  wipAge: Pick<FlowWipAge, "samples">,
+  wipAge: Pick<FlowWipAge, "columns" | "samples">,
   columns: { uid: string; wip_limit: number | null }[],
 ): number {
   return columns.filter(
-    (column) => !!column.wip_limit
-      && wipAge.samples.filter((s) => s.column_uid === column.uid).length > column.wip_limit,
+    (column) => !!column.wip_limit && wipCount(wipAge, column.uid) > column.wip_limit,
   ).length;
 }
 

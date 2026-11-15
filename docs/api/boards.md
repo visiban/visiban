@@ -580,6 +580,7 @@ Adds an optional `period`, `week` (the default) or `day`.
   "definition": "the number of cards whose first entry into a done column falls in a period.",
   "period": "week",
   "total": 9,
+  "completed_in_range": 11,
   "median": 2,
   "samples": [
     { "start": "2026-06-01", "count": 3, "card_uids": ["3a9f1c2d7e4b8a05"], "started": 4 }
@@ -589,6 +590,8 @@ Adds an optional `period`, `week` (the default) or `day`.
 ```
 
 `median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
+
+`total` sums the whole periods only. With `period=week` a range holds only the Monday-to-Sunday weeks that fit inside it: the partial week at the start of the range and the one at its end (today's, for a rolling range) are both left out, so a 30-day range covers 21 or 28 days of completions. `completed_in_range` *(added in 1.3, #2288)* counts every first completion in the range itself, the same `[start, end)` window a cycle-time sample belongs to (for `days`, from exactly `days` × 24 hours ago to now), so it equals `total` only when the range is whole weeks. It is always the ungrouped number. It counts *every* card whose first entry into a done column falls in the range, including one that went straight to done and one with incomplete history; cycle time needs a start, so those cards have no cycle-time sample, and `completed_in_range` can therefore exceed `cycle_time.sample_size`.
 
 `started` *(added in 1.3, #2260)* counts the cards whose cycle started in the period: their first move out of the column they were created in, to a column that is not done. Archived cards count, as in `count`. A reopen is not a start. A card with no creation movement, such as one imported without its history, can finish but never starts, so on an imported board `started` under-reports next to `count`.
 
@@ -668,7 +671,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
   "sample_size": 12,
   "excluded_incomplete_history": 1,
   "cycle_time_percentiles": { "p50": 4.21, "p85": 8.14, "p95": null },
-  "columns": [{ "column_uid": "col0000001", "column_name": "Doing" }],
+  "columns": [{ "column_uid": "col0000001", "column_name": "Doing", "wip_count": 14 }],
   "samples": [
     {
       "card_uid": "3a9f1c2d7e4b8a05",
@@ -687,7 +690,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
 }
 ```
 
-`columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, clipped to the age clock so the values sum to `value_days`, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
+`columns` lists the columns that are not done, in position order. `wip_count` *(added in 1.3, #2287)* is every card not archived in the column now, under the same swimlane and label filters: the count the column header holds against its WIP limit. It includes cards that have not started yet and cards without complete history, which have no sample, so it can be larger than the column's samples. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, clipped to the age clock so the values sum to `value_days`, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
 
 #### `GET /api/v1/boards/{id}/metrics/dwell/`
 
@@ -758,10 +761,10 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
 
 - Each card not archived and not in a done column appears once, with every reason that applies, in this order: `blocked` (manually or by a relation), `past_p85` (in progress, and its age is greater than `cycle_time_percentiles.p85`; never when that is `null`), `stalled` (its last movement of any kind is more than `stalled_threshold_days` ago, the board's `staleness_threshold_days`).
 - `block_reason` (*added in 1.3, #2281*) is the text of the card's manual block, trimmed of surrounding whitespace, when `reasons` includes `blocked`. It is `null` when the card is not blocked, when it is blocked only by a relation (which has no text), and when its block has no reason or only whitespace; it is never an empty string. It is free text a board member wrote, so render it as text, never as HTML.
-- `age_days` is `null` for a card that is not in progress, such as one that has not left its first column or has incomplete history. `unmoved_days` is `null` for a card with no movement.
-- Items run oldest first by `age_days`, then by `unmoved_days`, `null` last in both, then by card.
+- `age_days` is `null` for a card that is not in progress, such as one that has not left its first column or has incomplete history. `unmoved_days` counts from the card's last movement, or from its `created_at` when it has none, so it is never `null` and an old card with no history can be `stalled`.
+- Items run oldest first by `age_days`, then by `unmoved_days`, `null` `age_days` last, then by card.
 
-It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed.
+It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed. A card with no movement is judged the same way in both, from its creation date.
 
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.

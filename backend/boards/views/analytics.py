@@ -645,7 +645,15 @@ _THROUGHPUT_RESPONSE = inline_serializer(
     fields={
         "definition": serializers.CharField(),
         "period": serializers.ChoiceField(choices=["day", "week"]),
-        "total": serializers.IntegerField(),
+        "total": serializers.IntegerField(
+            help_text="Completions in the whole periods only: a partial week at either end of the range is left out.",
+        ),
+        "completed_in_range": serializers.IntegerField(
+            help_text=(
+                "First completions anywhere in the range, the window the cycle-time sample uses (#2288). "
+                "Differs from `total` when the range does not start on a Monday and end on a Sunday."
+            ),
+        ),
         "median": serializers.IntegerField(
             allow_null=True, help_text="Nearest-rank p50 of the period counts; null under five whole periods.",
         ),
@@ -759,7 +767,17 @@ _WIP_AGE_RESPONSE = inline_serializer(
             name="FlowWipAgeColumn",
             many=True,
             help_text="The columns that are not done, in position order.",
-            fields={"column_uid": serializers.CharField(), "column_name": serializers.CharField()},
+            fields={
+                "column_uid": serializers.CharField(),
+                "column_name": serializers.CharField(),
+                "wip_count": serializers.IntegerField(
+                    help_text=(
+                        "Cards not archived in the column now, the count its WIP limit applies to (#2287). "
+                        "Includes cards that have not started and cards with incomplete history, which "
+                        "have no sample."
+                    ),
+                ),
+            },
         ),
         "samples": inline_serializer(
             name="FlowWipAgeSample",
@@ -868,7 +886,7 @@ _ATTENTION_RESPONSE = inline_serializer(
                     allow_null=True, help_text="Days in progress; null when the card is not in progress.",
                 ),
                 "unmoved_days": serializers.FloatField(
-                    allow_null=True, help_text="Days since the card last moved; null with no movement.",
+                    allow_null=True, help_text="Days since the card last moved, or since it was created when it has no movement.",
                 ),
                 "reasons": serializers.ListField(
                     child=serializers.ChoiceField(choices=list(flow_metrics.ATTENTION_REASONS)),
@@ -1277,7 +1295,9 @@ class BoardAnalyticsMixin:
                 # the prefetch window are still detected correctly.
                 if card.archived_at is None:
                     last_col_is_done = card._last_col_id in done_col_ids or card.column_id in done_col_ids
-                    last_moved_at = card._last_moved_at
+                    # A card with no movement counts from created_at, matching
+                    # is_stale on the card serializer and Needs attention (#2291).
+                    last_moved_at = card._last_moved_at or card.created_at
                     if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
                         stalled_cards.append({
                             "id": card.id,

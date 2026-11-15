@@ -98,12 +98,14 @@ const cumulative: FlowCumulativeFlow = {
   ],
   bottleneck_column_uid: 'col-doing',
 }
+// Doing holds four cards (#2287) but only one has an age: two have not
+// started and one has incomplete history, so neither of those has a sample.
 const age: FlowWipAge = {
   definition: 'age definition',
   sample_size: 1,
-  excluded_incomplete_history: 0,
+  excluded_incomplete_history: 1,
   cycle_time_percentiles: { p50: 4, p85: 8, p95: 12 },
-  columns: [{ column_uid: 'col-doing', column_name: 'Doing' }, { column_uid: 'col-review', column_name: 'Review' }],
+  columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 4 }, { column_uid: 'col-review', column_name: 'Review', wip_count: 0 }],
   samples: [{
     card_uid: cardA.uid,
     column_uid: 'col-doing',
@@ -411,6 +413,54 @@ describe('the panels', () => {
     })
     await renderLoaded()
     expect(within(screen.getByTestId('flow-cumulative')).getByRole('img')).toHaveTextContent('Deleted columns')
+  })
+
+  it('stacks Done at the bottom with the deleted band above it, so Done tops out at departures (#2289)', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        // Server order: board order with the deleted band last.
+        columns: [
+          ...cumulative.columns.filter((c) => c.column_uid !== null),
+          cumulative.columns.find((c) => c.column_uid === null)!,
+        ],
+        days: [
+          { date: '2026-06-01', counts: { 'col-doing': 2, 'col-done': 4, null: 3 } },
+          { date: '2026-06-02', counts: { 'col-doing': 2, 'col-done': 5, null: 3 } },
+        ],
+        bottleneck_column_uid: null,
+      },
+    })
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-cumulative')
+    const order = Array.from(panel.querySelectorAll('[data-band]')).map((g) => g.getAttribute('data-band'))
+    expect(order.indexOf('col-done')).toBe(0)
+    expect(order.indexOf('null')).toBe(1)
+    const top = (key: string) => Number(Array.from(panel.querySelectorAll('[data-band]')).find((g) => g.getAttribute('data-band') === key)?.getAttribute('data-top-count'))
+    expect(top('col-done')).toBe(5)
+    expect(top('null')).toBe(8)
+    expect(top('col-doing')).toBe(10)
+  })
+
+  it('keeps each day hit area one gap wide and inside the plot (#2289)', async () => {
+    mockAll({
+      cumulative: {
+        ...cumulative,
+        days: [
+          { date: '2026-06-01', counts: { 'col-doing': 1, 'col-done': 0, null: 0 } },
+          { date: '2026-06-02', counts: { 'col-doing': 1, 'col-done': 1, null: 0 } },
+          { date: '2026-06-03', counts: { 'col-doing': 1, 'col-done': 2, null: 0 } },
+        ],
+      },
+    })
+    await renderLoaded()
+    const hits = within(screen.getByTestId('flow-cumulative')).getAllByRole('button', { name: /card/ })
+    const rects = hits.map((h) => h.querySelector('rect') as SVGRectElement)
+    const [a, b, c] = rects.map((r) => ({ x: Number(r.getAttribute('x')), w: Number(r.getAttribute('width')) }))
+    expect(a.w).toBeCloseTo(b.w / 2, 3)
+    expect(c.w).toBeCloseTo(b.w / 2, 3)
+    expect(a.x + a.w).toBeCloseTo(b.x, 3)
+    expect(b.x + b.w).toBeCloseTo(c.x, 3)
   })
 
   it('squares blocked cards, rings cards past P85, and names them in column order', async () => {
@@ -724,7 +774,9 @@ describe('flow summaries', () => {
   })
 
   it('aging counts cards past P85 and copes with no zones', () => {
-    expect(wipAgeSummary(empty.age)).toBe('No cards are in progress.')
+    expect(wipAgeSummary({ ...empty.age, columns: empty.age.columns.map((c) => ({ ...c, wip_count: 0 })) })).toBe('No cards are in progress.')
+    // Live WIP counts unstarted cards, so no ages must not claim nothing is in progress (#2293).
+    expect(wipAgeSummary({ ...empty.age, columns: [{ column_uid: 'c', column_name: 'C', wip_count: 9 }] })).toBe('No card in progress has an age yet.')
     expect(wipAgeSummary(age)).toBe('1 of 1 card in progress is past the 85th percentile.')
     expect(wipAgeSummary({ ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } })).toBe('1 card in progress.')
   })
@@ -773,11 +825,12 @@ describe('the bottleneck panel (#2261)', () => {
       + 'because 3.5 cards arrive each week and 2 leave.',
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
-    const seeButton = panel.getByRole('button', { name: 'See the 1 card' })
+    const seeButton = panel.getByRole('button', { name: 'See the 4 cards' })
     await userEvent.click(seeButton)
     const drawer = await screen.findByRole('dialog')
     expect(within(drawer).getByRole('heading', { name: 'Doing' })).toBeInTheDocument()
-    expect(within(drawer).getByText('1 card in this column now, limit 3')).toBeInTheDocument()
+    expect(within(drawer).getByText('4 cards in this column now, limit 3')).toBeInTheDocument()
+    expect(within(drawer).getByText('3 cards not listed: no age yet (not started, or missing history).')).toBeInTheDocument()
     expect(within(drawer).getByText('Fix the login')).toBeInTheDocument()
     await userEvent.click(within(drawer).getByRole('button', { name: /close/i }))
     await waitFor(() => expect(seeButton).toHaveFocus())
@@ -794,7 +847,7 @@ describe('the bottleneck panel (#2261)', () => {
     const panel = within(screen.getByTestId('analytics-bottleneck'))
     expect(panel.getByRole('heading', { name: 'Too early to say' })).toBeInTheDocument()
     expect(panel.getByText(
-      "4 cards have finished and no column's queue has grown yet. A bottleneck is named when one does.",
+      "4 cards have finished and no column after the first has a growing queue yet. A bottleneck is named when one does.",
     )).toBeInTheDocument()
     expect(screen.getByTestId('analytics-bottleneck').className).not.toContain('border-warning')
   })
@@ -804,7 +857,7 @@ describe('the bottleneck panel (#2261)', () => {
     await renderLoaded()
     const panel = within(screen.getByTestId('analytics-bottleneck'))
     expect(panel.getByRole('heading', { name: 'No bottleneck' })).toBeInTheDocument()
-    expect(panel.getByText("No column's queue grew between Jun 1 and Jun 2.")).toBeInTheDocument()
+    expect(panel.getByText("No column after the first grew its queue between Jun 1 and Jun 2. The first column is where new work arrives, so it is never named.")).toBeInTheDocument()
   })
 
   it('leaves out what the server did not return', () => {
@@ -833,6 +886,31 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Work in progress')).toHaveTextContent('0 columns over their limit. 1 card past 8 days.')
     expect(tile('Blocked time')).toHaveTextContent('3.5days')
     expect(tile('Blocked time')).toHaveTextContent('2 blocks. 1 card blocked right now.')
+  })
+
+  it('counts the live WIP, unstarted cards included, and falls back to the aged cards (#2287)', async () => {
+    // Nothing has an age yet, but nine cards sit in the columns now.
+    mockAll({ age: { ...age, sample_size: 0, samples: [], cards: [], columns: [
+      { column_uid: 'col-doing', column_name: 'Doing', wip_count: 6 }, { column_uid: 'col-review', column_name: 'Review', wip_count: 3 },
+    ] } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Work in progress')).toHaveTextContent('9cards')
+    cleanup()
+    // A server older than #2287 sends no wip_count: the aged cards are the number.
+    mockAll({ age: { ...age, sample_size: 2, columns: [{ column_uid: 'col-doing', column_name: 'Doing', sample_size: 2, percentiles: { p50: 2.1, p85: 5, p95: null } }] as never } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Work in progress')).toHaveTextContent('2cards')
+  })
+
+  it('shows the same finished count as the Done box when the range holds partial weeks (#2288)', async () => {
+    mockAll({ throughput: { ...throughput, median: 1, total: 2, completed_in_range: 5 } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 5 cards finished.')
+    expect(screen.getByTestId('flow-done-box')).toHaveTextContent('5')
+    cleanup()
+    mockAll({ throughput: { ...throughput, median: null, total: 2, completed_in_range: 5 } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Throughput')).toHaveTextContent('5cards so far')
   })
 
   it('withhold what the server withheld and say when it appears', async () => {
@@ -879,13 +957,13 @@ describe('the headline tiles (#2261)', () => {
     expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('The queue grew from 2 to 5 cards, because')
   })
 
-  it('says why when the period has no days, and "Cards in progress now." when a filter hides the rest', async () => {
+  it('says why when the period has no days, and "Every card not done yet." when a filter hides the rest', async () => {
     mockAll({
       cumulative: { ...cumulative, bottleneck_column_uid: null, days: [] },
       age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
     })
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
-    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column's queue grew in this period.")
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column after the first grew its queue in this period. The first column is where new work arrives, so it is never named.")
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
     await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
@@ -893,7 +971,7 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 7 so far.')
   })
 
-  it('says "Cards in progress now." under a filter when the 85th percentile is shown', async () => {
+  it('says "Every card not done yet." under a filter when the 85th percentile is shown', async () => {
     mockAll()
     await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
@@ -991,18 +1069,29 @@ describe('share of the cycle and limits (#2261)', () => {
     expect(shareOfCyclePhrase(0.05)).toBe('a small part of the whole cycle')
   })
 
-  it('counts columns over their limit, ignoring columns without one', () => {
+  it('counts unstarted cards against the limit (#2287)', async () => {
+    // A column of five cards that never moved: no aging samples, but over a limit of 3.
+    mockAll({ age: { ...age, sample_size: 0, samples: [], columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 5 }] } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }] })
+    const wipTile = screen.getByRole('heading', { name: 'Work in progress', level: 3 }).closest('div')!.parentElement as HTMLElement
+    expect(wipTile).toHaveTextContent('1 column over its limit.')
+    expect(columnsOverLimit({ columns: [{ column_uid: 'col-doing', column_name: 'Doing', wip_count: 5 }], samples: [] }, [
+      { uid: 'col-doing', wip_limit: 3 },
+    ])).toBe(1)
+  })
+
+  it('counts columns over their limit from the aging samples when the server sends no wip_count', () => {
     const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }, { ...age.samples[0], column_uid: 'col-review' }]
-    expect(columnsOverLimit({ samples }, [
+    expect(columnsOverLimit({ columns: [], samples }, [
       { uid: 'col-doing', wip_limit: 1 }, { uid: 'col-review', wip_limit: 1 }, { uid: 'col-qa', wip_limit: null },
     ])).toBe(1)
   })
 
   it('treats a limit of 0 or null as no limit and counts a real limit', () => {
     const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }]
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
-    expect(columnsOverLimit({ samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: 0 }])).toBe(0)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: null }])).toBe(0)
+    expect(columnsOverLimit({ columns: [], samples }, [{ uid: 'col-doing', wip_limit: 1 }])).toBe(1)
   })
 
   it('leaves "against a limit" out of the bottleneck sentence for a limit of 0', () => {

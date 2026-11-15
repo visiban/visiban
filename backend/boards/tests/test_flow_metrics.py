@@ -502,6 +502,63 @@ class ThroughputTests(FlowFixture):
         self.path(self.backlog, 10, self.done, 0.1)
         self.assertEqual(fm.throughput(self.flow(), self.last(7), "day")["total"], 0)
 
+    def test_completed_in_range_counts_the_partial_weeks_and_matches_the_cycle_time_window(self):
+        # #2288: now is Wed 2026-07-15 12:00, so the last 30 days hold four
+        # whole weeks (Mon 06-15 to Sun 07-12) plus Mon 07-13 to now.
+        for days_ago in (1, 7, 20, 29):  # Tue 07-14 is in no whole week
+            self.path(self.backlog, 60, self.doing, 50, self.done, days_ago)
+        # Mon 06-15 06:00: inside the first whole week's bucket day, before the
+        # rolling start (06-15 12:00), so cycle time leaves it out too.
+        self.path(self.backlog, 60, self.doing, 50, self.done, 30.25)
+        # Mon 07-13 12:00: in the dropped partial week, so it is in the range
+        # count and the cycle time sample but not in the whole-week total.
+        self.path(self.backlog, 60, self.doing, 50, self.done, 2)
+        flow = self.flow()
+        payload = fm.throughput(flow, self.last(30))
+        self.assertEqual(payload["total"], 4)
+        self.assertEqual(payload["completed_in_range"], 5)
+        self.assertEqual(payload["completed_in_range"], fm.cycle_time(flow, self.last(30))["sample_size"])
+        hits = {s["start"]: s["count"] for s in payload["samples"]}
+        self.assertEqual(hits["2026-06-15"], 2)  # 06-15 06:00 and 06-16
+
+    def test_completed_in_range_can_exceed_the_cycle_time_sample(self):
+        # #2288 owner decision: it counts every first completion in the range,
+        # including a card with no creation movement (incomplete history), which
+        # has no start and so no cycle time.
+        self.path(self.backlog, 60, self.doing, 50, self.done, 3)
+        orphan = self.card(self.done, created=12)
+        self.row(orphan, self.backlog, self.done, 2)
+        flow = self.flow()
+        completed = fm.throughput(flow, self.last(30))["completed_in_range"]
+        cycle = fm.cycle_time(flow, self.last(30))
+        self.assertEqual(completed, 2)
+        self.assertEqual(cycle["sample_size"], 1)
+        self.assertGreater(completed, cycle["sample_size"])
+
+    def test_completed_in_range_differs_from_total_unless_the_range_is_whole_weeks(self):
+        # A completion every day for 60 days: the whole-week total covers
+        # 7 x weeks days, the range count every completion inside [start, now).
+        for days_ago in range(60):
+            self.path(self.backlog, 90, self.doing, 80, self.done, days_ago + 0.5)
+        for days in (7, 14, 30, 45):
+            with self.subTest(days=days):
+                flow_range = self.last(days)
+                payload = fm.throughput(self.flow(), flow_range)
+                self.assertEqual(payload["total"], 7 * len(payload["samples"]))
+                self.assertEqual(payload["completed_in_range"], days)
+                # Wednesday's ranges never start on a Monday, so they never agree.
+                self.assertLess(payload["total"], payload["completed_in_range"])
+
+    def test_completed_in_range_follows_a_from_to_range(self):
+        # 2026-06-29 is a Monday and 2026-07-12 a Sunday: whole weeks, so both agree.
+        for days_ago in (3, 5, 10, 16):  # Sun 07-12 12:00, 07-10, 07-05, 06-29
+            self.path(self.backlog, 60, self.doing, 50, self.done, days_ago)
+        whole = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 29), datetime.date(2026, 7, 12), now=self.now))
+        self.assertEqual((whole["total"], whole["completed_in_range"]), (4, 4))
+        # Starting on Tuesday drops the week of 06-29 from total only.
+        partial = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 30), datetime.date(2026, 7, 12), now=self.now))
+        self.assertEqual((partial["total"], partial["completed_in_range"]), (2, 3))
+
 
 class CumulativeFlowTests(FlowFixture):
     def counts(self, payload, date):
@@ -691,6 +748,37 @@ class CumulativeFlowTests(FlowFixture):
 
 
 class AgeResponseTests(FlowFixture):
+    def test_columns_carry_the_live_wip_count_whatever_the_card_history(self):
+        # #2287: five cards that never left Backlog have no age, and one with
+        # no history at all is excluded, but all six sit in their columns
+        # against the WIP limit, as the column header counts them.
+        for _ in range(5):
+            self.path(self.backlog, 10)
+        self.card(self.doing, created=12)  # no movement rows
+        started = self.path(self.backlog, 10, self.doing, 4)
+        self.path(self.backlog, 10, self.doing, 4, archived=1)
+        self.path(self.backlog, 10, self.doing, 4, self.done, 1)
+        flow = self.flow()
+        payload = fm.age(flow, self.last())
+        self.assertEqual(payload["excluded_incomplete_history"], 1)
+        self.assertEqual([s["card_uid"] for s in payload["samples"]], [started.uid])
+        counts = {c["column_uid"]: c["wip_count"] for c in payload["columns"]}
+        self.assertEqual(counts, {self.backlog.uid: 5, self.doing.uid: 2, self.review.uid: 0})
+        self.assertEqual(counts, {c["column_uid"]: c["count"] for c in fm.wip(flow)["columns"]})
+
+    def test_wip_count_follows_the_swimlane_and_label_filters(self):
+        self.path(self.backlog, 10)
+        self.path(self.backlog, 10, lane=self.other_lane)
+        labeled = self.path(self.backlog, 10, lane=self.other_lane)
+        label = Label.objects.create(board=self.board, name="Bug", color="#ff0000")
+        labeled.labels.add(label)
+        def backlog_count(**filters):
+            columns = fm.age(self.flow(**filters), self.last())["columns"]
+            return next(c["wip_count"] for c in columns if c["column_uid"] == self.backlog.uid)
+        self.assertEqual(backlog_count(), 3)
+        self.assertEqual(backlog_count(swimlane_id=self.other_lane.id), 2)
+        self.assertEqual(backlog_count(label_id=label.id), 1)
+
     def test_sample_carries_the_drawer_fields_in_column_order(self):
         card = self.path(self.backlog, 10, self.doing, 8, self.review, 2)
         sample = self.by_card(fm.age(self.flow(), self.last()))[card.uid]
@@ -1366,6 +1454,22 @@ class EndpointResponseTests(EndpointFixture):
         self.assertEqual(by_column[None], [])
         self.assertEqual([c["uid"] for c in body["cards"]], [card.uid])
 
+    def test_wip_age_columns_report_unstarted_cards_over_the_limit(self):
+        # #2287: a WIP limit of 3 on a Backlog of five cards that never moved.
+        Column.objects.filter(pk=self.backlog.pk).update(wip_limit=3)
+        for _ in range(5):
+            self.path(self.backlog, 10)
+        body = self.client.get(self.url("wip-age")).json()
+        self.assertEqual(body["sample_size"], 0)
+        backlog = next(c for c in body["columns"] if c["column_uid"] == self.backlog.uid)
+        self.assertEqual(backlog["wip_count"], 5)
+
+    def test_throughput_reports_completed_in_range(self):
+        self.path(self.backlog, 20, self.doing, 16, self.done, 0.5)
+        body = self.client.get(self.url("throughput"), {"days": 30}).json()
+        self.assertEqual(body["total"], 0)  # today is never in a whole week
+        self.assertEqual(body["completed_in_range"], 1)
+
     def test_wip_age_directory_marks_nothing_archived(self):
         card = self.path(self.backlog, 20, self.doing, 16)
         body = self.client.get(self.url("wip-age")).json()
@@ -1782,6 +1886,21 @@ class NeedsAttentionTests(FlowFixture):
         item = self.items()[card.uid]
         self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 20))
 
+    def test_a_card_with_no_movement_rows_is_stalled_from_its_creation(self):
+        """#2291: imported or legacy data has no live movement, so unmoved time counts from created_at."""
+        card = self.card(self.doing, created=200)
+        item = self.items(stalled_days=14)[card.uid]
+        self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 200))
+
+    def test_a_card_with_no_movement_rows_follows_the_strict_threshold(self):
+        at_threshold = self.card(self.doing, created=14, title="At")
+        past_threshold = self.card(self.doing, created=15, title="Past")
+        recent = self.card(self.doing, created=3, title="Recent")
+        items = self.items(stalled_days=14)
+        self.assertNotIn(at_threshold.uid, items)
+        self.assertNotIn(recent.uid, items)
+        self.assertEqual(items[past_threshold.uid]["reasons"], ["stalled"])
+
     def test_an_imported_card_with_incomplete_history_is_stalled_never_past_p85(self):
         self.finish_seven()
         card = self.card(self.doing, created=30)
@@ -1808,20 +1927,20 @@ class NeedsAttentionTests(FlowFixture):
         self.assertNotIn(stalled.uid, self.items(stalled_days=10))
         self.assertEqual(self.items(stalled_days=9)[stalled.uid]["reasons"], ["stalled"])
 
-    def test_order_is_age_then_unmoved_with_nulls_last_then_id(self):
+    def test_order_is_age_with_nulls_last_then_unmoved_then_id(self):
         old = self.path(self.backlog, 40, self.doing, 30)
         younger = self.path(self.backlog, 40, self.doing, 20)
         backlog_long = self.path(self.backlog, 25)
         backlog_short = self.path(self.backlog, 15)
         tie = self.path(self.backlog, 15)
-        imported = self.card(self.doing, created=30)  # no movement at all: never stalled
+        imported = self.card(self.doing, created=30)  # no movement at all: unmoved counts from created_at (#2291)
         Card.objects.filter(pk=imported.pk).update(blocked_at=self.ago(1))
         self.assertEqual(
             [i["card_uid"] for i in self.attention()["items"]],
-            [old.uid, younger.uid, backlog_long.uid, backlog_short.uid, tie.uid, imported.uid],
+            [old.uid, younger.uid, imported.uid, backlog_long.uid, backlog_short.uid, tie.uid],
         )
-        last = self.attention()["items"][-1]
-        self.assertEqual((last["reasons"], last["age_days"], last["unmoved_days"]), (["blocked"], None, None))
+        item = self.items()[imported.uid]
+        self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["blocked", "stalled"], None, 30))
 
     def test_archived_and_done_cards_are_never_listed(self):
         self.path(self.backlog, 40, self.doing, 30, archived=20)

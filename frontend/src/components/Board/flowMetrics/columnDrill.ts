@@ -1,11 +1,13 @@
 import type { Column, FlowCumulativeFlow, FlowDwell, FlowWipAge } from "../../../types";
-import { effectiveLimit } from "./flowRowData";
+import { effectiveLimit, wipCount } from "./flowRowData";
 import type { DrillSelection } from "./FlowDrillDrawer";
 
 /**
  * The column drawer's contents (#2262), from the responses already on screen.
  * "Past 85th percentile" is the aging chart's line (cycle time), so the drawer
  * and the chart agree; a withheld percentile gives null, shown as a dash.
+ * `count` is every card in the column (#2287), the count the WIP limit
+ * applies to; `cards` lists only those with an age, so it can be shorter.
  */
 export function buildColumnSelection(
   uid: string,
@@ -30,7 +32,7 @@ export function buildColumnSelection(
     uid,
     name,
     limit: effectiveLimit(columns.find((c) => c.uid === uid)?.wip_limit, filtered),
-    count: samples.length,
+    count: wipCount(wipAge, uid),
     medianWait: dwell?.columns.find((c) => c.column_uid === uid)?.percentiles.p50 ?? null,
     pastP85: p85 === null ? null : samples.filter((s) => s.value_days > p85).length,
     cards: samples.map((s) => ({

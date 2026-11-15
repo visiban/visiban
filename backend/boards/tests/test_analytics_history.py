@@ -618,6 +618,26 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         entry = next(s for s in stalled if s["id"] == self.card.pk)
         self.assertEqual(entry["uid"], self.card.uid)
 
+    def test_old_card_with_no_movement_is_stalled_from_created_at(self):
+        """#2291: a card with zero movements counts from created_at, as is_stale does."""
+        from datetime import timedelta
+        from django.utils import timezone
+        Card.objects.filter(pk=self.card.pk).update(created_at=timezone.now() - timedelta(days=30))
+        self.assertFalse(self.card.movements.exists())
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url() + "?stalled_days=7")
+        self.assertEqual(resp.status_code, 200)
+        stalled = resp.data["swimlanes"][0]["stalled_cards"]
+        entry = next(s for s in stalled if s["id"] == self.card.pk)
+        self.assertEqual(entry["days_since_move"], 30)
+
+    def test_new_card_with_no_movement_is_not_stalled(self):
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url() + "?stalled_days=7")
+        stalled_ids = [s["id"] for s in resp.data["swimlanes"][0]["stalled_cards"]]
+        self.assertNotIn(self.card.pk, stalled_ids)
+
     def test_active_column_dwell_still_tracked(self):
         """Dwell time in non-done columns must still be calculated correctly."""
         # Card spent 5 days in To Do, then moved to Done.
