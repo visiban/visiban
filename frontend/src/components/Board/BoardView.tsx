@@ -2685,6 +2685,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             }}
             swimlanes={board.swimlanes}
             labels={board.labels}
+            columns={board.columns}
+            boardName={board.name}
             onGoToBoard={() => setView("board")}
           />
         </SectionErrorBoundary>

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
-// The flow dashboard against mocked `metrics/*` responses (#448). jsdom cannot
+// The Analytics Overview against mocked `metrics/*` and `analytics/` responses (#448, #2261). jsdom cannot
 // lay out SVG or resolve the color tokens, so this is what checks that the
 // charts actually draw, that the marks stay clickable through the stacked
 // layers, and that the drawer opens over the page.
@@ -77,6 +77,32 @@ const wipAge = {
   cards,
 }
 
+const dwell = {
+  definition: 'completed time in each column.',
+  sample_size: 24,
+  excluded_incomplete_history: 0,
+  columns: [
+    { column_uid: 'col-backlog', column_name: 'Backlog', sample_size: 24, percentiles: { p50: 1.1, p85: 2, p95: 3 } },
+    { column_uid: 'col-doing', column_name: 'Doing', sample_size: 24, percentiles: { p50: 2.1, p85: 4, p95: 6 } },
+    { column_uid: 'col-review', column_name: 'Review', sample_size: 24, percentiles: { p50: 0.8, p85: 1.5, p95: 2 } },
+  ],
+}
+const blocked = {
+  definition: 'manual blocks that overlapped the period.',
+  total: { days: 14.5, blocks: 10 },
+  blocked_now: 3,
+  columns: [{ column_uid: 'col-doing', column_name: 'Doing', days: 14.5, blocks: 10 }],
+  reasons: [{ reason: 'Waiting on security review', days: 6.5, blocks: 5 }],
+  reason_count: 1,
+}
+const attention = {
+  definition: 'blocked, past the 85th percentile, or stalled.',
+  stalled_threshold_days: 7,
+  cycle_time_percentiles: { p50: 4.2, p85: 8.1, p95: 12.6 },
+  items: [{ card_uid: cards[5].uid, column_uid: 'col-doing', swimlane_id: BOARD_FULL.swimlanes[0].id, age_days: 12, unmoved_days: 9, reasons: ['stalled'] }],
+  cards: [cards[5]],
+}
+
 async function openAnalytics(page: Page) {
   await routeAuth(page)
   await routeBoard(page)
@@ -85,7 +111,12 @@ async function openAnalytics(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        days: 30, columns: [], done_columns: [], board_medians: {}, swimlanes: [],
+        days: 90, columns: ['Doing'], done_columns: [], board_medians: {},
+        swimlanes: [{
+          id: BOARD_FULL.swimlanes[0].id, name: 'A very long swimlane name that must not widen the page',
+          avg_days_per_column: { Doing: 3 }, is_outlier: {}, age_avg_days_per_column: { Doing: 3 },
+          deal_velocity_days: 5, stalled_cards: [],
+        }],
         stalled_threshold_days: 7, staleness_threshold_days: 7, stale_warning_pct: 50,
       }),
     }),
@@ -98,6 +129,9 @@ async function openAnalytics(page: Page) {
   await metric('throughput', throughput)
   await metric('cumulative-flow', cumulativeFlow)
   await metric('wip-age', wipAge)
+  await metric('dwell', dwell)
+  await metric('blocked', blocked)
+  await metric('attention', attention)
   await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/*/movements/`, (route) =>
     route.fulfill({
       status: 200,
@@ -113,6 +147,37 @@ async function openAnalytics(page: Page) {
 }
 
 test.describe('flow metrics dashboard', () => {
+  test('names the bottleneck, states the headline numbers, and one filter refetches every panel', async ({ page }) => {
+    await openAnalytics(page)
+    const bottleneck = page.getByTestId('analytics-bottleneck')
+    await expect(bottleneck.getByRole('heading', { name: 'Doing' })).toBeVisible()
+    await expect(bottleneck).toContainText('Cards wait 2.1 days here, about half of the whole cycle.')
+    await expect(page.getByTestId('analytics-tiles')).toContainText('14.5days')
+    await expect(page.getByTestId('analytics-attention')).toContainText(cards[5].title)
+    await expect(page.getByTestId('analytics-blocked')).toContainText('Waiting on security review')
+
+    const requested: string[] = []
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.searchParams.get('days') === '30') requested.push(url.pathname.split('/').slice(-2, -1)[0])
+    })
+    await page.getByRole('button', { name: /^Date range/ }).click()
+    await page.getByRole('menuitem', { name: 'Last 30 days' }).click()
+    await expect.poll(() => [...requested].sort()).toEqual(
+      ['analytics', 'attention', 'blocked', 'cumulative-flow', 'cycle-time', 'dwell', 'throughput', 'wip-age'],
+    )
+    await expect(page.getByTestId('flow-wip-age')).toBeVisible()
+  })
+
+  test('has no sideways page scroll at 390px', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openAnalytics(page)
+    await expect(page.getByTestId('analytics-bottleneck').getByRole('heading', { name: 'Doing' })).toBeVisible()
+    const fits = await page.getByTestId('analytics-page').evaluate((el) => el.scrollWidth <= el.clientWidth)
+    expect(fits).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  })
+
   test('draws all four charts with direct labels and percentile lines', async ({ page }) => {
     await openAnalytics(page)
     const cycle = page.getByTestId('flow-cycle-time')
@@ -154,9 +219,12 @@ test.describe('flow metrics dashboard', () => {
   test('the table is reachable with the keyboard and goes one column wide on a narrow screen', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 900 })
     await openAnalytics(page)
-    const panels = [page.getByTestId('flow-cycle-time'), page.getByTestId('flow-throughput')]
-    const [first, second] = await Promise.all(panels.map((panel) => panel.boundingBox()))
+    // Cumulative flow and Throughput share a row from lg; below it they stack.
+    const [first, second] = await Promise.all(
+      [page.getByTestId('flow-cumulative'), page.getByTestId('flow-throughput')].map((panel) => panel.boundingBox()),
+    )
     expect(second?.y).toBeGreaterThan((first?.y ?? 0) + (first?.height ?? 0) - 1)
+    const panels = [page.getByTestId('flow-cycle-time')]
     await panels[0].getByRole('button', { name: 'table' }).click()
     const region = panels[0].getByRole('region', { name: 'Cycle time per card' })
     await region.focus()

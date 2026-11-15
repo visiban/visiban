@@ -62,15 +62,61 @@ Each panel declares the lowest board role that may see it. A member below that r
 
 ## Analytics view
 
-Time-in-stage and flow data derived from `CardMovement` records, on one scrolling page: the heatmap, then the [flow metrics](#flow-metrics), then the stalled cards, separated by engraved dividers.
+Time-in-stage and flow data derived from `CardMovement` records, on one scrolling page. From the top:
+
+1. **Title row:** "Analytics", a **Beta** badge, the board name and the period shown.
+2. **Filter bar:** one **Date range**, **Swimlane** and **Label** selection for the whole page (see [Filters](#filters)), and **Export CSV** for admins.
+3. **Bottleneck** panel and four [headline tiles](#headline-tiles).
+4. The [dwell time heatmap](#dwell-time-heatmap).
+5. **Cumulative flow** and **Throughput**, side by side.
+6. **WIP aging** and the [stalled cards](#stalled-cards).
+7. **Cycle time** and [blocked time](#blocked-time).
+8. A footnote on days, time zone and filters.
+
+From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7.
+
+<span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.
+
+### Filters
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+One filter bar drives every panel on the page, the heatmap, stalled and blocked sections included; no panel has a period control of its own.
+
+- **Date range:** the last 30, 90, 180 or 365 days. **90 by default**, because a weekly median needs five whole weeks and percentiles need enough finished cards.
+- **Swimlane** and **Label:** use each card's current swimlane and labels.
+
+A filter change refreshes every panel once. The panels keep showing the previous numbers, dimmed, until the new ones arrive, and an open drawer closes.
+
+!!! note "Changed in 1.3 (#2261)"
+    The heatmap's own **7 / 30 / 90 days** buttons are gone, and the 7-day window with them: the heatmap uses the filter bar's date range, so it now defaults to 90 days instead of 30. Pick **Last 30 days** for the old default.
+
+### Bottleneck
+
+The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart) and states its numbers in one sentence:
+
+- **Median wait:** the 50th percentile of completed time in that column ([dwell](#flow-metric-definitions)).
+- **Share of the cycle:** the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.
+- **Queue:** cards in the column at the start and end of the period, the column's WIP limit when one is set, and how many cards arrive and leave per week.
+
+**See the N cards** lists the cards in that column now, oldest first; **Open on board** goes back to the board. Without a bottleneck the panel says **Too early to say** (no 85th percentile of cycle time yet) or **No bottleneck** (no column's queue grew in the period).
+
+### Headline tiles
+
+| Tile | Number | Sentence |
+|---|---|---|
+| **Cycle time** | Median days | The 85th percentile and how many finished cards it is based on |
+| **Throughput** | Median cards per week | How many whole weeks, and how many cards finished |
+| **Work in progress** | Cards in progress now | Columns over their WIP limit, and cards past the 85th percentile |
+| **Blocked time** | Days blocked in the period | Number of blocks, and cards blocked now |
+
+A tile shows only what the server returns. Without a median it shows a dash and says when the median appears ("Median appears at 5. 3 so far."); with a median but no 85th percentile it is marked **Provisional**. With too few whole weeks, Throughput shows the cards finished so far instead of a weekly median. With a swimlane or label filter on, Work in progress leaves out the over-limit count, because a WIP limit counts every card in the column.
 
 ### Flow metrics
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a **Chart | Table** toggle.
-
-**Filters.** **Date range** (the last 30, 90, 180 or 365 days; 90 by default, because a weekly median needs five whole weeks and percentiles need enough finished cards), **Swimlane** and **Label**. Filters use each card's current swimlane and labels. All dates are UTC, and weekends count.
+Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a **Chart | Table** toggle. They follow the page's [filters](#filters). All dates are UTC, and weekends count.
 
 | Chart | Read it as | Marks |
 |---|---|---|
@@ -122,20 +168,18 @@ Color is never the only signal: each colored cell shows its marker next to the v
 !!! tip
     Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Changes recolor the heatmap on the next analytics load.
 
-### Period toggle
-
-Switch between **7 days**, **30 days**, and **90 days** to choose which movements count. The toggle appears only in **Throughput** mode (see [View mode: Age vs Throughput](#view-mode-age-vs-throughput)); **Age** mode always reflects the current moment, so there is no period to pick.
+The heatmap follows the page's [filters](#filters): its period is the filter bar's date range, and the swimlane and label filters are sent with the request.
 
 ### View mode: Age vs Throughput
 
-A button pair in the analytics toolbar toggles the heatmap mode. The choice persists per board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
+A button pair above the heatmap toggles its mode. The choice persists per board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
 
 | Mode | What the heatmap shows | Use it to |
 |---|---|---|
 | **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
-| **Throughput** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical flow over a chosen 7, 30 or 90-day window |
+| **Throughput** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical time in each stage over the filter bar's date range |
 
-In **Throughput** mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
+This mode measures dwell time, not [throughput](#flow-metric-definitions) (cards finished per period), despite the button's name. In this mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
 ### Dwell time and archived cards
 
@@ -152,17 +196,18 @@ Analytics includes archived cards as part of the historical record.
 
 ### Stalled cards
 
-At the end of the page, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
+Next to WIP aging, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
 
 - **Default threshold:** the board's `staleness_threshold_days`.
-- **Override:** pass the `stalled_days` query parameter. It affects only the stalled list, not the heatmap coloring.
+- **Override:** pass the `stalled_days` query parameter to the analytics endpoint. It affects only that endpoint's stalled list, not the heatmap coloring.
+- **Filters:** the table follows the page's [filters](#filters); it is built from `GET /api/v1/boards/{id}/metrics/attention/`.
 - **Excluded:** archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.
 
 ### Blocked time
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Below the heatmap, **Blocked time (last N days)** shows how long cards were [manually blocked](blocked-cards.md) during the selected period, and why:
+Next to Cycle time, **Blocked time (last N days)** shows how long cards were [manually blocked](blocked-cards.md) during the selected period, and why:
 
 - **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed. A block in a column that was since deleted has no line here, even if a new column has the same name; it still counts toward the reasons below.
 - **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
@@ -175,7 +220,7 @@ When the selected window has no movement data at all (a new board, or a period b
 
 ### CSV export
 
-Click **Export CSV** to download the heatmap data for spreadsheets. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
+Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode shown, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
 
 ### API reference
 

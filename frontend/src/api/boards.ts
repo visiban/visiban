@@ -152,10 +152,13 @@ export const reorderSwimlanes = (boardId: number, order: number[]) =>
 export const getBoardSummary = (id: number) =>
   client.get<BoardSummary>(`/api/v1/boards/${id}/summary/`).then((r) => r.data);
 
-/** Optional flow filters for `getBoardAnalytics`, as on the `metrics/*` endpoints (#2280). */
+/**
+ * Optional flow filters for `getBoardAnalytics`, as on the `metrics/*` endpoints (#2280).
+ * `null` means "not set" (the Analytics page's filter state, #2261); both are left out of the query.
+ */
 export interface BoardAnalyticsFilters {
-  swimlaneId?: number
-  labelId?: number
+  swimlaneId?: number | null
+  labelId?: number | null
 }
 
 export const getBoardAnalytics = (
@@ -169,8 +172,8 @@ export const getBoardAnalytics = (
       params: {
         days,
         ...(stalledDays !== undefined && { stalled_days: stalledDays }),
-        ...(filters.swimlaneId !== undefined && { swimlane_id: filters.swimlaneId }),
-        ...(filters.labelId !== undefined && { label_id: filters.labelId }),
+        ...(filters.swimlaneId != null && { swimlane_id: filters.swimlaneId }),
+        ...(filters.labelId != null && { label_id: filters.labelId }),
       },
     })
     .then((r) => r.data);

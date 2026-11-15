@@ -169,6 +169,8 @@ Structured delivery report export (CSV/PDF, formatted for client or QBR presenta
 
 **Decision (#1750, 2026-11-02).** All four flow charts planned in #448 are OSS: cycle time, throughput (including the weekly run chart), the cumulative flow diagram (CFD) and WIP age, along with the CFD bottleneck highlight. The analytics OSS already ships stays OSS: the dwell-time heatmap with outlier and bottleneck coloring, Age and Throughput modes, stalled-card detection, the per-swimlane velocity column, the 7, 30 and 90-day windows, and the admin heatmap CSV export. Basic per-swimlane analytics (cards in flight, average cycle time, cards moved to Done in the last 30 days) are OSS too.
 
+*Note (2026-11-14, #2261):* the Analytics tab now offers 30, 90, 180 and 365-day windows; the 7-day window is gone from the UI, though the API still accepts `days=7`. This is not an OSS/enterprise boundary change.
+
 Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS`. A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise.
 
 **Why.** Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.

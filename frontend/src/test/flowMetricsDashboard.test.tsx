@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useRef } from 'react'
+import type { ComponentProps } from 'react'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import FlowMetricsDashboard from '../components/Board/flowMetrics/FlowMetricsDashboard'
+import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
+import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
+  PERCENTILE_APPEARS_AT, bottleneckSentence, columnsOverLimit, shareOfCycle, shareOfCyclePhrase,
   ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
 } from '../components/Board/flowMetrics/flowFormat'
 import type {
-  FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowThroughput, FlowWipAge,
+  FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
 } from '../types'
 
 vi.mock('../api/flowMetrics', () => ({
@@ -15,13 +19,31 @@ vi.mock('../api/flowMetrics', () => ({
   getFlowCumulativeFlow: vi.fn(),
   getFlowCumulativeDay: vi.fn(),
   getFlowWipAge: vi.fn(),
+  getFlowDwell: vi.fn(),
+  getFlowBlocked: vi.fn(),
+  getFlowAttention: vi.fn(),
 }))
 vi.mock('../api/cards', () => ({ getCardMovements: vi.fn() }))
+vi.mock('../api/boards', () => ({ getBoardAnalytics: vi.fn() }))
 
 import {
-  getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowThroughput, getFlowWipAge,
+  getFlowAttention, getFlowBlocked, getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell,
+  getFlowThroughput, getFlowWipAge,
 } from '../api/flowMetrics'
 import { getCardMovements } from '../api/cards'
+import { getBoardAnalytics } from '../api/boards'
+
+/** The Overview under the page's filter state, as AnalyticsView hosts it (#2261). */
+function FlowMetricsDashboard(extra: Partial<ComponentProps<typeof AnalyticsOverview>>) {
+  const { filters, setFilters } = useAnalyticsFilters()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  return (
+    <>
+      <h1 ref={headingRef} tabIndex={-1}>Analytics</h1>
+      <AnalyticsOverview {...props} {...extra} filters={filters} onFiltersChange={setFilters} headingRef={headingRef} />
+    </>
+  )
+}
 
 const cycleMock = vi.mocked(getFlowCycleTime)
 const throughputMock = vi.mocked(getFlowThroughput)
@@ -29,6 +51,10 @@ const cumulativeMock = vi.mocked(getFlowCumulativeFlow)
 const dayMock = vi.mocked(getFlowCumulativeDay)
 const ageMock = vi.mocked(getFlowWipAge)
 const movementsMock = vi.mocked(getCardMovements)
+const dwellMock = vi.mocked(getFlowDwell)
+const blockedMock = vi.mocked(getFlowBlocked)
+const attentionMock = vi.mocked(getFlowAttention)
+const analyticsMock = vi.mocked(getBoardAnalytics)
 
 const owner = { id: 7, username: 'pat', display_name: 'Pat Lee', avatar_url: '' }
 const cardA: FlowCard = { uid: 'a'.repeat(16), id: 1, title: 'Fix the login', archived: false, assignee: owner }
@@ -90,13 +116,40 @@ const age: FlowWipAge = {
   cards: [cardA],
 }
 
+const dwell: FlowDwell = {
+  definition: 'dwell definition',
+  sample_size: 7,
+  excluded_incomplete_history: 0,
+  columns: [{ column_uid: 'col-doing', column_name: 'Doing', sample_size: 7, percentiles: { p50: 2.1, p85: 5, p95: null } }],
+}
+const blocked: FlowBlocked = {
+  definition: 'blocked definition',
+  total: { days: 3.5, blocks: 2 },
+  blocked_now: 1,
+  columns: [{ column_uid: 'col-doing', column_name: 'Doing', days: 3.5, blocks: 2 }],
+  reasons: [{ reason: 'Waiting on review', days: 3.5, blocks: 2 }],
+  reason_count: 1,
+}
+const attention: FlowAttention = {
+  definition: 'attention definition',
+  stalled_threshold_days: 7,
+  cycle_time_percentiles: { p50: 4, p85: 8, p95: 12 },
+  items: [],
+  cards: [],
+}
+
 function mockAll(overrides: Partial<{
   cycle: FlowCycleTime; throughput: FlowThroughput; cumulative: FlowCumulativeFlow; age: FlowWipAge
+  dwell: FlowDwell; blocked: FlowBlocked; attention: FlowAttention
 }> = {}) {
   cycleMock.mockResolvedValue(overrides.cycle ?? cycle)
   throughputMock.mockResolvedValue(overrides.throughput ?? throughput)
   cumulativeMock.mockResolvedValue(overrides.cumulative ?? cumulative)
   ageMock.mockResolvedValue(overrides.age ?? age)
+  dwellMock.mockResolvedValue(overrides.dwell ?? dwell)
+  blockedMock.mockResolvedValue(overrides.blocked ?? blocked)
+  attentionMock.mockResolvedValue(overrides.attention ?? attention)
+  analyticsMock.mockResolvedValue(null)
 }
 
 const empty = {
@@ -123,26 +176,43 @@ async function renderLoaded(extra: Partial<Parameters<typeof FlowMetricsDashboar
 }
 
 describe('FlowMetricsDashboard states', () => {
-  it('shows skeleton panels with an sr status while loading', () => {
-    cycleMock.mockReturnValue(new Promise(() => {}))
-    throughputMock.mockReturnValue(new Promise(() => {}))
-    cumulativeMock.mockReturnValue(new Promise(() => {}))
-    ageMock.mockReturnValue(new Promise(() => {}))
-    render(<FlowMetricsDashboard {...props} />)
-    expect(screen.getByTestId('flow-loading')).toHaveAttribute('aria-busy', 'true')
+  it('shows skeletons with an sr status on first load only; a refetch keeps the panels, dimmed', async () => {
+    const pending = () => new Promise<never>(() => {})
+    for (const mock of [cycleMock, throughputMock, cumulativeMock, ageMock, dwellMock, blockedMock, attentionMock]) {
+      mock.mockReturnValue(pending())
+    }
+    analyticsMock.mockReturnValue(pending())
+    const { unmount } = render(<FlowMetricsDashboard />)
     expect(screen.getByRole('status')).toHaveTextContent('Loading flow metrics')
+    expect(screen.getByTestId('analytics-bottleneck')).toBeInTheDocument()
+    expect(screen.queryByTestId('flow-cycle-time')).not.toBeInTheDocument()
+    unmount()
+
+    mockAll()
+    await renderLoaded()
+    cycleMock.mockReturnValue(pending())
+    await userEvent.click(screen.getByRole('button', { name: /^Label/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Urgent' }))
+    const panel = screen.getByTestId('flow-cycle-time')
+    expect(panel).toHaveTextContent('85% of 7 cards')
+    expect(panel.parentElement).toHaveAttribute('aria-busy', 'true')
+    expect(panel.parentElement?.className).toContain('opacity-60')
+    expect(screen.getByRole('status')).toHaveTextContent('Updating')
   })
 
   it('shows the error state, and Retry refetches', async () => {
     mockAll()
     cycleMock.mockRejectedValueOnce(new Error('no'))
     render(<FlowMetricsDashboard {...props} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load flow metrics.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Some panels failed to load.')
+    // The failed panel says so in its own frame; the others still draw.
+    expect(screen.getByTestId('flow-throughput')).toBeInTheDocument()
+    expect(screen.getByText('Could not load this panel.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByTestId('flow-cycle-time')).toBeInTheDocument()
     expect(cycleMock).toHaveBeenCalledTimes(2)
     // The Retry button is gone; focus must not have dropped to <body>.
-    expect(screen.getByRole('heading', { name: 'Flow metrics' })).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Analytics' })).toHaveFocus()
   })
 
   it('shows the empty state, and Go to board calls back', async () => {
@@ -201,7 +271,7 @@ describe('FlowMetricsDashboard states', () => {
     await screen.findByTestId('flow-cycle-time')
     fail(new Error('late'))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(screen.queryByText('Failed to load flow metrics.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Some panels failed to load.')).not.toBeInTheDocument()
     expect(screen.getByTestId('flow-cycle-time')).toBeInTheDocument()
   })
 
@@ -611,5 +681,226 @@ describe('flow summaries', () => {
       .toBe('T, 9.0 days in progress, beyond 85th percentile')
     expect(ageMarkLabel({ ...sample, is_blocked: false, value_days: 1 }, 'T', age.cycle_time_percentiles))
       .toBe('T, 1.0 days in progress')
+  })
+})
+
+describe('the bottleneck panel (#2261)', () => {
+  const grown: FlowCumulativeFlow = {
+    ...cumulative,
+    columns: cumulative.columns.map((c) => c.column_uid === 'col-doing'
+      ? { ...c, start_count: 2, end_count: 5, entered_per_week: 3.5, left_per_week: 2 }
+      : c),
+  }
+
+  it('names the column and states its numbers, and its buttons open its cards and the board', async () => {
+    mockAll({ cumulative: grown })
+    const onGoToBoard = vi.fn()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }], onGoToBoard })
+    const panel = within(screen.getByTestId('analytics-bottleneck'))
+    expect(panel.getByRole('heading', { name: 'Doing' })).toBeInTheDocument()
+    expect(panel.getByText(
+      'Cards wait 2.1 days here, about half of the whole cycle. The queue grew from 2 to 5 cards against a limit of 3, '
+      + 'because 3.5 cards arrive each week and 2 leave.',
+    )).toBeInTheDocument()
+    expect(screen.getByTestId('analytics-bottleneck').className).toContain('border-warning')
+    await userEvent.click(panel.getByRole('button', { name: 'See the 1 card' }))
+    const drawer = await screen.findByRole('dialog')
+    expect(within(drawer).getByText('Cards in Doing now')).toBeInTheDocument()
+    expect(within(drawer).getByText('Fix the login')).toBeInTheDocument()
+    await userEvent.click(within(drawer).getByRole('button', { name: /close/i }))
+    await userEvent.click(panel.getByRole('button', { name: 'Open on board' }))
+    expect(onGoToBoard).toHaveBeenCalled()
+  })
+
+  it('says "Too early to say" when no column is named and the 85th percentile is withheld', async () => {
+    mockAll({
+      cumulative: { ...cumulative, bottleneck_column_uid: null },
+      cycle: { ...cycle, sample_size: 4, percentiles: { p50: null, p85: null, p95: null } },
+    })
+    await renderLoaded()
+    const panel = within(screen.getByTestId('analytics-bottleneck'))
+    expect(panel.getByRole('heading', { name: 'Too early to say' })).toBeInTheDocument()
+    expect(panel.getByText(
+      "4 cards have finished and no column's queue has grown yet. A bottleneck is named when one does.",
+    )).toBeInTheDocument()
+    expect(screen.getByTestId('analytics-bottleneck').className).not.toContain('border-warning')
+  })
+
+  it('says "No bottleneck" with the period when there is enough history', async () => {
+    mockAll({ cumulative: { ...cumulative, bottleneck_column_uid: null } })
+    await renderLoaded()
+    const panel = within(screen.getByTestId('analytics-bottleneck'))
+    expect(panel.getByRole('heading', { name: 'No bottleneck' })).toBeInTheDocument()
+    expect(panel.getByText("No column's queue grew between Jun 1 and Jun 2.")).toBeInTheDocument()
+  })
+
+  it('leaves out what the server did not return', () => {
+    const bare: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: null, left_per_week: null })),
+    }
+    expect(bottleneckSentence('col-doing', { cumulative: bare, dwell: undefined, cycle, columns: [] }))
+      .toBe('The median wait here is not available yet. The queue grew from 1 to 4 cards.')
+    const noCycleMedian = { ...cycle, percentiles: { p50: null, p85: null, p95: null } }
+    expect(bottleneckSentence('col-doing', { cumulative: bare, dwell, cycle: noCycleMedian, columns: [] }))
+      .toBe('Cards wait 2.1 days here. The queue grew from 1 to 4 cards.')
+  })
+})
+
+describe('the headline tiles (#2261)', () => {
+  const tile = (label: string) => screen.getByRole('heading', { name: label, level: 3 }).closest('div')!.parentElement as HTMLElement
+
+  it('state each number with its supporting sentence', async () => {
+    mockAll()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Cycle time')).toHaveTextContent('4.0days')
+    expect(tile('Cycle time')).toHaveTextContent('Half finish within this. 85% within 8.1 days. Based on 7 cards.')
+    expect(tile('Throughput')).toHaveTextContent('1/ week')
+    expect(tile('Throughput')).toHaveTextContent('Median of 2 weeks. 2 cards finished.')
+    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit. 1 card past 8 days.')
+    expect(tile('Blocked time')).toHaveTextContent('3.5days')
+    expect(tile('Blocked time')).toHaveTextContent('2 blocks. 1 card blocked right now.')
+  })
+
+  it('withhold what the server withheld and say when it appears', async () => {
+    mockAll({
+      cycle: { ...cycle, sample_size: 3, percentiles: { p50: null, p85: null, p95: null } },
+      throughput: { ...throughput, median: null },
+      age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
+    })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Cycle time')).toHaveTextContent('Withheld')
+    expect(tile('Cycle time')).toHaveTextContent('Median appears at 5. 3 so far.')
+    expect(tile('Throughput')).toHaveTextContent('2cards so far')
+    expect(tile('Throughput')).toHaveTextContent('Too few whole weeks for a weekly median. 2 so far.')
+    expect(tile('Work in progress')).toHaveTextContent('1 column over its limit.')
+    expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 3 so far.')
+    expect(tile('Work in progress')).not.toHaveTextContent('past')
+  })
+
+  it('mark a median without an 85th percentile provisional, and drop the limit clause under a filter', async () => {
+    mockAll({ cycle: { ...cycle, sample_size: 6, percentiles: { p50: 4, p85: null, p95: null } } })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(tile('Cycle time')).toHaveTextContent('Provisional')
+    expect(tile('Cycle time')).toHaveTextContent('Median of 6 cards. The 85% figure appears at 7.')
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(cycleMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: 3, labelId: null }))
+    await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
+    expect(tile('Work in progress')).toHaveTextContent('1 card past 8 days.')
+  })
+
+  it('drops the limit from the bottleneck sentence under a filter', async () => {
+    const grown: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => c.column_uid === 'col-doing'
+        ? { ...c, start_count: 2, end_count: 5, entered_per_week: 3.5, left_per_week: 2 }
+        : c),
+    }
+    mockAll({ cumulative: grown })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 3 }] })
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('against a limit of 3')
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(screen.getByTestId('analytics-bottleneck')).not.toHaveTextContent('limit'))
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('The queue grew from 2 to 5 cards, because')
+  })
+
+  it('says why when the period has no days, and "Cards in progress now." when a filter hides the rest', async () => {
+    mockAll({
+      cumulative: { ...cumulative, bottleneck_column_uid: null, days: [] },
+      age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } },
+    })
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent("No column's queue grew in this period.")
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
+    expect(tile('Work in progress')).not.toHaveTextContent('limit')
+    expect(tile('Work in progress')).toHaveTextContent('The 85th-percentile age appears at 7 finished cards. 7 so far.')
+  })
+
+  it('says "Cards in progress now." under a filter when the 85th percentile is shown', async () => {
+    mockAll()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(tile('Work in progress')).not.toHaveTextContent('limit'))
+    expect(tile('Work in progress')).not.toHaveTextContent('The 85th-percentile age appears')
+  })
+
+  it('shows a per-tile and a bottleneck error when one endpoint fails, and the other panels still render', async () => {
+    mockAll()
+    cumulativeMock.mockRejectedValue(new Error('no'))
+    blockedMock.mockRejectedValue(new Error('no'))
+    await renderLoaded()
+    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Could not load the bottleneck.')
+    expect(tile('Blocked time')).toHaveTextContent('Could not load.')
+    expect(tile('Cycle time')).toHaveTextContent('4.0days')
+    expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
+  })
+})
+
+describe('period labels during a refetch (#2261)', () => {
+  it('keep naming the period of the numbers on screen until the new answers arrive', async () => {
+    mockAll()
+    await renderLoaded()
+    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
+    let release: (value: FlowBlocked) => void = () => {}
+    blockedMock.mockReturnValue(new Promise<FlowBlocked>((resolve) => { release = resolve }))
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    await waitFor(() => expect(blockedMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
+    expect(screen.getByText('Blocked time (last 90 days)')).toBeInTheDocument()
+    expect(screen.queryByText('Blocked time (last 30 days)')).not.toBeInTheDocument()
+    release(blocked)
+    expect(await screen.findByText('Blocked time (last 30 days)')).toBeInTheDocument()
+  })
+})
+
+describe('one filter selection for the whole Overview (#2261)', () => {
+  it('sends every request with the same filters and closes an open drawer on a change', async () => {
+    mockAll()
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-throughput')).getByRole('button', { name: /^Week of/ }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Label/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Urgent' }))
+    const filters = { days: 90, swimlaneId: null, labelId: 4 }
+    await waitFor(() => expect(attentionMock).toHaveBeenLastCalledWith(9, filters))
+    for (const mock of [cycleMock, throughputMock, cumulativeMock, ageMock, dwellMock, blockedMock]) {
+      expect(mock).toHaveBeenLastCalledWith(9, filters)
+    }
+    expect(analyticsMock).toHaveBeenLastCalledWith(9, 90, undefined, { swimlaneId: null, labelId: 4 })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+describe('share of the cycle and limits (#2261)', () => {
+  it('divides the column median by the cycle median, and withholds it on a null or zero', () => {
+    expect(shareOfCycle(6.2, 11)).toBeCloseTo(0.5636)
+    expect(shareOfCycle(null, 11)).toBeNull()
+    expect(shareOfCycle(6.2, null)).toBeNull()
+    expect(shareOfCycle(6.2, 0)).toBeNull()
+  })
+
+  it('phrases the share in words', () => {
+    expect(shareOfCyclePhrase(0.56)).toBe('about half of the whole cycle')
+    expect(shareOfCyclePhrase(1.4)).toBe('nearly all of the whole cycle')
+    expect(shareOfCyclePhrase(0.7)).toBe('most of the whole cycle')
+    expect(shareOfCyclePhrase(0.33)).toBe('about a third of the whole cycle')
+    expect(shareOfCyclePhrase(0.2)).toBe('about a quarter of the whole cycle')
+    expect(shareOfCyclePhrase(0.05)).toBe('a small part of the whole cycle')
+  })
+
+  it('counts columns over their limit, ignoring columns without one', () => {
+    const samples = [age.samples[0], { ...age.samples[0], card_uid: 'x' }, { ...age.samples[0], column_uid: 'col-review' }]
+    expect(columnsOverLimit({ samples }, [
+      { uid: 'col-doing', wip_limit: 1 }, { uid: 'col-review', wip_limit: 1 }, { uid: 'col-qa', wip_limit: null },
+    ])).toBe(1)
+  })
+
+  it('names the sample sizes at which percentiles appear', () => {
+    expect(PERCENTILE_APPEARS_AT).toEqual({ p50: 5, p85: 7, p95: 20 })
   })
 })

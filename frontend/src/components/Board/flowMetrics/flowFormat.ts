@@ -1,7 +1,7 @@
 import { LINE_DASH } from "../../../utils/chartScale";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
-  FlowAgeSample, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowPercentiles, FlowThroughput, FlowWipAge,
+  FlowAgeSample, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
 } from "../../../types";
 
 /**
@@ -62,7 +62,7 @@ export function cumulativeFlowSummary({ columns, bottleneck_column_uid: bottlene
 export function wipAgeSummary({ sample_size: n, samples, cycle_time_percentiles: zones }: FlowWipAge): string {
   if (n === 0) return "No cards are in progress.";
   if (zones.p85 === null) return `${plural(n, "card")} in progress.`;
-  const past = samples.filter((s) => s.value_days > (zones.p85 as number)).length;
+  const past = cardsPastP85({ samples, cycle_time_percentiles: zones });
   return `${past} of ${plural(n, "card")} in progress ${past === 1 ? "is" : "are"} past the 85th percentile.`;
 }
 
@@ -96,4 +96,97 @@ export function ageMarkLabel(sample: FlowAgeSample, title: string, zones: FlowPe
   else if (zones.p85 !== null && sample.value_days > zones.p85) parts.push("beyond 85th percentile");
   if (sample.is_blocked) parts.push("blocked");
   return parts.join(", ");
+}
+
+/**
+ * The finished-card count at which the server starts returning each
+ * percentile: `MIN_PERCENTILE_SAMPLE_SIZE` (5) and the nearest-rank rule that
+ * withholds a percentile whose rank would be the largest value
+ * (`backend/boards/services/flow_metrics.py`, `percentile`). Text only, for a
+ * tile that says when a value will appear ("appears at 7"). Whether a value is
+ * shown is decided by the server's null, never by comparing to this.
+ */
+export const PERCENTILE_APPEARS_AT = { p50: 5, p85: 7, p95: 20 } as const;
+
+/** `n card` / `n cards`. */
+export const pluralize = plural;
+
+/** A number for a tile: whole numbers as is, others to one decimal. */
+export const formatNumber = (value: number) => (Number.isInteger(value) ? String(value) : value.toFixed(1));
+
+/**
+ * The bottleneck column's share of the cycle (#2261): the column's median
+ * completed dwell (`metrics/dwell` p50) divided by the median cycle time
+ * (`metrics/cycle-time` p50), both as the server returned them. A browser-side
+ * ratio of two server medians, not a percentile: it says roughly how much of a
+ * typical card's cycle is spent waiting in that one column. Null, so the
+ * sentence leaves the clause out, when either median is withheld or the cycle
+ * median is 0.
+ */
+export function shareOfCycle(dwellP50: number | null, cycleP50: number | null): number | null {
+  if (dwellP50 === null || cycleP50 === null || cycleP50 === 0) return null;
+  return dwellP50 / cycleP50;
+}
+
+/** The share in words, never as a precise percentage: two medians do not add up exactly. */
+export function shareOfCyclePhrase(share: number): string {
+  if (share >= 0.9) return "nearly all of the whole cycle";
+  if (share >= 0.65) return "most of the whole cycle";
+  if (share >= 0.4) return "about half of the whole cycle";
+  if (share >= 0.28) return "about a third of the whole cycle";
+  if (share >= 0.18) return "about a quarter of the whole cycle";
+  return "a small part of the whole cycle";
+}
+
+/**
+ * How many board columns hold more in-progress cards than their WIP limit.
+ * Counts the aging samples per column, so it agrees with the aging chart.
+ */
+export function columnsOverLimit(
+  wipAge: Pick<FlowWipAge, "samples">,
+  columns: { uid: string; wip_limit: number | null }[],
+): number {
+  return columns.filter(
+    (column) => column.wip_limit !== null
+      && wipAge.samples.filter((s) => s.column_uid === column.uid).length > column.wip_limit,
+  ).length;
+}
+
+/** Cards in progress past the 85th percentile of cycle time; 0 without a P85. */
+export function cardsPastP85({ samples, cycle_time_percentiles: zones }: Pick<FlowWipAge, "samples" | "cycle_time_percentiles">): number {
+  if (zones.p85 === null) return 0;
+  return samples.filter((s) => s.value_days > (zones.p85 as number)).length;
+}
+
+const daysText = (days: number) => `${formatNumber(days)} ${days === 1 ? "day" : "days"}`;
+
+/** "Cards wait 6.2 days here, about half of the whole cycle. The queue grew …" from returned numbers only. */
+export function bottleneckSentence(
+  uid: string,
+  { cumulative, dwell, cycle, columns, filtered = false }: {
+    cumulative: FlowCumulativeFlow | undefined; dwell: FlowDwell | undefined; cycle: FlowCycleTime | undefined;
+    columns: { uid: string; wip_limit: number | null }[];
+    /** A swimlane or label filter is on: a filtered queue against the board-wide limit is meaningless, so the limit is left out. */
+    filtered?: boolean;
+  },
+): string {
+  const parts: string[] = [];
+  const wait = dwell?.columns.find((c) => c.column_uid === uid)?.percentiles.p50 ?? null;
+  if (wait === null) {
+    parts.push("The median wait here is not available yet.");
+  } else {
+    const share = shareOfCycle(wait, cycle?.percentiles.p50 ?? null);
+    parts.push(`Cards wait ${daysText(wait)} here${share === null ? "" : `, ${shareOfCyclePhrase(share)}`}.`);
+  }
+  const band = cumulative?.columns.find((c) => c.column_uid === uid);
+  if (band && band.start_count !== null && band.end_count !== null) {
+    const limit = filtered ? null : columns.find((c) => c.uid === uid)?.wip_limit ?? null;
+    let queue = `The queue grew from ${band.start_count} to ${pluralize(band.end_count, "card")}`;
+    if (limit !== null) queue += ` against a limit of ${limit}`;
+    if (band.entered_per_week !== null && band.left_per_week !== null) {
+      queue += `, because ${formatNumber(band.entered_per_week)} cards arrive each week and ${formatNumber(band.left_per_week)} leave`;
+    }
+    parts.push(`${queue}.`);
+  }
+  return parts.join(" ");
 }

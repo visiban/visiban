@@ -8,8 +8,8 @@ import { filterCards, hasActiveClientFilters } from '../utils/filterCards'
 import { useSavedFilters } from '../hooks/useSavedFilters'
 import type { BoardFull, Card, SavedFilter, User } from '../types'
 
-// AnalyticsView mounts the flow dashboard (#448), covered by flowMetricsDashboard.test.tsx.
-vi.mock('../components/Board/flowMetrics/FlowMetricsDashboard', () => ({ default: () => null }))
+// AnalyticsView's flow panels are covered by flowMetricsDashboard.test.tsx (#448, #2261).
+vi.mock('../api/flowMetrics', async () => (await import('./flowMetricsStubs')).flowMetricsStub())
 
 vi.mock('../api/boards', () => ({
   getBoardSummary: vi.fn(),
@@ -23,6 +23,7 @@ vi.mock('../api/savedFilters', () => ({
 }))
 
 import { getBoardAnalytics, getBoardSummary } from '../api/boards'
+import { getFlowBlocked } from '../api/flowMetrics'
 
 const mockSummary = getBoardSummary as ReturnType<typeof vi.fn>
 const mockAnalytics = getBoardAnalytics as ReturnType<typeof vi.fn>
@@ -169,31 +170,36 @@ describe('Summary blocked count (#1149)', () => {
   })
 })
 
-describe('Analytics blocked time (#1149)', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  const base = {
-    days: 30, columns: ['Doing', 'Review', 'QA'], swimlanes: [],
-    stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
-  }
-
-  it('lists blocked time per column and the top reasons', async () => {
+describe('Analytics blocked time (#1149), from metrics/blocked (#2261)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
     mockAnalytics.mockResolvedValue({
-      ...base,
-      blocked: {
-        days_per_column: { Doing: 3, Review: 0, QA: 0 },
-        seconds_per_column: { Doing: 3 * 86400, Review: 0, QA: 7200 },
-        blocks_per_column: { Doing: 2, Review: 0, QA: 1 },
-        top_reasons: [
-          { reason: 'Waiting on customer', count: 2, total_days: 3, total_seconds: 3 * 86400 },
-          // An older server: no seconds, so days are used.
-          { reason: 'Vendor', count: 1, total_days: 0.5 },
-        ],
-      },
+      days: 90, columns: ['Doing', 'Review', 'QA'], swimlanes: [],
+      stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
+    })
+  })
+
+  const none = { definition: 'd', total: { days: 0, blocks: 0 }, blocked_now: 0, columns: [], reasons: [], reason_count: 0 }
+
+  it('lists blocked time per column and the top reasons for the filter bar period', async () => {
+    vi.mocked(getFlowBlocked).mockResolvedValue({
+      definition: 'd',
+      total: { days: 3.5833, blocks: 4 },
+      blocked_now: 1,
+      columns: [
+        { column_uid: 'c1', column_name: 'Doing', days: 3, blocks: 2 },
+        { column_uid: 'c2', column_name: 'Review', days: 0, blocks: 0 },
+        { column_uid: 'c3', column_name: 'QA', days: 7200 / 86400, blocks: 1 },
+      ],
+      reasons: [
+        { reason: 'Waiting on customer', days: 3, blocks: 2 },
+        { reason: 'Vendor', days: 0.5, blocks: 1 },
+      ],
+      reason_count: 2,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const section = await screen.findByTestId('analytics-blocked')
-    expect(within(section).getByRole('heading', { name: 'Blocked time (last 30 days)' })).toBeInTheDocument()
+    expect(within(section).getByRole('heading', { name: 'Blocked time (last 90 days)' })).toBeInTheDocument()
     const table = within(section).getByRole('table', { name: 'Blocked time per column' })
     expect(within(table).getByText('Doing')).toBeInTheDocument()
     expect(within(table).queryByText('Review')).not.toBeInTheDocument()
@@ -208,18 +214,10 @@ describe('Analytics blocked time (#1149)', () => {
     expect(within(reasons).getByText('1 block · 12h')).toBeInTheDocument()
   })
 
-  it('renders no section when nothing was blocked, or for an older server', async () => {
-    mockAnalytics.mockResolvedValue({
-      ...base,
-      blocked: { days_per_column: { Doing: 0, Review: 0, QA: 0 }, blocks_per_column: { Doing: 0, Review: 0, QA: 0 }, top_reasons: [] },
-    })
-    const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('group', { name: 'Analytics view mode' })
-    expect(screen.queryByTestId('analytics-blocked')).not.toBeInTheDocument()
-    unmount()
-    mockAnalytics.mockResolvedValue(base)
+  it('renders no section when nothing was blocked', async () => {
+    vi.mocked(getFlowBlocked).mockResolvedValue(none)
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('group', { name: 'Analytics view mode' })
+    await screen.findByTestId('flow-cycle-time')
     expect(screen.queryByTestId('analytics-blocked')).not.toBeInTheDocument()
   })
 })
