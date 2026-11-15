@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { FlowFilters } from "../../../api/flowMetrics";
-import type { Column, FlowCumulativeFlow, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
+import type { Column, CustomFieldDefinition, FlowCumulativeFlow, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
 import type { ChartPanelView } from "../../Common/Chart";
 import AnalyticsFilterBar from "./AnalyticsFilterBar";
+import { NO_BREAKDOWN, breakdownFields, breakdownKey, breakdownNote, breakdownNoun, breakdownParams } from "./breakdown";
+import type { Breakdown } from "./breakdown";
+import GroupLegend from "./GroupLegend";
 import AttentionSection from "./AttentionSection";
 import BlockedSection from "./BlockedSection";
 import BottleneckPanel from "./BottleneckPanel";
@@ -33,6 +36,11 @@ interface Props {
   onGoToBoard?: () => void;
   /** Where focus goes when Retry is pressed, so it does not drop to <body>. */
   headingRef?: RefObject<HTMLElement | null>;
+  /**
+   * The board's card custom fields (#2268). Dropdown and checkbox ones become "Break down by"
+   * entries. Card fields carry no admin-only flag, so every role sees the same list.
+   */
+  customFields?: Pick<CustomFieldDefinition, "id" | "name" | "field_type" | "position">[];
   /** Reports the filters the numbers on screen were fetched for, so the page's title row names that period. */
   onFetchedFilters?: (filters: FlowFilters | null) => void;
 }
@@ -62,13 +70,21 @@ function ChartRow({ children }: { children: ReactNode }) {
  */
 export default function AnalyticsOverview({
   boardId, filters, onFiltersChange, swimlanes, labels, columns = [], currentUserRole = null,
-  onOpenCard, onGoToBoard, headingRef, onFetchedFilters,
+  onOpenCard, onGoToBoard, headingRef, onFetchedFilters, customFields = [],
 }: Props) {
+  const [breakdown, setBreakdownState] = useState<Breakdown>(NO_BREAKDOWN);
+  // Which group is isolated (its index in the response's groups); changing the breakdown clears it.
+  const [isolated, setIsolated] = useState<number | null>(null);
+  const setBreakdown = (next: Breakdown) => { setIsolated(null); setBreakdownState(next); };
+  const fields = useMemo(() => breakdownFields(customFields), [customFields]);
+  const bKey = breakdownKey(breakdown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- bKey is the breakdown's identity; the object is rebuilt only when it changes
+  const grouping = useMemo(() => breakdownParams(breakdown), [bKey]);
   const [attempt, setAttempt] = useState(0);
   // Here, not in the panels, so a panel's Chart | Table choice outlives a refetch.
   const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
-  const { results, fetchedFilters, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt);
+  const { results, fetchedFilters, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt, grouping);
 
   useEffect(() => { onFetchedFilters?.(fetchedFilters); }, [fetchedFilters, onFetchedFilters]);
 
@@ -107,6 +123,13 @@ export default function AnalyticsOverview({
   const filtered = shownFilters.swimlaneId !== null || shownFilters.labelId !== null;
   const narrowed = isNarrowed(shownFilters);
   const empty = cycle && throughput && cumulative && wipAge ? isEmpty(cycle, throughput, cumulative, wipAge) : false;
+  // The legend and colors follow the grouping on screen (the data's), not the live selection, like every other fetched-state label.
+  const legendGrouping = (cycle?.grouping ?? throughput?.grouping ?? wipAge?.grouping ?? dwell?.grouping) ?? null;
+  const legendGroups = legendGrouping && legendGrouping.groups.length > 0 ? legendGrouping.groups : null;
+  const noun = legendGrouping ? breakdownNoun(legendGrouping, customFields.find((f) => f.id === legendGrouping.field_id)?.name) : undefined;
+  // Isolation is an index into the groups on screen: drop it when the groups themselves change (a filter can reorder them).
+  const groupSignature = legendGroups?.map((g) => g.key ?? "other").join("|") ?? "";
+  useEffect(() => { setIsolated(null); }, [groupSignature]);
   const canExport = currentUserRole === "admin" || currentUserRole === "site_admin";
   const exportable = analytics?.swimlanes ? analytics : null;
 
@@ -117,6 +140,9 @@ export default function AnalyticsOverview({
         onFiltersChange={onFiltersChange}
         swimlanes={swimlanes}
         labels={labels}
+        breakdown={breakdown}
+        onBreakdownChange={setBreakdown}
+        breakdownFields={fields}
         actions={canExport && exportable ? (
           <button
             type="button"
@@ -127,6 +153,21 @@ export default function AnalyticsOverview({
           </button>
         ) : undefined}
       />
+      {legendGroups && legendGrouping && !empty && (
+        <GroupLegend
+          groups={legendGroups}
+          noun={noun ?? "group"}
+          note={breakdownNote(legendGrouping.by === "custom_field" ? "custom_field" : legendGrouping.by)}
+          isolated={isolated}
+          onIsolate={setIsolated}
+        />
+      )}
+      {legendGrouping && !legendGroups && !empty && (
+        // A breakdown with no groups would otherwise draw exactly like None, with nothing to say why.
+        <p role="status" className="text-sm text-fg-tertiary" data-testid="group-legend-empty">
+          No cards in this view have a {noun ?? "group"} to break down by.
+        </p>
+      )}
       <p role="status" className="sr-only">
         {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (narrowed ? "No cards match these filters" : "Nothing has moved yet") : "")}
       </p>
@@ -197,6 +238,8 @@ export default function AnalyticsOverview({
               filtered={filtered}
               settled={settled}
               onOpenColumn={openColumn}
+              isolated={isolated}
+              breakdownNoun={noun}
             />
           </RegionSlot>
           <ChartRow>
@@ -207,14 +250,14 @@ export default function AnalyticsOverview({
             </RegionSlot>
             <RegionSlot busy={busy}>
               {throughput
-                ? <ThroughputPanel {...panelView("throughput")} data={throughput} onSelect={selectThroughputSample} />
+                ? <ThroughputPanel {...panelView("throughput")} data={throughput} onSelect={selectThroughputSample} noun={noun} isolated={isolated} />
                 : <PanelPlaceholder title="Throughput" failed={settled} />}
             </RegionSlot>
           </ChartRow>
           <ChartRow>
             <RegionSlot busy={busy}>
               {wipAge
-                ? <WipAgePanel {...panelView("age")} data={wipAge} cards={cards} onSelect={selectAgeSample} />
+                ? <WipAgePanel {...panelView("age")} data={wipAge} cards={cards} onSelect={selectAgeSample} noun={noun} isolated={isolated} />
                 : <PanelPlaceholder title="WIP aging" failed={settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>
@@ -224,7 +267,7 @@ export default function AnalyticsOverview({
           <ChartRow>
             <RegionSlot busy={busy}>
               {cycle
-                ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} />
+                ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} />
                 : <PanelPlaceholder title="Cycle time" failed={settled} />}
             </RegionSlot>
             <RegionSlot busy={busy}>

@@ -190,8 +190,8 @@ interface ChartHitProps {
    * stops take one.
    */
   tabbable?: boolean;
-  /** The hover and focus ring's named color; the chart hue when omitted. */
-  color?: ChartColor;
+  /** The hover and focus ring's named color, or a breakdown group's color (#2268); the chart hue when omitted. */
+  color?: ChartColor | (string & {});
 }
 
 /** A point's interactive target: 24px whatever the mark's size, ringed on hover and focus. */
@@ -208,7 +208,7 @@ export function ChartPointHit({ x, y, label, onSelect, tabbable = false, color =
       <title>{label}</title>
       <circle cx={x} cy={y} r={12} fill="transparent" />
       <circle
-        cx={x} cy={y} r={8} fill="none" stroke={CHART_COLORS[color]} strokeWidth={2}
+        cx={x} cy={y} r={8} fill="none" stroke={CHART_COLORS[color as ChartColor] ?? color} strokeWidth={2}
         className="opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity motion-reduce:transition-none"
       />
     </g>

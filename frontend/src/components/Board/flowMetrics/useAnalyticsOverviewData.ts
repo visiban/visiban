@@ -3,7 +3,7 @@ import { getBoardAnalytics } from "../../../api/boards";
 import {
   getFlowAttention, getFlowBlocked, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell, getFlowThroughput, getFlowWipAge,
 } from "../../../api/flowMetrics";
-import type { FlowFilters } from "../../../api/flowMetrics";
+import type { FlowFilters, FlowGroupingParams } from "../../../api/flowMetrics";
 import type {
   FlowAttention, FlowBlocked, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
 } from "../../../types";
@@ -39,7 +39,7 @@ function settle<T>(outcome: PromiseSettledResult<T>): Result<T> {
  * and remount, and a keyboard user would lose their place. `results` is null
  * only before the first answer, which is the only time panels show skeletons.
  */
-export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, attempt: number) {
+export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, attempt: number, grouping?: FlowGroupingParams) {
   // The filters travel with the answers they fetched, swapped in together, so period-labelled copy
   // never names a period the numbers on screen were not computed for.
   const [settled, setSettled] = useState<{ results: OverviewResults; filters: FlowFilters } | null>(null);
@@ -49,12 +49,14 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     // A newer filter or retry supersedes this request: drop its late answer.
     let current = true;
     setLoading(true);
+    // With no breakdown the calls are exactly as before (no third argument).
+    const extra: [FlowGroupingParams?] = grouping ? [grouping] : [];
     Promise.allSettled([
-      getFlowCycleTime(boardId, filters),
-      getFlowThroughput(boardId, filters),
+      getFlowCycleTime(boardId, filters, ...extra),
+      getFlowThroughput(boardId, filters, ...extra),
       getFlowCumulativeFlow(boardId, filters),
-      getFlowWipAge(boardId, filters),
-      getFlowDwell(boardId, filters),
+      getFlowWipAge(boardId, filters, ...extra),
+      getFlowDwell(boardId, filters, ...extra),
       getFlowBlocked(boardId, filters),
       getFlowAttention(boardId, filters),
       getBoardAnalytics(boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }),
@@ -73,7 +75,7 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
       setLoading(false);
     });
     return () => { current = false; };
-  }, [boardId, filters, attempt]);
+  }, [boardId, filters, attempt, grouping]);
 
   const results = settled?.results ?? null;
   const fetchedFilters = settled?.filters ?? null;

@@ -2686,6 +2686,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             swimlanes={board.swimlanes}
             labels={board.labels}
             columns={board.columns}
+            customFields={board.custom_field_definitions}
             boardName={board.name}
             // The server 400s on an admin-only grouping field for a non-admin, so offer
             // exactly the fields the lane filter offers (same helper, same rule).

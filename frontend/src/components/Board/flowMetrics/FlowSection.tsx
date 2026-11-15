@@ -7,7 +7,9 @@ import FlowRow from "./FlowRow";
 import { buildFlowRow } from "./flowRowData";
 import { cumulativeFlowSummary } from "./flowFormat";
 import type { AnalyticsData, ViewMode } from "./heatmap";
+import { colorOfGroup, groupName } from "./breakdown";
 import TimeBar from "./TimeBar";
+import type { TimeBarGroup } from "./TimeBar";
 import type { Result } from "./useAnalyticsOverviewData";
 
 interface Props {
@@ -29,6 +31,10 @@ interface Props {
   /** Every request has answered once: a missing response is then a failure, not a load. */
   settled: boolean;
   onOpenColumn: (uid: string) => void;
+  /** The isolated group's index under a breakdown (#2268). */
+  isolated?: number | null;
+  /** What the breakdown colors by, for the section's sentence. */
+  breakdownNoun?: string;
 }
 
 /** Names only the shapes on screen: hollow squares when a column is over its limit, the warning connectors when a bottleneck is drawn. */
@@ -81,8 +87,16 @@ function TableBody({ analytics, mode, onModeChange, days }: Pick<Props, "analyti
  * period; its period, swimlane and label come from the page's filter bar.
  */
 export default function FlowSection({
-  analytics, cumulative, dwell, wipAge, throughput, columns, mode, onModeChange, view, onViewChange, filters, filtered = false, settled, onOpenColumn,
+  analytics, cumulative, dwell, wipAge, throughput, columns, mode, onModeChange, view, onViewChange, filters, filtered = false, settled, onOpenColumn, isolated = null, breakdownNoun,
 }: Props) {
+  const grouping = dwell?.grouping;
+  const groups: TimeBarGroup[] | undefined = grouping && grouping.groups.length > 0
+    ? grouping.groups.map((g, i) => ({
+      name: groupName(g),
+      color: colorOfGroup(grouping.groups, i),
+      medians: new Map(g.columns.map((c) => [c.column_uid, c.percentiles.p50])),
+    }))
+    : undefined;
   const row = cumulative ? buildFlowRow(cumulative, dwell, wipAge, columns, filtered) : [];
   return (
     <ChartPanel
@@ -99,8 +113,12 @@ export default function FlowSection({
           <FlowRow columns={row} cumulative={cumulative} throughput={throughput} days={filters.days} onOpenColumn={onOpenColumn} />
           <section aria-labelledby="analytics-time-heading" className="flex flex-col gap-2">
             <h3 id="analytics-time-heading" className="text-sm font-semibold text-fg">Where the time goes</h3>
-            <p className="text-sm text-fg-secondary">Median days a card spends in each column on the way to Done.</p>
-            <TimeBar columns={row} />
+            <p className="text-sm text-fg-secondary">
+              {groups
+                ? `Median days a card spends in each column on the way to Done, split by ${breakdownNoun ?? "group"}. The longest bar is the slowest group.`
+                : "Median days a card spends in each column on the way to Done."}
+            </p>
+            <TimeBar columns={row} groups={groups} isolated={isolated} />
           </section>
         </div>
       ) : <Loading failed={settled} />}

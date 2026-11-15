@@ -106,6 +106,22 @@ A filter change refreshes every panel once. The panels keep showing the previous
 !!! note "Changed in 1.3 (#2261)"
     The heatmap's own **7 / 30 / 90 days** buttons are gone, and the 7-day window with them: the heatmap uses the filter bar's date range, so it now defaults to 90 days instead of 30. Pick **Last 30 days** for the old default.
 
+### Break down by
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+**Break down by** in the filter bar colors the flow charts by group. Pick **None** (the default), **Swimlane**, **Label**, or any dropdown or checkbox card custom field. With **None** the page is unchanged.
+
+- A **legend** under the filter bar names each group with its color. Select a group to isolate it: its marks stay at full strength and the rest fade to 20%. Select it again to show every group. Changing the breakdown clears the isolation.
+- **Where the time goes** shows one bar per group, on one scale, so the longest bar is the slowest group.
+- **Throughput** bars stack by group. **WIP aging** marks and **Cycle time** dots take the group color; aging marks keep the ring (past the 85th percentile) and the square (blocked).
+- Each chart's summary says what the color means, and its table view has a group column, so color is never the only cue. **Cumulative flow** does not change.
+- Up to five groups get a color. With more, the five largest are shown and the rest collapse into a neutral **Other**.
+- **Labels:** a card with several labels is counted once in each.
+- **Custom fields:** cards with no value for the field are left out.
+- When no card in the view has a value to break down by, a status line replaces the legend ("No cards in this view have a swimlane to break down by.", or the same for label or the field) and the charts stay uncolored.
+- Groups use each card's current swimlane, labels and field values, like the filters.
+
 ### Bottleneck
 
 The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart) and states its numbers in one sentence:
@@ -124,7 +140,7 @@ One row, left to right, inside a box that scrolls sideways when the panel is nar
 - **Column box** for each in-progress column, a button that opens the [column drawer](#column-drawer): the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). **Squares beyond the WIP limit are hollow**, outlined in the danger color. The bottleneck's box has the warning border.
 - A final connector and a **Done** box with the number of cards finished in the period.
 
-**Where the time goes** sits under the row: one bar, "All cards", segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.
+**Where the time goes** sits under the row: one bar, "All cards" (or one bar per group under [Break down by](#break-down-by)), segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.
 
 A **Chart | Table** switch on the panel changes it to the [dwell time heatmap](#dwell-time-heatmap) table.
 

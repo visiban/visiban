@@ -1,6 +1,7 @@
 import { ChartFrame, ChartPointHit, ChartReferenceLines, REFERENCE_LABEL_MARGIN } from "../../Common/Chart";
 import { CHART_HUE, axisTicks, chartTint, linearScale, niceCeil } from "../../../utils/chartScale";
 import type { FlowCard, FlowCycleTime, FlowCycleTimeSample } from "../../../types";
+import { cardGroupColor, markOpacityAttr } from "./breakdown";
 import { formatDate, formatDays, percentileLines } from "./flowFormat";
 
 const DAY_MS = 86_400_000;
@@ -11,10 +12,13 @@ interface Props {
   days: number;
   labelledBy: string;
   onSelect: (sample: FlowCycleTimeSample) => void;
+  /** The isolated group's index under a breakdown (#2268); the rest drop to 20%. */
+  isolated?: number | null;
 }
 
 /** One point per completed card, x its completion, y its cycle time. */
-export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect }: Props) {
+export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect, isolated = null }: Props) {
+  const groups = data.grouping?.groups ?? [];
   const now = Date.now();
   const domain: [number, number] = [now - days * DAY_MS, now];
   const top = niceCeil(
@@ -40,19 +44,26 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
         const y = linearScale([0, top], [geometry.y1, geometry.y0]);
         return (
           <>
-            {data.samples.map((sample) => (
+            {data.samples.map((sample) => {
+              // Under a breakdown the dot takes its group's color; a card in no group stays the chart hue.
+              const group = groups.length > 0 ? cardGroupColor(groups, sample.group_keys, isolated) : null;
+              return (
               <circle
                 key={sample.card_uid}
+                data-group-color={group ?? undefined}
+                opacity={markOpacityAttr(groups, isolated, sample.group_keys)}
                 cx={x(new Date(sample.end).getTime())}
                 cy={y(sample.value_days)}
                 r={4}
                 // Hollow marks a card reopened later: rework stays visible
                 // without changing its number (ADR "Reopened cards").
-                fill={sample.reopened ? "none" : chartTint(0.55)}
-                stroke={CHART_HUE}
+                fill={sample.reopened ? "none" : (group ?? chartTint(0.55))}
+                fillOpacity={group && !sample.reopened ? 0.7 : undefined}
+                stroke={group ?? CHART_HUE}
                 strokeWidth={1.5}
               />
-            ))}
+              );
+            })}
             <ChartReferenceLines lines={percentileLines(data.percentiles, y)} geometry={geometry} />
           </>
         );
@@ -65,6 +76,7 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
             key={sample.card_uid}
             x={x(new Date(sample.end).getTime())}
             y={y(sample.value_days)}
+            color={(groups.length > 0 ? cardGroupColor(groups, sample.group_keys, isolated) : null) ?? undefined}
             label={`${cards.get(sample.card_uid)?.title ?? sample.card_uid}, ${formatDays(sample.value_days)} cycle time`}
             onSelect={() => onSelect(sample)}
           />
