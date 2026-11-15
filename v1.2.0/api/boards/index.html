@@ -6642,7 +6642,7 @@
 <a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">  </span><span class="nt">"bottleneck_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"col0000001"</span>
 <a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="p">}</span>
 </code></pre></div>
-<p>The last column, <code>column_uid: null</code>, is one band for every deleted column; in <code>counts</code> it is the key <code>"null"</code>. <code>bottleneck_column_uid</code> is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie), or <code>null</code> when none grew.</p>
+<p>The last column, <code>column_uid: null</code>, is one band for every deleted column; in <code>counts</code> it is the key <code>"null"</code>. <code>bottleneck_column_uid</code> is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie). The first not-done (intake) column is excluded. It is <code>null</code> when no column grew or only one column is not done.</p>
 <p>Each column also carries its flow across the range <em>(added in 1.3, #2260)</em>, the done columns and the <code>null</code> band included:</p>
 <table>
 <thead>
@@ -6701,7 +6701,7 @@
 <a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
 <a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="p">}</span>
 </code></pre></div>
-<p><code>columns</code> lists the columns that are not done, in position order. <code>samples</code> run in that order, oldest first within a column. <code>dwell_by_column</code> sums the card's measured visits per column, in order of first entry, with deleted columns as <code>column_uid: null</code>. <code>is_blocked</code> is the card's state now, manual or by a relation. <code>blocked_days</code> is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in <code>excluded_incomplete_history</code>.</p>
+<p><code>columns</code> lists the columns that are not done, in position order. <code>samples</code> run in that order, oldest first within a column. <code>dwell_by_column</code> sums the card's measured visits per column, clipped to the age clock so the values sum to <code>value_days</code>, in order of first entry, with deleted columns as <code>column_uid: null</code>. <code>is_blocked</code> is the card's state now, manual or by a relation. <code>blocked_days</code> is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in <code>excluded_incomplete_history</code>.</p>
 <h4 id="get-apiv1boardsidmetricsdwell"><code>GET /api/v1/boards/{id}/metrics/dwell/</code><a class="headerlink" href="#get-apiv1boardsidmetricsdwell" title="Permanent link">&para;</a></h4>
 <p><em>Added in 1.3 (#2260).</em> Completed dwell time per column: the visits that closed in the range, each at its full length.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>

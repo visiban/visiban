@@ -4626,7 +4626,7 @@
 <li>Groups use each card's current swimlane, labels and field values, like the filters.</li>
 </ul>
 <h3 id="bottleneck">Bottleneck<a class="headerlink" href="#bottleneck" title="Permanent link">&para;</a></h3>
-<p>The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart) and states its numbers in one sentence:</p>
+<p>The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart; the first column that is not done (where new work arrives) is never named) and states its numbers in one sentence:</p>
 <ul>
 <li><strong>Median wait:</strong> the 50th percentile of completed time in that column (<a href="#flow-metric-definitions">dwell</a>).</li>
 <li><strong>Share of the cycle:</strong> the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.</li>
@@ -4702,7 +4702,7 @@
 <tr>
 <td><strong>Cumulative flow</strong></td>
 <td>Whether work arrives faster than it finishes. A widening band is a queue.</td>
-<td>One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, named in a small key under the chart. The Done band is gray.</td>
+<td>One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, leaving out the first column that is not done (where new work arrives), named in a small key under the chart. The Done band is gray.</td>
 </tr>
 <tr>
 <td><strong>WIP aging</strong></td>
@@ -4713,7 +4713,7 @@
 </table>
 <p><strong>Too few cards.</strong> A percentile line appears only with enough cards behind it: the 50th needs 5, the 85th needs 7 and the 95th needs 20. Until then the chart leaves that line out and says so, rather than presenting one card's time as a trend. The throughput median needs five whole weeks.</p>
 <p><strong>What is left out.</strong> A card with missing or broken history (for example, imported without its history) has no cycle time or age, and the chart says how many were left out. It still counts toward throughput once it reaches a done column. Blocked time is part of cycle time and age, never subtracted, because the wait is real.</p>
-<p><strong>See the cards behind a number.</strong> Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column. <strong>Open card</strong> opens the card; an archived card has no <strong>Open card</strong>.</p>
+<p><strong>See the cards behind a number.</strong> Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column, counted from when the card's age started so the columns add up to the days in progress. <strong>Open card</strong> opens the card; an archived card has no <strong>Open card</strong>.</p>
 <p><strong>Keyboard.</strong> Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.</p>
 <h3 id="page-states">Page states<a class="headerlink" href="#page-states" title="Permanent link">&para;</a></h3>
 <ul>
