@@ -1353,6 +1353,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#page-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Page states
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#dwell-time-heatmap" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4530,7 +4541,7 @@
 <li><strong>Cycle time</strong> and <a href="#why-cards-get-blocked">Why cards get blocked</a>.</li>
 <li>A footnote on days, time zone and filters.</li>
 </ol>
-<p>From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7.</p>
+<p>From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7 (see <a href="#page-states">Page states</a>).</p>
 <p><span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.</p>
 <h3 id="filters">Filters<a class="headerlink" href="#filters" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
@@ -4605,17 +4616,17 @@
 <tr>
 <td><strong>Throughput</strong></td>
 <td>How many cards finish per week.</td>
-<td>One point per whole week, its count printed on it, the median dashed. Today's unfinished week is left out, so a partial week never reads as a slow one.</td>
+<td>One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a <strong>Started</strong> column. Started under-reports on imported boards. Today's unfinished week is left out, so a partial week never reads as a slow one.</td>
 </tr>
 <tr>
 <td><strong>Cumulative flow</strong></td>
 <td>Whether work arrives faster than it finishes. A widening band is a queue.</td>
-<td>One band per column, labelled at its right edge, finished work at the bottom. The hatched band is the bottleneck: the column that is not done and grew the most across the range.</td>
+<td>One band per column, labeled at its right edge, finished work at the bottom. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range. The Done band is gray.</td>
 </tr>
 <tr>
 <td><strong>WIP aging</strong></td>
 <td>Which unfinished cards are in trouble now.</td>
-<td>One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. A ringed card is past the 85th percentile, a square is blocked.</td>
+<td>One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. Dots are gray up to the 50th percentile, orange past it, and red past the 85th percentile. A ringed card is past the 85th percentile, a square is blocked, so color is never the only cue.</td>
 </tr>
 </tbody>
 </table>
@@ -4623,6 +4634,13 @@
 <p><strong>What is left out.</strong> A card with missing or broken history (for example, imported without its history) has no cycle time or age, and the chart says how many were left out. It still counts toward throughput once it reaches a done column. Blocked time is part of cycle time and age, never subtracted, because the wait is real.</p>
 <p><strong>See the cards behind a number.</strong> Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column. <strong>Open card</strong> opens the card; an archived card has no <strong>Open card</strong>.</p>
 <p><strong>Keyboard.</strong> Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.</p>
+<h3 id="page-states">Page states<a class="headerlink" href="#page-states" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Loading.</strong> Each region shows a gray skeleton the size of its final panel (a chart panel gets a title, a summary line, the 260px chart and two note lines), the first chart panel says "Loading flow metrics…", and the filters stay usable. The pulse stops under reduced motion. A refetch keeps the previous numbers on screen, dimmed.</li>
+<li><strong>Nothing has moved yet.</strong> A board with no card movement shows a short explanation, a dimmed example bar labeled as an example, and <strong>Go to board</strong>.</li>
+<li><strong>Too little data.</strong> The page still renders. The bottleneck panel says "Too early to say" with the reason, and a tile marks its value <strong>Provisional</strong> and says what is withheld and when it appears.</li>
+<li><strong>No cards match these filters.</strong> The message names the active swimlane, label and period, with one removable chip per filter. <strong>Show last 90 days</strong> appears when the period is shorter than 90 days, and <strong>Clear all filters</strong> resets everything. It does not predict how many cards a wider filter would match.</li>
+</ul>
 <h3 id="dwell-time-heatmap">Dwell time heatmap<a class="headerlink" href="#dwell-time-heatmap" title="Permanent link">&para;</a></h3>
 <p>Swimlanes are rows and active columns are columns. Each cell shows the average days cards spent in that stage during the selected period.</p>
 <h4 id="done-column-exclusion">Done column exclusion<a class="headerlink" href="#done-column-exclusion" title="Permanent link">&para;</a></h4>
