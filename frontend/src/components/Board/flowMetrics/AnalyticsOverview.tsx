@@ -106,10 +106,11 @@ export default function AnalyticsOverview({
   const shownDays = (fetchedFilters ?? filters).days;
   const busy = loading && results !== null;
   const settled = results !== null;
-  const filtered = filters.swimlaneId !== null || filters.labelId !== null;
   // The empty block follows the data on screen, so its chips and copy follow the filters that data was fetched
   // for, not the live selection: otherwise a pending refetch would show the wrong state.
   const shownFilters = fetchedFilters ?? filters;
+  // Board-wide WIP-limit wording follows the same fetched filters: the dimmed data on screen was not narrowed by the live selection.
+  const filtered = shownFilters.swimlaneId !== null || shownFilters.labelId !== null;
   const narrowed = isNarrowed(shownFilters);
   const empty = cycle && throughput && cumulative && wipAge ? isEmpty(cycle, throughput, cumulative, wipAge) : false;
   const canExport = currentUserRole === "admin" || currentUserRole === "site_admin";
@@ -188,7 +189,7 @@ export default function AnalyticsOverview({
             </RegionSlot>
           </div>
           <RegionSlot busy={busy}>
-            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={{ ...filters, days: shownDays }} />
+            <FlowSection analytics={results?.analytics} mode={mode} onModeChange={setMode} filters={shownFilters} />
           </RegionSlot>
           <ChartRow>
             <RegionSlot busy={busy}>

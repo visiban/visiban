@@ -875,6 +875,24 @@ describe('period labels during a refetch (#2261)', () => {
   })
 })
 
+describe('board-wide WIP-limit wording during a refetch (#2264)', () => {
+  it('follows the filters the dimmed data was fetched for, not the live selection', async () => {
+    mockAll()
+    await renderLoaded({ columns: [{ uid: 'col-doing', wip_limit: 0 }] })
+    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    ageMock.mockImplementation(async () => { await gate; return age })
+    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
+    await waitFor(() => expect(ageMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: 3, labelId: null }))
+    // Still the unfiltered answers on screen, so the board-wide clause must stay.
+    expect(screen.getByText(/column over its limit/)).toBeInTheDocument()
+    release()
+    await waitFor(() => expect(screen.queryByText(/column over its limit/)).not.toBeInTheDocument())
+  })
+})
+
 describe('one filter selection for the whole Overview (#2261)', () => {
   it('sends every request with the same filters and closes an open drawer on a change', async () => {
     mockAll()
