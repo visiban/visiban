@@ -893,12 +893,14 @@ Board state updates automatically when other users move cards or make changes. S
 
 A right-hand panel that streams the most recent board events — card moves, creations, and membership changes — as they happen. Open and close it with **⌘\\** (Ctrl+\\ on Linux/Windows) or the activity button in the board toolbar.
 
-The drawer has two filter rows:
+<span class="vb-version" title="Added in 1.3">1.3+</span> The drawer has two tabs: **Recent** (the live board events described below) and **Archived** (the board's archived cards, with **Unarchive**; see [Card archiving](card-archiving.md#viewing-archived-cards)). Press <kbd>Y</kbd> or choose **Show archived cards** in the **View** menu to open the drawer straight on the Archived tab. The drawer and the card detail sheet are never open together: opening one closes the other.
+
+On the Recent tab there are two filter rows:
 
 - **Kind**: *All*, *Moves* (includes creations), *Members*
 - **Window**: *1h*, *24h*, *7d*. It defaults to **24h** so the drawer stays focused on today's activity rather than all history. Widen to **7d** to scan back through the week, or narrow to **1h** for what's happened in the last hour.
 
-The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
+The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open the full History view** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
 
 ## Board sharing
 

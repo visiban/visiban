@@ -86,7 +86,7 @@ import { useBoardResync } from "../../hooks/useBoardResync";
 import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
 import BoardActivityDrawer from "./BoardActivityDrawer";
-import type { ActivityEntry } from "./BoardActivityDrawer";
+import type { ActivityEntry, DrawerTab } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
@@ -1311,10 +1311,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Forwarded to SavedFiltersDropdown so the "+ Save current" pill in SavedFilterTabs can
   // programmatically open the dropdown's save flow without duplicating the save-form UI.
   const savedFiltersDropdownTriggerRef = useRef<HTMLButtonElement>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // #2274 — one drawer, two tabs. null = closed. Archived cards live in its
+  // Archived tab, so Y / the View menu / the archive toast open that tab.
+  const [drawerView, setDrawerView] = useState<DrawerTab | null>(null);
+  const drawerOpen = drawerView !== null;
+  const setDrawerOpen = useCallback(
+    (v: boolean | ((p: boolean) => boolean)) =>
+      setDrawerView((cur) => ((typeof v === "function" ? v(cur !== null) : v) ? (cur ?? "recent") : null)),
+    [],
+  );
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const showArchived = drawerView === "archived";
+  const setShowArchived = useCallback(
+    (v: boolean | ((p: boolean) => boolean)) =>
+      setDrawerView((cur) => ((typeof v === "function" ? v(cur === "archived") : v) ? "archived" : cur === "archived" ? null : cur)),
+    [],
+  );
   const [showExport, setShowExport] = useState(false);
   // #843 — close the standalone export modal if a board.updated broadcast
   // raises the threshold above the user's role while they have the modal
@@ -1700,6 +1713,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (cardMenu && (selectedCard || !board.cards.some((c) => c.id === cardMenu.originId))) setCardMenu(null);
   }, [cardMenu, selectedCard, board.cards]);
+  // #2274 — the drawer and the card sheet (peek) never show together: opening
+  // either closes the other. Each effect fires only on its own change, so the
+  // one that was opened last wins.
+  useEffect(() => { if (drawerOpen) setSelectedCard(null); }, [drawerOpen]);
+  useEffect(() => { if (selectedCard) setDrawerView(null); }, [selectedCard]);
   // A sheet closing ends its block-form request.
   useEffect(() => { if (!selectedCard) setBlockFormRequest(null); }, [selectedCard]);
 
@@ -3187,6 +3205,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             feed={activityFeed}
             onClose={() => setDrawerOpen(false)}
             onOpenHistory={() => setSearchParams({ view: "history" }, { replace: true })}
+            tab={drawerView ?? "recent"}
+            onTabChange={setDrawerView}
+            archivedContent={
+              <ArchivedCardsPanel
+                embedded
+                board={board}
+                onClose={() => setDrawerView(null)}
+                onUnarchived={(card) => { onCardUnarchived(card); }}
+                currentUser={currentUser}
+                subscribeCardEvents={subscribeCardEvents}
+              />
+            }
           />
         )}
         </div>{/* end flex-row wrapper */}
@@ -3410,16 +3440,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardExportModal
           boardId={board.id}
           onClose={() => setShowExport(false)}
-        />
-      )}
-
-      {showArchived && (
-        <ArchivedCardsPanel
-          board={board}
-          onClose={() => setShowArchived(false)}
-          onUnarchived={(card) => { onCardUnarchived(card); }}
-          currentUser={currentUser}
-          subscribeCardEvents={subscribeCardEvents}
         />
       )}
 

@@ -18,6 +18,9 @@ test.describe('board activity drawer', () => {
     const drawer = page.getByRole('complementary').filter({ hasText: 'Activity' })
     await expect(drawer.getByRole('button', { name: 'Close activity drawer' })).toBeVisible({ timeout: 2_000 })
     await expect(page.getByRole('group', { name: 'Activity kind filter' })).toBeVisible()
+    // #2274: one drawer, two tabs; Recent is selected on open.
+    await expect(page.getByRole('tab', { name: 'Recent' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Archived' })).toBeVisible()
   })
 
   test('WebSocket card.created event appears in the feed', async ({ page }) => {

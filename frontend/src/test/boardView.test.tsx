@@ -1336,6 +1336,59 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
   })
 
+  describe('Activity drawer and card sheet are mutually exclusive (#2274)', () => {
+    const openCardFixture = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Deep Link Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+
+    it('opening the drawer closes the open card sheet, and opening a card closes the drawer', async () => {
+      mockSearchParams = new URLSearchParams('card=1')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [openCardFixture] }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+
+      const toggle = screen.getByRole('button', { name: 'Open activity drawer' })
+      fireEvent.click(toggle)
+      expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
+      expect(screen.getByRole('complementary', { name: 'Activity' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close activity drawer', pressed: true })).toBeInTheDocument()
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 1 } }))
+      })
+      expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+      expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+    })
+
+    it('Y opens the drawer on its Archived tab and a second Y closes it', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.getByRole('tab', { name: 'Archived' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('archived-panel')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('tab', { name: 'Recent' }))
+      expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.getByRole('tab', { name: 'Archived' })).toHaveAttribute('aria-selected', 'true')
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+    })
+
+    it('the Activity button opens Recent and Cmd+\\ toggles the drawer', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Open activity drawer' }))
+      expect(screen.getByRole('tab', { name: 'Recent' })).toHaveAttribute('aria-selected', 'true')
+      fireEvent.keyDown(document, { key: '\\', metaKey: true })
+      expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+    })
+  })
+
   it('?card= param opens CardDetail for a matching card', () => {
     mockSearchParams = new URLSearchParams('card=1')
     const card = {

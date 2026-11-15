@@ -763,3 +763,33 @@ describe('ArchivedCardsPanel focus management (#1732)', () => {
     expect(kebab).toHaveFocus()
   })
 })
+
+describe('ArchivedCardsPanel embedded in the Activity drawer (#2274)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('renders the list without a dialog, backdrop or close button, and Escape does not close it', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+    const onClose = vi.fn()
+    render(<ArchivedCardsPanel embedded board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText('Old feature'))
+    expect(screen.getByTestId('archived-list')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+    expect(screen.getByText('Archived cards (1)')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('still restores a card', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+    const restored: Card = { ...archivedCard, archived_at: null }
+    mockUnarchiveCard.mockResolvedValue(restored)
+    const onUnarchived = vi.fn()
+    render(<ArchivedCardsPanel embedded board={fakeBoard} onClose={vi.fn()} onUnarchived={onUnarchived} />)
+    await waitFor(() => screen.getByText('Old feature'))
+    await userEvent.click(screen.getByText('Unarchive'))
+    await waitFor(() => expect(onUnarchived).toHaveBeenCalledWith(restored))
+  })
+})

@@ -16,9 +16,15 @@ interface Props {
   currentUser?: User | null;
   /** Subscribe to the board's card.* socket frames (#2062); returns the unsubscribe. */
   subscribeCardEvents?: (listener: (event: BoardEvent) => void) => () => void;
+  /**
+   * Render only the list (no backdrop, dialog, header or focus trap) so the
+   * Activity drawer's Archived tab can host it (#2274). Loading, restore,
+   * permission and live-update behavior is identical either way.
+   */
+  embedded?: boolean;
 }
 
-export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents }: Props) {
+export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents, embedded = false }: Props) {
   const [loadedCards, setCards] = useState<Card[]>([]);
   const [loadedTotal, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -30,13 +36,15 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEscapeStack(onClose, 30);
+  // Embedded in the drawer there is no modal: Escape falls through (false) and
+  // nothing traps focus or steals it on mount.
+  useEscapeStack(embedded ? () => false : onClose, 30);
 
   // #1732 — aria-modal panel: trap Tab, restore focus to the opener on close.
-  useFocusTrap(panelRef, true);
+  useFocusTrap(panelRef, !embedded);
   useEffect(() => {
-    panelRef.current?.focus();
-  }, []);
+    if (!embedded) panelRef.current?.focus();
+  }, [embedded]);
 
   useEffect(() => {
     setLoading(true);
@@ -321,6 +329,86 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const shownTotal = Math.max(total, cards.length);
   const hasMore = cards.length < total;
 
+  const list = (
+    <div className={embedded ? "px-4 py-3" : "flex-1 overflow-y-auto px-5 py-4"}>
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-fg-tertiary text-sm">Loading…</div>
+      )}
+      {!loading && loadError && cards.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 gap-2">
+          <p className="text-danger text-sm">{loadError}</p>
+        </div>
+      )}
+      {!loading && !loadError && cards.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 gap-2">
+          <span className="text-fg-faint text-2xl">📦</span>
+          <p className="text-fg-tertiary text-sm">No archived cards</p>
+        </div>
+      )}
+      {!loading && cards.length > 0 && (
+        <>
+          {/* Reserved restore-result slot — always rendered so the list
+              never shifts when a message appears. */}
+          <p className="text-xs min-h-4 mb-2" role="status" aria-live="polite" aria-atomic="true">
+            <span className="text-danger">{restoreError}</span>
+          </p>
+          <ul className="space-y-2">
+            {cards.map((card) => (
+              <li
+                key={card.id}
+                className="bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1.5"
+              >
+                <span className="text-sm text-fg font-medium">{card.title}</span>
+                <span className="text-xs text-fg-tertiary">
+                  {columnName(card.column)} · {swimlaneName(card.swimlane)}
+                </span>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-fg-tertiary">
+                    {card.archived_at
+                      ? `Archived ${formatDate(card.archived_at, currentUser)}`
+                      : ""}
+                  </span>
+                  {canUnarchive(card) && (
+                    <button
+                      onClick={() => handleUnarchive(card)}
+                      disabled={unarchivingId === card.id}
+                      className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="mt-4 w-full text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
+            </button>
+          )}
+          {loadError && cards.length > 0 && (
+            <p className="text-danger text-xs text-center mt-2">{loadError}</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div data-testid="archived-list">
+        <p className="px-4 pt-3 text-xs text-fg-tertiary">
+          Archived cards{shownTotal > 0 && ` (${shownTotal})`}
+        </p>
+        {list}
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop — decorative pointer-only dismiss; keyboard parity is Escape + the Close button (#1376) */}
@@ -348,72 +436,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {loading && (
-            <div className="flex items-center justify-center py-8 text-fg-tertiary text-sm">Loading…</div>
-          )}
-          {!loading && loadError && cards.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <p className="text-danger text-sm">{loadError}</p>
-            </div>
-          )}
-          {!loading && !loadError && cards.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <span className="text-fg-faint text-2xl">📦</span>
-              <p className="text-fg-tertiary text-sm">No archived cards</p>
-            </div>
-          )}
-          {!loading && cards.length > 0 && (
-            <>
-              {/* Reserved restore-result slot — always rendered so the list
-                  never shifts when a message appears. */}
-              <p className="text-xs min-h-4 mb-2" role="status" aria-live="polite" aria-atomic="true">
-                <span className="text-danger">{restoreError}</span>
-              </p>
-              <ul className="space-y-2">
-                {cards.map((card) => (
-                  <li
-                    key={card.id}
-                    className="bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1.5"
-                  >
-                    <span className="text-sm text-fg font-medium">{card.title}</span>
-                    <span className="text-xs text-fg-tertiary">
-                      {columnName(card.column)} · {swimlaneName(card.swimlane)}
-                    </span>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-fg-tertiary">
-                        {card.archived_at
-                          ? `Archived ${formatDate(card.archived_at, currentUser)}`
-                          : ""}
-                      </span>
-                      {canUnarchive(card) && (
-                        <button
-                          onClick={() => handleUnarchive(card)}
-                          disabled={unarchivingId === card.id}
-                          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                        >
-                          {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              {hasMore && (
-                <button
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                  className="mt-4 w-full text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
-                </button>
-              )}
-              {loadError && cards.length > 0 && (
-                <p className="text-danger text-xs text-center mt-2">{loadError}</p>
-              )}
-            </>
-          )}
-        </div>
+        {list}
       </div>
     </div>
   );
