@@ -313,6 +313,15 @@ describe('the column drawer (#2262)', () => {
     expect(oldest.textContent).not.toContain('·')
   })
 
+  it('omits the swimlane from a response that predates it', () => {
+    const [first] = selection.cards
+    const legacy = { ...cards.find((c) => c.uid === first.uid)!, swimlane: undefined } as unknown as FlowCard
+    const unblocked = { ...selection, cards: [{ ...first, blocked: false }] }
+    render(<FlowDrillDrawer boardId={1} selection={unblocked} cards={new Map([[legacy.uid, legacy]])} onChange={() => {}} onClose={() => {}} />)
+    const oldest = within(screen.getByRole('dialog')).getByRole('region', { name: 'Oldest card' })
+    expect(within(oldest).getByText('Unassigned')).toBeInTheDocument()
+  })
+
   it('says so for an empty column', async () => {
     const empty = buildColumnSelection('nope', { cumulative, dwell, wipAge, columns })
     render(<FlowDrillDrawer boardId={1} selection={empty} cards={new Map()} onChange={() => {}} onClose={() => {}} />)
