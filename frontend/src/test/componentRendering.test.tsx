@@ -1104,7 +1104,7 @@ const mockUpdateSwimlane = updateSwimlane as ReturnType<typeof vi.fn>
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
     id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: 'a@example.com', notes: '',
-    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
+    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null,
     ...overrides,
   }
 }

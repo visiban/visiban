@@ -4,6 +4,7 @@ import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testi
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
+import { recomputeBoardHealth } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, User } from '../types'
 
@@ -15,6 +16,7 @@ vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
   patchBoard: vi.fn(),
+  recomputeBoardHealth: vi.fn(),
   deleteBoard: vi.fn(),
   enableBoardSharing: vi.fn(),
   disableBoardSharing: vi.fn(),
@@ -87,7 +89,7 @@ const fakeMember2: User = {
 }
 
 const fakeBoard: BoardFull = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,
@@ -3620,7 +3622,7 @@ describe('BoardSettingsModal health status review (#2244)', () => {
 
   it('non-admins read the setting', () => {
     const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
-    expect(screen.getByText('Health status review')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Health status' })).toBeInTheDocument()
     expect(screen.getByText('Off')).toBeInTheDocument()
     expect(screen.queryByLabelText('Review status every')).not.toBeInTheDocument()
     unmount()
@@ -3629,3 +3631,59 @@ describe('BoardSettingsModal health status review (#2244)', () => {
   })
 })
 
+
+describe('BoardSettingsModal automatic health status (#2245)', () => {
+  it('admins toggle auto health and merge the server-resolved fields', async () => {
+    const user = userEvent.setup()
+    mockPatchBoard.mockResolvedValueOnce({ ...fakeBoard, health_auto_enabled: true, health_status_origin: 'computed' })
+    const onMerge = vi.fn()
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} onMergeBoardFields={onMerge} />)
+    const toggle = screen.getByRole('switch', { name: 'Calculate health status automatically' })
+    expect(screen.getByText(/A status you set by hand always wins\./)).toBeInTheDocument()
+    expect(screen.getByLabelText('Off track at')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Recompute now' })).toBeDisabled()
+    expect(screen.getByTestId('health-last-computed')).toHaveTextContent('Never computed')
+    await user.click(toggle)
+    await waitFor(() => expect(mockPatchBoard).toHaveBeenCalledWith(fakeBoard.id, { health_auto_enabled: true }))
+    await waitFor(() => expect(onMerge).toHaveBeenCalledWith(expect.objectContaining({ health_auto_enabled: true, health_status_origin: 'computed' })))
+  })
+
+  it('shows an error when the toggle fails', async () => {
+    const user = userEvent.setup()
+    mockPatchBoard.mockRejectedValueOnce(new Error('x'))
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} onMergeBoardFields={vi.fn()} />)
+    await user.click(screen.getByRole('switch', { name: 'Calculate health status automatically' }))
+    expect(await screen.findByText('Failed to save automatic health status. Please try again.')).toBeInTheDocument()
+  })
+
+  it('saves the threshold and recomputes, merging board and lanes', async () => {
+    const user = userEvent.setup()
+    const auto = { ...fakeBoard, health_auto_enabled: true, health_computed_at: '2026-11-15T09:00:00Z' }
+    mockPatchBoard.mockResolvedValueOnce({ ...auto, health_off_track_cards: 5 })
+    const lane = { ...fakeBoard.swimlanes[0], computed_health_status: 'at_risk' as const }
+    vi.mocked(recomputeBoardHealth).mockResolvedValueOnce({ board: { ...auto, computed_health_status: 'at_risk' } as never, swimlanes: lane ? [lane] : [] })
+    const onMerge = vi.fn()
+    const onUpdateSwimlane = vi.fn()
+    render(<BoardSettingsModal currentUserId={null} board={auto} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} onMergeBoardFields={onMerge} onUpdateSwimlane={onUpdateSwimlane} />)
+    expect(screen.getByTestId('health-last-computed')).toHaveTextContent('Last computed')
+    const input = screen.getByLabelText('Off track at')
+    await user.clear(input)
+    await user.type(input, '5')
+    await user.tab()
+    await waitFor(() => expect(mockPatchBoard).toHaveBeenCalledWith(fakeBoard.id, { health_off_track_cards: 5 }))
+    await user.click(screen.getByRole('button', { name: 'Recompute now' }))
+    await waitFor(() => expect(onMerge).toHaveBeenCalledWith(expect.objectContaining({ computed_health_status: 'at_risk' })))
+    expect(onUpdateSwimlane).toHaveBeenCalledTimes(lane ? 1 : 0)
+    expect(await screen.findByText('Health status recomputed.')).toBeInTheDocument()
+  })
+
+  it('non-admins read Automatic or Manual only', () => {
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
+    expect(screen.getByTestId('health-auto-readonly')).toHaveTextContent('Manual only')
+    expect(screen.queryByRole('switch', { name: 'Calculate health status automatically' })).not.toBeInTheDocument()
+    unmount()
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, health_auto_enabled: true }} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
+    expect(screen.getByTestId('health-auto-readonly')).toHaveTextContent('Automatic · Off track at 3 flagged cards')
+    expect(screen.queryByRole('button', { name: 'Recompute now' })).not.toBeInTheDocument()
+  })
+})

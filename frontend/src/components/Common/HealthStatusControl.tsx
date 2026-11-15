@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { HEALTH_STATUS_LABELS, type HealthStatus } from "../../constants/healthStatus";
 import {
-  getHealthDisplay, healthCaption, healthReviewCue, healthStatusAnnouncement, healthTitle,
-  type HealthAttribution, type HealthEntityKind, type HealthFields,
+  getHealthDisplay, healthCaption, healthComputedWhen, healthCountsLine, healthOriginSuffix,
+  healthReviewCue, healthStatusAnnouncement, healthTitle,
+  type HealthAttribution, type HealthAutoInfo, type HealthEntityKind, type HealthFields,
 } from "../../utils/healthStatus";
 import { formatDateTimeUser, type UserDatePrefs } from "../../utils/date";
 import type { HealthHistory } from "../../types";
@@ -69,6 +70,13 @@ interface Props extends HealthFields, Partial<HealthAttribution> {
   onOpenChange?: (open: boolean) => void;
   /** #2244: when the status shown is due for review; past it the "Not reviewed" cue shows. Boards and groups only. */
   health_review_due_at?: string | null;
+  /**
+   * #2245: the auto health facts while the board's auto health is on (for a
+   * lane, its board's); null or omitted = manual only, exactly as before.
+   */
+  auto?: HealthAutoInfo | null;
+  /** #2245: Recompute now, offered in the popover to board admins on the board header. */
+  onRecompute?: () => Promise<void>;
 }
 
 /** 16px half-filled circle: "a status could go here", in currentColor. */
@@ -97,10 +105,10 @@ export default function HealthStatusControl({
   trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce, onOpenChange,
   health_status, effective_health_status, health_status_source,
   health_status_changed_at = null, health_status_changed_by = null, health_status_note = null,
-  health_review_due_at = null,
+  health_review_due_at = null, health_status_origin, auto = null, onRecompute,
 }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
-  const fields = { health_status, effective_health_status, health_status_source };
+  const fields: HealthFields = { health_status, effective_health_status, health_status_source, health_status_origin };
   const isLane = entityKind === "swimlane";
   // Lanes are basic whatever the caller asks for (#2242 is board/group only).
   const mode = isLane ? "basic" : requestedMode;
@@ -109,6 +117,14 @@ export default function HealthStatusControl({
     ? { health_status_changed_at, health_status_changed_by, health_status_note }
     : null;
   const display = getHealthDisplay(fields);
+  // #2245: on an auto board the pill carries its origin (glyph + sr text) and
+  // a description of the computed time and counts, never color alone.
+  const glyphOrigin = auto && (display.origin === "manual" || display.origin === "computed") ? display.origin : null;
+  const srSuffix = healthOriginSuffix(display, auto);
+  const autoDescription = auto
+    ? [healthComputedWhen(auto.computedAt), healthCountsLine(auto.counts)].filter(Boolean).join(". ")
+    : undefined;
+  const pillAuto = { origin: glyphOrigin, srSuffix, description: autoDescription };
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -206,12 +222,16 @@ export default function HealthStatusControl({
       health_status_changed_at={health_status_changed_at}
       health_status_changed_by={health_status_changed_by}
       health_status_note={health_status_note}
+      auto={auto}
+      onRecompute={readOnly ? undefined : onRecompute}
     />
   );
 
   if (!canEdit) {
-    if (display.value === "none") return liveRegion;
-    if (detailed && fetchHistory) {
+    // #2245: an auto entity that has been computed shows its pill even with
+    // no value ("No open cards"), so a non-admin can read why.
+    if (display.value === "none" && !(auto && auto.computedAt)) return liveRegion;
+    if ((detailed && fetchHistory) || auto) {
       // Non-admins get a trigger that opens a read-only popover with the
       // history (#2242), never a greyed-out control.
       return (
@@ -225,7 +245,8 @@ export default function HealthStatusControl({
             shapeOnly={shapeOnly}
             srPrefix={srPrefix}
             expanded={open}
-            title={healthTitle(display, "readonly", attribution, health_status_source, entityKind)}
+            title={healthTitle(display, "readonly", attribution, health_status_source, entityKind, auto)}
+            {...pillAuto}
             className={className}
             onClick={openFromTrigger}
           />
@@ -245,7 +266,8 @@ export default function HealthStatusControl({
           scope={scope}
           shapeOnly={shapeOnly}
           srPrefix={srPrefix}
-          title={healthTitle(display, "static", attribution, health_status_source, entityKind)}
+          title={healthTitle(display, "static", attribution, health_status_source, entityKind, auto)}
+          {...pillAuto}
           className={className}
         />
         {reviewBadge}
@@ -287,7 +309,8 @@ export default function HealthStatusControl({
           srPrefix={srPrefix}
           expanded={open}
           ariaDisabled={demoMode}
-          title={healthTitle(display, demoMode ? "demo" : "interactive", attribution, health_status_source, entityKind)}
+          title={healthTitle(display, demoMode ? "demo" : "interactive", attribution, health_status_source, entityKind, auto)}
+          {...pillAuto}
           className={className}
           onClick={toggle}
         />

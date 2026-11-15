@@ -195,9 +195,9 @@ describe('HealthStatusPopover detailed mode (#2242)', () => {
     const user = userEvent.setup()
     const fetchHistory = vi.fn<() => Promise<HealthHistory>>().mockResolvedValue({
       results: [
-        { from_status: 'at_risk', to_status: 'at_risk', changed_by: PRIYA, changed_at: daysAgo(1), note: 'still late' },
-        { from_status: null, to_status: 'at_risk', changed_by: null, changed_at: daysAgo(3), note: null },
-        { from_status: 'on_track', to_status: null, changed_by: PRIYA, changed_at: daysAgo(4), note: null },
+        { from_status: 'at_risk', to_status: 'at_risk', changed_by: PRIYA, changed_at: daysAgo(1), note: 'still late', kind: 'manual', reason: null },
+        { from_status: null, to_status: 'at_risk', changed_by: null, changed_at: daysAgo(3), note: null, kind: 'manual', reason: null },
+        { from_status: 'on_track', to_status: null, changed_by: PRIYA, changed_at: daysAgo(4), note: null, kind: 'manual', reason: null },
       ],
       has_more: true,
     })
@@ -213,7 +213,7 @@ describe('HealthStatusPopover detailed mode (#2242)', () => {
     expect(rows).toHaveLength(3)
     expect(rows[0]).toHaveTextContent('At risk· confirmed')
     expect(rows[0]).toHaveTextContent('still late')
-    expect(within(rows[1]).getByText('System')).toHaveAttribute('title', 'Automatic change or removed account')
+    expect(within(rows[1]).getByText('System')).toHaveAttribute('title', 'Removed account')
     expect(rows[1]).toHaveTextContent('Inherited')
     expect(rows[2]).toHaveTextContent('On track')
     expect(within(rows[0]).getByText('1d ago').tagName).toBe('TIME')

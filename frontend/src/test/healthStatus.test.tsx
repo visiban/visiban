@@ -25,9 +25,9 @@ const none: Fields = { health_status: null, effective_health_status: null, healt
 
 describe('health status helpers (#1133)', () => {
   it('derives value, label and inheritance from the three fields', () => {
-    expect(getHealthDisplay(own('at_risk'))).toEqual({ value: 'at_risk', label: 'At risk', inheritedFrom: null })
-    expect(getHealthDisplay(inherited('off_track'))).toEqual({ value: 'off_track', label: 'Off track', inheritedFrom: 'Engineering' })
-    expect(getHealthDisplay(none)).toEqual({ value: 'none', label: NO_STATUS_LABEL, inheritedFrom: null })
+    expect(getHealthDisplay(own('at_risk'))).toEqual({ value: 'at_risk', label: 'At risk', inheritedFrom: null, origin: 'manual' })
+    expect(getHealthDisplay(inherited('off_track'))).toEqual({ value: 'off_track', label: 'Off track', inheritedFrom: 'Engineering', origin: 'inherited' })
+    expect(getHealthDisplay(none)).toEqual({ value: 'none', label: NO_STATUS_LABEL, inheritedFrom: null, origin: null })
   })
 
   it('writes the documented titles', () => {

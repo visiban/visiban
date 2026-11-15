@@ -21,7 +21,7 @@ const fakeGroup: Group = {
 }
 
 const fakeBoard: Board = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   id: 42, uid: 'boarduid0001', name: 'Sprint Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: 10, group_name: 'Alpha', member_count: 1, card_count: 0,
@@ -31,7 +31,7 @@ const fakeBoard: Board = {
 }
 
 const personalBoard: Board = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   id: 99, uid: 'boarduid0002', name: 'My Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: null, group_name: null, member_count: 1, card_count: 0,

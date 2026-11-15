@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useId } from "react";
 import { HEALTH_STATUS_STYLES, healthLabel, type HealthDisplayValue } from "../../constants/healthStatus";
 import { getHealthDisplay, healthReviewCue, healthTitle, type HealthReviewFields } from "../../utils/healthStatus";
 import HealthStatusShape from "./HealthStatusShape";
@@ -28,6 +28,37 @@ interface Props {
   shapeOnly?: boolean;
   /** Screen-reader text before the word. Default `Health status: `. */
   srPrefix?: string;
+  /**
+   * #2245: on an auto-health board, a 12px glyph after the word says where the
+   * value comes from: a pin for a status set by hand, a sparkle for a computed
+   * one. Never the only signal: `srSuffix` carries the meaning.
+   */
+  origin?: "manual" | "computed" | null;
+  /** Screen-reader text after the word, e.g. ", set by hand" (#2245). */
+  srSuffix?: string;
+  /**
+   * #2245: a longer description (computed time, counts) for the button's
+   * `aria-describedby`, so it is not carried by `title` alone.
+   */
+  description?: string;
+}
+
+/** 12px pin: a status set by hand on an auto-health board (#2245). */
+export function PinGlyph() {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-fg-tertiary" data-health-origin-glyph="manual">
+      <path d="M4.5 1.5h3l-.5 3 2 2H3l2-2-.5-3zM6 6.5V11" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 12px sparkle: a status calculated automatically (#2245). */
+export function AutoGlyph() {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-fg-tertiary" data-health-origin-glyph="computed">
+      <path d="M6 1.5l1.1 2.9L10 5.5 7.1 6.6 6 9.5 4.9 6.6 2 5.5l2.9-1.1z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 const BASE = "inline-flex items-center min-h-6 py-0.5 text-xs font-medium rounded-full border shrink-0 max-w-full";
@@ -44,10 +75,11 @@ const SCOPE_SPACING = { header: "gap-1.5 px-2", lane: "gap-1 px-1.5" } as const;
 const HealthStatusPill = forwardRef<HTMLButtonElement, Props>(function HealthStatusPill(
   {
     value, inheritedFrom, collapseLabel, onClick, expanded, busy, ariaDisabled, title, className = "",
-    scope = "header", shapeOnly = false, srPrefix = "Health status: ",
+    scope = "header", shapeOnly = false, srPrefix = "Health status: ", origin = null, srSuffix = "", description,
   },
   ref,
 ) {
+  const descriptionId = useId();
   const label = healthLabel(value);
   const classes = [
     BASE,
@@ -67,10 +99,16 @@ const HealthStatusPill = forwardRef<HTMLButtonElement, Props>(function HealthSta
       <HealthStatusShape value={value} />
       <span className={shapeOnly ? "sr-only" : collapseLabel ? "sr-only md:not-sr-only truncate" : "truncate"}>{label}</span>
       {inheritedFrom && <span className="sr-only">, inherited from {inheritedFrom}</span>}
+      {origin === "manual" && !shapeOnly && <PinGlyph />}
+      {origin === "computed" && !shapeOnly && <AutoGlyph />}
+      {srSuffix && <span className="sr-only">{srSuffix}</span>}
     </>
   );
   if (onClick) {
+    // The description sits outside the button (hidden, still referenced), so
+    // it describes the trigger without becoming part of its name.
     return (
+      <>
       <button
         ref={ref}
         type="button"
@@ -82,10 +120,13 @@ const HealthStatusPill = forwardRef<HTMLButtonElement, Props>(function HealthSta
         aria-expanded={ariaDisabled ? undefined : (expanded ?? false)}
         aria-disabled={ariaDisabled ? true : undefined}
         aria-busy={busy ? true : undefined}
+        aria-describedby={description ? descriptionId : undefined}
         data-health-status={value}
       >
         {content}
       </button>
+      {description && <span id={descriptionId} hidden>{description}</span>}
+      </>
     );
   }
   return (

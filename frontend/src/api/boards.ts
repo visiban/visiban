@@ -371,3 +371,11 @@ export const setBoardHealthStatus = (id: number, data: { status: HealthStatus | 
 /** The board's last 20 health status changes, newest first (#2242). Any board role. */
 export const getBoardHealthHistory = (id: number) =>
   client.get<HealthHistory>(`/api/v1/boards/${id}/health-history/`).then((r) => r.data);
+
+/**
+ * Recompute the board's auto health status now (#2245): the same code path as
+ * the nightly job. Board admin only; 409 `health_auto_disabled` while auto
+ * health is off; throttled to 30 per hour per user (429).
+ */
+export const recomputeBoardHealth = (id: number) =>
+  client.post<{ board: Board; swimlanes: Swimlane[] }>(`/api/v1/boards/${id}/health-recompute/`).then((r) => r.data);

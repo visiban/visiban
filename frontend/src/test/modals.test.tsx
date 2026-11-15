@@ -90,7 +90,7 @@ const fakeUser: User = {
 }
 
 const fakeBoard: Board = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: null, group_name: null, member_count: 1, card_count: 0,
@@ -106,7 +106,7 @@ const fakeColumn: Column = {
 
 const fakeSwimlane: Swimlane = {
   id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0,
-  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
+  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null,
 }
 
 describe('CreateBoardModal', () => {

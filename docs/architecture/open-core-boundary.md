@@ -23,6 +23,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | OIDC authentication (generic) | OSS | Extension of existing OAuth stack; no new dependency | #349 |
 | SSO / SAML | Enterprise | See OIDC vs SAML ruling below | — |
 | Card-level activity (CardMovement) | OSS | Core collaborative feature — teams need their own card history | — |
+| Automatic health status (lanes, board roll-up) | OSS | Owner ruling: drives adoption; group roll-up (#2049) not covered | #2245 |
 | Board / group health status history | OSS | Per-entity history shown in-product to members; same class as card movement history | #2242 |
 | AdminActionLog (instance admin control-plane actions) | OSS | Fixed, narrow record of a closed set of admin toggles (maintenance mode, registration mode, uploads, email config); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #1126 |
 | BoardExportLog (board export history) | OSS | Fixed, narrow record of successful board exports (actor, role, format, row count); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #842 |
@@ -144,6 +145,14 @@ A `VISIBAN_AUDIT_BACKEND` setting (defaulting to `NullAuditBackend`) is planned 
 WIP limits (`wip_limit` on Column) and the enforcement mode, soft (advisory toast) vs hard (blocked move), are OSS. A small team cannot manage capacity with soft-only enforcement. The board setting `enforce_wip_hard` (boolean, default `false`) toggles the mode. No enterprise extension point is needed.
 
 **Issue:** #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.
+
+---
+
+### Automatic health status (OSS)
+
+Calculating a board's and its lanes' health status from their open cards (overdue, stale, blocked; nightly job and **Recompute now**) is OSS by the product owner's ruling on #2245: it ships in the open-source core to drive adoption, and a small team needs it to keep a status from drifting. The ruling covers lanes and the board roll-up only. A group or dashboard roll-up (#2049) is **not** covered by it and gets its own classification.
+
+**Issue:** #2245
 
 ---
 

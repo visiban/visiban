@@ -8,15 +8,18 @@ import { canDeleteBoard } from "../../utils/canDeleteBoard";
 import { POPOVER_VIEWPORT_MARGIN, useInputAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import HealthReviewDaysInput from "../Common/HealthReviewDaysInput";
+import HealthOffTrackInput from "../Common/HealthOffTrackInput";
+import { HealthComputedTime, HealthRecomputeButton } from "../Common/HealthComputedBlock";
+import { applyHealthRecompute, pickBoardHealth } from "../../utils/healthStatus";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
 import type { Column } from "../../types";
 import BoardSettingsPoliciesSection from "./BoardSettingsPoliciesSection";
-import { exportBoardCsv, exportBoardJson, patchColumn, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
+import { exportBoardCsv, exportBoardJson, patchColumn, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory, recomputeBoardHealth } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
@@ -108,6 +111,8 @@ interface Props {
    *  other board sub-resource. */
   onFieldsUpdated?: (definitions: CustomFieldDefinition[]) => void;
   onSwimlaneFieldsUpdated?: (definitions: SwimlaneCustomFieldDefinition[]) => void;
+  /** #2245: merge a recomputed lane (resolver form of useBoard's updateSwimlane). */
+  onUpdateSwimlane?: (resolver: (board: BoardFull) => Swimlane) => void;
   /** Hosted demo (#1179): board settings writes are refused by the server
    *  fence for every caller, a site admin included — admin controls render
    *  inert with one shared reason. */
@@ -207,7 +212,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -344,6 +349,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
   const [cardAgingError, setCardAgingError] = useState<string | null>(null);
+  const [healthAutoError, setHealthAutoError] = useState<string | null>(null);
   // Tracks the last value actually persisted to the server, independent of the
   // (already-updated-on-keystroke) state above, so a failed save can revert to
   // the right value instead of the just-typed one.
@@ -947,6 +953,26 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       health_review_days: updated.health_review_days,
       health_review_due_at: updated.health_review_due_at,
     });
+  };
+
+  // #2245: not optimistic; the server answers with the board's resolved
+  // health (turning auto on or off changes the effective value and origin).
+  const handleHealthAutoToggle = async (next: boolean) => {
+    setHealthAutoError(null);
+    try {
+      const updated = await patchBoard(board.id, { health_auto_enabled: next });
+      onMergeBoardFields?.(pickBoardHealth(updated));
+    } catch {
+      setHealthAutoError("Failed to save automatic health status. Please try again.");
+    }
+  };
+  const handleHealthOffTrackSave = async (next: number) => {
+    const updated = await patchBoard(board.id, { health_off_track_cards: next });
+    onMergeBoardFields?.(pickBoardHealth(updated));
+  };
+  const handleHealthRecompute = async () => {
+    const result = await recomputeBoardHealth(board.id);
+    applyHealthRecompute(result, (patch) => onMergeBoardFields?.(patch), (resolver) => onUpdateSwimlane?.(resolver));
   };
 
   const handleStalenessWarningPctBlur = async () => {
@@ -1641,9 +1667,39 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 )}
               </section>
 
-              {/* #2244 — health review cue, beside the stale-card threshold */}
+              {/* #2244 — health review cue, beside the stale-card threshold; #2245 — auto health */}
               <section aria-labelledby="health-review-heading">
-                <h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Health status review</h3>
+                <h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Health status</h3>
+                {isAdmin ? (
+                  <div className="flex flex-col gap-2 mb-3">
+                    <ToggleField
+                      checked={board.health_auto_enabled}
+                      onChange={(v) => { void handleHealthAutoToggle(v); }}
+                      label="Calculate health status automatically"
+                      description="Each night, lanes are rated from their open cards: overdue, stale, or blocked. The board shows the worst lane. A status you set by hand always wins."
+                    />
+                    {healthAutoError && <p role="alert" className="text-danger text-xs">{healthAutoError}</p>}
+                    <div className="pl-6 flex flex-col gap-2">
+                      <HealthOffTrackInput
+                        value={board.health_off_track_cards}
+                        onSave={handleHealthOffTrackSave}
+                        disabled={!board.health_auto_enabled}
+                      />
+                      <div className="flex flex-wrap items-start gap-3">
+                        <HealthRecomputeButton onRecompute={handleHealthRecompute} autoEnabled={board.health_auto_enabled} />
+                        <span className="text-xs text-fg-tertiary pt-1.5" data-testid="health-last-computed">
+                          <HealthComputedTime computedAt={board.health_computed_at} prefix="Last computed" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-fg-secondary mb-2" data-testid="health-auto-readonly">
+                    {board.health_auto_enabled
+                      ? `Automatic · Off track at ${board.health_off_track_cards} flagged ${board.health_off_track_cards === 1 ? "card" : "cards"}`
+                      : "Manual only"}
+                  </p>
+                )}
                 {isAdmin ? (
                   <HealthReviewDaysInput
                     entityKind="board"
