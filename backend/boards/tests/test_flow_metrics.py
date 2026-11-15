@@ -1989,6 +1989,24 @@ class GroupingShapeTests(GroupingFixture):
 
 
 class GroupingRankingTests(GroupingFixture):
+    def test_a_completion_on_the_first_bucket_day_is_not_excluded(self):
+        # A rolling range starts at ``now - N days`` but throughput buckets from
+        # that day's midnight, so this completion is a sample before ``start``.
+        self.now = datetime.datetime(2026, 7, 15, 12, 0, tzinfo=datetime.timezone.utc)
+        lanes = self.lanes(2)
+        self.wip(lane=lanes[0])
+        self.path(self.backlog, 40, self.doing, 35, self.done, 30.25, lane=lanes[1])
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            plain = self.get("throughput", days=30)
+            grouped = self.get("throughput", days=30, group_by="swimlane")
+        self.assertEqual(plain["total"], 1)
+        grouping = grouped["grouping"]
+        self.assertEqual(grouping["excluded"], 0, grouping)
+        by_key = {g["key"]: g for g in grouping["groups"]}
+        self.assertEqual(by_key[str(lanes[1].id)]["total"], 1)
+        counted = sum(c["count"] for s in grouped["samples"] for c in s["by_group"])
+        self.assertEqual(counted, plain["total"])
+
     def test_more_than_five_groups_collapse_into_other_last(self):
         lanes = self.lanes(7)
         for index, lane in enumerate(lanes):
@@ -2086,6 +2104,11 @@ class GroupingLabelAndFieldTests(GroupingFixture):
         multi.labels.add(labels[0], labels[5], labels[6])
         self.wip().labels.add(labels[5])
         unlabeled = self.wip()
+        # The same shapes among completed cards, for the three other endpoints.
+        multi_done = self.completed()
+        multi_done.labels.add(labels[0], labels[5], labels[6])
+        self.completed().labels.add(labels[5])
+        self.completed()
         body = self.get("wip-age", group_by="label")
         grouping = body["grouping"]
         other = grouping["groups"][-1]
@@ -2098,11 +2121,18 @@ class GroupingLabelAndFieldTests(GroupingFixture):
         self.assertEqual(
             set(samples[multi.uid]["group_keys"]), {str(labels[0].id), str(labels[5].id), str(labels[6].id)},
         )
-        # Each card counts once per distinct group it lands in: the multi-label
-        # card is in L0 and in Other, so it adds one over the ungrouped total.
-        self.assertEqual(
-            sum(g["sample_size"] for g in grouping["groups"]), body["sample_size"] - grouping["excluded"] + 1,
-        )
+        # Each unit counts once per distinct group its card lands in: the
+        # multi-label card is in L0 and in Other, so each of its units adds one
+        # over the ungrouped total. Dwell counts visits (backlog and doing).
+        extra = {"cycle-time": 1, "throughput": 1, "wip-age": 1, "dwell": 2}
+        for metric in GROUPED_METRICS:
+            with self.subTest(metric=metric):
+                grouped = self.get(metric, group_by="label")
+                plain = self.get(metric)
+                self.assertEqual(
+                    sum(_group_size(metric, g) for g in grouped["grouping"]["groups"]),
+                    _size(metric, plain) - grouped["grouping"]["excluded"] + extra[metric],
+                )
 
     def test_labels_of_another_board_are_never_read(self):
         stranger = Board.objects.create(name="Elsewhere", owner=self.user)

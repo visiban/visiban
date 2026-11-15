@@ -101,7 +101,13 @@ def _is_active(flow, flow_range, card):
     """The card can appear on at least one grouped endpoint for this range."""
     if card.archived_at is None and card.column_uid not in flow.done_uids:
         return True
-    if card.completion_at is not None and flow_range.contains(card.completion_at):
+    if card.completion_at is not None and (
+        flow_range.contains(card.completion_at)
+        # Throughput buckets whole UTC days, and on a rolling range the first
+        # day starts at midnight, before ``start``: a completion there is a
+        # throughput sample that ``contains`` would miss.
+        or flow_range.first_day <= fm._utc_date(card.completion_at) <= flow_range.last_day
+    ):
         return True
     return any(
         visit.end is not None and visit.key not in flow.done_uids and flow_range.contains(visit.end)
@@ -124,7 +130,7 @@ class GroupedFlow:
     """The ranked groups, shared by all four endpoints so they agree on order and colors.
 
     Ranking reads the active cards (live outside a done column, first completion
-    in the range, or a visit closed in the range), not any one endpoint's
+    in the range or on one of its bucketed days, or a visit closed in the range), not any one endpoint's
     samples, so a group keeps its place, and its color, across the charts. A
     group may therefore be listed with size 0 on one endpoint.
     """
