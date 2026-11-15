@@ -14,6 +14,8 @@ import { isImeComposing } from "../../utils/imeComposition";
 interface Props {
   /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
   boardColors?: BoardColor[];
+  /** This is the board's first not-done column (#2298); shown in its settings. */
+  isIntakeColumn?: boolean;
   column: Column;
   cards: Card[];
   boardId: number;
@@ -29,7 +31,7 @@ interface Props {
   showWipAtLimit?: boolean;
 }
 
-export default function ColumnHeader({ boardColors, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -375,6 +377,7 @@ export default function ColumnHeader({ boardColors, column, cards, boardId, isAd
           cardCount={cardCount}
           initialTab={editTab === "policy" ? "policy" : undefined}
           boardColors={boardColors}
+          isIntakeColumn={isIntakeColumn}
           onUpdated={(col) => { onColumnUpdated(col); setEditTab(null); }}
           onRequestDelete={onRequestDelete}
           onClose={() => setEditTab(null)}

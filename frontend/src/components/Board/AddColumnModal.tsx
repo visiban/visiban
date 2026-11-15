@@ -4,6 +4,7 @@ import { createColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
+import { IntakeNoteIcon } from "./IntakeColumnCallout";
 import ModalWrapper from "../shared/ModalWrapper";
 import { isImeComposing } from "../../utils/imeComposition";
 
@@ -13,9 +14,13 @@ interface Props {
   onClose: () => void;
   /** Colors in use on the board, offered in the custom color popover (#2098). */
   boardColors?: BoardColor[];
+  /** The new column would be the board's first not-done column (#2298). */
+  willBecomeIntake?: boolean;
+  /** ...and another not-done column is the intake today, so it loses the role. */
+  replacesIntake?: boolean;
 }
 
-export default function AddColumnModal({ boardId, onAdded, onClose, boardColors }: Props) {
+export default function AddColumnModal({ boardId, onAdded, onClose, boardColors, willBecomeIntake, replacesIntake }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
   const [wipLimit, setWipLimit] = useState("");
@@ -81,6 +86,21 @@ export default function AddColumnModal({ boardId, onAdded, onClose, boardColors 
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
           <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
         </div>
+        {willBecomeIntake && (
+          <div
+            role="note"
+            aria-label="Intake column"
+            data-testid="intake-takeover-note"
+            className="flex gap-2 rounded-lg border border-line bg-sunken px-3 py-2.5 text-xs text-fg-secondary"
+          >
+            <IntakeNoteIcon className="w-4 h-4" />
+            <p>
+              {replacesIntake
+                ? "This column will become the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck. The current intake column can be named as the bottleneck again."
+                : "This will be the board's intake column, because it will be the first not-done column. Analytics won't name it as the bottleneck."}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 mt-5">

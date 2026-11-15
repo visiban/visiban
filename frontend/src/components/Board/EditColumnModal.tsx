@@ -5,6 +5,7 @@ import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
+import IntakeColumnCallout from "./IntakeColumnCallout";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
@@ -24,6 +25,9 @@ interface Props {
   initialTab?: EditColumnTab;
   /** Colors in use on the board, offered in the custom color popover (#2098). */
   boardColors?: BoardColor[];
+  /** True when this is the board's first not-done column (#2298). Computed by
+   *  the caller from the full column list; absent renders no callout. */
+  isIntakeColumn?: boolean;
 }
 
 const TABS: { id: EditColumnTab; label: string }[] = [
@@ -31,7 +35,7 @@ const TABS: { id: EditColumnTab; label: string }[] = [
   { id: "policy", label: "Policy" },
 ];
 
-export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors }: Props) {
+export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors, isIntakeColumn }: Props) {
   const [tab, setTab] = useState<EditColumnTab>(initialTab ?? "settings");
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
@@ -227,6 +231,8 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                     Cards moved into this column are counted as completed in analytics.
                   </p>
                 </label>
+                {/* Saved is_done, not the draft checkbox, so toggling it does not flicker the note. */}
+                {isIntakeColumn && !column.is_done && <IntakeColumnCallout idPrefix={tabsId} />}
               </div>
 
               <div className="border-t border-line mt-3 pt-3">
