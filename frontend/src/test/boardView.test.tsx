@@ -114,12 +114,27 @@ vi.mock('../components/Board/AnalyticsView', () => ({
     </div>
   ),
 }))
-vi.mock('../components/Board/ColumnHeader', () => ({
-  default: ({ column, collapsed, onColumnUpdated }: { column: { id: number; name: string }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void }) => {
-    capturedColumnUpdated = onColumnUpdated
-    return <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
-  },
-}))
+// The intake wiring test (#2298) sets this so the mocks hand BoardView's props to the REAL modals.
+let renderRealColumnModals = false
+vi.mock('../components/Board/ColumnHeader', async () => {
+  const { useState } = await import('react')
+  const { default: RealEditColumnModal } = await vi.importActual<typeof import('../components/Board/EditColumnModal')>('../components/Board/EditColumnModal')
+  return {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean }) => {
+      capturedColumnUpdated = onColumnUpdated
+      const [editing, setEditing] = useState(false)
+      return (
+        <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
+          {column.name}
+          {renderRealColumnModals && <button onClick={() => setEditing(true)}>{`Settings ${column.name}`}</button>}
+          {renderRealColumnModals && editing && (
+            <RealEditColumnModal boardId={1} column={column as never} cardCount={0} isIntakeColumn={isIntakeColumn} onUpdated={() => {}} onRequestDelete={() => {}} onClose={() => setEditing(false)} />
+          )}
+        </div>
+      )
+    },
+  }
+})
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 // data-can-edit surfaces the canEdit prop (#783 — maintenance mode folds into the
 // existing per-board write gate) so tests can assert on it without rendering the
@@ -147,15 +162,21 @@ vi.mock('../components/Card/CardItem', () => ({
 vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
 }))
-vi.mock('../components/Board/AddColumnModal', () => ({
-  default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => (
-    <div data-testid="add-column-modal">
-      <button onClick={() => onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false })}>
-        Confirm Add
-      </button>
-    </div>
-  ),
-}))
+vi.mock('../components/Board/AddColumnModal', async () => {
+  const { default: RealAddColumnModal } = await vi.importActual<typeof import('../components/Board/AddColumnModal')>('../components/Board/AddColumnModal')
+  return {
+    default: (props: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => {
+      if (renderRealColumnModals) return <RealAddColumnModal {...(props as never)} />
+      return (
+        <div data-testid="add-column-modal">
+          <button onClick={() => props.onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false })}>
+            Confirm Add
+          </button>
+        </div>
+      )
+    },
+  }
+})
 // Exposes the separator's insert action so a test can open the add-lane modal (#2205).
 vi.mock('../components/Board/RowSeparator', () => ({
   default: ({ onInsert }: { onInsert: () => void }) => <button data-testid="row-sep-insert" onClick={onInsert}>InsertLaneMock</button>,
@@ -362,6 +383,48 @@ describe('BoardView', () => {
     mockBoardContextValue = defaultContext()
     // Default: getCardStatus returns null (card deleted/unknown)
     mockedGetCardStatus.mockResolvedValue(null)
+  })
+
+  describe('intake column wiring (#2298)', () => {
+    afterEach(() => { renderRealColumnModals = false })
+
+    it('marks only the first not-done column as intake in settings, and flags the Add modal only when the insert would take over', async () => {
+      renderRealColumnModals = true
+      const base = makeBoard().columns[0]
+      const columns = [
+        { ...base, id: 10, name: 'Shipped', position: 0, is_done: true },
+        { ...base, id: 11, name: 'Backlog', position: 1, is_done: false },
+        { ...base, id: 12, name: 'Review', position: 2, is_done: false },
+      ]
+      mockBoardContextValue = defaultContext({ board: makeBoard({ columns }) })
+      const user = userEvent.setup()
+      const { container } = render(<BoardView {...defaultProps()} />)
+
+      // Settings: the callout shows on the first not-done column only.
+      for (const [name, expected] of [['Shipped', false], ['Backlog', true], ['Review', false]] as const) {
+        await user.click(screen.getByRole('button', { name: `Settings ${name}` }))
+        expect(screen.queryByTestId('intake-column-callout') !== null, name).toBe(expected)
+        await user.keyboard('{Escape}')
+        if (screen.queryByTestId('intake-column-callout')) {
+          fireEvent.click(screen.getByRole('button', { name: /^(Cancel|Close)/ }))
+        }
+        expect(screen.queryByTestId('intake-column-callout')).not.toBeInTheDocument()
+      }
+
+      // Far-left separator (insert position 0) puts a not-done column first: take-over note.
+      const separators = Array.from(container.querySelectorAll('div.cursor-col-resize'))
+      fireEvent.mouseDown(separators[0])
+      fireEvent.mouseUp(window)
+      expect(await screen.findByTestId('intake-takeover-note')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByTestId('intake-takeover-note')).not.toBeInTheDocument()
+
+      // Appending at the end leaves the intake column alone: no note.
+      fireEvent.mouseDown(separators[separators.length - 1])
+      fireEvent.mouseUp(window)
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+      expect(screen.queryByTestId('intake-takeover-note')).not.toBeInTheDocument()
+    })
   })
 
   it('notifies the archived panel before the board evicts a deleted card (#2062)', () => {
