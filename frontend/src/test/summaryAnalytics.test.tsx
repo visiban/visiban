@@ -9,12 +9,13 @@ vi.mock('../api/boards', () => ({
   getBoardAnalytics: vi.fn(),
 }))
 
-// AnalyticsView mounts the flow dashboard (#448), covered by flowMetricsDashboard.test.tsx.
-vi.mock('../components/Board/flowMetrics/FlowMetricsDashboard', () => ({
-  default: () => <div data-testid="flow-dashboard" />,
-}))
+// The Overview's flow panels are covered by flowMetricsDashboard.test.tsx; here
+// they get a board with some history so the heatmap and stalled table render.
+vi.mock('../api/flowMetrics', async () => (await import('./flowMetricsStubs')).flowMetricsStub())
 
 import { getBoardSummary, getBoardAnalytics } from '../api/boards'
+import { getFlowAttention } from '../api/flowMetrics'
+import type { FlowAttention } from '../types'
 
 const mockGetBoardSummary = getBoardSummary as ReturnType<typeof vi.fn>
 const mockGetBoardAnalytics = getBoardAnalytics as ReturnType<typeof vi.fn>
@@ -317,69 +318,7 @@ describe('AnalyticsView', () => {
     expect(screen.getByRole('button', { name: 'Throughput' })).toBeInTheDocument()
   })
 
-  it('defaults to age mode — period selector hidden', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          age_avg_days_per_column: { 'To Do': 8 },
-          age_is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByText('Customer A')
-    // Period buttons are hidden in age mode
-    expect(screen.queryByText('7d')).not.toBeInTheDocument()
-    expect(screen.queryByText('30d')).not.toBeInTheDocument()
-    expect(screen.queryByText('90d')).not.toBeInTheDocument()
-  })
-
-  it('switching to throughput mode shows period selector', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('button', { name: 'Throughput' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Throughput' }))
-    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '30d' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '90d' })).toBeInTheDocument()
-  })
-
-  it('switching back to age mode hides period selector', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('button', { name: 'Throughput' })
-    await user.click(screen.getByRole('button', { name: 'Throughput' }))
-    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Age' }))
-    expect(screen.queryByRole('button', { name: '7d' })).not.toBeInTheDocument()
-  })
-
-  it('description line appears only in throughput mode', async () => {
+  it('description line appears only in throughput mode and names the filter bar period', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -393,7 +332,7 @@ describe('AnalyticsView', () => {
     await screen.findByRole('button', { name: 'Age' })
     expect(screen.queryByText(/exited in the last/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Throughput' }))
-    expect(screen.getByText(/exited in the last 30 days/)).toBeInTheDocument()
+    expect(screen.getByText(/exited in the last 90 days/)).toBeInTheDocument()
   })
 
   it('age mode renders age_avg_days_per_column values', async () => {
@@ -487,7 +426,7 @@ describe('AnalyticsView', () => {
     expect(screen.getByText('3d')).toBeInTheDocument()
     expect(screen.getByText('7d')).toBeInTheDocument()
     // Null cell renders em-dash
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Dwell time heatmap' })).getByText('—')).toBeInTheDocument()
     // Velocity
     expect(screen.getByText('10d')).toBeInTheDocument()
   })
@@ -595,108 +534,6 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
   })
 
-  it('shows stalled cards section', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [{ id: 100, title: 'Stale Card', days_since_move: 14 }],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText('Stale Card')).toBeInTheDocument()
-    expect(screen.getByText('14d')).toBeInTheDocument()
-  })
-
-  it('calls onOpenCard when a stalled card row is clicked', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [{ id: 42, title: 'Stale Card', days_since_move: 14 }],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    const onOpenCard = vi.fn()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
-    await userEvent.setup().click(await screen.findByText('Stale Card'))
-    expect(onOpenCard).toHaveBeenCalledWith(42)
-  })
-
-  const stalledPayload = {
-    days: 30,
-    columns: ['To Do'],
-    swimlanes: [
-      {
-        id: 1, name: 'Customer A',
-        avg_days_per_column: { 'To Do': 5 },
-        is_outlier: { 'To Do': false },
-        deal_velocity_days: null,
-        stalled_cards: [{ id: 42, title: 'Stale Card', days_since_move: 14 }],
-      },
-    ],
-    stalled_threshold_days: 7,
-    staleness_threshold_days: 14,
-    stale_warning_pct: 50,
-  }
-
-  it('stalled card row is a keyboard tab stop; Enter and Space open the card (#1376)', async () => {
-    mockGetBoardAnalytics.mockResolvedValue(stalledPayload)
-    const onOpenCard = vi.fn()
-    const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
-    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
-    expect(row).toHaveAttribute('tabindex', '0')
-    row.focus()
-    expect(row).toHaveFocus()
-    await user.keyboard('{Enter}')
-    await user.keyboard(' ')
-    expect(onOpenCard).toHaveBeenCalledTimes(2)
-    expect(onOpenCard).toHaveBeenNthCalledWith(1, 42)
-    expect(onOpenCard).toHaveBeenNthCalledWith(2, 42)
-  })
-
-  it('stalled card row has no tab stop when onOpenCard is absent (#1376)', async () => {
-    mockGetBoardAnalytics.mockResolvedValue(stalledPayload)
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
-    expect(row).not.toHaveAttribute('tabindex')
-  })
-
-  it('changes period on button click in throughput mode', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: [],
-      swimlanes: [],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    const user = userEvent.setup()
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByRole('button', { name: 'Throughput' })
-    await user.click(screen.getByRole('button', { name: 'Throughput' }))
-    await user.click(screen.getByRole('button', { name: '7d' }))
-    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
-  })
-
   it('renders heatmap table even when all cells are null (no movements in period)', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
@@ -792,73 +629,6 @@ describe('AnalyticsView', () => {
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('3d')
     expect(cell.className).toMatch(/success/)
-  })
-
-  it('shows stalled count label when stalled cards are present', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [
-            { id: 1, title: 'Card One', days_since_move: 10 },
-            { id: 2, title: 'Card Two', days_since_move: 12 },
-          ],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText('2 cards stalled')).toBeInTheDocument()
-  })
-
-  it('shows singular count label for exactly one stalled card', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [{ id: 1, title: 'Solo Card', days_since_move: 9 }],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText('1 card stalled')).toBeInTheDocument()
-  })
-
-  it('does not render stalled section when no stalled cards', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByText('Customer A')
-    expect(screen.queryByText(/stalled/i)).not.toBeInTheDocument()
   })
 
   it('hides done columns from heatmap when done_columns is populated', async () => {
@@ -968,41 +738,155 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText('≥30d')).not.toBeInTheDocument()
   })
 
-  it('renders a beta notice strip with "Beta" label and guidance text when analytics loads successfully', async () => {
+})
+
+const attentionPayload = (items: { id: number; title: string; days: number }[]): FlowAttention => ({
+  definition: 'd',
+  stalled_threshold_days: 7,
+  cycle_time_percentiles: { p50: null, p85: null, p95: null },
+  items: items.map((c) => ({
+    card_uid: `uid-${c.id}`, column_uid: 'col', swimlane_id: 1, age_days: c.days, unmoved_days: c.days, reasons: ['stalled'],
+  })),
+  cards: items.map((c) => ({ uid: `uid-${c.id}`, id: c.id, title: c.title, archived: false, assignee: null })),
+})
+
+describe('AnalyticsView stalled cards, from metrics/attention (#2261)', () => {
+  const swimlanes = [{ id: 1, name: 'Customer A' }]
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
     mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: [],
-      swimlanes: [],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
+      days: 90, columns: [], swimlanes: [], stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
     })
-    render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    // Wait for the success state — the mode toggle is only rendered after data loads.
-    await screen.findByRole('button', { name: 'Age' })
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.getByText(/Analytics data may be incomplete in some configurations/)).toBeInTheDocument()
+  })
+
+  it('lists stalled cards oldest first with their swimlane and the threshold', async () => {
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([
+      { id: 100, title: 'Stale Card', days: 14 }, { id: 101, title: 'Older Card', days: 20 },
+    ]))
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
+    expect(await screen.findByText('Stale Card')).toBeInTheDocument()
+    expect(screen.getByText('14d')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Stalled cards (>7 days without movement)' })).toBeInTheDocument()
+    expect(screen.getByText('2 cards stalled')).toBeInTheDocument()
+    const rows = within(screen.getByRole('table', { name: 'Stalled cards' })).getAllByRole('row').slice(1)
+    expect(rows[0]).toHaveTextContent('Customer AOlder Card20d')
+  })
+
+  it('ignores attention items that are not stalled', async () => {
+    const payload = attentionPayload([{ id: 1, title: 'Solo Card', days: 9 }, { id: 2, title: 'Blocked Card', days: 3 }])
+    payload.items[1].reasons = ['blocked']
+    vi.mocked(getFlowAttention).mockResolvedValue(payload)
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
+    expect(await screen.findByText('1 card stalled')).toBeInTheDocument()
+    expect(screen.queryByText('Blocked Card')).not.toBeInTheDocument()
+  })
+
+  it('says so when no card is stalled', async () => {
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([]))
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
+    expect(await screen.findByText('No card in progress has gone that long without moving.')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Stalled cards' })).not.toBeInTheDocument()
+  })
+
+  it('pages 25 rows at a time', async () => {
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload(
+      Array.from({ length: 30 }, (_, i) => ({ id: i + 1, title: `Card ${i + 1}`, days: 100 - i })),
+    ))
+    const user = userEvent.setup()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" swimlanes={swimlanes} />)
+    expect(await screen.findByText('1–25 of 30')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next →' }))
+    expect(screen.getByText('26–30 of 30')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← Prev' }))
+    expect(screen.getByText('1–25 of 30')).toBeInTheDocument()
+  })
+
+  it('opens a card on click, Enter and Space; the row is a tab stop only with onOpenCard (#1376)', async () => {
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([{ id: 42, title: 'Stale Card', days: 14 }]))
+    const onOpenCard = vi.fn()
+    const user = userEvent.setup()
+    const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
+    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
+    expect(row).toHaveAttribute('tabindex', '0')
+    await user.click(row)
+    row.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(onOpenCard).toHaveBeenCalledTimes(3)
+    expect(onOpenCard).toHaveBeenCalledWith(42)
+    unmount()
+
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect((await screen.findByText('Stale Card')).closest('tr')).not.toHaveAttribute('tabindex')
   })
 })
 
-describe('AnalyticsView hosts the flow dashboard (#448)', () => {
-  it('keeps it mounted while the heatmap is loading or failed', async () => {
+describe('AnalyticsView keeps the Overview mounted (#448, #2261)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getFlowAttention).mockResolvedValue(attentionPayload([]))
+  })
+
+  it('shows the heatmap loading and failure inside its own region', async () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
     const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(screen.getByText(/Loading analytics/)).toBeInTheDocument()
-    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-metrics')).toBeInTheDocument()
     unmount()
 
     mockGetBoardAnalytics.mockRejectedValue(new Error('fail'))
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
-    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
   })
 
-  it('still offers it when the analytics payload has no swimlanes', async () => {
+  it('still shows the charts when the analytics payload has no swimlanes', async () => {
     mockGetBoardAnalytics.mockResolvedValue({} as never)
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
     expect(await screen.findByText('No analytics data')).toBeInTheDocument()
-    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
+  })
+
+  it('shows the Beta badge in the title row and the guidance in the footnote', async () => {
+    mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
+    render(<AnalyticsView boardId={1} currentUserRole="member" boardName="Roadmap" />)
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText(/data may be incomplete in some configurations/)).toBeInTheDocument()
+  })
+})
+
+describe('AnalyticsView Export CSV in the filter bar (#2261)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('exports the heatmap rows in the current mode, named for the mode and period', async () => {
+    vi.clearAllMocks()
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 90, columns: ['To Do'], done_columns: [],
+      swimlanes: [{
+        id: 1, name: 'Customer A', avg_days_per_column: { 'To Do': 5 }, is_outlier: {},
+        age_avg_days_per_column: { 'To Do': 8 }, throughput_avg_days_per_column: { 'To Do': 3 },
+        deal_velocity_days: 12, stalled_cards: [],
+      }],
+      stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
+    })
+    const blobs: Blob[] = []
+    URL.createObjectURL = vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:x' }) as never
+    URL.revokeObjectURL = vi.fn()
+    const names: string[] = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { names.push(this.download) })
+    const user = userEvent.setup()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await user.click(await screen.findByRole('button', { name: 'Export CSV' }))
+    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+    expect(names).toEqual(['analytics-age-90d.csv', 'analytics-throughput-90d.csv'])
+    const read = (blob: Blob) => new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.readAsText(blob)
+    })
+    expect(await read(blobs[0])).toBe('Swimlane,Current age (To Do, days),Velocity (days),Stalled cards\nCustomer A,8,12,0')
+    expect(await read(blobs[1])).toContain('Customer A,3,12,0')
   })
 })

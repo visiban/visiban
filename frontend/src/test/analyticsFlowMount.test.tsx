@@ -1,10 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useEffect } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AnalyticsView from '../components/Board/AnalyticsView'
 
-// The real dashboard, so these count what a viewer's browser actually does: a
-// remount is four full-history replays and loses every filter (#448).
+// Each chart counts its own mounts: a filter change must refetch every panel
+// once and remount none of them, or a keyboard user loses their place and the
+// page replays every card's history again (#448, #2261).
+const mounts = vi.hoisted(() => ({ cycle: 0, throughput: 0, cumulative: 0, age: 0 }))
+
+function counted(name: keyof typeof mounts) {
+  return function CountedChart() {
+    useEffect(() => { mounts[name] += 1 }, [])
+    return <svg role="img" aria-label={name} />
+  }
+}
+
+vi.mock('../components/Board/flowMetrics/CycleTimeChart', () => ({ default: counted('cycle') }))
+vi.mock('../components/Board/flowMetrics/ThroughputChart', () => ({ default: counted('throughput') }))
+vi.mock('../components/Board/flowMetrics/CumulativeFlowChart', () => ({ default: counted('cumulative') }))
+vi.mock('../components/Board/flowMetrics/WipAgeChart', () => ({ default: counted('age') }))
 vi.mock('../api/boards', () => ({ getBoardAnalytics: vi.fn() }))
 vi.mock('../api/flowMetrics', () => ({
   getFlowCycleTime: vi.fn(),
@@ -12,36 +27,39 @@ vi.mock('../api/flowMetrics', () => ({
   getFlowCumulativeFlow: vi.fn(),
   getFlowCumulativeDay: vi.fn(),
   getFlowWipAge: vi.fn(),
+  getFlowDwell: vi.fn(),
+  getFlowBlocked: vi.fn(),
+  getFlowAttention: vi.fn(),
 }))
 
 import { getBoardAnalytics } from '../api/boards'
-import { getFlowCumulativeFlow, getFlowCycleTime, getFlowThroughput, getFlowWipAge } from '../api/flowMetrics'
+import {
+  getFlowAttention, getFlowBlocked, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell, getFlowThroughput, getFlowWipAge,
+} from '../api/flowMetrics'
 
 const analytics = {
-  days: 30, columns: ['Doing'], done_columns: [], swimlanes: [],
+  days: 90, columns: ['Doing'], done_columns: [], swimlanes: [],
   stalled_threshold_days: 7, staleness_threshold_days: 7, stale_warning_pct: 50,
 }
 const percentiles = { p50: null, p85: null, p95: null }
-const flowEndpoints = [getFlowCycleTime, getFlowThroughput, getFlowCumulativeFlow, getFlowWipAge].map((f) => vi.mocked(f))
-const requests = () => flowEndpoints.reduce((sum, endpoint) => sum + endpoint.mock.calls.length, 0)
+const fetchers = [
+  getFlowCycleTime, getFlowThroughput, getFlowCumulativeFlow, getFlowWipAge, getFlowDwell, getFlowBlocked, getFlowAttention,
+  getBoardAnalytics,
+].map((f) => vi.mocked(f))
+const calls = () => fetchers.map((f) => f.mock.calls.length)
 
 const props = {
   boardId: 9,
   currentUserRole: 'member',
   swimlanes: [{ id: 3, name: 'Customer A' }],
   labels: [{ id: 4, name: 'Urgent' }],
-}
-
-async function changeHeatmapPeriod() {
-  await userEvent.click(await screen.findByRole('button', { name: 'Throughput' }))
-  await userEvent.click(screen.getByRole('button', { name: '7d' }))
-  await waitFor(() => expect(vi.mocked(getBoardAnalytics)).toHaveBeenLastCalledWith(9, 7))
-  await screen.findByRole('button', { name: '7d' })
+  boardName: 'Platform roadmap',
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
+  for (const key of Object.keys(mounts) as (keyof typeof mounts)[]) mounts[key] = 0
   vi.mocked(getBoardAnalytics).mockResolvedValue(analytics as never)
   vi.mocked(getFlowCycleTime).mockResolvedValue({
     definition: 'd', sample_size: 0, excluded_incomplete_history: 0, percentiles, samples: [], cards: [],
@@ -53,58 +71,80 @@ beforeEach(() => {
   vi.mocked(getFlowWipAge).mockResolvedValue({
     definition: 'd', sample_size: 0, excluded_incomplete_history: 0, cycle_time_percentiles: percentiles, columns: [], samples: [], cards: [],
   })
-})
-
-describe('AnalyticsView beta notice (#2012)', () => {
-  it('hides the decorative "·" divider from assistive tech', () => {
-    render(<AnalyticsView {...props} />)
-    expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
+  vi.mocked(getFlowDwell).mockResolvedValue({ definition: 'd', sample_size: 0, excluded_incomplete_history: 0, columns: [] })
+  vi.mocked(getFlowBlocked).mockResolvedValue({
+    definition: 'd', total: { days: 0, blocks: 0 }, blocked_now: 0, columns: [], reasons: [], reason_count: 0,
+  })
+  vi.mocked(getFlowAttention).mockResolvedValue({
+    definition: 'd', stalled_threshold_days: 7, cycle_time_percentiles: percentiles, items: [], cards: [],
   })
 })
 
-describe('AnalyticsView keeps one flow dashboard mounted', () => {
-  it('makes one round of requests when the tab opens, not one per heatmap state', async () => {
+async function choose(trigger: RegExp, option: string) {
+  await userEvent.click(screen.getByRole('button', { name: trigger }))
+  await userEvent.click(screen.getByRole('menuitem', { name: option }))
+}
+
+describe('AnalyticsView title row (#2012, #2261)', () => {
+  it('shows the title, Beta badge and board name, and hides the decorative "·" divider from assistive tech', () => {
+    render(<AnalyticsView {...props} />)
+    expect(screen.getByRole('heading', { name: 'Analytics', level: 1 })).toBeInTheDocument()
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText(/Platform roadmap/)).toBeInTheDocument()
+    expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/results are best used as directional guidance/)).toBeInTheDocument()
+  })
+})
+
+describe('AnalyticsView: one filter bar drives the page without remounting the charts', () => {
+  it('makes one request per endpoint when the tab opens', async () => {
     render(<AnalyticsView {...props} />)
     await screen.findByTestId('flow-wip-age')
     await screen.findByRole('button', { name: 'Throughput' })
-    expect(requests()).toBe(flowEndpoints.length)
+    expect(calls()).toEqual(fetchers.map(() => 1))
+    expect(mounts).toEqual({ cycle: 1, throughput: 1, cumulative: 1, age: 1 })
   })
 
-  it('makes no new requests when the heatmap period changes', async () => {
-    render(<AnalyticsView {...props} />)
-    await changeHeatmapPeriod()
-    expect(requests()).toBe(flowEndpoints.length)
-  })
-
-  it('keeps its filters and charts across a heatmap period change', async () => {
+  it('refetches every panel exactly once per Period, Swimlane and Label change, and remounts no chart', async () => {
     render(<AnalyticsView {...props} />)
     await screen.findByTestId('flow-wip-age')
-    await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
-    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
-    await waitFor(() => expect(vi.mocked(getFlowWipAge)).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: 3, labelId: null }))
-    await screen.findByTestId('flow-wip-age')
-    const before = requests()
+    let before = calls()
 
-    await changeHeatmapPeriod()
-
+    for (const [trigger, option, filters] of [
+      [/^Date range/, 'Last 30 days', { days: 30, swimlaneId: null, labelId: null }],
+      [/^Swimlane/, 'Customer A', { days: 30, swimlaneId: 3, labelId: null }],
+      [/^Label/, 'Urgent', { days: 30, swimlaneId: 3, labelId: 4 }],
+    ] as const) {
+      await choose(trigger, option)
+      await waitFor(() => expect(vi.mocked(getFlowAttention)).toHaveBeenLastCalledWith(9, filters))
+      await waitFor(() => expect(screen.getByRole('status').textContent).toBe(''))
+      expect(calls()).toEqual(before.map((n) => n + 1))
+      expect(vi.mocked(getBoardAnalytics)).toHaveBeenLastCalledWith(9, filters.days, undefined, {
+        swimlaneId: filters.swimlaneId, labelId: filters.labelId,
+      })
+      expect(mounts).toEqual({ cycle: 1, throughput: 1, cumulative: 1, age: 1 })
+      before = calls()
+    }
     expect(screen.getByRole('button', { name: 'Swimlane: Customer A' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Date range: Last 30 days' })).toBeInTheDocument()
-    expect(requests()).toBe(before)
   })
 
-  it('keeps it mounted through a heatmap failure', async () => {
+  it('keeps the charts mounted through a heatmap failure', async () => {
     vi.mocked(getBoardAnalytics).mockRejectedValue(new Error('no'))
     render(<AnalyticsView {...props} />)
     await screen.findByText('Failed to load analytics.')
     await screen.findByTestId('flow-wip-age')
-    expect(requests()).toBe(flowEndpoints.length)
+    expect(calls()).toEqual(fetchers.map(() => 1))
+  })
+
+  it('makes no request when the heatmap mode changes', async () => {
+    render(<AnalyticsView {...props} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Throughput' }))
+    expect(calls()).toEqual(fetchers.map(() => 1))
   })
 })
 
 describe('AnalyticsView toggles mark the active state without color (#2185)', () => {
-  it('checks the active mode and period buttons', async () => {
+  it('checks the active mode button', async () => {
     render(<AnalyticsView {...props} />)
     const age = await screen.findByRole('button', { name: 'Age' })
     const throughput = screen.getByRole('button', { name: 'Throughput' })
@@ -113,8 +153,5 @@ describe('AnalyticsView toggles mark the active state without color (#2185)', ()
     expect(throughput.querySelector('[data-testid="active-mark"]')).toBeNull()
     await userEvent.click(throughput)
     expect(throughput.querySelector('[data-testid="active-mark"]')).not.toBeNull()
-    const thirty = await screen.findByRole('button', { name: '30d' })
-    expect(thirty.querySelector('[data-testid="active-mark"]')).not.toBeNull()
-    expect(screen.getByRole('button', { name: '7d' }).querySelector('[data-testid="active-mark"]')).toBeNull()
   })
 })

@@ -393,6 +393,16 @@ describe('Board API wrappers', () => {
     })
   })
 
+  it('getBoardAnalytics sends swimlane_id and label_id only when set (#2261)', async () => {
+    mockClient.get.mockResolvedValue({ data: {} })
+    await getBoardAnalytics(1, 90, undefined, { swimlaneId: 3, labelId: 4 })
+    expect(mockClient.get).toHaveBeenLastCalledWith('/api/v1/boards/1/analytics/', {
+      params: { days: 90, swimlane_id: 3, label_id: 4 },
+    })
+    await getBoardAnalytics(1, 90, undefined, { swimlaneId: null, labelId: null })
+    expect(mockClient.get).toHaveBeenLastCalledWith('/api/v1/boards/1/analytics/', { params: { days: 90 } })
+  })
+
   it('getBoardAnalytics omits stalled_days when not specified', async () => {
     mockClient.get.mockResolvedValue({ data: {} })
     await getBoardAnalytics(1)
