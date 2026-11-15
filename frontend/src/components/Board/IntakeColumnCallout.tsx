@@ -53,11 +53,11 @@ export default function IntakeColumnCallout({ idPrefix }: { idPrefix: string }) 
     >
       <IntakeNoteIcon />
       <div className="flex flex-col gap-1.5 min-w-0">
-        <label className="flex items-center gap-2 cursor-not-allowed select-none opacity-70">
-          <input type="checkbox" checked disabled readOnly className="w-4 h-4 rounded accent-primary" />
+        <label className="flex items-center gap-2 cursor-not-allowed select-none">
+          <input type="checkbox" checked disabled readOnly aria-describedby={`${idPrefix}-intake-reason`} className="w-4 h-4 rounded accent-primary disabled:opacity-40 disabled:cursor-not-allowed" />
           <span className="text-sm text-fg-secondary">Not named as the bottleneck</span>
         </label>
-        <p>
+        <p id={`${idPrefix}-intake-reason`}>
           <span className="font-medium text-fg">This is the board's intake column.</span> Analytics doesn't name it as the bottleneck.
         </p>
         <MoreDisclosure bodyId={bodyId}>
