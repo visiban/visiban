@@ -279,12 +279,6 @@ const ShortcutsIcon = (
     <line x1="8" y1="14" x2="16" y2="14" />
   </svg>
 );
-const ReplayTourIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-    <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" strokeLinecap="round" />
-    <polyline points="8,1 8,4 11,4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 // Window in which an event echoing the actor's own member add does not
 // trigger a second re-read (#1706).
@@ -1849,8 +1843,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Replay the onboarding tour — best-effort reset on the server, then flip
   // the local user's has_completed_tour flag so the tour re-arms. Shared by
-  // the Shortcuts overlay "Restart tour" button and the overflow menu's
-  // "Replay onboarding tour" item; both call sites need identical behavior.
+  // the Shortcuts overlay "Restart tour" button (the overflow menu no longer
+  // carries a replay item); Settings has its own reset path.
   const replayTour = useCallback(async () => {
     if (!currentUser) return;
     try {
@@ -2497,25 +2491,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       },
     });
 
-    // Section 3 — help (only when a user is signed in and can reset the tour)
-    if (currentUser) {
-      items.push({
-        id: "tour",
-        label: "Replay onboarding tour",
-        icon: ReplayTourIcon,
-        onSelect: () => {
-          void replayTour();
-        },
-        separatorBefore: true,
-      });
-    }
-
     return items;
   }, [
     isAdmin,
     canExport,
-    currentUser,
-    replayTour,
   ]);
 
   // Screen-reader-only announcement for card-action results that change the
@@ -2539,9 +2518,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
-            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row)
-            so the tabs and controls line up pixel-for-pixel and the row scrolls
-            instead of wrapping on narrow viewports — switching Board↔Lens is fluid. */}
+            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row).
+            The Lens toolbar keeps this old layout until #2302 moves it onto
+            the board's new toolbar; the row scrolls instead of wrapping. */}
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
           <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
             <div className="flex items-center gap-2 h-full min-w-max">

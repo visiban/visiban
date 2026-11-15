@@ -193,7 +193,7 @@ Clicking Refresh inside the cooldown keeps showing the data you already have; th
 
 > **Changed in 1.2**
 
-The lens shares the board's toolbar row instead of rendering its own. The pivot dropdowns, a board-style **Filters** toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between **Board** and **Lens** no longer shifts the layout.
+The lens sits on the board's tab row, but its toolbar keeps the old scrolling layout until #2302 moves it onto the board's new toolbar. The pivot dropdowns, a board-style **Filters** toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between **Board** and **Lens** no longer shifts the layout.
 
 - **Compact layout** matches the board: cards flow two-per-row rather than shrinking, and the lens reuses your existing per-board card-layout preference.
 - **Narrow screens:** below the large breakpoint, the card-layout toggle moves into a **Lens actions** menu instead of pushing the row into a sideways scroll.

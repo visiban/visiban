@@ -201,7 +201,7 @@ export default function BoardViewMenu(props: Props) {
       </div>
 
       <div role="group" aria-label="Swimlanes">
-        <span className={SECTION_LABEL}>Swimlanes</span>
+        <span className={SECTION_LABEL}>Swimlanes <kbd className="ml-1 text-fg-secondary">E</kbd></span>
         <div className="flex gap-2">
           <button type="button" ref={collapseRef} className={BUTTON_CLASS} disabled={props.allSwimlanesCollapsed} onClick={props.onCollapseSwimlanes}>Collapse all</button>
           <button type="button" ref={expandRef} className={BUTTON_CLASS} disabled={props.allSwimlanesExpanded} onClick={props.onExpandSwimlanes}>Expand all</button>

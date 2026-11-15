@@ -444,7 +444,7 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 
 **View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel.
 
-**Overflow menu (`...`):** contains Export, Board settings (admins), Keyboard shortcuts, and Replay onboarding tour. A small first-run dot marks the menu until you open it.
+**Overflow menu (`...`):** contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 
 ## Card layout
 
@@ -459,7 +459,7 @@ The preference is stored per user in `localStorage` under the key `user:prefs:ca
 
 ## Filtering
 
-Click **Filters** in the toolbar (or press `f`) to open the filter bar. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
+Click **Filter** in the toolbar (or press `f`) to open the filter bar. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
 
 | Filter | Options |
 |---|---|

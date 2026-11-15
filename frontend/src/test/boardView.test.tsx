@@ -2393,18 +2393,15 @@ describe('BoardView', () => {
       expect(screen.getByRole('button', { name: 'More board actions' })).toBeInTheDocument()
     })
 
-    it('overflow menu at lg contains Export, Shortcuts, and Replay tour', async () => {
+    it('overflow menu holds only Export, Board settings and Shortcuts', async () => {
       render(<BoardView currentUser={fakeUser} />)
       await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
       expect(screen.getByRole('menuitem', { name: /Export board/ })).toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: /Replay onboarding tour/ })).toBeInTheDocument()
-    })
-
-    it('Replay onboarding tour is omitted when no user is logged in', async () => {
-      render(<BoardView currentUser={null} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
       expect(screen.queryByRole('menuitem', { name: /Replay onboarding tour/ })).not.toBeInTheDocument()
+      // Layout, archived and drawer actions live in the View menu / Activity drawer, not here.
+      expect(screen.queryByRole('menuitem', { name: /layout|density|archived|activity|drawer/i })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('menuitem').length).toBeLessThanOrEqual(3)
     })
 
     it('overflow menuitems carry a visible keyboard-focus ring (#1234)', async () => {

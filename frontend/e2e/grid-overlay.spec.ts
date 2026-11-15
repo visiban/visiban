@@ -182,4 +182,20 @@ test.describe('board toolbar at phone width', () => {
     )
     expect(overflow).toBeLessThanOrEqual(0)
   })
+
+  // The old scrolling toolbar also passed the page check above; this one fails
+  // if the toolbar scrolls itself or pushes a control off screen.
+  test('the toolbar wraps: no inner scroll and every control is on screen', async ({ page }) => {
+    await openBoard(page)
+    const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
+    await expect(toolbar).toBeVisible()
+    const { scroll, client } = await toolbar.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
+    expect(scroll).toBeLessThanOrEqual(client)
+    for (const name of ['Filters', 'View', 'Open activity drawer', 'More board actions']) {
+      const box = await toolbar.getByRole('button', { name: new RegExp(`^${name}`) }).first().boundingBox()
+      expect(box, name).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+    }
+  })
 })

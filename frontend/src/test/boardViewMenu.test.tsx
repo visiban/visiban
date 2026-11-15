@@ -100,6 +100,14 @@ describe('BoardViewMenu', () => {
     expect(props.onCardLayoutChange).toHaveBeenCalledWith('compact')
   })
 
+  it('shows the E hint on both the swimlane and column groups (E toggles both)', async () => {
+    setup()
+    await userEvent.setup().click(trigger())
+    for (const group of ['Swimlanes', 'Columns']) {
+      expect(within(panel().getByRole('group', { name: group })).getByText('E')).toBeInTheDocument()
+    }
+  })
+
   it('disables the no-op half of the swimlane and column pairs', async () => {
     const props = setup()
     const user = userEvent.setup()
