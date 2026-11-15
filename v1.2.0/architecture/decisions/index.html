@@ -3038,6 +3038,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#swimlane-comparison-2266" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlane comparison (#2266)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#where-current-code-disagrees" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5117,6 +5128,14 @@
 <li>It differs from the analytics endpoint's <code>stalled_cards</code> in two ways: a movement dated after the request is ignored, as everywhere in these definitions, and a card is judged by its current column, so a card whose latest movement went into a done column but that is no longer there is still listed.</li>
 </ul>
 </li>
+</ul>
+<h3 id="swimlane-comparison-2266">Swimlane comparison (#2266)<a class="headerlink" href="#swimlane-comparison-2266" title="Permanent link">&para;</a></h3>
+<p>The Swimlanes tab of Analytics compares each swimlane with the board. A lane's cycle time is the board's cycle time, restricted to the cards now in that lane, so its median and p85 follow the same definition and sample-size rule (p50 needs 5 cards, p85 needs 7). The board median is the median over every swimlane for the same filters (label, period). A lane with no cards still gets a row.</p>
+<ul>
+<li><strong>Blocked share.</strong> The lane's blocked seconds over its in-progress seconds, rounded to four decimals, <code>null</code> when no card of the lane has in-progress time. A card is in progress from its cycle start to its completion (or archive, or now), clipped to the period and never past now. Both sides count only that window, so a block opened in the backlog or after completion adds to neither. Overlapping blocks on one card count once. A card without a measured cycle start has no window. A reopened card's window still ends at its first completion, so its in-progress time and blocks after the reopen are not counted toward blocked share, even while it is in progress again and counted in <code>in_progress</code>.</li>
+<li><strong>Rolling median.</strong> Eight points per lane (<code>SWIMLANE_TREND_POINTS</code>). Each is the median cycle time of the lane's cards finished in a window half as long as the period. Window <code>i</code> (0 to 7) ends at the period start + half the period + <code>i</code> × half the period ÷ 7, so the first window ends mid-period and the last at the end of the period, and every window is full width and inside the period. A window with under 5 cards has a <code>null</code> median.</li>
+<li><strong>Status</strong> (<code>SWIMLANE_STATUS_THRESHOLD_PCT</code> = 20, <code>SWIMLANE_STATUS_MIN_FINISHED</code> = 10). <code>slower</code> when the lane's median is strictly more than 20% above the board median, <code>faster</code> when strictly more than 20% below, <code>in_line</code> otherwise (exactly 20% is <code>in_line</code>). <code>null</code> when the lane has fewer than 10 finished cards or either median is withheld. A median over a handful of cards moves a lot on one card, and a gap under 20% is ordinary week-to-week wobble.</li>
+<li><strong>Trend.</strong> The first rolling median against the last, by the same 20% rule (<code>slower</code>, <code>faster</code> or <code>steady</code>), with both values. There is no 10-card floor. Each end window needs its own 5 cards, so a lane with under 5 finished cards has no trend, and in practice a lane needs about 10 for both end windows to be filled. <code>null</code> when either end point is withheld. Only the selected period is used; the cross-period comparison is Enterprise.</li>
 </ul>
 <h3 id="where-current-code-disagrees">Where current code disagrees<a class="headerlink" href="#where-current-code-disagrees" title="Permanent link">&para;</a></h3>
 <p>None of these change in this ADR. #448 changes each one when it builds the service, with a <code>changed</code> changelog fragment and no field removed or retyped (1.x contract).</p>

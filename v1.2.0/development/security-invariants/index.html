@@ -5338,7 +5338,11 @@ each surface that delivers them:</p>
   code change, to be re-decided or closed by that date;</li>
 <li>admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
-  current shareable definitions.</li>
+  current shareable definitions.
+  <code>GET /boards/{id}/metrics/swimlanes/</code> hands out swimlane field values as each
+  lane's <code>group</code>, so an admin-only field is not a valid <code>group_by_field_id</code>
+  for a reader below admin (admin and site_admin may group by it; anyone else
+  gets the same <code>400</code> as for a missing field).</li>
 </ul>
 <p>An unknown recipient role or identity hides the field or the event.</p>
 <p><strong>Why.</strong> The writer has no recipient to filter for, and the change feed replays
@@ -5377,6 +5381,11 @@ one surface only leaves the same field readable through another.</p>
 <td>REST board and members</td>
 <td><code>boards/serializers.py</code> <code>BoardFullSerializer.get_members</code>, <code>get_swimlanes</code>; <code>BoardMembershipSerializer.to_representation</code></td>
 <td><code>moderator_field_visible</code>, <code>site_admin_field_visible</code> (on <code>/full/</code>, also <code>site_admin_roster_visible</code>, Rule 5); <code>SwimlaneAdminSerializer</code> for admin and site_admin only</td>
+</tr>
+<tr>
+<td>REST flow metrics</td>
+<td><code>boards/views/analytics.py</code> <code>SwimlaneComparisonQuerySerializer.validate_group_by_field_id</code> (<code>metrics/swimlanes/</code>)</td>
+<td>The field lookup drops <code>is_admin_only</code> definitions unless the request's role is <code>ADMIN</code> or <code>SITE_ADMIN</code>, and a dropped field answers the same <code>400</code> as a field that does not exist, so the answer does not reveal it. Pinned by <code>boards/tests/test_flow_metrics.py</code> <code>SwimlaneComparisonTests</code> (<code>test_admin_only_field_cannot_be_grouped_by_non_admins</code>, <code>test_site_admin_may_group_by_an_admin_only_field</code>)</td>
 </tr>
 <tr>
 <td>Board export</td>
