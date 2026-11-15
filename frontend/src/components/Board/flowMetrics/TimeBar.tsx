@@ -49,7 +49,7 @@ function GroupedTimeBars({ columns, groups, isolated }: { columns: FlowRowColumn
                       key={column.uid}
                       data-testid="time-segment"
                       data-bottleneck={column.bottleneck ? "true" : "false"}
-                      className={`flex items-center justify-center min-w-[2.25rem] bg-surface`}
+                      className="flex items-center justify-center min-w-[2.25rem] bg-surface"
                       style={{
                         flexGrow: wait,
                         flexBasis: 0,
@@ -91,7 +91,7 @@ export default function TimeBar({ columns, groups, isolated = null }: { columns:
               key={column.uid}
               data-testid="time-segment"
               data-bottleneck={column.bottleneck ? "true" : "false"}
-              className={`flex items-center justify-center min-w-[2.25rem] bg-surface`}
+              className="flex items-center justify-center min-w-[2.25rem] bg-surface"
               style={{
                 flexGrow: column.medianWait,
                 flexBasis: 0,

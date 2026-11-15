@@ -92,6 +92,9 @@ describe('the flow row and time bar (#2262)', () => {
     const squares = within(review).getAllByTestId('flow-square')
     expect(squares).toHaveLength(5)
     squares.forEach((s) => expect((s as HTMLElement).style.backgroundImage).toBe(HATCH_CSS))
+    // The 20% ground is translucent, so the opaque surface base must sit under it.
+    expect(squares[0].className).toContain('bg-surface')
+    expect(squares[0].className).not.toContain('bg-warning')
     expect((within(boxes[0]).getAllByTestId('flow-square')[0] as HTMLElement).style.backgroundImage).not.toContain('repeating-linear-gradient')
     expect(within(review).getAllByTestId('flow-square-over')).toHaveLength(2)
     expect(boxes[0]).toHaveTextContent('Queue steady')
@@ -105,9 +108,18 @@ describe('the flow row and time bar (#2262)', () => {
     const segments = screen.getAllByTestId('time-segment')
     expect(segments.map((s) => s.getAttribute('data-bottleneck'))).toEqual(['false', 'true'])
     expect(segments[1].style.backgroundImage).toBe(HATCH_CSS)
+    expect(segments[1].className).toContain('bg-surface')
+    expect(segments[1].className).not.toContain('bg-warning')
     expect(segments[0].style.backgroundImage).not.toContain('repeating-linear-gradient')
     expect(screen.getByTestId('time-total')).toHaveTextContent('7.6d')
     expect(screen.getByText('All cards')).toBeInTheDocument()
+  })
+
+  it('hatches the bottleneck legend swatch with the shared pattern', () => {
+    render(<Harness />)
+    const item = within(screen.getByRole('list', { name: 'Time bar legend' })).getByText(/bottleneck, hatched/)
+    const swatch = item.querySelector('span[aria-hidden="true"]') as HTMLElement
+    expect(swatch.style.backgroundImage).toBe(HATCH_CSS)
   })
 
   it('colors the connector into Done after the bottleneck, and leaves connectors before it neutral', () => {
