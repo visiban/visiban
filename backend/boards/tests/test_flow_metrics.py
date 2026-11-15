@@ -1115,7 +1115,7 @@ class EndpointFixture(FlowFixture):
         return f"/api/v1/boards/{self.board.pk}/metrics/{metric}/"
 
 
-METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age")
+METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age", "dwell", "blocked", "attention")
 
 
 class EndpointAccessTests(EndpointFixture):
@@ -1358,7 +1358,12 @@ class EndpointQueryCountTests(EndpointFixture):
 
     # auth + board + role + columns + cards + movements, plus age's two and the
     # directory's one. Doubled, as test_query_counts does, for framework overhead.
-    BUDGET = {"cycle-time": 16, "throughput": 16, "cumulative-flow": 14, "wip-age": 20}
+    # dwell reads no more than cumulative flow; blocked adds CardBlock and
+    # CardRelation; attention adds CardRelation and the directory (#2260).
+    BUDGET = {
+        "cycle-time": 16, "throughput": 16, "cumulative-flow": 14, "wip-age": 20,
+        "dwell": 14, "blocked": 18, "attention": 18,
+    }
 
     def seed(self, n):
         owner = User.objects.create_user(username=f"flow_load_{n}", password="pw")
@@ -1366,12 +1371,18 @@ class EndpointQueryCountTests(EndpointFixture):
             card = self.path(self.backlog, 20, self.doing, 16, self.done, 3)
             Card.objects.filter(pk=card.pk).update(assignee=owner)
             wip = self.path(self.backlog, 20, self.doing, 10 + i % 3)
+            # Assigned, so attention's directory runs its assignee query at both sizes.
+            Card.objects.filter(pk=wip.pk).update(assignee=owner if i % 2 else self.user)
             CardBlock.objects.create(card=wip, board=self.board, reason="r", blocked_at=self.ago(1))
 
     def count(self, metric):
         with CaptureQueriesContext(connection) as ctx:
             resp = self.client.get(self.url(metric))
         self.assertEqual(resp.status_code, 200)
+        if metric == "attention":
+            # An empty list would skip the relation and directory queries this guards.
+            self.assertTrue(resp.json()["items"])
+            self.assertTrue(any(card["assignee"] for card in resp.json()["cards"]))
         return len(ctx)
 
     def test_each_endpoint_stays_within_budget_and_does_not_grow(self):
@@ -1383,3 +1394,448 @@ class EndpointQueryCountTests(EndpointFixture):
                 scaled = self.count(metric)
                 self.assertEqual(scaled, baseline[metric], f"{metric} grew with the board")
                 self.assertLessEqual(scaled, self.BUDGET[metric])
+
+
+# ── #2260: flow numbers for the Analytics redesign ─────────────────────────
+
+
+class ColumnFlowTests(FlowFixture):
+    """Cumulative flow's per-column entered/left and start/end counts (#2260)."""
+
+    def columns(self, payload):
+        return {c["column_uid"]: c for c in payload["columns"]}
+
+    def cfd(self, flow_range=None):
+        return fm.cumulative_flow(self.flow(), flow_range or self.last(30))
+
+    def assert_identity(self, payload):
+        for column in payload["columns"]:
+            with self.subTest(column=column["column_name"]):
+                self.assertEqual(
+                    column["end_count"] - column["start_count"], column["entered"] - column["left"],
+                )
+
+    def test_entered_minus_left_is_the_change_in_count_on_random_histories(self):
+        rng = random.Random(2260)
+        gone = Column.objects.create(board=self.board, name="Gone", position=9)
+        moves_to = [self.backlog, self.doing, self.review, self.done, self.released, gone]
+        for _ in range(40):
+            t = rng.uniform(1, 60)
+            card = self.card(self.backlog, created=t)
+            self.row(card, None, self.backlog, t)
+            current, archived_at = self.backlog, None
+            for _ in range(rng.randint(0, 7)):
+                t = max(0.6, t - rng.uniform(0, 9))
+                roll = rng.random()
+                if archived_at is None and roll < 0.15:
+                    self.row(card, current, current, t, ARCHIVED)
+                    archived_at = t
+                elif archived_at is not None and roll < 0.4:
+                    self.row(card, current, current, t, UNARCHIVED)
+                    archived_at = None
+                elif archived_at is None:
+                    target = rng.choice(moves_to)
+                    if target != current:
+                        self.row(card, current, target, t)
+                        current = target
+            if current == gone:
+                self.row(card, gone, self.doing, 0.5)
+                current = self.doing
+            Card.objects.filter(pk=card.pk).update(
+                column=current, archived_at=self.ago(archived_at) if archived_at is not None else None,
+            )
+        gone.delete()
+        flow = self.flow()
+        day = (self.now - datetime.timedelta(days=20)).date()
+        for flow_range in (self.last(30), self.last(7), self.last(2), self.last(90), fm.date_range(day, day + datetime.timedelta(days=9), now=self.now)):
+            with self.subTest(flow_range=flow_range):
+                payload = fm.cumulative_flow(flow, flow_range)
+                self.assert_identity(payload)
+                self.assertGreater(sum(c["entered"] for c in payload["columns"]), 0)
+
+    def test_a_same_day_bounce_counts_both_ways_and_nets_to_zero(self):
+        card = self.path(self.backlog, 40, self.doing, 35)
+        self.row(card, self.doing, self.review, 5.3)
+        self.row(card, self.review, self.doing, 5.2)
+        columns = self.columns(self.cfd())
+        self.assertEqual((columns[self.review.uid]["entered"], columns[self.review.uid]["left"]), (1, 1))
+        self.assertEqual((columns[self.doing.uid]["entered"], columns[self.doing.uid]["left"]), (1, 1))
+        self.assertEqual(columns[self.doing.uid]["start_count"], columns[self.doing.uid]["end_count"])
+
+    def test_archiving_outside_done_leaves_and_in_done_does_not(self):
+        self.path(self.backlog, 40, self.doing, 35, archived=5)
+        self.path(self.backlog, 40, self.doing, 35, self.done, 10, archived=5)
+        columns = self.columns(self.cfd())
+        self.assertEqual(columns[self.doing.uid]["left"], 2)  # one archived, one finished
+        self.assertEqual((columns[self.done.uid]["entered"], columns[self.done.uid]["left"]), (1, 0))
+        self.assertEqual(columns[self.done.uid]["end_count"], 1)
+        self.assert_identity(self.cfd())
+
+    def test_restoring_enters_the_band_again(self):
+        card = self.card(self.doing, created=40)
+        self.row(card, None, self.backlog, 40)
+        self.row(card, self.backlog, self.doing, 35)
+        self.row(card, self.doing, self.doing, 10, ARCHIVED)
+        self.row(card, self.doing, self.doing, 5, UNARCHIVED)
+        doing = self.columns(self.cfd())[self.doing.uid]
+        self.assertEqual((doing["entered"], doing["left"], doing["start_count"], doing["end_count"]), (1, 1, 1, 1))
+
+    def test_a_move_into_a_deleted_column_enters_the_null_band_and_deleted_to_deleted_does_not(self):
+        first = Column.objects.create(board=self.board, name="Gone 1", position=8)
+        second = Column.objects.create(board=self.board, name="Gone 2", position=9)
+        card = self.path(self.backlog, 40, self.doing, 35)
+        self.row(card, self.doing, first, 6)
+        self.row(card, first, second, 4)
+        first.delete()
+        second.delete()
+        columns = self.columns(self.cfd())
+        self.assertEqual((columns[None]["entered"], columns[None]["left"]), (1, 0))
+        self.assertEqual(columns[self.doing.uid]["left"], 1)
+        self.assert_identity(self.cfd())
+
+    def test_a_card_created_inside_the_range_enters_and_one_created_before_is_counted_at_the_start(self):
+        self.path(self.backlog, 10)
+        self.path(self.backlog, 40)
+        backlog = self.columns(self.cfd())[self.backlog.uid]
+        self.assertEqual((backlog["start_count"], backlog["end_count"], backlog["entered"]), (1, 2, 1))
+
+    def test_rates_are_per_week_of_change_unrounded(self):
+        for _ in range(3):
+            self.path(self.backlog, 40, self.doing, 3)
+        doing = self.columns(self.cfd(self.last(8)))[self.doing.uid]
+        # Eight whole days hold seven days of change: one week.
+        self.assertEqual((doing["entered"], doing["entered_per_week"], doing["left_per_week"]), (3, 3.0, 0.0))
+        doing = self.columns(self.cfd(self.last(10)))[self.doing.uid]
+        self.assertEqual(doing["entered_per_week"], 3 * 7 / 9)
+
+    def test_one_day_has_counts_but_no_change_and_no_rate(self):
+        self.path(self.backlog, 40, self.doing, 1)
+        doing = self.columns(self.cfd(self.last(1)))[self.doing.uid]
+        self.assertEqual((doing["start_count"], doing["end_count"], doing["entered"], doing["left"]), (1, 1, 0, 0))
+        self.assertIsNone(doing["entered_per_week"])
+        self.assertIsNone(doing["left_per_week"])
+
+    def test_no_whole_day_has_null_counts(self):
+        self.path(self.backlog, 40, self.doing, 1)
+        today = self.now.date()
+        payload = self.cfd(fm.date_range(today, today, now=self.now))
+        self.assertEqual(payload["days"], [])
+        for column in payload["columns"]:
+            self.assertEqual(
+                [column[k] for k in ("start_count", "end_count", "entered", "left", "entered_per_week", "left_per_week")],
+                [None, None, 0, 0, None, None],
+            )
+
+
+class ThroughputStartedTests(FlowFixture):
+    """Throughput's per-period ``started`` (#2260)."""
+
+    def started_on(self, payload, days_ago):
+        day = self.ago(days_ago).date()
+        for sample in payload["samples"]:
+            first = datetime.date.fromisoformat(sample["start"])
+            if first <= day < first + datetime.timedelta(days=7 if payload["period"] == "week" else 1):
+                return sample["started"]
+        return None
+
+    def test_a_start_lands_in_the_period_of_its_cycle_start(self):
+        self.path(self.backlog, 20, self.doing, 16, self.done, 3)
+        self.path(self.backlog, 20, self.doing, 9)
+        payload = fm.throughput(self.flow(), self.last(30))
+        self.assertEqual(self.started_on(payload, 16), 1)
+        self.assertEqual(self.started_on(payload, 9), 1)
+        self.assertEqual(sum(s["started"] for s in payload["samples"]), 2)
+        daily = fm.throughput(self.flow(), self.last(30), "day")
+        self.assertEqual(self.started_on(daily, 16), 1)
+
+    def test_a_reopen_is_not_a_start_and_an_archived_card_still_counts(self):
+        self.path(self.backlog, 20, self.doing, 16, self.done, 10, self.doing, 5)
+        self.path(self.backlog, 20, self.doing, 9, self.done, 4, archived=2)
+        payload = fm.throughput(self.flow(), self.last(30), "day")
+        self.assertEqual(self.started_on(payload, 5), 0)
+        self.assertEqual(sum(s["started"] for s in payload["samples"]), 2)
+
+    def test_only_whole_weeks_count(self):
+        # Now is Wednesday 2026-07-15; ten days hold one whole ISO week, 07-06..07-12.
+        self.path(self.backlog, 20, self.doing, 10)  # Sunday 07-05, before it
+        self.path(self.backlog, 20, self.doing, 7)  # Wednesday 07-08, inside it
+        self.path(self.backlog, 20, self.doing, 2)  # Monday 07-13, a partial week
+        payload = fm.throughput(self.flow(), self.last(10))
+        self.assertEqual([(s["start"], s["started"]) for s in payload["samples"]], [("2026-07-06", 1)])
+
+    def test_a_card_with_no_creation_movement_finishes_but_never_starts(self):
+        card = self.card(self.done, created=30)
+        self.row(card, self.backlog, self.doing, 20)
+        self.row(card, self.doing, self.done, 10)
+        payload = fm.throughput(self.flow(), self.last(30))
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(sum(s["started"] for s in payload["samples"]), 0)
+
+
+class ColumnDwellTests(FlowFixture):
+    def test_per_column_percentiles_follow_the_sample_size_rule(self):
+        for _ in range(4):
+            self.path(self.backlog, 20, self.doing, 10, self.review, 5)
+        payload = fm.column_dwell(self.flow(), self.last(30))
+        self.assertEqual(set(payload), {"definition", "sample_size", "excluded_incomplete_history", "columns"})
+        doing = {c["column_uid"]: c for c in payload["columns"]}[self.doing.uid]
+        self.assertEqual(doing["sample_size"], 4)
+        self.assertIsNone(doing["percentiles"]["p50"])
+        for _ in range(3):
+            self.path(self.backlog, 20, self.doing, 10, self.review, 5)
+        payload = fm.column_dwell(self.flow(), self.last(30))
+        doing = {c["column_uid"]: c for c in payload["columns"]}[self.doing.uid]
+        self.assertEqual(doing["percentiles"]["p85"], 5)
+        self.assertEqual([c["column_uid"] for c in payload["columns"]], [self.backlog.uid, self.doing.uid, self.review.uid])
+        full = fm.completed_dwell(self.flow(), self.last(30))
+        self.assertEqual(payload["columns"], full["columns"])
+        self.assertEqual(payload["sample_size"], full["sample_size"])
+
+
+class BlockedSummaryTests(FlowFixture):
+    def block(self, card, reason, start, end=None, column=None):
+        column = column or self.doing
+        return CardBlock.objects.create(
+            card=card, board=self.board, column=column, column_name=column.name, column_uid=column.uid,
+            reason=reason, blocked_at=self.ago(start), unblocked_at=self.ago(end) if end is not None else None,
+        )
+
+    def summary(self, flow_range=None, **filters):
+        return fm.blocked_summary(fm.load_live_wip(self.board, now=self.now, **filters), flow_range or self.last(30))
+
+    def test_a_date_range_that_ended_in_the_past_clips_blocks_to_its_end(self):
+        card = self.path(self.backlog, 40, self.doing, 35)
+        self.block(card, "Vendor", 20, 5)
+        to_day = self.ago(10).date()
+        flow_range = fm.date_range(self.ago(30).date(), to_day, now=self.now)
+        expected = (flow_range.end - self.ago(20)).total_seconds() / fm.SECONDS_PER_DAY
+        self.assertEqual(expected, 10.5)
+        self.assertEqual(self.summary(flow_range)["total"]["days"], expected)
+        self.assertEqual(fm.blocked_time(self.flow(), flow_range)["total"]["seconds"], int(expected * fm.SECONDS_PER_DAY))
+        # A rolling range ends at now and is unchanged.
+        self.assertEqual(self.summary()["total"]["days"], 15)
+
+    def test_columns_by_uid_and_reasons_ranked_by_days(self):
+        card = self.path(self.backlog, 40, self.doing, 35)
+        self.block(card, "Long", 10, 5)
+        self.block(card, "short", 4, 3, column=self.review)
+        self.block(card, "Short ", 3, 2, column=self.review)
+        payload = self.summary()
+        self.assertEqual([c["column_uid"] for c in payload["columns"]], [c.uid for c in (self.backlog, self.doing, self.review, self.done, self.released)])
+        by_uid = {c["column_uid"]: c for c in payload["columns"]}
+        self.assertEqual((by_uid[self.doing.uid]["days"], by_uid[self.doing.uid]["blocks"]), (5, 1))
+        self.assertEqual((by_uid[self.review.uid]["days"], by_uid[self.review.uid]["blocks"]), (2, 2))
+        self.assertEqual([(r["reason"], r["days"], r["blocks"]) for r in payload["reasons"]], [("Long", 5, 1), ("Short", 2, 2)])
+        self.assertEqual(payload["reason_count"], 2)
+        self.assertEqual(payload["total"], {"days": 7, "blocks": 3})
+        # The /analytics/ shape still ranks by count.
+        self.assertEqual(fm.blocked_time(self.flow(), self.last(30))["top_reasons"][0]["reason"], "Short")
+
+    def test_reason_count_reports_reasons_past_the_cap(self):
+        card = self.path(self.backlog, 40, self.doing, 35)
+        for n in range(fm.TOP_BLOCK_REASONS + 2):
+            self.block(card, f"Reason {n}", 10, 9)
+        payload = self.summary()
+        self.assertEqual(len(payload["reasons"]), fm.TOP_BLOCK_REASONS)
+        self.assertEqual(payload["reason_count"], fm.TOP_BLOCK_REASONS + 2)
+        self.assertEqual(payload["total"]["blocks"], fm.TOP_BLOCK_REASONS + 2)
+
+    def test_swimlane_and_label_filters(self):
+        label = Label.objects.create(board=self.board, name="T")
+        here = self.path(self.backlog, 20, self.doing, 15)
+        there = self.path(self.backlog, 20, self.doing, 15, lane=self.other_lane)
+        there.labels.add(label)
+        self.block(here, "Here", 5, 3)
+        self.block(there, "There", 5, 4)
+        Card.objects.filter(pk=there.pk).update(blocked_at=self.ago(1))
+        by_lane = self.summary(swimlane_id=self.lane.id)
+        self.assertEqual(([r["reason"] for r in by_lane["reasons"]], by_lane["blocked_now"]), (["Here"], 0))
+        by_label = self.summary(label_id=label.id)
+        self.assertEqual(([r["reason"] for r in by_label["reasons"]], by_label["blocked_now"]), (["There"], 1))
+
+    def mixed_board(self):
+        live = self.path(self.backlog, 40, self.doing, 35)
+        finished = self.path(self.backlog, 40, self.doing, 35, self.done, 3)
+        archived = self.path(self.backlog, 40, self.doing, 35, archived=2)
+        blocker = self.path(self.backlog, 40)
+        by_relation = self.path(self.backlog, 40, self.review, 20)
+        CardRelation.objects.create(from_card=blocker, to_card=by_relation, relation_type=CardRelation.Type.BLOCKS)
+        for card in (live, finished, archived):
+            self.block(card, f"On {card.pk}", 10, 4)
+            Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(1))
+        self.block(archived, "Open on an archived card", 6)
+        return live, by_relation
+
+    def test_the_narrowed_load_gives_the_full_load_answer(self):
+        self.mixed_board()
+        for flow_range in (self.last(30), self.last(5)):
+            with self.subTest(flow_range=flow_range):
+                self.assertEqual(self.summary(flow_range), fm.blocked_summary(self.flow(), flow_range))
+        self.assertEqual(self.summary()["blocked_now"], 2)
+
+    def test_blocked_now_matches_the_attention_items_marked_blocked(self):
+        self.mixed_board()
+        for filters in ({}, {"swimlane_id": self.lane.id}, {"swimlane_id": self.other_lane.id}):
+            with self.subTest(filters=filters):
+                attention = fm.needs_attention(self.flow(**filters), self.last(30), stalled_days=7)
+                marked = [i for i in attention["items"] if "blocked" in i["reasons"]]
+                self.assertEqual(self.summary(**filters)["blocked_now"], len(marked))
+
+
+class NeedsAttentionTests(FlowFixture):
+    def finish_seven(self):
+        """Seven two-day cycle times, so the p85 exists and is exactly 2."""
+        for _ in range(7):
+            self.path(self.backlog, 20, self.doing, 12, self.done, 10)
+
+    def attention(self, stalled_days=7, **filters):
+        return fm.needs_attention(self.flow(**filters), self.last(30), stalled_days=stalled_days)
+
+    def items(self, **kwargs):
+        return {i["card_uid"]: i for i in self.attention(**kwargs)["items"]}
+
+    def test_a_card_with_every_reason_is_listed_once(self):
+        self.finish_seven()
+        card = self.path(self.backlog, 40, self.doing, 30)
+        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(1))
+        payload = self.attention()
+        self.assertEqual(payload["cycle_time_percentiles"]["p85"], 2)
+        self.assertEqual(payload["stalled_threshold_days"], 7)
+        self.assertEqual(payload["definition"], fm.DEFINITIONS["needs_attention"])
+        self.assertEqual([i["card_uid"] for i in payload["items"]], [card.uid])
+        item = payload["items"][0]
+        self.assertEqual(item["reasons"], ["blocked", "past_p85", "stalled"])
+        self.assertEqual(
+            (item["column_uid"], item["swimlane_id"], item["age_days"], item["unmoved_days"]),
+            (self.doing.uid, self.lane.id, 30, 30),
+        )
+
+    def test_a_backlog_card_with_no_cycle_start_is_stalled_with_no_age(self):
+        self.finish_seven()
+        card = self.path(self.backlog, 20)
+        item = self.items()[card.uid]
+        self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 20))
+
+    def test_an_imported_card_with_incomplete_history_is_stalled_never_past_p85(self):
+        self.finish_seven()
+        card = self.card(self.doing, created=30)
+        self.row(card, self.backlog, self.doing, 25)
+        item = self.items()[card.uid]
+        self.assertEqual((item["reasons"], item["age_days"]), (["stalled"], None))
+
+    def test_no_p85_means_no_past_p85(self):
+        card = self.path(self.backlog, 40, self.doing, 30)
+        payload = self.attention()
+        self.assertIsNone(payload["cycle_time_percentiles"]["p85"])
+        self.assertEqual(payload["items"][0]["reasons"], ["stalled"])
+        self.assertEqual(payload["items"][0]["card_uid"], card.uid)
+
+    def test_both_comparisons_are_strict(self):
+        self.finish_seven()
+        at_p85 = self.path(self.backlog, 5, self.doing, 2)
+        past_p85 = self.path(self.backlog, 5, self.doing, 2.5)
+        items = self.items()
+        self.assertNotIn(at_p85.uid, items)
+        self.assertEqual(items[past_p85.uid]["reasons"], ["past_p85"])
+        self.assertEqual(items[past_p85.uid]["unmoved_days"], 2.5)
+        stalled = self.path(self.backlog, 10)
+        self.assertNotIn(stalled.uid, self.items(stalled_days=10))
+        self.assertEqual(self.items(stalled_days=9)[stalled.uid]["reasons"], ["stalled"])
+
+    def test_order_is_age_then_unmoved_with_nulls_last_then_id(self):
+        old = self.path(self.backlog, 40, self.doing, 30)
+        younger = self.path(self.backlog, 40, self.doing, 20)
+        backlog_long = self.path(self.backlog, 25)
+        backlog_short = self.path(self.backlog, 15)
+        tie = self.path(self.backlog, 15)
+        imported = self.card(self.doing, created=30)  # no movement at all: never stalled
+        Card.objects.filter(pk=imported.pk).update(blocked_at=self.ago(1))
+        self.assertEqual(
+            [i["card_uid"] for i in self.attention()["items"]],
+            [old.uid, younger.uid, backlog_long.uid, backlog_short.uid, tie.uid, imported.uid],
+        )
+        last = self.attention()["items"][-1]
+        self.assertEqual((last["reasons"], last["age_days"], last["unmoved_days"]), (["blocked"], None, None))
+
+    def test_archived_and_done_cards_are_never_listed(self):
+        self.path(self.backlog, 40, self.doing, 30, archived=20)
+        self.path(self.backlog, 40, self.doing, 30, self.done, 20)
+        self.assertEqual(self.attention()["items"], [])
+
+    def test_a_future_dated_movement_is_ignored(self):
+        card = self.path(self.backlog, 40, self.doing, 30)
+        self.row(card, self.doing, self.review, -2)
+        self.assertEqual(self.items()[card.uid]["unmoved_days"], 30)
+
+
+class FlowRedesignEndpointTests(EndpointFixture):
+    """The three #2260 endpoints over HTTP, and their documented shapes."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+
+    def assert_documented(self, component, obj):
+        documented = set(self.schema["components"]["schemas"][component]["properties"])
+        self.assertEqual(set(obj), documented, component)
+
+    def test_a_user_who_must_change_their_password_is_refused(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        for metric in ("dwell", "blocked", "attention"):
+            with self.subTest(metric=metric):
+                self.assertEqual(self.client.get(self.url(metric)).status_code, 403)
+
+    def test_every_new_payload_carries_exactly_its_documented_fields(self):
+        for _ in range(7):
+            self.path(self.backlog, 20, self.doing, 12, self.done, 10)
+        card = self.path(self.backlog, 40, self.doing, 30)
+        CardBlock.objects.create(
+            card=card, board=self.board, column=self.doing, column_name="Doing", column_uid=self.doing.uid,
+            reason="Vendor", blocked_at=self.ago(5),
+        )
+        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(5))
+        dwell = self.client.get(self.url("dwell")).json()
+        self.assert_documented("FlowDwell", dwell)
+        self.assert_documented("FlowDwellColumn", dwell["columns"][0])
+        blocked = self.client.get(self.url("blocked")).json()
+        self.assert_documented("FlowBlocked", blocked)
+        self.assert_documented("FlowBlockedTotal", blocked["total"])
+        self.assert_documented("FlowBlockedColumn", blocked["columns"][0])
+        self.assert_documented("FlowBlockedReason", blocked["reasons"][0])
+        self.assertEqual(blocked["blocked_now"], 1)
+        attention = self.client.get(self.url("attention")).json()
+        self.assert_documented("FlowAttention", attention)
+        self.assert_documented("FlowAttentionItem", attention["items"][0])
+        self.assertEqual([c["uid"] for c in attention["cards"]], [card.uid])
+        cfd = self.client.get(self.url("cumulative-flow")).json()
+        self.assert_documented("FlowCumulativeFlowColumn", cfd["columns"][0])
+        self.assert_documented("FlowCumulativeFlowColumn", cfd["columns"][-1])
+        throughput = self.client.get(self.url("throughput")).json()
+        self.assert_documented("FlowThroughputSample", throughput["samples"][0])
+
+    def test_attention_uses_the_board_staleness_threshold(self):
+        self.board.staleness_threshold_days = 3
+        self.board.save(update_fields=["staleness_threshold_days"])
+        card = self.path(self.backlog, 20, self.doing, 5)
+        body = self.client.get(self.url("attention")).json()
+        self.assertEqual(body["stalled_threshold_days"], 3)
+        self.assertEqual([i["card_uid"] for i in body["items"]], [card.uid])
+
+    def test_blocked_reads_the_filters_and_the_date_range(self):
+        here = self.path(self.backlog, 40, self.doing, 35)
+        there = self.path(self.backlog, 40, self.doing, 35, lane=self.other_lane)
+        for card, reason in ((here, "Here"), (there, "There")):
+            CardBlock.objects.create(
+                card=card, board=self.board, column=self.doing, column_name="Doing", column_uid=self.doing.uid,
+                reason=reason, blocked_at=self.ago(20), unblocked_at=self.ago(5),
+            )
+        body = self.client.get(self.url("blocked"), {"swimlane_id": self.other_lane.id}).json()
+        self.assertEqual([r["reason"] for r in body["reasons"]], ["There"])
+        to_day = self.ago(10).date()
+        ranged = self.client.get(
+            self.url("blocked"), {"from_date": self.ago(30).date().isoformat(), "to_date": to_day.isoformat()},
+        ).json()
+        end = datetime.datetime.combine(to_day + datetime.timedelta(days=1), datetime.time(), tzinfo=datetime.timezone.utc)
+        self.assertAlmostEqual(ranged["total"]["days"], 2 * (end - self.ago(20)).total_seconds() / fm.SECONDS_PER_DAY)

@@ -135,6 +135,27 @@
       "budget_p95_ms": null,
       "pending_budget": "#2110",
       "note": "Same replay plus one query each for block rows and blocking relations (#448)."
+    },
+    "flow_dwell": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/dwell/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay as cumulative flow, then completed dwell percentiles per column (#2260)."
+    },
+    "flow_blocked": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/blocked/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay plus block rows and blocking relations (#2260)."
+    },
+    "flow_attention": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/attention/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay plus blocking relations and the card directory (#2260)."
     }
   }
 }

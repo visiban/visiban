@@ -428,6 +428,12 @@ _THROUGHPUT_RESPONSE = inline_serializer(
                 "start": serializers.DateField(),
                 "count": serializers.IntegerField(),
                 "card_uids": serializers.ListField(child=serializers.CharField()),
+                "started": serializers.IntegerField(
+                    help_text=(
+                        "Cards whose cycle started in the period (#2260). A reopen is not a start, and "
+                        "a card with no creation movement never starts."
+                    ),
+                ),
             },
         ),
         "cards": _FLOW_CARD_FIELD,
@@ -446,6 +452,25 @@ _CUMULATIVE_FLOW_RESPONSE = inline_serializer(
                 "column_uid": serializers.CharField(allow_null=True),
                 "column_name": serializers.CharField(allow_null=True),
                 "is_done": serializers.BooleanField(),
+                # Additive (#2260): the column's flow across the window.
+                "start_count": serializers.IntegerField(
+                    allow_null=True, help_text="Cards at the end of the first day; null with no whole day.",
+                ),
+                "end_count": serializers.IntegerField(
+                    allow_null=True, help_text="Cards at the end of the last day; null with no whole day.",
+                ),
+                "entered": serializers.IntegerField(
+                    help_text="Cards that entered after the first day, up to the end of the last.",
+                ),
+                "left": serializers.IntegerField(
+                    help_text="Cards that left in the same window; end_count - start_count == entered - left.",
+                ),
+                "entered_per_week": serializers.FloatField(
+                    allow_null=True, help_text="entered × 7 ÷ (days − 1); null under two whole days.",
+                ),
+                "left_per_week": serializers.FloatField(
+                    allow_null=True, help_text="left × 7 ÷ (days − 1); null under two whole days.",
+                ),
             },
         ),
         "days": inline_serializer(
@@ -511,6 +536,93 @@ _WIP_AGE_RESPONSE = inline_serializer(
                 ),
                 "is_blocked": serializers.BooleanField(),
                 "blocked_days": serializers.FloatField(),
+            },
+        ),
+        "cards": _FLOW_CARD_FIELD,
+    },
+)
+
+_DWELL_RESPONSE = inline_serializer(
+    name="FlowDwell",
+    fields={
+        "definition": serializers.CharField(),
+        "sample_size": serializers.IntegerField(),
+        "excluded_incomplete_history": serializers.IntegerField(),
+        "columns": inline_serializer(
+            name="FlowDwellColumn",
+            many=True,
+            help_text="The columns that are not done, in position order.",
+            fields={
+                "column_uid": serializers.CharField(),
+                "column_name": serializers.CharField(),
+                "sample_size": serializers.IntegerField(),
+                "percentiles": _PERCENTILES_FIELD,
+            },
+        ),
+    },
+)
+
+_BLOCKED_RESPONSE = inline_serializer(
+    name="FlowBlocked",
+    fields={
+        "definition": serializers.CharField(),
+        "total": inline_serializer(
+            name="FlowBlockedTotal",
+            help_text="Every block in the range, including those in deleted columns.",
+            fields={"days": serializers.FloatField(), "blocks": serializers.IntegerField()},
+        ),
+        "blocked_now": serializers.IntegerField(
+            help_text="Cards not archived and not in a done column that are blocked now.",
+        ),
+        "columns": inline_serializer(
+            name="FlowBlockedColumn",
+            many=True,
+            help_text="Every current column, in position order, by the column the card was in when blocked.",
+            fields={
+                "column_uid": serializers.CharField(),
+                "column_name": serializers.CharField(),
+                "days": serializers.FloatField(),
+                "blocks": serializers.IntegerField(),
+            },
+        ),
+        "reasons": inline_serializer(
+            name="FlowBlockedReason",
+            many=True,
+            help_text=f"The top {flow_metrics.TOP_BLOCK_REASONS} reasons by days, then blocks, then reason.",
+            fields={
+                "reason": serializers.CharField(),
+                "days": serializers.FloatField(),
+                "blocks": serializers.IntegerField(),
+            },
+        ),
+        "reason_count": serializers.IntegerField(help_text="Distinct reasons before the cap."),
+    },
+)
+
+_ATTENTION_RESPONSE = inline_serializer(
+    name="FlowAttention",
+    fields={
+        "definition": serializers.CharField(),
+        "stalled_threshold_days": serializers.IntegerField(),
+        "cycle_time_percentiles": _PERCENTILES_FIELD,
+        "items": inline_serializer(
+            name="FlowAttentionItem",
+            many=True,
+            help_text="Oldest first by age, then by time unmoved (nulls last), then card id.",
+            fields={
+                "card_uid": serializers.CharField(),
+                "column_uid": serializers.CharField(),
+                "swimlane_id": serializers.IntegerField(),
+                "age_days": serializers.FloatField(
+                    allow_null=True, help_text="Days in progress; null when the card is not in progress.",
+                ),
+                "unmoved_days": serializers.FloatField(
+                    allow_null=True, help_text="Days since the card last moved; null with no movement.",
+                ),
+                "reasons": serializers.ListField(
+                    child=serializers.ChoiceField(choices=list(flow_metrics.ATTENTION_REASONS)),
+                    help_text="Never empty, in the order blocked, past_p85, stalled.",
+                ),
             },
         ),
         "cards": _FLOW_CARD_FIELD,
@@ -1038,6 +1150,56 @@ class BoardAnalyticsMixin:
         flow = _load_flow(board, params, now)
         payload = flow_metrics.age(flow, _flow_range(params, now))
         payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
+        return Response(payload)
+
+    @extend_schema(
+        summary="Completed dwell time per column, with percentiles",
+        parameters=_FLOW_FILTER_PARAMETERS,
+        responses={200: _DWELL_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/dwell")
+    def metrics_dwell(self, request, pk=None):
+        """Per-column percentiles of the visits that closed in the range (#2260)."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        return Response(flow_metrics.column_dwell(flow, _flow_range(params, now)))
+
+    @extend_schema(
+        summary="Blocked time per column and reason, and the cards blocked now",
+        parameters=_FLOW_FILTER_PARAMETERS,
+        responses={200: _BLOCKED_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/blocked")
+    def metrics_blocked(self, request, pk=None):
+        """Blocked time inside the range, under the same filters as the other metrics (#2260)."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        now = timezone.now()
+        # Only live not-done cards: the block rows are their own query, and
+        # blocked_now counts only those cards (see load_live_wip).
+        flow = flow_metrics.load_live_wip(
+            board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
+        )
+        return Response(flow_metrics.blocked_summary(flow, _flow_range(params, now)))
+
+    @extend_schema(
+        summary="Cards that need attention: blocked, past the cycle-time p85, or stalled",
+        parameters=_FLOW_FILTER_PARAMETERS,
+        responses={200: _ATTENTION_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/attention")
+    def metrics_attention(self, request, pk=None):
+        """A snapshot: the range moves only the cycle-time p85 (#2260)."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        payload = flow_metrics.needs_attention(
+            flow, _flow_range(params, now), stalled_days=board.staleness_threshold_days,
+        )
+        payload["cards"] = flow_metrics.card_directory(flow, (item["card_uid"] for item in payload["items"]))
         return Response(payload)
 
     @extend_schema(

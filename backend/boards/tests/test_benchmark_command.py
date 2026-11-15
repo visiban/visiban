@@ -80,7 +80,7 @@ class BenchmarkCommandAllowedHostsTests(TestCase):
         # this is the exact false-pass the issue describes: a rejected
         # request reports "0 queries ✅ OK" instead of running the view.
         rows = re.findall(r"(GET /api/boards/\{id\}/\S+): (\d+) queries", output)
-        self.assertEqual(len(rows), 8, f"expected 8 benchmark rows, got: {output}")
+        self.assertEqual(len(rows), 11, f"expected 11 benchmark rows, got: {output}")
         for endpoint, count in rows:
             self.assertGreater(int(count), 0, f"{endpoint} reported 0 queries — likely rejected before querying")
 

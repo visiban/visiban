@@ -9,7 +9,7 @@ What it measures:
     - GET /api/boards/{id}/full/            (BoardFullSerializer)
     - GET /api/boards/{id}/summary/         (per-swimlane aggregation)
     - GET /api/boards/{id}/analytics/       (heatmap, stalled cards, blocked time)
-    - GET /api/boards/{id}/metrics/*/       (the four flow metrics, #448)
+    - GET /api/boards/{id}/metrics/*/       (the seven flow metrics, #448, #2260)
 
 For each endpoint the command reports the number of SQL queries issued and
 a ≤-budget verdict.  It creates a throw-away board, drives full/ and summary/
@@ -72,7 +72,9 @@ CARDS_PER_CELL = 2   # cards per (column × swimlane) cell → 5×10×2 = 100 ca
 # Replay endpoints. Measured on Postgres (2026-11-03, #448) on this fixture, where
 # no card has an assignee: 8, 4, 4, 4, 6. A board with assignees adds one query to
 # the responses with a card directory. Budgets are that plus 4 for framework
-# overhead. Whether the count stays flat as history grows is
+# overhead. dwell, blocked and attention (#2260) were counted with
+# EndpointQueryCountTests on its seeded board (4, 6, 6; attention includes the
+# assignee directory query), not on Postgres. Whether the count stays flat as history grows is
 # EndpointQueryCountTests' job (test_flow_metrics.py).
 _HISTORY_ENDPOINTS = (
     ("GET /api/boards/{id}/analytics/", "analytics/", 12),
@@ -80,6 +82,9 @@ _HISTORY_ENDPOINTS = (
     ("GET /api/boards/{id}/metrics/throughput/", "metrics/throughput/", 9),
     ("GET /api/boards/{id}/metrics/cumulative-flow/", "metrics/cumulative-flow/", 8),
     ("GET /api/boards/{id}/metrics/wip-age/", "metrics/wip-age/", 11),
+    ("GET /api/boards/{id}/metrics/dwell/", "metrics/dwell/", 8),
+    ("GET /api/boards/{id}/metrics/blocked/", "metrics/blocked/", 10),
+    ("GET /api/boards/{id}/metrics/attention/", "metrics/attention/", 10),
 )
 
 

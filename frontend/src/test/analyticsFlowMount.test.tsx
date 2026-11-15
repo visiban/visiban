@@ -47,7 +47,7 @@ beforeEach(() => {
     definition: 'd', sample_size: 0, excluded_incomplete_history: 0, percentiles, samples: [], cards: [],
   })
   vi.mocked(getFlowThroughput).mockResolvedValue({
-    definition: 'd', period: 'week', total: 1, median: null, samples: [{ start: '2026-06-01', count: 1, card_uids: [] }], cards: [],
+    definition: 'd', period: 'week', total: 1, median: null, samples: [{ start: '2026-06-01', count: 1, card_uids: [], started: 0 }], cards: [],
   })
   vi.mocked(getFlowCumulativeFlow).mockResolvedValue({ definition: 'd', columns: [], days: [], bottleneck_column_uid: null })
   vi.mocked(getFlowWipAge).mockResolvedValue({
