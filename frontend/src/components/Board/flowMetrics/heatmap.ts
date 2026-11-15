@@ -68,7 +68,21 @@ export function saveViewMode(boardId: number, mode: ViewMode) {
   } catch { /* localStorage unavailable — silently skip */ }
 }
 
-export function exportCsv(data: AnalyticsData, mode: ViewMode) {
+/**
+ * One CSV field. Strings (swimlane and column names are member-controlled) have
+ * leading spreadsheet formula characters stripped, then are quoted per RFC 4180
+ * when they contain a comma, quote, CR or LF. The strip rule is kept consistent
+ * with the backend's `_sanitize_csv_field` in boards/views/import_export.py:
+ * `lstrip("=+-@\t\r")`. Numbers are written as-is (the backend also leaves
+ * canonical numbers alone), so a negative value is not altered.
+ */
+export function csvField(value: string | number): string {
+  if (typeof value === "number") return String(value);
+  const clean = value.replace(/^[=+\-@\t\r]+/, "");
+  return /[",\r\n]/.test(clean) ? `"${clean.replace(/"/g, '""')}"` : clean;
+}
+
+export function buildCsv(data: AnalyticsData, mode: ViewMode): string {
   const doneCols = new Set(data.done_columns ?? []);
   const cols = data.columns.filter(c => !doneCols.has(c));
   const modeLabel = mode === "age" ? "Current" : `In period (last ${data.days}d)`;
@@ -84,7 +98,11 @@ export function exportCsv(data: AnalyticsData, mode: ViewMode) {
       sw.stalled_cards.length,
     ];
   });
-  const csv = [header, ...rows].map(r => r.map(String).join(",")).join("\n");
+  return [header, ...rows].map(r => r.map(csvField).join(",")).join("\n");
+}
+
+export function exportCsv(data: AnalyticsData, mode: ViewMode) {
+  const csv = buildCsv(data, mode);
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
