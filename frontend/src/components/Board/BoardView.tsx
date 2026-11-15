@@ -39,6 +39,7 @@ import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
+import CardPeekSheet from "../Card/CardPeekSheet";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
@@ -959,6 +960,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  // Card peek (#2273): the read-only side sheet a board click opens. Open card
+  // hands the card to selectedCard (the full detail sheet); the two never show
+  // together, and neither does the peek with the activity drawer.
+  const [peekCardId, setPeekCardId] = useState<number | null>(null);
   // Bumped whenever a `card.updated` socket event arrives for the currently
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
@@ -1425,6 +1430,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // replaces the card reaches it (#1773); falls back to the snapshot for the
   // render before the not-found effect below closes the panel.
   const liveSelectedCard = selectedCard ? (board.cards.find((c) => c.id === selectedCard.id) ?? selectedCard) : null;
+  const peekCard = peekCardId !== null ? (board.cards.find((c) => c.id === peekCardId) ?? null) : null;
+  // Exclusivity (#2273): the detail sheet or the activity drawer opening closes
+  // the peek; a card removed remotely closes it too.
+  useEffect(() => {
+    if (selectedCard || drawerOpen || (peekCardId !== null && !peekCard)) setPeekCardId(null);
+  }, [selectedCard, drawerOpen, peekCardId, peekCard]);
   useEffect(() => {
     if (selectedCardId === null) return;
     if (board.cards.some((c) => c.id === selectedCardId)) return;
@@ -3129,7 +3140,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       filteredCardIds={filteredCardIds}
                       selectedCardIds={selectedCardIds}
                       highlightedCardId={highlightedCardId}
-                      currentCardId={selectedCard?.id ?? null}
+                      currentCardId={selectedCard?.id ?? peekCardId}
                       onToggleCardSelection={toggleCardSelection}
                       // No context menu while the card sheet is open (#2059): the
                       // menu would take focus out of the aria-modal sheet, the same
@@ -3137,7 +3148,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       // on the open card instead.
                       onOpenCardMenu={selectedCard ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
-                      onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                      onCardClick={(card) => {
+                        clearSelection();
+                        // While the detail sheet is open a card click swaps it; otherwise it peeks (#2273).
+                        if (selectedCard) { setSelectedCard(card); return; }
+                        setDrawerOpen(false);
+                        setPeekCardId(card.id);
+                      }}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={handleLocalSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}
@@ -3318,6 +3335,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           message={bulkMessage}
           onMessageChange={setBulkMessage}
         />
+      )}
+
+      {peekCard && !selectedCard && (
+        <SectionErrorBoundary section="Card peek">
+          <CardPeekSheet
+            key={peekCard.id}
+            card={peekCard}
+            board={board}
+            canEdit={canEdit}
+            onClose={() => setPeekCardId(null)}
+            onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
+            userDateFormat={userDateFormat}
+            userTimezone={userTimezone}
+          />
+        </SectionErrorBoundary>
       )}
 
       {selectedCard && (

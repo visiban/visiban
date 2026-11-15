@@ -11,7 +11,7 @@
  * (http://localhost:8000 in dev, any host in CI).
  */
 
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { USER, BOARD_FULL, BOARD_LIST_ITEM, SITE_CONFIG, AUTH_PROVIDERS } from './fixtures/board'
 
 export async function routeAuth(page: Page): Promise<void> {
@@ -78,3 +78,12 @@ export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> 
  * Cmd+ArrowRight is macOS's `moveToRightEndOfLine:`.
  */
 export const END_OF_LINE = process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End'
+
+/**
+ * Opens a card's full detail sheet. A board click opens the card peek sheet
+ * (#2273); its Open card button hands off to the detail sheet.
+ */
+export async function openCardSheet(page: Page, card: Locator): Promise<void> {
+  await card.click()
+  await page.getByRole('button', { name: 'Open card' }).click()
+}
