@@ -11,8 +11,14 @@ export const createGroup = (data: { name: string; description?: string; parent?:
 export const getGroup = (id: number) =>
   client.get<Group>(`/api/v1/groups/${id}/`).then((r) => r.data);
 
-/** `health_status` (#1133): null clears the group's own value so it inherits again. Group admin only. */
-export const updateGroup = (id: number, data: { name?: string; description?: string; health_status?: HealthStatus | null }) =>
+/**
+ * `health_status` (#1133): null clears the group's own value so it inherits again.
+ * `health_review_days` (#2244): 1-365, or null for off. Group admin only.
+ */
+export const updateGroup = (
+  id: number,
+  data: { name?: string; description?: string; health_status?: HealthStatus | null; health_review_days?: number | null },
+) =>
   client.patch<Group>(`/api/v1/groups/${id}/`, data).then((r) => r.data);
 
 export const deleteGroup = (id: number) =>

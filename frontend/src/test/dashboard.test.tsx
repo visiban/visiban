@@ -737,4 +737,19 @@ describe('Dashboard health status (#1133)', () => {
     expect(screen.getByText('Quiet Board').nextElementSibling).toBeNull()
     expect(screen.getByRole('button', { name: /Sprint Board Health status: Off track/ })).toBeInTheDocument()
   })
+
+  it('lists the not-reviewed cue beside a status past its review time (#2244)', async () => {
+    const day = 24 * 60 * 60 * 1000
+    mockListBoards.mockResolvedValue([
+      {
+        id: 1, name: 'Stale Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
+        created_at: '', updated_at: '', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
+        health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
+        health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
+      },
+    ])
+    renderDashboard()
+    expect(await screen.findByText('Not reviewed in 18 days')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Stale Board Health status: At risk ?, Not reviewed in 18 days$/ })).toBeInTheDocument()
+  })
 })

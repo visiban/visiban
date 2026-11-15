@@ -338,6 +338,8 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       health_status_changed_at: updated.health_status_changed_at,
       health_status_changed_by: updated.health_status_changed_by,
       health_status_note: updated.health_status_note,
+      health_review_days: updated.health_review_days,
+      health_review_due_at: updated.health_review_due_at,
     });
     return updated;
   }, [boardId, mergeBoardState]);
@@ -419,6 +421,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                   health_status_changed_at={board.health_status_changed_at}
                   health_status_changed_by={board.health_status_changed_by}
                   health_status_note={board.health_status_note}
+                  health_review_due_at={board.health_review_due_at}
                   onSave={handleHealthSave}
                   onConfirm={handleHealthSave}
                   fetchHistory={fetchBoardHealthHistory}

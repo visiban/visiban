@@ -23,6 +23,7 @@ never the reverse (see the note on ``groups.serializers``).
 
 from __future__ import annotations
 
+import datetime
 from typing import NamedTuple
 
 from .models import Group, HealthStatus, _GROUP_TRAVERSAL_MAX_DEPTH
@@ -38,6 +39,10 @@ class HealthNode(NamedTuple):
     # inherited ``health_status_source`` (no setter or note: those stay on the
     # group itself).
     health_status_changed_at: object = None
+    # The group's "review status every N days" setting (#2244), or None when
+    # off. An inherited status is due for review on the *source* group's
+    # clock, so the walk carries it with the rest of the row.
+    health_review_days: int | None = None
 
 
 def valid_health_status(value):
@@ -52,7 +57,10 @@ def valid_health_status(value):
 
 
 def _node_from_group(group) -> HealthNode:
-    return HealthNode(group.name, group.parent_id, group.health_status, group.health_status_changed_at)
+    return HealthNode(
+        group.name, group.parent_id, group.health_status, group.health_status_changed_at,
+        group.health_review_days,
+    )
 
 
 def _chain_values(group_ids):
@@ -69,15 +77,15 @@ def _chain_values(group_ids):
         lead = f"{prefix}__" if prefix else ""
         columns += [
             f"{lead}id", f"{lead}name", f"{lead}parent_id", f"{lead}health_status",
-            f"{lead}health_status_changed_at",
+            f"{lead}health_status_changed_at", f"{lead}health_review_days",
         ]
     found = {}
     for row in Group.objects.filter(pk__in=group_ids).values_list(*columns):
-        for i in range(0, len(row), 5):
-            gid, name, parent_id, health, changed_at = row[i:i + 5]
+        for i in range(0, len(row), 6):
+            gid, name, parent_id, health, changed_at, review_days = row[i:i + 6]
             if gid is None:
                 break
-            found[gid] = HealthNode(name, parent_id, health, changed_at)
+            found[gid] = HealthNode(name, parent_id, health, changed_at, review_days)
     return found
 
 
@@ -119,6 +127,21 @@ def build_health_map(starts):
     return found
 
 
+def _source_node(start_group_id, health_map):
+    """``(group_id, HealthNode)`` of the nearest group that sets a status, or ``(None, None)``."""
+    node_id = start_group_id
+    depth = 0
+    while node_id is not None and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+        entry = health_map.get(node_id)
+        if entry is None:
+            break
+        if valid_health_status(entry.health_status):
+            return node_id, entry
+        node_id = entry.parent_id
+        depth += 1
+    return None, None
+
+
 def resolve_health(own, start_group_id, health_map):
     """Return ``(effective_health_status, health_status_source)``.
 
@@ -133,15 +156,40 @@ def resolve_health(own, start_group_id, health_map):
     own = valid_health_status(own)
     if own:
         return own, None
-    node_id = start_group_id
-    depth = 0
-    while node_id is not None and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
-        entry = health_map.get(node_id)
-        if entry is None:
-            break
-        value = valid_health_status(entry.health_status)
-        if value:
-            return value, {"id": node_id, "name": entry.name, "changed_at": entry.health_status_changed_at}
-        node_id = entry.parent_id
-        depth += 1
-    return None, None
+    node_id, entry = _source_node(start_group_id, health_map)
+    if entry is None:
+        return None, None
+    return entry.health_status, {"id": node_id, "name": entry.name, "changed_at": entry.health_status_changed_at}
+
+
+def review_due_at(changed_at, review_days):
+    """When a status set at ``changed_at`` is due for review, or ``None`` (#2244).
+
+    ``None`` when the setting is off (``review_days`` null) or the status has
+    no recorded change (set before #2242): such a status gets no cue rather
+    than a guessed age, and nothing is backfilled.
+    """
+    if changed_at is None or not review_days:
+        return None
+    return changed_at + datetime.timedelta(days=review_days)
+
+
+def resolve_review_due_at(own, own_changed_at, own_review_days, start_group_id, health_map):
+    """``health_review_due_at`` for an entity (#2244).
+
+    The review clock belongs to whoever owns the status shown: the entity
+    itself when it sets its own value (its ``changed_at`` and its
+    ``health_review_days``), otherwise the source group the value is
+    inherited from (that group's ``changed_at`` and setting). A board under a
+    group that reviews weekly is therefore due when the group's status is,
+    whatever the board's own setting. ``None`` when nothing applies.
+
+    A fixed timestamp rather than "days since": a WebSocket frame or a page
+    left open overnight stays correct without being re-sent.
+    """
+    if valid_health_status(own):
+        return review_due_at(own_changed_at, own_review_days)
+    _node_id, entry = _source_node(start_group_id, health_map)
+    if entry is None:
+        return None
+    return review_due_at(entry.health_status_changed_at, entry.health_review_days)

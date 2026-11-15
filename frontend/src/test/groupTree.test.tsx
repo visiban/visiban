@@ -197,4 +197,22 @@ describe('GroupTree health status (#1133)', () => {
     expect(pill.previousElementSibling).toHaveTextContent('Engineering')
     expect(pill.nextElementSibling).toHaveTextContent('2 boards')
   })
+
+  it('shows a compact not-reviewed cue past the review time (#2244)', () => {
+    const day = 24 * 60 * 60 * 1000
+    const nodes = buildGroupTree([
+      makeGroup({
+        id: 1, name: 'Engineering', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
+        health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
+        health_review_due_at: new Date(Date.now() - day).toISOString(),
+      }),
+    ])
+    render(
+      <MemoryRouter>
+        <GroupTree nodes={nodes} onGroupCreated={vi.fn()} />
+      </MemoryRouter>
+    )
+    expect(screen.getByText('18d')).toBeInTheDocument()
+    expect(screen.getByText('Not reviewed in 18 days')).toHaveClass('sr-only')
+  })
 })

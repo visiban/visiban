@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { HEALTH_STATUS_STYLES, healthLabel, type HealthDisplayValue } from "../../constants/healthStatus";
-import { getHealthDisplay, healthTitle, type HealthFields } from "../../utils/healthStatus";
+import { getHealthDisplay, healthReviewCue, healthTitle, type HealthReviewFields } from "../../utils/healthStatus";
 import HealthStatusShape from "./HealthStatusShape";
 
 interface Props {
@@ -102,18 +102,81 @@ export default HealthStatusPill;
  * tree). Rendered only when a status applies, for everyone: "No status" is
  * never listed. The row itself is the button, so this is always a `<span>`.
  */
-export function HealthListingPill({ fields, className }: {
-  fields: HealthFields & { navigation_only?: boolean };
+export function HealthListingPill({ fields, className, compactCue = false }: {
+  fields: HealthReviewFields & { navigation_only?: boolean };
   className?: string;
+  /** Narrow rows (the group tree): the review cue shows "18d" with the full text sr-only. */
+  compactCue?: boolean;
 }) {
   if (fields.navigation_only || !fields.effective_health_status) return null;
   const display = getHealthDisplay(fields);
-  return (
+  const cue = healthReviewCue(fields);
+  const pill = (
     <HealthStatusPill
       value={display.value}
       inheritedFrom={display.inheritedFrom}
       title={healthTitle(display, "static")}
-      className={className}
+      className={cue ? "" : className}
     />
+  );
+  if (!cue) return pill;
+  return (
+    <span className={`inline-flex items-center gap-1.5 min-w-0 max-w-full ${className ?? ""}`}>
+      {pill}
+      <HealthReviewCueBadge cue={cue} compact={compactCue} />
+    </span>
+  );
+}
+
+/** 12px clock, in currentColor: the review cue's icon (#2244). */
+function ReviewClockIcon() {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0">
+      <circle cx="6" cy="6" r="4.75" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 3.5V6l1.75 1.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * The "Not reviewed in 18 days" cue (#2244) beside a health pill: a clock and
+ * the words, in `text-warning` on the solid surface (never color alone, no
+ * fill). `compact`: `true` shows "18d" at every width (the narrow group tree),
+ * `"below-md"` only below `md`, like a header pill's `collapseLabel`. The full
+ * sentence is always in the accessible text, after a ", " so a row button's
+ * name reads "…At risk, Not reviewed in 18 days". `actionable` adds the
+ * "Confirm or change" hint to the tooltip, only where the viewer can act.
+ * Build `cue` only with `healthReviewCue`.
+ */
+export function HealthReviewCueBadge({ cue, compact = false, actionable = false, className = "" }: {
+  cue: { days: number; text: string };
+  compact?: boolean | "below-md";
+  actionable?: boolean;
+  className?: string;
+}) {
+  const title = actionable ? `${cue.text}. Confirm or change the status to clear this.` : cue.text;
+  const short = <span aria-hidden="true" className={compact === "below-md" ? "md:hidden" : undefined}>{cue.days}d</span>;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium text-warning shrink-0 ${className}`}
+      title={title}
+      data-health-review-cue=""
+    >
+      <ReviewClockIcon />
+      <span className="sr-only">, </span>
+      {compact === true ? (
+        <>
+          {short}
+          <span className="sr-only">{cue.text}</span>
+        </>
+      ) : compact === "below-md" ? (
+        <>
+          {short}
+          <span className="sr-only md:not-sr-only">{cue.text}</span>
+        </>
+      ) : (
+        <span>{cue.text}</span>
+      )}
+    </span>
   );
 }

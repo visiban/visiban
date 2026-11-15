@@ -87,7 +87,7 @@ function GroupNode({
         <span className="text-fg text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
 
         {/* Health (#1133): between the name and the stats; the name truncates first. */}
-        <HealthListingPill fields={group} />
+        <HealthListingPill fields={group} compactCue />
 
         {/* Stats — withheld (0) for a navigation-only ancestor, so not shown (#1681) */}
         {!group.navigation_only && (

@@ -8,7 +8,7 @@ import {
   HEALTH_STATUS_STYLES, HEALTH_STATUS_VALUES, HEALTH_STATUS_LABELS, NO_STATUS_LABEL,
 } from '../constants/healthStatus'
 import {
-  getHealthDisplay, healthStatusAnnouncement, healthStatusErrorMessage, healthTitle,
+  getHealthDisplay, healthReviewCue, healthStatusAnnouncement, healthStatusErrorMessage, healthTitle,
 } from '../utils/healthStatus'
 import type { HealthStatus, HealthStatusSource } from '../types'
 
@@ -339,5 +339,77 @@ describe('HealthStatusControl (#1133)', () => {
     await user.click(btn)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(onSave).not.toHaveBeenCalled()
+  })
+})
+
+describe('health review cue (#2244)', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const now = Date.UTC(2026, 10, 15, 12)
+  const iso = (ms: number) => new Date(ms).toISOString()
+
+  it('is null while within the window, when off, unset or never recorded', () => {
+    const changed = iso(now - 3 * DAY)
+    expect(healthReviewCue({ ...own('at_risk'), health_status_changed_at: changed, health_review_due_at: iso(now + DAY) }, now)).toBeNull()
+    expect(healthReviewCue({ ...own('at_risk'), health_status_changed_at: changed, health_review_due_at: null }, now)).toBeNull()
+    expect(healthReviewCue({ ...none, health_review_due_at: iso(now - DAY) }, now)).toBeNull()
+    expect(healthReviewCue({ ...own('at_risk'), health_status_changed_at: null, health_review_due_at: iso(now - DAY) }, now)).toBeNull()
+    expect(healthReviewCue({ ...own('at_risk'), health_status_changed_at: changed, health_review_due_at: 'not a date' }, now)).toBeNull()
+  })
+
+  it('counts whole days from the own change once past due', () => {
+    const cue = healthReviewCue({
+      ...own('on_track'), health_status_changed_at: iso(now - 18 * DAY - 5000), health_review_due_at: iso(now - 4 * DAY),
+    }, now)
+    expect(cue).toEqual({ days: 18, text: 'Not reviewed in 18 days' })
+    expect(healthReviewCue({
+      ...own('on_track'), health_status_changed_at: iso(now - DAY), health_review_due_at: iso(now - 1),
+    }, now)?.text).toBe('Not reviewed in 1 day')
+  })
+
+  it('uses the source group age for an inherited value', () => {
+    const src = { ...ENG, changed_at: iso(now - 10 * DAY) }
+    const cue = healthReviewCue({
+      ...inherited('at_risk', src), health_status_changed_at: iso(now - 40 * DAY), health_review_due_at: iso(now - DAY),
+    }, now)
+    expect(cue?.days).toBe(10)
+  })
+
+  it('shows on listing pills (full and compact) and in the header control', () => {
+    const fields = {
+      ...own('at_risk'), health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
+      health_review_due_at: new Date(Date.now() - DAY).toISOString(),
+    }
+    const { unmount } = render(<HealthListingPill fields={fields} className="ml-auto" />)
+    expect(screen.getByText('Not reviewed in 18 days')).toBeInTheDocument()
+    expect(document.querySelector('[data-health-review-cue]')?.querySelector('svg')).not.toBeNull()
+    expect(document.querySelector('.ml-auto')).toContainElement(screen.getByText('Not reviewed in 18 days'))
+    unmount()
+    const compact = render(<HealthListingPill fields={fields} compactCue />)
+    expect(screen.getByText('18d')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText('Not reviewed in 18 days')).toHaveClass('sr-only')
+    compact.unmount()
+    const readOnly = renderControl({ canEdit: false, ...fields })
+    expect(screen.getByText('Not reviewed in 18 days')).toBeInTheDocument()
+    // Non-admins cannot act, so no "Confirm or change" hint.
+    expect(document.querySelector('[data-health-review-cue]')).toHaveAttribute('title', 'Not reviewed in 18 days')
+    readOnly.unmount()
+    renderControl({ ...fields, collapseLabel: true })
+    const cue = document.querySelector('[data-health-review-cue]') as HTMLElement
+    expect(cue).toHaveAttribute('title', 'Not reviewed in 18 days. Confirm or change the status to clear this.')
+    expect(within(cue).getByText('18d')).toHaveClass('md:hidden')
+    expect(within(cue).getByText('Not reviewed in 18 days')).toHaveClass('sr-only', 'md:not-sr-only')
+  })
+
+  it('is absent from the control within the window and for lanes', () => {
+    const fields = {
+      ...own('at_risk'), health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
+      health_review_due_at: new Date(Date.now() - DAY).toISOString(),
+    }
+    const lane = renderControl({ ...fields, entityKind: 'swimlane' })
+    expect(screen.queryByText(/Not reviewed/)).not.toBeInTheDocument()
+    lane.unmount()
+    renderControl({ ...fields, health_review_due_at: new Date(Date.now() + 3 * DAY).toISOString() })
+    expect(screen.queryByText(/Not reviewed/)).not.toBeInTheDocument()
+    expect(document.querySelector('[data-health-review-cue]')).toBeNull()
   })
 })

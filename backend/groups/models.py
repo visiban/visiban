@@ -424,6 +424,12 @@ class Group(models.Model):
         related_name="+", db_index=False,
     )
     health_status_note = models.CharField(max_length=HEALTH_NOTE_MAX_LENGTH, null=True, blank=True)
+    # "Review status every N days" (#2244): null = off (the default). Past
+    # health_status_changed_at + N days the status is shown as not reviewed;
+    # a reconfirm (POST .../health-status/ with the same value) resets the
+    # clock. Range 1..365 is enforced by the serializer. No index: nothing
+    # filters on it.
+    health_review_days = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
