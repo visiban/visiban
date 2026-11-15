@@ -82,7 +82,7 @@ test.describe('board view', () => {
     await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(500)
     const [rowBox, scrollBox] = [await headerRow.boundingBox(), await scroller.boundingBox()]
     expect(Math.abs(rowBox!.y - scrollBox!.y)).toBeLessThanOrEqual(1)
-    await expect(page.getByRole('button', { name: `Add card to ${COLUMN_TODO.name}` })).toBeInViewport()
+    await expect(page.getByRole('button', { name: `Add card to ${COLUMN_TODO.name}`, exact: true })).toBeInViewport()
   })
 
   test('the grid scrolls sideways inside its own box on a narrow window (#2270)', async ({ page }) => {

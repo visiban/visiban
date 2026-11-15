@@ -184,8 +184,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // the dashed hover border reuses, so content never shifts); 56px tall when empty and
       // otherwise as tall as its cards. The empty cell shows a quiet plus and gains a dashed
       // edge and the "Add card" label on hover or focus.
-      className={`group/cell relative shrink-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors bg-canvas ${
-        blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : isOver && isDraggingCard ? "bg-surface-hover/40" : ""
+      className={`group/cell relative shrink-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
+        isOver && isDraggingCard && !blockedBy ? "bg-surface-hover/40" : "bg-canvas"
+      } ${blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : ""
       } ${
         isEmptyAddable ? "cursor-pointer hover:border-dashed hover:border-line-strong focus:border-dashed focus:border-line-strong hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
       }`}

@@ -154,6 +154,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
         data-no-pan
         tabIndex={0}
         role="button"
+        aria-label={`Expand ${column.name}`}
         onClick={(e) => {
           // The color-dot drag handle must not expand the column when a click lands on it.
           if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
@@ -220,7 +221,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
         <div className="flex items-start gap-2">
           <button type="button"
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-fg-tertiary hover:text-fg-secondary transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            className="text-fg-secondary hover:text-fg transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             title="Collapse column"
             aria-label="Collapse column"
           >
@@ -282,7 +283,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               }}
               onDoubleClick={(e) => e.stopPropagation()}
               className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                policyRect ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
+                policyRect ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
               <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -305,7 +306,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               data-testid="column-add-card"
               onClick={(e) => { e.stopPropagation(); onAddCard(); }}
               onDoubleClick={(e) => e.stopPropagation()}
-              className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                 <path d="M8 3v10M3 8h10" />

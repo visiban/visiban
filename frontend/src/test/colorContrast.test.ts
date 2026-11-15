@@ -193,6 +193,17 @@ describe('column header tint (#2270)', () => {
     }
   })
 
+  it('keeps text-warning-on-tint (the over-limit count) at AA on the tint over the RGB cube', () => {
+    const warn = { light: '#9A3412', dark: '#FDBA74' } as const
+    const steps = [0, 51, 102, 153, 204, 255]
+    for (const r of steps) for (const g of steps) for (const b of steps) {
+      const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+      for (const theme of ['light', 'dark'] as const) {
+        expect(contrastRatio(warn[theme], tintOverPage(hex, theme, COLUMN_TINT_FILL)!), `${hex} ${theme}`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+      }
+    }
+  })
+
   it('resolves 10% fill and 30% border against the live sunken token', () => {
     const style = columnTintStyle('#3b82f6')
     expect(style.backgroundColor).toBe('color-mix(in srgb, #3B82F6 10%, rgb(var(--surface-sunken)))')
