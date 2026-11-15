@@ -219,7 +219,7 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     const onGoToBoard = vi.fn()
     render(<FlowMetricsDashboard {...props} onGoToBoard={onGoToBoard} />)
-    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
     expect(screen.getByText('Example of what you will see.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Go to board' }))
     expect(onGoToBoard).toHaveBeenCalled()
@@ -231,8 +231,8 @@ describe('FlowMetricsDashboard states', () => {
     mockAll(empty)
     await userEvent.click(screen.getByRole('button', { name: /^Swimlane/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Customer A' }))
-    expect(await screen.findByText('No cards match these filters')).toBeInTheDocument()
-    expect(screen.queryByText('Nothing has moved yet')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No cards match these filters' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nothing has moved yet' })).not.toBeInTheDocument()
   })
 
   it('renders four panels with a 90-day default request', async () => {
@@ -959,7 +959,7 @@ describe('the page states (#2264)', () => {
     const state = await screen.findByTestId('flow-no-match')
     expect(state).toHaveTextContent('No card in the Customer A swimlane moved in the last 90 days.')
     await userEvent.click(within(state).getByRole('button', { name: 'Remove filter: Customer A' }))
-    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
   })
 
   it('shows Show last 90 days only for a shorter period, and Clear all filters resets everything', async () => {
@@ -973,11 +973,11 @@ describe('the page states (#2264)', () => {
     const state = await screen.findByTestId('flow-no-match')
     expect(within(state).getByRole('button', { name: 'Remove filter: Last 30 days' })).toBeInTheDocument()
     await userEvent.click(within(state).getByRole('button', { name: 'Show last 90 days' }))
-    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Clear all filters' }))
-    expect(await screen.findByText('Nothing has moved yet')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Nothing has moved yet' })).toBeInTheDocument()
   })
 
   it('says too little data on the bottleneck and tiles while charts still draw', async () => {

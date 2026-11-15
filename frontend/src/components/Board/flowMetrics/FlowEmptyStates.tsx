@@ -49,6 +49,8 @@ interface NoMatchProps {
   swimlanes: { id: number; name: string }[];
   labels: { id: number; name: string }[];
   onFiltersChange: (filters: FlowFilters) => void;
+  /** Runs before a change that unmounts the pressed button, so focus can move to a stable target. */
+  onBeforeChange?: () => void;
 }
 
 /** True when the page is empty under a swimlane or label filter, or a period shorter than the default. */
@@ -60,7 +62,11 @@ export const isNarrowed = (filters: FlowFilters) =>
  * removable chip per filter, "Show last 90 days" when the period is shorter,
  * and "Clear all filters". No "would match N cards" count (spec decision).
  */
-export function NoMatchState({ filters, swimlanes, labels, onFiltersChange }: NoMatchProps) {
+export function NoMatchState({ filters, swimlanes, labels, onFiltersChange: change, onBeforeChange }: NoMatchProps) {
+  const onFiltersChange = (next: FlowFilters) => {
+    onBeforeChange?.();
+    change(next);
+  };
   const swimlane = filters.swimlaneId === null ? null : swimlanes.find((s) => s.id === filters.swimlaneId)?.name ?? "this swimlane";
   const label = filters.labelId === null ? null : labels.find((l) => l.id === filters.labelId)?.name ?? "this label";
   const shortPeriod = filters.days < DEFAULT_DAYS;
@@ -90,9 +96,9 @@ export function NoMatchState({ filters, swimlanes, labels, onFiltersChange }: No
                 type="button"
                 onClick={chip.remove}
                 aria-label={`Remove filter: ${chip.text}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border border-line-strong bg-sunken text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="inline-flex items-center gap-1.5 min-h-6 max-w-full px-2.5 py-1 text-xs rounded-full border border-line-strong bg-sunken text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
-                {chip.text}
+                <span className="min-w-0 max-w-[16rem] truncate">{chip.text}</span>
                 <span aria-hidden="true">×</span>
               </button>
             </li>
@@ -102,7 +108,7 @@ export function NoMatchState({ filters, swimlanes, labels, onFiltersChange }: No
       <div className="flex flex-wrap justify-center gap-2">
         {shortPeriod && (
           <button type="button" onClick={() => onFiltersChange({ ...filters, days: DEFAULT_DAYS })} className={SECONDARY_BUTTON}>
-            Show last 90 days
+            {`Show last ${DEFAULT_DAYS} days`}
           </button>
         )}
         <button

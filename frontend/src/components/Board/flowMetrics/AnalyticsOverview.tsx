@@ -129,7 +129,7 @@ export default function AnalyticsOverview({
         ) : undefined}
       />
       <p role="status" className="sr-only">
-        {loading ? (results === null ? "Loading flow metrics" : "Updating") : ""}
+        {loading ? (results === null ? "Loading flow metrics" : "Updating") : (empty ? (isNarrowed(filters) ? "No cards match these filters" : "Nothing has moved yet") : "")}
       </p>
       {failed && (
         <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +151,7 @@ export default function AnalyticsOverview({
         // Nothing to draw: one block in place of regions 5 to 9. Going from here to data remounts
         // the charts, which is safe because it follows the data itself, not a sibling's state.
         isNarrowed(filters)
-          ? <NoMatchState filters={filters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} />
+          ? <NoMatchState filters={filters} swimlanes={swimlanes} labels={labels} onFiltersChange={onFiltersChange} onBeforeChange={() => headingRef?.current?.focus()} />
           : <NoHistoryState onGoToBoard={onGoToBoard} />
       ) : (
         <>

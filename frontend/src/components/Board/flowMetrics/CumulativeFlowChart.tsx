@@ -79,7 +79,7 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
             <defs>
               <pattern id={hatchId} patternUnits="userSpaceOnUse" width={6} height={6} patternTransform="rotate(45)">
                 <rect width={6} height={6} fill={warningTint(0.2)} />
-                <line x1={0} y1={0} x2={0} y2={6} stroke={CHART_COLORS.warning} strokeWidth={2} />
+                <line x1={3} y1={0} x2={3} y2={6} stroke={CHART_COLORS.warning} strokeWidth={2} />
               </pattern>
             </defs>
             {paths}
