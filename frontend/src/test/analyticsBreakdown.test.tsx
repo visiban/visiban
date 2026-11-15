@@ -453,8 +453,6 @@ describe('--chart-cat-* tokens (#2268)', () => {
       // from the warning tint by contrast alone, and a group's name never relies on color.
       const cat5 = hueOf(rgbOf(block, 'chart-cat-5'))
       expect(cat5 >= 30 && cat5 < 70, `chart-cat-5 hue ${cat5}`).toBe(true)
-      {
-      }
     }
   })
   it('is exposed to Tailwind', () => {
@@ -511,7 +509,7 @@ describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', ()
   })
 
   const cards = [cardA]
-  const age = (isolated: number | null) => ({
+  const age = () => ({
     definition: 'a', sample_size: 1, excluded_incomplete_history: 0, cycle_time_percentiles: { p50: 1, p85: 2, p95: 3 },
     columns: [{ column_uid: 'c', column_name: 'Doing' }], cards,
     samples: [{ card_uid: cardA.uid, column_uid: 'c', value_days: 9, start: '2026-06-01T00:00:00Z', dwell_by_column: [], is_blocked: false, blocked_days: 0, group_keys: ['1'] }],
@@ -521,7 +519,7 @@ describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', ()
     render(<WipAgeChart data={data} cards={new Map(cards.map((c) => [c.uid, c]))} labelledBy="x" onSelect={noop} isolated={isolated} />)
 
   it('Aging dims the mark of an isolated-out card but keeps its printed name at full strength', () => {
-    const { container } = renderAge(age(1), 1)
+    const { container } = renderAge(age(), 1)
     const text = container.querySelector('text.fill-fg')!
     expect(text).toHaveTextContent(/Fix the/)
     expect(text.closest('[opacity]')).toBeNull()
@@ -529,7 +527,7 @@ describe('marks stay legible and None renders the pre-breakdown DOM (#2268)', ()
   })
 
   it('None emits no opacity attribute on Aging and Cycle time marks', () => {
-    const plain = age(null); delete (plain as { grouping?: unknown }).grouping
+    const plain = age(); delete (plain as { grouping?: unknown }).grouping
     const a = renderAge(plain, null)
     expect(a.container.querySelector('[opacity]')).toBeNull()
     const cycle = {

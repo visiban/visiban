@@ -385,14 +385,14 @@ test.describe('flow metrics breakdown (#2268)', () => {
     await expect(page.getByTestId('flow-throughput')).toContainText('stacked by swimlane')
 
     const marks = page.getByTestId('flow-cycle-time').locator('circle[data-group-color]')
-    await expect(marks.first()).toHaveAttribute('opacity', '1')
+    await expect(marks.first()).not.toHaveAttribute('opacity')
     await legend.getByRole('button', { name: 'Platform' }).click()
     await expect(legend.getByRole('button', { name: 'Platform' })).toHaveAttribute('aria-pressed', 'true')
     // Odd-numbered samples belong to Growth and drop to 20%.
     await expect(marks.nth(1)).toHaveAttribute('opacity', '0.2')
     await expect(marks.nth(0)).toHaveAttribute('opacity', '1')
     await legend.getByRole('button', { name: 'Platform' }).click()
-    await expect(marks.nth(1)).toHaveAttribute('opacity', '1')
+    await expect(marks.nth(1)).not.toHaveAttribute('opacity')
   })
 
   test('at 390px a breakdown adds no sideways scroll and keeps the legend and filter segments visible', async ({ page }) => {
