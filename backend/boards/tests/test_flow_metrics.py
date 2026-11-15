@@ -2921,6 +2921,14 @@ class AnalyticsRoundingTests(FlowFixture):
         self.path(self.backlog, 10, self.doing, 4)
         self.assertAlmostEqual(self.analytics()["deal_velocity_days"], 6.0, delta=0.1)
 
+    def test_deal_velocity_counts_a_move_out_of_a_since_deleted_column(self):
+        # CardMovement.from_column is SET_NULL, so the move's from_column_id
+        # goes NULL with the column; it is still a real move (#2297).
+        temp = Column.objects.create(board=self.board, name="Temp", position=9)
+        self.path(temp, 10, self.doing, 4)
+        temp.delete()
+        self.assertAlmostEqual(self.analytics()["deal_velocity_days"], 6.0, delta=0.1)
+
     def test_stalled_cards_carry_unfloored_days(self):
         card = self.path(self.backlog, 20, self.doing, 7.9)
         stalled = next(s for s in self.analytics()["stalled_cards"] if s["id"] == card.id)

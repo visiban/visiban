@@ -529,8 +529,9 @@ def _grouping_field(prefix, aggregates):
             ),
             "overlapping": serializers.BooleanField(
                 help_text=(
-                    "True when at least one card counts in two or more groups (label grouping), "
-                    "so group sizes can add up to more than the ungrouped total."
+                    "True when at least one of the board's cards in the range counts in two or more "
+                    "groups (label grouping), so group sizes can add up to more than an endpoint's "
+                    "ungrouped total. It reflects label overlap across all those cards, not per endpoint."
                 ),
             ),
             "groups": inline_serializer(
@@ -1201,7 +1202,6 @@ class BoardAnalyticsMixin:
                     queryset=CardMovement.objects.filter(
                         moved_at__gte=buffer_cutoff
                     ).only(
-                        # from_column_id: velocity skips a creation-only card (#2297).
                         "card_id", "from_column_id", "to_column_id", "moved_at"
                     ).order_by("moved_at"),
                 )
@@ -1296,12 +1296,15 @@ class BoardAnalyticsMixin:
                 # A card whose only movement is its creation row has not moved
                 # yet: its 0.0 days is no cycle, and would pull the average down
                 # (#2297). Creation is always a card's first movement, so the last
-                # one is a creation row only when it is the only one.
+                # one is a creation row only when it is the only one, and it is
+                # then also the card's first-ever movement. from_column_id is not
+                # a usable test: it goes NULL when a column is deleted, which
+                # would drop a real move out of it.
                 if (
                     movements
                     and movements[-1].moved_at >= period_cutoff
-                    and movements[-1].from_column_id is not None
                     and card._first_moved_at is not None
+                    and not (len(movements) == 1 and movements[0].moved_at == card._first_moved_at)
                 ):
                     deal_velocity_days.append(
                         (movements[-1].moved_at - card._first_moved_at).total_seconds() / 86400

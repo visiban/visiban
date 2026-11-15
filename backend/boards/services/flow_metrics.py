@@ -1652,8 +1652,9 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
     is for the same filters (label, period) and every swimlane.
 
     Blocked share is the lane's blocked seconds over its in-progress seconds,
-    both counted only while each card was in progress inside the range. Cards
-    without a cycle start have no elapsed time and no share.
+    both counted only while each card was in progress inside the range: from
+    its cycle start to its first completion, and again from each reopen. A card
+    with neither a cycle start nor a reopen has no window and no share.
     """
     done_uids = flow.done_uids
     samples = cycle_time(flow, flow_range)["samples"]

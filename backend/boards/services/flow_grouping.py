@@ -153,8 +153,9 @@ class GroupedFlow:
             self.slots.append(_Slot(None, None, ranked[len(named):]))
         slot_of_key = {key: index for index, slot in enumerate(self.slots) for key in slot.member_keys}
         self.excluded_cards = []
-        # True when some card sits in two or more groups (labels), so the group
-        # sizes add up to more than the board's (#2297).
+        # True when some card in the flow sits in two or more groups (labels), so
+        # group sizes can add up to more than an endpoint's ungrouped total. It is
+        # computed over every card in the flow, not per endpoint (#2297).
         self.overlapping = False
         self.slots_by_uid = {}
         self.keys_by_uid = {}
