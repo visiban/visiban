@@ -4341,7 +4341,7 @@
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
 <p>Open a card and click <strong>Block…</strong> in its header. Say what it is waiting on, then click <strong>Block card</strong>. The card shows the blocked glyph with how long it has been blocked, for example <strong>⊘ 3d</strong>.</p>
 <p><strong>Why it matters:</strong> "waiting on the customer" or "vendor outage" is not another card, so a <a href="../card-relations/">relation</a> cannot say it. A block records who blocked the card, when, and why, so you can see how long work sat blocked, in which column, and for which reasons.</p>
-<p><strong>How it works:</strong> a card is either blocked or not. Each block is kept in the card's history with its reason, its start and end, and the column the card was in, so blocked time can be summed per column and grouped by reason in <a href="../analytics/">Analytics</a>.</p>
+<p><strong>How it works:</strong> a card is either blocked or not. Each block is kept in the card's history with its reason, its start and end, and the column the card was in, so blocked time can be ranked by reason in <a href="../analytics/">Analytics</a>.</p>
 <p><strong>Yes, but:</strong> blocking does not stop anyone from moving or editing the card, and it is never set or cleared automatically. Unblock it when the wait is over.</p>
 <hr />
 <h2 id="blocking-and-unblocking">Blocking and unblocking<a class="headerlink" href="#blocking-and-unblocking" title="Permanent link">&para;</a></h2>
@@ -4394,7 +4394,7 @@
 <h3 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h3>
 <p>The <strong>Summary</strong> view has a <strong>Blocked</strong> column: how many active cards in each swimlane (not archived and not in a done column) are blocked right now, manually or by a relation.</p>
 <h3 id="analytics">Analytics<a class="headerlink" href="#analytics" title="Permanent link">&para;</a></h3>
-<p><a href="../analytics/">Analytics</a> adds <strong>Blocked time</strong> for the selected period: blocked days per column (the column each block started in) and the most common reasons, with how many blocks and how many days each one cost.</p>
+<p><a href="../analytics/">Analytics</a> adds <strong>Why cards get blocked</strong> for the selected period: the reasons ranked by days blocked, each with its number of blocks and a bar, and a footnote naming the column where most blocks started.</p>
 <hr />
 <h2 id="blocked-cards-and-a-blocked-custom-field">Blocked cards and a "Blocked" custom field<a class="headerlink" href="#blocked-cards-and-a-blocked-custom-field" title="Permanent link">&para;</a></h2>
 <p>Some boards already track blocked work with a <a href="../custom-fields/">custom field</a> choice named <strong>Blocked</strong>, or a label. Visiban does not read those: no signal is ever keyed to a choice or label name, and an admin-colored <strong>Blocked</strong> choice stays a chip on the card, never the blocked glyph or the red border. Nothing is migrated automatically.</p>
@@ -4418,7 +4418,7 @@
 <td>No</td>
 </tr>
 <tr>
-<td>Blocked time per column, top reasons</td>
+<td>Why cards get blocked (ranked reasons)</td>
 <td>Yes</td>
 <td>No</td>
 </tr>
