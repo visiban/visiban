@@ -2,6 +2,7 @@ import { useId } from "react";
 import { ChartBandHit, ChartFrame } from "../../Common/Chart";
 import { CHART_COLORS, CHART_HUE, axisTicks, chartTint, linearScale, neutralTint, niceCeil, spreadLabels } from "../../../utils/chartScale";
 import type { FlowCumulativeFlow } from "../../../types";
+import { CumulativeFlowLegend } from "./FlowLegends";
 import { HATCH_SVG } from "./hatch";
 import { bandKey, bandName, formatDate } from "./flowFormat";
 
@@ -32,7 +33,10 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
   const totals = days.map((day) => bands.reduce((sum, band) => sum + (day.counts[bandKey(band)] ?? 0), 0));
   const top = niceCeil(Math.max(1, ...totals));
   const xScale = (x0: number, x1: number) => linearScale([0, Math.max(1, days.length - 1)], [x0, x1]);
+  // The key names the hatch only when a hatched band is drawn.
+  const hasBottleneck = data.bottleneck_column_uid !== null && bands.some((band) => band.column_uid === data.bottleneck_column_uid);
   return (
+    <>
     <ChartFrame
       labelledBy={labelledBy}
       margin={{ right: 112 }}
@@ -107,5 +111,7 @@ export default function CumulativeFlowChart({ data, labelledBy, onSelectDay }: P
         ));
       }}
     />
+    {hasBottleneck && <CumulativeFlowLegend />}
+    </>
   );
 }

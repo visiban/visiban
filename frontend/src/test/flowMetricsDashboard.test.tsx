@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { REFERENCE_LABEL_MARGIN } from '../components/Common/Chart'
+import WipAgeChart from '../components/Board/flowMetrics/WipAgeChart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
@@ -374,6 +375,30 @@ describe('the panels', () => {
     expect(line?.getAttribute('stroke')).toBe(HATCH_STRIPE_COLOR)
     expect(line?.getAttribute('stroke-width')).toBe(String(HATCH_SPEC.stripe))
     expect(panel).toHaveTextContent('The hatched band is the bottleneck.')
+  })
+
+  it('keys the hatched bottleneck band with a swatch drawn from the shared hatch, and only when it is on screen (#2284)', async () => {
+    await renderLoaded()
+    const panel = screen.getByTestId('flow-cumulative')
+    const legend = within(panel).getByTestId('cfd-legend')
+    expect(legend).toHaveTextContent('Bottleneck column')
+    const swatch = legend.querySelector('pattern') as SVGElement
+    expect(swatch.getAttribute('patternTransform')).toBe(`rotate(${HATCH_SPEC.angle})`)
+    expect(swatch.querySelector('rect')?.getAttribute('fill')).toBe(HATCH_GROUND_COLOR)
+    expect(swatch.querySelector('line')?.getAttribute('stroke')).toBe(HATCH_STRIPE_COLOR)
+    expect(legend.querySelector('[data-testid="cfd-legend-hatch"] > rect')?.getAttribute('fill')).toBe(`url(#${swatch.id})`)
+    cleanup()
+    mockAll({ cumulative: { ...cumulative, bottleneck_column_uid: null } })
+    await renderLoaded()
+    expect(within(screen.getByTestId('flow-cumulative')).queryByTestId('cfd-legend')).toBeNull()
+  })
+
+  it('gives the three chart legends distinct accessible names (#2284)', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    mockAll({ age: { ...age, sample_size: 1, cards: [cardA, cardB], samples: [at('n1', 2)] } })
+    await renderLoaded()
+    const names = ['Throughput legend', 'Cumulative flow legend', 'WIP aging legend']
+    for (const name of names) expect(screen.getByRole('list', { name })).toBeInTheDocument()
   })
 
   it('shows the deleted band when it holds cards', async () => {
@@ -1077,6 +1102,71 @@ describe('named chart colors (#2264)', () => {
     // Both.
     panel = await note([6, 9])
     expect(panel).toHaveTextContent('Orange marks are older than half of finished cards; red marks are past the 85th percentile.')
+  })
+
+  it('keys the aging tiers in the chart legend only for tiers with a mark on screen (#2284)', async () => {
+    const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
+    const tiers = async (values: number[]) => {
+      mockAll({ age: { ...age, sample_size: values.length, cards: [cardA, cardB], samples: values.map((v, i) => at(`k${i}`, v)) } })
+      await renderLoaded()
+      const legend = within(screen.getByTestId('flow-wip-age')).queryByTestId('wip-age-legend')
+      return legend ? [...legend.querySelectorAll('[data-legend-tier]')].map((li) => li.getAttribute('data-legend-tier')) : []
+    }
+    expect(await tiers([2, 6, 9])).toEqual(['neutral', 'warning', 'danger'])
+    const legend = within(screen.getByTestId('flow-wip-age')).getByTestId('wip-age-legend')
+    expect(legend).toHaveTextContent('Under the 50th percentile')
+    expect(legend).toHaveTextContent('Past the 50th percentile')
+    expect(legend).toHaveTextContent('Past the 85th percentile')
+    // The red tier swatch carries the ring, the shape the chart draws for it.
+    expect(legend.querySelector('[data-legend-tier="danger"] circle[r="8"]')).not.toBeNull()
+    expect(legend.querySelector('[data-legend-tier="warning"] circle[r="8"]')).toBeNull()
+    cleanup()
+    expect(await tiers([2, 3])).toEqual(['neutral'])
+    cleanup()
+    expect(await tiers([6])).toEqual(['warning'])
+    cleanup()
+    expect(await tiers([])).toEqual([])
+    expect(within(screen.getByTestId('flow-wip-age')).queryByTestId('wip-age-legend')).toBeNull()
+  })
+
+  it('keys the blocked square only when a blocked card is drawn (#2284)', async () => {
+    const at = (uid: string, blocked: boolean) => ({ ...age.samples[0], card_uid: uid, value_days: 2, is_blocked: blocked })
+    mockAll({ age: { ...age, sample_size: 2, cards: [cardA, cardB], samples: [at('b1', true), at('b2', false)] } })
+    await renderLoaded()
+    expect(within(screen.getByTestId('flow-wip-age')).getByTestId('wip-age-legend').querySelector('[data-legend-blocked]')).toHaveTextContent('Blocked card')
+    cleanup()
+    mockAll({ age: { ...age, sample_size: 1, cards: [cardA, cardB], samples: [at('b3', false)] } })
+    await renderLoaded()
+    expect(within(screen.getByTestId('flow-wip-age')).getByTestId('wip-age-legend').querySelector('[data-legend-blocked]')).toBeNull()
+  })
+
+  it('draws no aging tier key under a breakdown, where marks take group colors (#2284)', () => {
+    const { container } = render(
+      <WipAgeChart
+        data={{ ...age, grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: [{ key: 'a', name: 'A', sample_size: 1 }] } } as unknown as FlowWipAge}
+        cards={new Map()}
+        labelledBy="x"
+        onSelect={() => {}}
+      />,
+    )
+    expect(container.querySelector('[data-legend-tier]')).toBeNull()
+  })
+
+  it('keys the blocked square, with no tier items, under a breakdown (#2284)', () => {
+    const { container } = render(
+      <WipAgeChart
+        data={{
+          ...age,
+          samples: [{ ...age.samples[0], is_blocked: true }],
+          grouping: { by: 'swimlane', field_id: null, excluded: 0, groups: [{ key: 'a', name: 'A', sample_size: 1 }] },
+        } as unknown as FlowWipAge}
+        cards={new Map()}
+        labelledBy="x"
+        onSelect={() => {}}
+      />,
+    )
+    expect(container.querySelector('[data-legend-blocked]')).toHaveTextContent('Blocked card')
+    expect(container.querySelector('[data-legend-tier]')).toBeNull()
   })
 
   it('adds no tier for a withheld percentile', () => {

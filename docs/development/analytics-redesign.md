@@ -134,9 +134,9 @@ All four charts keep the `ChartPanel` behavior they have today: summary sentence
 
 | Chart | What changes |
 |---|---|
-| Cumulative flow | Layout position, and the bottleneck band is hatched in the warning color. Bands keep 1px separators and direct labels at the right edge; Done is neutral. |
+| Cumulative flow | Layout position, and the bottleneck band is hatched in the warning color, with a one-item legend (a swatch drawn from `HATCH_SVG`) shown only while that band is drawn (#2284). Bands keep 1px separators and direct labels at the right edge; Done is neutral. |
 | Throughput | Adds a "started" marker per week next to the finished bar. Median dashed, labeled in the right margin. |
-| Aging work in progress | Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. |
+| Aging work in progress | Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. A legend lists the neutral, past-50th and past-85th tiers in the shapes the chart draws, each only while a mark of that tier is on screen, and none under a breakdown, where marks take group colors (#2284). |
 | Cycle time | Layout position only. Same reference-line vocabulary. |
 
 Color follows [Chart colors](#chart-colors). Shape and position still carry every meaning that color carries.
