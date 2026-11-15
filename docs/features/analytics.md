@@ -203,7 +203,7 @@ Columns marked `is_done = true` are excluded from dwell-time calculations and hi
 
 #### Velocity column
 
-The rightmost column shows **Velocity** per swimlane: the average `deal_velocity_days`, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A dash (`—`) means no velocity data for that swimlane.
+The rightmost column shows **Velocity** per swimlane: the average `deal_velocity_days`, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A card that has only been created, and never moved, is left out rather than counted as 0 days (*changed in 1.3*, #2297). A dash (`—`) means no velocity data for that swimlane.
 
 #### Color-coding
 
@@ -212,6 +212,7 @@ Cells are colored from the board's `staleness_threshold_days` and `stale_warning
 - With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.
 - A value of `0` turns the yellow band off, so cells are green until the threshold.
 - The card [aging tint](card-history.md#card-aging-tint) uses the same boundary.
+- A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as `7.0d` but stays yellow against a 7-day threshold (*changed in 1.3*, #2297).
 
 !!! note "Changed in 1.2 (#1841)"
     Before 1.2 the boundary was computed as `threshold * (1 - stale_warning_pct / 100)`, the inverse of what the setting says. Boards on the default 50% are unaffected. Boards with any other value see the yellow band move.

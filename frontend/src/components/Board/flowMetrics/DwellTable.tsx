@@ -140,7 +140,12 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
                   {activeCols.map(col => {
                     const avg = getAvg(sw, col);
                     const tooltip = getTooltip(sw, col);
-                    const level = avg !== null ? HEAT_LEVELS[heatLevel(avg, threshold, warningPct)] : null;
+                    let tier = avg !== null ? heatLevel(avg, threshold, warningPct) : null;
+                    // The served average is rounded (6.96 reads 7.0); the server's flag
+                    // compares the unrounded one, so it decides the top tier (#2297).
+                    const outlier = (mode === "age" ? sw.age_is_outlier : sw.throughput_is_outlier)?.[col];
+                    if (tier === "high" && outlier === false) tier = "warning";
+                    const level = tier !== null ? HEAT_LEVELS[tier] : null;
                     return (
                       <td
                         key={col}

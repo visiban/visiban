@@ -584,6 +584,31 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText(/No card movements/)).not.toBeInTheDocument()
   })
 
+  it('keeps a cell out of red when only the rounded average reaches the threshold (#2297)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 7 },
+          is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 7 },
+          age_is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 7,
+      stale_warning_pct: 50,
+    })
+    renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const cell = await screen.findByText('7d')
+    expect(cell.className).not.toMatch(/danger/)
+    expect(cell.className).toMatch(/warning/)
+  })
+
   it('colors cells red when avg meets or exceeds threshold', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
@@ -594,7 +619,7 @@ describe('AnalyticsView', () => {
           avg_days_per_column: { 'To Do': 14 },
           is_outlier: { 'To Do': false },
           age_avg_days_per_column: { 'To Do': 14 },
-          age_is_outlier: { 'To Do': false },
+          age_is_outlier: { 'To Do': true },
           deal_velocity_days: null,
           stalled_cards: [],
         },

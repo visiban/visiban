@@ -1339,11 +1339,13 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     ``metrics/cycle-time`` and ``metrics/throughput`` responses, minus their
     per-card lists (``samples``, ``card_uids``), which would make the payload
     scale with the board, and minus throughput's ``completed_in_range``, which
-    MCP does not return. WIP and blocked time come from the same service but
+    MCP does not return. WIP and ``blocked`` come from the same service but
     match no REST response: WIP is ``flow_metrics.wip``, and ``blocked`` is the
     older ``blocked_time`` shape the ``/analytics/`` response serves (days
-    rounded to 0.1, keyed by column name, reasons ranked by block count), not
-    ``metrics/blocked``. It is cut by ``swimlane_id`` like the rest, because
+    rounded to 0.1, keyed by column name, reasons ranked by block count).
+    ``blocked_summary`` is the REST ``metrics/blocked`` response itself (by
+    column uid, unrounded, reasons ranked by time), so an MCP client can rank
+    reasons the way the Analytics page does (#2297). Both are cut by ``swimlane_id`` like the rest, because
     ``_block_spans`` reads the flow's swimlane (#2280). Percentiles stay
     ``null`` below the service's sample-size rule, and throughput counts whole
     ISO weeks only, dropping the partial week at each end of the window, so a
@@ -1398,6 +1400,7 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
             ],
         },
         "blocked": flow_metrics.blocked_time(flow, flow_range),
+        "blocked_summary": flow_metrics.blocked_summary(flow, flow_range),
     }
 
 

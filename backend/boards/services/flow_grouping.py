@@ -153,6 +153,9 @@ class GroupedFlow:
             self.slots.append(_Slot(None, None, ranked[len(named):]))
         slot_of_key = {key: index for index, slot in enumerate(self.slots) for key in slot.member_keys}
         self.excluded_cards = []
+        # True when some card sits in two or more groups (labels), so the group
+        # sizes add up to more than the board's (#2297).
+        self.overlapping = False
         self.slots_by_uid = {}
         self.keys_by_uid = {}
         for card in flow.cards:
@@ -163,6 +166,8 @@ class GroupedFlow:
             slots = sorted({slot_of_key[k] for k in keys})
             self.keys_by_uid[card.uid] = keys
             self.slots_by_uid[card.uid] = slots
+            if len(slots) > 1:
+                self.overlapping = True
             if not slots:
                 self.excluded_cards.append(card)
             for index in slots:
@@ -176,7 +181,13 @@ class GroupedFlow:
         return [metric(self.sub_flow(slot.cards)) for slot in self.slots], metric(self.sub_flow(self.excluded_cards))
 
     def envelope(self, groups, excluded):
-        return {"by": self.grouping.by, "field_id": self.grouping.field_id, "excluded": excluded, "groups": groups}
+        return {
+            "by": self.grouping.by,
+            "field_id": self.grouping.field_id,
+            "excluded": excluded,
+            "overlapping": self.overlapping,
+            "groups": groups,
+        }
 
 
 def group_cycle_time(payload, flow, flow_range, grouping):

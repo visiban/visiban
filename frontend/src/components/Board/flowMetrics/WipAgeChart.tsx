@@ -55,7 +55,9 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
     const width = bandwidth(x0, x1);
     const y = linearScale([0, top], [y1, y0]);
     const seen = new Map<string, number>();
-    return data.samples.map((sample) => {
+    // A sample whose column is not in `columns` has no band; drawing it in the
+    // first one would misplace it (#2297).
+    return data.samples.filter((sample) => columnIndex.has(sample.column_uid)).map((sample) => {
       const nth = seen.get(sample.column_uid) ?? 0;
       seen.set(sample.column_uid, nth + 1);
       // Deterministic spread, so a reload keeps every dot where it was.
@@ -63,7 +65,7 @@ export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolate
       const offset = ((nth % 5) - 2) * step;
       return {
         sample,
-        x: x0 + width * ((columnIndex.get(sample.column_uid) ?? 0) + 0.5) + offset,
+        x: x0 + width * ((columnIndex.get(sample.column_uid) as number) + 0.5) + offset,
         y: y(sample.value_days),
         pastP85: zones.p85 !== null && sample.value_days > zones.p85,
       };

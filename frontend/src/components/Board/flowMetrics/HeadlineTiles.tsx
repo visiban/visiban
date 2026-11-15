@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import type { Column, FlowBlocked, FlowCycleTime, FlowThroughput, FlowWipAge } from "../../../types";
 import { wipCount } from "./flowRowData";
-import { PERCENTILE_APPEARS_AT, cardsPastP85, columnsOverLimit, formatNumber, pluralize } from "./flowFormat";
+import { blockedTimeText } from "./BlockedSection";
+import { PERCENTILE_APPEARS_AT, cardsPastP85, columnsOverLimit, dayUnit, formatNumber, pluralize } from "./flowFormat";
 
 interface Props {
   cycle: FlowCycleTime | undefined;
@@ -60,7 +61,7 @@ function TilePlaceholder({ label, failed }: { label: string; failed: boolean }) 
   );
 }
 
-const days = (n: number) => (n === 1 ? "day" : "days");
+const days = dayUnit;
 
 function CycleTile({ cycle }: { cycle: FlowCycleTime }) {
   const { p50, p85 } = cycle.percentiles;
@@ -135,7 +136,12 @@ function WipTile({ wipAge, columns, filtered, cycleSampleSize }: {
 function BlockedTile({ blocked }: { blocked: FlowBlocked }) {
   const total = blocked.total.days;
   return (
-    <Tile label="Blocked time" value={formatNumber(total)} unit={days(total)}>
+    // Under a day, hours, as "Why cards get blocked" says it: 0.02 days is "28m", not "0.0 days" (#2297).
+    <Tile
+      label="Blocked time"
+      value={total > 0 && total < 1 ? blockedTimeText(total) : formatNumber(total)}
+      unit={total > 0 && total < 1 ? "" : days(total)}
+    >
       {pluralize(blocked.total.blocks, "block")}. {pluralize(blocked.blocked_now, "card")} blocked right now.
     </Tile>
   );

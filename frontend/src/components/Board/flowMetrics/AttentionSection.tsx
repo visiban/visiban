@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FlowAttention, FlowAttentionItem } from "../../../types";
 import { PanelPlaceholder } from "./FlowChartPanels";
+import { dayUnit, formatNumber } from "./flowFormat";
 import type { Result } from "./useAnalyticsOverviewData";
 
 const PREVIEW_ROWS = 5;
@@ -15,7 +16,8 @@ interface Props {
   onOpenCard?: (cardId: number) => void;
 }
 
-const days = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "day" : "days"}`;
+// One decimal, as the tile and chart show the same p85 (8.4, not "8 days") (#2297).
+const days = (n: number) => `${formatNumber(n)} ${dayUnit(n)}`;
 
 /**
  * The reason line: every reason the card qualifies for, in the service's order, except that

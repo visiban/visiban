@@ -9,7 +9,7 @@ import WipAgeChart from '../components/Board/flowMetrics/WipAgeChart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
-  PERCENTILE_APPEARS_AT, bottleneckSentence, columnsOverLimit, shareOfCycle, shareOfCyclePhrase,
+  PERCENTILE_APPEARS_AT, bottleneckSentence, columnsOverLimit, dayUnit, formatDays, shareOfCycle, shareOfCyclePhrase,
   ageMarkColor, ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
 } from '../components/Board/flowMetrics/flowFormat'
 import type {
@@ -1356,5 +1356,48 @@ describe('the page states (#2264)', () => {
     expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Too early to say')
     expect(screen.getByTestId('analytics-tiles')).toHaveTextContent('Provisional')
     expect(screen.getByTestId('flow-cumulative')).toBeInTheDocument()
+  })
+})
+
+describe('rounding and wording edge cases (#2297)', () => {
+  const tile = (label: string) => screen.getByRole('heading', { name: label, level: 3 }).closest('div')!.parentElement as HTMLElement
+
+  it('picks the unit from the number as shown, and never shows a tiny value as 0.0d', () => {
+    expect(dayUnit(0.96)).toBe('day')
+    expect(dayUnit(1)).toBe('day')
+    expect(dayUnit(1.06)).toBe('days')
+    expect(dayUnit(0.4)).toBe('days')
+    expect(formatDays(0.02)).toBe('<0.1d')
+    expect(formatDays(0)).toBe('0.0d')
+    expect(formatDays(0.05)).toBe('0.1d')
+  })
+
+  it('says "1 card arrives" for a rate of one', () => {
+    const one: FlowCumulativeFlow = {
+      ...cumulative,
+      columns: cumulative.columns.map((c) => ({ ...c, start_count: 1, end_count: 4, entered_per_week: 1, left_per_week: 2 })),
+    }
+    expect(bottleneckSentence('col-doing', { cumulative: one, dwell: undefined, cycle, columns: [] }))
+      .toBe('The median wait here is not available yet. The queue grew from 1 to 4 cards, because 1 card arrives each week and 2 leave.')
+  })
+
+  it('shows blocked time under a day in hours on the tile, as the section does', async () => {
+    mockAll({ blocked: { ...blocked, total: { days: 0.25, blocks: 1 } } })
+    await renderLoaded()
+    expect(tile('Blocked time')).toHaveTextContent('6h')
+    expect(tile('Blocked time')).not.toHaveTextContent('0.3')
+  })
+
+  it('draws no mark for a sample whose column is not on the chart', () => {
+    const base = { ...age.samples[0], is_blocked: false }
+    const { container } = render(
+      <WipAgeChart
+        data={{ ...age, samples: [base, { ...base, card_uid: 'gone', column_uid: 'col-deleted' }] }}
+        cards={new Map()}
+        labelledBy="x"
+        onSelect={() => {}}
+      />,
+    )
+    expect(container.querySelectorAll('g[data-age-color]')).toHaveLength(1)
   })
 })

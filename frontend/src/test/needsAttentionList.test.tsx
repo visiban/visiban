@@ -142,3 +142,11 @@ describe('Needs attention (#2263)', () => {
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
   })
 })
+
+describe('Needs attention precision (#2297)', () => {
+  it('names the p85 to one decimal, as the tile and chart do', () => {
+    const data = { ...payload([item(1, { age_days: 9 })]), cycle_time_percentiles: { p50: 4, p85: 8.4, p95: null } }
+    render(<AttentionSection attention={ok(data)} swimlanes={swimlanes} columns={columns} />)
+    expect(screen.getByText(/past 8\.4 days/)).toBeInTheDocument()
+  })
+})

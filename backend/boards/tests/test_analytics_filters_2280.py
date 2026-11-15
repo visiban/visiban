@@ -95,7 +95,8 @@ class AnalyticsFilterTests(TestCase):
         data = self.client.get(self.url, {"swimlane_id": self.lane_a.id}).json()
         self.assertEqual([sw["name"] for sw in data["swimlanes"]], ["A"])
         self.assertEqual(self._stalled(data), {"a"})
-        self.assertIsNotNone(data["swimlanes"][0]["deal_velocity_days"])
+        # Card a has only its creation row, which is no cycle: no velocity (#2297).
+        self.assertIsNone(data["swimlanes"][0]["deal_velocity_days"])
         # Lane B's block (card c) is excluded; lane A has none.
         self.assertEqual(data["blocked"]["total"]["blocks"], 0)
         self.assertEqual(sum(data["blocked"]["blocks_per_column"].values()), 0)
