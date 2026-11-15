@@ -81,7 +81,7 @@ From 1024px wide the paired panels sit side by side; below that every panel take
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Under the page title, two links switch between **Overview** and **Swimlanes**. The Date range and Label you picked carry over. The Swimlanes view ranks swimlanes by how long work takes:
+Under the page title, two links switch between **Overview** and **Swimlanes**. The Date range and Label you picked carry over. The selected view is not kept in the URL, so a reload returns to Overview. The Swimlanes view ranks swimlanes by how long work takes:
 
 - **Controls:** Date range, Label, **Group lanes by** (None, or a dropdown or checkbox swimlane custom field) and **Sort** (slowest first by default). There is no Swimlane filter, because every swimlane is shown.
 - **Finding panel:** names up to two swimlanes that are slower than the board, or says none is.

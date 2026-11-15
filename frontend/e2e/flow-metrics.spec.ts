@@ -326,6 +326,11 @@ test.describe('analytics swimlanes view (#2267)', () => {
   test('has no sideways page scroll at 390px', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await openSwimlanes(page)
+    const first = page.getByTestId('swimlane-row').first()
+    await expect(first.getByRole('button')).toBeVisible()
+    for (const text of ['Cycle time', 'Trend in period', 'Time blocked', 'in progress']) {
+      await expect(first.getByText(text).first()).toBeVisible()
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
     expect(await page.getByTestId('analytics-page').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   })

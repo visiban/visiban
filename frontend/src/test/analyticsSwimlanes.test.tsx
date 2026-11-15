@@ -68,6 +68,24 @@ describe('Swimlanes view', () => {
     await waitFor(() => expect(vi.mocked(getFlowCycleTime).mock.calls.at(-1)?.[1]).toMatchObject({ days: 30 }))
   })
 
+  it('carries the Label over in both directions', async () => {
+    const user = await openSwimlanes()
+    await user.click(screen.getByRole('button', { name: /^Label/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Urgent' }))
+    await waitFor(() => expect(getFlowSwimlanes).toHaveBeenLastCalledWith(9, { days: 90, labelId: 4 }, undefined))
+    await user.click(screen.getByRole('link', { name: 'Overview' }))
+    await waitFor(() => expect(vi.mocked(getFlowCycleTime).mock.calls.at(-1)?.[1]).toMatchObject({ labelId: 4 }))
+  })
+
+  it('leaves a modified click on the view links alone', async () => {
+    render(<AnalyticsView {...props} />)
+    const user = userEvent.setup()
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByRole('link', { name: 'Swimlanes' }))
+    await user.keyboard('{/Control}')
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+  })
+
   it('names the two slowest lanes in the finding', async () => {
     await openSwimlanes()
     const finding = screen.getByTestId('swimlanes-finding')
@@ -132,6 +150,34 @@ describe('Swimlanes view', () => {
     expect(await screen.findByRole('heading', { name: 'Team X' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'No Team' })).toBeInTheDocument()
     expect(getFlowSwimlanes).toHaveBeenLastCalledWith(9, { days: 90, labelId: null }, 8)
+  })
+
+  it('colors a slower lane\'s trend bars with the warning color even when its trend is steady', async () => {
+    vi.mocked(getFlowSwimlanes).mockResolvedValue(data([
+      row({ id: 1, name: 'Mobile', status: 'slower', median_days: 14 }),
+      row({ id: 2, name: 'Growth', status: 'in_line' }),
+    ]))
+    await openSwimlanes()
+    const [mobile, growth] = screen.getAllByTestId('swimlane-row')
+    const fill = (r: HTMLElement) => (within(r).getByTestId('trend-bars').firstElementChild as HTMLElement).style.background
+    expect(fill(mobile)).toContain('--warning')
+    expect(fill(growth)).not.toContain('--warning')
+  })
+
+  it('keeps old numbers with an alert and Retry when a refetch fails, and hides the legend without rows', async () => {
+    const user = await openSwimlanes()
+    expect(screen.getByTestId('swimlanes-legend')).toBeInTheDocument()
+    vi.mocked(getFlowSwimlanes).mockRejectedValueOnce(new Error('x'))
+    await user.click(screen.getByRole('button', { name: /^Date range/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not refresh swimlanes')
+    expect(screen.getAllByTestId('swimlane-row').length).toBeGreaterThan(0)
+    vi.mocked(getFlowSwimlanes).mockResolvedValue(data([]))
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(screen.queryByTestId('swimlanes-legend')).toBeNull()
+    expect(screen.getByText('This board has no swimlanes.')).toBeInTheDocument()
   })
 
   it('shows a failure with Retry', async () => {

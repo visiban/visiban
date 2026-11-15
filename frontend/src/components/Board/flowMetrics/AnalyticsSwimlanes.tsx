@@ -50,7 +50,7 @@ function CycleBar({ row, scale, boardMedian }: { row: FlowSwimlaneRow; scale: nu
 function TrendBars({ row }: { row: FlowSwimlaneRow }) {
   const values = row.rolling_median.map((p) => p.median_days);
   const max = Math.max(0, ...values.filter((v): v is number => v !== null));
-  const color = row.trend?.direction === "slower" ? CHART_COLORS.warning : CHART_HUE;
+  const color = row.status === "slower" || row.trend?.direction === "slower" ? CHART_COLORS.warning : CHART_HUE;
   if (!row.trend || max === 0) return <div className="h-6" aria-hidden="true" />;
   return (
     <div className="flex items-end gap-0.5 h-6" aria-hidden="true" data-testid="trend-bars">
@@ -75,7 +75,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
 }) {
   const status = statusText(row);
   const statusClass = row.status === "slower" ? "text-warning" : row.status === "faster" ? "text-success" : "text-fg-tertiary";
-  const trendClass = row.trend?.direction === "slower" ? "text-warning" : row.trend?.direction === "faster" ? "text-success" : "text-fg-secondary";
+  const trendClass = row.status === "slower" || row.trend?.direction === "slower" ? "text-warning" : row.trend?.direction === "faster" ? "text-success" : "text-fg-secondary";
   return (
     <li
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-6 gap-y-3 py-4 border-b border-line last:border-b-0 items-start"
@@ -85,7 +85,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
         <button
           type="button"
           onClick={() => onOpen(row.id)}
-          className="self-start max-w-full text-left text-base font-semibold text-info underline underline-offset-2 truncate min-h-6 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="self-start max-w-full text-left text-base font-semibold text-fg hover:underline underline-offset-2 truncate min-h-6 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           title={row.name}
           aria-label={`${row.name}, open in Overview`}
         >
@@ -172,7 +172,8 @@ export default function AnalyticsSwimlanes({
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {swimlaneFields.length > 0 && (
             <SingleSelectDropdown
-              label={`Group lanes by: ${groupName ?? "None"}`}
+              label={groupName ?? "None"}
+              triggerPrefix="Group lanes by:"
               ariaLabel="Group lanes by"
               options={groupOptions}
               selected={groupId}
@@ -181,7 +182,8 @@ export default function AnalyticsSwimlanes({
             />
           )}
           <SingleSelectDropdown
-            label={`Sort: ${SORT_OPTIONS.find((o) => o.value === sort)?.label}`}
+            label={SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Slowest first"}
+            triggerPrefix="Sort:"
             ariaLabel="Sort"
             options={SORT_OPTIONS}
             selected={sort}
