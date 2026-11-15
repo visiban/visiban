@@ -58,8 +58,9 @@ export const colorOfGroup = (groups: readonly FlowGroupBase[], index: number) =>
   groupColor(index, groups[index]?.key === null);
 
 /** The mark color for a card in `groups`, or null when it belongs to none. */
-export function cardGroupColor(groups: readonly FlowGroupBase[], keys: readonly string[] | undefined): string | null {
-  const index = groupIndexOf(groups, keys);
+export function cardGroupColor(groups: readonly FlowGroupBase[], keys: readonly string[] | undefined, isolated: number | null = null): string | null {
+  // A card in several groups (labels) takes the isolated group's color, so its mark agrees with the selected chip.
+  const index = isolated !== null && inGroup(groups, isolated, keys) ? isolated : groupIndexOf(groups, keys);
   return index < 0 ? null : colorOfGroup(groups, index);
 }
 

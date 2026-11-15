@@ -46,7 +46,7 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
           <>
             {data.samples.map((sample) => {
               // Under a breakdown the dot takes its group's color; a card in no group stays the chart hue.
-              const group = groups.length > 0 ? cardGroupColor(groups, sample.group_keys) : null;
+              const group = groups.length > 0 ? cardGroupColor(groups, sample.group_keys, isolated) : null;
               return (
               <circle
                 key={sample.card_uid}
@@ -76,7 +76,7 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
             key={sample.card_uid}
             x={x(new Date(sample.end).getTime())}
             y={y(sample.value_days)}
-            color={(groups.length > 0 ? cardGroupColor(groups, sample.group_keys) : null) ?? undefined}
+            color={(groups.length > 0 ? cardGroupColor(groups, sample.group_keys, isolated) : null) ?? undefined}
             label={`${cards.get(sample.card_uid)?.title ?? sample.card_uid}, ${formatDays(sample.value_days)} cycle time`}
             onSelect={() => onSelect(sample)}
           />

@@ -271,7 +271,11 @@ describe('isolating a group (#2268)', () => {
     expect([...cycle.querySelectorAll('circle[data-group-color]')].map(opacityOf)).toEqual(['1', '0.2'])
     const rects = [...screen.getByTestId('flow-throughput').querySelectorAll('[data-stacked-week="2026-06-01"] rect')]
     expect(rects.map(opacityOf)).toEqual(['1', '0.2'])
-    expect(screen.getAllByTestId('time-bar-group')[1].className).toContain('opacity-20')
+    const rows = screen.getAllByTestId('time-bar-group')
+    // Only the bar dims; the name and total stay readable.
+    expect(within(rows[1]).getByRole('region').className).toContain('opacity-20')
+    expect(within(rows[0]).getByRole('region').className).not.toContain('opacity-20')
+    expect(rows[1].className).not.toContain('opacity-20')
     expect(screen.getByTestId('group-legend')).toHaveTextContent('Select it again')
 
     await userEvent.click(chips[0])
@@ -317,6 +321,9 @@ describe('breakdown helpers', () => {
     expect(groupNamesOf(WITH_OTHER, undefined)).toEqual([])
     expect(cardGroupColor(WITH_OTHER, ['x'])).toBe('rgb(var(--fg-tertiary))')
     expect(cardGroupColor(WITH_OTHER, ['none'])).toBeNull()
+    // A multi-label card takes the isolated group's color so its mark agrees with the chip.
+    expect(cardGroupColor(WITH_OTHER, ['1', '2'], 1)).toBe('rgb(var(--chart-cat-2))')
+    expect(cardGroupColor(WITH_OTHER, ['1', '2'], 2)).toBe('rgb(var(--chart-cat-1))')
     expect(markOpacity(WITH_OTHER, null, ['1'])).toBe(1)
     expect(markOpacity(WITH_OTHER, 1, ['1'])).toBe(0.2)
   })
@@ -369,5 +376,20 @@ describe('--chart-cat-* tokens (#2268)', () => {
   it('is exposed to Tailwind', () => {
     const tw = readFileSync('tailwind.config.js', 'utf8')
     for (const n of names) expect(tw).toContain(`"${n}": "rgb(var(--${n}) / <alpha-value>)"`)
+  })
+})
+
+describe('isolation follows the groups on screen (#2268)', () => {
+  it('drops the isolation when a filter changes which groups come back', async () => {
+    await renderLoaded()
+    await pick('swimlane')
+    const chips = await screen.findAllByTestId('group-chip')
+    await userEvent.click(chips[1])
+    expect(chips[1]).toHaveAttribute('aria-pressed', 'true')
+    mockEndpoints([group('9', 'Other team'), ...THREE])
+    await userEvent.click(screen.getByRole('button', { name: /^Date range/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    await screen.findByRole('button', { name: 'Other team' })
+    expect(screen.getAllByTestId('group-chip').every((c) => c.getAttribute('aria-pressed') === 'false')).toBe(true)
   })
 })

@@ -37,8 +37,9 @@ interface Props {
 export default function WipAgeChart({ data, cards, labelledBy, onSelect, isolated = null }: Props) {
   const groups = data.grouping?.groups ?? [];
   // Under a breakdown a mark takes its group color; the ring and square still say past P85 and blocked.
+  // A card in no group is neutral: orange and red stay reserved for the signals the page is not showing.
   const markColor = (sample: FlowAgeSample, age: string) =>
-    (groups.length > 0 ? cardGroupColor(groups, sample.group_keys) : null) ?? age;
+    groups.length > 0 ? (cardGroupColor(groups, sample.group_keys, isolated) ?? "neutral") : age;
   const zones = data.cycle_time_percentiles;
   const top = niceCeil(Math.max(1, ...data.samples.map((s) => s.value_days), zones.p95 ?? zones.p85 ?? 0));
   const fill = (sample: FlowAgeSample, age: keyof typeof CHART_COLORS) => {

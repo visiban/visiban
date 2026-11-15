@@ -335,3 +335,63 @@ test.describe('analytics swimlanes view (#2267)', () => {
     expect(await page.getByTestId('analytics-page').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   })
 })
+
+// Breakdowns (#2268): the grouped responses are answered only when the request carries `group_by`.
+const BREAKDOWN_GROUPS = [
+  { key: '1', name: 'Platform', member_keys: ['1'] },
+  { key: '2', name: 'Growth', member_keys: ['2'] },
+]
+const groupKeysOf = (n: number) => [String((n % 2) + 1)]
+
+test.describe('flow metrics breakdown (#2268)', () => {
+  test('breaking down by swimlane colors the charts, and the legend isolates one group', async ({ page }) => {
+    await openAnalytics(page)
+    const grouped = (name: string, build: (url: URL) => unknown) =>
+      page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) => {
+        const url = new URL(route.request().url())
+        if (url.searchParams.get('group_by') !== 'swimlane') return route.fallback()
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(build(url)) })
+      })
+    const grouping = (extra: (g: (typeof BREAKDOWN_GROUPS)[number]) => object) => ({
+      by: 'swimlane', field_id: null, excluded: 0, groups: BREAKDOWN_GROUPS.map((g) => ({ ...g, ...extra(g) })),
+    })
+    await grouped('cycle-time', () => ({
+      ...cycleTime,
+      samples: cycleTime.samples.map((s, n) => ({ ...s, group_keys: groupKeysOf(n) })),
+      grouping: grouping(() => ({ sample_size: 12, percentiles: cycleTime.percentiles })),
+    }))
+    await grouped('throughput', () => ({
+      ...throughput,
+      samples: throughput.samples.map((s) => ({
+        ...s,
+        by_group: BREAKDOWN_GROUPS.map((g, i) => ({ key: g.key, count: i === 0 ? s.count : 0, card_uids: [] })),
+      })),
+      grouping: grouping(() => ({ total: 12, median: 1 })),
+    }))
+    await grouped('wip-age', () => ({
+      ...wipAge,
+      samples: wipAge.samples.map((s, n) => ({ ...s, group_keys: groupKeysOf(n) })),
+      grouping: grouping(() => ({ sample_size: 6 })),
+    }))
+    await grouped('dwell', () => ({
+      ...dwell,
+      grouping: grouping((g) => ({ sample_size: 12, columns: dwell.columns.map((c, i) => ({ ...c, percentiles: { ...c.percentiles, p50: 1 + i + Number(g.key) } })) })),
+    }))
+
+    await page.getByRole('button', { name: 'Break down by swimlane' }).click()
+    const legend = page.getByTestId('group-legend')
+    await expect(legend).toBeVisible()
+    await expect(page.getByTestId('time-bar-group')).toHaveCount(2)
+    await expect(page.getByTestId('flow-throughput')).toContainText('stacked by swimlane')
+
+    const marks = page.getByTestId('flow-cycle-time').locator('circle[data-group-color]')
+    await expect(marks.first()).toHaveAttribute('opacity', '1')
+    await legend.getByRole('button', { name: 'Platform' }).click()
+    await expect(legend.getByRole('button', { name: 'Platform' })).toHaveAttribute('aria-pressed', 'true')
+    // Odd-numbered samples belong to Growth and drop to 20%.
+    await expect(marks.nth(1)).toHaveAttribute('opacity', '0.2')
+    await expect(marks.nth(0)).toHaveAttribute('opacity', '1')
+    await legend.getByRole('button', { name: 'Platform' }).click()
+    await expect(marks.nth(1)).toHaveAttribute('opacity', '1')
+  })
+})

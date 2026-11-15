@@ -127,6 +127,9 @@ export default function AnalyticsOverview({
   const legendGrouping = (cycle?.grouping ?? throughput?.grouping ?? wipAge?.grouping ?? dwell?.grouping) ?? null;
   const legendGroups = legendGrouping && legendGrouping.groups.length > 0 ? legendGrouping.groups : null;
   const noun = legendGrouping ? breakdownNoun(legendGrouping, customFields.find((f) => f.id === legendGrouping.field_id)?.name) : undefined;
+  // Isolation is an index into the groups on screen: drop it when the groups themselves change (a filter can reorder them).
+  const groupSignature = legendGroups?.map((g) => g.key ?? "other").join("|") ?? "";
+  useEffect(() => { setIsolated(null); }, [groupSignature]);
   const canExport = currentUserRole === "admin" || currentUserRole === "site_admin";
   const exportable = analytics?.swimlanes ? analytics : null;
 
