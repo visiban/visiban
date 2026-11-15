@@ -124,7 +124,7 @@ A filter change refreshes every panel once. The panels keep showing the previous
 
 ### Bottleneck
 
-The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart; the first in-progress column, where new work arrives, is never named) and states its numbers in one sentence:
+The panel names the column the server reports as the bottleneck (the column that is not done and whose queue grew the most across the period, the hatched band of the cumulative flow chart; the first column that is not done (where new work arrives) is never named) and states its numbers in one sentence:
 
 - **Median wait:** the 50th percentile of completed time in that column ([dwell](#flow-metric-definitions)).
 - **Share of the cycle:** the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.

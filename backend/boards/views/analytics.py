@@ -1207,7 +1207,12 @@ class BoardAnalyticsMixin:
                 # movements. An active card with none is the long-dwelling case below.
                 dwell_moves = movements
                 if card._pre_buffer_col_id is not None and (movements or card.archived_at is not None):
-                    dwell_moves = [SimpleNamespace(to_column_id=card._pre_buffer_col_id, moved_at=buffer_cutoff), *movements]
+                    stand_in = SimpleNamespace(to_column_id=card._pre_buffer_col_id, moved_at=buffer_cutoff)
+                    # A first in-buffer movement into the same column (swimlane-only move,
+                    # archived/unarchived row) continues the stay the stand-in already
+                    # carries; keeping both would count one visit as two dwell entries.
+                    rest = movements[1:] if movements and movements[0].to_column_id == card._pre_buffer_col_id else movements
+                    dwell_moves = [stand_in, *rest]
                 for i, mv in enumerate(dwell_moves):
                     col_name = col_id_to_name.get(mv.to_column_id)
                     if not col_name:

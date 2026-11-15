@@ -653,6 +653,41 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
         self.assertAlmostEqual(avg, 5.0, delta=0.2)
 
+    def _same_column_row(self, movement_type, days_ago):
+        mv = CardMovement.objects.create(
+            card=self.card,
+            from_column=self.col_todo, from_column_name="To Do",
+            to_column=self.col_todo, to_column_name="To Do",
+            from_swimlane=self.swimlane, from_swimlane_name="Customer A",
+            to_swimlane=self.swimlane, to_swimlane_name="Customer A",
+            moved_by=self.admin,
+            movement_type=movement_type,
+        )
+        CardMovement.objects.filter(pk=mv.pk).update(
+            moved_at=timezone.now() - datetime.timedelta(days=days_ago)
+        )
+
+    def test_same_column_swimlane_move_does_not_double_count_the_stay(self):
+        """#2295: entered To Do 100d ago, swimlane-only move 20d ago -> one 30-day stay."""
+        self._move(self.card, self.col_todo, days_ago=100)
+        self._same_column_row(CardMovement.MovementType.MOVE, days_ago=20)
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertAlmostEqual(avg, 30.0, delta=0.2)
+
+    def test_archived_movement_row_does_not_double_count_the_stay(self):
+        """#2295: real archiving records A->A; entered 100d ago, archived 25d ago -> 5 days."""
+        self._move(self.card, self.col_todo, days_ago=100)
+        self._same_column_row(CardMovement.MovementType.ARCHIVED, days_ago=25)
+        Card.objects.filter(pk=self.card.pk).update(
+            archived_at=timezone.now() - datetime.timedelta(days=25)
+        )
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertAlmostEqual(avg, 5.0, delta=0.2)
+
     def test_pre_buffer_seed_adds_no_queries_per_card(self):
         self._move(self.card, self.col_todo, days_ago=100)
         url = self._analytics_url() + "?days=30"
