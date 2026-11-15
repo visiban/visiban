@@ -1869,6 +1869,21 @@ class NeedsAttentionTests(FlowFixture):
         item = self.items()[card.uid]
         self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 20))
 
+    def test_a_card_with_no_movement_rows_is_stalled_from_its_creation(self):
+        """#2291: imported or legacy data has no live movement, so unmoved time counts from created_at."""
+        card = self.card(self.doing, created=200)
+        item = self.items(stalled_days=14)[card.uid]
+        self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 200))
+
+    def test_a_card_with_no_movement_rows_follows_the_strict_threshold(self):
+        at_threshold = self.card(self.doing, created=14, title="At")
+        past_threshold = self.card(self.doing, created=15, title="Past")
+        recent = self.card(self.doing, created=3, title="Recent")
+        items = self.items(stalled_days=14)
+        self.assertNotIn(at_threshold.uid, items)
+        self.assertNotIn(recent.uid, items)
+        self.assertEqual(items[past_threshold.uid]["reasons"], ["stalled"])
+
     def test_an_imported_card_with_incomplete_history_is_stalled_never_past_p85(self):
         self.finish_seven()
         card = self.card(self.doing, created=30)
@@ -1895,20 +1910,20 @@ class NeedsAttentionTests(FlowFixture):
         self.assertNotIn(stalled.uid, self.items(stalled_days=10))
         self.assertEqual(self.items(stalled_days=9)[stalled.uid]["reasons"], ["stalled"])
 
-    def test_order_is_age_then_unmoved_with_nulls_last_then_id(self):
+    def test_order_is_age_with_nulls_last_then_unmoved_then_id(self):
         old = self.path(self.backlog, 40, self.doing, 30)
         younger = self.path(self.backlog, 40, self.doing, 20)
         backlog_long = self.path(self.backlog, 25)
         backlog_short = self.path(self.backlog, 15)
         tie = self.path(self.backlog, 15)
-        imported = self.card(self.doing, created=30)  # no movement at all: never stalled
+        imported = self.card(self.doing, created=30)  # no movement at all: unmoved counts from created_at (#2291)
         Card.objects.filter(pk=imported.pk).update(blocked_at=self.ago(1))
         self.assertEqual(
             [i["card_uid"] for i in self.attention()["items"]],
-            [old.uid, younger.uid, backlog_long.uid, backlog_short.uid, tie.uid, imported.uid],
+            [old.uid, younger.uid, imported.uid, backlog_long.uid, backlog_short.uid, tie.uid],
         )
-        last = self.attention()["items"][-1]
-        self.assertEqual((last["reasons"], last["age_days"], last["unmoved_days"]), (["blocked"], None, None))
+        item = self.items()[imported.uid]
+        self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["blocked", "stalled"], None, 30))
 
     def test_archived_and_done_cards_are_never_listed(self):
         self.path(self.backlog, 40, self.doing, 30, archived=20)

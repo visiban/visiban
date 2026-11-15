@@ -1134,7 +1134,11 @@ def needs_attention(flow, flow_range, *, stalled_days):
         age_days = (
             _days_between(card.age_start, flow.now) if card.is_in_progress(flow.done_uids) else None
         )
-        unmoved_days = _days_between(card.last_moved_at, flow.now) if card.last_moved_at is not None else None
+        # A card with no live movement row (imported or legacy data) has "not moved" since it was created;
+        # without this fallback it could never be stalled (#2291). ``created_at`` is the import time unless
+        # the importer set it, and Card has no separate import timestamp.
+        unmoved_since = card.last_moved_at if card.last_moved_at is not None else card.created_at
+        unmoved_days = _days_between(unmoved_since, flow.now)
         reasons = []
         if card.id in blocked:
             reasons.append("blocked")
