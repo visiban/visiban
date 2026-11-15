@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardMovement, Column, Label, Swimlane
+from boards.models import Board, BoardMembership, Card, CardBlock, CardMovement, Column, Label, Swimlane
 
 
 class AnalyticsFilterTests(TestCase):
@@ -25,6 +25,12 @@ class AnalyticsFilterTests(TestCase):
         self.card_a = self._card(self.lane_a, "a", stalled_days=20)
         self.card_b = self._card(self.lane_b, "b", stalled_days=20)
         self.card_a.labels.add(self.label)
+        self.empty_label = Label.objects.create(board=self.board, name="E", color="#0000ff")
+        # Unlabeled card on lane B whose "Doing" visit closed 5 days ago and that was
+        # blocked in the window: it feeds throughput and blocked, which come from the
+        # load_recent_dwell path rather than the all_cards query.
+        self.card_c = self._card(self.lane_b, "c", stalled_days=10)
+        self._close_visit_and_block(self.card_c)
         other = Board.objects.create(name="Other", owner=self.outsider)
         self.other_lane = Swimlane.objects.create(board=other, name="X", position=0)
         self.other_label = Label.objects.create(board=other, name="Y", color="#00ff00")
@@ -54,6 +60,24 @@ class AnalyticsFilterTests(TestCase):
         )
         return card
 
+    def _close_visit_and_block(self, card):
+        now = timezone.now()
+        Card.objects.filter(pk=card.pk).update(column=self.todo)
+        move = CardMovement.objects.create(
+            card=card, from_column=self.doing, to_column=self.todo,
+            from_column_name=self.doing.name, to_column_name=self.todo.name,
+            from_column_uid=self.doing.uid, to_column_uid=self.todo.uid,
+            from_swimlane_name=card.swimlane.name, to_swimlane_name=card.swimlane.name,
+            from_swimlane_uid=card.swimlane.uid, to_swimlane_uid=card.swimlane.uid,
+            moved_by=self.user,
+        )
+        CardMovement.objects.filter(pk=move.pk).update(moved_at=now - datetime.timedelta(days=5))
+        CardBlock.objects.create(
+            card=card, board=self.board, reason="waiting", column=self.doing,
+            column_name=self.doing.name, column_uid=self.doing.uid,
+            blocked_at=now - datetime.timedelta(days=4), unblocked_at=now - datetime.timedelta(days=2),
+        )
+
     def _stalled(self, data):
         return {c["title"] for sw in data["swimlanes"] for c in sw["stalled_cards"]}
 
@@ -62,12 +86,21 @@ class AnalyticsFilterTests(TestCase):
         self.assertEqual({sw["name"] for sw in data["swimlanes"]}, {"A", "B"})
         self.assertEqual(self._stalled(data), {"a", "b"})
         self.assertEqual(self.client.get(self.url).json(), data)
+        # Baseline for the narrowing tests below: card c's closed visit and block count.
+        lane_b = next(sw for sw in data["swimlanes"] if sw["name"] == "B")
+        self.assertEqual(lane_b["throughput_card_count_per_column"]["Doing"], 1)
+        self.assertEqual(data["blocked"]["total"]["blocks"], 1)
 
     def test_swimlane_filter_narrows_every_section(self):
         data = self.client.get(self.url, {"swimlane_id": self.lane_a.id}).json()
         self.assertEqual([sw["name"] for sw in data["swimlanes"]], ["A"])
         self.assertEqual(self._stalled(data), {"a"})
         self.assertIsNotNone(data["swimlanes"][0]["deal_velocity_days"])
+        # Lane B's block (card c) is excluded; lane A has none.
+        self.assertEqual(data["blocked"]["total"]["blocks"], 0)
+        self.assertEqual(sum(data["blocked"]["blocks_per_column"].values()), 0)
+        self.assertEqual(data["blocked"]["top_reasons"], [])
+        self.assertIsNotNone(data["board_medians"]["Doing"])
 
     def test_label_filter_narrows_every_section(self):
         data = self.client.get(self.url, {"label_id": self.label.id}).json()
@@ -76,6 +109,23 @@ class AnalyticsFilterTests(TestCase):
         self.assertIsNone(lane_b["deal_velocity_days"])
         self.assertEqual(lane_b["stalled_cards"], [])
         self.assertTrue(all(v is None for v in lane_b["avg_days_per_column"].values()))
+        # The load_recent_dwell sections narrow too: card b's current dwell and
+        # card c's closed visit and block are on unlabeled cards.
+        self.assertTrue(all(v is None for v in lane_b["age_avg_days_per_column"].values()))
+        self.assertEqual(sum(lane_b["throughput_card_count_per_column"].values()), 0)
+        self.assertEqual(data["blocked"]["total"]["blocks"], 0)
+        self.assertEqual(data["blocked"]["top_reasons"], [])
+
+    def test_label_with_no_cards_empties_every_section(self):
+        data = self.client.get(self.url, {"label_id": self.empty_label.id}).json()
+        self.assertEqual(self._stalled(data), set())
+        self.assertTrue(all(v is None for v in data["board_medians"].values()))
+        for sw in data["swimlanes"]:
+            self.assertTrue(all(v is None for v in sw["age_avg_days_per_column"].values()))
+            self.assertEqual(sum(sw["throughput_card_count_per_column"].values()), 0)
+            self.assertFalse(any(sw["age_is_outlier"].values()))
+            self.assertFalse(any(sw["throughput_is_outlier"].values()))
+        self.assertEqual(data["blocked"]["total"]["blocks"], 0)
 
     def test_both_filters_intersect(self):
         data = self.client.get(self.url, {"swimlane_id": self.lane_b.id, "label_id": self.label.id}).json()
