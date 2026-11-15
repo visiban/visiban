@@ -119,20 +119,30 @@ let renderRealColumnModals = false
 vi.mock('../components/Board/ColumnHeader', async () => {
   const { useState } = await import('react')
   const { default: RealEditColumnModal } = await vi.importActual<typeof import('../components/Board/EditColumnModal')>('../components/Board/EditColumnModal')
-  const MockColumnHeader = ({ column, collapsed, onColumnUpdated, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean }) => {
-    capturedColumnUpdated = onColumnUpdated
+  // The state lives in a child component: the default export reassigns a module
+  // variable, which a component may not do.
+  const SettingsToggle = ({ column, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; isIntakeColumn?: boolean }) => {
     const [editing, setEditing] = useState(false)
     return (
-      <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
-        {column.name}
-        {renderRealColumnModals && <button onClick={() => setEditing(true)}>{`Settings ${column.name}`}</button>}
-        {renderRealColumnModals && editing && (
+      <>
+        <button onClick={() => setEditing(true)}>{`Settings ${column.name}`}</button>
+        {editing && (
           <RealEditColumnModal boardId={1} column={column as never} cardCount={0} isIntakeColumn={isIntakeColumn} onUpdated={() => {}} onRequestDelete={() => {}} onClose={() => setEditing(false)} />
         )}
-      </div>
+      </>
     )
   }
-  return { default: MockColumnHeader }
+  return {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean }) => {
+      capturedColumnUpdated = onColumnUpdated
+      return (
+        <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
+          {column.name}
+          {renderRealColumnModals && <SettingsToggle column={column} isIntakeColumn={isIntakeColumn} />}
+        </div>
+      )
+    },
+  }
 })
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 // data-can-edit surfaces the canEdit prop (#783 — maintenance mode folds into the
