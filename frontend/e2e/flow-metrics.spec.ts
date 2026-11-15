@@ -393,17 +393,18 @@ test.describe('flow metrics breakdown (#2268)', () => {
     await expect(marks.nth(0)).toHaveAttribute('opacity', '1')
     await legend.getByRole('button', { name: 'Platform' }).click()
     await expect(marks.nth(1)).toHaveAttribute('opacity', '1')
+  })
 
   test('at 390px a breakdown adds no sideways scroll and keeps the legend and filter segments visible', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await openAnalytics(page)
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/*/**`, async (route) => {
-      const url = new URL(route.request().url())
-      if (url.searchParams.get('group_by') !== 'swimlane') return route.fallback()
-      const response = await route.fetch()
-      const body = await response.json()
-      const grouping = { by: 'swimlane', field_id: null, excluded: 0, groups: BREAKDOWN_GROUPS.map((g) => ({ ...g, sample_size: 1, total: 1, median: 1, columns: [] })) }
-      return route.fulfill({ response, json: { ...body, grouping } })
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/cycle-time/**`, (route) => {
+      if (new URL(route.request().url()).searchParams.get('group_by') !== 'swimlane') return route.fallback()
+      const grouping = { by: 'swimlane', field_id: null, excluded: 0, groups: BREAKDOWN_GROUPS.map((g) => ({ ...g, sample_size: 12, percentiles: cycleTime.percentiles })) }
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ...cycleTime, samples: cycleTime.samples.map((s, n) => ({ ...s, group_keys: groupKeysOf(n) })), grouping }),
+      })
     })
     await page.getByRole('button', { name: 'Break down by swimlane' }).scrollIntoViewIfNeeded()
     await expect(page.getByRole('button', { name: 'Break down by swimlane' })).toBeVisible()
@@ -413,6 +414,5 @@ test.describe('flow metrics breakdown (#2268)', () => {
     await expect(page.getByRole('button', { name: 'Break down by none' })).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-  })
   })
 })
