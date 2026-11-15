@@ -156,6 +156,13 @@
       "budget_p95_ms": null,
       "pending_budget": "#2110",
       "note": "Same replay plus blocking relations and the card directory (#2260)."
+    },
+    "flow_swimlanes": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/swimlanes/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay as cycle time plus block rows, bucketed per swimlane (#2266)."
     }
   }
 }

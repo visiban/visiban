@@ -27,7 +27,7 @@ from typing import NamedTuple
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
-from ..models import Card, CardBlock, CardMovement, CardRelation, Column
+from ..models import Card, CardBlock, CardMovement, CardRelation, Column, SwimlaneCustomFieldValue
 
 # The sample-size floor (ADR "Percentiles and sample size"). The one place it
 # lives, so the API and the UI cannot disagree: the UI draws what comes back.
@@ -843,6 +843,8 @@ def blocked_card_ids(flow, cards):
 def _block_intervals(flow, flow_range):
     """``(card_id, column_id, reason, seconds)`` for each block's part inside the range (#1149, #2260).
 
+    A thin wrapper over ``_block_spans``, which carries the same rows with their bounds.
+
     ADR "Blocked time": reported as its own metric, never subtracted. One query
     over ``CardBlock`` (indexed by board). A block counts for the part of it that
     falls inside the range; an open block runs to now, or to ``archived_at`` while
@@ -860,6 +862,12 @@ def _block_intervals(flow, flow_range):
     a hard-deleted card has no current swimlane or labels to match. ``flow.cards``
     is never read, so a narrowed load gives the same intervals as a full one.
     """
+    for card_id, column_id, reason, begin, end in _block_spans(flow, flow_range):
+        yield card_id, column_id, reason, (end - begin).total_seconds()
+
+
+def _block_spans(flow, flow_range):
+    """``(card_id, column_id, reason, begin, end)`` of each block clipped to the range; see ``_block_intervals``."""
     range_end = min(flow.now, flow_range.end)
     start = flow_range.start
     rows = (
@@ -876,7 +884,7 @@ def _block_intervals(flow, flow_range):
         begin = max(row["blocked_at"], start)
         if end <= begin:
             continue
-        yield row["card_id"], row["column_id"], row["reason"], (end - begin).total_seconds()
+        yield row["card_id"], row["column_id"], row["reason"], begin, end
 
 
 def _reason_key(reason):
@@ -1361,3 +1369,241 @@ def completed_dwell_by_swimlane(flow, flow_range):
 def current_dwell_by_swimlane(flow):
     """Current dwell grouped for the heatmap's Age mode."""
     return _dwell_by_swimlane(flow, ((card, visit) for card, visit in _dwell_visits(flow) if visit.is_open))
+
+
+# ── Swimlane comparison (#2266, analytics redesign "Swimlanes tab") ─────────
+
+# Spec "Decisions": slower and faster need a 20% difference AND 10 finished
+# cards. Constants, not settings, so the API, the docs and the page agree.
+SWIMLANE_STATUS_THRESHOLD_PCT = 20
+SWIMLANE_STATUS_MIN_FINISHED = 10
+# Rolling-median points returned per swimlane (the page draws eight bars).
+SWIMLANE_TREND_POINTS = 8
+
+
+def _compare_to(value, reference):
+    """``"slower"``, ``"faster"`` or ``"steady"``: ``value`` against ``reference`` by the 20% rule.
+
+    Strictly more than the threshold either way, so exactly 20% is steady. Done
+    in integer-scaled form (``value * 100`` against ``reference * 120``) so the
+    boundary is not at the mercy of ``1.2`` having no exact binary form.
+    """
+    if value * 100 > reference * (100 + SWIMLANE_STATUS_THRESHOLD_PCT):
+        return "slower"
+    if value * 100 < reference * (100 - SWIMLANE_STATUS_THRESHOLD_PCT):
+        return "faster"
+    return "steady"
+
+
+def swimlane_status(median, finished, board_median):
+    """A swimlane's status against the board: ``slower``, ``in_line``, ``faster`` or None.
+
+    WHY 20% and 10 cards (spec "Decisions", settled 2026-11-14): a median of a
+    handful of cards moves a lot on one card, so a verdict on fewer than 10
+    would flag lanes for noise, and a smaller gap than 20% is within the
+    ordinary week-to-week wobble of a healthy team. Below either bar the lane
+    shows its numbers and no verdict. Both are named constants, never settings.
+    """
+    if median is None or board_median is None or finished < SWIMLANE_STATUS_MIN_FINISHED:
+        return None
+    verdict = _compare_to(median, board_median)
+    return "in_line" if verdict == "steady" else verdict
+
+
+def swimlane_trend(points, finished):
+    """The first-to-last rolling-median trend of one swimlane, or None.
+
+    Same 20% rule as the status, applied to the first and last rolling medians
+    inside the selected period only (the cross-period comparison is Enterprise).
+    No 10-card floor of its own: the trend is two numbers the page prints beside
+    the word, and each end point already needs the 5-card percentile floor of
+    its own window. Those two end windows are separate, so in practice a lane
+    needs about 10 finished cards before both are filled; 9 almost always gives
+    None, because the first and last windows together cover the period without
+    overlapping (they share only the mid-period instant). None when the
+    swimlane has fewer than 5 finished cards, or when
+    either end point is withheld.
+    """
+    if finished < MIN_PERCENTILE_SAMPLE_SIZE:
+        return None
+    first, last = points[0]["median_days"], points[-1]["median_days"]
+    if first is None or last is None:
+        return None
+    return {"direction": _compare_to(last, first), "first_days": first, "last_days": last}
+
+
+def _rolling_points(samples, flow_range):
+    """Eight rolling medians over windows half as long as the period.
+
+    Window ``i`` ends at ``start + W + i * W / 7`` for ``W`` = half the period, so
+    every window is full width and the last ends at the end of the period.
+    ``samples`` are ``(end, value_days)``. A window with under 5 cards withholds
+    its median, like every other median.
+    """
+    half = (flow_range.end - flow_range.start) / 2
+    step = half / (SWIMLANE_TREND_POINTS - 1)
+    points = []
+    for i in range(SWIMLANE_TREND_POINTS):
+        hi = flow_range.start + half + step * i
+        values = sorted(v for end, v in samples if hi - half <= end <= hi)
+        points.append({"at": _iso(hi), "median_days": percentile(values, 50), "sample_size": len(values)})
+    return points
+
+
+def swimlane_group_values(board, definition):
+    """``({swimlane_id: value}, groups)`` for "Group lanes by" one swimlane custom field.
+
+    One query. A lane with no value, or one that is no longer a choice, has no
+    group (None). ``groups`` lists the field's valid values in field order.
+    """
+    if definition.field_type == definition.FieldType.CHECKBOX:
+        valid = ["true", "false"]
+        groups = [{"key": key, "name": None} for key in valid]
+    else:
+        valid = []
+        for choice in definition.choices_json:
+            if isinstance(choice, str) and choice not in valid:
+                valid.append(choice)
+        groups = [{"key": key, "name": key} for key in valid]
+    values = {
+        lane_id: value
+        for lane_id, value in SwimlaneCustomFieldValue.objects.filter(
+            field_definition=definition, swimlane__board=board,
+        ).values_list("swimlane_id", "value")
+        if value in valid
+    }
+    return values, groups
+
+
+def _in_progress_windows(flow, flow_range):
+    """``{card_id: (begin, end)}``: when each card was in progress inside the range.
+
+    From the cycle start to completion (or archive, or now), clipped to the
+    range. Cards without a measured cycle start have no window.
+    """
+    end_of_range = min(flow.now, flow_range.end)
+    windows = {}
+    for card in flow.cards:
+        if not card.complete_history or card.cycle_start is None:
+            continue
+        begin = max(card.cycle_start, flow_range.start)
+        end = min(card.completion_at or card.archived_at or flow.now, end_of_range)
+        if end > begin:
+            windows[card.id] = (begin, end)
+    return windows
+
+
+def _union_seconds(spans):
+    """Total length of possibly overlapping ``(begin, end)`` spans, counting overlap once."""
+    total, current_end = 0.0, None
+    for begin, end in sorted(spans):
+        if current_end is not None and begin < current_end:
+            begin = current_end
+        if end > begin:
+            total += (end - begin).total_seconds()
+            current_end = end if current_end is None else max(current_end, end)
+    return total
+
+
+def _lane_blocked_and_elapsed(flow, flow_range):
+    """``({swimlane_id: blocked_seconds}, {swimlane_id: elapsed_seconds})`` while cards were in progress.
+
+    Both sides use the same per-card window, so a block opened in the backlog
+    or after completion adds to neither, and overlapping blocks count once.
+    """
+    windows = _in_progress_windows(flow, flow_range)
+    spans: dict[int, list] = {}
+    for card_id, _column_id, _reason, begin, end in _block_spans(flow, flow_range):
+        window = windows.get(card_id)
+        if window is None:
+            continue
+        begin, end = max(begin, window[0]), min(end, window[1])
+        if end > begin:
+            spans.setdefault(card_id, []).append((begin, end))
+    blocked: dict[int, float] = {}
+    elapsed: dict[int, float] = {}
+    for card in flow.cards:
+        window = windows.get(card.id)
+        if window is None:
+            continue
+        elapsed[card.swimlane_id] = elapsed.get(card.swimlane_id, 0.0) + (window[1] - window[0]).total_seconds()
+        blocked[card.swimlane_id] = blocked.get(card.swimlane_id, 0.0) + _union_seconds(spans.get(card.id, ()))
+    return blocked, elapsed
+
+
+def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
+    """Per-swimlane cycle time, trend, blocked share and status, for the Swimlanes tab (#2266).
+
+    Every number is one pass over ``flow.cards`` and the one ``CardBlock`` query
+    of ``_block_intervals``, bucketed by swimlane: no query per lane. A lane's
+    cycle time is ``cycle_time``'s own samples, so its median and p85 follow the
+    same definition and sample-size rule (p50 needs 5, p85 needs 7) as the board.
+
+    ``swimlanes`` is the board's swimlane rows in display order; a lane with no
+    cards still gets a row, so the page can say "0 finished". The board median
+    is for the same filters (label, period) and every swimlane.
+
+    Blocked share is the lane's blocked seconds over its in-progress seconds,
+    both counted only while each card was in progress inside the range. Cards
+    without a cycle start have no elapsed time and no share.
+    """
+    done_uids = flow.done_uids
+    samples = cycle_time(flow, flow_range)["samples"]
+    lane_of = {card.uid: card.swimlane_id for card in flow.cards}
+    by_lane: dict[int, list] = {}
+    for sample in samples:
+        end = datetime.datetime.fromisoformat(sample["end"])
+        by_lane.setdefault(lane_of[sample["card_uid"]], []).append((end, sample["value_days"]))
+    in_progress: dict[int, int] = {}
+    for card in flow.cards:
+        if card.is_in_progress(done_uids):
+            in_progress[card.swimlane_id] = in_progress.get(card.swimlane_id, 0) + 1
+
+    lane_blocked, lane_elapsed = _lane_blocked_and_elapsed(flow, flow_range)
+
+    board_values = sorted(v for rows in by_lane.values() for _, v in rows)
+    board_median = percentile(board_values, 50)
+    group_values, groups = swimlane_group_values(flow.board, group_definition) if group_definition else ({}, [])
+
+    rows = []
+    for lane in swimlanes:
+        lane_samples = by_lane.get(lane.id, [])
+        values = sorted(v for _, v in lane_samples)
+        finished = len(values)
+        median = percentile(values, 50)
+        points = _rolling_points(lane_samples, flow_range)
+        total = lane_elapsed.get(lane.id)
+        rows.append({
+            "id": lane.id,
+            "name": lane.name,
+            "position": lane.position,
+            "group": group_values.get(lane.id),
+            "finished": finished,
+            "in_progress": in_progress.get(lane.id, 0),
+            "median_days": median,
+            "p85_days": percentile(values, 85),
+            "blocked_share": round(lane_blocked[lane.id] / total, 4) if total else None,
+            "rolling_median": points,
+            "status": swimlane_status(median, finished, board_median),
+            "trend": swimlane_trend(points, finished),
+        })
+    payload = {
+        "definition": DEFINITIONS["cycle_time"],
+        "board": {
+            "finished": len(board_values),
+            "median_days": board_median,
+            "p85_days": percentile(board_values, 85),
+        },
+        "status_threshold_pct": SWIMLANE_STATUS_THRESHOLD_PCT,
+        "status_min_finished": SWIMLANE_STATUS_MIN_FINISHED,
+        "swimlanes": rows,
+        "grouping": None,
+    }
+    if group_definition is not None:
+        payload["grouping"] = {
+            "field_id": group_definition.id,
+            "field_name": group_definition.name,
+            "field_type": group_definition.field_type,
+            "groups": groups,
+        }
+    return payload

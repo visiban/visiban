@@ -511,9 +511,9 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/` and [`.../swimlanes/`](#get-apiv1boardsidmetricsswimlanes) (eight endpoints) return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`. The swimlane comparison's own numbers (blocked share, the rolling median, status and trend) are defined in [Swimlane comparison](../architecture/decisions.md#swimlane-comparison-2266).
 
-**Query parameters** (the first five on all seven):
+**Query parameters** (`days`, `from_date`, `to_date` and `label_id` on all eight; `swimlane_id` on the first seven):
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
@@ -523,9 +523,9 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 | `swimlane_id` | integer | none | Cards now in this swimlane of this board. |
 | `label_id` | integer | none | Cards now carrying this label of this board. |
 | `group_by` | `swimlane`, `label` or `custom_field` | none | Break the numbers down (see [Breakdowns](#flow-metric-breakdowns)). On cycle-time, throughput, wip-age and dwell; ignored elsewhere. |
-| `group_by_field_id` | integer | none | A dropdown or checkbox card custom field of this board. Required with `group_by=custom_field`, refused with any other `group_by`. On cycle-time, throughput, wip-age and dwell; ignored elsewhere. |
+| `group_by_field_id` | integer | none | A dropdown or checkbox custom field of this board. On cycle-time, throughput, wip-age and dwell it names a card field, is required with `group_by=custom_field` and is refused with any other `group_by`. On `metrics/swimlanes` it names a swimlane field and is honored on its own, with no `group_by`. Ignored on the other endpoints. |
 
-A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A `group_by_field_id` that does not exist, is on another board, or is not a dropdown or checkbox card field gets one and the same `400` (`group_by_field_id: Not a dropdown or checkbox card field on this board.`), so the answer says nothing about the field. A board you cannot access returns `404`.
+A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A `group_by_field_id` that does not exist, is on another board, or is not a dropdown or checkbox field of the right kind (card field, or swimlane field on `metrics/swimlanes`) gets one and the same `400` (`group_by_field_id: Not a dropdown or checkbox card field on this board.`, or `... swimlane field ...` on `metrics/swimlanes`), so the answer says nothing about the field. A board you cannot access returns `404`.
 
 <a id="flow-metric-breakdowns"></a>
 **Breakdowns** (`group_by`, #2265). The new parameters follow the 1.0+ compatibility rules, but may still change until 1.3 GA. Without `group_by` every response is exactly what it was before this parameter existed. With it, the response is the same plus:
@@ -588,6 +588,29 @@ Adds an optional `period`, `week` (the default) or `day`.
 `median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
 
 `started` *(added in 1.3, #2260)* counts the cards whose cycle started in the period: their first move out of the column they were created in, to a column that is not done. Archived cards count, as in `count`. A reopen is not a start. A card with no creation movement, such as one imported without its history, can finish but never starts, so on an imported board `started` under-reports next to `count`.
+
+#### `GET /api/v1/boards/{id}/metrics/swimlanes/`
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+One row per swimlane for the Swimlanes tab of Analytics, plus the board median for the same filters. Any board member, viewers included, as for `metrics/cycle-time/`. It takes `days`, `from_date`, `to_date` and `label_id` as above and no `swimlane_id` (a stray one is ignored). One optional parameter:
+
+| Parameter | Type | Default | Constraint |
+|---|---|---|---|
+| `group_by_field_id` | integer | none | A dropdown or checkbox **swimlane** custom field of this board ("Group lanes by"). An admin-only field is accepted only for board admins. Any other id is a 400 (`invalid_query_param`). |
+
+Response (cycle time is the same measure as `metrics/cycle-time/`; every number is computed on the server):
+
+- `definition`, `board` `{finished, median_days, p85_days}`, and the two thresholds `status_threshold_pct` (20) and `status_min_finished` (10).
+- `swimlanes`: every swimlane in position order, empty ones included, each `{id, name, position, group, finished, in_progress, median_days, p85_days, blocked_share, rolling_median, status, trend}`.
+    - `median_days` is `null` below 5 finished cards; `p85_days` is `null` below 7.
+    - `blocked_share` is the fraction (0 to 1) of the swimlane's in-progress time inside the period that its cards were blocked, with overlapping blocks counted once; a reopened card's time after the reopen is not counted, because its window ends at its first completion; `null` when no card was in progress.
+    - `rolling_median` has eight `{at, median_days, sample_size}` points. Each is the median of the cards finished in a window half as long as the period, ending at `at`; the first window ends at the middle of the period and the last at its end. A window with fewer than 5 cards has `median_days: null`.
+    - `status` is `slower`, `in_line` or `faster` against the board median: more than 20% above or below, and only with at least 10 finished cards. Otherwise `null`.
+    - `trend` is `{direction, first_days, last_days}` comparing the first and last rolling medians with the same 20% rule (`slower`, `steady`, `faster`). `null` with fewer than 5 finished cards or when either end point is withheld.
+- `grouping`: `null`, or with `group_by_field_id`, `{field_id, field_name, field_type, groups: [{key, name}]}` in the field's order; each swimlane's `group` is its value, `null` when it has none.
+
+Nothing here compares with an earlier period. The response shape is additive and stable from 1.3.
 
 #### `GET /api/v1/boards/{id}/metrics/cumulative-flow/`
 

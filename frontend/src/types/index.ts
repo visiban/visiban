@@ -1890,6 +1890,51 @@ export interface FlowPercentiles {
   p95: number | null;
 }
 
+/** One swimlane's trend inside the selected period (#2266). Never compares with an earlier period. */
+export interface FlowSwimlaneTrend {
+  direction: 'slower' | 'steady' | 'faster';
+  first_days: number;
+  last_days: number;
+}
+
+export interface FlowSwimlaneRollingPoint {
+  at: string;
+  median_days: number | null;
+  sample_size: number;
+}
+
+export interface FlowSwimlaneRow {
+  id: number;
+  name: string;
+  position: number;
+  /** The swimlane's value of the "Group lanes by" field, or null (also null without grouping). */
+  group: string | null;
+  finished: number;
+  in_progress: number;
+  median_days: number | null;
+  p85_days: number | null;
+  /** Share of in-progress time spent blocked, 0 to 1; null when the swimlane had none in the period. */
+  blocked_share: number | null;
+  rolling_median: FlowSwimlaneRollingPoint[];
+  status: 'slower' | 'in_line' | 'faster' | null;
+  trend: FlowSwimlaneTrend | null;
+}
+
+/** `GET /boards/{id}/metrics/swimlanes/` (#2266). Status and trend come from the server. */
+export interface FlowSwimlaneComparison {
+  definition: string;
+  board: { finished: number; median_days: number | null; p85_days: number | null };
+  status_threshold_pct: number;
+  status_min_finished: number;
+  swimlanes: FlowSwimlaneRow[];
+  grouping: {
+    field_id: number;
+    field_name: string;
+    field_type: string;
+    groups: { key: string; name: string | null }[];
+  } | null;
+}
+
 /** A card a metric response names by uid: the drill-down's cards and owners. */
 export interface FlowCard {
   uid: string;

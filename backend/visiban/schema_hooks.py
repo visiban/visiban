@@ -272,6 +272,10 @@ _PINNED_ENUMS = {
     # ``ModeEnum`` that the next unrelated ``mode`` field would hash-rename.
     ("ColumnPolicy", "mode"): "ColumnPolicyModeEnum",
     ("ColumnPolicyRequest", "mode"): "ColumnPolicyModeEnum",
+    # Swimlane comparison trend (#2266): ``direction`` carries slower/steady/
+    # faster, a different choice set from ``CardRelation.direction``. Left
+    # alone, both are hash-renamed and the published ``DirectionEnum`` changes.
+    ("FlowSwimlaneTrend", "direction"): "FlowSwimlaneTrendDirectionEnum",
 }
 
 

@@ -5,7 +5,7 @@ vi.mock('../api/client', () => ({ default: { get: vi.fn() } }))
 import client from '../api/client'
 import {
   getFlowAttention, getFlowBlocked, getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell,
-  getFlowThroughput, getFlowWipAge,
+  getFlowSwimlanes, getFlowThroughput, getFlowWipAge,
 } from '../api/flowMetrics'
 
 const get = vi.mocked(client.get)
@@ -58,6 +58,15 @@ describe('flow metrics API', () => {
     await getFlowCumulativeDay(3, { days: 30, swimlaneId: 5, labelId: null }, '2026-06-02')
     expect(get).toHaveBeenLastCalledWith('/api/v1/boards/3/metrics/cumulative-flow/', {
       params: { days: 30, swimlane_id: 5, date: '2026-06-02' },
+    })
+  })
+
+  it('swimlanes sends no swimlane filter and only the params that are set', async () => {
+    await getFlowSwimlanes(3, { days: 90, labelId: null })
+    expect(get).toHaveBeenLastCalledWith('/api/v1/boards/3/metrics/swimlanes/', { params: { days: 90 } })
+    await getFlowSwimlanes(3, { days: 30, labelId: 6 }, 9)
+    expect(get).toHaveBeenLastCalledWith('/api/v1/boards/3/metrics/swimlanes/', {
+      params: { days: 30, label_id: 6, group_by_field_id: 9 },
     })
   })
 })
