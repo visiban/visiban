@@ -154,7 +154,8 @@ describe('BoardCell', () => {
     const stacks = cell.querySelectorAll('.flex-col, .grid-cols-2')
     expect(stacks.length).toBeGreaterThan(0)
     stacks.forEach((el) => {
-      expect(el).not.toHaveClass('h-full', 'flex-1', 'grow')
+      // One assertion per class: a negated multi-class toHaveClass only fails when the element has ALL of them.
+      for (const cls of ['h-full', 'flex-1', 'grow']) expect(el).not.toHaveClass(cls)
     })
   })
 
