@@ -8,7 +8,7 @@ import FlowDrillDrawer from '../components/Board/flowMetrics/FlowDrillDrawer'
 import FlowRow, { MAX_SQUARES, squareCounts } from '../components/Board/flowMetrics/FlowRow'
 import type { DrillSelection } from '../components/Board/flowMetrics/FlowDrillDrawer'
 import { buildColumnSelection } from '../components/Board/flowMetrics/columnDrill'
-import { buildFlowRow, wipCount } from '../components/Board/flowMetrics/flowRowData'
+import { buildFlowRow, columnAlpha, wipCount } from '../components/Board/flowMetrics/flowRowData'
 import type { AnalyticsData } from '../components/Board/flowMetrics/heatmap'
 import type { ChartPanelView } from '../components/Common/Chart'
 import type { FlowCard, FlowCumulativeFlow, FlowDwell, FlowThroughput, FlowWipAge } from '../types'
@@ -94,6 +94,15 @@ describe('the flow row and time bar (#2262)', () => {
     expect(review).toHaveTextContent('6.2d median wait')
     expect(review).toHaveTextContent('Queue +7 since Aug 16')
     expect(review.className).toContain('border-warning')
+    // Hover adds a ring, never a fill: a fill drops fg-tertiary and danger text under 4.5:1 (#2311).
+    expect(review.className).toContain('hover:ring-warning')
+    expect(review.className).not.toContain('hover:bg-surface-hover')
+    expect(boxes[0].className).toContain('border-line-strong')
+    expect(boxes[0].className).toContain('hover:border-line-emphasis')
+    expect(boxes[0].className).not.toContain('hover:bg-surface-hover')
+    // Bottleneck queue growth keeps its orange; the over-limit text is danger.
+    expect(within(review).getByText('Queue +7 since Aug 16').className).toContain('text-warning')
+    expect(within(review).getByText(', 4 over limit').className).toContain('text-danger')
     const squares = within(review).getAllByTestId('flow-square')
     expect(squares).toHaveLength(5)
     squares.forEach((s) => expect((s as HTMLElement).style.backgroundImage).toBe(HATCH_CSS))
@@ -140,15 +149,40 @@ describe('the flow row and time bar (#2262)', () => {
   it('colors the connector into Done after the bottleneck, and leaves connectors before it neutral', () => {
     render(<Harness />)
     const spans = screen.getAllByTestId('flow-connector').map((c) => c.querySelector('[aria-hidden="true"]')!.className)
-    expect(spans[0]).toContain('bg-line-strong')
-    expect(spans[1]).toContain('bg-line-strong')
+    expect(spans[0]).toContain('bg-line-emphasis')
+    expect(spans[1]).toContain('bg-line-emphasis')
     expect(spans[2]).toContain('bg-warning')
+  })
+
+  it('marks queue growth in a non-bottleneck column with a quiet, bold, aria-hidden triangle (#2311)', () => {
+    const cum = { ...cumulative, columns: [col('ready', 'Ready', { start_count: 1, end_count: 4 }), cumulative.columns[1], cumulative.columns[2]] }
+    render(<Harness cum={cum} />)
+    const ready = screen.getAllByTestId('flow-column-box')[0]
+    const note = within(ready).getByText(/Queue \+3 since/)
+    expect(note.className).toContain('text-fg-secondary')
+    expect(note.className).toContain('font-semibold')
+    expect(note.className).not.toContain('text-warning')
+    expect(note.querySelector('[aria-hidden="true"]')).toHaveTextContent('▲')
+    expect(within(ready).getByText('Queue +3 since Aug 16', { exact: false })).toBeInTheDocument()
+  })
+
+  it('draws the Done box with the strong border', () => {
+    render(<Harness />)
+    expect(screen.getByTestId('flow-done-box').className).toContain('border-line-strong')
+  })
+
+  it('pins the column ramp: floor 0.55, one column 0.7, monotonic up to 1 (#2311)', () => {
+    expect(columnAlpha(0, 1)).toBe(0.7)
+    expect(columnAlpha(0, 5)).toBeCloseTo(0.55)
+    expect(columnAlpha(4, 5)).toBeCloseTo(1)
+    expect(columnAlpha(2, 5)).toBeCloseTo(0.775)
+    for (let i = 1; i < 7; i++) expect(columnAlpha(i, 7)).toBeGreaterThan(columnAlpha(i - 1, 7))
   })
 
   it('keeps the last connector neutral when no bottleneck is named', () => {
     render(<Harness cum={{ ...cumulative, bottleneck_column_uid: null }} />)
     const spans = screen.getAllByTestId('flow-connector').map((c) => c.querySelector('[aria-hidden="true"]')!.className)
-    expect(spans[2]).toContain('bg-line-strong')
+    expect(spans[2]).toContain('bg-line-emphasis')
   })
 
   it('makes the time bar scroller a keyboard-reachable region', () => {
@@ -318,6 +352,23 @@ describe('the column drawer (#2262)', () => {
     expect(onOpenCard).toHaveBeenCalledWith(cards[1].id)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(opener).toHaveFocus()
+  })
+
+  it('keeps drill row meta readable on the hover fill (#2311)', async () => {
+    const { container, unmount } = render(<Host />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const colButton = within(screen.getByRole('dialog')).getAllByRole('listitem')[0].querySelector('button')!
+    expect(colButton.className).toContain('group')
+    expect(colButton.querySelector('.text-fg-tertiary')!.className).toContain('group-hover:text-fg-secondary')
+    unmount()
+    const uid = cards[0].uid
+    const picked: DrillSelection = { kind: 'cards', title: 'Day', groups: [{ label: null, uids: [uid] }] }
+    render(<Host pick={picked} />)
+    await userEvent.click(screen.getByRole('button', { name: 'open it' }))
+    const cardButton = within(screen.getByRole('dialog')).getAllByRole('listitem')[0].querySelector('button')!
+    expect(cardButton.className).toContain('group')
+    expect(cardButton.querySelector('.text-fg-tertiary')!.className).toContain('group-hover:text-fg-secondary')
+    expect(container).toBeDefined()
   })
 
   it('omits the limit from the drawer while a filter is on', async () => {

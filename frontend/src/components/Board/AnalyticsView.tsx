@@ -80,7 +80,7 @@ export default function AnalyticsView({
     setView("overview");
   }, [setFilters]);
   return (
-    <div className="flex-1 overflow-y-auto bg-sunken" data-testid="analytics-page">
+    <div className="flex-1 overflow-y-auto bg-page" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
         <AnalyticsTitleRow boardName={boardName} filters={fetchedFilters ?? filters} headingRef={headingRef} />
         <nav aria-label="Analytics views" className="flex gap-6 border-b border-line">

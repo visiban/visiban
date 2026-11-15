@@ -56,7 +56,7 @@ export default function BottleneckPanel({
     <section
       aria-labelledby="analytics-bottleneck-eyebrow analytics-bottleneck-heading"
       data-testid="analytics-bottleneck"
-      className={`bg-surface border rounded-lg p-4 flex flex-col gap-3 min-w-0 h-full ${uid !== null ? "border-warning" : "border-line"}`}
+      className={`bg-surface border rounded-lg p-4 flex flex-col gap-3 min-w-0 h-full ${uid !== null ? "border-warning ring-1 ring-inset ring-warning" : "border-line"}`}
     >
       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-fg-tertiary">
         {uid !== null && (

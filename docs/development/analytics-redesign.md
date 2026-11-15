@@ -230,9 +230,10 @@ The screenshots use literal colors. Build with the tokens.
 
 | In the design | Token |
 |---|---|
-| Page background | `bg-sunken` |
+| Page background | `bg-page` (`--surface-page`: slate-100 light, slate-900 dark; Analytics root only, #2311) |
 | Panel | `bg-surface border border-line rounded-lg` |
-| Inset box (column box, tile inside drawer, list row) | `bg-sunken border border-line` |
+| Inset box (tile inside drawer, list row) | `bg-sunken border border-line` |
+| Flow-row column box and Done box | `bg-sunken border border-line-strong`; hover is `hover:border-line-emphasis`, never a fill (#2311) |
 | Control border | `border-line-strong` |
 | Primary text | `text-fg` |
 | Secondary text | `text-fg-secondary` |
@@ -240,7 +241,10 @@ The screenshots use literal colors. Build with the tokens.
 | Primary button | `bg-button-primary hover:bg-button-primary-hover text-on-primary` |
 | Active segment | `bg-primary text-on-primary` with `ActiveMark` |
 | Link | `text-info` |
-| Bottleneck border, over-limit and queue-growth text | `border-warning`, `text-warning` |
+| Bottleneck border and bottleneck-column queue growth | `border-warning` (the Bottleneck panel adds `ring-1 ring-inset ring-warning`), `text-warning` |
+| Over-limit text, in the flow row and on the Work in progress tile | `text-danger font-semibold` |
+| Queue growth in a non-bottleneck column | `text-fg-secondary font-semibold` with an `aria-hidden` `▲` |
+| Headline tile | Label `text-xs font-semibold uppercase tracking-wide text-fg-tertiary`, number `text-3xl font-bold text-fg tabular-nums`, unit `text-sm text-fg-tertiary` |
 | Age past the 85th percentile in a list | `text-danger` |
 | Chart marks | See [Chart colors](#chart-colors) |
 | Bar track | `bg-surface-hover` |
@@ -253,11 +257,11 @@ Smallest text is 12px everywhere.
 
 | Mark | Color |
 |---|---|
-| In-progress columns, in bands, time-bar segments and flow-row squares | The chart hue from light to dark in board order (in the design: blue-300, blue-500, blue-700) |
+| In-progress columns, in bands, time-bar segments and flow-row squares | The chart hue from light to dark in board order, one ramp: `columnAlpha` (0.55 to 1.0; one column 0.7). Time-bar gutter and band separators are `bg-surface` / `rgb(var(--surface))` |
 | Done band | Neutral (`border-line-strong` tone) |
 | Bottleneck column, everywhere it is drawn | `warning`, hatched |
 | Squares over the WIP limit | Hollow, outlined in `danger` |
-| Connectors in the flow row | Neutral; `warning` after the bottleneck |
+| Connectors in the flow row | `bg-line-emphasis`; `warning` after the bottleneck |
 | Throughput bars and Cycle time dots, no breakdown | The chart hue |
 | Aging marks, no breakdown | Neutral up to the 50th percentile, `warning` past it, `danger` and ringed past the 85th |
 | Blocked-reason bars, time-blocked bars | `danger` |

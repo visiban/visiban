@@ -111,7 +111,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
                   <button
                     type="button"
                     onClick={() => onOpenCard(id)}
-                    className={`${rowClass} hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+                    className={`${rowClass} hover:border-line-emphasis transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
                   >
                     {content}
                   </button>

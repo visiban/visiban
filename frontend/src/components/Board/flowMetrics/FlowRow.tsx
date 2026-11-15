@@ -10,7 +10,7 @@ function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: s
   return (
     <div className="flex flex-col items-center justify-center gap-1 w-24 shrink-0" data-testid="flow-connector">
       <span className="text-xs font-semibold text-fg whitespace-nowrap">{rate === null ? "—" : `${formatNumber(rate)} / wk`}</span>
-      <span aria-hidden="true" className={`w-full rounded-full ${warn ? "bg-warning" : "bg-line-strong"}`} style={{ height: thickness }} />
+      <span aria-hidden="true" className={`w-full rounded-full ${warn ? "bg-warning" : "bg-line-emphasis"}`} style={{ height: thickness }} />
       <span className="text-xs text-fg-tertiary whitespace-nowrap truncate max-w-full" title={note}>{note}</span>
     </div>
   );
@@ -95,7 +95,7 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
                 aria-describedby={`${column.uid}-flow-stats`}
                 aria-label={`${column.name}${column.bottleneck ? ", bottleneck" : ""}. Show its cards`}
                 data-testid="flow-column-box"
-                className={`flex-1 min-w-[150px] text-left bg-sunken border rounded-lg p-3 flex flex-col gap-2 hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${column.bottleneck ? "border-warning" : "border-line"}`}
+                className={`flex-1 min-w-[150px] text-left bg-sunken border rounded-lg p-3 flex flex-col gap-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${column.bottleneck ? "border-warning hover:ring-1 hover:ring-inset hover:ring-warning" : "border-line-strong hover:border-line-emphasis"}`}
               >
                 <span className="text-sm font-semibold text-fg truncate">{column.name}</span>
                 {column.bottleneck && <span className="text-xs font-semibold text-warning uppercase tracking-wide">Bottleneck</span>}
@@ -110,9 +110,9 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
                     {column.medianWait !== null ? `${formatDays(column.medianWait)} median wait` : "Median wait not available"}
                   </span>
                   {column.queueDelta !== null && (
-                    <span className={`text-xs ${column.queueDelta > 0 ? "text-warning font-semibold" : "text-fg-tertiary"}`}>
+                    <span className={`text-xs ${column.queueDelta > 0 ? (column.bottleneck ? "text-warning font-semibold" : "text-fg-secondary font-semibold") : "text-fg-tertiary"}`}>
                       {column.queueDelta > 0 && since
-                        ? `Queue +${column.queueDelta} since ${formatDate(since)}`
+                        ? <><span aria-hidden="true">▲ </span>{`Queue +${column.queueDelta} since ${formatDate(since)}`}</>
                         : column.queueDelta < 0 && since ? `Queue ${column.queueDelta} since ${formatDate(since)}` : "Queue steady"}
                     </span>
                   )}
@@ -122,7 +122,7 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
           );
         })}
         <Connector rate={rate} note="finished" maxRate={maxRate} warn={bottleneckIndex !== -1} />
-        <div className="min-w-[110px] bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1 justify-center" data-testid="flow-done-box">
+        <div className="min-w-[110px] bg-sunken border border-line-strong rounded-lg p-3 flex flex-col gap-1 justify-center" data-testid="flow-done-box">
           <span className="text-sm font-semibold text-fg">Done</span>
           {/* completed_in_range (#2288) covers the whole range the caption names; `total` only its whole
               weeks. The fallback is for a server older than #2288 during a rolling deploy. */}
