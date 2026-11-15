@@ -3,6 +3,7 @@
  * Covers open/close, every control's callback, disabled no-ops, and the
  * dismissal paths (Escape, outside press, resize) that return focus correctly.
  */
+import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -142,13 +143,55 @@ describe('BoardViewMenu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('keeps every control reachable by Tab (no custom key traps)', async () => {
+  it('moves focus into the panel on open, and Tab off the last control closes it', async () => {
     setup()
     const user = userEvent.setup()
     await user.click(trigger())
+    expect(panel().getByText('Preset picker')).toHaveFocus()
+    // Tab through to the last enabled control (the archived toggle).
+    panel().getByRole('button', { name: 'Show archived cards' }).focus()
+    await user.tab()
+    // Focus is handed to the button and the Tab then moves on from it, so only
+    // the dismissal is asserted here.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('Shift+Tab off the first control closes the panel and keeps focus on the button', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.click(trigger())
+    await user.tab({ shift: true })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger()).toHaveFocus()
+  })
+
+  it('Tab from the open View button enters the panel', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.click(trigger())
+    trigger().focus()
     await user.tab()
     expect(panel().getByText('Preset picker')).toHaveFocus()
-    await user.tab()
-    expect(panel().getByText('Overlay picker')).not.toHaveFocus()
+  })
+
+  it('hands focus to the other half of a pair when a press disables the focused button', async () => {
+    function Harness() {
+      const [collapsed, setCollapsed] = React.useState(false)
+      return (
+        <BoardViewMenu
+          presetPicker={null} overlayPicker={null} density="standard" onDensityChange={() => {}}
+          cardLayout="expanded" onCardLayoutChange={() => {}}
+          allSwimlanesCollapsed={collapsed} allSwimlanesExpanded={!collapsed}
+          allColumnsCollapsed={false} allColumnsExpanded
+          onCollapseSwimlanes={() => setCollapsed(true)} onExpandSwimlanes={() => setCollapsed(false)}
+          onCollapseColumns={() => {}} onExpandColumns={() => {}} showArchived={false} onToggleArchived={() => {}}
+        />
+      )
+    }
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(trigger())
+    await user.click(panel().getByRole('button', { name: 'Collapse all' }))
+    expect(panel().getByRole('button', { name: 'Expand all' })).toHaveFocus()
   })
 })

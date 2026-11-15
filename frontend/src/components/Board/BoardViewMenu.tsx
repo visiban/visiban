@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
+import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import type { CardDensity } from "../../types";
@@ -32,6 +33,8 @@ interface Props {
   showArchived: boolean;
   onToggleArchived: () => void;
 }
+
+const PANEL_WIDTH = 320
 
 const DENSITIES: { value: CardDensity; label: string }[] = [
   { value: "comfortable", label: "Comfortable" },
@@ -90,10 +93,53 @@ export default function BoardViewMenu(props: Props) {
     };
   }, [open]);
 
+  const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
+  const focusablesInPanel = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+
+  // The panel is portaled to <body>, so move focus into it on open; otherwise
+  // Tab from the View button would skip it entirely (keyboard parity, #2269).
+  useEffect(() => {
+    if (open && anchor) focusablesInPanel()[0]?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focus once per open, not per render
+  }, [open, anchor !== null])
+
+  // A button that disables itself on press (Collapse all) would drop focus to <body>;
+  // hand it to the enabled sibling of the pair instead.
+  const collapseRef = useRef<HTMLButtonElement>(null)
+  const expandRef = useRef<HTMLButtonElement>(null)
+  const hideRef = useRef<HTMLButtonElement>(null)
+  const showRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open) return
+    ;[[collapseRef, expandRef], [expandRef, collapseRef], [hideRef, showRef], [showRef, hideRef]].forEach(([from, to]) => {
+      const active = document.activeElement
+      if ((active === document.body || active === from.current) && from.current?.disabled && !to.current?.disabled && lastFocusRef.current === from.current) to.current?.focus()
+    })
+  })
+  const lastFocusRef = useRef<Element | null>(null)
+
+  // Tab off either end of the panel closes it and hands focus back to the trigger,
+  // so the order stays trigger -> panel -> next toolbar control.
+  const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab") return
+    const items = focusablesInPanel()
+    const edge = e.shiftKey ? items[0] : items[items.length - 1]
+    if (items.length > 0 && document.activeElement !== edge) return
+    close()
+    triggerRef.current?.focus()
+    if (e.shiftKey) e.preventDefault()
+  }
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (open && e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault()
+      focusablesInPanel()[0]?.focus()
+    }
+  }
+
   const toggle = () => {
     if (open) return close();
     const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) setAnchor({ top: rect.bottom + 4, right: Math.max(POPOVER_VIEWPORT_MARGIN, window.innerWidth - rect.right) });
+    if (rect) setAnchor({ top: rect.bottom + 4, right: Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(window.innerWidth - rect.right, window.innerWidth - PANEL_WIDTH - POPOVER_VIEWPORT_MARGIN)) });
     setOpen(true);
   };
 
@@ -121,7 +167,9 @@ export default function BoardViewMenu(props: Props) {
       role="dialog"
       aria-label="View options"
       data-testid="view-menu-panel"
-      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: 320, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}
+      onKeyDown={onPanelKeyDown}
+      onFocusCapture={(e) => { lastFocusRef.current = e.target }}
+      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}
       className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-3 overflow-y-auto"
     >
       <h2 className="text-sm font-semibold text-fg">View</h2>
@@ -139,7 +187,7 @@ export default function BoardViewMenu(props: Props) {
       </div>
 
       <div role="group" aria-label="Card layout">
-        <span className={SECTION_LABEL}>Card layout (Ctrl/Cmd+Shift+L)</span>
+        <span className={SECTION_LABEL}>Card layout <kbd className="ml-1 text-fg-secondary">{formatShortcut({ mod: true, shift: true, key: "L" })}</kbd></span>
         <div className="flex border border-line-strong rounded overflow-hidden">
           {segment("Expanded", cardLayout === "expanded", () => onCardLayoutChange("expanded"), true)}
           {segment("Compact", cardLayout === "compact", () => onCardLayoutChange("compact"), false)}
@@ -154,16 +202,16 @@ export default function BoardViewMenu(props: Props) {
       <div role="group" aria-label="Swimlanes">
         <span className={SECTION_LABEL}>Swimlanes</span>
         <div className="flex gap-2">
-          <button type="button" className={BUTTON_CLASS} disabled={props.allSwimlanesCollapsed} onClick={props.onCollapseSwimlanes}>Collapse all</button>
-          <button type="button" className={BUTTON_CLASS} disabled={props.allSwimlanesExpanded} onClick={props.onExpandSwimlanes}>Expand all</button>
+          <button type="button" ref={collapseRef} className={BUTTON_CLASS} disabled={props.allSwimlanesCollapsed} onClick={props.onCollapseSwimlanes}>Collapse all</button>
+          <button type="button" ref={expandRef} className={BUTTON_CLASS} disabled={props.allSwimlanesExpanded} onClick={props.onExpandSwimlanes}>Expand all</button>
         </div>
       </div>
 
       <div role="group" aria-label="Columns">
-        <span className={SECTION_LABEL}>Columns (E toggles everything)</span>
+        <span className={SECTION_LABEL}>Columns <kbd className="ml-1 text-fg-secondary">E</kbd></span>
         <div className="flex gap-2">
-          <button type="button" className={BUTTON_CLASS} disabled={props.allColumnsCollapsed} onClick={props.onCollapseColumns}>Hide all</button>
-          <button type="button" className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={props.onExpandColumns}>Show all</button>
+          <button type="button" ref={hideRef} className={BUTTON_CLASS} disabled={props.allColumnsCollapsed} onClick={props.onCollapseColumns}>Hide all</button>
+          <button type="button" ref={showRef} className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={props.onExpandColumns}>Show all</button>
         </div>
       </div>
 
@@ -176,7 +224,8 @@ export default function BoardViewMenu(props: Props) {
           className={`w-full flex items-center gap-2 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded px-1 py-1.5 ${MENU_ITEM_FOCUS_RING}`}
         >
           <ActiveMark active={props.showArchived} />
-          {props.showArchived ? "Hide archived cards" : "Show archived cards"}
+          <span className="flex-1 text-left">{props.showArchived ? "Hide archived cards" : "Show archived cards"}</span>
+          <kbd aria-hidden="true" className="text-xs text-fg-secondary">Y</kbd>
         </button>
       </div>
     </div>
@@ -188,12 +237,13 @@ export default function BoardViewMenu(props: Props) {
         ref={triggerRef}
         type="button"
         onClick={toggle}
+        onKeyDown={onTriggerKeyDown}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         data-tour-step="view-menu"
         className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-          open ? "bg-surface-active text-fg border-line-emphasis" : "text-fg border-line-strong hover:bg-surface-hover"
+          open ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
         }`}
       >
         {props.icon}

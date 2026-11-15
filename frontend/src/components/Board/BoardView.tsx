@@ -2693,7 +2693,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           folds by viewport: the row wraps instead, so no control is ever
           hidden and the page never scrolls sideways. Connection status is the
           last item and stays pinned to the trailing edge. */}
-      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-0.5">
+      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
           <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
