@@ -513,7 +513,7 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 `GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/` and `.../attention/` return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
 
-**Query parameters, on all seven:**
+**Query parameters** (the first five on all seven):
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
@@ -522,8 +522,20 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 | `to_date` | date | Today (UTC) | Last UTC day, inclusive. A range holds at most 366 days. |
 | `swimlane_id` | integer | none | Cards now in this swimlane of this board. |
 | `label_id` | integer | none | Cards now carrying this label of this board. |
+| `group_by` | `swimlane`, `label` or `custom_field` | none | Break the numbers down (see [Breakdowns](#flow-metric-breakdowns)). On cycle-time, throughput, wip-age and dwell; ignored elsewhere. |
+| `group_by_field_id` | integer | none | A dropdown or checkbox card custom field of this board. Required with `group_by=custom_field`, refused with any other `group_by`. On cycle-time, throughput, wip-age and dwell; ignored elsewhere. |
 
-A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A board you cannot access returns `404`.
+A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A `group_by_field_id` that does not exist, is on another board, or is not a dropdown or checkbox card field gets one and the same `400` (`group_by_field_id: Not a dropdown or checkbox card field on this board.`), so the answer says nothing about the field. A board you cannot access returns `404`.
+
+<a id="flow-metric-breakdowns"></a>
+**Breakdowns** (`group_by`, #2265). The new parameters follow the 1.0+ compatibility rules, but may still change until 1.3 GA. Without `group_by` every response is exactly what it was before this parameter existed. With it, the response is the same plus:
+
+- a top-level `grouping`: `{by, field_id, excluded, groups}`. Each group is `{key, name, member_keys, ...}` with the endpoint's own aggregates: cycle-time `{sample_size, percentiles}`, throughput `{total, median}`, wip-age `{sample_size}`, dwell `{sample_size, columns}` (the same per-column shape and order as the top-level `columns`);
+- on each cycle-time and wip-age sample, `group_keys`: the card's keys, `[]` when it has none; on each throughput sample, `by_group`: one `{key, count, card_uids}` per entry of `grouping.groups`, in the same order, zeros included. Throughput's `started` and wip-age's `cycle_time_percentiles` stay board-level. Dwell has no samples.
+
+Keys are strings: the swimlane or label id, the dropdown choice text, or `"true"`/`"false"` for a checkbox. `name` is the swimlane, label or choice text, and `null` for a checkbox value. Groups use each card's **current** swimlane, labels and field value, as the filters do. Groups are ranked by how many of their cards are active in the range (started and not yet done, first completed in the range or on one of its bucketed days, or with a visit that closed in the range), so all four endpoints list the same groups in the same order; ties go by swimlane position, label name, choice order, or `true` before `false`. A group with no active card is left out; a listed group may still have size `0` on one endpoint. With more than five groups, the five first are named and the rest collapse into one last group with `key` and `name` `null` and every collapsed key in `member_keys`. A group's index in `groups` is its chart color, and Other is always last. Group percentiles follow the same sample-size rule as the board's.
+
+`excluded` counts, in the endpoint's own unit (completed cards, completions, cards in progress, visits), what belongs to no group: a card with no value for the field, a dropdown value that is no longer one of the choices, or a checkbox value other than `"true"`/`"false"`. A checkbox that was never set has no stored value, so on a new checkbox field most cards count as excluded. For swimlane and custom-field groups, the group sizes plus `excluded` equal the ungrouped number. For labels a card counts once in each named label group it carries, and at most once in Other, so the group sizes sum to the ungrouped number, minus `excluded`, plus, for each sample that has a group, the number of distinct groups its card lands in minus one.
 
 **How a range applies.** A duration sample belongs to the range its completion falls in. Bucketed outputs (throughput, cumulative flow) report only whole UTC days and whole ISO weeks, and today, which is still running, is never a bucket. WIP age is a snapshot: the range moves only its `cycle_time_percentiles`.
 

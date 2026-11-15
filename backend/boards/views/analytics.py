@@ -23,7 +23,7 @@ from ..models import BoardExportLog, CardMovement, CardRelation
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import analytics_extensions_for_role
-from ..services import flow_metrics
+from ..services import flow_grouping, flow_metrics
 from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
 from visiban.request_shape import MAX_DB_INT, OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from ._helpers import get_board_for_user
@@ -298,6 +298,41 @@ class FlowMetricsQuerySerializer(serializers.Serializer):
         return attrs
 
 
+class GroupedFlowMetricsQuerySerializer(FlowMetricsQuerySerializer):
+    """The base filters plus ``group_by`` (#2265), for the four endpoints that break down.
+
+    ``group_by_field_id`` always names a *card* custom field. Every id that is
+    not a dropdown or checkbox field on this board, whether it does not exist,
+    is on another board, or has another type, gets the same message, so the
+    400 says nothing about fields the caller cannot see.
+    """
+
+    group_by = serializers.ChoiceField(choices=flow_grouping.GROUP_BY_CHOICES, required=False)
+    group_by_field_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+
+    def validate_group_by_field_id(self, value):
+        definition = (
+            self.context["board"]
+            .custom_field_definitions.filter(pk=value, field_type__in=flow_grouping.GROUPABLE_FIELD_TYPES)
+            .first()
+        )
+        if definition is None:
+            raise serializers.ValidationError("Not a dropdown or checkbox card field on this board.")
+        return definition
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        # The field validator returned the definition: hand it on, not refetched.
+        definition = attrs.pop("group_by_field_id", None)
+        by = attrs.get("group_by")
+        if definition is not None and by != flow_grouping.CUSTOM_FIELD:
+            raise serializers.ValidationError({"group_by_field_id": "Only with group_by=custom_field."})
+        if by == flow_grouping.CUSTOM_FIELD and definition is None:
+            raise serializers.ValidationError({"group_by_field_id": "Required with group_by=custom_field."})
+        attrs["group_by_field"] = definition
+        return attrs
+
+
 class AnalyticsFilterQuerySerializer(serializers.Serializer):
     """The optional ``swimlane_id`` / ``label_id`` filters of ``analytics`` (#2280).
 
@@ -312,7 +347,7 @@ class AnalyticsFilterQuerySerializer(serializers.Serializer):
     validate_label_id = FlowMetricsQuerySerializer.validate_label_id
 
 
-class ThroughputQuerySerializer(FlowMetricsQuerySerializer):
+class ThroughputQuerySerializer(GroupedFlowMetricsQuerySerializer):
     period = serializers.ChoiceField(choices=["day", "week"], required=False, default="week")
 
 
@@ -344,6 +379,14 @@ def _load_flow(board, params, now):
     )
 
 
+def _grouping(board, params, flow):
+    """The card group keys for ``group_by``, or None when the request asked for no breakdown."""
+    by = params.get("group_by")
+    if by is None:
+        return None
+    return flow_grouping.load_grouping(board, flow, by, params.get("group_by_field"))
+
+
 _FLOW_FILTER_PARAMETERS = [
     OpenApiParameter(
         name="days", type={"type": "integer", "minimum": 1, "maximum": 365},
@@ -373,10 +416,33 @@ _FLOW_FILTER_PARAMETERS = [
     ),
 ]
 
+# Only on cycle-time, throughput, wip-age and dwell: the other metric
+# endpoints do not break down, and ignore these like any unknown parameter.
+_FLOW_GROUP_PARAMETERS = [
+    OpenApiParameter(
+        name="group_by", type={"type": "string", "enum": list(flow_grouping.GROUP_BY_CHOICES)},
+        location=OpenApiParameter.QUERY, required=False,
+        description=(
+            "Break the numbers down by each card's current swimlane, labels, or one card custom field "
+            "(`custom_field`, with `group_by_field_id`). Adds `grouping` to the response and group keys "
+            "to the samples; without it the response is unchanged."
+        ),
+    ),
+    OpenApiParameter(
+        name="group_by_field_id", type={"type": "integer", "format": "int64", "minimum": 1},
+        location=OpenApiParameter.QUERY, required=False,
+        description=(
+            "A dropdown or checkbox card custom field of this board. Required with "
+            "`group_by=custom_field` and refused with any other `group_by`."
+        ),
+    ),
+]
+
 _FLOW_400 = OpenApiResponse(
     description=(
-        "A filter is malformed or out of range, or names a swimlane or label that is not on "
-        "this board (`code: invalid_query_param`)."
+        "A filter is malformed or out of range, names a swimlane or label that is not on "
+        "this board, or `group_by_field_id` is not a dropdown or checkbox card field of this "
+        "board (`code: invalid_query_param`)."
     ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
 )
@@ -407,6 +473,48 @@ _FLOW_CARD_FIELD = inline_serializer(
     },
 )
 
+def _grouping_field(prefix, aggregates):
+    """The ``grouping`` envelope of one endpoint (#2265); present only with ``group_by``."""
+    return inline_serializer(
+        name=f"{prefix}Grouping",
+        required=False,
+        help_text=(
+            "Only with `group_by`. Groups are ranked by their cards active in the range, at most five "
+            "named ones; the rest collapse into one last group with key and name null. A group's index "
+            "is its chart color."
+        ),
+        fields={
+            "by": serializers.ChoiceField(choices=list(flow_grouping.GROUP_BY_CHOICES)),
+            "field_id": serializers.IntegerField(allow_null=True),
+            "excluded": serializers.IntegerField(
+                help_text="Counted in this endpoint's unit: what belongs to no group (no value, or a stale one).",
+            ),
+            "groups": inline_serializer(
+                name=f"{prefix}Group",
+                many=True,
+                fields={
+                    "key": serializers.CharField(
+                        allow_null=True,
+                        help_text=(
+                            "Swimlane or label id as a string, the dropdown choice, or \"true\"/\"false\". "
+                            "Null for Other."
+                        ),
+                    ),
+                    "name": serializers.CharField(allow_null=True),
+                    "member_keys": serializers.ListField(child=serializers.CharField()),
+                    **aggregates,
+                },
+            ),
+        },
+    )
+
+
+_GROUP_KEYS_FIELD = serializers.ListField(
+    child=serializers.CharField(),
+    required=False,
+    help_text="Only with `group_by`: the card's group keys (see `grouping.groups[].member_keys`).",
+)
+
 _CYCLE_TIME_RESPONSE = inline_serializer(
     name="FlowCycleTime",
     fields={
@@ -423,9 +531,14 @@ _CYCLE_TIME_RESPONSE = inline_serializer(
                 "start": serializers.DateTimeField(),
                 "end": serializers.DateTimeField(),
                 "reopened": serializers.BooleanField(),
+                "group_keys": _GROUP_KEYS_FIELD,
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "grouping": _grouping_field("FlowCycleTime", {
+            "sample_size": serializers.IntegerField(),
+            "percentiles": _PERCENTILES_FIELD,
+        }),
     },
 )
 
@@ -451,9 +564,24 @@ _THROUGHPUT_RESPONSE = inline_serializer(
                         "a card with no creation movement never starts."
                     ),
                 ),
+                "by_group": inline_serializer(
+                    name="FlowThroughputGroupCount",
+                    many=True,
+                    required=False,
+                    help_text="Only with `group_by`: one entry per `grouping.groups` entry, in order, zeros included.",
+                    fields={
+                        "key": serializers.CharField(allow_null=True),
+                        "count": serializers.IntegerField(),
+                        "card_uids": serializers.ListField(child=serializers.CharField()),
+                    },
+                ),
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "grouping": _grouping_field("FlowThroughput", {
+            "total": serializers.IntegerField(),
+            "median": serializers.IntegerField(allow_null=True),
+        }),
     },
 )
 
@@ -553,9 +681,23 @@ _WIP_AGE_RESPONSE = inline_serializer(
                 ),
                 "is_blocked": serializers.BooleanField(),
                 "blocked_days": serializers.FloatField(),
+                "group_keys": _GROUP_KEYS_FIELD,
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "grouping": _grouping_field("FlowWipAge", {"sample_size": serializers.IntegerField()}),
+    },
+)
+
+_DWELL_COLUMN_FIELD = inline_serializer(
+    name="FlowDwellColumn",
+    many=True,
+    help_text="The columns that are not done, in position order.",
+    fields={
+        "column_uid": serializers.CharField(),
+        "column_name": serializers.CharField(),
+        "sample_size": serializers.IntegerField(),
+        "percentiles": _PERCENTILES_FIELD,
     },
 )
 
@@ -565,17 +707,11 @@ _DWELL_RESPONSE = inline_serializer(
         "definition": serializers.CharField(),
         "sample_size": serializers.IntegerField(),
         "excluded_incomplete_history": serializers.IntegerField(),
-        "columns": inline_serializer(
-            name="FlowDwellColumn",
-            many=True,
-            help_text="The columns that are not done, in position order.",
-            fields={
-                "column_uid": serializers.CharField(),
-                "column_name": serializers.CharField(),
-                "sample_size": serializers.IntegerField(),
-                "percentiles": _PERCENTILES_FIELD,
-            },
-        ),
+        "columns": _DWELL_COLUMN_FIELD,
+        "grouping": _grouping_field("FlowDwell", {
+            "sample_size": serializers.IntegerField(help_text="Visits, as the top-level sample_size."),
+            "columns": _DWELL_COLUMN_FIELD,
+        }),
     },
 )
 
@@ -1098,17 +1234,21 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="Cycle time per completed card, with percentiles",
-        parameters=_FLOW_FILTER_PARAMETERS,
+        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
         responses={200: _CYCLE_TIME_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/cycle-time")
     def metrics_cycle_time(self, request, pk=None):
         """Cycle time of the cards whose first completion falls in the range."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
         flow = _load_flow(board, params, now)
-        payload = flow_metrics.cycle_time(flow, _flow_range(params, now))
+        flow_range = _flow_range(params, now)
+        payload = flow_metrics.cycle_time(flow, flow_range)
+        grouping = _grouping(board, params, flow)
+        if grouping is not None:
+            flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
         payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
         return Response(payload)
 
@@ -1116,6 +1256,7 @@ class BoardAnalyticsMixin:
         summary="Cards completed per whole ISO week or UTC day",
         parameters=[
             *_FLOW_FILTER_PARAMETERS,
+            *_FLOW_GROUP_PARAMETERS,
             OpenApiParameter(
                 name="period", type={"type": "string", "enum": ["day", "week"]},
                 location=OpenApiParameter.QUERY, required=False,
@@ -1131,7 +1272,11 @@ class BoardAnalyticsMixin:
         params = _flow_query(ThroughputQuerySerializer, request, board)
         now = timezone.now()
         flow = _load_flow(board, params, now)
-        payload = flow_metrics.throughput(flow, _flow_range(params, now), params["period"])
+        flow_range = _flow_range(params, now)
+        payload = flow_metrics.throughput(flow, flow_range, params["period"])
+        grouping = _grouping(board, params, flow)
+        if grouping is not None:
+            flow_grouping.group_throughput(payload, flow, flow_range, grouping, params["period"])
         payload["cards"] = flow_metrics.card_directory(
             flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
         )
@@ -1176,33 +1321,42 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="Age of the cards in progress, with the cycle-time percentiles for the aging zones",
-        parameters=_FLOW_FILTER_PARAMETERS,
+        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
         responses={200: _WIP_AGE_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/wip-age")
     def metrics_wip_age(self, request, pk=None):
         """WIP age. A snapshot: the range moves only ``cycle_time_percentiles``."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
         flow = _load_flow(board, params, now)
-        payload = flow_metrics.age(flow, _flow_range(params, now))
+        flow_range = _flow_range(params, now)
+        payload = flow_metrics.age(flow, flow_range)
+        grouping = _grouping(board, params, flow)
+        if grouping is not None:
+            flow_grouping.group_wip_age(payload, flow, flow_range, grouping)
         payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
         return Response(payload)
 
     @extend_schema(
         summary="Completed dwell time per column, with percentiles",
-        parameters=_FLOW_FILTER_PARAMETERS,
+        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
         responses={200: _DWELL_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/dwell")
     def metrics_dwell(self, request, pk=None):
         """Per-column percentiles of the visits that closed in the range (#2260)."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
         flow = _load_flow(board, params, now)
-        return Response(flow_metrics.column_dwell(flow, _flow_range(params, now)))
+        flow_range = _flow_range(params, now)
+        payload = flow_metrics.column_dwell(flow, flow_range)
+        grouping = _grouping(board, params, flow)
+        if grouping is not None:
+            flow_grouping.group_dwell(payload, flow, flow_range, grouping)
+        return Response(payload)
 
     @extend_schema(
         summary="Blocked time per column and reason, and the cards blocked now",
