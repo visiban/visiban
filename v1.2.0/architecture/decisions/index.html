@@ -3025,6 +3025,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#column-flow-starts-blocked-range-and-needs-attention-2260" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column flow, starts, blocked range and needs attention (#2260)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#where-current-code-disagrees" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5061,6 +5072,22 @@
 </tr>
 </tbody>
 </table>
+<h3 id="column-flow-starts-blocked-range-and-needs-attention-2260">Column flow, starts, blocked range and needs attention (#2260)<a class="headerlink" href="#column-flow-starts-blocked-range-and-needs-attention-2260" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Note (2026-11-14, #2260):</strong> the Analytics redesign (#2257, <code>docs/development/analytics-redesign.md</code>) needs four numbers the record above did not define. They are defined here first, as the module docstring of <code>flow_metrics.py</code> asks.</p>
+</blockquote>
+<ul>
+<li><strong>Started.</strong> A card is <em>started</em> on its cycle start: its first move out of the column it was created in, to a column that is not done. Throughput's per-period <code>started</code> counts the cards whose cycle start falls in the period, archived ones included, as <code>count</code> does. A reopen is not a start, because the first completion is the anchor (see <a href="#reopened-cards">Reopened cards</a>). A card with no creation movement (an import without its history) can finish but never starts, so <code>started</code> under-reports on imported boards.</li>
+<li><strong>Column flow.</strong> For each cumulative-flow band, <code>start_count</code> and <code>end_count</code> are its counts at the end of the first and the last whole day. <code>entered</code> and <code>left</code> count the times a card's band changed at a moment whose UTC date is after the first day and no later than the last, so <code>end_count − start_count = entered − left</code> exactly, for every band, the done bands and the <code>null</code> band included. A same-day bounce counts both ways, and nets to zero. A move between two deleted columns stays in the <code>null</code> band and is not counted. Archiving a card outside a done column leaves its band, and restoring it enters one; archiving in a done column does not leave. The weekly rates are <code>entered × 7 ÷ (days − 1)</code> and <code>left × 7 ÷ (days − 1)</code>, unrounded, and <code>null</code> under two whole days. <em>Rejected:</em> a window that includes the first day, which breaks the identity and would move the bottleneck, which already reads the first and last day.</li>
+<li><strong>Blocked time:</strong> the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age. This is the <a href="#blocked-time">Blocked time</a> decision as the API's <code>definition</code> string. In a range, a block counts for its part inside the range, and every end is clipped to the range's end and never past now. Before this, ends were clipped only to now, so a date range that ended in the past counted block time after it. A rolling range ends at now, so the analytics endpoint and the MCP tools are unaffected.</li>
+<li><strong>Needs attention:</strong> the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.<ul>
+<li>The base is every live card outside a done column, the old stalled-cards table's base, not only cards in progress, so a backlog card that has not moved is stalled whether or not it has started.</li>
+<li>The three reasons, in this fixed order: <code>blocked</code> (manually or by an active relation, the same union as everywhere else), <code>past_p85</code> (the card is in progress and its age is strictly greater than the cycle-time p85 over the same range and filters; never when p85 is <code>null</code> under the sample-size rule, and never for a card with incomplete history, which has no age), and <code>stalled</code> (the time since its latest movement of any kind, swimlane moves included, is strictly greater than the board's <code>staleness_threshold_days</code>; a card with no movement is never stalled).</li>
+<li>Each card is listed once, with all its reasons, ordered by age (oldest first, no age last), then by time unmoved (longest first, none last), then by card id.</li>
+<li>It differs from the analytics endpoint's <code>stalled_cards</code> in two ways: a movement dated after the request is ignored, as everywhere in these definitions, and a card is judged by its current column, so a card whose latest movement went into a done column but that is no longer there is still listed.</li>
+</ul>
+</li>
+</ul>
 <h3 id="where-current-code-disagrees">Where current code disagrees<a class="headerlink" href="#where-current-code-disagrees" title="Permanent link">&para;</a></h3>
 <p>None of these change in this ADR. #448 changes each one when it builds the service, with a <code>changed</code> changelog fragment and no field removed or retyped (1.x contract).</p>
 <table>

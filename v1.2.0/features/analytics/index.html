@@ -4437,6 +4437,8 @@
 <li><strong>Throughput:</strong> the number of cards whose first entry into a done column falls in a period.</li>
 <li><strong>WIP:</strong> the number of cards, not archived, currently in each column that is not done.</li>
 <li><strong>Cumulative flow:</strong> for each day, the number of cards in each column at the end of that day.</li>
+<li><strong>Blocked time:</strong> the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.</li>
+<li><strong>Needs attention:</strong> the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.</li>
 </ul>
 <h2 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h2>
 <p>A table of all swimlanes with:</p>
