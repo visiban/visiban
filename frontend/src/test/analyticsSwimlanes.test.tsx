@@ -139,6 +139,25 @@ describe('Swimlanes view', () => {
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
   })
 
+  it('shows the Sort and Group lanes by prefixes and checks None by default', async () => {
+    const user = await openSwimlanes()
+    expect(screen.getByRole('button', { name: /^Group lanes by/ })).toHaveTextContent('Group lanes by:')
+    expect(screen.getByRole('button', { name: /^Sort/ })).toHaveTextContent('Sort:')
+    await user.click(screen.getByRole('button', { name: /^Group lanes by/ }))
+    expect(screen.getByRole('menuitem', { name: 'None' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Team' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('colors trend text warning only when the trend itself is slower', async () => {
+    vi.mocked(getFlowSwimlanes).mockResolvedValue(data([
+      row({ id: 1, name: 'Mobile', status: 'slower', median_days: 14, trend: { direction: 'faster', first_days: 16, last_days: 12 } }),
+    ]))
+    await openSwimlanes()
+    const text = within(screen.getByTestId('swimlane-row')).getByText(/^Faster, 16 to 12 days/)
+    expect(text.className).not.toContain('text-warning')
+    expect(text.className).toContain('text-success')
+  })
+
   it('groups lanes by a swimlane field', async () => {
     const user = await openSwimlanes()
     vi.mocked(getFlowSwimlanes).mockResolvedValue(data(
@@ -203,10 +222,16 @@ describe('swimlanesFormat', () => {
     const empty = { ...(data([]) as object), board: { finished: 0, median_days: null, p85_days: null } } as never
     expect(findingText(empty).sentence).toMatch(/too few finished cards/)
   })
+  it('never overstates a whole-number or fractional median in the finding', () => {
+    const pair = (a: number, b: number) => findingText(data([
+      row({ id: 7, name: 'A', median_days: a, status: 'slower' }), row({ id: 8, name: 'B', median_days: b, status: 'slower' })]))
+    expect(pair(14, 15).sentence).toMatch(/^Both take 14 days or more against/)
+    expect(pair(14.5, 14.2).sentence).toMatch(/^Both take 14\.2 days or more against/)
+  })
   it('names one slower lane alone and sorts missing medians last', () => {
     const two = findingText(data([lanes[1], row({ id: 7, name: 'Mobile', median_days: 14.2, status: 'slower' })]))
     expect(two.heading).toBe('Platform and Mobile are where cards slow down')
-    expect(two.sentence).toMatch(/^Both take more than 14 days against a board median of 11\./)
+    expect(two.sentence).toMatch(/^Both take 14.2 days or more against a board median of 11\./)
     expect(findingText(data([lanes[1]])).heading).toBe('Platform is where cards slow down')
     expect(sortRows(lanes as never, 'fastest').at(-1)!.name).toBe('Design')
     expect(sortRows(lanes as never, 'blocked')[0].name).toBe('Platform')

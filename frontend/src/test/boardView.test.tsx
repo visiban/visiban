@@ -107,8 +107,8 @@ vi.mock('../components/Board/SummaryView', () => ({
   default: () => <div data-testid="summary-view">Summary</div>,
 }))
 vi.mock('../components/Board/AnalyticsView', () => ({
-  default: ({ onOpenCard }: { onOpenCard?: (id: number) => void }) => (
-    <div data-testid="analytics-view">
+  default: ({ onOpenCard, swimlaneFields }: { onOpenCard?: (id: number) => void; swimlaneFields?: { id: number; name: string }[] }) => (
+    <div data-testid="analytics-view" data-swimlane-fields={(swimlaneFields ?? []).map((f) => f.name).join('|')}>
       Analytics
       <button data-testid="open-card-btn" onClick={() => onOpenCard?.(1)}>Open Card</button>
     </div>
@@ -1117,6 +1117,22 @@ describe('BoardView', () => {
     mockSearchParams = new URLSearchParams('view=analytics')
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+  })
+
+  it('offers admin-only swimlane fields to Group lanes by for admins only (#2267)', () => {
+    const def = (id: number, name: string, field_type: string, is_admin_only: boolean) => ({
+      id, uid: `sf${id}`, name, field_type, choices: [], position: id, show_on_row: false, is_admin_only, is_required: false,
+      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+    })
+    const defs = [def(1, 'Team', 'dropdown', false), def(2, 'Budget owner', 'dropdown', true), def(3, 'Notes', 'text', false)] as never
+    mockSearchParams = new URLSearchParams('view=analytics')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member', swimlane_custom_field_definitions: defs }) })
+    const { unmount } = render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('analytics-view')).toHaveAttribute('data-swimlane-fields', 'Team')
+    unmount()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin', swimlane_custom_field_definitions: defs }) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('analytics-view')).toHaveAttribute('data-swimlane-fields', 'Team|Budget owner')
   })
 
   it('invalid ?view= param falls back to board view', () => {

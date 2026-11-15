@@ -20,6 +20,11 @@ export function dayText(days: number): string {
   return String(Number(days.toFixed(1)));
 }
 
+/** Rounds DOWN to one decimal, so "N days or more" is true of the smaller median. */
+function floorDays(days: number): string {
+  return String(Math.floor(days * 10 + 1e-9) / 10);
+}
+
 /** Rounds up to 1, 2, 5 or 10 times a power of ten, so the shared bar scale has a round end. */
 export function niceCeil(value: number): number {
   if (!(value > 0)) return 1;
@@ -103,7 +108,7 @@ export function findingText(data: FlowSwimlaneComparison): { heading: string; se
   const medians = slower.map((s) => s.median_days ?? 0);
   const against = boardMedian === null ? "" : ` against a board median of ${dayText(boardMedian)}`;
   let sentence = slower.length > 1
-    ? `Both take more than ${Math.floor(Math.min(...medians))} days${against}.`
+    ? `Both take ${floorDays(Math.min(...medians))} days or more${against}.`
     : `${names[0]} takes ${dayText(medians[0])} days at the median${against}.`;
   const first = slower[0];
   if (first.trend?.direction === "slower") {

@@ -75,7 +75,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
 }) {
   const status = statusText(row);
   const statusClass = row.status === "slower" ? "text-warning" : row.status === "faster" ? "text-success" : "text-fg-tertiary";
-  const trendClass = row.status === "slower" || row.trend?.direction === "slower" ? "text-warning" : row.trend?.direction === "faster" ? "text-success" : "text-fg-secondary";
+  const trendClass = row.trend?.direction === "slower" ? "text-warning" : row.trend?.direction === "faster" ? "text-success" : "text-fg-secondary";
   return (
     <li
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-6 gap-y-3 py-4 border-b border-line last:border-b-0 items-start"
@@ -176,7 +176,7 @@ export default function AnalyticsSwimlanes({
               triggerPrefix="Group lanes by:"
               ariaLabel="Group lanes by"
               options={groupOptions}
-              selected={groupId}
+              selected={groupId ?? 0}
               onChange={(value) => setGroupId(value ? value : null)}
               portalMenu
             />
