@@ -9,7 +9,7 @@ What it measures:
     - GET /api/boards/{id}/full/            (BoardFullSerializer)
     - GET /api/boards/{id}/summary/         (per-swimlane aggregation)
     - GET /api/boards/{id}/analytics/       (heatmap, stalled cards, blocked time)
-    - GET /api/boards/{id}/metrics/*/       (the seven flow metrics, #448, #2260)
+    - GET /api/boards/{id}/metrics/*/       (the eight flow metrics, #448, #2260, #2266)
 
 For each endpoint the command reports the number of SQL queries issued and
 a ≤-budget verdict.  It creates a throw-away board, drives full/ and summary/

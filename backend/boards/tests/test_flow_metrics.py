@@ -1118,6 +1118,19 @@ class EndpointFixture(FlowFixture):
 
 
 GROUPING_ONLY_KEYS = {"grouping", "group_keys", "by_group"}
+# Malformed period parameters every flow endpoint refuses the same way, the swimlane comparison included.
+BAD_RANGE_PARAMS = (
+    {"from_date": "nope"},
+    {"to_date": "2026-02-30"},
+    {"from_date": "2026-05-02", "to_date": "2026-05-01"},
+    {"from_date": "2020-01-01", "to_date": "2026-05-01"},
+    {"from_date": "0001-01-01"},
+    {"to_date": "9999-12-31"},
+    {"days": "0"},
+    {"days": "366"},
+    {"days": "abc"},
+    {"days": "30", "from_date": "2026-05-01"},
+)
 METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age", "dwell", "blocked", "attention")
 
 
@@ -1159,21 +1172,7 @@ class EndpointValidationTests(EndpointFixture):
 
     def test_bad_values_answer_the_one_bad_parameter_shape(self):
         for metric in METRICS:
-            for params in (
-                {"from_date": "nope"},
-                {"to_date": "2026-02-30"},
-                {"from_date": "2026-05-02", "to_date": "2026-05-01"},
-                {"from_date": "2020-01-01", "to_date": "2026-05-01"},
-                {"from_date": "0001-01-01"},
-                {"to_date": "9999-12-31"},
-                {"days": "0"},
-                {"days": "366"},
-                {"days": "abc"},
-                {"days": "30", "from_date": "2026-05-01"},
-                {"swimlane_id": "abc"},
-                {"swimlane_id": str(2**70)},
-                {"label_id": "-1"},
-            ):
+            for params in (*BAD_RANGE_PARAMS, {"swimlane_id": "abc"}, {"swimlane_id": str(2**70)}, {"label_id": "-1"}):
                 with self.subTest(metric=metric, params=params):
                     self.assert_bad(metric, **params)
 
@@ -2402,6 +2401,50 @@ class SwimlaneComparisonTests(EndpointFixture):
         self.assertAlmostEqual(row["blocked_share"], 3 / 18, places=3)
         self.assertIsNone(self.lane_row(self.get(), self.other_lane)["blocked_share"])
         self.assertEqual(wip.swimlane_id, self.lane.id)
+
+    def test_bad_period_values_answer_the_one_bad_parameter_shape(self):
+        for params in (*BAD_RANGE_PARAMS, {"label_id": "-1"}):
+            with self.subTest(params=params):
+                resp = self.client.get(self.url("swimlanes"), params)
+                self.assertEqual(resp.status_code, 400, resp.content)
+                self.assertEqual(resp.json()["code"], "invalid_query_param")
+                self.assertIsInstance(resp.json()["detail"], str)
+
+    def test_a_label_on_another_board_is_refused_like_a_missing_one(self):
+        other = Board.objects.create(name="Other", owner=self.user)
+        foreign = Label.objects.create(board=other, name="Foreign")
+        on_other = self.client.get(self.url("swimlanes"), {"label_id": foreign.id})
+        missing = self.client.get(self.url("swimlanes"), {"label_id": 999_999})
+        self.assertEqual(on_other.status_code, 400, on_other.content)
+        self.assertEqual(on_other.json(), missing.json())
+        self.assertEqual(on_other.json()["code"], "invalid_query_param")
+
+    def test_a_400_matches_its_published_schema(self):
+        bad = self.client.get(self.url("swimlanes"), {"days": 0})
+        self.assertEqual(bad.status_code, 400)
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        operation = schema["paths"]["/api/v1/boards/{id}/metrics/swimlanes/"]["get"]
+        fragment = operation["responses"]["400"]["content"]["application/json"]["schema"]
+        jsonschema.validate(
+            instance=bad.json(), schema=_openapi3_nullable_to_jsonschema({**fragment, "components": schema["components"]}),
+        )
+
+    def test_a_user_who_must_change_their_password_is_refused(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        self.assertEqual(self.client.get(self.url("swimlanes")).status_code, 403)
+
+    def test_a_reopened_cards_time_after_the_reopen_is_not_blocked_share(self):
+        # Pins the rule in decisions.md: the in-progress window ends at the FIRST completion.
+        card = self.path(self.backlog, 30, self.doing, 15, self.done, 10, self.review, 5, lane=self.lane)
+        block = lambda begin, end: CardBlock.objects.create(  # noqa: E731
+            card=card, board=self.board, reason="r", blocked_at=self.ago(begin), unblocked_at=self.ago(end),
+        )
+        block(14, 13)  # 1 of the 5 days before the first completion
+        block(4, 2)    # after the reopen: counts on neither side
+        row = self.lane_row(self.get(), self.lane)
+        self.assertEqual(row["in_progress"], 1)
+        self.assertAlmostEqual(row["blocked_share"], 1 / 5, places=3)
 
     def test_label_filter_applies_and_swimlane_filter_is_ignored(self):
         label = Label.objects.create(board=self.board, name="L")

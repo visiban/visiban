@@ -604,7 +604,7 @@ Response (cycle time is the same measure as `metrics/cycle-time/`; every number 
 - `definition`, `board` `{finished, median_days, p85_days}`, and the two thresholds `status_threshold_pct` (20) and `status_min_finished` (10).
 - `swimlanes`: every swimlane in position order, empty ones included, each `{id, name, position, group, finished, in_progress, median_days, p85_days, blocked_share, rolling_median, status, trend}`.
     - `median_days` is `null` below 5 finished cards; `p85_days` is `null` below 7.
-    - `blocked_share` is the fraction (0 to 1) of the swimlane's in-progress time inside the period that its cards were blocked, with overlapping blocks counted once; `null` when no card was in progress.
+    - `blocked_share` is the fraction (0 to 1) of the swimlane's in-progress time inside the period that its cards were blocked, with overlapping blocks counted once; a reopened card's time after the reopen is not counted, because its window ends at its first completion; `null` when no card was in progress.
     - `rolling_median` has eight `{at, median_days, sample_size}` points. Each is the median of the cards finished in a window half as long as the period, ending at `at`; the first window ends at the middle of the period and the last at its end. A window with fewer than 5 cards has `median_days: null`.
     - `status` is `slower`, `in_line` or `faster` against the board median: more than 20% above or below, and only with at least 10 finished cards. Otherwise `null`.
     - `trend` is `{direction, first_days, last_days}` comparing the first and last rolling medians with the same 20% rule (`slower`, `steady`, `faster`). `null` with fewer than 5 finished cards or when either end point is withheld.
