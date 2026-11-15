@@ -5,6 +5,8 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
 
+const PANEL_MIN_WIDTH = 240;
+
 export interface OverflowItem {
   /** Stable identity (used for key + for test hooks). */
   id: string;
@@ -230,12 +232,13 @@ export default function OverflowMenu({
       style={{
         position: "fixed",
         top: top ?? 0,
-        ...(align === "left" ? { left: anchor.left } : { right: anchor.right }),
+        // A left-aligned panel flips to right-aligned when 240px would run past the viewport edge.
+        ...(align === "left" && anchor.left + PANEL_MIN_WIDTH + POPOVER_VIEWPORT_MARGIN <= window.innerWidth ? { left: anchor.left } : { right: anchor.right }),
         maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         // Hidden only for the pre-paint measuring pass.
         visibility: placed ? undefined : "hidden",
       }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-w-[320px] overflow-y-auto"
     >
       {items.map((item, i) => (
         <div key={item.id}>
@@ -284,7 +287,7 @@ export default function OverflowMenu({
                 {item.icon}
               </span>
             )}
-            <span className="flex-1 text-left truncate">{item.label}</span>
+            <span className="flex-1 text-left truncate" title={item.label}>{item.label}</span>
             {item.shortcut && (
               <kbd
                 className="bg-surface-hover text-fg-secondary text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"

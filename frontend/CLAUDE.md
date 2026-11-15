@@ -109,7 +109,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
   </div>
 )}
 ```
-- Place before each item where `i > 0`; no manual `separatorBefore` prop needed
+- Place before each item where `i > 0`; no manual `separatorBefore` prop needed for `SelectDropdown`; `OverflowMenu` items take `separatorBefore` instead
 - `SelectDropdown` handles this automatically; hand-rolled dropdowns (e.g. FilterBar) must add it manually
 
 **Disabled dropdowns must include an explanation** — when rendering `<SelectDropdown disabled={true}>`, always pass `disabledReason="..."`. The component renders it as a `title` attribute and `aria-label` on the trigger. A silently greyed-out control with no explanation is inaccessible and a dead end for all users.
@@ -1426,6 +1426,8 @@ Apply this consistently in `ActivityTabPanel` and `MovementHistoryView`:
 
 - System event label text (`text-fg-tertiary italic` for "Archived", `text-accent-violet` for "Reactivated") is visually distinct from column-move text (`text-fg-secondary font-medium`)
 - Do not collapse system events by default — Jordan's audit trail use case requires them visible
+
+**Custom trigger (#2317).** `OverflowMenu` accepts `triggerIcon`, `triggerClassName`, `triggerAriaLabel`, `triggerTitle`, `triggerTestId` and `align`. A custom `triggerClassName` must carry the standard focus ring and gets no open-state tint (`aria-expanded` is the cue). `align="left"` panels flip to right-aligned when 240px would pass the viewport edge. Callers must memoize `items`: the focus-first-item effect re-runs when `items` changes identity, so an inline `.map` yanks focus back during arrow-key navigation. A color dot in the item icon slot is decorative (the slot is `aria-hidden`); the label must carry the meaning.
 
 ### Imported history attribution (#1675, #1702)
 

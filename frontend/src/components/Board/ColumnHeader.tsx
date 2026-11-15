@@ -124,6 +124,20 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
   // Kebab items are memoized so the OverflowMenu's items-driven effects don't
   // re-fire on every parent render. `column.name` is captured for the delete
   // accessible label so screen readers announce *which* column is being acted on.
+  // Memoized: OverflowMenu re-focuses its first item whenever `items` changes identity (#2317).
+  // onAddCard is an inline closure upstream, so read it through a ref to keep `laneItems` stable.
+  const onAddCardRef = useRef(onAddCard);
+  onAddCardRef.current = onAddCard;
+  const laneItems = useMemo<OverflowItem[]>(
+    () => (addCardLanes ?? []).map((lane, i) => ({
+      id: String(lane.id),
+      label: lane.collapsed ? `${lane.name} (collapsed)` : lane.name,
+      icon: <span className="block mx-auto w-2.5 h-2.5 rounded-full ring-1 ring-line-strong" style={{ backgroundColor: lane.color }} />,
+      separatorBefore: i > 0,
+      onSelect: () => onAddCardRef.current?.(lane.id),
+    })),
+    [addCardLanes],
+  );
   const kebabItems = useMemo<OverflowItem[]>(
     () => [
       { id: "rename", label: "Rename", onSelect: startRenaming },
@@ -322,13 +336,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
                 triggerTestId="column-add-card"
                 triggerClassName="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 triggerIcon={ADD_ICON}
-                items={addCardLanes.map((lane, i) => ({
-                  id: String(lane.id),
-                  label: lane.collapsed ? `${lane.name} (collapsed)` : lane.name,
-                  icon: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: lane.color }} />,
-                  separatorBefore: i > 0,
-                  onSelect: () => onAddCard(lane.id),
-                }))}
+                items={laneItems}
               />
             </div>
           ) : onAddCard && (

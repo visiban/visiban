@@ -315,6 +315,21 @@ describe('BoardView — column-header add card (#2317)', () => {
     await waitFor(() => expect(screen.getByTestId('cell-20-10')).toHaveAttribute('data-adding', 'true'))
   })
 
+  it('flips the lane menu to right-aligned when it would run past the viewport edge', async () => {
+    setBoard(LANES)
+    const prev = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { value: 200, configurable: true })
+    try {
+      render(<BoardView />)
+      await userEvent.click(screen.getByTestId('column-add-card'))
+      const menu = screen.getByRole('menu', { name: 'Add card to which swimlane?' })
+      expect(menu.style.right).not.toBe('')
+      expect(menu.style.left).toBe('')
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: prev, configurable: true })
+    }
+  })
+
   it('no + for a column that disallows card creation', () => {
     setBoard(LANES, { columns: [{ ...makeBoard().columns[0], allow_card_creation: false }] })
     render(<BoardView />)
