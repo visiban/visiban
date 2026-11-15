@@ -510,10 +510,13 @@ class ThroughputTests(FlowFixture):
         # Mon 06-15 06:00: inside the first whole week's bucket day, before the
         # rolling start (06-15 12:00), so cycle time leaves it out too.
         self.path(self.backlog, 60, self.doing, 50, self.done, 30.25)
+        # Mon 07-13 12:00: in the dropped partial week, so it is in the range
+        # count and the cycle time sample but not in the whole-week total.
+        self.path(self.backlog, 60, self.doing, 50, self.done, 2)
         flow = self.flow()
         payload = fm.throughput(flow, self.last(30))
         self.assertEqual(payload["total"], 4)
-        self.assertEqual(payload["completed_in_range"], 4)
+        self.assertEqual(payload["completed_in_range"], 5)
         self.assertEqual(payload["completed_in_range"], fm.cycle_time(flow, self.last(30))["sample_size"])
         hits = {s["start"]: s["count"] for s in payload["samples"]}
         self.assertEqual(hits["2026-06-15"], 2)  # 06-15 06:00 and 06-16

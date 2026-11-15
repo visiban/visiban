@@ -764,7 +764,7 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
 - `age_days` is `null` for a card that is not in progress, such as one that has not left its first column or has incomplete history. `unmoved_days` counts from the card's last movement, or from its `created_at` when it has none, so it is never `null` and an old card with no history can be `stalled`.
 - Items run oldest first by `age_days`, then by `unmoved_days`, `null` `age_days` last, then by card.
 
-It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed.
+It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed. A card with no movement is judged the same way in both, from its creation date.
 
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.

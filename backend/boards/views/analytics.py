@@ -1295,7 +1295,9 @@ class BoardAnalyticsMixin:
                 # the prefetch window are still detected correctly.
                 if card.archived_at is None:
                     last_col_is_done = card._last_col_id in done_col_ids or card.column_id in done_col_ids
-                    last_moved_at = card._last_moved_at
+                    # A card with no movement counts from created_at, matching
+                    # is_stale on the card serializer and Needs attention (#2291).
+                    last_moved_at = card._last_moved_at or card.created_at
                     if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
                         stalled_cards.append({
                             "id": card.id,
