@@ -33,6 +33,7 @@ import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
 import ColumnSeparator from "./ColumnSeparator";
+import { boardGridMinWidth, boardGridTemplate, clampColumnWidth, columnTrack, trackFloor, useBoardViewWidthVar, type BoardTrack } from "./boardGrid";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
@@ -127,7 +128,8 @@ function ColumnTrashZone() {
     <div
       ref={setNodeRef}
       aria-label="Drop here to delete column"
-      className={`w-20 shrink-0 flex items-center justify-center px-2 border-l transition-colors ${
+      // Absolutely placed so it never adds a track to the shared grid (#2300).
+      className={`absolute inset-y-0 right-0 w-20 flex items-center justify-center px-2 border-l transition-colors ${
         isOver
           ? "bg-danger/50 border-danger/60"
           : "bg-danger/30 border-line"
@@ -2167,9 +2169,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The left label panel is gone (#2271): swimlane bands span the grid, so grid math starts at 0.
   // `viewPrefs.swimlaneColumnWidth` is still read and written for old saved prefs, but unused.
 
-
-  // Resizable board columns
-  const DEFAULT_COL_WIDTH = 220;
   // Header "add card" (#2270, #2317): opens the new-card input in the chosen lane's cell for this
   // column, through the cell's own listener, so the cell keeps owning its draft and its focus return.
   // A collapsed lane has no cells, so it is expanded first and the request waits for them to render.
@@ -2212,44 +2211,33 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       .map((s) => ({ id: s.id, name: s.name, color: s.color, collapsed: collapsedSwimlaneIds.has(s.id) })),
     [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
   );
+  // Saved per-column widths (#1990 resize), clamped to 160..600. Under the shared
+  // grid template they are track weights, not px widths: see `columnTrack`.
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
-    for (const col of board.columns) {
-      map.set(col.id, Math.max(160, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH));
-    }
+    for (const col of board.columns) map.set(col.id, clampColumnWidth(viewPrefs.columnWidths[col.id]));
     return map;
   }, [board.columns, viewPrefs.columnWidths]);
+  const isNarrowColumn = useCallback(
+    (colId: number) => hiddenColumnIds.has(colId) || collapsedColumnIds.has(colId),
+    [hiddenColumnIds, collapsedColumnIds],
+  );
 
-  // X position of the currently-hovered column separator within the scrollable area.
-  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  // sep[i] left = i*16 + sum(colWidth[j] for j in 0..i-1)
-  const hoveredSepX = useMemo(() => {
-    if (hoveredSepIndex === null) return null;
-    let x = 0;
-    for (let i = 0; i < hoveredSepIndex; i++) {
-      x += 16; // separator width
-      if (i < board.columns.length) {
-        const col = board.columns[i];
-        x += (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id))
-          ? 40
-          : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
-      }
-    }
-    return x;
-  }, [hoveredSepIndex, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
-
-  // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
-  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  const colCenterXs = useMemo(() => {
-    const result: number[] = [];
-    let x = 16; // after the first sep
-    for (const col of board.columns) {
-      const w = (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
-      result.push(x + w / 2);
-      x += w + 16;
-    }
-    return result;
-  }, [board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
+  // One shared grid template for the header row, every lane and every row
+  // separator (#2300): one fr track per column, weighted by its saved width
+  // (`minmax(0, 1fr)` at the default 220px), 40px for a hidden or collapsed
+  // stub, 8px between. Every row reads this one string, so a resize moves the
+  // header cell and every lane cell of that column together.
+  const gridTracks = useMemo<BoardTrack[]>(
+    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id)))),
+    [board.columns, isNarrowColumn, colWidths],
+  );
+  const gridTemplate = useMemo(() => boardGridTemplate(gridTracks), [gridTracks]);
+  const gridMinWidth = useMemo(() => boardGridMinWidth(gridTracks), [gridTracks]);
+  // Each column track's floor, read by a separator drag (measureTrackLeftOf) to
+  // keep the resized edge under the pointer when the min width holds the grid open.
+  const gridTrackFloors = useMemo(() => gridTracks.map(trackFloor).join(" "), [gridTracks]);
+  useBoardViewWidthVar(scrollEl);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -3021,15 +3009,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             sheet closes and its card is no longer on the board. */}
         <div ref={setScrollEl} data-board-scroll role="region" aria-label="Board" tabIndex={-1} onPointerDownCapture={markBoardTreePointerEvent} className="board-scroll flex-1 overflow-auto bg-sunken focus:outline-none">
           {/*
-            min-w-max wrapper — gives the sticky header row and all swimlane
-            rows the same containing-block width (max-content).  Without this,
-            a sticky element may be sized to the scroll-container's layout
-            width rather than the full scrollable content width, so its flex-1
-            columns become narrower than the corresponding cells below.
+            Grid wrapper (#2300) — gives the sticky header row and every lane the
+            same width: the scroll box's width, or the grid's minimum when that is
+            wider (then the grid scrolls sideways inside this box, never the page).
+            Every row below uses the same `gridTemplate`, so tracks line up.
           */}
-          <div className="min-w-max">
+          <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
+          <div className="grid sticky top-0 z-20 border-b border-line bg-sunken py-1.5" style={{ gridTemplateColumns: gridTemplate }} data-testid="board-header-row">
             {/* Far-left separator: click inserts column at pos 0 (nothing to its left resizes) */}
             <ColumnSeparator
               isAdmin={isAdmin}
@@ -3054,7 +3041,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
                     abbreviation={columnAbbreviations.get(col.id)}
-                    width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
@@ -3069,8 +3055,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   <ColumnSeparator
                     isAdmin={isAdmin}
                     onOpenAdd={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
-                    currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
-                    setWidth={(w) => setColumnWidth(col.id, w)}
+                    // A hidden or collapsed 40px stub has no width to drag.
+                    currentWidth={isNarrowColumn(col.id) ? undefined : colWidths.get(col.id)}
+                    setWidth={isNarrowColumn(col.id) ? undefined : (w) => setColumnWidth(col.id, w)}
                     sepIndex={idx + 1}
                     hoveredSepIndex={hoveredSepIndex}
                     onSepHoverChange={setHoveredSepIndex}
@@ -3111,11 +3098,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
-                      hoveredSepX={hoveredSepX}
-                      colCenterXs={colCenterXs}
+                      gridTemplate={gridTemplate}
+                      columnCount={board.columns.length}
+                      hoveredSepIndex={hoveredSepIndex}
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
+                      gridTemplate={gridTemplate}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
                       onInsertColumn={(colId) => {
@@ -3186,8 +3175,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
                     currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
                     setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
-                    hoveredSepX={hoveredSepX}
-                    colCenterXs={colCenterXs}
+                    gridTemplate={gridTemplate}
+                    columnCount={board.columns.length}
+                    hoveredSepIndex={hoveredSepIndex}
                   />
                 );
               })()}
@@ -3208,7 +3198,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </div>
           )}
-          </div>{/* end min-w-max wrapper */}
+          </div>{/* end grid wrapper */}
         </div>{/* end board-scroll */}
         {gridOverlayState && (
           <GridOverlayLegend
@@ -3233,7 +3223,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay canEdit={canEdit} density={effectiveCardDensity} userTimezone={userTimezone} currentUserId={currentUser?.id} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} inDoneColumn={board.columns.find((c) => c.id === activeCard.column)?.is_done ?? false} customFieldDefinitions={board.custom_field_definitions} />}
           {activeColumn && (
-            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
+            // No width of its own: DragOverlay sizes its wrapper from the dragged header
+            // cell's rect, and a saved width is a track weight, not px (#2300).
+            <div className="w-full px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" data-testid="column-drag-overlay">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-fg-secondary text-sm truncate" title={activeColumn.name}>{activeColumn.name}</span>

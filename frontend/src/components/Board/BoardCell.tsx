@@ -182,12 +182,13 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         if ((e.target as Element).closest?.("[data-card-id]")) return;
         if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); }
       }}
-      style={{ width: width ?? 220 }}
+      // Sized by the board's shared grid track (#2300); `width` only for isolated renders.
+      style={width != null ? { width } : undefined}
       // A well (#2270): the deepest surface, 8px radius, 6px padding (5px + the 1px edge that
       // the dashed hover border reuses, so content never shifts); 56px tall when empty and
       // otherwise as tall as its cards. The empty cell shows a quiet plus and gains a dashed
       // edge and the "Add card" label on hover or focus.
-      className={`group/cell relative shrink-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
+      className={`group/cell relative min-w-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
         isOver && isDraggingCard && !blockedBy ? "bg-surface-hover/40" : "bg-canvas"
       } ${isPopulatedAddable ? "flex flex-col" : ""
       } ${blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : ""

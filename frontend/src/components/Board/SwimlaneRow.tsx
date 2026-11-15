@@ -19,6 +19,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import ActiveUnderline from "../Common/ActiveUnderline";
+import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
@@ -102,7 +103,12 @@ interface Props {
   isFocused: boolean;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
+  /** The board's shared `grid-template-columns` (#2300, `boardGrid.ts`). Omitted
+   *  (tests, isolated renders): built from `columns` with every track a normal column. */
+  gridTemplate?: string;
+  /** Saved per-column widths (px, `viewPrefs.columnWidths`); the lane separators' drag starts from these. */
   colWidths?: Map<number, number>;
+  /** Resize a column from a lane separator drag. Omitted: lane separators only insert. */
   setColumnWidth?: (colId: number, width: number) => void;
   onInsertColumn?: (colId: number) => void;
   /** Which column separator index (0-based from left) is currently hovered — for full-height highlight. */
@@ -175,7 +181,7 @@ const INLINE_FIELD_COUNT = 2;
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -350,10 +356,18 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       >
         {/* Swimlane band (#2271): a full-width header tinted with the lane color,
             aligned to the grid (the 16px margins are the first and last gutters).
-            It wraps to a second line when it runs out of room. */}
+            It wraps to a second line when it runs out of room.
+            Pinned while the grid scrolls sideways (#2305): `sticky left-4` holds it at
+            the left gutter and BAND_MAX_WIDTH caps it to the visible width, so the
+            name, fields and the stats at its right stay on screen. When the grid fits
+            the window the cap equals the band's own width and nothing moves. The
+            cells below are not part of the band, so column alignment is untouched. */}
         <div
-          className={`group relative mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2.5 ${color ? "" : "bg-surface border-line"}`}
-          style={color ? { backgroundColor: `color-mix(in srgb, ${color} 12%, rgb(var(--surface)))`, borderColor: `color-mix(in srgb, ${color} 45%, rgb(var(--border)))` } : undefined}
+          className={`group sticky left-4 mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2.5 ${color ? "" : "bg-surface border-line"}`}
+          style={{
+            maxWidth: BAND_MAX_WIDTH,
+            ...(color ? { backgroundColor: `color-mix(in srgb, ${color} 12%, rgb(var(--surface)))`, borderColor: `color-mix(in srgb, ${color} 45%, rgb(var(--border)))` } : {}),
+          }}
           data-tour-step="swimlane"
           data-testid="swimlane-band"
           data-no-pan
@@ -559,55 +573,41 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             squares per column, aligned to the same grid. */}
         <div
           ref={rowRef}
-          className="relative flex"
-          style={{ minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
+          className="relative grid"
+          style={{ gridTemplateColumns: gridTemplate ?? boardGridTemplate(columns.map(() => "column")), minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
           data-testid={collapsed ? "swimlane-collapsed-strip" : undefined}
         >
         {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
         {columns.map((col, colIdx) => {
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
-          const cellWidth = colWidths?.get(col.id) ?? 220;
           const sepHighlighted = hoveredSepIndex === colIdx;
 
-          // The sep sits to the LEFT of col[colIdx], so it resizes the column to its left:
-          //   colIdx === 0  → insert only (no label panel to resize)
-          //   colIdx  >  0  → resize columns[colIdx - 1]
-          // This mirrors the header where ColumnSeparator after col[i] resizes col[i].
+          // The sep sits to the LEFT of col[colIdx], so a drag resizes the column to its left:
+          //   colIdx === 0  → insert only (nothing to its left since #2271)
+          //   colIdx  >  0  → resize columns[colIdx - 1], unless that is a hidden or
+          //                   collapsed 40px stub (no width to drag)
+          // This mirrors the header, where the ColumnSeparator after col[i] resizes col[i].
+          // A drag changes the column's weight in the shared grid template (#2300).
           const prevCol = colIdx > 0 ? columns[colIdx - 1] : null;
-          const sepStartWidth = prevCol ? (colWidths?.get(prevCol.id) ?? 220) : 0;
-          // The first separator has nothing to its left to resize since the label panel
-          // went away (#2271): it only inserts a column.
-          const canResizeSep = prevCol ? !!setColumnWidth : false;
-
-          const handleSepMouseDown = (canResizeSep || onInsertColumn)
-            ? (e: React.MouseEvent) => {
-                e.preventDefault();
-                const startX = e.clientX;
-                const startWidth = sepStartWidth;
-                let didDrag = false;
-                const onMove = (ev: MouseEvent) => {
-                  const delta = ev.clientX - startX;
-                  if (!didDrag && Math.abs(delta) > 4) didDrag = true;
-                  if (didDrag) {
-                    if (prevCol && setColumnWidth) setColumnWidth(prevCol.id, startWidth + delta);
-                  }
-                };
-                const onUp = () => {
-                  if (!didDrag && isAdmin && onInsertColumn) onInsertColumn(col.id);
-                  window.removeEventListener("mousemove", onMove);
-                  window.removeEventListener("mouseup", onUp);
-                };
-                window.addEventListener("mousemove", onMove);
-                window.addEventListener("mouseup", onUp);
+          const canResizeSep = !!prevCol && !!setColumnWidth && !hiddenColumnIds?.has(prevCol.id) && !collapsedColumnIds.has(prevCol.id);
+          const canInsert = isAdmin && !!onInsertColumn;
+          const handleSepMouseDown = (canResizeSep || canInsert)
+            ? (e: React.MouseEvent<HTMLDivElement>) => {
+                const startWidth = prevCol ? clampColumnWidth(colWidths?.get(prevCol.id)) : 0;
+                const measure = canResizeSep ? measureTrackLeftOf(e.currentTarget, colIdx) : null;
+                startInsertGesture(
+                  e,
+                  () => { if (canInsert) onInsertColumn!(col.id); },
+                  canResizeSep ? (delta) => setColumnWidth!(prevCol!.id, resizedColumnWidth(startWidth, measure, delta)) : undefined,
+                );
               }
             : undefined;
 
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`relative shrink-0 flex items-stretch select-none ${canResizeSep || onInsertColumn ? "cursor-col-resize" : ""}`}
-              style={{ width: 16 }}
+              className={`relative flex items-stretch select-none ${canResizeSep ? "cursor-col-resize" : canInsert ? "cursor-pointer" : ""}`}
               onMouseEnter={() => onSepHoverChange?.(colIdx)}
               onMouseLeave={() => onSepHoverChange?.(null)}
               onMouseDown={handleSepMouseDown}
@@ -671,8 +671,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div key={col.id} className="contents">
                 {sep}
                 <div
-                  className={`shrink-0 flex flex-wrap content-center items-center gap-x-2 gap-y-1 rounded-lg bg-canvas px-3 py-2.5 min-h-10${hasMatch ? " animate-pulse motion-reduce:animate-none ring-1 ring-inset ring-info/50" : ""}`}
-                  style={{ width: cellWidth }}
+                  className={`min-w-0 flex flex-wrap content-center items-center gap-x-2 gap-y-1 rounded-lg bg-canvas px-3 py-2.5 min-h-10${hasMatch ? " animate-pulse motion-reduce:animate-none ring-1 ring-inset ring-info/50" : ""}`}
                   data-testid={`swimlane-strip-cell-${col.id}`}
                 >
                   <span className="sr-only">{summary}</span>
@@ -717,7 +716,6 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 stale_warning_pct={stale_warning_pct}
                 customFieldDefinitions={customFieldDefinitions}
                 onCardUpdated={onCardUpdated}
-                width={cellWidth}
                 overlayCell={overlayCells?.get(cellKey(col.id, swimlane.id))}
                 overlayLabel={overlayLabel}
                 getDropVerdict={getDropVerdict}
@@ -727,7 +725,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           );
         })}
         {/* Trailing separator to match header's trailing ColumnSeparator */}
-        <div className="shrink-0 flex items-stretch" style={{ width: 16 }}>
+        <div className="flex items-stretch">
           <div className="w-px self-stretch bg-surface-active/70" />
           <div className="flex-1 bg-sunken/70" />
           <div className="w-px self-stretch bg-surface-active/70" />

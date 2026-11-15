@@ -241,9 +241,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
     <>
       <div
         ref={setNodeRef}
-        style={{ ...style, ...columnTintStyle(column.color), width: width ?? 220 }}
+        style={{ ...style, ...columnTintStyle(column.color), ...(width != null ? { width } : {}) }}
         // A tinted panel (#2270): bg-surface / border-line are the fallback when the color is not a hex.
-        className="relative shrink-0 self-start box-border px-2.5 py-2 bg-surface border border-line rounded-lg group/col transition"
+        className="relative min-w-0 self-start box-border px-2.5 py-2 bg-surface border border-line rounded-lg group/col transition"
         data-no-pan
         onDoubleClick={isAdmin ? () => setEditTab("settings") : undefined}
       >

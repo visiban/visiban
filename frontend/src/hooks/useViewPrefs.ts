@@ -7,7 +7,9 @@ export interface ViewPrefs {
   collapsedColumnIds: number[];
   // Swimlanes the user has explicitly collapsed. Seeded from swimlane.is_collapsed on first load.
   collapsedSwimlaneIds: number[];
-  // null = never resized: BoardView sizes the column to its content (#auto-width).
+  // Legacy: the width of the retired swimlane-label column. Nothing reads or sets
+  // it since the full-width lane band (#2300/#2303); it is still parsed so an old
+  // stored value stays valid and round-trips unchanged.
   swimlaneColumnWidth: number | null;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
@@ -131,11 +133,6 @@ export function useViewPrefs(
     [setPrefs],
   );
 
-  const setSwimlaneColumnWidth = useCallback(
-    (width: number) => setPrefs((prev) => ({ ...prev, swimlaneColumnWidth: Math.max(56, Math.min(400, width)) })),
-    [setPrefs],
-  );
-
   const setColumnWidth = useCallback(
     (columnId: number, width: number) =>
       setPrefs((prev) => ({
@@ -202,5 +199,5 @@ export function useViewPrefs(
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight };
+  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight };
 }
