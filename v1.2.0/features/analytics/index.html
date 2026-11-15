@@ -1331,6 +1331,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#how-work-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How work flows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#column-drawer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column drawer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#headline-tiles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1414,10 +1436,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#view-mode-age-vs-throughput" class="md-nav__link">
+  <a href="#table-modes-current-vs-in-period" class="md-nav__link">
     <span class="md-ellipsis">
       
-        View mode: Age vs Throughput
+        Table modes: Current vs In period
       
     </span>
   </a>
@@ -4535,7 +4557,7 @@
 <li><strong>Title row:</strong> "Analytics", a <strong>Beta</strong> badge, the board name and the period shown.</li>
 <li><strong>Filter bar:</strong> one <strong>Date range</strong>, <strong>Swimlane</strong> and <strong>Label</strong> selection for the whole page (see <a href="#filters">Filters</a>), and <strong>Export CSV</strong> for admins.</li>
 <li><strong>Bottleneck</strong> panel and four <a href="#headline-tiles">headline tiles</a>.</li>
-<li>The <a href="#dwell-time-heatmap">dwell time heatmap</a>.</li>
+<li><strong>How work flows</strong>, with <strong>Where the time goes</strong> under it; its Table view is the <a href="#dwell-time-heatmap">dwell time heatmap</a> (see <a href="#how-work-flows">How work flows</a>).</li>
 <li><strong>Cumulative flow</strong> and <strong>Throughput</strong>, side by side.</li>
 <li><strong>WIP aging</strong> and the <a href="#needs-attention">Needs attention</a>.</li>
 <li><strong>Cycle time</strong> and <a href="#why-cards-get-blocked">Why cards get blocked</a>.</li>
@@ -4562,7 +4584,18 @@
 <li><strong>Share of the cycle:</strong> the column's median wait divided by the median cycle time, in words ("about half of the whole cycle"). It is a ratio of two medians, worked out in the browser from the numbers the server returns, so it is approximate; it is left out when either median is withheld or the median cycle time is 0.</li>
 <li><strong>Queue:</strong> cards in the column at the start and end of the period, the column's WIP limit when one is set, and how many cards arrive and leave per week.</li>
 </ul>
-<p><strong>See the N cards</strong> lists the cards in that column now, oldest first; <strong>Open on board</strong> goes back to the board. Without a bottleneck the panel says <strong>Too early to say</strong> (no 85th percentile of cycle time yet) or <strong>No bottleneck</strong> (no column's queue grew in the period).</p>
+<p><strong>See the N cards</strong> opens the <a href="#column-drawer">column drawer</a> for that column; <strong>Open on board</strong> goes back to the board. Without a bottleneck the panel says <strong>Too early to say</strong> (no 85th percentile of cycle time yet) or <strong>No bottleneck</strong> (no column's queue grew in the period).</p>
+<h3 id="how-work-flows">How work flows<a class="headerlink" href="#how-work-flows" title="Permanent link">&para;</a></h3>
+<p>One row, left to right, inside a box that scrolls sideways when the panel is narrower than 980px:</p>
+<ul>
+<li><strong>Connector</strong> before each column: cards per week entering it, a bar whose thickness follows that rate, and a one- or two-word note ("started", "move on", "fewer leave"). Connectors are neutral, and warning-colored after the bottleneck.</li>
+<li><strong>Column box</strong> for each in-progress column, a button that opens the <a href="#column-drawer">column drawer</a>: the name, one square per card in the column now, "N of limit" (plus "M over limit"), the median wait, and the queue change over the period ("Queue +7 since Aug 16" or "Queue steady"). <strong>Squares beyond the WIP limit are hollow</strong>, outlined in the danger color. The bottleneck's box has the warning border.</li>
+<li>A final connector and a <strong>Done</strong> box with the number of cards finished in the period.</li>
+</ul>
+<p><strong>Where the time goes</strong> sits under the row: one bar, "All cards", segmented by in-progress column. A segment's width is the column's median days, labeled with that number; the total is printed at the end. The bottleneck's segment is hatched in the warning color. When no median is available yet, the panel says so instead.</p>
+<p>A <strong>Chart | Table</strong> switch on the panel changes it to the <a href="#dwell-time-heatmap">dwell time heatmap</a> table.</p>
+<h3 id="column-drawer">Column drawer<a class="headerlink" href="#column-drawer" title="Permanent link">&para;</a></h3>
+<p>Opens from a column box or from the bottleneck panel's <strong>See the N cards</strong> button, and traps focus until you close it (Escape, the close button, or the backdrop); focus returns to the button that opened it. It shows the column name and "N cards in this column now, limit L", three figures (in column against the limit, median wait, cards past the 85th percentile of cycle time), the oldest card expanded with its time by column and an <strong>Open card</strong> button, then the other cards oldest first. Five show at first; <strong>Show N more</strong> reveals the rest. Choosing a card in the list shows its transitions, with <strong>Back</strong> returning to the column. The drawer does not yet show a card's swimlane; that is tracked in #2283.</p>
 <h3 id="headline-tiles">Headline tiles<a class="headerlink" href="#headline-tiles" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4695,30 +4728,30 @@
 <p>Both <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> are configurable per board in the board settings modal. Changes recolor the heatmap on the next analytics load.</p>
 </div>
 <p>The heatmap follows the page's <a href="#filters">filters</a>: its period is the filter bar's date range, and the swimlane and label filters are sent with the request.</p>
-<h3 id="view-mode-age-vs-throughput">View mode: Age vs Throughput<a class="headerlink" href="#view-mode-age-vs-throughput" title="Permanent link">&para;</a></h3>
-<p>A button pair above the heatmap toggles its mode. The choice persists per board in localStorage (<code>board:{boardId}:analytics-view-mode</code>) and defaults to <strong>Age</strong>.</p>
+<h3 id="table-modes-current-vs-in-period">Table modes: Current vs In period<a class="headerlink" href="#table-modes-current-vs-in-period" title="Permanent link">&para;</a></h3>
+<p>The heatmap is the <strong>Table</strong> view of <a href="#how-work-flows">How work flows</a>. A button pair above it toggles its mode. The choice persists per board in localStorage (<code>board:{boardId}:analytics-view-mode</code>) and defaults to <strong>Current</strong>.</p>
 <table>
 <thead>
 <tr>
 <th>Mode</th>
-<th>What the heatmap shows</th>
+<th>What the table shows</th>
 <th>Use it to</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Age</strong></td>
+<td><strong>Current</strong></td>
 <td>Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now.</td>
 <td>Find current bottlenecks</td>
 </tr>
 <tr>
-<td><strong>Throughput</strong></td>
+<td><strong>In period</strong></td>
 <td>Average time cards that <strong>left</strong> a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth.</td>
 <td>View historical time in each stage over the filter bar's date range</td>
 </tr>
 </tbody>
 </table>
-<p>This mode measures dwell time, not <a href="#flow-metric-definitions">throughput</a> (cards finished per period), despite the button's name. In this mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (<code>—</code>). The green/yellow/red thresholds apply to both modes, using the same <code>staleness_threshold_days</code>.</p>
+<p>Neither mode measures <a href="#flow-metric-definitions">throughput</a> (cards finished per period); both measure dwell time. In <strong>In period</strong> each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with no stay in the period show a dash (<code>—</code>). The green/yellow/red thresholds apply to both modes, using the same <code>staleness_threshold_days</code>.</p>
 <h3 id="dwell-time-and-archived-cards">Dwell time and archived cards<a class="headerlink" href="#dwell-time-and-archived-cards" title="Permanent link">&para;</a></h3>
 <p>Analytics includes archived cards as part of the historical record.</p>
 <ul>
@@ -4730,7 +4763,7 @@
 <blockquote>
 <p><strong>Changed in 1.3</strong> (#448)</p>
 </blockquote>
-<p><strong>Age</strong> and <strong>Throughput</strong> follow the <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a>. Before, a swimlane-only move reset a card's <strong>Age</strong> and split its stay in <strong>Throughput</strong>, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.</p>
+<p><strong>Current</strong> and <strong>In period</strong> follow the <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a>. Before, a swimlane-only move reset a card's age and split its stay in <strong>In period</strong>, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.</p>
 <h3 id="needs-attention">Needs attention<a class="headerlink" href="#needs-attention" title="Permanent link">&para;</a></h3>
 <p>Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. Five rows show at first; <strong>All N cards</strong> expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.</p>
 <ul>
@@ -4749,7 +4782,7 @@
 <h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
 <p>When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.</p>
 <h3 id="csv-export">CSV export<a class="headerlink" href="#csv-export" title="Permanent link">&para;</a></h3>
-<p>Click <strong>Export CSV</strong>, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode shown, in a file named <code>analytics-{mode}-{days}d.csv</code>. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users.</p>
+<p>Click <strong>Export CSV</strong>, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named <code>analytics-{mode}-{days}d.csv</code>. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users.</p>
 <h3 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>
 <p><strong>API:</strong> <code>GET /api/v1/boards/{id}/analytics/?days=30</code>. The charts use the <a href="../../api/boards/#flow-metrics">flow metrics endpoints</a>.</p>
 <table>
