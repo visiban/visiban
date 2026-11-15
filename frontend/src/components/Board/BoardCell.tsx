@@ -11,6 +11,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { trippedLimitLabel, type TrippedLimit } from "../../utils/placementLimits";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import { isImeComposing } from "../../utils/imeComposition";
+import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
 
 interface Props {
   column: Column;
@@ -121,6 +122,14 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // unobtrusive bottom-aligned button.
   const isEmptyAddable = cards.length === 0 && !adding && column.allow_card_creation && canEdit;
   const startAdding = () => setAdding(true);
+  const canAdd = column.allow_card_creation && canEdit;
+  useEffect(() => {
+    const el = cellRef.current;
+    if (!el || !canAdd) return;
+    const open = () => setAdding(true);
+    el.addEventListener(ADD_CARD_EVENT, open);
+    return () => el.removeEventListener(ADD_CARD_EVENT, open);
+  }, [canAdd]);
 
   // Escape cancels the add-card input through the stack so it does not also clear the selection (#1860).
   // Several cells can have the input open at once (it has no onBlur close), so the predicate is
@@ -145,6 +154,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       ref={(el) => { cellRef.current = el; setNodeRef(el); }}
       // The card detail sheet anchors to this cell's column edges (#1914).
       data-board-cell
+      data-column-id={column.id}
       role={isEmptyAddable ? "button" : undefined}
       tabIndex={isEmptyAddable ? 0 : undefined}
       aria-label={isEmptyAddable ? cellAriaLabel : undefined}
@@ -170,10 +180,14 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); }
       }}
       style={{ width: width ?? 220 }}
-      className={`group/cell relative shrink-0 min-h-[80px] p-2 transition-colors bg-canvas ${
+      // A well (#2270): the deepest surface, 8px radius, 6px padding (5px + the 1px edge that
+      // the dashed hover border reuses, so content never shifts); 56px tall when empty and
+      // otherwise as tall as its cards. The empty cell shows a quiet plus and gains a dashed
+      // edge and the "Add card" label on hover or focus.
+      className={`group/cell relative shrink-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors bg-canvas ${
         blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : isOver && isDraggingCard ? "bg-surface-hover/40" : ""
-      } ${cards.length === 0 && !adding ? "border border-dashed border-line/50" : "border-r border-line/50"} ${
-        isEmptyAddable ? "cursor-pointer hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
+      } ${
+        isEmptyAddable ? "cursor-pointer hover:border-dashed hover:border-line-strong focus:border-dashed focus:border-line-strong hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
       }`}
     >
       {/* Grid overlay shading (#1147) — FIRST child on purpose: it is absolutely
@@ -306,8 +320,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         >
           {/* Inner pill gains a soft wash on hover/focus (#200) so the affordance reads as a
               button without ever being a second tab stop; the cell wrapper owns the action. */}
-          <span className="rounded px-2 py-1 transition-colors group-hover/cell:bg-surface-hover/50 group-focus/cell:bg-surface-hover/50">
-            + Add card
+          <span className="inline-flex items-center rounded px-2 py-1 transition-colors">
+            <span className="text-base leading-none">+</span>
+            <span className="hidden group-hover/cell:inline group-focus/cell:inline ml-1.5">Add card</span>
           </span>
         </div>
       )}

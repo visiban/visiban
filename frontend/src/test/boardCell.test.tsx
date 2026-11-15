@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
+import { ADD_CARD_EVENT } from '../utils/addCardEvent'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Card, Column, Swimlane } from '../types'
 
@@ -143,26 +144,26 @@ describe('BoardCell', () => {
 
   it('renders + Add card button when canEdit and allow_card_creation', () => {
     render(<BoardCell {...defaultProps()} />)
-    expect(screen.getByText('+ Add card')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toBeInTheDocument()
   })
 
   it('hides + Add card when canEdit is false', () => {
     const props = defaultProps()
     props.canEdit = false
     render(<BoardCell {...props} />)
-    expect(screen.queryByText('+ Add card')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Add card to/ })).not.toBeInTheDocument()
   })
 
   it('hides + Add card when column disallows card creation', () => {
     const props = defaultProps()
     props.column = { ...column, allow_card_creation: false }
     render(<BoardCell {...props} />)
-    expect(screen.queryByText('+ Add card')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Add card to/ })).not.toBeInTheDocument()
   })
 
   it('clicking + Add card shows input', async () => {
     render(<BoardCell {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('+ Add card'))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
     expect(screen.getByText('Add')).toBeInTheDocument()
     expect(screen.getByText('Cancel')).toBeInTheDocument()
@@ -200,7 +201,7 @@ describe('BoardCell', () => {
     const props = defaultProps()
     render(<BoardCell {...props} />)
     const user = userEvent.setup()
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
     await user.click(screen.getByText('Add'))
     expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'New Card' })
@@ -214,7 +215,7 @@ describe('BoardCell', () => {
     const props = { ...defaultProps(), closeEditorOnEnter: true }
     render(<BoardCell {...props} />)
     const user = userEvent.setup()
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     const input = screen.getByPlaceholderText('Card title…')
     await user.type(input, 'New Card{Enter}')
 
@@ -248,9 +249,11 @@ describe('BoardCell', () => {
     expect(screen.queryByText('1')).not.toBeInTheDocument()
   })
 
-  it('empty cell has dashed border', () => {
+  it('empty cell shows its dashed edge on hover and focus only', () => {
     const { container } = render(<BoardCell {...defaultProps()} />)
-    expect(container.firstChild as HTMLElement).toHaveClass('border-dashed')
+    // Quiet at rest (#2270): the dashed edge appears on hover and focus only.
+    expect(container.firstChild as HTMLElement).toHaveClass('hover:border-dashed', 'focus:border-dashed')
+    expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
   })
 
   it('non-empty cell does not have dashed border', () => {
@@ -263,11 +266,28 @@ describe('BoardCell', () => {
   it('empty addable cell renders the dashed boundary, min height and centered hover-aware Add card affordance (#200)', () => {
     const { container } = render(<BoardCell {...defaultProps()} />)
     const cell = container.firstChild as HTMLElement
-    expect(cell).toHaveClass('border-dashed', 'min-h-[80px]')
+    expect(cell).toHaveClass('hover:border-dashed', 'min-h-14', 'rounded-lg', 'p-[5px]', 'bg-canvas')
     const affordance = screen.getByTestId('empty-cell-add-affordance')
     expect(affordance).toHaveAttribute('aria-hidden', 'true')
     expect(affordance).toHaveClass('items-center', 'justify-center', 'group-hover/cell:text-fg')
-    expect(screen.getByText('+ Add card')).toHaveClass('group-hover/cell:bg-surface-hover/50')
+    // Quiet plus at rest; the label appears on hover and focus only.
+    expect(affordance).toHaveTextContent('+Add card')
+    expect(screen.getByText('Add card', { selector: 'span' })).toHaveClass('hidden', 'group-hover/cell:inline', 'group-focus/cell:inline')
+  })
+
+  it('the column header asks a cell to open its new-card input (#2270)', async () => {
+    const { container } = render(<BoardCell {...defaultProps()} />)
+    const cell = container.firstChild as HTMLElement
+    expect(cell).toHaveAttribute('data-column-id', '10')
+    expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
+    act(() => { cell.dispatchEvent(new CustomEvent(ADD_CARD_EVENT)) })
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('a cell that cannot create cards ignores the header request (#2270)', () => {
+    const { container } = render(<BoardCell {...defaultProps()} canEdit={false} />)
+    act(() => { (container.firstChild as HTMLElement).dispatchEvent(new CustomEvent(ADD_CARD_EVENT)) })
+    expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
   })
 
   it('populated cell gets no empty treatment (#200)', () => {
@@ -279,7 +299,7 @@ describe('BoardCell', () => {
   it('viewer sees no Add card affordance on an empty cell (#200)', () => {
     render(<BoardCell {...defaultProps()} canEdit={false} />)
     expect(screen.queryByTestId('empty-cell-add-affordance')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ Add card')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Add card to/ })).not.toBeInTheDocument()
   })
 
   it('empty cell exposes the cell itself as the add-card button with a column+swimlane accessible name (#962)', () => {
@@ -417,7 +437,7 @@ describe('BoardCell', () => {
     const props = defaultProps()
     render(<BoardCell {...props} />)
     const user = userEvent.setup()
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
     await user.click(screen.getByText('Add'))
 
@@ -436,7 +456,7 @@ describe('BoardCell', () => {
     const props = defaultProps()
     render(<BoardCell {...props} />)
     const user = userEvent.setup()
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
     await user.click(screen.getByText('Add'))
     expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
@@ -448,7 +468,7 @@ describe('BoardCell — Escape in the add-card input (#1860)', () => {
     const user = userEvent.setup()
     const onLower = vi.fn()
     render(<><EscapeLowerHandlers onLower={onLower} /><BoardCell {...defaultProps()} selectedCardIds={new Set([1])} /></>)
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
     expect(onLower).not.toHaveBeenCalled()
@@ -457,9 +477,9 @@ describe('BoardCell — Escape in the add-card input (#1860)', () => {
   it('closes only the focused cell when two add-card inputs are open', async () => {
     const user = userEvent.setup()
     render(<><BoardCell {...defaultProps()} /><BoardCell {...defaultProps()} /></>)
-    const adds = screen.getAllByText('+ Add card')
+    const adds = screen.getAllByRole('button', { name: 'Add card to To Do in Customer A' })
     await user.click(adds[0])
-    await user.click(screen.getAllByText('+ Add card')[0])
+    await user.click(screen.getAllByRole('button', { name: 'Add card to To Do in Customer A' })[0])
     expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(2)
     await user.keyboard('{Escape}')
     expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(1)
@@ -478,14 +498,14 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
   it('empty cell: Escape returns focus to the cell', async () => {
     const user = userEvent.setup()
     render(<BoardCell {...defaultProps()} />)
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.keyboard('{Escape}')
     expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus()
   })
   it('empty cell: Cancel returns focus to the cell', async () => {
     const user = userEvent.setup()
     render(<BoardCell {...defaultProps()} />)
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.click(screen.getByText('Cancel'))
     expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus()
   })
@@ -493,7 +513,7 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
     const user = userEvent.setup()
     mockCreateCard.mockResolvedValue(makeCard({ id: 99, title: 'N' }))
     render(<BoardCell {...defaultProps()} />)
-    await user.click(screen.getByText('+ Add card'))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'N')
     await user.click(screen.getByText('Add'))
     await waitFor(() => expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus())

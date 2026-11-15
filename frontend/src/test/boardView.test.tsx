@@ -133,11 +133,12 @@ vi.mock('../components/Board/ColumnHeader', async () => {
     )
   }
   return {
-    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean }) => {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: () => void }) => {
       capturedColumnUpdated = onColumnUpdated
       return (
         <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
           {column.name}
+          {onAddCard && <button onClick={onAddCard}>{`Header add ${column.name}`}</button>}
           {renderRealColumnModals && <SettingsToggle column={column} isIntakeColumn={isIntakeColumn} />}
         </div>
       )
@@ -581,6 +582,37 @@ describe('BoardView', () => {
     const { container } = render(<BoardView {...defaultProps()} />)
     const region = container.querySelector('[role="status"][aria-live="polite"][aria-atomic="true"]:empty')
     expect(region).not.toBeNull()
+  })
+
+  describe('grid header (#2270)', () => {
+    it('header row is sticky and sits on the page background', () => {
+      render(<BoardView {...defaultProps()} />)
+      const row = screen.getByTestId('board-header-row')
+      expect(row).toHaveClass('sticky', 'top-0', 'bg-sunken')
+    })
+
+    it('the header add-card button asks the first cell of its column to open its input', () => {
+      render(<BoardView {...defaultProps()} />)
+      const first = document.createElement('div')
+      first.setAttribute('data-board-cell', '')
+      first.setAttribute('data-column-id', '10')
+      const second = first.cloneNode() as HTMLElement
+      document.body.append(first, second)
+      const opened = vi.fn()
+      first.addEventListener('visiban:add-card', opened)
+      const other = vi.fn()
+      second.addEventListener('visiban:add-card', other)
+      fireEvent.click(screen.getByRole('button', { name: 'Header add To Do' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect(other).not.toHaveBeenCalled()
+      first.remove(); second.remove()
+    })
+
+    it('a viewer gets no header add-card button', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+    })
   })
 
   it('renders view toggle buttons', () => {

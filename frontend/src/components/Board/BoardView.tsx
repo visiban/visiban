@@ -32,6 +32,7 @@ import { entryCriteriaFor, entryCriteriaSentence, needsEntryConfirm } from "../.
 import PolicyConfirmModal from "./PolicyConfirmModal";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
+import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
@@ -2149,6 +2150,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Resizable board columns
   const DEFAULT_COL_WIDTH = 220;
+  // Header "add card" (#2270): opens the new-card input in the column's first visible lane,
+  // through the cell's own listener, so the cell keeps owning its draft and its focus return.
+  const requestAddCard = useCallback((columnId: number) => {
+    const cell = document.querySelector<HTMLElement>(`[data-board-cell][data-column-id="${columnId}"]`);
+    cell?.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+  }, []);
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
     for (const col of board.columns) {
@@ -2973,7 +2980,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           */}
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-20 border-b border-line bg-surface">
+          <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
             {/* Corner — sticky to the left; shows board density at a glance */}
             <div className="shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
               <span className="text-xs text-fg-muted font-medium tabular-nums">
@@ -3017,6 +3024,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
+                    onAddCard={canEdit && col.allow_card_creation ? () => requestAddCard(col.id) : undefined}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}

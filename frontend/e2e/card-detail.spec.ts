@@ -500,10 +500,10 @@ test.describe('card detail sheet — anchored (>= 1280px)', () => {
     expect(tail.wrapperRadius).toBe('7px')
     expect(tail.wrapperOverflow).toBe('hidden')
 
-    // 6px from the column's edge, 14px from the card's (cells pad by 8px).
+    // 6px from the column's edge, 12px from the card's (cells pad by 6px, #2270).
     const cardBox = (await first.boundingBox())!
     const sheetBox = await settled(dialog)
-    expect(Math.abs(sheetBox.x - (cardBox.x + cardBox.width + 14))).toBeLessThanOrEqual(2)
+    expect(Math.abs(sheetBox.x - (cardBox.x + cardBox.width + 12))).toBeLessThanOrEqual(2)
     expect(sheetBox.width).toBe(540)
 
     // Swap: the click on another card passes through and replaces the sheet.

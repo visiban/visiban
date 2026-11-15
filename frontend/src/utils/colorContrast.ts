@@ -184,6 +184,35 @@ export function colorChipStyle(color: unknown, dim?: DimmedChipSurface | "none" 
   } as CSSProperties;
 }
 
+/** The page background (`bg-sunken`) a column or lane tint sits over, per theme; mirrors index.css. */
+export const TINT_PAGE_BACKGROUND = { light: "#F8FAFC", dark: "#0F172A" } as const;
+
+/** Fill and border strength of a column header tint (board-redesign.md § Design tokens). */
+export const COLUMN_TINT_FILL = 0.1;
+export const COLUMN_TINT_BORDER = 0.3;
+
+/** The tint as it renders: `color` at `alpha` over the page background of `theme`. Null for non-hex input. */
+export function tintOverPage(color: unknown, theme: "light" | "dark", alpha: number): string | null {
+  const hex = normalizeHex(color);
+  return hex ? mix(hex, TINT_PAGE_BACKGROUND[theme], alpha) : null;
+}
+
+/**
+ * Inline fill and border for a column header tinted with the column color (#2270):
+ * 10% fill and 30% border over `bg-sunken`, resolved against the live theme token so
+ * both themes follow `index.css`. Opaque, because the header is sticky. Text on it is
+ * `text-fg` / `text-fg-secondary` only; colorContrast.test.ts pins both over the RGB cube.
+ * Non-hex input returns no style, leaving the header's `bg-surface` / `border-line`.
+ */
+export function columnTintStyle(color: unknown): CSSProperties {
+  const hex = normalizeHex(color);
+  if (!hex) return {};
+  return {
+    backgroundColor: `color-mix(in srgb, ${hex} ${COLUMN_TINT_FILL * 100}%, rgb(var(--surface-sunken)))`,
+    borderColor: `color-mix(in srgb, ${hex} ${COLUMN_TINT_BORDER * 100}%, rgb(var(--surface-sunken)))`,
+  };
+}
+
 /**
  * Surfaces rich-text color spans render on (#2097): the description's view mode sits
  * on `--surface` and its editing view on `--surface-sunken`, so legibility is
