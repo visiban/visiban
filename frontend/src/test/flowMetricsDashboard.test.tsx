@@ -885,6 +885,13 @@ describe('the headline tiles (#2261)', () => {
 describe('period labels during a refetch (#2261)', () => {
   it('keep naming the period of the numbers on screen until the new answers arrive', async () => {
     mockAll()
+    // Three even reasons keep the fixed subtitle, which is the one that names the period (#2282).
+    const even: FlowBlocked = {
+      ...blocked,
+      reasons: [1, 2, 3].map((n) => ({ reason: `Reason ${n}`, days: 3.5 / 3, blocks: 1 })),
+      reason_count: 3,
+    }
+    blockedMock.mockResolvedValue(even)
     await renderLoaded()
     expect(screen.getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
     let release: (value: FlowBlocked) => void = () => {}
@@ -894,7 +901,7 @@ describe('period labels during a refetch (#2261)', () => {
     await waitFor(() => expect(blockedMock).toHaveBeenLastCalledWith(9, { days: 30, swimlaneId: null, labelId: null }))
     expect(screen.getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
     expect(screen.queryByText('Block reasons over the last 30 days, longest first.')).not.toBeInTheDocument()
-    release(blocked)
+    release(even)
     expect(await screen.findByText('Block reasons over the last 30 days, longest first.')).toBeInTheDocument()
   })
 })

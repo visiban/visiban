@@ -1,5 +1,6 @@
 import type { FlowBlocked } from "../../../types";
 import { formatBlockedDuration } from "../../../utils/blockedState";
+import { blockedSubtitle } from "./flowFormat";
 import { PanelPlaceholder } from "./FlowChartPanels";
 import type { Result } from "./useAnalyticsOverviewData";
 
@@ -43,7 +44,7 @@ export default function BlockedSection({ blocked, days }: Props) {
     >
       <div>
         <h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2>
-        <p className="text-xs text-fg-tertiary">Block reasons over the last {days} days, longest first.</p>
+        <p className="text-xs text-fg-tertiary">{blockedSubtitle(data, days)}</p>
       </div>
       <ol className="flex flex-col gap-3" aria-label="Block reasons">
         {reasons.map((r) => (

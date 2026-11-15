@@ -156,6 +156,7 @@ One list that replaces the stalled-cards table.
 
 - A ranked list of block reasons, longest total first.
 - Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked, in the danger color.
+- The subtitle is computed from the data (#2282). With one reason: "Every blocked day had the same reason." Top share of `total.days` (unrounded) at least 50%: "One reason accounts for more than half of all blocked time." At least 40% and under 50%: "One reason accounts for nearly half of all blocked time." Otherwise, or when `total.days` is 0: "Block reasons over the last N days, longest first."
 - A footnote says where most blocks started.
 - Renders nothing when no block overlapped the period, as today.
 

@@ -200,7 +200,7 @@ describe('Analytics blocked time (#1149), from metrics/blocked (#2261)', () => {
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const section = await screen.findByTestId('analytics-blocked')
     expect(within(section).getByRole('heading', { name: 'Why cards get blocked' })).toBeInTheDocument()
-    expect(within(section).getByText('Block reasons over the last 90 days, longest first.')).toBeInTheDocument()
+    expect(within(section).getByText('One reason accounts for more than half of all blocked time.')).toBeInTheDocument()
     const reasons = within(section).getByRole('list', { name: 'Block reasons' })
     const items = within(reasons).getAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Waiting on customer3d · 2')

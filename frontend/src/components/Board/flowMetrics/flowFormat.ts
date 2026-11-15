@@ -3,7 +3,7 @@ import type { ChartColor } from "../../../utils/chartScale";
 import { effectiveLimit } from "./flowRowData";
 import type { ReferenceLine } from "../../Common/Chart";
 import type {
-  FlowAgeSample, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
+  FlowAgeSample, FlowBlocked, FlowCumulativeColumn, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowPercentiles, FlowThroughput, FlowWipAge,
 } from "../../../types";
 
 /**
@@ -202,4 +202,24 @@ export function bottleneckSentence(
     parts.push(`${queue}.`);
   }
   return parts.join(" ");
+}
+
+/**
+ * Subtitle for "Why cards get blocked" (#2282). Owner rule: each share is the
+ * unrounded `days / total.days`, compared before any rounding, so 49.99% never
+ * reads as "half". A zero total (nothing to take a share of) and a modest top
+ * reason keep the fixed sentence.
+ */
+export function blockedSubtitle(
+  { reasons, reason_count: reasonCount, total }: Pick<FlowBlocked, "reasons" | "reason_count" | "total">,
+  days: number,
+): string {
+  const fixed = `Block reasons over the last ${days} days, longest first.`;
+  if (total.days <= 0 || reasons.length === 0) return fixed;
+  // `reasons` is capped, so the uncapped distinct count decides "exactly one".
+  if ((reasonCount ?? reasons.length) === 1) return "Every blocked day had the same reason.";
+  const topShare = Math.max(...reasons.map((r) => r.days)) / total.days;
+  if (topShare >= 0.5) return "One reason accounts for more than half of all blocked time.";
+  if (topShare >= 0.4) return "One reason accounts for nearly half of all blocked time.";
+  return fixed;
 }
