@@ -10,6 +10,7 @@ import { columnPolicy, policyCountSummary } from "../../utils/columnPolicy";
 import { updateColumn } from "../../api/boards";
 import OverflowMenu, { type OverflowItem } from "../Layout/OverflowMenu";
 import { isImeComposing } from "../../utils/imeComposition";
+import { columnTintStyle } from "../../utils/colorContrast";
 
 interface Props {
   /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
@@ -28,10 +29,16 @@ interface Props {
   width?: number;
   onToggleCollapse: () => void;
   hardWipEnforced?: boolean;
+  /** Kept for API compatibility; the redesigned count line always shows "n / limit" (#2270). */
   showWipAtLimit?: boolean;
+  /**
+   * Opens the add-card input in this column (#2270). Omitted when the viewer cannot
+   * create cards here, which removes the button rather than disabling it.
+   */
+  onAddCard?: () => void;
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -59,19 +66,13 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
   const overWip = column.wip_limit !== null && column.wip_limit > 0 && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
-  // At-limit indicator (#973) — board-level opt-in, off by default. Only ever
-  // shown when the column is exactly at its WIP limit and not already over it
-  // (overWip takes precedence in the stat-row priority chain below).
-  const atWipLimit = column.wip_limit !== null && column.wip_limit > 0 && cardCount === column.wip_limit;
-  // Top accent strip — peripherally scannable cue for over-limit state. Worst-offender
-  // takes precedence (WIP > weight); calm state has no strip.
-  const accentClass = overWip
-    ? "border-t-2 border-t-danger-emphasis"
-    : overWeight
-    ? "border-t-2 border-t-warning-emphasis"
-    : "";
+  const hasLimit = column.wip_limit !== null && column.wip_limit > 0;
+  // Over-limit is a warning, not an error (board-redesign.md § Column headers): the accent
+  // strip (collapsed header) and the meter and count (expanded) all use the warning tokens.
+  const accentClass = overWip || overWeight ? "border-t-2 border-t-warning-emphasis" : "";
   const cardCountLabel = cardCount === 1 ? "1 card" : `${cardCount} cards`;
-  const showStatsRow = column.wip_limit !== null || totalWeight > 0 || cardCount > 0;
+  // Meter fill: proportional to the limit, full at and over it. Never rendered without a limit.
+  const meterPct = hasLimit ? Math.min(100, (cardCount / column.wip_limit!) * 100) : 0;
 
   const startRenaming = () => {
     setDraft(column.name);
@@ -153,6 +154,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
         data-no-pan
         tabIndex={0}
         role="button"
+        aria-label={`Expand ${column.name}`}
         onClick={(e) => {
           // The color-dot drag handle must not expand the column when a click lands on it.
           if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
@@ -182,16 +184,16 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
             overWip
-              ? "text-danger font-semibold"
+              ? "text-warning-on-tint font-semibold"
               : overWeight
-              ? "text-warning font-semibold"
+              ? "text-warning-on-tint font-semibold"
               : "bg-surface-hover text-fg-secondary"
           }`}
         >
           {cardCount}
         </span>
         {(overWip || overWeight) && (
-          <span aria-hidden="true" className={`text-xs leading-none ${overWip ? "text-danger" : "text-warning"}`}>⚠</span>
+          <span aria-hidden="true" className="text-xs leading-none text-warning-on-tint">⚠</span>
         )}
         <span
           className="text-xs font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
@@ -209,23 +211,24 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
     <>
       <div
         ref={setNodeRef}
-        style={{ ...style, width: width ?? 220 }}
-        className={`relative shrink-0 px-3 py-2 bg-surface border-r border-line group/col transition ${accentClass}`}
+        style={{ ...style, ...columnTintStyle(column.color), width: width ?? 220 }}
+        // A tinted panel (#2270): bg-surface / border-line are the fallback when the color is not a hex.
+        className="relative shrink-0 self-start box-border px-2.5 py-2 bg-surface border border-line rounded-lg group/col transition"
         data-no-pan
         onDoubleClick={isAdmin ? () => setEditTab("settings") : undefined}
       >
-        {/* Row 1: collapse toggle, color dot, name, edit icon */}
-        <div className="flex items-center gap-2">
+        {/* Row 1: collapse toggle, color dot, name, policy, add card, kebab */}
+        <div className="flex items-start gap-2">
           <button type="button"
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            className="text-fg-secondary hover:text-fg transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             title="Collapse column"
             aria-label="Collapse column"
           >
             ◀
           </button>
           <span
-            className={`color-dot w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
+            className={`color-dot w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
             style={{ backgroundColor: column.color }}
             title={isAdmin ? "Drag to reorder" : undefined}
             {...(isAdmin ? { ...attributes, ...listeners } : {})}
@@ -241,7 +244,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               }}
               onBlur={() => void commitRename()}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
+              className="flex-1 min-w-0 text-[13px] font-semibold bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
             />
           ) : (
             isAdmin ? (
@@ -249,14 +252,14 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               <button
                 type="button"
                 ref={renameTriggerRef}
-                className="font-medium text-fg text-sm truncate min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="flex-1 font-semibold text-fg text-[13px] leading-snug break-words min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 title="Click to rename"
                 onClick={(e) => { e.stopPropagation(); startRenaming(); }}
               >
                 {column.name}
               </button>
             ) : (
-              <span className="font-medium text-fg text-sm truncate" title={column.name}>
+              <span className="flex-1 min-w-0 font-semibold text-fg text-[13px] leading-snug break-words">
                 {column.name}
               </span>
             )
@@ -280,7 +283,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               }}
               onDoubleClick={(e) => e.stopPropagation()}
               className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                policyRect ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
+                policyRect ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
               <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -295,8 +298,23 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               the keyboard-reachable, name-typed-confirm path, while column drag-to-
               trash now requires holding ⌥. Non-admins get no affordance at all per
               the conditional-admin-only-elements rule — never a greyed-out control. */}
+          {onAddCard && (
+            <button
+              type="button"
+              aria-label={`Add card to ${column.name}`}
+              title="Add card"
+              data-testid="column-add-card"
+              onClick={(e) => { e.stopPropagation(); onAddCard(); }}
+              onDoubleClick={(e) => e.stopPropagation()}
+              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+            </button>
+          )}
           {isAdmin && (
-            <div className="ml-auto opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition">
+            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition">
               <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
             </div>
           )}
@@ -306,54 +324,55 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
           <p className="mt-1 pl-[26px] text-xs text-danger" role="alert">{renameError}</p>
         )}
 
-        {/* Stat row — surface only the worst-offender (WIP > weight); calm state shows
-            just the card count. Drops the "WIP" / "Weight" label words when nothing is
-            in trouble (per #963 — the limit phrasing only earns its place when a column
-            is actually over). */}
-        {showStatsRow && (
-          // pl-[26px] aligns under the column name: 16px collapse-button column + 10px dot+gap
-          <div className="mt-1.5 pl-[26px]">
-            {overWip ? (
-              <span
-                className="text-xs font-medium text-danger"
-                title={hardWipEnforced ? "WIP hard limit — no override possible" : "Over WIP limit"}
-              >
-                <span aria-hidden="true">{hardWipEnforced ? "⛔ " : "⚠ "}</span>
-                Over WIP ·{" "}
-                <span className="font-semibold">
-                  {cardCount}/{column.wip_limit}
-                </span>
-              </span>
-            ) : overWeight ? (
-              <span
-                className="text-xs font-medium text-warning"
-                title="Over weight budget"
-              >
-                Weight{" "}
-                <span className="font-semibold">
-                  {totalWeight}/{column.weight_limit}
-                </span>
-              </span>
-            ) : showWipAtLimit && atWipLimit ? (
-              <span
-                className="text-xs font-medium text-fg-muted"
-                title={`Column is at its WIP limit (${cardCount}/${column.wip_limit})`}
-              >
-                WIP{" "}
-                <span className="font-semibold">
-                  {cardCount}/{column.wip_limit}
-                </span>
-              </span>
-            ) : (
-              <span
-                className="text-xs font-medium text-fg-muted"
-                title="Cards in column"
-              >
-                {cardCountLabel}
-              </span>
-            )}
+        {/* Meter (#2270): 3px, only when the column has a WIP limit. Column color while at or
+            under the limit, warning when over. role="meter" so the proportion is not color-only. */}
+        {hasLimit && (
+          <div
+            role="meter"
+            aria-label={`WIP in ${column.name}`}
+            aria-valuemin={0}
+            aria-valuemax={column.wip_limit!}
+            aria-valuenow={Math.min(cardCount, column.wip_limit!)}
+            aria-valuetext={`${cardCount} of ${column.wip_limit}`}
+            data-testid="column-meter"
+            className="mt-2 h-[3px] rounded-full bg-surface-active overflow-hidden"
+          >
+            <div
+              data-testid="column-meter-fill"
+              className={`h-full rounded-full ${overWip ? "bg-warning" : ""}`}
+              style={{ width: `${meterPct}%`, ...(overWip ? {} : { backgroundColor: column.color }) }}
+            />
           </div>
         )}
+
+        {/* Count line. No limit: "2 cards". Limit: "2 / 4", and "8 / 6 over" in warning text
+            when over. The word "over" (and the hard-limit glyph) keep it from being color-only. */}
+        <div className={`${hasLimit ? "mt-1.5" : "mt-1"} pl-[26px] text-xs tabular-nums text-fg-secondary`}>
+          {overWip ? (
+            <span
+              data-testid="column-count"
+              className="font-semibold text-warning-on-tint"
+              title={hardWipEnforced ? "WIP hard limit — no override possible" : "Over WIP limit"}
+            >
+              {hardWipEnforced && <span aria-hidden="true">⛔ </span>}
+              {cardCount} / {column.wip_limit} over
+            </span>
+          ) : hasLimit ? (
+            <span
+              data-testid="column-count"
+              title={cardCount === column.wip_limit ? `Column is at its WIP limit (${cardCount}/${column.wip_limit})` : "Cards in column"}
+            >
+              {cardCount} / {column.wip_limit}
+            </span>
+          ) : (
+            <span data-testid="column-count" title="Cards in column">{cardCountLabel}</span>
+          )}
+          {overWeight && (
+            <span className="ml-2 font-semibold text-warning-on-tint" title="Over weight budget">
+              Weight {totalWeight}/{column.weight_limit}
+            </span>
+          )}
+        </div>
       </div>
 
       {policy && policyRect && (

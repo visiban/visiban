@@ -17,20 +17,22 @@ test.describe('swimlane collapse', () => {
     await routeBoard(page)
   })
 
-  test('collapse chevron toggles aria-pressed state', async ({ page }) => {
+  test('collapse chevron toggles aria-expanded state', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
     const chevron = page.getByRole('button', { name: `Collapse ${SWIMLANE.name}` })
     await expect(chevron).toBeVisible()
-    await expect(chevron).toHaveAttribute('aria-pressed', 'false')
+    await expect(chevron).toHaveAttribute('aria-expanded', 'true')
 
     await chevron.click()
 
     // Once collapsed, the button's accessible name flips to "Expand …".
     const expandBtn = page.getByRole('button', { name: `Expand ${SWIMLANE.name}` })
     await expect(expandBtn).toBeVisible()
-    await expect(expandBtn).toHaveAttribute('aria-pressed', 'true')
+    await expect(expandBtn).toHaveAttribute('aria-expanded', 'false')
+    // The collapsed lane shows a strip of counts under the columns, not its cells.
+    await expect(page.getByTestId('swimlane-collapsed-strip')).toBeVisible()
   })
 
   test('collapsed state persists to localStorage under the board-scoped view-prefs key', async ({ page }) => {
@@ -66,7 +68,7 @@ test.describe('swimlane collapse', () => {
   })
 })
 
-// #1458 — admin shortcut from the row's +N popover to Board settings → Swimlane fields.
+// #1458 — admin shortcut from the band's expanded +N fields to Board settings → Swimlane fields.
 test.describe('swimlane field order shortcut', () => {
   test.use({ viewport: { width: 1600, height: 900 } })
   const defBase = {
@@ -79,26 +81,33 @@ test.describe('swimlane field order shortcut', () => {
     swimlane_custom_field_definitions: ([
       { ...defBase, id: 1, uid: 'sfuid0000001', name: 'Owner', position: 0 },
       { ...defBase, id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 },
+      { ...defBase, id: 3, uid: 'sfuid0000003', name: 'Tier', position: 2 },
     ] as unknown) as typeof BOARD_FULL.swimlane_custom_field_definitions,
     swimlanes: BOARD_FULL.swimlanes.map((s) => ({
       ...s,
-      custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }],
+      custom_field_values: [
+        { field_definition: 1, value: 'J. Rivera' },
+        { field_definition: 2, value: 'EMEA' },
+        { field_definition: 3, value: 'Gold' },
+      ],
     })) as typeof BOARD_FULL.swimlanes,
   }
 
-  test('admin opens Swimlane fields from the +N popover; Ctrl+, still opens Members', async ({ page }) => {
+  test('admin opens Swimlane fields from the expanded +N fields; Ctrl+, still opens Members', async ({ page }) => {
     await routeAuth(page)
     await routeBoard(page, board)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    await page.getByRole('button', { name: /Show all 1 field values/ }).click()
-    await page.getByRole('button', { name: 'Edit field order…' }).click()
+    const more = page.getByRole('button', { name: /more field value/ })
+    await more.click()
+    await expect(more).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByText('Tier')).toBeVisible()
+    await page.getByRole('button', { name: 'Change field order' }).click()
 
     const tab = page.getByRole('button', { name: 'Swimlane fields' })
     await expect(tab).toBeFocused()
     await expect(tab).toHaveAttribute('aria-current', 'true')
-    await expect(page.getByRole('dialog', { name: /Field values for/ })).toHaveCount(0)
 
     await page.keyboard.press('Escape')
     await expect(tab).toHaveCount(0)
@@ -136,11 +145,11 @@ test.describe('collapsed swimlane health status height', () => {
     await expect(a).toBeVisible({ timeout: 10_000 })
     await expect(b).toBeVisible()
     await expect(page.getByText(/Health status for lane Alpha/)).toBeAttached()
-    // Measure the label panel (the element carrying the py-1 padding).
+    // Measure the band: a status pill must not make a collapsed band taller.
     const panelHeight = async (name: string) =>
       page
         .getByRole('button', { name: `Expand ${name}` })
-        .locator('xpath=ancestor::*[contains(@class,"py-1")][1]')
+        .locator('xpath=ancestor::*[@data-testid="swimlane-band"][1]')
         .evaluate((el) => el.getBoundingClientRect().height)
     expect(await panelHeight('Alpha')).toBe(await panelHeight('Bravo'))
   })

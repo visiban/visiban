@@ -92,21 +92,50 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('Customer A')).toBeInTheDocument()
   })
 
-  it('keeps the sticky label panel opaque on hover so scrolled cards never show through', () => {
-    const { container } = render(<SwimlaneRow {...defaultProps()} />)
-    const panel = container.querySelector('[data-tour-step="swimlane"]') as HTMLElement
-    expect(panel.className).toContain('bg-surface')
-    // A hover:bg-* here would swap the opaque background for a translucent one.
-    expect(panel.className).not.toMatch(/(^|\s)hover:bg-/)
+  // #2271: the left label panel is gone. The band spans the grid, is tinted with the lane
+  // color, and forwards currentCardId to the cells.
+  it('renders a full-width band tinted with the lane color and no left label panel', () => {
+    const { container } = render(<SwimlaneRow {...defaultProps()} currentCardId={7} />)
+    const band = screen.getByTestId('swimlane-band')
+    expect(band.className).toContain('mx-4')
+    expect(band.style.backgroundColor).not.toBe('')
+    expect(screen.getByTestId('swimlane-color-square')).toHaveStyle({ backgroundColor: '#6B7280' })
+    expect(container.querySelector('[data-lane-label]')).toBeNull()
+    expect(container.querySelector('.border-l-4')).toBeNull()
+    expect(container.querySelector('[data-current-card-id="7"]')).not.toBeNull()
   })
 
-  // #1914: the card detail sheet never covers the lane labels; it finds
-  // their right edge by this marker on the sticky label panel.
-  it('marks the sticky label panel for the card detail sheet and forwards currentCardId to cells', () => {
-    const { container } = render(<SwimlaneRow {...defaultProps()} currentCardId={7} />)
-    const panel = container.querySelector('[data-tour-step="swimlane"]') as HTMLElement
-    expect(panel).toHaveAttribute('data-lane-label')
-    expect(container.querySelector('[data-current-card-id="7"]')).not.toBeNull()
+  it('shows the name at 17px semibold and the card count as text', () => {
+    render(<SwimlaneRow {...defaultProps()} cards={[makeCard({ id: 1 }), makeCard({ id: 2 })]} />)
+    expect(screen.getByTestId('swimlane-name').className).toContain('text-[17px]')
+    expect(screen.getByTestId('swimlane-name').className).toContain('font-semibold')
+    expect(screen.getByTestId('swimlane-card-count')).toHaveTextContent('2 cards')
+  })
+
+  it('shows overdue and stale counts as text and omits them at zero', () => {
+    const past = '2020-01-01'
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1, due_date: past }), makeCard({ id: 2, due_date: past }), makeCard({ id: 3, is_stale: true }), makeCard({ id: 4 })]
+    const { rerender } = render(<SwimlaneRow {...props} />)
+    expect(screen.getByTestId('swimlane-overdue-count')).toHaveTextContent('2 overdue')
+    expect(screen.getByTestId('swimlane-stale-count')).toHaveTextContent('1 stale')
+    rerender(<SwimlaneRow {...props} cards={[makeCard({ id: 4 })]} />)
+    expect(screen.queryByTestId('swimlane-overdue-count')).toBeNull()
+    expect(screen.queryByTestId('swimlane-stale-count')).toBeNull()
+  })
+
+  it('does not count a stale card in a done column as stale', () => {
+    const props = defaultProps()
+    props.columns = [columns[0], { ...columns[1], is_done: true }]
+    props.cards = [makeCard({ id: 1, column: 11, is_stale: true })]
+    render(<SwimlaneRow {...props} />)
+    expect(screen.queryByTestId('swimlane-stale-count')).toBeNull()
+  })
+
+  it('has no tint styles when the lane has no color', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, color: '' }} />)
+    expect(screen.getByTestId('swimlane-band').className).toContain('bg-surface')
+    expect(screen.queryByTestId('swimlane-color-square')).toBeNull()
   })
 
   it('hides the hover "+" in the column separator from assistive tech (#2012)', () => {
@@ -153,11 +182,11 @@ describe('SwimlaneRow', () => {
     expect(screen.queryByText('a@test.com')).not.toBeInTheDocument()
   })
 
-  it('collapsed=true hides edit button', () => {
+  it('collapsed=true keeps the edit button (#2271)', () => {
     const props = defaultProps()
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    expect(screen.queryByTitle('Edit swimlane')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
   })
 
   it('collapsed=true shows nothing for empty cells', () => {
@@ -171,6 +200,15 @@ describe('SwimlaneRow', () => {
   it('shows edit button for admin', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+  })
+
+  it('keeps the edit button on a collapsed lane, and a double-click on a control does not open the modal', async () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
+    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+    await userEvent.setup().dblClick(screen.getByTitle('Expand Customer A'))
+    expect(screen.queryByTestId('edit-swimlane-modal')).not.toBeInTheDocument()
   })
 
   it('hides edit button for non-admin', () => {
@@ -210,15 +248,16 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
-  it('collapsed=true highlights filter matches in blue', () => {
+  it('collapsed=true counts only filter matches in the strip cell', () => {
     const props = defaultProps()
-    const card = makeCard({ id: 1, column: 10 })
-    props.cards = [card]
-    props.filteredCardIds = new Set([card.id])
+    const [a, b] = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
+    props.cards = [a, b]
+    props.filteredCardIds = new Set([a.id])
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    const badge = screen.getByText('1')
-    expect(badge.className).toContain('text-info')
+    const cell = screen.getByTestId('swimlane-strip-cell-10')
+    expect(within(cell).getByText('1', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+    expect(cell.querySelectorAll('[data-status]')).toHaveLength(1)
   })
 
   it('collapsed=true match cell pulses with a reduced-motion opt-out (#199)', () => {
@@ -228,7 +267,7 @@ describe('SwimlaneRow', () => {
     props.filteredCardIds = new Set([card.id])
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    expect(screen.getByText('1').parentElement).toHaveClass('animate-pulse', 'motion-reduce:animate-none')
+    expect(screen.getByTestId('swimlane-strip-cell-10')).toHaveClass('animate-pulse', 'motion-reduce:animate-none')
   })
 
   it('renders focus icon button with tooltip when not focused', () => {
@@ -295,19 +334,21 @@ describe('SwimlaneRow', () => {
     expect(props.onFocus).not.toHaveBeenCalled()
   })
 
-  it('collapse button has aria-pressed=false when not collapsed', () => {
+  it('collapse button has aria-expanded=true when not collapsed', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     const btn = screen.getByTitle('Collapse Customer A')
-    expect(btn).toHaveAttribute('aria-pressed', 'false')
+    expect(btn).toHaveAttribute('aria-expanded', 'true')
+    expect(btn.querySelector('svg')).not.toHaveClass('-rotate-90')
     expect(within(btn).queryByTestId('active-underline')).not.toBeInTheDocument()
   })
 
-  it('collapse button has aria-pressed=true when collapsed', () => {
+  it('collapse button has aria-expanded=false and a turned chevron when collapsed', () => {
     const props = defaultProps()
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
     const btn = screen.getByTitle('Expand Customer A')
-    expect(btn).toHaveAttribute('aria-pressed', 'true')
+    expect(btn).toHaveAttribute('aria-expanded', 'false')
+    expect(btn.querySelector('svg')).toHaveClass('-rotate-90')
     expect(within(btn).getByTestId('active-underline')).toBeInTheDocument()
   })
 
@@ -328,7 +369,7 @@ describe('SwimlaneRow', () => {
     const onHoverEnter = vi.fn()
     const onHoverLeave = vi.fn()
     const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
-    const row = container.querySelector('.relative.flex.border-b') as HTMLElement
+    const row = container.querySelector('[data-swimlane-id]') as HTMLElement
     fireEvent.mouseEnter(row)
     expect(onHoverEnter).toHaveBeenCalled()
   })
@@ -338,7 +379,7 @@ describe('SwimlaneRow', () => {
     const onHoverEnter = vi.fn()
     const onHoverLeave = vi.fn()
     const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
-    const row = container.querySelector('.relative.flex.border-b') as HTMLElement
+    const row = container.querySelector('[data-swimlane-id]') as HTMLElement
     fireEvent.mouseEnter(row)
     fireEvent.mouseLeave(row)
     expect(onHoverLeave).toHaveBeenCalled()
@@ -464,12 +505,10 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()).toHaveTextContent('Weight 6/6 · at limit')
   })
 
-  it('keeps the numbers whole and lets the meter shrink', () => {
+  it('keeps the numbers on one line in the band stats', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />)
-    const [text, meter] = Array.from(stat()!.children) as HTMLElement[]
-    expect(text.className).toContain('shrink-0')
-    expect(text.className).not.toContain('truncate')
-    expect(meter.className).toContain('min-w-0')
+    expect(stat()!.className).toContain('whitespace-nowrap')
+    expect(stat()!.closest('[data-testid="swimlane-band-stats"]')).not.toBeNull()
   })
 
   it('counts only the counted columns and active cards', () => {
@@ -487,9 +526,46 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()).toBeNull()
   })
 
-  it('the meter is decorative', () => {
-    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 6 })} cards={cardsIn(3)} />)
-    expect(stat()!.querySelector('[aria-hidden="true"]')).not.toBeNull()
+  it('puts the limit line before the card count, after overdue and stale', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={[...cardsIn(5), makeCard({ id: 300, uid: 'od', due_date: '2020-01-01' })]} />)
+    const kids = Array.from(screen.getByTestId('swimlane-band-stats').children)
+    const idx = (id: string) => kids.findIndex((k) => k.getAttribute('data-testid') === id)
+    expect(idx('swimlane-overdue-count')).toBeLessThan(idx('swimlane-limit-stat'))
+    expect(idx('swimlane-limit-stat')).toBeLessThan(idx('swimlane-card-count'))
+  })
+})
+
+describe('SwimlaneRow — collapsed strip (#2271)', () => {
+  it('shows a text count and one status square per card, an en dash when empty', () => {
+    const props = defaultProps()
+    props.collapsed = true
+    props.cards = [
+      makeCard({ id: 1, column: 10, due_date: '2020-01-01' }),
+      makeCard({ id: 2, column: 10, is_stale: true }),
+      makeCard({ id: 3, column: 10 }),
+    ]
+    render(<SwimlaneRow {...props} />)
+    const cell = screen.getByTestId('swimlane-strip-cell-10')
+    expect(cell).toHaveTextContent('To Do: 3 cards, 1 overdue, 1 stale')
+    const squares = Array.from(cell.querySelectorAll('[data-status]'))
+    expect(squares.map((q) => q.getAttribute('data-status'))).toEqual(['overdue', 'stale', 'ok'])
+    expect(squares[0]).toHaveClass('bg-danger-emphasis')
+    expect(squares[1]).toHaveClass('bg-warning-emphasis')
+    expect(squares[2]).toHaveClass('bg-primary-emphasis/60')
+    const empty = screen.getByTestId('swimlane-strip-cell-11')
+    expect(empty).toHaveTextContent('–')
+    expect(empty).toHaveTextContent('Done: no cards')
+    expect(empty.querySelector('[data-status]')).toBeNull()
+  })
+
+  it('does not render the cells while collapsed, and keeps them when expanded', () => {
+    const props = defaultProps()
+    const { rerender } = render(<SwimlaneRow {...props} collapsed />)
+    expect(screen.queryByTestId('cell-10-20')).toBeNull()
+    expect(screen.getByTestId('swimlane-collapsed-strip')).toBeInTheDocument()
+    rerender(<SwimlaneRow {...props} />)
+    expect(screen.getByTestId('cell-10-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('swimlane-collapsed-strip')).toBeNull()
   })
 })
 

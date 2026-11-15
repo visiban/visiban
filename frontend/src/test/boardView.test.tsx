@@ -133,11 +133,12 @@ vi.mock('../components/Board/ColumnHeader', async () => {
     )
   }
   return {
-    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean }) => {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: () => void }) => {
       capturedColumnUpdated = onColumnUpdated
       return (
         <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
           {column.name}
+          {onAddCard && <button onClick={onAddCard}>{`Header add ${column.name}`}</button>}
           {renderRealColumnModals && <SettingsToggle column={column} isIntakeColumn={isIntakeColumn} />}
         </div>
       )
@@ -149,9 +150,9 @@ vi.mock('../components/Board/ColumnHeader', async () => {
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
+  default: ({ swimlane, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
+      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -583,6 +584,47 @@ describe('BoardView', () => {
     expect(region).not.toBeNull()
   })
 
+  describe('grid header (#2270)', () => {
+    it('header row is sticky and sits on the page background', () => {
+      render(<BoardView {...defaultProps()} />)
+      const row = screen.getByTestId('board-header-row')
+      expect(row).toHaveClass('sticky', 'top-0', 'bg-sunken')
+    })
+
+    it('the header add-card button asks the first cell of its column to open its input', () => {
+      render(<BoardView {...defaultProps()} />)
+      const first = document.createElement('div')
+      first.setAttribute('data-board-cell', '')
+      first.setAttribute('data-column-id', '10')
+      const second = first.cloneNode() as HTMLElement
+      document.body.append(first, second)
+      const opened = vi.fn()
+      first.addEventListener('visiban:add-card', opened)
+      const other = vi.fn()
+      second.addEventListener('visiban:add-card', other)
+      fireEvent.click(screen.getByRole('button', { name: 'Header add To Do' }))
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect(other).not.toHaveBeenCalled()
+      first.remove(); second.remove()
+    })
+
+    it('withholds the header add-card button when every lane is collapsed (no cell to hear it)', async () => {
+      const base = makeBoard()
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: base.swimlanes.map((l) => ({ ...l, is_collapsed: true })) }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      await waitFor(() => expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'true'))
+      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+    })
+
+    it('a viewer gets no header add-card button', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+    })
+  })
+
   it('renders view toggle buttons', () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('Board')).toBeInTheDocument()
@@ -777,32 +819,6 @@ describe('BoardView', () => {
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-hide-row-chip-names', 'true')
   })
 
-  it('auto-sizes the swimlane label column narrower when row chip names are hidden (#1418)', () => {
-    // A long field name with a short value: with names shown, the name drives
-    // the auto width past the default; hidden, only the value counts.
-    const def = {
-      id: 1, uid: 'sfuid0000001', name: 'Account director for the region', field_type: 'text' as const,
-      choices: [], position: 0, show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
-      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
-    }
-    const board = (show: boolean) => {
-      const b = makeBoard({ swimlane_custom_field_definitions: [def], show_row_chip_field_names: show })
-      return { ...b, swimlanes: b.swimlanes.map((s) => ({ ...s, custom_field_values: [{ field_definition: 1, value: 'Diane' }] })) }
-    }
-    const widthOf = () => Number(screen.getByTestId('swim-20').getAttribute('data-sidebar-width'))
-
-    mockBoardContextValue = defaultContext({ board: board(true) })
-    const { unmount } = render(<BoardView {...defaultProps()} />)
-    const shownWidth = widthOf()
-    unmount()
-    mockBoardContextValue = defaultContext({ board: board(false) })
-    render(<BoardView {...defaultProps()} />)
-    const hiddenWidth = widthOf()
-
-    expect(shownWidth).toBeGreaterThan(220)
-    expect(hiddenWidth).toBeLessThan(shownWidth)
-  })
-
   describe('swimlane field order shortcut (#1458)', () => {
     const twoDefs = [1, 2].map((n) => ({
       id: n, uid: `sfuid000000${n}`, name: `F${n}`, field_type: 'text' as const, choices: [], position: n,
@@ -857,10 +873,11 @@ describe('BoardView', () => {
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
   })
 
-  it('renders board density stats in the corner cell', () => {
+  it('has no label-panel corner cell in the header row (#2271)', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText(/col/)).toBeInTheDocument()
-    expect(screen.getByText(/lane/)).toBeInTheDocument()
+    const header = screen.getByTestId('board-header-row')
+    expect(within(header).queryByText(/^\d+ cols?$/)).toBeNull()
+    expect(within(header).queryByText(/^\d+ lanes?$/)).toBeNull()
   })
 
   it('renders keyboard shortcuts icon button', () => {

@@ -3,11 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
-import SwimlaneFieldsPopover, { type SwimlaneFieldEntry } from '../components/Board/SwimlaneFieldsPopover'
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
 import SwimlaneFieldEditRow from '../components/Board/SwimlaneFieldEditRow'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
-import { visibleRowChipCount } from '../utils/swimlaneRowChips'
 import type { BoardFull, CardDensity, Card, Column, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
 
 const fakeUser: User = {
@@ -82,20 +80,6 @@ function makeDef(overrides: Partial<SwimlaneCustomFieldDefinition> = {}): Swimla
   }
 }
 
-function SwimlanePopoverUnderTest({ entries, foldedPinnedIds }: { entries: SwimlaneFieldEntry[]; foldedPinnedIds?: ReadonlySet<number> }) {
-  const triggerRef = { current: null as HTMLButtonElement | null }
-  return (
-    <SwimlaneFieldsPopover
-      swimlaneName="Acme Corp"
-      entries={entries}
-      foldedPinnedIds={foldedPinnedIds}
-      anchorRect={new DOMRect(10, 10, 20, 20)}
-      onDismiss={() => {}}
-      triggerRef={triggerRef}
-    />
-  )
-}
-
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
     id: 20, uid: 'laneuid00001', name: 'Acme Corp', contact_email: 'ops@acme.test', notes: '',
@@ -104,17 +88,27 @@ function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   }
 }
 
+function makeCardFor(id: number, overrides: Partial<Card> = {}): Card {
+  return {
+    id, uid: `carduid${id}`, column: 10, swimlane: 20, title: `Card ${id}`, description: '', priority: 'medium', assignee: null,
+    labels: [], due_date: null, weight: 1, position: id, created_by: { id: 1, username: 'u', display_name: 'U', avatar_url: '' },
+    created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false,
+    archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    ...overrides,
+  } as Card
+}
+
 function renderRow(
   swimlane: Swimlane,
   defs: SwimlaneCustomFieldDefinition[],
   collapsed = false,
-  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; density?: CardDensity } = {},
+  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; density?: CardDensity; cards?: Card[] } = {},
 ) {
   return render(
     <SwimlaneRow
       swimlane={swimlane}
       columns={columns}
-      cards={[] as Card[]}
+      cards={extra.cards ?? ([] as Card[])}
       boardId={1}
       isAdmin={extra.isAdmin ?? true}
       canEdit
@@ -140,509 +134,176 @@ function renderRow(
   )
 }
 
-describe('SwimlaneRow — pinned row field chips (#1140)', () => {
-  it('renders a pinned value as a chip', () => {
-    const def = makeDef({ id: 1, name: 'Owner' })
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }),
-      [def]
-    )
-    expect(screen.getByText('Owner:')).toBeInTheDocument()
-    expect(screen.getByText('J. Rivera')).toBeInTheDocument()
+describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
+  const trio = () => ({
+    defs: [
+      makeDef({ id: 1, name: 'Owner', position: 0 }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }),
+      makeDef({ id: 3, uid: 'sfuid0000003', name: 'Tier', position: 2 }),
+      makeDef({ id: 4, uid: 'sfuid0000004', name: 'Quota', position: 3 }),
+    ],
+    lane: makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'J. Rivera' },
+      { field_definition: 2, value: 'EMEA' },
+      { field_definition: 3, value: 'Gold' },
+      { field_definition: 4, value: '600' },
+    ] }),
+  })
+
+  it('renders a value as a plain "Label value" pair, not a bordered chip', () => {
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), [makeDef({ id: 1, name: 'Owner' })])
+    const label = screen.getByText('Owner')
+    expect(label).toHaveClass('text-fg-tertiary')
+    expect(screen.getByText('J. Rivera')).toHaveClass('text-fg')
+    expect(label.parentElement).not.toHaveClass('border')
   })
 
   it('marks an admin-only field with a padlock so an admin knows what their team cannot see', () => {
-    const def = makeDef({ id: 1, name: 'ARR', is_admin_only: true })
     renderRow(
       makeSwimlane({ custom_field_values: [{ field_definition: 1, value: '480000' }] }),
-      [def]
+      [makeDef({ id: 1, name: 'ARR', is_admin_only: true })]
     )
-    expect(screen.getByLabelText('Admin-only field')).toBeInTheDocument()
-    // #1862: a meaningful glyph needs 3:1; fg-faint was 1.93 dark, fg-tertiary is 5.71.
     expect(screen.getByLabelText('Admin-only field')).toHaveClass('text-fg-tertiary')
   })
 
   it('renders no padlock for a public field', () => {
-    const def = makeDef({ id: 1, name: 'Region', is_admin_only: false })
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'EMEA' }] }),
-      [def]
-    )
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'EMEA' }] }), [makeDef({ id: 1, name: 'Region' })])
     expect(screen.queryByLabelText('Admin-only field')).not.toBeInTheDocument()
   })
 
-  it('renders nothing for an empty-string value — never a ghost chip', () => {
-    const def = makeDef({ id: 1, name: 'Owner' })
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: '' }] }),
-      [def]
-    )
-    expect(screen.queryByText('Owner:')).not.toBeInTheDocument()
+  it('renders nothing for an empty-string value, never a ghost', () => {
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: '' }] }), [makeDef({ id: 1, name: 'Owner' })])
+    expect(screen.queryByText('Owner')).not.toBeInTheDocument()
   })
 
   it('drops a value whose definition is missing rather than crashing', () => {
-    // A WS race: the definition was deleted between the board load and this render.
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 999, value: 'orphan' }] }),
-      [makeDef({ id: 1 })]
-    )
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 999, value: 'orphan' }] }), [makeDef({ id: 1 })])
     expect(screen.queryByText('orphan')).not.toBeInTheDocument()
   })
 
-  it('hides chips when the row is collapsed, matching contact_email', () => {
-    const def = makeDef({ id: 1, name: 'Owner' })
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }),
-      [def],
-      true
-    )
-    expect(screen.queryByText('Owner:')).not.toBeInTheDocument()
+  it('shows the first two fields inline, in position order, and the rest behind +N', () => {
+    const { defs, lane } = trio()
+    renderRow(lane, defs)
+    expect(screen.getByText('Owner')).toBeInTheDocument()
+    expect(screen.getByText('Region')).toBeInTheDocument()
+    expect(screen.queryByText('Tier')).not.toBeInTheDocument()
+    expect(screen.queryByText('Quota')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^\+2:/ })).toHaveTextContent('+2')
   })
 
-  it('offers a +N overflow trigger for non-pinned values', () => {
-    const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-      makeDef({ id: 3, uid: 'sfuid0000003', name: 'Tier', show_on_row: false, position: 2 }),
-    ]
-    renderRow(
-      makeSwimlane({ custom_field_values: [
-        { field_definition: 1, value: 'J. Rivera' },
-        { field_definition: 2, value: 'EMEA' },
-        { field_definition: 3, value: 'Gold' },
-      ] }),
-      defs
-    )
-    expect(screen.getByRole('button', { name: /Show all 3 field values for Acme Corp/ })).toBeInTheDocument()
+  it('shows no +N when two or fewer fields are set', () => {
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), [makeDef({ id: 1, name: 'Owner' })])
+    expect(screen.queryByRole('button', { name: /more field/ })).not.toBeInTheDocument()
   })
 
-  it('opens the field list popover from the overflow trigger', async () => {
+  it('+N reveals the remaining fields in place, announces aria-expanded, and reads "Less"', async () => {
     const user = userEvent.setup()
-    const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-    ]
-    renderRow(
-      makeSwimlane({ custom_field_values: [
-        { field_definition: 1, value: 'J. Rivera' },
-        { field_definition: 2, value: 'EMEA' },
-      ] }),
-      defs
-    )
-    await user.click(screen.getByRole('button', { name: /Show all 2 field values/ }))
-    expect(screen.getByRole('dialog', { name: 'Field values for Acme Corp' })).toBeInTheDocument()
-    expect(screen.getByText('EMEA')).toBeInTheDocument()
+    const { defs, lane } = trio()
+    renderRow(lane, defs)
+    const toggle = screen.getByRole('button', { name: /^\+2:/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveAttribute('aria-controls', screen.getByTestId('swimlane-extra-fields').id)
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveTextContent('Less')
+    expect(within(screen.getByTestId('swimlane-extra-fields')).getByText('Tier')).toBeInTheDocument()
+    expect(within(screen.getByTestId('swimlane-extra-fields')).getByText('Quota')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Tier')).not.toBeInTheDocument()
   })
 
-  describe('field list popover layout (#1455)', () => {
-    // Owner and Tier pinned, Region and Segment not — interleaved by position
-    // so the regrouping is observable.
-    const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true, position: 0 }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-      makeDef({ id: 3, uid: 'sfuid0000003', name: 'Tier', show_on_row: true, position: 2 }),
-      makeDef({ id: 4, uid: 'sfuid0000004', name: 'Segment', show_on_row: false, position: 3 }),
-    ]
-    const lane = () => makeSwimlane({ custom_field_values: [
-      { field_definition: 1, value: 'J. Rivera' },
-      { field_definition: 2, value: 'EMEA' },
-      { field_definition: 3, value: 'Gold' },
-      { field_definition: 4, value: 'Retail' },
-    ] })
-    const openPopover = async () => {
-      const user = userEvent.setup()
-      renderRow(lane(), defs)
-      await user.click(screen.getByRole('button', { name: /Show all 4 field values/ }))
-      return screen.getByRole('dialog', { name: 'Field values for Acme Corp' })
-    }
-
-    it('lists the off-row fields first, then the pinned ones under "On row", each in position order', async () => {
-      const dialog = await openPopover()
-      const text = dialog.textContent ?? ''
-      const order = ['Region', 'Segment', 'On row', 'Owner', 'Tier'].map((s) => text.indexOf(s))
-      expect(order.every((i) => i >= 0)).toBe(true)
-      expect([...order].sort((a, b) => a - b)).toEqual(order)
-    })
-
-    it('draws a top border on every entry except the first of each list', async () => {
-      const dialog = await openPopover()
-      const rowOf = (label: string) => screen.getByText(label, { selector: 'span' }).parentElement as HTMLElement
-      expect(dialog).toBeInTheDocument()
-      expect(rowOf('Region').className).not.toContain('border-t')
-      expect(rowOf('Segment').className).toContain('border-t')
-      expect(rowOf('Owner').className).not.toContain('border-t')
-      expect(rowOf('Tier').className).toContain('border-t')
-    })
-
-    it('omits the "On row" divider when no field is pinned', async () => {
-      const user = userEvent.setup()
-      renderRow(
-        makeSwimlane({ custom_field_values: [{ field_definition: 2, value: 'EMEA' }] }),
-        [makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false })]
-      )
-      await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
-      expect(screen.queryByText('On row')).not.toBeInTheDocument()
-    })
-
-    it('stays open when its own list scrolls, but closes when the board scrolls', async () => {
-      const dialog = await openPopover()
-      fireEvent.scroll(screen.getByTestId('swimlane-fields-list'))
-      expect(dialog).toBeInTheDocument()
-      fireEvent.scroll(window)
-      expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
-    })
-
-    it('closes when the window resizes', async () => {
-      await openPopover()
-      fireEvent(window, new Event('resize'))
-      expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
-    })
-
-    it('focuses the panel when everything fits, and the scrollable list when it overflows', async () => {
-      const dialog = await openPopover()
-      expect(dialog).toHaveFocus()
-      fireEvent.mouseDown(document.body) // dismiss
-      const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(300)
-      const clientSpy = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100)
-      try {
-        await userEvent.setup().click(screen.getByRole('button', { name: /Show all 4 field values/ }))
-        expect(screen.getByRole('region', { name: 'Field values' })).toHaveFocus()
-      } finally {
-        scrollSpy.mockRestore()
-        clientSpy.mockRestore()
-      }
-    })
-
-    it('moves focus only once the panel is placed and visible', async () => {
-      // jsdom focuses a visibility:hidden element; browsers ignore the call.
-      // So assert on the panel's visibility at the moment focus() runs.
-      const original = HTMLElement.prototype.focus
-      const visibilityAtFocus: string[] = []
-      const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, opts?: FocusOptions) {
-        const panel = this.closest('[role="dialog"]') as HTMLElement | null
-        if (panel) visibilityAtFocus.push(panel.style.visibility)
-        return original.call(this, opts)
-      })
-      try {
-        await openPopover()
-        expect(visibilityAtFocus).toEqual([''])
-      } finally {
-        focusSpy.mockRestore()
-      }
-    })
-
-    it('shows a bottom fade only while more of the list is below the fold', async () => {
-      await openPopover()
-      const list = screen.getByTestId('swimlane-fields-list')
-      // jsdom has no layout; give the list a 100px viewport over 300px of rows.
-      Object.defineProperty(list, 'clientHeight', { configurable: true, value: 100 })
-      Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 300 })
-      list.scrollTop = 0
-      fireEvent.scroll(list)
-      expect(screen.getByTestId('swimlane-fields-more-below')).toBeInTheDocument()
-      list.scrollTop = 200
-      fireEvent.scroll(list)
-      expect(screen.queryByTestId('swimlane-fields-more-below')).not.toBeInTheDocument()
-    })
-
-    it('opens below the trigger when it fits and above it when it does not', async () => {
-      const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
-      try {
-        const user = userEvent.setup()
-        renderRow(lane(), defs)
-        const trigger = screen.getByRole('button', { name: /Show all 4 field values/ })
-        const rect = (top: number) => ({ top, bottom: top + 20, left: 10, right: 40, width: 30, height: 20, x: 10, y: top, toJSON: () => ({}) }) as DOMRect
-        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(rect(100))
-        await user.click(trigger)
-        expect(screen.getByRole('dialog').style.top).toBe('124px')
-        // A second click re-reads the trigger rect and re-places the open panel.
-        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(rect(window.innerHeight - 40))
-        await user.click(trigger)
-        expect(screen.getByRole('dialog').style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`)
-      } finally {
-        heightSpy.mockRestore()
-      }
-    })
-
-    it('pins to the bottom edge when it fits neither below nor above the trigger', async () => {
-      // Taller than the space on either side of a trigger near the top.
-      const height = window.innerHeight - 60
-      const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
-      try {
-        const user = userEvent.setup()
-        renderRow(lane(), defs)
-        const trigger = screen.getByRole('button', { name: /Show all 4 field values/ })
-        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 120, left: 10, right: 40, width: 30, height: 20, x: 10, y: 100, toJSON: () => ({}) } as DOMRect)
-        await user.click(trigger)
-        expect(screen.getByRole('dialog').style.top).toBe(`${window.innerHeight - 8 - height}px`)
-      } finally {
-        heightSpy.mockRestore()
-      }
-    })
+  it('+N toggles from the keyboard', async () => {
+    const user = userEvent.setup()
+    const { defs, lane } = trio()
+    renderRow(lane, defs)
+    const toggle = screen.getByRole('button', { name: /^\+2:/ })
+    toggle.focus()
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.keyboard(' ')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('renders nothing at all when the swimlane carries no values', () => {
-    renderRow(makeSwimlane(), [makeDef()])
-    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  it('keeps the fields and +N on a collapsed lane: the band is its header', () => {
+    const { defs, lane } = trio()
+    renderRow(lane, defs, true)
+    expect(screen.getByText('Owner')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^\+2:/ })).toBeInTheDocument()
+  })
+
+  it('orders the band: name, then health, then fields, then +N, then the stats (#871 ordering)', () => {
+    const { defs, lane } = trio()
+    renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs, false, { cards: [makeCardFor(1, { is_stale: true })] })
+    const band = screen.getByTestId('swimlane-band')
+    const pos = (el: Element) => Array.from(band.querySelectorAll('*')).indexOf(el)
+    const name = pos(screen.getByTestId('swimlane-name'))
+    const health = pos(screen.getByRole('button', { name: /health/i }))
+    const field = pos(screen.getByText('Owner'))
+    const more = pos(screen.getByRole('button', { name: /^\+2:/ }))
+    const stats = pos(screen.getByTestId('swimlane-band-stats'))
+    expect([name, health, field, more, stats]).toEqual([...[name, health, field, more, stats]].sort((a, b) => a - b))
+    expect(new Set([name, health, field, more, stats]).size).toBe(5)
+  })
+
+  it('admins get a "Change field order" shortcut inside the expanded fields', async () => {
+    const user = userEvent.setup()
+    const onEditFieldOrder = vi.fn()
+    const { defs, lane } = trio()
+    renderRow(lane, defs, false, { onEditFieldOrder })
+    expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^\+2:/ }))
+    await user.click(screen.getByRole('button', { name: 'Change field order' }))
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+  })
+
+  it('withholds "Change field order" from a non-admin even when the callback is passed', async () => {
+    const user = userEvent.setup()
+    const { defs, lane } = trio()
+    renderRow(lane, defs, false, { isAdmin: false, onEditFieldOrder: vi.fn() })
+    await user.click(screen.getByRole('button', { name: /^\+2:/ }))
+    expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
   })
 })
 
-describe('SwimlaneRow — pinned chips follow card density (#1417)', () => {
-  // 8 pinned (the cap) + 2 unpinned, every one holding a value.
-  const defs = Array.from({ length: 10 }, (_, i) => makeDef({
-    id: i + 1, uid: `sfuid00000${i + 1}`, name: `Pin${String(i + 1).padStart(2, '0')}`, position: i, show_on_row: i < 8,
-  }))
-  const lane = (n = 10) => makeSwimlane({
-    custom_field_values: defs.slice(0, n).map((d) => ({ field_definition: d.id, value: `v${d.id}` })),
-  })
-  const chips = () => screen.queryAllByText(/^v\d+$/)
-
-  it.each([
-    ['comfortable', 3, '+7'],
-    ['standard', 5, '+5'],
-    ['dense', 8, '+2'],
-  ] as const)('%s shows %i pinned chips and %s counts folded pinned plus unpinned', (density, shown, label) => {
-    renderRow(lane(), defs, false, { density })
-    expect(chips()).toHaveLength(shown)
-    expect(screen.getByRole('button', { name: `${label}: Show all 10 field values for Acme Corp` })).toBeInTheDocument()
-  })
-
-  it('treats an undefined density as standard', () => {
-    renderRow(lane(), defs)
-    expect(chips()).toHaveLength(5)
-  })
-
-  it('keeps a +N trigger when only folded pinned fields exist (no unpinned values)', () => {
-    renderRow(lane(8), defs, false, { density: 'comfortable' })
-    expect(chips()).toHaveLength(3)
-    expect(screen.getByRole('button', { name: /^\+5: Show all 8 field values/ })).toBeInTheDocument()
-  })
-
-  it('shows no trigger when every pinned chip is visible and names are shown', () => {
-    renderRow(lane(3), defs, false, { density: 'comfortable' })
-    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
-  })
-
-  it('lists folded pinned (pin order), then unpinned, then "On row" over only the visible chips', async () => {
-    const user = userEvent.setup()
-    renderRow(lane(), defs, false, { density: 'comfortable' })
-    await user.click(screen.getByRole('button', { name: /Show all 10 field values/ }))
-    const text = (screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? '')
-    const order = ['Pin04', 'Pin05', 'Pin06', 'Pin07', 'Pin08', 'Pin09', 'Pin10', 'On row', 'Pin01', 'Pin02', 'Pin03'].map((n) => text.indexOf(n))
-    expect(order.every((i) => i >= 0)).toBe(true)
-    expect([...order].sort((a, b) => a - b)).toEqual(order)
-    // Only one "On row" heading, and no sub-heading between folded and unpinned.
-    expect(text.match(/On row/g)).toHaveLength(1)
-  })
-
-  it('hides every chip and the trigger on a collapsed row', () => {
-    renderRow(lane(), defs, true, { density: 'dense' })
-    expect(chips()).toHaveLength(0)
-    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
-  })
-
-  it('keeps the all-hidden-names trigger working with folded pins (#1509)', () => {
-    renderRow(lane(8), defs, false, { density: 'dense', hideRowChipFieldNames: true })
-    expect(chips()).toHaveLength(8)
-    expect(screen.getByRole('button', { name: /^All fields: Show all 8 field values/ })).toBeInTheDocument()
-  })
-})
-
-describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
+describe('SwimlaneRow — hidden field names (#1418)', () => {
   const owner = makeDef({ id: 1, name: 'Owner' })
   const laneWith = (value: string, field_definition = 1) =>
     makeSwimlane({ custom_field_values: [{ field_definition, value }] })
 
-  it('shows the visible "{name}:" label by default', () => {
+  it('shows the visible name by default', () => {
     renderRow(laneWith('J. Rivera'), [owner])
-    const label = screen.getByText('Owner:')
+    const label = screen.getByText('Owner')
     expect(label).not.toHaveClass('sr-only')
-    expect(label).toHaveClass('text-fg-tertiary') // #1862: before #2030 fg-muted was sub-AA on bg-surface in dark
+    expect(label).toHaveClass('text-fg-tertiary')
   })
 
   it('drops the visible name but keeps it for screen readers and in the title when hidden', () => {
     renderRow(laneWith('J. Rivera'), [owner], false, { hideRowChipFieldNames: true })
     const label = screen.getByText('Owner:')
     expect(label).toHaveClass('sr-only')
-    expect(label).not.toHaveClass('text-fg-tertiary')
     expect(screen.getByText('J. Rivera')).toBeInTheDocument()
     expect(screen.getByTitle('Owner: J. Rivera')).toBeInTheDocument()
   })
 
-  it('keeps the admin-only padlock and title suffix when the name is hidden', () => {
-    const arr = makeDef({ id: 1, name: 'ARR', is_admin_only: true })
-    renderRow(laneWith('480000'), [arr], false, { hideRowChipFieldNames: true })
-    expect(screen.getByLabelText('Admin-only field')).toBeInTheDocument()
-    expect(screen.getByTitle('ARR: 480000 · Only board admins can see this')).toBeInTheDocument()
-    expect(screen.getByText('ARR:')).toHaveClass('sr-only')
+  it('always shows the name on a checkbox field, a bare Yes/No says nothing', () => {
+    renderRow(laneWith('true'), [makeDef({ id: 1, name: 'Signed', field_type: 'checkbox' })], false, { hideRowChipFieldNames: true })
+    expect(screen.getByText('Signed')).not.toHaveClass('sr-only')
   })
 
-  it('always shows the name on a checkbox field — a bare Yes/No says nothing', () => {
-    const signed = makeDef({ id: 1, name: 'Signed', field_type: 'checkbox' })
-    renderRow(laneWith('true'), [signed], false, { hideRowChipFieldNames: true })
-    expect(screen.getByText('Signed:')).not.toHaveClass('sr-only')
-  })
-
-  it('still omits a chip for an empty value when names are hidden', () => {
-    renderRow(laneWith(''), [owner], false, { hideRowChipFieldNames: true })
-    expect(screen.queryByText('Owner:')).not.toBeInTheDocument()
-  })
-
-  it('keeps an "All fields" trigger on an all-pinned row when names are hidden (#1509)', async () => {
+  it('keeps names in the revealed +N fields when names are hidden', async () => {
     const user = userEvent.setup()
     const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: true, position: 1 }),
-    ]
-    const lane = makeSwimlane({ custom_field_values: [
-      { field_definition: 1, value: 'J. Rivera' },
-      { field_definition: 2, value: 'EMEA' },
-    ] })
-    renderRow(lane, defs, false, { hideRowChipFieldNames: true })
-    const trigger = screen.getByRole('button', { name: /Show all 2 field values/ })
-    expect(trigger).toHaveTextContent('All fields')
-    expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
-    expect(trigger).toHaveClass('min-h-6')
-    // #1862: same untinted floor as the row chips beside it; before #2030 fg-muted was 3.07:1 on bg-surface in dark.
-    expect(trigger).toHaveClass('text-fg-tertiary', 'hover:text-fg-secondary')
-    expect(trigger).not.toHaveClass('text-fg-muted')
-    await user.click(trigger)
-    const text = screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? ''
-    for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
-  })
-
-  it('still renders the "All fields" trigger when every pinned value is a checkbox and names are hidden (#1509)', () => {
-    // Checkbox chips always show their name, but the trigger condition counts
-    // all pinned fields, so the trigger stays; this pins that behavior.
-    const defs = [
-      makeDef({ id: 1, name: 'Signed', field_type: 'checkbox', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Approved', field_type: 'checkbox', show_on_row: true, position: 1 }),
+      makeDef({ id: 1, name: 'Owner', position: 0 }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }),
+      makeDef({ id: 3, uid: 'sfuid0000003', name: 'Tier', position: 2 }),
     ]
     renderRow(makeSwimlane({ custom_field_values: [
-      { field_definition: 1, value: 'true' },
-      { field_definition: 2, value: 'true' },
+      { field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' },
     ] }), defs, false, { hideRowChipFieldNames: true })
-    expect(screen.getByText('Signed:')).not.toHaveClass('sr-only')
-    expect(screen.getByRole('button', { name: /^All fields: Show all 2 field values/ })).toBeInTheDocument()
-  })
-
-  it('shows no trigger on an all-pinned row when names are visible', () => {
-    const defs = [makeDef({ id: 1, name: 'Owner', show_on_row: true })]
-    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), defs, false, { hideRowChipFieldNames: false })
-    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
-  })
-
-  it('keeps the +N label when unpinned fields exist and names are hidden', () => {
-    const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-    ]
-    renderRow(makeSwimlane({ custom_field_values: [
-      { field_definition: 1, value: 'J. Rivera' },
-      { field_definition: 2, value: 'EMEA' },
-    ] }), defs, false, { hideRowChipFieldNames: true })
-    expect(screen.getByRole('button', { name: /Show all 2 field values/ })).toHaveTextContent('+1')
-    expect(screen.getByRole('button', { name: /^\+1: Show all 2 field values/ })).toBeInTheDocument()
-  })
-
-  it('leaves the +N field list popover listing names and values', async () => {
-    const user = userEvent.setup()
-    const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-    ]
-    renderRow(
-      makeSwimlane({ custom_field_values: [
-        { field_definition: 1, value: 'J. Rivera' },
-        { field_definition: 2, value: 'EMEA' },
-      ] }),
-      defs, false, { hideRowChipFieldNames: true },
-    )
-    await user.click(screen.getByRole('button', { name: /Show all 2 field values/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Field values for Acme Corp' })
-    const text = dialog.textContent ?? ''
-    for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
-    const names = Array.from(dialog.querySelectorAll('.sr-only')).map((n) => n.textContent)
-    expect(names).not.toContain('Owner: ')
-  })
-})
-
-describe('SwimlaneFieldsPopover — foldedPinnedIds alone (#1417)', () => {
-  it('lists folded pinned first (pin order), then unpinned, then On row', () => {
-    const entries = [
-      { def: makeDef({ id: 1, name: 'OnRowField', show_on_row: true, position: 0 }), value: 'a' },
-      { def: makeDef({ id: 2, uid: 'sfuid0000002', name: 'FoldedTwo', show_on_row: true, position: 1 }), value: 'b' },
-      { def: makeDef({ id: 3, uid: 'sfuid0000003', name: 'Unpinned', show_on_row: false, position: 2 }), value: 'c' },
-      { def: makeDef({ id: 4, uid: 'sfuid0000004', name: 'FoldedFour', show_on_row: true, position: 3 }), value: 'd' },
-    ]
-    render(
-      <SwimlanePopoverUnderTest entries={entries} foldedPinnedIds={new Set([2, 4])} />,
-    )
-    const list = screen.getByTestId('swimlane-fields-list')
-    const text = list.textContent ?? ''
-    const order = ['FoldedTwo', 'FoldedFour', 'Unpinned', 'On row', 'OnRowField'].map((s) => text.indexOf(s))
-    expect(order.every((i) => i >= 0)).toBe(true)
-    expect([...order].sort((a, b) => a - b)).toEqual(order)
-  })
-})
-
-describe('"Edit field order…" popover shortcut (#1458)', () => {
-  const defs = [
-    makeDef({ id: 1, name: 'Owner', show_on_row: false, position: 0 }),
-    makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
-  ]
-  const lane = () => makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] })
-  const open = async (extra: Parameters<typeof renderRow>[3]) => {
-    const user = userEvent.setup()
-    renderRow(lane(), defs, false, extra)
-    await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
-    return user
-  }
-
-  it('shows the item to an admin when the board hands over the callback', async () => {
-    await open({ isAdmin: true, onEditFieldOrder: vi.fn() })
-    expect(screen.getByRole('button', { name: 'Edit field order…' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit fields…' })).toBeInTheDocument()
-  })
-
-  it('hides the item when the board withholds the callback (admin, fewer than 2 fields)', async () => {
-    await open({ isAdmin: true })
-    expect(screen.queryByRole('button', { name: 'Edit field order…' })).not.toBeInTheDocument()
-  })
-
-  it('hides the item from a non-admin even if the callback is passed', async () => {
-    await open({ isAdmin: false, onEditFieldOrder: vi.fn() })
-    expect(screen.queryByRole('button', { name: 'Edit field order…' })).not.toBeInTheDocument()
-  })
-
-  it('closes the popover, then calls the callback, on click', async () => {
-    const onEditFieldOrder = vi.fn()
-    const user = await open({ isAdmin: true, onEditFieldOrder })
-    await user.click(screen.getByRole('button', { name: 'Edit field order…' }))
-    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
-  })
-
-  it('activates from the keyboard with Enter', async () => {
-    const onEditFieldOrder = vi.fn()
-    const user = await open({ isAdmin: true, onEditFieldOrder })
-    screen.getByRole('button', { name: 'Edit field order…' }).focus()
-    await user.keyboard('{Enter}')
-    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('"Edit fields…" popover item', () => {
-  it('closes the popover and opens the Edit Swimlane modal', async () => {
-    const user = userEvent.setup()
-    renderRow(
-      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'x' }] }),
-      [makeDef({ show_on_row: false })],
-    )
-    await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
-    await user.click(screen.getByRole('button', { name: 'Edit fields…' }))
-    expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^\+1:/ }))
+    expect(screen.getByTitle('Tier: c')).toBeInTheDocument()
   })
 })
 
@@ -898,16 +559,12 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   })
 })
 
-describe('BoardSettingsSwimlaneFieldsTab — row-chip count hint (#1417)', () => {
-  it('states each density count from visibleRowChipCount', () => {
+describe('BoardSettingsSwimlaneFieldsTab — header count hint (#2271)', () => {
+  it('says the header shows the first two values and the rest are behind +N', () => {
     render(
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
     )
-    const c = visibleRowChipCount('comfortable')
-    const s = visibleRowChipCount('standard')
-    const d = visibleRowChipCount('dense')
-    expect(screen.getByText(`Rows show ${c}, ${s} or ${d} pinned values depending on card density; the rest fold into +N.`)).toBeInTheDocument()
-    expect([c, s, d]).toEqual([3, 5, 8])
+    expect(screen.getByText('The swimlane header shows the first two field values in the order below; the rest are behind +N.')).toBeInTheDocument()
   })
 })
 
@@ -1861,21 +1518,20 @@ describe('Swimlane URL fields (#1390)', () => {
     expect(screen.getByText('data:text/html,hi')).toBeInTheDocument()
   })
 
-  it('renders the full URL as a link in the fields popover', async () => {
+  it('renders the url as a hostname link in the revealed +N fields too', async () => {
     const user = userEvent.setup()
     const defs = [
-      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'CRM', field_type: 'url', show_on_row: false, position: 1 }),
+      makeDef({ id: 1, name: 'Owner', position: 0 }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }),
+      makeDef({ id: 3, uid: 'sfuid0000003', name: 'CRM', field_type: 'url', position: 2 }),
     ]
-    renderRow(
-      makeSwimlane({ custom_field_values: [
-        { field_definition: 1, value: 'J. Rivera' },
-        { field_definition: 2, value: 'https://crm.example.com/acct/42' },
-      ] }),
-      defs
-    )
-    await user.click(screen.getByRole('button', { name: /Show all 2 field values/ }))
-    expect(screen.getByRole('link', { name: 'Open https://crm.example.com/acct/42 in new tab' })).toBeInTheDocument()
+    renderRow(makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'J. Rivera' },
+      { field_definition: 2, value: 'EMEA' },
+      { field_definition: 3, value: 'https://crm.example.com/acct/42' },
+    ] }), defs)
+    await user.click(screen.getByRole('button', { name: /^\+1:/ }))
+    expect(screen.getByRole('link', { name: 'Open crm.example.com in new tab' })).toHaveAttribute('href', 'https://crm.example.com/acct/42')
   })
 
   it('offers URL in the swimlane field type picker', async () => {

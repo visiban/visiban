@@ -13,11 +13,11 @@ interface Props {
    * `chip` — legacy bordered pill (#371 Direction A); test-only, no production
    * call site (the card face renders its own inline chip in CardItem). `detail` — plain
    * text inside the card-detail read-only section. `row-chip` — the swimlane
-   * label-panel chip (#1140). Peek-popover text does *not* go through this
+   * chip (#1140, replaced in the band by `band`). Peek-popover text does *not* go through this
    * component — it's a single joined line of plain strings, formatted
    * directly via `formatCustomFieldValue` in `CardPeekPopover`, not JSX.
    */
-  variant: "chip" | "detail" | "row-chip";
+  variant: "chip" | "detail" | "row-chip" | "band";
   /**
    * #1140 — draws the admin-only padlock on `row-chip`. Ignored by the other
    * variants. Only an admin is ever sent an admin-only value, so this marks
@@ -95,17 +95,18 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
   // chip
   const dot = isDropdown && !colorKey ? <ChoiceDot choice={value} /> : null;
 
-  if (variant === "row-chip") {
+  if (variant === "row-chip" || variant === "band") {
+    // `band` (#2271): the swimlane header band's "Label value" pair, plain text
+    // with no border or pill, label in tertiary text and value in the body color.
+    const band = variant === "band";
     // Same neutral bordered chip as the card face — not a fourth pill
-    // treatment. Two deviations the surface forces: the swimlane label panel
-    // is a ~220px *vertical* column, so chips stack and each owns a full
-    // line (max-w-full, not max-w-[10rem]) and can afford 20 characters
-    // rather than 16.
+    // treatment. Two deviations the surface forces: the swimlane header band
+    // (#2271) has room, so a value gets max-w-full and 20 characters rather than 16.
     // overflow-hidden is a backstop, not the truncation mechanism: every child
     // keeps min-w-0 + truncate, and py-0.5 must stay >= the 2px focus ring.
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line max-w-full min-w-0 overflow-hidden ${className ?? ""}`}
+        className={`inline-flex items-center gap-1 min-w-0 max-w-full ${band ? "text-sm" : "text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden"} ${className ?? ""}`}
         title={
           adminOnly
             ? `${definition.name}: ${displayText} · Only board admins can see this`
@@ -118,10 +119,10 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           // Not aria-label: ARIA 1.2 prohibits naming a generic <span>.
           <span className="sr-only">{definition.name}: </span>
         ) : (
-          <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}:</span>
+          <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}{band ? "" : ":"}</span>
         )}
         {isUrl ? (
-          // stopPropagation: the row label panel is a double-click-to-edit
+          // stopPropagation: the swimlane band is a double-click-to-edit
           // surface for admins, and the link must not select or edit the row.
           <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
         ) : multiEntries ? (
@@ -130,7 +131,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
         ) : colorKey ? (
           <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 20)}</ChoiceBadge>
         ) : (
-          <span className="text-fg-secondary truncate min-w-0">
+          <span className={`${band ? "text-fg font-medium" : "text-fg-secondary"} truncate min-w-0`}>
             {chipValueText(definition, displayText, 20)}
           </span>
         )}

@@ -46,12 +46,12 @@ test.describe('board view', () => {
     // Click the "+ Add card" affordance in the first column/swimlane cell.
     // Only the To Do column allows card creation (COLUMN_DONE.allow_card_creation
     // is false), so the first match is unambiguously To Do / General.
-    await page.getByText('+ Add card').first().click()
+    await page.getByRole('button', { name: /^Add card to / }).first().click()
     const titleInput = page.getByPlaceholder('Card title…')
     await titleInput.fill('New task')
     // close_editor_on_enter is false in the user fixture, so Enter does not submit.
     // Click the "Add" button explicitly.
-    await page.getByRole('button', { name: 'Add' }).first().click()
+    await page.getByRole('button', { name: 'Add', exact: true }).first().click()
 
     // Assert the actual POST payload (api/cards.ts createCard) rather than just
     // that *a* request happened — board/swimlane/column mismatches or an
@@ -64,6 +64,63 @@ test.describe('board view', () => {
 
     // The new card title should appear in the board.
     await expect(page.getByText('New task').first()).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('column headers stay visible after scrolling past the first lane (#2270)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 500 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const scroller = page.locator('[data-board-scroll]')
+    const headerRow = page.getByTestId('board-header-row')
+    await expect(headerRow).toBeVisible({ timeout: 10_000 })
+    // Stand in for many tall lanes: a spacer below the lane rows makes the board scroll vertically.
+    await scroller.evaluate((el) => {
+      const spacer = document.createElement('div')
+      spacer.style.height = '2000px'
+      el.firstElementChild!.appendChild(spacer)
+      el.scrollTop = 900
+    })
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(500)
+    const [rowBox, scrollBox] = [await headerRow.boundingBox(), await scroller.boundingBox()]
+    expect(Math.abs(rowBox!.y - scrollBox!.y)).toBeLessThanOrEqual(1)
+    await expect(page.getByRole('button', { name: `Add card to ${COLUMN_TODO.name}`, exact: true })).toBeInViewport()
+  })
+
+  test('a tall cell does not stretch the cards in its neighbor cell (#2270)', async ({ page }) => {
+    // Six same-shaped cards pile up in To Do; Done holds one with identical content.
+    const mk = (id: number, column: number, position: number) => ({
+      ...CARD,
+      id,
+      uid: `cardstretch${id}`,
+      column,
+      title: `Stretch card ${id}`,
+      position,
+    })
+    const todoCards = [1, 2, 3, 4, 5, 6].map((n) => mk(100 + n, COLUMN_TODO.id, n))
+    const doneCard = mk(200, COLUMN_DONE.id, 1)
+    const board = { ...BOARD_FULL, cards: [...todoCards, doneCard] }
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/full/`)
+    await page.unroute(`**/api/v1/boards/${BOARD_FULL.id}/cards/`)
+    await routeBoard(page, board)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const baseline = page.locator('[data-card-id="101"]')
+    const neighbor = page.locator('[data-card-id="200"]')
+    await expect(baseline).toBeVisible({ timeout: 10_000 })
+    await expect(neighbor).toBeVisible()
+    const [b, n] = [await baseline.boundingBox(), await neighbor.boundingBox()]
+    // The To Do cell is several cards tall; the Done card must keep its natural height.
+    const lastTodo = await page.locator('[data-card-id="106"]').boundingBox()
+    expect(lastTodo!.y + lastTodo!.height - b!.y).toBeGreaterThan(b!.height * 4)
+    expect(n!.height).toBeCloseTo(b!.height, 0)
+  })
+
+  test('the grid scrolls sideways inside its own box on a narrow window (#2270)', async ({ page }) => {
+    await page.setViewportSize({ width: 400, height: 700 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const scroller = page.locator('[data-board-scroll]')
+    await expect(scroller).toBeVisible({ timeout: 10_000 })
+    const m = await scroller.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, page: document.documentElement.scrollWidth, win: window.innerWidth }))
+    expect(m.sw).toBeGreaterThan(m.cw)
+    expect(m.page).toBeLessThanOrEqual(m.win)
   })
 
   test('moves a card between columns via drag-and-drop', async ({ page }) => {

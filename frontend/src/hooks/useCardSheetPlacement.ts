@@ -201,10 +201,8 @@ export function measureCardSheetGeometry(cardEl: HTMLElement): SheetGeometry {
   const cell = (cardEl.closest("[data-board-cell]") as HTMLElement | null) ?? cardEl;
   const col = cell.getBoundingClientRect();
   const root = cardEl.closest(BOARD_SCROLL_SELECTOR);
-  // All lane labels share one width and are sticky to the left edge, so the
-  // first one's right edge is the whole label column's.
-  const lane = root?.querySelector("[data-lane-label]");
-  const lanesRight = lane ? lane.getBoundingClientRect().right : (root?.getBoundingClientRect().left ?? 0);
+  // No lane label to avoid since the swimlane bands (#2271): the sheet may use the board's whole left edge.
+  const lanesRight = root?.getBoundingClientRect().left ?? 0;
   const toolbar = document.querySelector('nav[aria-label="Board toolbar"]');
   // The board grid starts at the scroll container's top. With the filter row
   // (F) or a banner shown it sits below the toolbar, and the sheet must not

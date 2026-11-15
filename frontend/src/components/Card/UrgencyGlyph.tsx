@@ -1,12 +1,13 @@
 /**
  * Urgency glyphs for the card face (#871): a flag for overdue, a stopwatch for
- * due soon. Inline SVG on `currentColor`, never the ⚑/⏱ text characters, which
+ * due soon. The #2272 status line also uses a flag for due soon (`due-soon-flag`)
+ * and a clock for stale. Inline SVG on `currentColor`, never the ⚑/⏱ text characters, which
  * render as emoji or fall back to another font on some platforms, ignore the
  * badge's tone token, and read aloud as "black flag" / "stopwatch". Decorative:
  * the adjacent visible text (plus a screen-reader-only prefix where the glyph
  * carries meaning the text lacks) is the accessible name.
  */
-export type UrgencyGlyphKind = "overdue" | "due-soon";
+export type UrgencyGlyphKind = "overdue" | "due-soon" | "due-soon-flag" | "stale";
 
 export default function UrgencyGlyph({
   kind,
@@ -27,7 +28,13 @@ export default function UrgencyGlyph({
       aria-hidden="true"
       data-testid={`urgency-glyph-${kind}`}
     >
-      {kind === "overdue" ? (
+      {kind === "stale" ? (
+        // Clock: face plus hands (#2272). Distinct from the stopwatch, which has a crown.
+        <>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M8 4.5V8l2.25 1.5" />
+        </>
+      ) : kind === "overdue" || kind === "due-soon-flag" ? (
         // Flag: pole plus a filled pennant.
         <>
           <path d="M3.5 14V2" />

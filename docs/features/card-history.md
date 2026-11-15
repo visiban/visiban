@@ -51,7 +51,7 @@ shortened with "…" so the old and new values stay in view; hover the row for t
 read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon outside the Classic preset)
 (in red) when unchecked items are past due in your timezone, otherwise `· mine 2`
 when unchecked items are assigned to you. Overdue checklist items do not change
-the card's own urgency badge or border. **Hide completed** in the checklist
+the card's own status line or border. **Hide completed** in the checklist
 header hides checked items until the sheet is closed.
 
 ### Checklist event grouping
@@ -161,7 +161,7 @@ A card's tint shows how long it has been idle, in multiples of the board's thres
 Color is never the only signal:
 
 - Card text fades slightly as the card ages.
-- The darkest step adds an outline inside the card's border, so the border color stays visible (the priority color, or the urgency hue on overdue/due-soon cards at Comfortable).
+- The darkest step adds an outline inside the card's border, so the border color stays visible (red on an overdue card, neutral otherwise).
 - At Comfortable and Standard density, a stale card's badge states its idle days, for example `Stale · 41d`.
 - Wherever that badge is not shown, a small bar meter appears at the start of an aging card's title. This covers the Compact card layout at every density, Dense density, and cards whose badge shows an overdue or due-soon date instead. One solid bar means 1× the threshold, two mean 2×, and three mean 3× or more, so the steps differ by shape as well as color. Screen readers announce the meter with the idle days, for example "Idle 41 days, at least 2 times the stale threshold". The meter sits inside the title line, so it never makes a card taller, though a long title is shortened a little sooner.
 - The yellow warning step never shows the badge, so its meter appears on every warning card, in every layout and density. It has no solid bar: the shortest bar is drawn as an outline, the step before one solid bar. Screen readers announce it as, for example, "Idle 9 days, approaching the stale threshold".

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import SeparatorPlus from "./SeparatorPlus";
 import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -13,8 +13,7 @@ import BoardCell from "./BoardCell";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
-import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
-import { PINNED_ROW_CAP, visibleRowChipCount } from "../../utils/swimlaneRowChips";
+import { STATUS_LABEL, STATUS_SQUARE_CLASS, cardBoardStatus, type CardBoardStatus } from "../../constants/laneStatus";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
@@ -30,7 +29,7 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { sw
   const wip = swimlane.wip_limit;
   const weight = swimlane.weight_limit;
   // "At limit" is the board's opt-in ambient indicator (Board.show_wip_at_limit),
-  // as on the column header; off, an at-limit row reads like an under-limit
+  // (it applies to swimlane rows only; the column header ignores it); off, an at-limit row reads like an under-limit
   // one. The two over-limit states are violations and always show.
   const state = reading.state === "at" && !showAtLimit ? "under" : reading.state;
   // The line names the metric that decided the state (laneLimitState).
@@ -39,44 +38,34 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { sw
   const limit = (showWip ? wip : weight) ?? 0;
   const numbers = `${value}/${limit}`;
   const label = showWip ? "WIP" : "Weight";
-  const fill = limit > 0 ? Math.min(100, Math.round((value / limit) * 100)) : 100;
   let text: React.ReactNode;
   let tone: string;
-  let meter: string;
   let title: string;
   if (state === "overWip") {
     text = <><span aria-hidden="true">{hard ? "⛔ " : "⚠ "}</span>Over WIP · <span className="font-semibold">{numbers}</span></>;
-    tone = "text-danger font-medium";
-    meter = "bg-danger-emphasis";
+    tone = "text-danger-on-tint font-semibold";
     title = hard ? "Over the swimlane's hard WIP limit — no override possible" : "Over the swimlane's WIP limit";
   } else if (state === "overWeight") {
     text = <>Over weight · <span className="font-semibold">{numbers}</span></>;
     // Fixed danger tokens for both over-limit states: § System signals
     // reserves "Lane over limit" as danger. The words, not the hue, tell
     // WIP from weight.
-    tone = "text-danger font-medium";
-    meter = "bg-danger-emphasis";
+    tone = "text-danger-on-tint font-semibold";
     title = "Over the swimlane's weight limit";
   } else if (state === "at") {
     text = <>{label} {numbers} · at limit</>;
     tone = "text-fg-secondary";
-    meter = "bg-warning-emphasis";
     title = `Swimlane is at its ${label === "WIP" ? "WIP" : "weight"} limit (${numbers})`;
   } else {
     text = <>{label} {numbers}</>;
     tone = "text-fg-tertiary";
-    meter = "bg-line-strong";
     title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${numbers} in the columns that count`;
   }
   return (
-    // The numbers never truncate: the text keeps its width and the meter
-    // shrinks (to nothing in a narrow panel) before it.
-    <p className={`mt-1 flex items-center gap-2 min-w-0 text-xs ${tone}`} title={title} data-testid="swimlane-limit-stat">
-      <span className="shrink-0 whitespace-nowrap">{text}</span>
-      <span aria-hidden="true" className="flex-1 min-w-0 max-w-12 lg:max-w-16 h-1 rounded-full bg-surface-active overflow-hidden">
-        <span className={`block h-full ${meter}`} style={{ width: `${fill}%` }} />
-      </span>
-    </p>
+    // One line in the band's stats cluster (#2271); the words carry the state.
+    <span className={`whitespace-nowrap text-sm ${tone}`} title={title} data-testid="swimlane-limit-stat">
+      {text}
+    </span>
   );
 }
 
@@ -113,9 +102,6 @@ interface Props {
   isFocused: boolean;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
-  sidebarWidth?: number;
-  setSidebarWidth?: (w: number) => void;
-  onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
   setColumnWidth?: (colId: number, width: number) => void;
   onInsertColumn?: (colId: number) => void;
@@ -151,7 +137,7 @@ interface Props {
    * a per-viewer preference. The `+N` popover always lists names.
    */
   hideRowChipFieldNames?: boolean;
-  /** Admin-only shortcut from the `+N` popover to Board settings → Swimlane
+  /** Admin-only shortcut from the expanded `+N` fields to Board settings -> Swimlane
    *  fields (#1458). BoardView omits it when there is no order to edit. */
   onEditFieldOrder?: () => void;
   onCardUpdated?: (card: Card) => void;
@@ -184,9 +170,12 @@ interface Props {
   getEntryCriteria?: (cardId: number, column: Column) => string[];
 }
 
+/** Lane fields shown inline in the band before `+N` (#2271). */
+const INLINE_FIELD_COUNT = 2;
+
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -197,8 +186,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   const focusTriggerRef = useRef(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
-  const [fieldsPopoverRect, setFieldsPopoverRect] = useState<DOMRect | null>(null);
-  const overflowRef = useRef<HTMLButtonElement>(null);
+  // `+N` reveals the remaining lane fields in place (#2271).
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const extraFieldsId = useId();
 
   // Row field values to render (#1140). Three guards, all deliberate:
   // an empty-string value renders nothing (never a dashed ghost chip — dashed
@@ -214,19 +204,16 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     .map((v) => ({ def: swimlaneFieldsById.get(v.field_definition), value: v.value }))
     .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def)
     .sort((a, b) => a.def.position - b.def.position);
-  const cappedPinnedFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, PINNED_ROW_CAP);
-  // Visible chips follow card density (#1417): the pin cap is a data contract,
-  // but each chip costs a line of row height, so denser tiers show more. The
-  // pins past the visible count fold into the +N popover rather than vanish.
-  const visibleChipCount = visibleRowChipCount(density);
-  const pinnedRowFields = cappedPinnedFields.slice(0, visibleChipCount);
-  const foldedPinnedFields = cappedPinnedFields.slice(visibleChipCount);
-  const foldedPinnedIds = new Set(foldedPinnedFields.map((x) => x.def.id));
-  const unpinnedRowFields = rowFieldEntries.filter((x) => !x.def.show_on_row);
-  const hiddenCount = foldedPinnedFields.length + unpinnedRowFields.length;
-  const triggerLabel = hiddenCount === 0
-    ? 'All fields'
-    : pinnedRowFields.length > 0 ? `+${hiddenCount}` : `+${hiddenCount} more`;
+  // The band shows the first two fields inline; the rest sit behind `+N` (#2271).
+  // Pinning no longer decides what shows: the band has room, so position does.
+  const inlineFields = rowFieldEntries.slice(0, INLINE_FIELD_COUNT);
+  const extraFields = rowFieldEntries.slice(INLINE_FIELD_COUNT);
+
+  // Status counts for the band's trailing stats and the collapsed strip's squares.
+  const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
+  const statusOf = (card: Card): CardBoardStatus => cardBoardStatus(card, doneColumnIds.has(card.column));
+  const overdueCount = cards.filter((c) => statusOf(c) === "overdue").length;
+  const staleCount = cards.filter((c) => statusOf(c) === "stale").length;
 
   // Row limit state (#1150), from the row's active cards in its counted columns.
   const limitUsage = laneUsage(swimlane, columns, cards);
@@ -242,7 +229,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     setRenaming(true);
   };
 
-  // Lane health status (#2243). The set pill (under the name) and the unset
+  // Lane health status (#2243). The set pill (after the name) and the unset
   // icon (right-hand cluster) are different elements, so a save that swaps
   // them hands focus to the new one explicitly, and the announcement lives
   // here because the control that saved may unmount.
@@ -334,174 +321,189 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     isDragging,
   } = useSortable({ id: `swim:${swimlane.id}`, disabled: !isAdmin });
 
+  const color = swimlane.color || "";
+  const countLabel = `${cards.length} ${cards.length === 1 ? "card" : "cards"}`;
+  const fieldTriggerText = fieldsOpen ? "Less" : `+${extraFields.length}`;
+
+  const renderField = ({ def, value }: { def: SwimlaneCustomFieldDefinition; value: string }) => (
+    <CustomFieldValueDisplay
+      key={def.id}
+      definition={def}
+      value={value}
+      variant="band"
+      adminOnly={def.is_admin_only}
+      hideName={hideRowChipFieldNames}
+      userDateFormat={userDateFormat}
+    />
+  );
+
   return (
     <>
       <div
-        ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
-        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
-        className="relative flex border-b border-line bg-surface"
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
+        className="relative py-1"
         // #2205 — lets the lane-filter notice know which lane holds keyboard focus.
         data-swimlane-id={swimlane.id}
         onMouseEnter={onHoverEnter}
         onMouseLeave={onHoverLeave}
       >
-        {/* Swimlane label — sticky to the left. The hover tint is a ::before overlay,
-            not a hover:bg-* on the panel itself: a translucent hover background replaces
-            the opaque bg-surface and lets cards scrolled underneath show through. */}
+        {/* Swimlane band (#2271): a full-width header tinted with the lane color,
+            aligned to the grid (the 16px margins are the first and last gutters).
+            It wraps to a second line when it runs out of room. */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-surface border-l-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface-hover/30 before:opacity-0 hover:before:opacity-100 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
-          style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
+          className={`group relative mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2.5 ${color ? "" : "bg-surface border-line"}`}
+          style={color ? { backgroundColor: `color-mix(in srgb, ${color} 12%, rgb(var(--surface)))`, borderColor: `color-mix(in srgb, ${color} 45%, rgb(var(--border)))` } : undefined}
           data-tour-step="swimlane"
-          // The card detail sheet never covers the lane labels (#1914).
-          data-lane-label
+          data-testid="swimlane-band"
           data-no-pan
-          onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
+          // A double-click on a control inside the band (rename input, chevron, +N, icons) is
+          // that control's own gesture, never "open Edit Swimlane".
+          onDoubleClick={isAdmin ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, [role=button]")) setEditing(true); } : undefined}
         >
-          {/* Over-WIP top accent (#1150), the row's version of the column
-              header's strip: an inset line, so the panel does not grow. */}
+          {/* Over-WIP top accent (#1150): an inset line, so the band does not grow. */}
           {limitState === "overWip" && (
-            <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-danger-emphasis" />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-full bg-danger-emphasis" />
           )}
-          {/* Drag handle */}
           {isAdmin && (
             <span
               {...attributes}
               {...listeners}
-              className={`text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
+              className="text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity"
               title="Drag to reorder"
             >
               ⠿
             </span>
           )}
+          <button type="button"
+            data-tour-step="swimlane-collapse"
+            onClick={onToggleCollapse}
+            className="relative text-fg-secondary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
+            title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
+          >
+            {/* Points down when expanded; turns 90 degrees to point right when collapsed. */}
+            <svg
+              className={`w-4 h-4 transition-transform motion-reduce:transition-none ${collapsed ? "-rotate-90" : ""}`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            <ActiveUnderline active={collapsed} placement="below" />
+          </button>
+          {color && <span aria-hidden="true" data-testid="swimlane-color-square" className="w-3 h-3 rounded-[3px] shrink-0" style={{ backgroundColor: color }} />}
 
-          <div className="flex-1 min-w-0">
-            <div className={collapsed ? "flex items-center gap-1.5 min-w-0" : "min-w-0"}>
-            {renaming ? (
-              <input
-                ref={inputRef}
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(true); } // commitRename manages its own error state (renameError) and never rejects
-                }}
-                onBlur={() => void commitRename()}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full text-sm bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
+          {renaming ? (
+            <input
+              ref={inputRef}
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void commitRename(true); } // commitRename manages its own error state (renameError) and never rejects
+              }}
+              onBlur={() => void commitRename()}
+              onClick={(e) => e.stopPropagation()}
+              className="min-w-0 w-48 text-[17px] font-semibold bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
+            />
+          ) : (
+            <span
+              className="min-w-0 max-w-full truncate text-[17px] font-semibold text-fg"
+              title={isAdmin ? undefined : swimlane.name}
+              data-testid="swimlane-name"
+            >
+              {isAdmin ? (
+                // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
+                <button
+                  type="button"
+                  ref={renameTriggerRef}
+                  className="block max-w-full truncate text-left font-semibold cursor-text rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  title={`${swimlane.name} (click to rename)`}
+                  onClick={(e) => { e.stopPropagation(); startRenaming(); }}
+                >
+                  {swimlane.name}
+                </button>
+              ) : (
+                swimlane.name
+              )}
+            </span>
+          )}
+          {!collapsed && isAdmin && swimlane.contact_email && <span className="text-xs text-fg-secondary truncate min-w-0 max-w-48">{swimlane.contact_email}</span>}
+
+          {/* Health status (#2243), after the name. Collapsed: shape only. The stop on
+              double-click is required: the band's double-click opens the edit modal for
+              admins, and the portaled popover's events bubble through React to it. */}
+          {showHealthPill && (
+            <span className="shrink-0 inline-flex" onDoubleClick={(e) => e.stopPropagation()}>
+              <HealthStatusControl
+                entityKind="swimlane"
+                mode="basic"
+                entityName={swimlane.name}
+                parentName={null}
+                canEdit={isAdmin}
+                scope="lane"
+                shapeOnly={collapsed}
+                collapseLabel={!collapsed}
+                onSave={saveHealth}
+                onAnnounce={setHealthAnnouncement}
+                autoFocus={healthFocus === "pill"}
+                onAutoFocused={clearHealthFocus}
+                onOpenChange={onPillOpenChange}
+                {...healthFields}
               />
-            ) : (
-              <p
-                className={`text-sm text-fg-secondary truncate ${isAdmin ? "cursor-text hover:text-fg" : ""}`}
-                title={isAdmin ? undefined : swimlane.name}
+            </span>
+          )}
+          <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
+          {renameError && <span className="text-xs text-danger-on-tint" role="alert">{renameError}</span>}
+
+          {/* The first two lane fields as "Label value", then `+N`. They stay in the band
+              when the lane is collapsed (the band is the collapsed lane's header). */}
+          {inlineFields.map(renderField)}
+          {extraFields.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setFieldsOpen((o) => !o); }}
+                aria-expanded={fieldsOpen}
+                aria-controls={extraFieldsId}
+                // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
+                aria-label={`${fieldTriggerText}: ${fieldsOpen ? "Hide" : "Show"} ${extraFields.length} more field ${extraFields.length === 1 ? "value" : "values"} for ${swimlane.name}`}
+                className="inline-flex items-center min-h-6 text-xs px-2 py-0.5 rounded-full border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
-                {isAdmin ? (
-                  // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
+                {fieldTriggerText}
+              </button>
+              <div id={extraFieldsId} className="contents" data-testid="swimlane-extra-fields">
+                {fieldsOpen && extraFields.map(renderField)}
+                {fieldsOpen && isAdmin && onEditFieldOrder && (
                   <button
                     type="button"
-                    ref={renameTriggerRef}
-                    className="block max-w-full truncate text-left cursor-text rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    title="Click to rename"
-                    onClick={(e) => { e.stopPropagation(); startRenaming(); }}
+                    onClick={(e) => { e.stopPropagation(); onEditFieldOrder(); }}
+                    className="text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
-                    {swimlane.name}
+                    Change field order
                   </button>
-                ) : (
-                  swimlane.name
                 )}
-              </p>
-            )}
-            {/* Collapsed lane (#2243): a set status rides inline, shape only, so
-                the py-1 row does not grow (-my-0.5 cancels the pill's 4px
-                excess over the 20px name line); an unset one shows nothing here. */}
-            {collapsed && showHealthPill && (
-              <span className="shrink-0 inline-flex -my-0.5" onDoubleClick={(e) => e.stopPropagation()}>
-                <HealthStatusControl
-                  entityKind="swimlane"
-                  mode="basic"
-                  entityName={swimlane.name}
-                  parentName={null}
-                  canEdit={isAdmin}
-                  scope="lane"
-                  shapeOnly
-                  onSave={saveHealth}
-                  onAnnounce={setHealthAnnouncement}
-                  autoFocus={healthFocus === "pill"}
-                  onAutoFocused={clearHealthFocus}
-                  onOpenChange={onPillOpenChange}
-                  {...healthFields}
-                />
-              </span>
-            )}
-            </div>
-            {/* Expanded lane (#2243): a set status is its own line under the
-                name. The stop is required: the panel's double-click opens the
-                edit modal for admins, and the portaled popover's events bubble
-                through React to it. */}
-            {!collapsed && showHealthPill && (
-              <div className="mt-1 flex min-w-0" onDoubleClick={(e) => e.stopPropagation()}>
-                <HealthStatusControl
-                  entityKind="swimlane"
-                  mode="basic"
-                  entityName={swimlane.name}
-                  parentName={null}
-                  canEdit={isAdmin}
-                  scope="lane"
-                  collapseLabel
-                  onSave={saveHealth}
-                  onAnnounce={setHealthAnnouncement}
-                  autoFocus={healthFocus === "pill"}
-                  onAutoFocused={clearHealthFocus}
-                  onOpenChange={onPillOpenChange}
-                  {...healthFields}
-                />
               </div>
-            )}
-            <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
-            {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
+            </>
+          )}
+
+          <div className="flex-1 min-w-0" />
+
+          {/* Trailing stats: overdue and stale (omitted at zero), the limit line (#1150;
+              a calm one folds away when collapsed, an over-limit one never does), then
+              the card count. Text always carries the state; color only reinforces it. */}
+          <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
+            {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
+            {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
             {showLimitStat && limitReading !== null && (
               <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
             )}
-            {renameError && <p className="text-xs text-danger truncate" role="alert">{renameError}</p>}
-            {/* Gated on !collapsed, matching contact_email above: a collapsed
-                row is py-1 and exists to give vertical space back, so stacked
-                chips would undo the gesture the user just made. The +N trigger
-                disappears with them, so nothing is silently truncated. */}
-            {!collapsed && rowFieldEntries.length > 0 && (
-              <div className="flex flex-col items-start gap-1 mt-1 min-w-0">
-                {pinnedRowFields.map(({ def, value }) => (
-                  <CustomFieldValueDisplay
-                    key={def.id}
-                    definition={def}
-                    value={value}
-                    variant="row-chip"
-                    adminOnly={def.is_admin_only}
-                    hideName={hideRowChipFieldNames}
-                    userDateFormat={userDateFormat}
-                  />
-                ))}
-                {/* With names hidden, the popover is the only touch/keyboard path to a
-                    value's field name, so an all-pinned row keeps a trigger too (#1509). */}
-                {(hiddenCount > 0 || (hideRowChipFieldNames && pinnedRowFields.length > 0)) && (
-                  <button
-                    ref={overflowRef}
-                    onClick={(e) => {
-                      // The label panel's parent has onDoubleClick -> edit for
-                      // admins; without this the click bubbles into it.
-                      e.stopPropagation();
-                      setFieldsPopoverRect(e.currentTarget.getBoundingClientRect());
-                    }}
-                    aria-haspopup="dialog"
-                    aria-expanded={fieldsPopoverRect !== null}
-                    // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
-                    aria-label={`${triggerLabel}: Show all ${rowFieldEntries.length} field values for ${swimlane.name}`}
-                    className="inline-flex items-center min-h-6 text-xs px-1.5 py-0.5 rounded border border-line text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    {triggerLabel}
-                  </button>
-                )}
-              </div>
-            )}
+            <span className="text-fg-secondary whitespace-nowrap" data-testid="swimlane-card-count">{countLabel}</span>
           </div>
+
           <div className="flex items-center gap-1 shrink-0">
             {/* Unset lane, admins only (#2243): a hover/focus-revealed icon,
                 always in the DOM so Tab reaches it. Non-admins get nothing. */}
@@ -523,7 +525,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 />
               </span>
             )}
-            {!collapsed && isAdmin && (
+            {isAdmin && (
               <button type="button"
                 onClick={() => setEditing(true)}
                 className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
@@ -550,26 +552,17 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </svg>
               <ActiveUnderline active={isFocused} placement="below" />
             </button>
-            <button type="button"
-              data-tour-step="swimlane-collapse"
-              onClick={onToggleCollapse}
-              className="relative text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-              aria-pressed={collapsed}
-              aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
-              title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
-            >
-              <svg
-                className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              <ActiveUnderline active={collapsed} placement="below" />
-            </button>
           </div>
         </div>
 
+        {/* Grid row. Expanded: one cell per column. Collapsed: a strip of count + status
+            squares per column, aligned to the same grid. */}
+        <div
+          ref={rowRef}
+          className="relative flex"
+          style={{ minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
+          data-testid={collapsed ? "swimlane-collapsed-strip" : undefined}
+        >
         {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
         {columns.map((col, colIdx) => {
           const cellCards = cards.filter((c) => c.column === col.id);
@@ -578,14 +571,14 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const sepHighlighted = hoveredSepIndex === colIdx;
 
           // The sep sits to the LEFT of col[colIdx], so it resizes the column to its left:
-          //   colIdx === 0  → resize the swimlane sidebar
+          //   colIdx === 0  → insert only (no label panel to resize)
           //   colIdx  >  0  → resize columns[colIdx - 1]
           // This mirrors the header where ColumnSeparator after col[i] resizes col[i].
           const prevCol = colIdx > 0 ? columns[colIdx - 1] : null;
-          const sepStartWidth = prevCol
-            ? (colWidths?.get(prevCol.id) ?? 220)
-            : (sidebarWidth ?? 220);
-          const canResizeSep = prevCol ? !!setColumnWidth : !!setSidebarWidth;
+          const sepStartWidth = prevCol ? (colWidths?.get(prevCol.id) ?? 220) : 0;
+          // The first separator has nothing to its left to resize since the label panel
+          // went away (#2271): it only inserts a column.
+          const canResizeSep = prevCol ? !!setColumnWidth : false;
 
           const handleSepMouseDown = (canResizeSep || onInsertColumn)
             ? (e: React.MouseEvent) => {
@@ -598,7 +591,6 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   if (!didDrag && Math.abs(delta) > 4) didDrag = true;
                   if (didDrag) {
                     if (prevCol && setColumnWidth) setColumnWidth(prevCol.id, startWidth + delta);
-                    else if (!prevCol && setSidebarWidth) setSidebarWidth(startWidth + delta);
                   }
                 };
                 const onUp = () => {
@@ -666,24 +658,32 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           }
 
           if (collapsed) {
-            // Swimlane collapsed — full-width cell showing card count as a pill badge
-            const matchCount = filteredCardIds
-              ? cellCards.filter((c) => filteredCardIds.has(c.id)).length
-              : 0;
-            const hasMatch = matchCount > 0;
-            const displayCount = hasMatch ? matchCount : cellCount;
+            // Collapsed lane (#2271): a strip cell per column. The card count is always
+            // text (an en dash for none); one 10px square per card follows, colored by
+            // status. A filter shows only the matching cards, and a match pulses.
+            const shown = filteredCardIds ? cellCards.filter((c) => filteredCardIds.has(c.id)) : cellCards;
+            const hasMatch = !!filteredCardIds && shown.length > 0;
+            const tally = (st: CardBoardStatus) => shown.filter((c) => statusOf(c) === st).length;
+            const summary = shown.length === 0
+              ? `${col.name}: no cards`
+              : `${col.name}: ${shown.length} ${shown.length === 1 ? "card" : "cards"}, ${tally("overdue")} overdue, ${tally("stale")} stale`;
             return (
               <div key={col.id} className="contents">
                 {sep}
                 <div
-                  className={`shrink-0 flex items-center justify-center bg-canvas${hasMatch ? " animate-pulse motion-reduce:animate-none" : ""}`}
+                  className={`shrink-0 flex flex-wrap content-center items-center gap-x-2 gap-y-1 rounded-lg bg-canvas px-3 py-2.5 min-h-10${hasMatch ? " animate-pulse motion-reduce:animate-none ring-1 ring-inset ring-info/50" : ""}`}
                   style={{ width: cellWidth }}
+                  data-testid={`swimlane-strip-cell-${col.id}`}
                 >
-                  {displayCount > 0 ? (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-primary-emphasis/20 text-info" : "bg-surface text-fg-tertiary"}`}>
-                      {displayCount}
+                  <span className="sr-only">{summary}</span>
+                  <span aria-hidden="true" className="text-sm font-semibold text-fg">{shown.length > 0 ? shown.length : "–"}</span>
+                  {shown.length > 0 && (
+                    <span aria-hidden="true" className="flex flex-wrap items-center gap-1">
+                      {shown.map((c) => (
+                        <span key={c.id} data-status={statusOf(c)} className={`w-2.5 h-2.5 rounded-[2px] ${STATUS_SQUARE_CLASS[statusOf(c)]}`} />
+                      ))}
                     </span>
-                  ) : null}
+                  )}
                 </div>
               </div>
             );
@@ -732,6 +732,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           <div className="flex-1 bg-sunken/70" />
           <div className="w-px self-stretch bg-surface-active/70" />
         </div>
+        </div>
         {/* Bottom resize handle — drag to set row min-height */}
         {setSwimlaneHeight && (
           <div
@@ -742,20 +743,6 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           </div>
         )}
       </div>
-
-      {fieldsPopoverRect && (
-        <SwimlaneFieldsPopover
-          swimlaneName={swimlane.name}
-          entries={rowFieldEntries}
-          foldedPinnedIds={foldedPinnedIds}
-          anchorRect={fieldsPopoverRect}
-          userDateFormat={userDateFormat}
-          onEdit={isAdmin ? () => setEditing(true) : undefined}
-          onEditOrder={isAdmin ? onEditFieldOrder : undefined}
-          onDismiss={() => setFieldsPopoverRect(null)}
-          triggerRef={overflowRef}
-        />
-      )}
 
       {isAdmin && editing && (
         <EditSwimlaneModal

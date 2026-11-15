@@ -32,28 +32,35 @@ Board admins can rename a board without opening the settings modal: click the bo
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
 
 - Column headers are sticky on horizontal scroll.
-- Over-limit columns gain a 2 px top accent strip — red for over-WIP, amber for over-weight — visible across the room. The single stat line beneath the column name flips to the over-limit message (e.g. `⚠ Over WIP · 6/5`); when calm, only `N cards` is shown. *Changed in 1.1 (#963).*
+- Column headers stay visible when the board scrolls vertically, and the grid scrolls sideways inside its own box when the window is narrow.
+- Each column header is a panel tinted with the column color: color dot, name (it wraps rather than truncating), an add-card button, a thin WIP meter and a count line. With no limit the line reads `2 cards` and there is no meter; under a limit it reads `2 / 4` with the meter in the column color; at the limit `4 / 4` with a full meter; over the limit `8 / 6 over` in warning text with a full warning-colored meter. A weight budget that is exceeded adds `Weight 14/10` to the same line. *Changed in 1.3 (#2270).*
 - When enforcement is enabled, moves into a full column are blocked (`409` error); board admins can override with `?force=true` (soft) or are denied entirely under hard mode.
 
 ### Adding a card to a cell
 
 > **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
 
-An empty cell shows a dashed inset border with **+ Add card** centered; the affordance highlights on hover or keyboard focus.
+An empty cell shows one quiet **+**; the whole cell is the add target. On hover or keyboard focus it gains a dashed edge and the label **Add card**. Its accessible name is `Add card to {column} in {swimlane}`. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.
 
 - Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
-- The dashed border disappears the moment a card lives in the cell; populated cells keep the **+ Add card** button anchored at the bottom for additional cards.
+- A populated cell keeps the **+ Add card** button anchored at the bottom for additional cards. The add-card button in a column header opens the new-card input in that column's first visible lane.
 - Double-click and right-click on a cell still work for power users. Since 1.3 a right-click **on a card** opens that card's [actions menu](#card-actions-menu) instead; right-click the empty space in the cell to add a card.
 
 Card creation requires the column's *Allow card creation* setting and at least the Member role.
 
 ## Swimlanes
 
-Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), so you can identify swimlanes at a glance even on a dense board.
+Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane has a full-width **header band** tinted with the swimlane's color. Left to right it holds:
+
+- a collapse chevron (it points down when expanded and turns to point right when collapsed);
+- a small square in the swimlane color, then the name in larger semibold type (admins also see the contact email, and a set [health status](health-status.md#lane-status) follows the name);
+- the swimlane's first two field values as `Label value` pairs, then a **+N** button for the rest (it reveals them in place and then reads **Less**; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band));
+- at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the card count (`7 cards`).
+
+The band wraps onto a second line when it runs out of room. The old left label panel is gone, so the cards start at the left edge of the board.
 
 **Resizing:**
 
-- **Label sidebar:** drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width persists per board in localStorage.
 - **Row height:** drag the bottom edge of any swimlane row to set a minimum height. Height persists per swimlane per board in localStorage.
 
 Each swimlane has the following fields:
@@ -61,8 +68,8 @@ Each swimlane has the following fields:
 | Field | Description |
 |---|---|
 | Name | Required; unique per board |
-| Color | Left-edge stripe color on the label panel. Pick a preset or a [custom color](#custom-colors) |
-| Contact email | Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers) |
+| Color | Tint and color square on the header band. Pick a preset or a [custom color](#custom-colors) |
+| Contact email | Optional; set when you create the swimlane. Displayed in the header band for admins only (hidden from members and viewers) |
 | Notes | Optional free-text field on the data model; not currently exposed in the UI |
 | Health status | Optional; set by board admins on each lane. Separate from the board's own status. See [Lane status](health-status.md#lane-status) |
 | Position | Controls row order on the board |
@@ -73,15 +80,16 @@ Each swimlane has the following fields:
 !!! note "Contact email isn't editable after creation yet"
     Contact email can only be set in the **Add Swimlane** dialog. The **Edit Swimlane** modal covers name, color, swimlane field values and [limits](#swimlane-limits), not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.
 
-Click the chevron on the label panel to collapse a swimlane and save vertical space. When collapsed:
+Click the chevron on the band to collapse a swimlane and save vertical space. When collapsed:
 
-- The row shrinks to its minimum height; the stored row min-height is ignored.
-- Each column cell keeps the column's full width and renders as a centered count pill (empty cells show nothing).
-- A set health status stays visible as a shape beside the lane name; a lane with no status shows nothing extra.
-- The contact email and edit (✎) button are hidden; the drag handle and the focus-mode crosshair remain.
-- Click the chevron again to expand and restore full card visibility.
+- The band stays, with its fields, counts and health status, and the cells are replaced by one strip aligned to the columns. The stored row min-height is ignored.
+- Under each column the strip shows the swimlane's card count (an en dash when there are none) and one small square per card: red for overdue, orange for stale, blue otherwise. The number is always there, so the squares never carry meaning alone; screen readers read `Qualified: 4 cards, 1 overdue, 2 stale`. A card in a done column never counts as stale.
+- While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).
+- A calm row-limit line is hidden, and an over-limit one stays.
+- The edit (✎) button, drag handle and focus-mode crosshair remain.
+- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's **View** menu (**Collapse all** and **Expand all** under swimlanes).
 
-Admins can double-click the swimlane label to open the Edit Swimlane modal.
+Admins can double-click the swimlane band to open the Edit Swimlane modal.
 
 ### Swimlane limits
 
@@ -95,16 +103,16 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 - **Columns that count.** Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.
 - **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits**, **Enforce WIP hard** and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway. **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns.
 
-**What the row shows.** Once a row has a limit, its label panel shows one state line under the name, worst state first:
+**What the row shows.** Once a row has a limit, its band shows one state line in the right-hand stats, worst state first:
 
 | State | Line |
 |---|---|
 | Under the limit | `WIP 4/6` |
-| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on (as for columns); otherwise the line reads `WIP 5/5` |
-| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the label panel (`⛔` when the row is in hard mode) |
+| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on; otherwise the line reads `WIP 5/5` |
+| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the band (`⛔` when the row is in hard mode) |
 | Over the weight limit | `Over weight · 18/12` in red |
 
-The small bar next to the text is decorative; the words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
+The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
 
 **What a move does.** A move is checked against a row only when it adds to the row's count: the card enters one of the row's counted columns from another row, from a column of this row that does not count, or by being created or restored there. Moving a card between two counted columns of the same row never trips the row's limit. While you drag a card over a cell whose column or row is full, the cell gets a red ring and names the limit (for example `⚠ WIP limit 5/5 · Payouts`). With the keyboard, the screen reader announcement for each cell includes the same verdict. If you drop anyway, the move is refused with the same toast as a column limit, naming the row; when a column limit and a row limit both trip, the toast names both. Board admins get **Move anyway (admin override)** for a soft limit, never for a hard one.
 
@@ -116,7 +124,7 @@ Board import restores row limits as exported and does not check them, as with co
 
 Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction, which helps on dense boards with many swimlanes.
 
-**Entering focus mode:** hover over any swimlane label panel to reveal the crosshair icon (⊙) in the top-right corner of the label, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) at its right end, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
 
 **What changes when focus is active:**
 
@@ -152,8 +160,8 @@ Click a column header to collapse it to a narrow vertical strip. When collapsed:
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color** — a preset or a [custom color](#custom-colors)
-- **WIP limit** — maximum number of active cards allowed. The column header carries a single calm `N cards` stat line when within budget; when the limit is exceeded the line flips to `⚠ Over WIP · count/limit` and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
-- **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows `Weight weight/limit` and the header gains a 2 px amber top accent strip. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **WIP limit** — maximum number of active cards allowed. The column header shows `count / limit` with a meter; when the limit is exceeded the line reads `count / limit over` in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
+- **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds `Weight weight/limit` in warning text. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 - **Intake column note** (since 1.3) — the board's first column that is not done is its intake column, where new work arrives. Its **Edit settings** shows a short note under the **Done column** setting: Analytics never names that column as the bottleneck, because a growing queue there is demand, not a hold-up. It still appears in cumulative flow, WIP, WIP aging, dwell, and cycle-time. **More** explains why and links to [how the bottleneck is chosen](analytics.md#bottleneck). The role follows position: reordering columns, or adding a not-done column to the left of the intake column, moves it to the new first not-done column. **Add Column** tells you when the new column will take over the role.
@@ -176,7 +184,7 @@ The 16 px separators between columns and between swimlane rows are interactive i
 
 Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator: the column highlight extends through every row separator, and the row highlight extends across the full board width.
 
-The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the swimlane label sidebar on drag.
+The far-left separator (before the first board column) follows the same design. There is no swimlane sidebar to resize, so it only inserts a column at the first position on click.
 
 ### Column trash zone
 
@@ -215,7 +223,7 @@ See [Field Enforcement](../architecture/field-enforcement.md).
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-The column header's stat line only flips out of its calm state to warn about the *over*-limit case (`⚠ Over WIP · count/limit`). A column sitting exactly *at* its WIP limit still reads as an ordinary `N cards` line. The **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board Settings → Rules → Limit enforcement**) adds ambient visibility for that at-limit state:
+**As of 1.3 (#2270) the column header always shows `count / limit` and a full meter at the limit, so this setting no longer changes the header.** It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm `N cards` state for the *over*-limit case, and the **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board Settings → Rules → Limit enforcement**) added the at-limit state:
 
 - **Off (default):** a column at its WIP limit shows `N cards`, unchanged from the calm state.
 - **On:** a column at its WIP limit shows `WIP N/N` in place of the card count, styled the same as the calm state (`text-fg-muted`, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)".
@@ -239,7 +247,7 @@ Columns, swimlanes, new card labels and a [group's shared labels](groups.md#grou
 
 ## Cards
 
-Cards are compact tiles with a full colored border indicating priority. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense — see [Card density](#card-density) below). The colored border carries priority, except at Comfortable density, where an overdue card takes the red (danger) border and a due-soon card the amber (warning) border; a manual block is red at every density. The Compact card layout is never tinted. When urgency owns the border, priority is read from the card's accessible name and the peek. The assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.
+Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the end of the label row (at the bottom-right under Classic). Under the **Classic** [preset](#board-presets), cards keep their earlier colored priority border and urgency badge.
 
 ### Card density
 
@@ -247,17 +255,21 @@ Cards are compact tiles with a full colored border indicating priority. **How mu
 
 A board admin chooses one of three layouts in **Board Settings → Display → Card density**:
 
-| Tier | Best for | What appears on the card face | Pinned swimlane values per row |
+| Tier | Best for | What appears on the card face | Pinned swimlane values per row (no effect on the swimlane band since 1.3, #2303) |
 |---|---|---|---|
-| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
-| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count | 5 |
-| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge | 8 |
+| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
+| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count | 5 |
+| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout) | 8 |
 
-**Urgency badge:** at Comfortable / Standard it picks the most urgent of Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date after a flag icon (overdue) or a stopwatch icon (due soon), so the date is never lost when the standalone date pill is suppressed. At Comfortable, an Overdue or Due soon badge also tints the card border (red or amber) so urgency reads at a glance; priority then moves to the accessible name and the peek. Dense intentionally keeps the per-field cues, and its due-date pill carries the same flag or stopwatch icon; the badge is a *replacement* at lower densities, not an addition. The flag and stopwatch icons appear under the **Default** [board preset](#board-presets); with **Classic** or no preset the badge keeps its earlier ⚑ / ⏱ text symbols and the dense due date stays plain colored text.
+**Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under **Classic** or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.
+
+### Show chips
+
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
-**Upgrading from 1.0:** existing boards are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
+**Upgrading from 1.0:** existing boards are migrated to **Dense** so they keep their compact density until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
 
 #### Personal density override
 
@@ -301,10 +313,10 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Rich text with a toolbar (bold, italic, code, lists, heading, blockquote); stored as markdown. See [Card Descriptions](card-descriptions.md). |
-| Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border (except overdue/due-soon cards at Comfortable, which take the urgency hue) and a filled badge on the card face (low is unmarked) |
+| Priority | `low` / `medium` / `high` / `urgent`; shown as a colored border and a filled badge on the card face under the Classic preset, and otherwise read from the card's accessible name and the peek (only overdue cards have a colored border; Dense shows an explicit badge) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
-| Due date | Optional date; past dates are disabled in the picker; shown on the card as a date inside the urgency badge (or the dense due-date pill), with a flag icon when overdue and a stopwatch icon when due soon; overdue dates appear in red |
+| Due date | Optional date; past dates are disabled in the picker; shown on the card in the status line (for example *Overdue Nov 12* or *Due in 3 days*) with a flag icon; only an overdue card has a colored (red) border |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |
@@ -454,7 +466,7 @@ The **Card layout** control in the toolbar's **View** menu switches between two 
 
 | Mode | Description |
 |---|---|
-| **Expanded** (default) | Full card face with title, priority border, label pills, assignee avatar, checklist progress, and due date |
+| **Expanded** (default) | Full card face with title, label pills, assignee avatar, checklist progress, and a status line (only an overdue card has a colored border) |
 | **Compact** | Narrower cards showing title and priority indicator only — useful on dense boards with many cards per cell. An aging card's title starts with a small bar meter that shows its aging step, since compact cards have no `Stale · Nd` badge (see [Card aging tint](card-history.md#card-aging-tint)) |
 
 The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.
@@ -664,7 +676,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board exactly as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13) and the number of pinned swimlane chips shown per row, which follows card density as everywhere else (#1417, owner decision 2026-11-13): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.

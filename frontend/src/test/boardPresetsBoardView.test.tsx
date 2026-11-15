@@ -282,10 +282,10 @@ describe('BoardView — board presets (#1146)', () => {
       })
     }
 
-    // Named Classic exception (#1417, owner decision 2026-11-13): the pinned
-    // swimlane chip cap follows card density in Classic too. The snapshots above
-    // use no swimlane fields, so they cannot see it; this fixture pins it.
-    describe('pinned swimlane chips follow the board density (#1417 named exception)', () => {
+    // #2271: the swimlane band shows the first two lane fields at every density and
+    // folds the rest behind +N, in Classic too (the redesign replaces the grid for every
+    // preset, so the old #1417 density-following chip cap no longer exists).
+    describe('swimlane band fields (#2271)', () => {
       const defs = Array.from({ length: 6 }, (_, i) => ({
         id: i + 1, uid: `sfuid00000${i + 1}`, name: `Pin${i + 1}`, field_type: 'text' as const, choices: [], position: i,
         show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
@@ -299,16 +299,10 @@ describe('BoardView — board presets (#1146)', () => {
           swimlanes: [{ ...base.swimlanes[0], custom_field_values: defs.map((d) => ({ field_definition: d.id, value: `val${d.id}` })) }],
         })
       }
-      it.each([
-        ['comfortable', 3],
-        ['standard', 5],
-        ['dense', 6],
-      ] as const)('Classic %s shows %i of 6 pinned chips', (card_density, shown) => {
+      it.each(['comfortable', 'standard', 'dense'] as const)('Classic %s shows 2 of 6 fields and +4', (card_density) => {
         renderBoard(pinnedBoard(card_density), 'preset=classic')
-        expect(screen.queryAllByText(/^val\d$/)).toHaveLength(shown)
-        if (shown < 6) {
-          expect(screen.getByRole('button', { name: `+${6 - shown}: Show all 6 field values for ${'Customer A'}` })).toBeInTheDocument()
-        }
+        expect(screen.queryAllByText(/^val\d$/)).toHaveLength(2)
+        expect(screen.getByRole('button', { name: '+4: Show 4 more field values for Customer A' })).toBeInTheDocument()
       })
     })
 
@@ -352,8 +346,8 @@ describe('BoardView — board presets (#1146)', () => {
       }
       renderBoard(makeBoard({ card_density: 'standard' }), 'preset=default')
       expect(badge().textContent).toBe('Due tomorrow')
-      expect(badge().className).toContain('text-warning-on-tint')
-      expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon"]')).not.toBeNull()
+      expect(badge().className).toContain('text-fg-secondary')
+      expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
     })
 
     it('a board with no default and no link writes nothing and shows the trigger at rest', () => {
@@ -815,5 +809,108 @@ describe('BoardView — board presets (#1146)', () => {
       view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
     })
+  })
+})
+
+describe('BoardView — Show chips (#2272)', () => {
+  // Card 1 overdue, 2 due soon, 3 stale, 4 on track, 5 stale but in the done column.
+  const chipBoard = () => makeBoard({
+    columns: [
+      ...makeBoard().columns,
+      { ...makeBoard().columns[1], id: 12, uid: 'coluid000003', name: 'Done', position: 2, is_done: true },
+    ],
+    cards: [
+      makeCard(1, { title: 'Overdue one', due_date: '2026-06-10' }),
+      makeCard(2, { title: 'Soon one', due_date: '2026-06-16' }),
+      makeCard(3, { title: 'Stale one', is_stale: true }),
+      makeCard(4, { title: 'Calm one' }),
+      makeCard(5, { title: 'Finished one', is_stale: true, column: 12 }),
+    ],
+  })
+  const chip = (name: RegExp) => screen.getByRole('button', { name })
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true })
+    vi.setSystemTime(NOW)
+    localStorage.clear()
+    urlHistory.length = 0
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('shows All cards, Overdue, Stale and Due soon with whole-board counts and the totals', () => {
+    renderBoard(chipBoard())
+    expect(chip(/^All cards 5 cards$/)).toHaveAttribute('aria-pressed', 'true')
+    expect(chip(/^Overdue 1 card$/)).toHaveAttribute('aria-pressed', 'false')
+    // Stale ignores a done column, like the card face.
+    expect(chip(/^Stale 1 card$/)).toBeInTheDocument()
+    expect(chip(/^Due soon 1 card$/)).toBeInTheDocument()
+    expect(screen.getByTestId('board-totals')).toHaveTextContent('1 swimlane · 3 columns · 5 cards')
+  })
+
+  it('ANDs with an active Filter-panel filter: only cards matching both stay', () => {
+    // Two overdue cards, only one high priority; a high-priority card that is not overdue.
+    renderBoard(
+      makeBoard({
+        cards: [
+          makeCard(1, { title: 'Overdue high', due_date: '2026-06-10', priority: 'high' }),
+          makeCard(2, { title: 'Overdue medium', due_date: '2026-06-10', priority: 'medium' }),
+          makeCard(3, { title: 'Calm high', priority: 'high' }),
+        ],
+      }),
+      'show=overdue&f_priorities=high',
+    )
+    expect(screen.getByText('Overdue high')).toBeInTheDocument()
+    expect(screen.queryByText('Overdue medium')).not.toBeInTheDocument()
+    expect(screen.queryByText('Calm high')).not.toBeInTheDocument()
+  })
+
+  it('swatches reuse the collapsed-lane square tokens', () => {
+    renderBoard(chipBoard())
+    expect(chip(/^Overdue/).querySelector('span[aria-hidden="true"]')).toHaveClass('bg-danger-emphasis')
+    expect(chip(/^Stale/).querySelector('span[aria-hidden="true"]')).toHaveClass('bg-warning-emphasis')
+  })
+
+  it('choosing a chip hides non-matching cards and writes ?show= to the URL; All cards clears it', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderBoard(chipBoard())
+    await user.click(chip(/^Overdue/))
+    expect(urlHistory[urlHistory.length - 1].get('show')).toBe('overdue')
+    expect(chip(/^Overdue/)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Overdue one')).toBeInTheDocument()
+    expect(screen.queryByText('Soon one')).not.toBeInTheDocument()
+    expect(screen.queryByText('Stale one')).not.toBeInTheDocument()
+    // Counts keep showing the whole board.
+    expect(chip(/^All cards 5 cards$/)).toBeInTheDocument()
+
+    await user.click(chip(/^All cards/))
+    expect(urlHistory[urlHistory.length - 1].has('show')).toBe(false)
+    expect(screen.getByText('Soon one')).toBeInTheDocument()
+  })
+
+  it('reads ?show= on load and the active chip is marked by weight and border, not color alone', () => {
+    renderBoard(chipBoard(), 'show=stale')
+    expect(chip(/^Stale/)).toHaveAttribute('aria-pressed', 'true')
+    expect(chip(/^Stale/).className).toContain('font-semibold')
+    expect(chip(/^Stale/).className).toContain('border-info')
+    expect(screen.getByText('Stale one')).toBeInTheDocument()
+    expect(screen.queryByText('Overdue one')).not.toBeInTheDocument()
+  })
+
+  it('ignores an unknown ?show= value', () => {
+    renderBoard(chipBoard(), 'show=bogus')
+    expect(chip(/^All cards/)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Calm one')).toBeInTheDocument()
+  })
+
+  it('a chip is a quick view: it is not written to storage', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderBoard(chipBoard())
+    await user.click(chip(/^Due soon/))
+    expect(Object.keys(localStorage).some((k) => /filters/.test(k) && /due_soon/.test(localStorage.getItem(k) ?? ''))).toBe(false)
+  })
+
+  it('says so when only the chip empties the board, and does not count chip-hidden cards as filtered out', () => {
+    renderBoard(makeBoard({ cards: [makeCard(1, { title: 'Calm one' })] }), 'show=overdue')
+    expect(screen.getByText(/No cards match the selected Show chip/)).toBeInTheDocument()
   })
 })

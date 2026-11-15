@@ -55,9 +55,9 @@ export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByC
           An opaque tab hanging from the cell's top edge (#459). Opaque, for the same
           reason as the cell's blocked-drop label: the card's border would otherwise run
           through the digits of a value as wide as `12.0d`. Exactly 13px tall from the top
-          edge because that is the room above a card's contents: the cell's 8px padding,
-          the card's 1px border, then the selection checkbox's 4px inset. The first title
-          line starts lower still, at 17px (15px in the compact grid). No other corner of
+          edge because that is the room above a card's contents: the cell's 6px well
+          (5px padding, 1px border), the card's 1px border, then the selection checkbox's 7px inset. The first title
+          line starts at 14px (13px in the compact grid, whose body is `pt-[7px]` for this). No other corner of
           a cell is free: a full compact grid has no empty row at the bottom.
 
           That height clears the checkbox's box but not its 2px focus ring. So the tab

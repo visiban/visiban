@@ -1558,7 +1558,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Show at-limit WIP indicator</span>
                       <p className="text-xs text-fg-muted mt-0.5">
-                        When enabled, a column's header shows a calm "WIP n/n" indicator in place of the card count once the column is exactly at its WIP limit. Ambient only — does not change move enforcement.
+                        When enabled, a swimlane row's WIP line shows a calm "at limit" reading once the row is exactly at its WIP limit; off, it reads like an under-limit row. Column headers are unaffected. Ambient only — does not change move enforcement.
                       </p>
                     </div>
                     <Toggle

@@ -56,4 +56,17 @@ describe('ColumnSeparator (#1990)', () => {
     expect(setWidth).toHaveBeenLastCalledWith(180)
     fireEvent.mouseUp(window)
   })
+
+  it('a separator with no setWidth is click-only: no resize cursor, a drag does not throw', () => {
+    const onOpenAdd = vi.fn()
+    const { container } = render(
+      <ColumnSeparator isAdmin onOpenAdd={onOpenAdd} sepIndex={0} hoveredSepIndex={null} onSepHoverChange={vi.fn()} />,
+    )
+    const sep = container.firstElementChild as HTMLElement
+    expect(sep.className).not.toContain('cursor-col-resize')
+    fireEvent.mouseDown(sep, { clientX: 100 })
+    fireEvent.mouseMove(window, { clientX: 150 })
+    fireEvent.mouseUp(window)
+    expect(onOpenAdd).not.toHaveBeenCalled()
+  })
 })

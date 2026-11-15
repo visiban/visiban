@@ -42,7 +42,7 @@ function CriteriaSection({ heading, items }: { heading: string; items: string[] 
  *
  * Read-only for everyone; an admin gets "Edit policy" in the footer, which
  * opens EditColumnModal on its Policy tab. Placement, dismissal and the scroll
- * region follow SwimlaneFieldsPopover (frontend/CLAUDE.md § Modals and
+ * region follow the anchored-popover pattern (frontend/CLAUDE.md § Modals and
  * dialogs, #1455). Escape closes it before anything else on the board.
  */
 export default function ColumnPolicyPopover({ columnName, policy, anchorRect, onEdit, onDismiss, triggerRef }: Props) {

@@ -91,8 +91,8 @@ The status's tooltip says when it was set and by whom, with the note if there is
 
 A board admin can also give a single swimlane its own status. On a board with one lane per customer, project or candidate, that marks the one lane in trouble (the **Acme** lane is **At risk**) while the rest of the board is fine.
 
-- **Set it:** hover the lane's label panel and choose the half-filled circle icon (on a touch screen it is always visible), or Tab to it. Pick **On track**, **At risk** or **Off track** and choose **Save**. To change or clear it, choose the lane's status pill; **No status** clears it. Only board admins can set or clear a lane's status.
-- **Where it shows:** on its own line under the lane's name. On a collapsed lane only the shape shows, next to the name; the word is still read out by screen readers. A lane with no status shows nothing to anyone who is not a board admin.
+- **Set it:** hover the lane's header band and choose the half-filled circle icon (on a touch screen it is always visible), or Tab to it. Pick **On track**, **At risk** or **Off track** and choose **Save**. To change or clear it, choose the lane's status pill; **No status** clears it. Only board admins can set or clear a lane's status.
+- **Where it shows:** beside the lane's name in its header band. On a collapsed lane only the shape shows, next to the name; the word is still read out by screen readers. A lane with no status shows nothing to anyone who is not a board admin.
 - **It is independent of the board:** a lane's status never comes from the board's, and the board's status is never worked out from its lanes. Changing one never changes the other. A lane with no status means just that, *no status*: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed.
 - **Who sees it:** everyone who can see the board, and a change reaches everyone with the board open at once. A public share link does not show lane status.
 - **Export and import:** a board's JSON export carries each lane's status, and importing the file restores it.

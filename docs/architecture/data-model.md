@@ -107,8 +107,8 @@ Board
  ├── share_enabled_by → User (nullable, SET_NULL — the admin who enabled the current share link; never serialized)
  ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
  ├── card_density (str — comfortable | standard | dense; default comfortable for new boards)
- ├── show_wip_at_limit (bool, default false — ambient "WIP n/n" indicator at exactly the limit)
- ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name)
+ ├── show_wip_at_limit (bool, default false — ambient "at limit" reading on swimlane WIP rows at exactly the limit; columns ignore it)
+ ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name; no effect on the swimlane band since 1.3, #2303)
  ├── health_status (str, nullable — on_track | at_risk | off_track; null = inherit from its group's chain; 1.3+)
  ├── health_review_days (smallint, nullable — review the own status every N days, 1..365; null = off; 1.3+, #2244)
  ├── default_preset (str, nullable — classic | default; null = no board default; presets are code-defined, #1146; 1.3+)
@@ -257,8 +257,8 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 
 - `export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. It limits only the export action and file formats, not ordinary reads.
 - `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face.
-- `show_wip_at_limit` is purely ambient: it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.
-- `show_row_chip_field_names` (default `true`, with a database default too) is display-only: when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted). Card-face chips are unaffected.
+- `show_wip_at_limit` is purely ambient: it makes a swimlane row's WIP line show an "at limit" reading once the count exactly equals the limit (column headers ignore it), and does not affect move enforcement.
+- `show_row_chip_field_names` (default `true`, with a database default too) is display-only (no effect on the swimlane band since 1.3, #2303): when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted). Card-face chips are unaffected.
 
 ### Column
 

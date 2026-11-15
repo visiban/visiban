@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'
 import ColumnPolicyPopover from '../components/Board/ColumnPolicyPopover'
 import HealthStatusPopover from '../components/Common/HealthStatusPopover'
-import SwimlaneFieldsPopover from '../components/Board/SwimlaneFieldsPopover'
 import SelectDropdown from '../components/Common/SelectDropdown'
 import ColorSwatchPicker from '../components/Common/ColorSwatchPicker'
 import CardContextMenu from '../components/Card/CardContextMenu'
@@ -65,19 +64,6 @@ describe.each(MODES)('anchored popovers $name (#2161)', (mode) => {
       />,
     )
     expect(screen.getByRole('dialog').style.left).toBe(`${mode.maxLeft(320)}px`)
-  })
-
-  it('SwimlaneFieldsPopover caps its list and clamps left', () => {
-    mode.setup()
-    render(
-      <SwimlaneFieldsPopover
-        swimlaneName="Acme" entries={[]} anchorRect={rectAt(window.innerWidth - 10)}
-        onDismiss={vi.fn()} triggerRef={createRef<HTMLButtonElement>()}
-      />,
-    )
-    expect(screen.getByRole('dialog').style.left).toBe(`${mode.maxLeft(256)}px`)
-    const capped = Array.from(document.querySelectorAll<HTMLElement>('[style*="max-height"]'))
-    expect(capped.map((e) => e.style.maxHeight)).toContain(`calc(${mode.cap()} - 5.5rem)`)
   })
 
   it('SelectDropdown caps its menu', async () => {

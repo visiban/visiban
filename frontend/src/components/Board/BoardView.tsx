@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
-import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
 import { useLocation, useSearchParams } from "react-router-dom";
@@ -32,6 +31,7 @@ import { entryCriteriaFor, entryCriteriaSentence, needsEntryConfirm } from "../.
 import PolicyConfirmModal from "./PolicyConfirmModal";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
+import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
@@ -101,6 +101,8 @@ import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId
 import { buildGridOverlayState } from "../../gridOverlays/slot";
 import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters, pruneStaleFilters } from "../../utils/filterCards";
+import { parseShowChip, showChipCardIds, showChipCounts, type ShowChipKey } from "../../utils/showChips";
+import ShowChips from "./ShowChips";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -302,6 +304,7 @@ const FIRST_OPEN_RESYNC_MS = 1000;
 const ARCHIVE_TOAST_KEY = "archive";
 const CARD_NOT_FOUND_TOAST_KEY = "card-not-found";
 const CARD_ACTION_TOAST_KEY = "card-action";
+
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
@@ -461,7 +464,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
   // #974 — per-user override of the board admin's card_density default,
   // layered on top of it (never mutates board.card_density itself, so an
@@ -1998,6 +2001,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
   );
+  const hasRenderedLane = useMemo(
+    () => board.swimlanes.some((s) => !renderHiddenSwimlaneIds.has(s.id) && !collapsedSwimlaneIds.has(s.id)),
+    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
+  );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
   // The collapsed-lanes strip counts only lanes the reader can see collapsed:
@@ -2026,20 +2033,43 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   effectiveFiltersRef.current = effectiveFilters;
 
-  const filteredCardIds: Set<number> | null = useMemo(() => {
+  // Show chips (#2272): a quick view in the URL (`?show=`), deliberately not in
+  // the persisted or saved filter state. It narrows the Filter panel's result
+  // further, so both apply; column and lane counts keep reading the whole board.
+  const showChip = parseShowChip(searchParams.get("show"));
+  const setShowChip = useCallback((next: ShowChipKey) => {
+    setSearchParams((prev) => {
+      if (next === "all") prev.delete("show");
+      else prev.set("show", next);
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
+  const showChipCountsValue = useMemo(
+    () => showChipCounts(board.cards, board.columns),
+    // todayStr: the clock read that moves the overdue boundary at local midnight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- todayStr is a re-compute trigger, not an input
+    [board.cards, board.columns, todayStr],
+  );
+
+  // The Filter panel and search result alone, before the Show chip narrows it.
+  // `hiddenCount` and its "Clear" control belong to this set: a chip is cleared
+  // from the Show row, not from the filter bar.
+  const panelFilteredCardIds: Set<number> | null = useMemo(() => {
     const filters = effectiveFilters;
     const clientFiltersActive = hasActiveClientFilters(filters);
-
     if (!clientFiltersActive && searchMatchIds === null) return null;
-
-    if (!clientFiltersActive && searchMatchIds !== null) {
-      // Only server search is active — return its result directly as a Set.
-      return searchMatchIds;
-    }
-
+    // Only server search is active — use its result directly as a Set.
+    if (!clientFiltersActive && searchMatchIds !== null) return searchMatchIds;
     // filterCards handles the server search intersection via its searchResults param.
     return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
   }, [effectiveFilters, searchMatchIds, board.cards, todayStr, board.custom_field_definitions]);
+
+  const filteredCardIds: Set<number> | null = useMemo(() => {
+    if (showChip === "all") return panelFilteredCardIds;
+    const chipIds = showChipCardIds(board.cards, board.columns, showChip);
+    if (panelFilteredCardIds === null) return chipIds;
+    return new Set([...chipIds].filter((id) => panelFilteredCardIds.has(id)));
+  }, [panelFilteredCardIds, board.cards, board.columns, showChip]);
 
   /**
    * #1147 — the active overlay's per-cell values for the whole grid, built once per
@@ -2132,23 +2162,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return result;
   }, [board.columns])();
 
-  // Resizable swimlane name column
-  const autoSwimlaneWidth = useMemo(
-    () => computeAutoSwimlaneWidth(
-      board.swimlanes,
-      board.swimlane_custom_field_definitions,
-      board.show_row_chip_field_names !== false,
-      // The density the rows render with, so folded chips do not size the column (#2216).
-      effectiveCardDensity,
-    ),
-    [board.swimlanes, board.swimlane_custom_field_definitions, board.show_row_chip_field_names, effectiveCardDensity],
-  );
-  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth ?? autoSwimlaneWidth;
+  // The left label panel is gone (#2271): swimlane bands span the grid, so grid math starts at 0.
+  // `viewPrefs.swimlaneColumnWidth` is still read and written for old saved prefs, but unused.
 
-  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
 
   // Resizable board columns
   const DEFAULT_COL_WIDTH = 220;
+  // Header "add card" (#2270): opens the new-card input in the column's first visible lane,
+  // through the cell's own listener, so the cell keeps owning its draft and its focus return.
+  const requestAddCard = useCallback((columnId: number) => {
+    const cell = document.querySelector<HTMLElement>(`[data-board-cell][data-column-id="${columnId}"]`);
+    cell?.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+  }, []);
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
     for (const col of board.columns) {
@@ -2158,11 +2183,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [board.columns, viewPrefs.columnWidths]);
 
   // X position of the currently-hovered column separator within the scrollable area.
-  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  // sep[i] left = W + i*16 + sum(colWidth[j] for j in 0..i-1)
+  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  // sep[i] left = i*16 + sum(colWidth[j] for j in 0..i-1)
   const hoveredSepX = useMemo(() => {
     if (hoveredSepIndex === null) return null;
-    let x = swimlaneColWidth;
+    let x = 0;
     for (let i = 0; i < hoveredSepIndex; i++) {
       x += 16; // separator width
       if (i < board.columns.length) {
@@ -2173,37 +2198,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
     }
     return x;
-  }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
+  }, [hoveredSepIndex, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
-  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
   const colCenterXs = useMemo(() => {
     const result: number[] = [];
-    let x = swimlaneColWidth + 16; // after sidebar + first sep
+    let x = 16; // after the first sep
     for (const col of board.columns) {
       const w = (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
       result.push(x + w / 2);
       x += w + 16;
     }
     return result;
-  }, [swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizeState.current = { startX: e.clientX, startWidth: swimlaneColWidth };
-    const onMove = (ev: MouseEvent) => {
-      if (!resizeState.current) return;
-      const delta = ev.clientX - resizeState.current.startX;
-      setSwimlaneColumnWidth(resizeState.current.startWidth + delta);
-    };
-    const onUp = () => {
-      resizeState.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [swimlaneColWidth, setSwimlaneColumnWidth]);
+  }, [board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -2449,8 +2457,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const activeCount = countActiveFilters(effectiveFilters);
 
-  const hiddenCount = filteredCardIds !== null
-    ? board.cards.filter((c) => !c.archived_at).length - filteredCardIds.size
+  const hiddenCount = panelFilteredCardIds !== null
+    ? board.cards.filter((c) => !c.archived_at).length - panelFilteredCardIds.size
     : 0;
 
   // Overflow menu items are computed unconditionally — the memo must sit above
@@ -2887,7 +2895,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
       {!allLanesFilteredOut && filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
-          No cards match the active filters.
+          {showChip !== "all" && (panelFilteredCardIds === null || panelFilteredCardIds.size > 0)
+            ? "No cards match the selected Show chip. Choose All cards to see every card."
+            : "No cards match the active filters."}
         </div>
       )}
       {cardActionNotice}
@@ -2945,6 +2955,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{dndAnnouncement}</div>
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{overlayAnnouncement}</div>
 
+      {board.columns.length > 0 && (
+        <ShowChips
+          active={showChip}
+          counts={showChipCountsValue}
+          onChange={setShowChip}
+          columnCount={board.columns.length}
+          laneCount={board.swimlanes.length}
+          cardCount={showChipCountsValue.all}
+        />
+      )}
+
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
@@ -2973,26 +2994,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           */}
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-20 border-b border-line bg-surface">
-            {/* Corner — sticky to the left; shows board density at a glance */}
-            <div className="shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
-              <span className="text-xs text-fg-muted font-medium tabular-nums">
-                {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
-              </span>
-              <span className="text-xs text-fg-muted font-medium tabular-nums">
-                {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
-              </span>
-              <span className="text-xs text-fg-muted tabular-nums">
-                {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
+          <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
+            {/* Far-left separator: click inserts column at pos 0 (nothing to its left resizes) */}
             <ColumnSeparator
               isAdmin={isAdmin}
               onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
-              currentWidth={swimlaneColWidth}
-              setWidth={setSwimlaneColumnWidth}
               sepIndex={0}
               hoveredSepIndex={hoveredSepIndex}
               onSepHoverChange={setHoveredSepIndex}
@@ -3017,6 +3023,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
+                    // No rendered lane cell (every lane collapsed or filtered out) means nothing
+                    // would hear the request, so the control is withheld rather than left dead.
+                    onAddCard={canEdit && col.allow_card_creation && hasRenderedLane ? () => requestAddCard(col.id) : undefined}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}
@@ -3068,9 +3077,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
-                      sidebarWidth={swimlaneColWidth}
-                      setSidebarWidth={setSwimlaneColumnWidth}
-                      onResizeStart={handleResizeStart}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
                       onInsertColumn={(colId) => {
@@ -3204,8 +3210,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           )}
           {activeSwimlane && (
-            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 flex items-center gap-2" style={{ width: swimlaneColWidth }}>
-              <span className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
+            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 flex items-center gap-2 w-64">
+              <span className="w-3 h-3 rounded-[3px] shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
               <span className="font-semibold text-fg text-sm truncate">{activeSwimlane.name}</span>
             </div>
           )}

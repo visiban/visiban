@@ -111,7 +111,7 @@ function setViewport(width: number, height = 900) {
   Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: height })
 }
 
-/** Toolbar bottom 96, lane labels 0..220, the card's cell `cell`, the card 60px tall at `cardTop`. */
+/** Toolbar bottom 96, the card's cell `cell`, the card 60px tall at `cardTop`. */
 function mountBoard({ withCard = true } = {}) {
   const geo = { cell: { left: 240, top: 120, width: 220, height: 400 }, cardTop: 280 }
   const nav = document.createElement('nav')
@@ -122,9 +122,6 @@ function mountBoard({ withCard = true } = {}) {
   scroll.tabIndex = -1
   const content = document.createElement('div')
   scroll.appendChild(content)
-  const lane = document.createElement('div')
-  lane.setAttribute('data-lane-label', '')
-  stubRect(lane, () => ({ left: 0, top: 120, width: 220, height: 400 }))
   const cell = document.createElement('div')
   cell.setAttribute('data-board-cell', '')
   stubRect(cell, () => geo.cell)
@@ -133,7 +130,7 @@ function mountBoard({ withCard = true } = {}) {
   cardEl.tabIndex = 0
   cardEl.textContent = 'Card face'
   stubRect(cardEl, () => ({ left: geo.cell.left + 8, top: geo.cardTop, width: 204, height: 60 }))
-  content.append(lane, cell)
+  content.append(cell)
   if (withCard) cell.appendChild(cardEl)
   document.body.append(nav, scroll)
   return { geo, nav, scroll, content, cell, cardEl }
@@ -318,7 +315,8 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
   it('docks at the right edge with the light backdrop when neither side fits', () => {
     setViewport(1300)
     const { geo } = mountBoard()
-    geo.cell = { ...geo.cell, left: 600 }
+    // No lane label column since #2271: a wide column near the left edge leaves no room on either side.
+    geo.cell = { ...geo.cell, left: 300, width: 700 }
     render(<CardDetail {...defaultProps()} />)
     expect(dialog()).toHaveAttribute('data-sheet-mode', 'docked')
     expect(dialog().className).toContain('right-0')

@@ -8,6 +8,10 @@ import {
   textColorStyle,
   chipColors,
   colorChipStyle,
+  columnTintStyle,
+  tintOverPage,
+  COLUMN_TINT_FILL,
+  COLUMN_TINT_BORDER,
   contrastRatio,
   cssColorToHex,
   normalizeHex,
@@ -169,5 +173,46 @@ describe('cssColorToHex (#2097)', () => {
     expect(cssColorToHex('rgb(256, 0, 0)')).toBeNull()
     expect(cssColorToHex('rgba(1, 2, 3, 1)')).toBeNull()
     expect(cssColorToHex(undefined)).toBeNull()
+  })
+})
+
+describe('column header tint (#2270)', () => {
+  // Token values mirror index.css: fg and fg-secondary, the only text tones allowed on a tint.
+  const TEXT = { light: ['#0F172A', '#334155'], dark: ['#E2E8F0', '#CBD5E1'] } as const
+
+  it('keeps text-fg and text-fg-secondary at AA over a sampled sweep of the RGB cube in both themes', () => {
+    const steps = [0, 51, 102, 153, 204, 255]
+    for (const r of steps) for (const g of steps) for (const b of steps) {
+      const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+      for (const theme of ['light', 'dark'] as const) {
+        const tint = tintOverPage(hex, theme, COLUMN_TINT_FILL)!
+        for (const fg of TEXT[theme]) {
+          expect(contrastRatio(fg, tint), `${fg} on ${hex} ${theme}`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+        }
+      }
+    }
+  })
+
+  it('keeps text-warning-on-tint (the over-limit count) at AA on the tint over the RGB cube', () => {
+    const warn = { light: '#9A3412', dark: '#FDBA74' } as const
+    const steps = [0, 51, 102, 153, 204, 255]
+    for (const r of steps) for (const g of steps) for (const b of steps) {
+      const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+      for (const theme of ['light', 'dark'] as const) {
+        expect(contrastRatio(warn[theme], tintOverPage(hex, theme, COLUMN_TINT_FILL)!), `${hex} ${theme}`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+      }
+    }
+  })
+
+  it('resolves 10% fill and 30% border against the live sunken token', () => {
+    const style = columnTintStyle('#3b82f6')
+    expect(style.backgroundColor).toBe('color-mix(in srgb, #3B82F6 10%, rgb(var(--surface-sunken)))')
+    expect(style.borderColor).toBe('color-mix(in srgb, #3B82F6 30%, rgb(var(--surface-sunken)))')
+    expect(COLUMN_TINT_BORDER).toBeGreaterThan(COLUMN_TINT_FILL)
+  })
+
+  it('returns no style for non-hex input and a null tint', () => {
+    expect(columnTintStyle('red')).toEqual({})
+    expect(tintOverPage('red', 'dark', 0.1)).toBeNull()
   })
 })
