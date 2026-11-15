@@ -1448,6 +1448,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ask-for-a-review-every-n-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ask for a review every N days
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-a-status-carries-down" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4336,7 +4347,7 @@
 <p>A board or group admin can mark a board or a group <strong>On track</strong>, <strong>At risk</strong> or <strong>Off track</strong>. A group's status carries down to its subgroups and boards, so one status on a group covers a whole workstream, and any board or subgroup can set its own instead.</p>
 <p><strong>Why it matters:</strong> cards tell you how each piece of work is going, but not whether the workstream as a whole is in trouble. A health status gives a project manager that answer at a glance, on the dashboard, in the group tree and on every board.</p>
 <p><strong>How it works:</strong> the status is set by hand. Visiban never works it out from the cards, and a group's status is never worked out from its boards. When a board or subgroup has no status of its own, it shows the status of the nearest group above it that has one. That inherited status is drawn with a dashed border and says where it comes from.</p>
-<p><strong>Yes, but:</strong> a status is a judgment someone keeps up to date. Visiban shows when it was last set or confirmed and by whom ("Set 3d ago by Priya"), so an old status is visible as old, but nothing reminds anyone to review it.</p>
+<p><strong>Yes, but:</strong> a status is a judgment someone keeps up to date. Visiban shows when it was last set or confirmed and by whom ("Set 3d ago by Priya"), so an old status is visible as old. An admin can also ask for a review every so many days: past that, the status says <strong>Not reviewed in 18 days</strong> until someone confirms or changes it. Nothing is sent: there is no email or notification.</p>
 <hr />
 <h2 id="the-four-states">The four states<a class="headerlink" href="#the-four-states" title="Permanent link">&para;</a></h2>
 <table>
@@ -4385,6 +4396,20 @@
 <p>Escape, <strong>Cancel</strong>, or clicking elsewhere closes the editor without saving. A status that is not saved shows an error in the editor, and your choice stays selected so you can try again.</p>
 <p>Members, collaborators and viewers see the status but cannot change it. Clicking it opens a read-only view with who set it, the note and the history. When nothing applies, they see nothing.</p>
 <p>In the hosted demo the status cannot be changed.</p>
+<h2 id="ask-for-a-review-every-n-days">Ask for a review every N days<a class="headerlink" href="#ask-for-a-review-every-n-days" title="Permanent link">&para;</a></h2>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>A status that nobody looks at goes stale silently. To catch that, set <strong>Review status every</strong> <em>N</em> <strong>days</strong> (1 to 365):</p>
+<ul>
+<li><strong>Board:</strong> <strong>Board Settings</strong> → <strong>Health status review</strong>, below <strong>Card aging settings</strong>. Board admins only.</li>
+<li><strong>Group:</strong> the group page's <strong>Settings</strong> tab → <strong>Health status review</strong>. Group admins only.</li>
+</ul>
+<p>Leave it empty to turn it off, the default.</p>
+<p>Once the status is older than <em>N</em> days since it was last set or confirmed, it shows <strong>Not reviewed in 18 days</strong> next to the status, with a clock icon, on the board or group page, on board and subgroup rows and on the dashboard. The group tree, which is narrow, shows the clock and <strong>18d</strong>; its tooltip has the full sentence. The status itself does not change. On an open page the cue appears or advances on the next refresh or update; it does not tick on a timer. To clear it, open the editor and click <strong>Confirm status</strong> (the status is still right) or choose a new one and <strong>Save</strong>.</p>
+<ul>
+<li><strong>An inherited status</strong> follows the group it comes from: it is due when that group's status is, on that group's setting. The board's or subgroup's own setting applies only to a status it sets itself.</li>
+<li><strong>A status set before 1.3's history existed</strong> shows no cue until it is next set or confirmed: Visiban does not know how old it is.</li>
+<li><strong>Lanes</strong> have no review setting.</li>
+</ul>
 <h2 id="how-a-status-carries-down">How a status carries down<a class="headerlink" href="#how-a-status-carries-down" title="Permanent link">&para;</a></h2>
 <ul>
 <li>A group's status applies to every subgroup and board below it, up to six levels down, unless one of them sets its own.</li>
@@ -4423,7 +4448,7 @@
 <p>A change to a board's status reaches everyone who has that board open, at once.</p>
 <p>A change to a group's status updates that group's page for everyone who has it open, including the subgroups and boards listed on it. The pages of its subgroups and boards that are already open do <strong>not</strong> update: they show the new inherited status after a reload (a board page also catches up after a lost connection). The dashboard shows the new status the next time it loads.</p>
 <h2 id="for-api-clients">For API clients<a class="headerlink" href="#for-api-clients" title="Permanent link">&para;</a></h2>
-<p>Boards and groups carry <code>health_status_changed_at</code>, <code>health_status_changed_by</code> and <code>health_status_note</code> (the last set or confirm; 1.3+) and <code>POST .../health-status/</code> / <code>GET .../health-history/</code> endpoints for setting, confirming and reading the history. They also carry three fields: <code>health_status</code> (the entity's own value, or <code>null</code> to inherit), <code>effective_health_status</code> (the value that applies) and <code>health_status_source</code> (the <code>{id, name, changed_at}</code> of the group the value comes from, or <code>null</code>). Values are <code>on_track</code>, <code>at_risk</code> and <code>off_track</code>. See the <a href="../../api/boards/#get-apiv1boardsid">Boards API</a> and the <a href="../../api/groups/#get-apiv1groupsid">Groups API</a>.</p>
+<p>Boards and groups carry <code>health_review_days</code> (writable; 1-365 or <code>null</code>) and <code>health_review_due_at</code> (read-only: when the status shown is due for review, or <code>null</code>; 1.3+), and <code>health_status_changed_at</code>, <code>health_status_changed_by</code> and <code>health_status_note</code> (the last set or confirm; 1.3+) and <code>POST .../health-status/</code> / <code>GET .../health-history/</code> endpoints for setting, confirming and reading the history. They also carry three fields: <code>health_status</code> (the entity's own value, or <code>null</code> to inherit), <code>effective_health_status</code> (the value that applies) and <code>health_status_source</code> (the <code>{id, name, changed_at}</code> of the group the value comes from, or <code>null</code>). Values are <code>on_track</code>, <code>at_risk</code> and <code>off_track</code>. See the <a href="../../api/boards/#get-apiv1boardsid">Boards API</a> and the <a href="../../api/groups/#get-apiv1groupsid">Groups API</a>.</p>
 <p>Swimlanes carry one field, <code>health_status</code> (the lane's manual status, or <code>null</code> for no status; there is no inheritance, so there is no <code>effective_health_status</code> or <code>health_status_source</code>). Board admins write it with <code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>; see the <a href="../../api/boards/#swimlanes">Swimlanes API</a>.</p>
 
 
