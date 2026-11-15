@@ -1055,8 +1055,9 @@ export interface Board {
    * `health_status_changed_at` plus the owner's `health_review_days` (the
    * owner is this entity when it sets its own value, else the
    * `health_status_source` group). Null when off, unset, or never recorded.
-   * A fixed time, so a long-open page stays correct; render with
-   * `healthReviewCue`.
+   * A fixed timestamp, so every payload, including WebSocket frames, carries
+   * the same due time. The cue updates on the next render or refresh, not on
+   * a timer; render with `healthReviewCue`.
    */
   health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Board admins write it with `patchBoard`. */
@@ -1205,8 +1206,9 @@ export interface BoardFull {
    * `health_status_changed_at` plus the owner's `health_review_days` (the
    * owner is this entity when it sets its own value, else the
    * `health_status_source` group). Null when off, unset, or never recorded.
-   * A fixed time, so a long-open page stays correct; render with
-   * `healthReviewCue`.
+   * A fixed timestamp, so every payload, including WebSocket frames, carries
+   * the same due time. The cue updates on the next render or refresh, not on
+   * a timer; render with `healthReviewCue`.
    */
   health_review_due_at: string | null;
   /** #1146 — the board's default preset id, or null for none. Read-only here (written with `patchBoard`). */
@@ -1302,8 +1304,9 @@ export interface Group {
    * `health_status_changed_at` plus the owner's `health_review_days` (the
    * owner is this entity when it sets its own value, else the
    * `health_status_source` group). Null when off, unset, or never recorded.
-   * A fixed time, so a long-open page stays correct; render with
-   * `healthReviewCue`.
+   * A fixed timestamp, so every payload, including WebSocket frames, carries
+   * the same due time. The cue updates on the next render or refresh, not on
+   * a timer; render with `healthReviewCue`.
    */
   health_review_due_at: string | null;
   // Only present on the retrieve endpoint (GroupDetailSerializer); absent on list.

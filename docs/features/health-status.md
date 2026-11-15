@@ -56,7 +56,7 @@ A status that nobody looks at goes stale silently. To catch that, set **Review s
 
 Leave it empty to turn it off, the default.
 
-Once the status is older than *N* days since it was last set or confirmed, it shows **Not reviewed in 18 days** next to the status, with a clock icon, on the board or group page, on board and subgroup rows and on the dashboard. The group tree, which is narrow, shows the clock and **18d**; its tooltip has the full sentence. The status itself does not change. To clear it, open the editor and click **Confirm status** (the status is still right) or choose a new one and **Save**.
+Once the status is older than *N* days since it was last set or confirmed, it shows **Not reviewed in 18 days** next to the status, with a clock icon, on the board or group page, on board and subgroup rows and on the dashboard. The group tree, which is narrow, shows the clock and **18d**; its tooltip has the full sentence. The status itself does not change. On an open page the cue appears or advances on the next refresh or update; it does not tick on a timer. To clear it, open the editor and click **Confirm status** (the status is still right) or choose a new one and **Save**.
 
 - **An inherited status** follows the group it comes from: it is due when that group's status is, on that group's setting. The board's or subgroup's own setting applies only to a status it sets itself.
 - **A status set before 1.3's history existed** shows no cue until it is next set or confirmed: Visiban does not know how old it is.

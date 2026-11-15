@@ -184,6 +184,35 @@ describe('BoardPage Row 1 health status (#1133)', () => {
     })
   })
 
+  it('Confirm status clears the review cue from the response, with no socket event (#2244)', async () => {
+    const user = userEvent.setup()
+    const DAY = 24 * 60 * 60 * 1000
+    const stale = {
+      ...fakeBoard, health_status: 'at_risk', effective_health_status: 'at_risk',
+      health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
+      health_review_days: 7, health_review_due_at: new Date(Date.now() - 11 * DAY).toISOString(),
+    }
+    const fresh = {
+      ...stale, health_status_changed_at: new Date().toISOString(),
+      health_review_due_at: new Date(Date.now() + 7 * DAY).toISOString(),
+    }
+    mockSetBoardHealthStatus.mockResolvedValue(fresh)
+    // Stand in for the real context: merging a patch re-renders with it.
+    let current: object = stale
+    const { rerender } = renderBoardPage(stale)
+    mergeBoardState.mockImplementation((patch: object) => {
+      current = { ...current, ...patch }
+      mockUseBoardContext.mockReturnValue(contextFor(current))
+      rerender(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    })
+    expect(document.querySelector('[data-health-review-cue]')).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: /^Health status/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Health status for Sprint Board' })
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm status' }))
+    await waitFor(() => expect(mockSetBoardHealthStatus).toHaveBeenCalledWith(1, { status: 'at_risk', note: null }))
+    await waitFor(() => expect(document.querySelector('[data-health-review-cue]')).toBeNull())
+  })
+
   it('opens the history from the board pill (#2242)', async () => {
     const user = userEvent.setup()
     mockGetBoardHealthHistory.mockResolvedValue({ results: [], has_more: false })

@@ -405,7 +405,11 @@ describe('health review cue (#2244)', () => {
       ...own('at_risk'), health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
       health_review_due_at: new Date(Date.now() - DAY).toISOString(),
     }
-    renderControl({ ...fields, entityKind: 'swimlane' })
+    const lane = renderControl({ ...fields, entityKind: 'swimlane' })
     expect(screen.queryByText(/Not reviewed/)).not.toBeInTheDocument()
+    lane.unmount()
+    renderControl({ ...fields, health_review_due_at: new Date(Date.now() + 3 * DAY).toISOString() })
+    expect(screen.queryByText(/Not reviewed/)).not.toBeInTheDocument()
+    expect(document.querySelector('[data-health-review-cue]')).toBeNull()
   })
 })

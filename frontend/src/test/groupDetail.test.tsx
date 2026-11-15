@@ -2718,6 +2718,29 @@ describe('GroupDetail — health status (#1133)', () => {
     expect(mockGetGroupBoards).toHaveBeenCalledTimes(2)
   })
 
+  it('Confirm status clears the review cue from the response, with no socket event (#2244)', async () => {
+    const user = userEvent.setup()
+    const DAY = 24 * 60 * 60 * 1000
+    const stale = {
+      ...fakeGroup, health_status: 'at_risk', effective_health_status: 'at_risk',
+      health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
+      health_review_days: 7, health_review_due_at: new Date(Date.now() - 11 * DAY).toISOString(),
+    }
+    mockGetGroup.mockResolvedValue(stale)
+    mockSetGroupHealthStatus.mockResolvedValue({
+      ...stale, health_status_changed_at: new Date().toISOString(),
+      health_review_due_at: new Date(Date.now() + 7 * DAY).toISOString(),
+    })
+    renderGroupDetail()
+    await screen.findByText('Roadmap')
+    expect(document.querySelector('[data-health-review-cue]')).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: /^Health status: At risk/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Health status for Engineering' })
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm status' }))
+    await waitFor(() => expect(mockSetGroupHealthStatus).toHaveBeenCalledWith(1, { status: 'at_risk', note: null }))
+    await waitFor(() => expect(document.querySelector('[data-health-review-cue]')).toBeNull())
+  })
+
   it('group.updated refetches subgroups, boards and the shown subgroup boards', async () => {
     const user = userEvent.setup()
     mockGetGroup.mockResolvedValue(fakeGroup)
