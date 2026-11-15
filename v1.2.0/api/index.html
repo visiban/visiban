@@ -4304,7 +4304,7 @@
 </code></pre></div>
 <p>This covers:</p>
 <ul>
-<li><code>GET /boards/{id}/analytics/</code>: <code>days</code> and <code>stalled_days</code></li>
+<li><code>GET /boards/{id}/analytics/</code>: <code>days</code>, <code>stalled_days</code>, <code>swimlane_id</code> and <code>label_id</code>, including a swimlane or label that is not on this board</li>
 <li><code>GET /boards/{id}/metrics/cycle-time/</code>, <code>.../throughput/</code>, <code>.../cumulative-flow/</code>, <code>.../wip-age/</code>, <code>.../dwell/</code>, <code>.../blocked/</code> and <code>.../attention/</code>: <code>days</code>, <code>from_date</code>, <code>to_date</code>, <code>swimlane_id</code> and <code>label_id</code>, including a swimlane or label that is not on this board; <code>period</code> on <code>throughput</code>; <code>date</code> on <code>cumulative-flow</code></li>
 <li><code>GET /boards/{id}/cards/</code>: <code>limit</code></li>
 <li><code>GET /boards/{id}/movements/</code>: <code>moved_after</code>, <code>moved_before</code>, <code>swimlane_id</code>, <code>to_column_id</code> and <code>moved_by_id</code></li>

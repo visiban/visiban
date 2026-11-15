@@ -6257,10 +6257,23 @@
 <td>board's <code>staleness_threshold_days</code></td>
 <td>When provided, overrides the board setting for stalled-card detection in this request only. Must be a positive integer (<code>≥ 1</code>, <code>≤ 90</code>). Returns <code>400</code> if non-integer, <code>≤ 0</code>, or <code>&gt; 90</code>. Omit to use the board's configured threshold.</td>
 </tr>
+<tr>
+<td><code>swimlane_id</code></td>
+<td>integer</td>
+<td>none</td>
+<td>Only cards currently in this swimlane, as on the <a href="#flow-metrics">flow metrics</a> endpoints. Narrows the dwell, velocity, stalled-card and <code>blocked</code> sections together; <code>swimlanes</code> lists only that swimlane.</td>
+</tr>
+<tr>
+<td><code>label_id</code></td>
+<td>integer</td>
+<td>none</td>
+<td>Only cards currently carrying this label. Combines with <code>swimlane_id</code> (both must match).</td>
+</tr>
 </tbody>
 </table>
+<p>A <code>swimlane_id</code> or <code>label_id</code> that is not on this board, including one that belongs to another board, returns the same <code>400</code> as one that does not exist. Without either parameter the response is unchanged.</p>
 <blockquote>
-<p><strong>Added in 1.2</strong></p>
+<p><strong>Added in 1.2</strong> (<code>swimlane_id</code> and <code>label_id</code>: 1.3)</p>
 </blockquote>
 <p>An invalid <code>days</code> or <code>stalled_days</code> returns <code>400 Bad Request</code> with <code>{"detail": "...", "code": "invalid_query_param"}</code> (before 1.2 the body had <code>detail</code> only), the API-wide shape for a bad query parameter — see <a href="../#error-responses">Error responses</a>.</p>
 <p><strong>Response shape:</strong></p>

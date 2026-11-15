@@ -4641,6 +4641,18 @@
 <td>Board's <code>staleness_threshold_days</code></td>
 <td>Optional override, <code>1</code>–<code>90</code>. Returns <code>400</code> if non-integer or out of range. When omitted, the board setting is used.</td>
 </tr>
+<tr>
+<td><code>swimlane_id</code></td>
+<td>integer</td>
+<td>None</td>
+<td>Optional, 1.3+. Narrows every section to one swimlane. Returns <code>400</code> if malformed or not a swimlane on this board.</td>
+</tr>
+<tr>
+<td><code>label_id</code></td>
+<td>integer</td>
+<td>None</td>
+<td>Optional, 1.3+. Narrows every section to cards with this label. Returns <code>400</code> if malformed or not a label on this board. Combined with <code>swimlane_id</code>, both must match.</td>
+</tr>
 </tbody>
 </table>
 <p>The response includes two threshold fields:</p>
