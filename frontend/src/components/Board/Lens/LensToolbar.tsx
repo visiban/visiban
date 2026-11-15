@@ -1,14 +1,10 @@
 import ActiveUnderline from "../../Common/ActiveUnderline";
-import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import SplitButton from "../../Common/SplitButton";
 import Tooltip from "../../Common/Tooltip";
 import { MENU_ITEM_FOCUS_RING } from "../../Common/menuItemFocusRing";
-import OverflowMenu from "../../Layout/OverflowMenu";
-import type { OverflowItem } from "../../Layout/OverflowMenu";
 import { LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
-import { useIsLargeViewport } from "../../../hooks/useIsLargeViewport";
 import { formatShortcut } from "../../../utils/platform";
 import type { LensConnection } from "../../../types";
 import type { CardLayout } from "../../../hooks/useCardLayoutPref";
@@ -20,8 +16,6 @@ import {
   lensFilterActiveCount,
 } from "./lensDims";
 
-
-
 interface Props {
   connection: LensConnection;
   cardLayout: CardLayout;
@@ -32,7 +26,9 @@ interface Props {
 
 /**
  * Lens controls rendered on the SHARED Row-2 board toolbar (in BoardView), so
- * switching Board↔Lens doesn't reflow the chrome. Pivot dropdowns + the Filters
+ * switching Board↔Lens doesn't reflow the chrome. Like the board's toolbar
+ * (#2269) the row wraps instead of scrolling and nothing folds by viewport
+ * width (#2302): every control stays reachable at 390px. Pivot dropdowns + the Filters
  * toggle read/write the URL directly; the layout toggle reuses the board's
  * `useCardLayoutPref` (owned by BoardView). Freshness lives in the provenance
  * banner, not here.
@@ -45,30 +41,9 @@ export default function LensToolbar({
   onToggleFilters,
 }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
-  // Mirrors the native board's Row 2: below `lg` the low-frequency controls fold
-  // into a kebab instead of pushing the row into a horizontal scroll (#1064 —
-  // "lens kebab only when it has folded items (sub-lg)"). The lens has no
-  // ConnectionStatus to pin beside it: it has no WebSocket, it is a pull-only
-  // mirror, so the trailing cluster is the kebab alone.
-  const isLargeViewport = useIsLargeViewport();
-  const foldToolbarControls = !isLargeViewport;
-
   const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
   const layoutLabel =
     cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout";
-
-  const overflowItems: OverflowItem[] = useMemo(() => {
-    if (!foldToolbarControls) return [];
-    return [
-      {
-        id: "lens-layout",
-        label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
-        icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
-        shortcut: layoutShortcutLabel,
-        onSelect: onToggleLayout,
-      },
-    ];
-  }, [foldToolbarControls, cardLayout, layoutShortcutLabel, onToggleLayout]);
 
   const rawColumnDim = searchParams.get("column_dim");
   const rawSwimlaneDim = searchParams.get("swimlane_dim");
@@ -111,11 +86,12 @@ export default function LensToolbar({
     setSearchParams((prev) => { prev.delete("lens_collapsed"); return prev; }, { replace: true });
 
   return (
-    <>
-      <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
-      {/* Board-identical control zone (Collapse · Filters · layout) leads, so it
-          lines up with the board; the lens-specific pivots follow. */}
+    <div data-testid="lens-toolbar" className="flex items-center gap-2 flex-wrap">
+      {/* Board-style controls (Filters · layout · Collapse) share the board's
+          bordered h-9 buttons; the lens-specific pivots follow. No vertical
+          dividers: Row 2 has none (#2269). */}
       <SplitButton
+        size="toolbar"
         primaryLabel={noneCollapsed ? "Collapse" : "Expand"}
         primaryAriaLabel={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}
         primaryTitle={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}
@@ -149,23 +125,21 @@ export default function LensToolbar({
         <button
           type="button"
           onClick={onToggleFilters}
-          className={`relative text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
+          className={`inline-flex items-center h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
           aria-keyshortcuts="f"
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
-          {showFilters ? "Hide filters" : "Filters"}
-          {!showFilters && activeCount > 0 && (
-            <span className="ml-1.5 bg-primary-emphasis/20 text-info rounded-full px-1.5 py-0.5 font-medium">
+          Filters
+          {activeCount > 0 && (
+            <span className="ml-1.5 bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
               {activeCount}
             </span>
           )}
-          <ActiveUnderline active={showFilters || activeCount > 0} />
         </button>
       </Tooltip>
-      {!foldToolbarControls && (
       <Tooltip content={`${layoutLabel} (${layoutShortcutLabel})`}>
         <button
           type="button"
@@ -173,21 +147,18 @@ export default function LensToolbar({
           aria-pressed={cardLayout === "compact"}
           aria-label={layoutLabel}
           aria-keyshortcuts={formatShortcut({ mod: true, shift: true, key: "L" })}
-          className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            cardLayout === "compact" ? "text-info-on-tint bg-primary-emphasis/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
+          className={`relative inline-flex items-center justify-center h-9 w-9 rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            cardLayout === "compact" ? "text-info-on-tint bg-primary-emphasis/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
         >
           {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
           <ActiveUnderline active={cardLayout === "compact"} />
         </button>
       </Tooltip>
-      )}
 
-      <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
-      {/* Lens-specific pivot controls — to the right of the board-shared zone.
-          `portalMenu` is required here for the same reason as the board's Overlay
-          picker (#1147): Row 2 is `overflow-x-auto` on an `h-10` box, which clips
-          an in-flow `absolute top-full` menu to the strip's own height (#1161). */}
+      {/* Lens-specific pivot controls. `portalMenu` stays (#1161): an in-flow
+          `absolute top-full` menu can be clipped by an `overflow` ancestor
+          (the tab group scrolls on its own); a portal is immune. */}
       <SingleSelectDropdown
         label="Columns: Status"
         options={COLUMN_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Columns: ${o.label}` }))}
@@ -202,11 +173,6 @@ export default function LensToolbar({
         onChange={(v) => setPivot({ swimlane_dim: v ?? connection.swimlane_dim })}
         portalMenu
       />
-      {foldToolbarControls && overflowItems.length > 0 && (
-        <div className="shrink-0 pl-1 ml-1 border-l border-line flex items-center">
-          <OverflowMenu items={overflowItems} ariaLabel="Lens actions" />
-        </div>
-      )}
       {isCustomPivot && (
         <span className="text-xs text-fg-muted flex items-center gap-1.5 shrink-0">
           Viewing a custom pivot ·
@@ -219,6 +185,6 @@ export default function LensToolbar({
           </button>
         </span>
       )}
-    </>
+    </div>
   );
 }

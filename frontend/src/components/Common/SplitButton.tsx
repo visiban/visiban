@@ -25,6 +25,8 @@ export interface SplitButtonProps {
   tourStep?: string;
   /** Optional extra classes on the outer wrapper. */
   className?: string;
+  /** `toolbar` matches the board toolbar's bordered `h-9` buttons (#2302). */
+  size?: "default" | "toolbar";
 }
 
 /**
@@ -32,17 +34,16 @@ export interface SplitButtonProps {
  * trigger on the right. Each half is an independent `<button>` with its own
  * focus ring and tab stop — the WAI-ARIA split-button pattern.
  *
- * The menu panel is portaled to document.body to escape the toolbar's
- * `overflow-x-auto` region (CSS spec: `overflow-x: auto` with the default
- * `overflow-y: visible` promotes the y-axis to `auto` too, clipping any
- * descendant dropdown). Position is captured at click time via
+ * The menu panel is portaled to document.body to escape any `overflow`
+ * ancestor (CSS spec: `overflow-x: auto` with the default `overflow-y: visible`
+ * promotes the y-axis to `auto` too, clipping any descendant dropdown). Position is captured at click time via
  * `getBoundingClientRect` and used for `position: fixed` rendering.
  *
  * Because that anchor is measured once, the menu closes on window `resize` and
  * on any scroll outside it (#1171), as `SingleSelectDropdown`'s `portalMenu`
- * does: a resize that crosses a breakpoint can shift the chevron (toolbar
- * controls fold below `lg`), and scrolling the Row 2 strip moves it, either of
- * which would leave a `fixed` menu behind its trigger.
+ * does: a resize can re-wrap the toolbar row and shift the chevron, and
+ * scrolling an ancestor moves it, either of which would leave a `fixed` menu
+ * behind its trigger.
  */
 export default function SplitButton({
   primaryLabel,
@@ -56,6 +57,7 @@ export default function SplitButton({
   menuDisabled = false,
   tourStep,
   className = "",
+  size = "default",
 }: SplitButtonProps) {
   const [open, setOpen] = useState(false);
   // Menu anchor captured at click time — right-edge aligned to the chevron so
@@ -137,8 +139,9 @@ export default function SplitButton({
     </div>
   ) : null;
 
+  const toolbar = size === "toolbar";
   return (
-    <div className={`inline-flex items-stretch shrink-0 rounded ${className}`}>
+    <div className={`inline-flex items-stretch shrink-0 rounded ${toolbar ? "h-9 border border-line-strong" : ""} ${className}`}>
       <button
         type="button"
         onClick={() => {
@@ -150,7 +153,7 @@ export default function SplitButton({
         aria-keyshortcuts={primaryAriaKeyshortcuts}
         title={primaryTitle}
         data-tour-step={tourStep}
-        className="text-xs font-medium text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded-l transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
+        className={`font-medium hover:text-fg hover:bg-surface-hover rounded-l transition ${toolbar ? "text-sm text-fg px-3" : "text-xs text-fg-secondary px-2 py-1"} focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed`}
       >
         {primaryLabel}
       </button>
@@ -165,7 +168,7 @@ export default function SplitButton({
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={menuAriaLabel ?? `${primaryLabel} menu`}
-        className={`px-1.5 py-1 rounded-r border-l border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
+        className={`${toolbar ? "px-2" : "px-1.5 py-1"} rounded-r border-l border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
           open
             ? "text-info-on-tint bg-info/10"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"

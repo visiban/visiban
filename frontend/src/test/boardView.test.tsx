@@ -238,10 +238,18 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
 }))
 vi.mock('../api/gitLens', () => ({ getLensConnection: vi.fn() }))
 vi.mock('../components/Board/Lens/LensView', () => ({
-  default: () => <div data-testid="lens-view">Lens</div>,
+  default: ({ cardLayout, showFilters }: { cardLayout?: string; showFilters?: boolean }) => (
+    <div data-testid="lens-view" data-card-layout={cardLayout} data-show-filters={String(!!showFilters)}>Lens</div>
+  ),
 }))
+// Exposes the two toggles BoardView wires so a test can drive them (#2302).
 vi.mock('../components/Board/Lens/LensToolbar', () => ({
-  default: () => <div data-testid="lens-toolbar" />,
+  default: ({ onToggleLayout, onToggleFilters }: { onToggleLayout: () => void; onToggleFilters: () => void }) => (
+    <div data-testid="lens-toolbar">
+      <button onClick={onToggleLayout}>Toggle lens layout</button>
+      <button onClick={onToggleFilters}>Toggle lens filters</button>
+    </div>
+  ),
 }))
 
 vi.mock('../components/Common/Tooltip', () => ({
@@ -2483,6 +2491,16 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeDisabled()
     })
 
+    it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      expect(screen.getByRole('button', { name: 'Expand all lanes' })).toBeInTheDocument()
+      expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeEnabled()
+      await user.click(screen.getByRole('button', { name: 'Expand all lanes' }))
+      expect(screen.getByRole('button', { name: 'Collapse all lanes' })).toBeInTheDocument()
+    })
+
     it('controls carry a visible keyboard-focus ring', () => {
       render(<BoardView {...defaultProps()} />)
       expect(openViewPanel().getByRole('button', { name: 'Collapse all' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
@@ -3282,6 +3300,25 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     })
     // The grid is not in view, so the success is a toast, not only announced.
     expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('Set “Second card” to high priority.')
+  })
+
+  it('the Lens toolbar toggles drive the lens card layout and filter row (#2302)', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView currentUser={lensUser} />)
+    const user = userEvent.setup()
+    const lens = await screen.findByTestId('lens-view')
+    const startLayout = lens.getAttribute('data-card-layout')
+    const startFilters = lens.getAttribute('data-show-filters')
+    await user.click(screen.getByRole('button', { name: 'Toggle lens layout' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-card-layout')).not.toBe(startLayout)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens layout' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-card-layout')).toBe(startLayout)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).not.toBe(startFilters)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe(startFilters)
   })
 
   it('shows a palette action result in the Lens view', async () => {

@@ -24,7 +24,10 @@ async function openEditModal(page: Page) {
   await routeBoard(page, board as unknown as typeof BOARD_FULL)
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
-  await page.getByRole('button', { name: 'Edit swimlane' }).click({ force: true })
+  // Keyboard-activated: the button is revealed on hover and a forced click lands on whatever
+  // sits at its center, which on a short viewport can be the sticky header rows above the lane.
+  await page.getByRole('button', { name: 'Edit swimlane' }).focus()
+  await page.keyboard.press('Enter')
   await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()
 }
 
@@ -205,20 +208,28 @@ test.describe('Custom color picker in the card sheet (#2095)', () => {
     const sheet = page.getByRole('dialog').filter({ has: page.getByRole('textbox', { name: 'New label name' }) })
     await trigger(page).click()
     await expect(panel(page)).toBeVisible()
-    // Outside the sheet by measurement, not a fixed point: the sheet may use the board's whole
-    // left edge since the swimlane label column went away (#2271), so a constant can land on it.
-    const box = (await sheet.boundingBox())!
+    // Outside the sheet AND the picker by hit-test, not a fixed point: the sheet may use the
+    // board's whole left edge since the swimlane label column went away (#2271), and the picker
+    // anchors beside its trigger, so a constant or a sheet-relative offset can land on either.
     const viewport = page.viewportSize()!
-    const outside = box.x + box.width + 24 < viewport.width
-      ? { x: box.x + box.width + 24, y: viewport.height - 40 }
-      : { x: Math.max(4, box.x - 24), y: viewport.height - 40 }
+    const candidates = [8, 40, 100, 200, 300].flatMap((inset) => [
+      { x: inset, y: viewport.height - 40 },
+      { x: viewport.width - inset, y: viewport.height - 40 },
+      { x: inset, y: 90 },
+      { x: viewport.width - inset, y: 90 },
+    ])
+    const outside = await page.evaluate((points) => {
+      const inLayer = (el: Element | null) => !!el?.closest('[role="dialog"]')
+      return points.find((p) => !inLayer(document.elementFromPoint(p.x, p.y))) ?? null
+    }, candidates)
+    expect(outside, 'a point outside the sheet and the picker').not.toBeNull()
 
-    await page.mouse.click(outside.x, outside.y)
+    await page.mouse.click(outside!.x, outside!.y)
     await expect(panel(page)).toHaveCount(0)
     await expect(sheet).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'New label name' })).toHaveValue('Half typed')
 
-    await page.mouse.click(outside.x, outside.y)
+    await page.mouse.click(outside!.x, outside!.y)
     await expect(page.getByRole('textbox', { name: 'New label name' })).toHaveCount(0)
     await expect(sheet).toHaveCount(0)
   })
