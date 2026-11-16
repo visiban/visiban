@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { createCard } from '../api/cards'
 import PhoneBoard from '../components/Board/PhoneBoard'
-import type { Card, Column, Swimlane } from '../types'
+import type { Card, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from '../types'
 import { patchSwimlane } from '../api/boards'
 import { stepOrder, cellOrderOf } from '../utils/phoneReorder'
 
@@ -409,3 +409,138 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
   })
 })
 
+
+describe('PhoneBoard lane band second line (#2329)', () => {
+  const fdef = (id: number, name: string, field_type = 'text', position = id) =>
+    ({ id, uid: `sf${id}`, name, field_type, choices: [], position, show_on_row: false, is_admin_only: false }) as unknown as SwimlaneCustomFieldDefinition
+  const defs = [fdef(1, 'Owner'), fdef(2, 'Quota'), fdef(3, 'Region'), fdef(4, 'Site', 'url')]
+  const fielded = (id: number, name: string, values: [number, string][], extra: Partial<Swimlane> = {}) =>
+    ({ ...lane(id, name), custom_field_values: values.map(([field_definition, value]) => ({ field_definition, value })), ...extra }) as unknown as Swimlane
+  const amount = {
+    id: 70, uid: 'cf70', name: 'Amount', field_type: 'number', choices: [], position: 0, show_on_card: false, is_required: false,
+    help_text: '', number_prefix: '$', number_suffix: 'k', number_decimals: null, choice_colors: {},
+  } as unknown as CustomFieldDefinition
+  const band = (laneName: string) => within(screen.getByRole('region', { name: laneName })).getByTestId('phone-lane-band')
+
+  it('shows the first two lane fields in Swimlane fields order, outside the collapse button', () => {
+    setup({ swimlanes: [fielded(1, 'North', [[2, '600'], [1, 'Avery']])], swimlaneFieldDefinitions: defs })
+    const details = within(band('North')).getByTestId('phone-lane-band-details')
+    expect(details).toHaveTextContent(/Owner\s*Avery.*Quota\s*600/)
+    const toggle = within(band('North')).getByRole('button', { name: /Collapse lane North/ })
+    expect(toggle).not.toContainElement(details)
+    // One collapse target per band, at 44px.
+    expect(within(band('North')).getAllByRole('button', { expanded: true })).toEqual([toggle])
+    expect(toggle.className).toContain('min-h-11')
+  })
+
+  it('puts fields beyond the first two behind a 44px +N that reveals them in place and reads Less', async () => {
+    const user = userEvent.setup()
+    setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs })
+    const more = screen.getByRole('button', { name: /^\+1: Show 1 more field value for North/ })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    expect(more.className).toContain('min-h-11')
+    const extra = screen.getByTestId('phone-lane-extra-fields')
+    expect(more).toHaveAttribute('aria-controls', extra.id)
+    expect(extra).not.toHaveTextContent('West')
+    await user.click(more)
+    expect(extra).toHaveTextContent('West')
+    const less = screen.getByRole('button', { name: /^Less: Hide 1 more field value for North/ })
+    expect(less).toHaveAttribute('aria-expanded', 'true')
+    await user.click(less)
+    expect(extra).not.toHaveTextContent('West')
+  })
+
+  it('keeps a URL field link out of the button and lifts it to 44px', () => {
+    setup({ swimlanes: [fielded(1, 'North', [[4, 'https://example.com']])], swimlaneFieldDefinitions: defs })
+    const details = screen.getByTestId('phone-lane-band-details')
+    expect(within(details).getByRole('link')).toBeInTheDocument()
+    expect(details.className).toContain('[&_a]:min-h-11')
+  })
+
+  it('hides field names when the board turns them off', () => {
+    setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery']])], swimlaneFieldDefinitions: defs, hideRowChipFieldNames: true })
+    expect(screen.getByText('Owner:')).toHaveClass('sr-only')
+  })
+
+  it('shows the lane WIP line from the grid band code, warning text when over, glyph on a hard lane', () => {
+    setup({
+      swimlanes: [fielded(1, 'North', [], { wip_limit: 1, limit_enforcement: 'hard' } as Partial<Swimlane>), fielded(2, 'APAC', [], { wip_limit: 5 } as Partial<Swimlane>)],
+    })
+    const over = within(band('North')).getByTestId('swimlane-limit-stat')
+    expect(over).toHaveTextContent('⛔ WIP 2 / 1 over')
+    expect(over.className).toContain('text-warning-on-tint')
+    const calm = within(band('APAC')).getByTestId('swimlane-limit-stat')
+    expect(calm).toHaveTextContent(/^WIP 2 \/ 5$/)
+    expect(calm.className).toContain('text-fg')
+  })
+
+  it('shows "at limit" only with show_wip_at_limit', () => {
+    setup({ swimlanes: [fielded(1, 'North', [], { wip_limit: 2 } as Partial<Swimlane>)], showWipAtLimit: true })
+    expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent('WIP 2 / 2 · at limit')
+  })
+
+  it('folds a calm limit line on a collapsed lane and keeps an over one', () => {
+    setup({
+      swimlanes: [fielded(1, 'North', [], { wip_limit: 1 } as Partial<Swimlane>), fielded(2, 'APAC', [], { wip_limit: 5 } as Partial<Swimlane>)],
+      collapsedSwimlaneIds: new Set([1, 2]),
+    })
+    expect(within(band('North')).getByTestId('swimlane-limit-stat')).toHaveTextContent('WIP 2 / 1 over')
+    expect(within(band('APAC')).queryByTestId('swimlane-limit-stat')).toBeNull()
+  })
+
+  it('counts the lane WIP over every column, not just the selected one', () => {
+    setup({ swimlanes: [fielded(1, 'North', [], { wip_limit: 9 } as Partial<Swimlane>)] })
+    // North holds card 1 (Prospect, shown) and card 4 (Qualified, not shown).
+    expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
+  })
+
+  it('counts the lane WIP over allColumns even when a column is hidden from `columns`', () => {
+    setup({
+      columns: [col(1, 'Prospect')],
+      allColumns: [col(1, 'Prospect'), col(2, 'Qualified')],
+      swimlanes: [fielded(1, 'North', [], { wip_limit: 9 } as Partial<Swimlane>)],
+    })
+    // Card 4 sits in the hidden Qualified column: 2 over allColumns, 1 over `columns`.
+    expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
+  })
+
+  it('offers admins "Change field order" after the revealed +N fields, 44px, and hides it otherwise', async () => {
+    const user = userEvent.setup()
+    const onEditFieldOrder = vi.fn()
+    const props = { swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs, onEditFieldOrder }
+    setup({ ...props, isAdmin: true })
+    expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    const link = screen.getByRole('button', { name: 'Change field order' })
+    expect(link.className).toContain('min-h-11')
+    await user.click(link)
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup({ ...props, isAdmin: false })
+    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
+  })
+
+  it('shows the number rollup over the lane\'s open cards, and orders stats as the grid band', () => {
+    const v = (value: string) => ({ custom_field_values: [{ field_definition: 70, value }] }) as Partial<Card>
+    setup({
+      columns: [col(1, 'Prospect'), col(2, 'Won', { is_done: true })],
+      swimlanes: [fielded(1, 'North', [[1, 'Avery']], { wip_limit: 9 } as Partial<Swimlane>)],
+      cards: [card(1, 1, 1, { ...v('33'), due_date: '2000-01-01' }), card(2, 1, 1, v('380')), card(3, 2, 1, v('500'))],
+      swimlaneFieldDefinitions: defs,
+      rollupField: amount,
+    })
+    const rollup = screen.getByTestId('phone-lane-rollup')
+    expect(rollup).toHaveTextContent(/^Amount: \$413k open$/)
+    const text = screen.getByTestId('phone-lane-band-details').textContent ?? ''
+    const at = (s: string) => text.indexOf(s)
+    expect(at('Avery')).toBeLessThan(at('1 overdue'))
+    expect(at('1 overdue')).toBeLessThan(at('WIP'))
+    expect(at('WIP')).toBeLessThan(at('$413k open'))
+  })
+
+  it('has no second line when the lane has nothing to show', () => {
+    setup({ swimlanes: [lane(1, 'North')] })
+    expect(screen.queryByTestId('phone-lane-band-details')).toBeNull()
+  })
+})

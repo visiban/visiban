@@ -191,7 +191,7 @@ export function ViewToggle({
     >
       <button
         onClick={() => onChange(val)}
-        className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+        className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
           view === val
             ? "text-fg font-bold border-primary"
             : muted
@@ -216,7 +216,7 @@ export function ViewToggle({
       <Tooltip content="Analytics (A)">
         <button
           onClick={() => onChange("analytics")}
-          className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+          className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
             view === "analytics"
               ? "text-fg font-bold border-primary"
               : "text-fg-secondary border-transparent hover:text-fg"
@@ -2829,12 +2829,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           hidden and the page never scrolls sideways. Connection status is the
           last item and stays pinned to the trailing edge. */}
       <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto">
+        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
+          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex-1 max-sm:hidden" />
+          <div className="flex items-center gap-2 flex-wrap max-sm:order-1 max-sm:ml-auto">
             <FilterPanel
               board={board}
               filters={effectiveFilters}
@@ -2924,12 +2924,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onClick={() => setDrawerOpen((v) => !v)}
                 aria-pressed={drawerOpen}
                 aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   drawerOpen ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
                 }`}
               >
                 {ActivityDrawerIcon}
-                Activity
+                {/* Icon-only on phones (#2333); the text stays in the DOM as the accessible name. */}
+                <span className="max-sm:sr-only">Activity</span>
               </button>
             </Tooltip>
             <OverflowMenu
@@ -2941,7 +2942,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             />
           </div>
         </div>
-        <div className="flex items-center shrink-0 ml-auto">
+        <div className="flex items-center shrink-0 ml-auto max-sm:order-1 max-sm:ml-0">
           <ConnectionStatus
             status={socketStatus}
             lastEventAt={socketLastEventAt}
@@ -2979,7 +2980,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
+          {/* Phone (#2333): every control in the bar is a 44px target; the facet menus it opens are #2341. */}
+          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}
@@ -3030,10 +3032,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {laneNotice && (
         <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
           <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
-          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Edit lane filters
           </button>
-          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 max-sm:w-11 max-sm:h-11 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             <span aria-hidden="true">×</span>
           </button>
         </div>
@@ -3045,7 +3047,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <button
             type="button"
             onClick={() => { const next = { ...effectiveFilters }; delete next.laneFilter; setActiveFilterId(null); setFilters(next); }}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Clear lane filters
           </button>
@@ -3059,7 +3061,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <button
             type="button"
             onClick={() => { setFilters(EMPTY_FILTER); setActiveFilterId(null); setShowChip("all"); }}
-            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Show all cards
           </button>
@@ -3093,7 +3095,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="flex-1" />
           <button
             onClick={expandAllSwimlanes}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Expand all swimlanes
           </button>
@@ -3121,7 +3123,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             )}
           </span>
           <div className="flex-1" />
-          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
           </button>
         </div>
@@ -3202,6 +3204,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               customFieldDefinitions={board.custom_field_definitions}
               isAdmin={isAdmin}
               allColumns={board.columns}
+              onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
               boardColors={boardColors}
               limitFlags={board}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
@@ -3224,6 +3227,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onSwimlanesReordered={(ids) => { void onSwimlanesReordered(ids); }}
               hardWipEnforced={board.enforce_wip_hard}
               healthAutoEnabled={board.health_auto_enabled}
+              showWipAtLimit={board.show_wip_at_limit}
+              rollupField={resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions)}
+              hideRowChipFieldNames={board.show_row_chip_field_names === false}
             />
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>

@@ -59,9 +59,11 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 - a collapse chevron (it points down when expanded and turns to point right when collapsed);
 - a small square in the swimlane color, then the name in larger semibold type (admins also see the contact email, and a set [health status](health-status.md#lane-status) follows the name);
 - the swimlane's first two field values as `Label value` pairs, then a **+N** button for the rest (it reveals them in place and then reads **Less**; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band));
-- at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the card count (`7 cards`).
+- at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the swimlane rollup total (`$413k open`) when the board has chosen one.
 
-The band wraps onto a second line when it runs out of room. The old left label panel is gone, so the cards start at the left edge of the board.
+The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle and the edit and focus buttons appear when you hover over the band or move keyboard focus to them. On a touch device, which has no hover, they are always shown.
+
+> **Changed in 1.3 (#2328, #2335)** — the band no longer shows the swimlane's card count. A lane over its WIP limit still shows the count in its limit line (`WIP 5 / 4 over`), and the collapsed strip shows the count per column. The edit button is now hidden until you hover the band or focus it, like the drag handle and the focus button. The old left label panel is gone, so the cards start at the left edge of the board.
 
 **Resizing:**
 
@@ -384,7 +386,7 @@ Below 640px wide the board shows one column at a time instead of the grid. A row
 
 The limit line shows the card count against the WIP limit (with ⛔ when the board enforces a hard limit and the column is over it) and, when the column is over its weight budget, **Weight** total/budget, as the column header does on a larger screen. Beside it, a column with a policy shows a **Policy** button for everyone; it opens the policy, and board admins can edit it from there.
 
-Swimlanes stack. Each lane has a band showing its name, how many cards it has in this column ("2 here") and its overdue and stale counts; tap the band to collapse or expand the lane. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
+Swimlanes stack. Each lane has a band showing its name and how many cards it has in this column ("2 here"); tap that line to collapse or expand the lane. A second line shows the lane's first two field values, a **+N** button for the rest (it shows them in place and then reads **Less**), the overdue and stale counts, the lane's [row limit](#swimlane-limits) line and the rollup total, the same as on a larger screen. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
 
 Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)). Reordering, a drag on a larger screen, uses buttons instead:
 
@@ -394,7 +396,9 @@ Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**,
 
 Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
 
-Not built yet on phones: the second line of the lane band with lane fields and lane limits (#2329), the sub-column switcher for a split column and track chips on cards (#2330), and the icon-button header with the four-tab strip and 44px header and toolbar targets (#2333; the regular toolbar is used).
+At this width the header and toolbar use icon buttons: **Filters**, **View** and **Activity** show only their icon (screen readers still announce their names). The board toolbar is two rows: the icon buttons, **More board actions** and the connection status on the first, the four tabs (Board, Summary, History, Analytics) on the second. On phones the header no longer links from a board to its group; the group stays reachable from the navigation drawer and the group page shows its own breadcrumb. Every header and toolbar control, including **Search**, **Notifications**, the navigation menu, the filter bar, **More board actions** and the **Show all cards** and **Exit focus** banner buttons, is at least 44px tall and wide when closed. The pencil beside the board name is hidden; tap the name to rename the board. Controls inside the opened panels, the navigation drawer, the account menu and the notification rows are not yet 44px (#2341).
+
+Not built yet on phones: the sub-column switcher for a split column and track chips on cards (#2330), and folding **View** into the **Filter** button (#2340; they stay two buttons).
 
 ### Board panning
 

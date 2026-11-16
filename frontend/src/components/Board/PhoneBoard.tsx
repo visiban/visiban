@@ -7,6 +7,10 @@ import EditSwimlaneModal from "./EditSwimlaneModal";
 import EditColumnModal from "./EditColumnModal";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
+import { laneBandFields, laneBandLimit, type LaneBandField } from "../../utils/laneBand";
+import { laneRollup } from "../../utils/laneRollup";
+import SwimlaneLimitStat from "./SwimlaneLimitStat";
+import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import CardItem from "../Card/CardItem";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import { columnTintStyle } from "../../utils/colorContrast";
@@ -47,6 +51,8 @@ interface Props {
   /** Editing surfaces (#2277): the same gates and modals as the grid, so phones lose no controls. */
   isAdmin?: boolean;
   allColumns?: Column[];
+  /** Admin shortcut from the revealed `+N` fields to Board settings -> Swimlane fields, as on the grid band. */
+  onEditFieldOrder?: () => void;
   boardColors?: BoardColor[];
   limitFlags?: LimitFlags;
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
@@ -74,7 +80,15 @@ interface Props {
   hardWipEnforced?: boolean;
   /** board.health_auto_enabled (#2245): a computed lane health shows as a pill too. */
   healthAutoEnabled?: boolean;
+  /** board.show_wip_at_limit (#973): the lane limit line's "at limit" state, as on the grid band (#2329). */
+  showWipAtLimit?: boolean;
+  /** The board's swimlane rollup field (#2275, `resolveRollupField`); null: no rollup on the band. */
+  rollupField?: CustomFieldDefinition | null;
+  /** board.show_row_chip_field_names is off (#1418): lane fields show values without names. */
+  hideRowChipFieldNames?: boolean;
 }
+
+const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
 /** Same rule as the grid band (SwimlaneRow): a set or, on an auto board, computed status shows a pill. */
 function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
@@ -150,11 +164,11 @@ export default function PhoneBoard({
   selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onOpenCardMenu,
   contextTargetCardId, onCardUpdated, density, userTimezone, currentUserId, userDateFormat,
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
-  isAdmin = false, allColumns, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
+  isAdmin = false, allColumns, onEditFieldOrder, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
-  healthAutoEnabled = false,
+  healthAutoEnabled = false, showWipAtLimit = false, rollupField = null, hideRowChipFieldNames = false,
 }: Props) {
   const ordered = [...columns].sort((a, b) => a.position - b.position);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -169,6 +183,13 @@ export default function PhoneBoard({
   const policyTriggerRef = useRef<HTMLButtonElement>(null);
   const closePolicy = useCallback(() => setPolicyRect(null), []);
   const lastRequest = useRef<number | null>(null);
+  // Lanes whose `+N` fields are revealed (#2329), per lane as on the grid band.
+  const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
+  const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(laneId)) next.add(laneId);
+    return next;
+  });
 
   // A request from outside (the empty-board button) selects the column, expands the lane
   // and opens the input; the nonce makes a repeated request for the same cell fire again.
@@ -365,29 +386,89 @@ export default function PhoneBoard({
           const statusOf = (c: Card) => cardBoardStatus(c, doneIds.has(c.column));
           const overdue = allLane.filter((c) => statusOf(c) === "overdue").length;
           const stale = allLane.filter((c) => statusOf(c) === "stale").length;
+          // Second line (#2329): the grid band's fields, limit line and rollup, from the
+          // same helpers, so a lane reads the same at every width.
+          const fields = laneBandFields(lane, swimlaneFieldDefinitions);
+          const fieldsOpen = openFieldLanes.has(lane.id);
+          const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);
+          const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);
+          const hasSecondLine = fields.inline.length > 0 || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
+          const extraId = `${uid}-lane-${lane.id}-fields`;
+          const renderField = ({ def, value }: LaneBandField) => (
+            <CustomFieldValueDisplay key={def.id} definition={def} value={value} variant="band" adminOnly={def.is_admin_only} hideName={hideRowChipFieldNames} userDateFormat={userDateFormat} />
+          );
           return (
             <section key={lane.id} aria-label={lane.name} data-testid="phone-lane" className="flex flex-col gap-2">
-              <button
-                type="button"
-                aria-expanded={!collapsed}
-                aria-label={`${collapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${laneCards.length} here${overdue > 0 ? `, ${overdue} overdue` : ""}${stale > 0 ? `, ${stale} stale` : ""}`}
-                onClick={() => onToggleSwimlane(lane.id)}
+              {/* The band: tinted, one collapse target (the first line, 44px), then a second
+                  line of fields and stats. The second line sits outside the button because a
+                  URL field is a link and `+N` is a button, and neither may nest in a button. */}
+              <div
+                data-testid="phone-lane-band"
                 style={columnTintStyle(lane.color)}
-                className="flex flex-col gap-1 min-h-11 w-full text-left rounded border border-line bg-surface p-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="flex flex-col rounded border border-line bg-surface"
               >
-                <span className="flex items-center gap-2 w-full">
+                <button
+                  type="button"
+                  aria-expanded={!collapsed}
+                  aria-label={`${collapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${laneCards.length} here`}
+                  onClick={() => onToggleSwimlane(lane.id)}
+                  className={`flex items-center gap-2 min-h-11 w-full text-left rounded px-3 ${hasSecondLine ? "pt-2.5 pb-1" : "py-2.5"} focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+                >
                   <svg aria-hidden="true" className={`w-4 h-4 shrink-0 text-fg-secondary transition-transform ${collapsed ? "-rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
                   <span aria-hidden="true" className="w-2.5 h-2.5 rounded-sm color-dot" style={{ backgroundColor: lane.color }} />
                   <span className="text-[17px] font-semibold text-fg min-w-0 break-words">{lane.name}</span>
                   <span className="ml-auto text-xs font-semibold text-fg whitespace-nowrap">{laneCards.length} here</span>
-                </span>
-                {(overdue > 0 || stale > 0) && (
-                  <span className="flex gap-3 text-xs pl-6">
-                    {overdue > 0 && <span className="text-danger-on-tint">{overdue} {STATUS_LABEL.overdue}</span>}
-                    {stale > 0 && <span className="text-warning-on-tint">{stale} {STATUS_LABEL.stale}</span>}
-                  </span>
+                </button>
+                {hasSecondLine && (
+                  // Order and tiers as the grid band (frontend/CLAUDE.md § Swimlane bands): the
+                  // first two fields, `+N`, then overdue, stale, the limit line and the rollup.
+                  // A link in a URL field is lifted to 44px, as every phone target is.
+                  <div data-testid="phone-lane-band-details" className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 pr-3 pb-2.5 text-sm [&_a]:inline-flex [&_a]:items-center [&_a]:min-h-11">
+                    {fields.inline.map(renderField)}
+                    {fields.extra.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleLaneFields(lane.id)}
+                          aria-expanded={fieldsOpen}
+                          aria-controls={extraId}
+                          aria-label={`${fieldsOpen ? "Less" : `+${fields.extra.length}`}: ${fieldsOpen ? "Hide" : "Show"} ${fields.extra.length} more field ${fields.extra.length === 1 ? "value" : "values"} for ${lane.name}`}
+                          // A 44px hit area around the grid band's small pill, so it reads the same.
+                          className="group/more inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-fg-secondary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        >
+                          <span className="inline-flex items-center min-h-6 text-xs px-2 py-0.5 rounded-full border border-line-strong group-hover/more:bg-surface-hover">
+                            {fieldsOpen ? "Less" : `+${fields.extra.length}`}
+                          </span>
+                        </button>
+                        <div id={extraId} className="contents" data-testid="phone-lane-extra-fields">
+                          {fieldsOpen && fields.extra.map(renderField)}
+                          {fieldsOpen && isAdmin && onEditFieldOrder && (
+                            <button
+                              type="button"
+                              onClick={onEditFieldOrder}
+                              className="inline-flex items-center min-h-11 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              Change field order
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {overdue > 0 && <span className="font-semibold text-danger-on-tint whitespace-nowrap">{overdue} {STATUS_LABEL.overdue}</span>}
+                    {stale > 0 && <span className="font-semibold text-warning-on-tint whitespace-nowrap">{stale} {STATUS_LABEL.stale}</span>}
+                    {laneLimit !== null && (
+                      <span className="font-semibold">
+                        <SwimlaneLimitStat swimlane={lane} usage={laneLimit.usage} reading={laneLimit.reading} hard={laneLimit.hard} showAtLimit={showWipAtLimit} />
+                      </span>
+                    )}
+                    {rollup !== null && (
+                      <span className="font-semibold text-fg whitespace-nowrap" data-testid="phone-lane-rollup" title={`${rollup.fieldName}: total of the cards not in a done column`}>
+                        <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
+                      </span>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
               <div className="flex flex-wrap gap-2" data-testid="phone-lane-actions">
                 <PhoneLaneHealth lane={lane} boardId={boardId} isAdmin={isAdmin} autoEnabled={healthAutoEnabled} onSwimlaneUpdated={onSwimlaneUpdated} />
                 {canAdd && (

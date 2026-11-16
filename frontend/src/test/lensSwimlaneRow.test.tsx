@@ -74,6 +74,14 @@ describe('LensSwimlaneRow', () => {
     expect(onFocus).toHaveBeenCalledWith('v1')
   })
 
+  it('keeps the focus button hover-revealed, but always shown on a device with no hover (#2335)', () => {
+    setup()
+    const crosshair = screen.getByRole('button', { name: 'Focus on v1.2' })
+    expect(crosshair.className).toContain('group-hover:opacity-100')
+    expect(crosshair.className).toContain('focus:opacity-100')
+    expect(crosshair.className).toContain('[@media(hover:none)]:opacity-100')
+  })
+
   it('when focused, the crosshair exits focus', async () => {
     const user = userEvent.setup()
     const { onExitFocus } = setup({ isFocused: true })

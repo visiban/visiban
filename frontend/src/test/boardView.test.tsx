@@ -3800,6 +3800,9 @@ describe('BoardView lane filters (#2205)', () => {
     const text = '“Customer A” is now hidden because it no longer matches your lane filters.'
     expect(screen.getAllByText(text).length).toBeGreaterThan(0)
     expect(document.activeElement).toBe(document.querySelector('[data-board-scroll]'))
+    // Phone (#2333): jsdom has no media queries, so pin the 44px classes on the notice's buttons.
+    expect(screen.getByRole('button', { name: 'Edit lane filters' })).toHaveClass('max-sm:min-h-11')
+    expect(screen.getByRole('button', { name: 'Dismiss notice' })).toHaveClass('max-sm:w-11', 'max-sm:h-11')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss notice' }))
     expect(screen.queryByText(text)).not.toBeInTheDocument()
   })

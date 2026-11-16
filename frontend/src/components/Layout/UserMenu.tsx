@@ -84,7 +84,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account menu for ${displayName}`}
-        className="flex items-center gap-1 rounded-full p-0.5 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className="flex items-center justify-center gap-1 rounded-full p-0.5 max-sm:min-h-11 max-sm:min-w-11 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         <Avatar user={user} size="trigger" />
         <svg aria-hidden="true" viewBox="0 0 12 12" className="w-3 h-3 text-fg-tertiary">

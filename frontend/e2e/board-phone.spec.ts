@@ -1,6 +1,44 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+
+
+// Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
+// the face is the 44px target and its select checkbox stays 16px (frontend/CLAUDE.md § Phone layout).
+async function smallControls(page: Page, roots: string[]): Promise<string[]> {
+  return page.evaluate((rs) => {
+    const out: string[] = []
+    for (const sel of rs) {
+      document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
+        if (el.closest('[data-card-id]')) return
+        const r = (el as HTMLElement).getBoundingClientRect()
+        if (r.width === 0 && r.height === 0) return
+        if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
+      })
+    }
+    return out
+  }, roots)
+}
+
+// Pairs of header and toolbar controls whose boxes overlap (a control may not cover another).
+async function overlappingControls(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="mobile-nav-bar"] button, nav[aria-label="Board toolbar"] button'))
+      .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' })
+    const name = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)
+    const out: string[] = []
+    for (let i = 0; i < els.length; i++) {
+      for (let j = i + 1; j < els.length; j++) {
+        if (els[i].contains(els[j]) || els[j].contains(els[i])) continue
+        const a = els[i].getBoundingClientRect(), b = els[j].getBoundingClientRect()
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        if (w > 1 && h > 1) out.push(`${name(els[i])} overlaps ${name(els[j])}`)
+      }
+    }
+    return out
+  })
+}
 
 // Phone layout (#2277): one column at a time, lanes stacked, 44px targets in the board body.
 test.describe('board phone layout', () => {
@@ -36,27 +74,112 @@ test.describe('board phone layout', () => {
   test('has no sideways page scroll and every board-body control is at least 44px', async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    const small = await page.evaluate(() => {
-      const out: string[] = []
-      // The board body only. The app header and the board toolbar sit outside these roots:
-      // their 44px targets (icon buttons, four-tab strip) are #2333, not built yet.
-      const roots = ['[data-testid="phone-board"]', '[data-testid="show-chips"]']
-      for (const sel of roots) {
-        document.querySelectorAll(`${sel} button, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
-          // Inside a card face: the face itself is the 44px target (asserted below). Its select
-          // checkbox stays 16px, a recorded exception (frontend/CLAUDE.md § Phone layout).
-          if (el.closest('[data-card-id]')) return
-          const r = (el as HTMLElement).getBoundingClientRect()
-          if (r.width === 0 && r.height === 0) return
-          if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
-        })
-      }
-      return out
-    })
+    const small = await smallControls(page, ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="mobile-nav-bar"]', 'nav[aria-label="Board toolbar"]'])
     expect(small).toEqual([])
+    expect(await overlappingControls(page)).toEqual([])
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
     expect(faces.length).toBeGreaterThan(0)
     for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
+  })
+
+  test('a long board name in a group shrinks so Star and Health stay inside the viewport (#2333)', async ({ page }) => {
+    const name = 'Quarterly platform migration and infrastructure hardening board'
+    await routeBoard(page, { ...BOARD_FULL, group: 7, group_name: 'Platform engineering and operations', name } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible()
+    const banner = page.getByRole('banner')
+    // Phones show only the last crumb; the group crumb is hidden, not clipped.
+    await expect(banner.getByRole('link', { name: 'Platform engineering and operations' })).toBeHidden()
+    const nameBtn = banner.getByRole('button', { name, exact: true })
+    await expect(nameBtn).toBeVisible()
+    const nameBox = (await nameBtn.boundingBox())!
+    for (const ctl of [banner.getByRole('button', { name: 'Star board' }), banner.getByRole('button', { name: /^Health status/ })]) {
+      await expect(ctl).toBeVisible()
+      const box = (await ctl.boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(390)
+      expect(box.x).toBeGreaterThanOrEqual(nameBox.x + nameBox.width - 1)
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
+    }
+    // The name truncates with an ellipsis instead of pushing the controls out.
+    expect(await nameBtn.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === 'ellipsis')).toBe(true)
+    expect(await overlappingControls(page)).toEqual([])
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+
+  test('the notifications panel stays inside the viewport and Mark all read is 44px (#2333)', async ({ page }) => {
+    // The list endpoint is a bare array; the shared helper's paginated stub would crash the panel.
+    await page.route(/\/api\/v1\/notifications\/$/, (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: 1, verb: 'Ada moved Fix login to Done', created_at: new Date().toISOString(), board_id: BOARD_FULL.id, card_id: null, action_type: 'card_moved', is_read: false }]),
+    }))
+    await page.getByRole('button', { name: /^Notifications/ }).click()
+    await expect(page.getByText('Ada moved Fix login to Done')).toBeVisible()
+    const panel = page.getByText('Notifications', { exact: true }).locator('xpath=ancestor::div[contains(@class, "shadow-xl")][1]')
+    await expect(panel).toBeVisible()
+    const box = (await panel.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    // Below the header, not over it.
+    const header = (await page.getByRole('banner').boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(header.y + header.height - 1)
+    const markAll = panel.getByRole('button', { name: /Mark all read/ })
+    expect((await markAll.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+  })
+
+  test('the header and toolbar show icon buttons for Search, Activity and Filter, with names and the four tabs (#2333)', async ({ page }) => {
+    const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
+    for (const name of ['Filters', 'View', /activity drawer/, 'More board actions']) {
+      const btn = toolbar.getByRole('button', { name })
+      await expect(btn).toBeVisible()
+      const box = await btn.boundingBox()
+      expect(box!.width).toBeGreaterThanOrEqual(43.5)
+      expect(box!.height).toBeGreaterThanOrEqual(43.5)
+      // Icon-only: the visible label is gone, the accessible name stays.
+      expect(box!.width).toBeLessThan(60)
+    }
+    for (const tab of ['Board', 'Summary', 'History', 'Analytics']) {
+      await expect(toolbar.getByRole('button', { name: new RegExp(`^${tab}`) })).toBeVisible()
+    }
+    await expect(page.getByRole('button', { name: /^Search/ }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Notifications/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible()
+  })
+
+  test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
+    // Focus needs a second lane; the later route wins over the beforeEach one.
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible()
+    await page.getByRole('button', { name: /^Focus on / }).first().click()
+    const exit = page.getByText('Focused on:').locator('..').getByRole('button', { name: 'Exit focus' })
+    await expect(exit).toBeVisible()
+    expect((await exit.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await exit.click()
+    await page.goto(`/boards/${BOARD_FULL.id}?f_blocked=1`)
+    const showAll = page.getByRole('button', { name: 'Show all cards' })
+    await expect(showAll).toBeVisible()
+    expect((await showAll.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    expect(await smallControls(page, ['[role="status"]'])).toEqual([])
+  })
+
+  test('the filter bar, the collapsed-lanes strip and the lane-filter banner have 44px targets (#2333)', async ({ page }) => {
+    // Filter bar (role=search): the `/` shortcut opens it and focuses its search box.
+    await page.keyboard.press('/')
+    await expect(page.getByRole('search', { name: 'Board filters' })).toBeVisible()
+    expect(await smallControls(page, ['[role="search"]'])).toEqual([])
+    // Collapsed-lanes strip: collapse the lane, then Expand all swimlanes appears.
+    await page.getByRole('button', { name: /Collapse lane/ }).click()
+    const expand = page.getByRole('button', { name: 'Expand all swimlanes' })
+    await expect(expand).toBeVisible()
+    expect((await expand.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    // Lane-filter banner: a lane rule matching nothing hides every lane.
+    const rule = encodeURIComponent('1.[{"f":"name","o":"contains","v":"zzzz"}]')
+    await page.goto(`/boards/${BOARD_FULL.id}?f_lanes=${rule}`)
+    const clear = page.getByRole('button', { name: 'Clear lane filters' })
+    await expect(clear).toBeVisible()
+    expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
   })
 
   test('adds a card to a lane and Edit swimlane opens the modal', async ({ page }) => {
@@ -193,5 +316,42 @@ test.describe('board phone layout', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByTestId('board-empty-state').getByRole('button', { name: /Add a card/ }).click()
     await expect(page.getByLabel(/New card title/)).toBeVisible()
+  })
+
+  test('lane band second line: fields, +N, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
+    const def = (id: number, name: string, field_type = 'text') => ({
+      id, uid: `sfd0000${id}x`, name, field_type, choices: [], position: id, show_on_row: false,
+      is_admin_only: false, choice_colors: {}, number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',
+    })
+    const lane = {
+      ...SWIMLANE,
+      name: 'North America with a long lane name that wraps on a phone',
+      wip_limit: 0,
+      custom_field_values: [{ field_definition: 1, value: 'Avery Brooks' }, { field_definition: 2, value: '600000' }, { field_definition: 3, value: 'West' }],
+    }
+    const board = { ...BOARD_FULL, swimlanes: [lane], swimlane_custom_field_definitions: [def(1, 'Owner'), def(2, 'Quota', 'number'), def(3, 'Region')] }
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const band = page.getByTestId('phone-lane-band')
+    const details = band.getByTestId('phone-lane-band-details')
+    await expect(details).toContainText('Avery Brooks')
+    await expect(details).toContainText('600000')
+    await expect(details).not.toContainText('West')
+    await expect(band.getByTestId('swimlane-limit-stat')).toHaveText(/WIP \d+ \/ 0 over/)
+    // One collapse target, at least 44px tall; the second line is outside it.
+    const toggle = band.getByRole('button', { name: /Collapse lane/ })
+    await expect(band.locator('[aria-expanded]').filter({ has: page.locator('svg') })).toHaveCount(1)
+    expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await expect(toggle.getByTestId('phone-lane-band-details')).toHaveCount(0)
+    const more = band.getByRole('button', { name: /^\+1:/ })
+    const box = (await more.boundingBox())!
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
+    await more.click()
+    await expect(details).toContainText('West')
+    await expect(band.getByRole('button', { name: /^Less:/ })).toHaveAttribute('aria-expanded', 'true')
+    // The long name wraps rather than pushing the page sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    await toggle.click()
+    await expect(page.getByRole('button', { name: /Expand lane/ })).toHaveAttribute('aria-expanded', 'false')
   })
 })

@@ -158,7 +158,7 @@ export default function ConnectionStatus({
         aria-expanded={open}
         aria-label={variant.aria}
         data-tour-step={tourStep}
-        className={`flex items-center gap-1 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
+        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
       >
         <span className={variant.dot} aria-hidden="true" />
         {variant.label && <span className={variant.labelClass}>{variant.label}</span>}

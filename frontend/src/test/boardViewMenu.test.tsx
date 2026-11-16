@@ -38,6 +38,14 @@ const trigger = () => screen.getByRole('button', { name: 'View' })
 const panel = () => within(screen.getByRole('dialog', { name: 'View options' }))
 
 describe('BoardViewMenu', () => {
+  it('is an icon button at phone width with a 44px target and its name kept (#2333)', () => {
+    setup()
+    // jsdom has no media queries, so pin the phone classes: the label collapses to sr-only
+    // (still the accessible name), the chevron hides and the target is 44px.
+    expect(screen.getByText('View')).toHaveClass('max-sm:sr-only')
+    expect(trigger()).toHaveClass('max-sm:h-11', 'max-sm:min-w-11')
+  })
+
   it('Escape closes an open picker menu first, then the View panel', async () => {
     setup({
       presetPicker: (
