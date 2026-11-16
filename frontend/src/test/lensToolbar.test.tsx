@@ -135,6 +135,20 @@ describe('LensToolbar', () => {
       expect(screen.getByRole('button', { name: 'Show all swimlanes' })).toBeInTheDocument()
     })
 
+    it('Filters button carries the same icon as the board Filter button (#2321)', () => {
+      setup()
+      const svg = screen.getByRole('button', { name: 'Filters' }).querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(svg).toHaveAttribute('aria-hidden', 'true')
+      expect(svg!.querySelector('path')).toHaveAttribute('d', 'M4 6h16M7 12h10M10 18h4')
+    })
+
+    it('a partial collapse still reads "Collapse"; only the all-lanes sentinel reads "Expand" (#2321)', () => {
+      setup({ url: '/?lens_collapsed=a,b' })
+      expect(screen.getByRole('button', { name: 'Hide all swimlanes' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Show all swimlanes' })).not.toBeInTheDocument()
+    })
+
     it('Show all swimlanes clears the collapse sentinel; the menu items and pivot options work', async () => {
       const user = userEvent.setup()
       setup({ url: '/?lens_collapsed=*' })

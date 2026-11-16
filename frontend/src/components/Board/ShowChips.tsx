@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { STATUS_SQUARE_CLASS, type CardBoardStatus } from "../../constants/laneStatus";
 import { SHOW_CHIP_LABEL, SHOW_CHIP_ORDER, type ShowChipKey } from "../../utils/showChips";
 
@@ -35,6 +36,22 @@ interface Props {
  * what a click will do, so it is never announced as a toggle with a stale name.
  */
 export default function ShowChips({ active, counts, onChange, columnCount, laneCount, cardCount, allLanesCollapsed = false, onToggleLanes }: Props) {
+  // Live-region message for the lane toggle (#2321). Set on click from the state the
+  // click is leaving, so the announcement names the action just taken; the region is
+  // always mounted so screen readers register it before the text changes.
+  const [laneAnnouncement, setLaneAnnouncement] = useState("");
+  const announceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(announceTimer.current), []);
+  const toggleLanes = () => {
+    // Clear first, then set on a short timeout: collapse all, expand one lane by hand, collapse all
+    // again yields the identical string, and React makes no DOM change for an identical string, so
+    // nothing would be announced the second time.
+    clearTimeout(announceTimer.current);
+    setLaneAnnouncement("");
+    const message = `${allLanesCollapsed ? "Expanded" : "Collapsed"} all ${laneCount} ${laneCount === 1 ? "lane" : "lanes"}`;
+    announceTimer.current = setTimeout(() => setLaneAnnouncement(message), 50);
+    onToggleLanes?.();
+  };
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
     <div
@@ -74,6 +91,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
       <span className="sr-only" role="status" data-testid="show-chip-status">
         {active === "all" ? "" : `Showing ${counts[active]} ${SHOW_CHIP_LABEL[active].toLowerCase()} ${counts[active] === 1 ? "card" : "cards"}`}
       </span>
+      <span className="sr-only" role="status" aria-live="polite" data-testid="show-chip-lanes-status">{laneAnnouncement}</span>
       <span className="text-xs text-fg-secondary" data-testid="board-totals">
         {plural(laneCount, "swimlane", "swimlanes")} · {plural(columnCount, "column", "columns")} · {plural(cardCount, "card", "cards")}
       </span>
@@ -81,7 +99,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
         <button
           type="button"
           data-testid="show-chips-toggle-lanes"
-          onClick={onToggleLanes}
+          onClick={toggleLanes}
           className="inline-flex items-center h-8 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {allLanesCollapsed ? "Expand all lanes" : "Collapse all lanes"}

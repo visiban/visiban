@@ -83,6 +83,7 @@ import { useCardDensityOverride } from "../../hooks/useCardDensityOverride";
 import LensToolbar from "./Lens/LensToolbar";
 import { isBoardTabDeemphasized, LENS_ONLY_BOARD_TOOLTIP } from "./lensTabState";
 import { lensFilterActiveCount } from "./Lens/lensDims";
+import { FilterIcon } from "./toolbarIcons";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
@@ -240,12 +241,6 @@ export function ViewToggle({
 // by fresh icon references every render.
 // Layout icons live in ./toolbarIcons so the lens toolbar renders the exact
 // same nodes — board↔lens parity is a design requirement (#1064).
-
-const FilterIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
-    <path d="M4 6h16M7 12h10M10 18h4" />
-  </svg>
-);
 
 const ViewMenuIcon = (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
@@ -2646,8 +2641,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "summary") {
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+        <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+          </div>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Summary">
@@ -2660,8 +2657,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "history") {
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+        <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+          </div>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Movement history">
@@ -2674,8 +2673,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "analytics") {
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+        <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
+          </div>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Analytics">
