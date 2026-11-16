@@ -1317,6 +1317,19 @@ describe('BoardView', () => {
     expect(screen.getByTestId('summary-view')).toBeInTheDocument()
   })
 
+  // #2321 / #2333: the phone toolbar keeps its tabs on row 2 in every view, so switching views
+  // never moves them. jsdom has no layout, so assert the structure the e2e measures.
+  it.each(['summary', 'history', 'analytics'])('the %s toolbar reserves the phone icon row and puts the tabs on row 2', (view) => {
+    mockSearchParams = new URLSearchParams(`view=${view}`)
+    render(<BoardView {...defaultProps()} />)
+    const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
+    const row1 = within(nav).getByTestId('phone-toolbar-row-1')
+    expect(row1).toHaveAttribute('aria-hidden', 'true')
+    expect(row1).toHaveClass('max-sm:order-1', 'max-sm:h-11', 'max-sm:w-full')
+    const tabs = within(nav).getByRole('button', { name: 'Board' }).closest('div.max-sm\\:order-2')
+    expect(tabs).not.toBeNull()
+  })
+
   it('reads view from ?view=analytics param on mount and renders AnalyticsView', () => {
     mockSearchParams = new URLSearchParams('view=analytics')
     render(<BoardView {...defaultProps()} />)

@@ -2753,25 +2753,29 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             toolbar below, so switching Board↔Lens does not shift the tabs and
             the row never scrolls sideways. */}
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
-            <div className="min-w-0 max-w-full overflow-x-auto">
+          <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
+            {/* Phone: row 1 reserved, tabs on row 2, the lens controls on row 3, so Board to Lens never moves the tabs (#2321, #2333). */}
+            <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
+            <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
             </div>
-            <div className="flex-1" />
+            <div className="flex-1 max-sm:hidden" />
             {/* Inside its own Lens boundary: before the toolbar was split out of
                 LensView, all lens chrome sat inside the boundary below. Without
                 this, a throw from LensToolbar escapes the Lens section and takes
                 down the whole board page instead of just the lens pane. */}
-            <SectionErrorBoundary section="Lens">
-              <LensToolbar
-                connection={lensConnection}
-                cardLayout={cardLayout}
-                onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-                showFilters={lensShowFilters}
-                onToggleFilters={() => setLensShowFilters((v) => !v)}
-                laneCount={lensLaneCount}
-              />
-            </SectionErrorBoundary>
+            <div className="contents max-sm:block max-sm:order-3 max-sm:w-full">
+              <SectionErrorBoundary section="Lens">
+                <LensToolbar
+                  connection={lensConnection}
+                  cardLayout={cardLayout}
+                  onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                  showFilters={lensShowFilters}
+                  onToggleFilters={() => setLensShowFilters((v) => !v)}
+                  laneCount={lensLaneCount}
+                />
+              </SectionErrorBoundary>
+            </div>
           </div>
         </nav>
         {cardActionNotice}
@@ -2792,7 +2796,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto">
+          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
+          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2808,7 +2814,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto">
+          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
+          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2824,7 +2832,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto">
+          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
+          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
