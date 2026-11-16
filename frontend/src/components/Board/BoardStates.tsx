@@ -11,11 +11,11 @@ export function BoardSkeleton() {
     <div role="status" aria-busy="true" className="p-4" data-testid="board-skeleton">
       <span className="sr-only">Loading board</span>
       <div aria-hidden="true" className="space-y-3">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[0, 1, 2, 3].map((i) => <div key={i} className={`${BLOCK} h-11`} />)}
         </div>
         <div className={`${BLOCK} h-12`} />
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[2, 1, 2, 0].map((n, i) => (
             <div key={i} className="rounded-lg bg-canvas p-2 space-y-2 min-h-40">
               {Array.from({ length: n }, (_, j) => <div key={j} className={`${BLOCK} h-16`} />)}
@@ -38,7 +38,7 @@ export function BoardEmptyState({ firstColumnName, onAddCard }: EmptyProps) {
   return (
     <div role="status" className="mx-4 my-3 rounded-lg bg-canvas px-6 py-8 text-center" data-testid="board-empty-state">
       <h2 className="text-base font-semibold text-fg">No cards yet</h2>
-      <p className="mt-2 text-sm text-fg-secondary">
+      <p className="mt-2 text-sm text-fg-secondary break-words">
         {onAddCard ? `Add the first card to ${firstColumnName}.` : "Cards added to this board will show up here."}
       </p>
       {onAddCard && (
@@ -70,7 +70,7 @@ export function BoardOfflineBanner() {
 export function BoardLoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <div role="alert" className="m-4 flex items-center justify-between gap-4 rounded-lg border border-danger-emphasis/50 bg-surface px-4 py-3" data-testid="board-load-error">
-      <p className="text-sm text-fg-secondary">
+      <p className="min-w-0 text-sm text-fg-secondary">
         <strong className="font-semibold text-fg">The board didn't load.</strong> Check your connection and try again.
       </p>
       <button
