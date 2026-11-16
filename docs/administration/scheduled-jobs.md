@@ -2,7 +2,7 @@
 
 Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. On Compose the board-event prune also runs by default; the notification prune stays off until you enable it. On Helm both prune jobs stay off until you enable each one.
 
-**Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.
+**Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications. The due-soon window and its once-per-card rule follow [`INSTANCE_TIMEZONE`](configuration.md#instance-time-zone) (UTC by default).
 
 !!! note "Added in 1.2"
     Before 1.2, Visiban documented these commands but shipped nothing to run

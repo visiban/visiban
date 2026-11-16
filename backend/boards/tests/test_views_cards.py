@@ -3,11 +3,11 @@ import json
 from unittest.mock import patch
 
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from boards.card_signals import signal_today
 from boards.models import (
     Board, BoardMembership, Card, CardActivity, CardChecklist, CardComment,
     CardMovement, Column, Swimlane, Label, Notification,
@@ -570,7 +570,7 @@ class CardFilterTests(TestCase):
 
         import datetime
 
-        today = timezone.localdate()
+        today = signal_today()
         yesterday = today - datetime.timedelta(days=1)
         tomorrow = today + datetime.timedelta(days=1)
 
@@ -640,7 +640,7 @@ class CardFilterTests(TestCase):
 
     def test_filter_due_before(self):
         import datetime
-        tomorrow = (timezone.localdate() + datetime.timedelta(days=1)).isoformat()
+        tomorrow = (signal_today() + datetime.timedelta(days=1)).isoformat()
         r = self.client.get(self._url(), {"due_before": tomorrow})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         titles = [c["title"] for c in r.json()]
@@ -649,7 +649,7 @@ class CardFilterTests(TestCase):
         self.assertNotIn("High priority", titles)  # no due date — excluded
 
     def test_filter_due_after(self):
-        today = timezone.localdate().isoformat()
+        today = signal_today().isoformat()
         r = self.client.get(self._url(), {"due_after": today})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         titles = [c["title"] for c in r.json()]

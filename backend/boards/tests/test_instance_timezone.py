@@ -101,6 +101,32 @@ class DateSignalsTests(TestCase):
         self.assertEqual(resp.json(), [])
 
 
+class DueSoonIdempotencyTests(TestCase):
+    """The once-per-card rule must use the instance zone's midnight (#2312).
+
+    East of UTC, the previous UTC-midnight anchor sat after the first run's
+    notification on the next day, so the second daily run notified again.
+    """
+
+    @override_settings(INSTANCE_TIMEZONE="Asia/Tokyo")
+    def test_tokyo_daily_runs_notify_once(self):
+        owner = _make_user()
+        board = _make_board(owner)
+        col = _make_column(board)
+        lane = Swimlane.objects.create(board=board, name="Lane", position=0)
+        assignee = _make_user(notif_due_soon=True)
+        BoardMembership.objects.create(board=board, user=assignee, role=BoardMembership.Role.MEMBER)
+        # 2026-03-10T16:00Z is 03-11 in Tokyo; with the default 1-day horizon a
+        # card due 03-12 is in the window on both runs (Tokyo 03-11 and 03-12).
+        _make_card(col, lane, due_date=datetime.date(2026, 3, 12), assignee=assignee)
+        for day in (10, 11):
+            now = datetime.datetime(2026, 3, day, 16, 0, tzinfo=datetime.timezone.utc)
+            with patch("django.utils.timezone.now", return_value=now):
+                call_command("notify_due_soon", stdout=StringIO())
+        # Notification.created_at is auto_now_add, so it was stamped with the patched clock.
+        self.assertEqual(Notification.objects.filter(recipient=assignee).count(), 1)
+
+
 class InvalidZoneSettingTests(TestCase):
     def test_invalid_zone_fails_startup_loudly(self):
         code = "import django.conf; django.conf.settings.INSTANCE_TIMEZONE"

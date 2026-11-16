@@ -28,8 +28,21 @@ def signal_today() -> datetime.date:
     default) reproduces the pre-#2312 behavior exactly. Read at call time so a
     settings override takes effect, and independent of Django's ``TIME_ZONE``.
     """
-    zone = zoneinfo.ZoneInfo(getattr(settings, "INSTANCE_TIMEZONE", "UTC"))
-    return timezone.now().astimezone(zone).date()
+    return timezone.now().astimezone(_instance_zone()).date()
+
+
+def _instance_zone() -> zoneinfo.ZoneInfo:
+    return zoneinfo.ZoneInfo(getattr(settings, "INSTANCE_TIMEZONE", "UTC"))
+
+
+def signal_midnight(day: datetime.date) -> datetime.datetime:
+    """Aware datetime of the start of ``day`` in the instance zone (#2312).
+
+    Anchors timestamp comparisons (notify_due_soon's once-per-card rule) to the
+    same day boundary :func:`signal_today` uses. Mixing in UTC midnight would
+    make east-of-UTC installs re-notify on the second daily run.
+    """
+    return datetime.datetime.combine(day, datetime.time.min, tzinfo=_instance_zone())
 
 
 def open_cards_q():
