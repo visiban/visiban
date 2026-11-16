@@ -252,13 +252,14 @@ export default function BoardViewMenu(props: Props) {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         data-tour-step="view-menu"
-        className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
         }`}
       >
         {props.icon}
-        View
-        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        {/* Icon-only on phones (#2333); the text stays in the DOM as the accessible name. */}
+        <span className="max-sm:sr-only">View</span>
+        <svg className="w-3 h-3 max-sm:hidden" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>

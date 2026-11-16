@@ -87,7 +87,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
             ref={triggerRef}
             onClick={start}
             title={name}
-            className="text-fg text-sm font-medium cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 transition-colors max-w-[12rem] truncate focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg text-sm font-medium cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 max-sm:min-h-11 transition-colors max-w-[12rem] truncate focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {name}
           </button>
@@ -96,7 +96,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
             type="button"
             tabIndex={-1}
             onClick={start}
-            className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded text-fg-muted hover:text-fg-secondary transition-opacity text-xs"
+            className="max-sm:hidden opacity-0 group-hover/rename:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded text-fg-muted hover:text-fg-secondary transition-opacity text-xs"
             title="Rename board"
             aria-label="Rename board"
           >

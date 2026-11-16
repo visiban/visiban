@@ -555,14 +555,15 @@ export default function FilterPanel({
           data-tour-step="filter"
           onClick={toggle}
           onKeyDown={onTriggerKeyDown}
-          className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${open || filterBarShown || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
+          className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${open || filterBarShown || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-controls={open ? `${id}-panel` : undefined}
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
           {icon}
-          Filter
+          {/* Icon-only on phones (#2333); the count badge stays. aria-label above names the button. */}
+          <span className="max-sm:sr-only">Filter</span>
           {activeCount > 0 && (
             <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">{activeCount}</span>
           )}

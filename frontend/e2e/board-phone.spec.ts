@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
 
 // Phone layout (#2277): one column at a time, lanes stacked, 44px targets in the board body.
 test.describe('board phone layout', () => {
@@ -38,11 +38,11 @@ test.describe('board phone layout', () => {
     expect(overflow).toBeLessThanOrEqual(0)
     const small = await page.evaluate(() => {
       const out: string[] = []
-      // The board body only. The app header and the board toolbar sit outside these roots:
-      // their 44px targets (icon buttons, four-tab strip) are #2333, not built yet.
-      const roots = ['[data-testid="phone-board"]', '[data-testid="show-chips"]']
+      // The board body, the app header (navigation bar, search, notifications, account menu)
+      // and the board toolbar (tabs, Filter, View, Activity, More board actions): no carve-out (#2333).
+      const roots = ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="mobile-nav-bar"]', 'nav[aria-label="Board toolbar"]']
       for (const sel of roots) {
-        document.querySelectorAll(`${sel} button, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
+        document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
           // Inside a card face: the face itself is the 44px target (asserted below). Its select
           // checkbox stays 16px, a recorded exception (frontend/CLAUDE.md § Phone layout).
           if (el.closest('[data-card-id]')) return
@@ -57,6 +57,41 @@ test.describe('board phone layout', () => {
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
     expect(faces.length).toBeGreaterThan(0)
     for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
+  })
+
+  test('the header and toolbar show icon buttons for Search, Activity and Filter, with names and the four tabs (#2333)', async ({ page }) => {
+    const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
+    for (const name of ['Filters', 'View', /activity drawer/, 'More board actions']) {
+      const btn = toolbar.getByRole('button', { name })
+      await expect(btn).toBeVisible()
+      const box = await btn.boundingBox()
+      expect(box!.width).toBeGreaterThanOrEqual(43.5)
+      expect(box!.height).toBeGreaterThanOrEqual(43.5)
+      // Icon-only: the visible label is gone, the accessible name stays.
+      expect(box!.width).toBeLessThan(60)
+    }
+    for (const tab of ['Board', 'Summary', 'History', 'Analytics']) {
+      await expect(toolbar.getByRole('button', { name: new RegExp(`^${tab}`) })).toBeVisible()
+    }
+    await expect(page.getByRole('button', { name: /^Search/ }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Notifications/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible()
+  })
+
+  test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
+    // Focus needs a second lane; the later route wins over the beforeEach one.
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible()
+    await page.getByRole('button', { name: /^Focus on / }).first().click()
+    const exit = page.getByText('Focused on:').locator('..').getByRole('button', { name: 'Exit focus' })
+    await expect(exit).toBeVisible()
+    expect((await exit.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await exit.click()
+    await page.goto(`/boards/${BOARD_FULL.id}?f_blocked=1`)
+    const showAll = page.getByRole('button', { name: 'Show all cards' })
+    await expect(showAll).toBeVisible()
+    expect((await showAll.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
   })
 
   test('adds a card to a lane and Edit swimlane opens the modal', async ({ page }) => {

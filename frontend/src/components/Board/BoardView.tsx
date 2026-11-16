@@ -191,7 +191,7 @@ export function ViewToggle({
     >
       <button
         onClick={() => onChange(val)}
-        className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+        className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
           view === val
             ? "text-fg font-bold border-primary"
             : muted
@@ -216,7 +216,7 @@ export function ViewToggle({
       <Tooltip content="Analytics (A)">
         <button
           onClick={() => onChange("analytics")}
-          className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+          className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
             view === "analytics"
               ? "text-fg font-bold border-primary"
               : "text-fg-secondary border-transparent hover:text-fg"
@@ -2869,12 +2869,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onClick={() => setDrawerOpen((v) => !v)}
                 aria-pressed={drawerOpen}
                 aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   drawerOpen ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
                 }`}
               >
                 {ActivityDrawerIcon}
-                Activity
+                {/* Icon-only on phones (#2333); the text stays in the DOM as the accessible name. */}
+                <span className="max-sm:sr-only">Activity</span>
               </button>
             </Tooltip>
             <OverflowMenu
@@ -2974,10 +2975,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {laneNotice && (
         <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
           <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
-          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Edit lane filters
           </button>
-          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 max-sm:w-11 max-sm:h-11 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             <span aria-hidden="true">×</span>
           </button>
         </div>
@@ -2989,7 +2990,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <button
             type="button"
             onClick={() => { const next = { ...effectiveFilters }; delete next.laneFilter; setActiveFilterId(null); setFilters(next); }}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Clear lane filters
           </button>
@@ -3003,7 +3004,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <button
             type="button"
             onClick={() => { setFilters(EMPTY_FILTER); setActiveFilterId(null); setShowChip("all"); }}
-            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Show all cards
           </button>
@@ -3037,7 +3038,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="flex-1" />
           <button
             onClick={expandAllSwimlanes}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Expand all swimlanes
           </button>
@@ -3065,7 +3066,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             )}
           </span>
           <div className="flex-1" />
-          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
           </button>
         </div>

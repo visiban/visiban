@@ -394,7 +394,9 @@ Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**,
 
 Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
 
-Not built yet on phones: the second line of the lane band with lane fields and lane limits (#2329), the sub-column switcher for a split column and track chips on cards (#2330), and the icon-button header with the four-tab strip and 44px header and toolbar targets (#2333; the regular toolbar is used).
+At this width the header and toolbar use icon buttons: **Filters**, **View** and **Activity** show only their icon (screen readers still announce their names), and the four tabs (Board, Summary, History, Analytics) sit in one strip under the header. Every header and toolbar control, including **Search**, **Notifications**, the navigation menu, **More board actions** and the **Show all cards** and **Exit focus** banner buttons, is at least 44px tall and wide. The pencil beside the board name is hidden; tap the name to rename the board.
+
+Not built yet on phones: the second line of the lane band with lane fields and lane limits (#2329), the sub-column switcher for a split column and track chips on cards (#2330), and folding **View** into the **Filter** button (they stay two buttons).
 
 ### Board panning
 
