@@ -1142,7 +1142,7 @@ Board admins only (`403` for members, `404` for callers without board access). S
 }
 ```
 
-- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card past it back one and records a `stage_edited` gate transition.
+- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a `stage_edited` gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in `remapped` with its new `gates_passed` and bumped `version`.
 - `tracks`: ordered ids of the board's dimension fields. Removing a track unbinds it only; the field and every card's value stay.
 - `not_applicable`: replaces the lane exceptions for this stage's tracks.
 

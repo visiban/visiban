@@ -2052,6 +2052,9 @@ class ExportJsonShapeTests(ExportBase):
                     "notes": "first",
                     "movement_type": "archived",
                     "imported_from_username": None,
+                    "from_gates_passed": None,
+                    "from_gates_open": None,
+                    "to_gates_passed": None,
                 },
                 {
                     "from_column": "Todo",
@@ -2063,6 +2066,9 @@ class ExportJsonShapeTests(ExportBase):
                     "notes": "later",
                     "movement_type": "move",
                     "imported_from_username": None,
+                    "from_gates_passed": None,
+                    "from_gates_open": None,
+                    "to_gates_passed": None,
                 },
             ],
         )
@@ -2078,6 +2084,9 @@ class ExportJsonShapeTests(ExportBase):
                 "notes",
                 "movement_type",
                 "imported_from_username",
+                "from_gates_passed",
+                "from_gates_open",
+                "to_gates_passed",
             ],
         )
         self.assertEqual(

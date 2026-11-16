@@ -72,7 +72,11 @@ class BoardTemplateSerializer(serializers.ModelSerializer):
     # documentation only, never behavior.
     columns_json = serializers.ListField(
         child=serializers.DictField(),
-        help_text="Ordered list of column dicts: [{name, color, position}].",
+        help_text=(
+            "Ordered list of column dicts: [{name, color, position}]. A column "
+            "may also carry optional sub_columns (a list of names) and tracks "
+            "(a list of dimension field names)."
+        ),
     )
 
     class Meta:
@@ -5406,7 +5410,11 @@ class PublicCardSerializer(serializers.ModelSerializer):
             "due_date", "weight", "position",
             "checklist_total", "checklist_done", "assignee",
             "last_moved_at", "last_move_is_creation", "is_stale", "blocker_count",
+            # Index of the card's sub-column in a gated stage (#1102); the
+            # public column payload already exposes the sub-column names.
+            "gates_passed",
         ]
+        read_only_fields = ["gates_passed"]
 
     # checklist_items are parked with to_attr by get_cards() below (the newest
     # movement comes from annotations, #1883) and read through the same _card_* accessors as CardSerializer
