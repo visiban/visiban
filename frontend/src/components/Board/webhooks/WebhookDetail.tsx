@@ -351,7 +351,8 @@ export default function WebhookDetail(props: Props) {
               {takeOver && !currentUserHasPassword && (
                 <p className="text-xs text-fg-tertiary">Your account signs in with SSO, so instead of a password Visiban checks that you signed in with your provider in the last few minutes.</p>
               )}
-              {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+              {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+              <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={SECONDARY_BTN}>
                   Cancel
@@ -467,7 +468,8 @@ export default function WebhookDetail(props: Props) {
                 <p id={`${uid}-rotate-leak`} className="text-xs text-fg-secondary">
                   If the secret leaked, choose Revoke old secret now, then replace the secret on your receiver. Visiban can't revoke the old secret on your receiver, so anyone who holds it can forge requests until your receiver stops accepting it.
                 </p>
-                {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+                {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
                 <div className="flex flex-wrap justify-end gap-3">
                   <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
                     Cancel
