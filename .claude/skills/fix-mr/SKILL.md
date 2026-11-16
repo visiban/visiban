@@ -201,7 +201,7 @@ contributed.
 - Sequence-numbered files (migrations, ADRs, numbered rules in `frontend/CLAUDE.md`) — these collide only on the
   *merged* tree, so both sides were green alone
 
-Then re-run the scoped tests for the files the merge touched and push. A merge commit's default message is fine.
+Then re-run the scoped tests for the files the merge touched and push. A merge commit's default message is fine. Then go to Step 4b and record the cost before you read the pipeline again.
 
 ---
 
@@ -214,6 +214,35 @@ git add <fixed files>
 git commit -m "fix(ci): <what was fixed>"
 git push origin "$(git branch --show-current)"
 ```
+
+---
+
+## Step 4b — Record this pass's cost, right after the push
+
+**Do this immediately after any push this pass makes, whether from Step 3b or Step 4, and
+before reading the pipeline again.** This step used to sit at the end of Step 6, but Step 5
+ends the pass when the pipeline is still running, so a pass that pushed and stopped on a
+running pipeline never reached it and posted no record. That is the common case for a
+conflict-only fix: merging `main` always starts a new pipeline. MR !1917 lost its record this
+way on 2026-11-16. The record measures the session's work, not the pipeline's result, so it
+never waits for CI.
+
+Record this pass's cost as a new record (upstream provenance: `macrodream/blueprint#384`, `macrodream/blueprint#387`) when the MR already
+carries a `## Cost of this MR` comment and `scripts/cost-ledger enabled` exits 0; off, unreadable,
+or no record 1, post none. A `/fix-mr` pass is a later window, so it never edits an earlier record
+or the `## Gates` lines. In the worktree, run
+`python3 scripts/post-mr-cost.py --round --mr <N>` and relay its one line. It measures the window
+this session has not yet claimed (the orchestrator since its previous cost record, and each
+subagent only for usage after its own previous record), posts the record through
+`scripts/cost-table.py`, and advances the per-session state; a pass that spawned no subagent needs
+nothing extra, and a re-run with nothing new to claim posts nothing. Do not run the three measuring
+scripts, `cost-table.py --next-since` or `--ledger`, or save a window pair by hand. The steps and
+the format are in `docs/development/cost-ledger.md` § *The cost records* and § *Non-overlap*, not here.
+If it cannot post, say so in the report.
+
+The final report always carries the outcome as its own line: the script's one line, or
+`cost record: none (<ledger off | unreadable | no record 1>)`. A report with no cost line means
+this step was skipped.
 
 ---
 
@@ -251,19 +280,6 @@ MR !<N>: pipeline green, but the branch CONFLICTS with main — not mergeable.
 `not_approved`, `discussions_not_resolved`, `draft_status`, `blocked_status`. Report
 those verbatim rather than calling the MR ready; they need a human.
 
-**Record this pass's cost as a new record** (upstream provenance: `macrodream/blueprint#384`, `macrodream/blueprint#387`), when the MR already
-carries a `## Cost of this MR` comment and `scripts/cost-ledger enabled` exits 0; off, unreadable,
-or no record 1, post none. A `/fix-mr` pass is a later window, so it never edits an earlier record
-or the `## Gates` lines. After the push, in the worktree, run
-`python3 scripts/post-mr-cost.py --round --mr <N>` and relay its one line. It measures the window
-this session has not yet claimed (the orchestrator since its previous cost record, and each
-subagent only for usage after its own previous record), posts the record through
-`scripts/cost-table.py`, and advances the per-session state; a pass that spawned no subagent needs
-nothing extra, and a re-run with nothing new to claim posts nothing. Do not run the three measuring
-scripts, `cost-table.py --next-since` or `--ledger`, or save a window pair by hand. The steps and
-the format are in `docs/development/cost-ledger.md` § *The cost records* and § *Non-overlap*, not here.
-If it cannot post, say so in the report.
-
 ---
 
 ## Rules
@@ -272,6 +288,7 @@ If it cannot post, say so in the report.
 - **Never force-push** without user confirmation — create new commits for fixes, and merge (not rebase) to resolve conflicts
 - **Max 3 fix iterations** — if the pipeline still fails after 3 rounds, report the remaining failures and stop. The user needs to investigate.
 - **Never merge the MR** — hand back the URL and stop. The user merges manually.
+- **Post the cost record after the push, never after the pipeline** — Step 4b runs on every pass that pushes, including one that ends at Step 5 on a running pipeline
 - **Do not retry without a code change** unless the failure is clearly infrastructure-related (runner timeout, network error, OOM, a zero-job pipeline)
 - **Verify locally before pushing** — do not use CI as a debugger
 - If `glab` is not authenticated, tell the user to run `glab auth login` and stop

@@ -143,7 +143,7 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel }: 
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
           >
             Cancel
           </button>

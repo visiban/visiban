@@ -67,6 +67,10 @@ class BoardTemplate(models.Model):
         return self.name
 
 
+# Largest staleness_threshold_days a board may store; see the field's comment.
+MAX_STALENESS_THRESHOLD_DAYS = 36500
+
+
 class Board(models.Model):
     """A kanban board containing columns, swimlanes, cards, and members."""
 
@@ -82,7 +86,14 @@ class Board(models.Model):
     group = models.ForeignKey(
         "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
     )
-    staleness_threshold_days = models.PositiveIntegerField(default=7)
+    # Capped because every consumer does ``now - timedelta(days=N)``, which raises OverflowError
+    # (an HTTP 500 on write, and on every later read) once N passes about 739,000 days. 100 years
+    # is far past any real use. Existing stored values are untouched; only new writes are checked.
+    staleness_threshold_days = models.PositiveIntegerField(
+        default=7,
+        validators=[MaxValueValidator(MAX_STALENESS_THRESHOLD_DAYS)],
+        help_text="Days without movement before a card is considered stale. At most %d." % MAX_STALENESS_THRESHOLD_DAYS,
+    )
     stale_warning_pct = models.PositiveSmallIntegerField(
         default=50,
         validators=[MaxValueValidator(100)],

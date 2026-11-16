@@ -197,8 +197,8 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     renderBoard()
     await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
     const prompt = screen.getByText('Revoke this invite? The person it was emailed to will no longer be able to join.')
-    expect(prompt.parentElement).toHaveAttribute('role', 'status')
-    expect(prompt.parentElement).toHaveAttribute('aria-live', 'polite')
+    // The announcer is the only live region for the question (#2232).
+    expect(prompt.closest('[aria-live]')).toBeNull()
     expect(announced()).toBe(prompt.textContent)
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(mockRevoke).toHaveBeenCalledWith(9, 1)
@@ -283,8 +283,15 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     const user = userEvent.setup()
     renderBoard()
     await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
+    // The failure slot is mounted with the prompt and starts empty (#2232).
+    const question = screen.getByText(/^Revoke this invite\?/)
+    const slot = question.closest('div')!.nextElementSibling as HTMLElement
+    expect(slot).toHaveAttribute('role', 'status')
+    expect(slot).toHaveTextContent('')
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByText('Failed to revoke invite. Please try again.')).toHaveClass('text-danger')
+    expect(await screen.findByText('Failed to revoke invite. Please try again.')).toBe(slot)
+    expect(slot).toHaveClass('text-danger')
+    expect(question.closest('[aria-live]')).toBeNull()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
   })

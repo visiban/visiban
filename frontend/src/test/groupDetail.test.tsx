@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { User, Group } from '../types'
@@ -158,6 +158,10 @@ const fakeGroup: Group = {
 
 // `withToasts` mounts the shared toast region (#2107); omitted elsewhere because its always-mounted
 // assertive region would make every `getByRole('alert')` below ambiguous.
+function LocationProbe() {
+  return <span data-testid="location-probe">{useLocation().search}</span>
+}
+
 function renderGroupDetail(locationState?: Record<string, unknown>, user: User = fakeUser, withToasts = false) {
   const initialEntries = locationState
     ? [{ pathname: '/groups/1', state: locationState }]
@@ -279,6 +283,34 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     expect(await screen.findByText('+ New board')).toBeInTheDocument()
+  })
+
+  // #2324 — the empty board's Import cards deep-links here with ?import=1.
+  const renderAt = (url: string) => render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/groups/:id" element={<><GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} /><LocationProbe /></>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  it('?import=1 opens the import dialog for a viewer who can place boards, then drops the param', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderAt('/groups/1?import=1')
+    expect(await screen.findByTestId('import-board-modal')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent(/^$/))
+  })
+
+  it('?import=1 does nothing for a viewer who cannot place boards, and the param is dropped', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: false })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'member', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderAt('/groups/1?import=1')
+    await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent(/^$/))
+    expect(screen.queryByTestId('import-board-modal')).not.toBeInTheDocument()
   })
 
   // #1692 — + New board and Import follow the server's board-placement rule
@@ -410,7 +442,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to remove member. Please try again.')
+    expect(await screen.findByText('Failed to remove member. Please try again.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
 
@@ -434,7 +466,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('The group owner cannot be removed.')
+    expect(await screen.findByText('The group owner cannot be removed.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
 
@@ -445,7 +477,7 @@ describe('GroupDetail', () => {
     const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
     await user.click(within(aliceRow).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Viewer' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot demote the last admin.')
+    expect(await screen.findByText('Cannot demote the last admin.')).toHaveAttribute('role', 'status')
   })
 
   it('falls back to the generic message when the error has no detail (#1785)', async () => {
@@ -454,7 +486,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to remove member. Please try again.')
+    expect(await screen.findByText('Failed to remove member. Please try again.')).toHaveAttribute('role', 'status')
   })
 
   it('offers no remove button or role dropdown on the owner row, but does on others (#1785)', async () => {
@@ -538,7 +570,7 @@ describe('GroupDetail', () => {
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'Platform' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to rename group. Please try again.')
+    expect(await screen.findByText('Failed to rename group. Please try again.')).toHaveAttribute('role', 'status')
   })
 
   it('offers an all-content member below admin only their stored role and Admin, and promotes (#2165)', async () => {
@@ -715,7 +747,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('group-member-error')).not.toBeEmptyDOMElement())
     const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
     expect(within(row).getByText('Full access')).toBeInTheDocument()
   })
@@ -738,7 +770,7 @@ describe('GroupDetail', () => {
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument())
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByTestId('group-member-error')).toBeEmptyDOMElement()
   })
 
   it('surfaces an error and keeps the old role when a role change fails (#1386)', async () => {
@@ -759,7 +791,7 @@ describe('GroupDetail', () => {
     const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
     await user.click(within(aliceRow).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Viewer' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to change member role. Please try again.')
+    expect(await screen.findByText('Failed to change member role. Please try again.')).toHaveAttribute('role', 'status')
     // The selector still shows the stored role, not the attempted one
     const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
     expect(within(row).getByRole('combobox')).toHaveTextContent('Member')
@@ -838,7 +870,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to remove label. Please try again.')
+    expect(await screen.findByText('Failed to remove label. Please try again.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Design')).toBeInTheDocument()
   })
 
@@ -854,8 +886,73 @@ describe('GroupDetail', () => {
     await screen.findByText('Board defaults')
     const low = screen.getByRole('button', { name: 'low' })
     fireEvent.click(low)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to save allowed priorities.')
+    expect(await screen.findByText('Failed to save allowed priorities.')).toHaveAttribute('role', 'status')
     expect(low).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps the defaults status in an always-mounted slot so Saved/error does not shift the row (#487)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['low', 'medium', 'high', 'urgent'] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroupBoardDefaults.mockRejectedValueOnce(new Error('boom'))
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Board defaults')
+    const slot = screen.getByTestId('group-defaults-status')
+    expect(slot).toBeEmptyDOMElement()
+    // The slot itself is the live region (#1437): only its text changes.
+    expect(slot).toHaveAttribute('role', 'status')
+    expect(slot).toHaveAttribute('aria-live', 'polite')
+    fireEvent.click(screen.getByRole('button', { name: 'low' }))
+    await waitFor(() => expect(slot).not.toBeEmptyDOMElement())
+    expect(slot).toHaveClass('text-danger')
+    expect(screen.getByTestId('group-defaults-status')).toBe(slot)
+  })
+
+  it('announces "Saved" through the always-mounted defaults slot (#1437, #487)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['low', 'medium', 'high', 'urgent'] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroupBoardDefaults.mockResolvedValueOnce({ ...fakeGroup, default_board_member_role: 'viewer' })
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Board defaults')
+    const slot = screen.getByTestId('group-defaults-status')
+    const user = userEvent.setup()
+    await user.click(screen.getByLabelText('Default member role for new boards'))
+    await user.click(await screen.findByRole('option', { name: 'Viewer' }))
+    await waitFor(() => expect(slot).toHaveTextContent('Saved'))
+    expect(slot).toHaveAttribute('role', 'status')
+    expect(slot).toHaveClass('text-success')
+  })
+
+  it('reserves the member, label and delete error slots so an error does not shift the page (#487)', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockDeleteGroup.mockRejectedValueOnce(new Error('boom'))
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByRole('button', { name: 'Delete group' })
+    for (const id of ['group-member-error', 'group-label-error', 'group-delete-error']) {
+      const slot = screen.getByTestId(id)
+      expect(slot).toBeEmptyDOMElement()
+      expect(slot).toHaveClass('min-h-4')
+      expect(slot).toHaveAttribute('role', 'status')
+      expect(slot).toHaveAttribute('aria-live', 'polite')
+    }
+    const deleteSlot = screen.getByTestId('group-delete-error')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Delete group' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete group' }))
+    await waitFor(() => expect(deleteSlot).toHaveTextContent('Failed to delete group. Please try again.'))
+    expect(screen.getByTestId('group-delete-error')).toBe(deleteSlot)
   })
 
   it('surfaces an error and stays on the page when group deletion fails (#1386)', async () => {
@@ -871,7 +968,7 @@ describe('GroupDetail', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete group' }))
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Delete group' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to delete group. Please try again.')
+    expect(await screen.findByText('Failed to delete group. Please try again.')).toHaveAttribute('role', 'status')
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 

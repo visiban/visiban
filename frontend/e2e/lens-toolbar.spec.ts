@@ -43,8 +43,13 @@ async function setup(page: Page) {
 // A control's box, waiting out the frame where the toolbar is between renders: right after
 // Board to Lens (and on first paint) boundingBox() can return null for a tab that exists.
 async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
-  await expect.poll(async () => (await locator.boundingBox()) !== null).toBe(true)
-  return (await locator.boundingBox())!
+  // Return the box the poll saw: a second boundingBox() call can land in the next remount frame and be null.
+  let box: { x: number; y: number; width: number; height: number } | null = null
+  await expect.poll(async () => {
+    box = await locator.boundingBox()
+    return box !== null
+  }).toBe(true)
+  return box!
 }
 
 test.describe('Lens toolbar', () => {
@@ -140,8 +145,8 @@ test.describe('Lens toolbar at 1440px', () => {
       expect(box.y).toBe(before[i].y)
       expect(box.height).toBe(before[i].height)
     })
-    const filters = (await page.getByRole('button', { name: 'Filters' }).boundingBox())!
-    const pivot = (await page.getByText('Columns: Status').boundingBox())!
+    const filters = await boxOf(page.getByRole('button', { name: 'Filters' }))
+    const pivot = await boxOf(page.getByText('Columns: Status'))
     const tabs = after[0]
     for (const box of [filters, pivot]) {
       const mid = box.y + box.height / 2

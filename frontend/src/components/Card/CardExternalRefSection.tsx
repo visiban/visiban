@@ -251,7 +251,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                 type="button"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>

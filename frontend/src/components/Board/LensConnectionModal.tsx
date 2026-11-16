@@ -188,7 +188,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
                 type="button"
                 onClick={() => setConfirmingRemove(false)}
                 disabled={removing}
-                className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>

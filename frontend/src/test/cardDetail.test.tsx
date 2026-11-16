@@ -348,12 +348,12 @@ describe('CardDetail', () => {
       rememberCardDetailTab('comments')
       ;(addCardComment as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 5, author: fakeUser, body: 'hi', created_at: new Date().toISOString(), updated_at: '' })
       render(<CardDetail {...defaultProps()} />)
-      expect(await screen.findByText('No comments yet')).toBeInTheDocument()
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument()
       await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(1))
       fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hi' } })
       await userEvent.setup().click(screen.getByRole('button', { name: 'Comment' }))
       await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(2))
-      expect(screen.queryByText('No comments yet')).not.toBeInTheDocument()
+      expect(screen.queryByText('No comments yet.')).not.toBeInTheDocument()
     })
   })
 
@@ -680,7 +680,7 @@ describe('CardDetail', () => {
     expect(screen.getByTestId('attachments-skeleton')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByTestId('attachments-skeleton')).not.toBeInTheDocument())
     await userEvent.setup().click(screen.getByText('Attachments'))
-    expect(screen.getByText('No attachments.')).toBeInTheDocument()
+    expect(screen.getByText('No attachments yet.')).toBeInTheDocument()
   })
 
   it('renders upload button when uploads_enabled is true', () => {
@@ -1440,10 +1440,10 @@ describe('CardDetail', () => {
       // An empty checklist loads collapsed; expanding shows the empty state.
       const header = screen.getByRole('button', { name: /^Checklist/ })
       await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'false'))
-      expect(screen.queryByText('No checklist items.')).toBeNull()
+      expect(screen.queryByText('No checklist items yet.')).toBeNull()
       fireEvent.click(header)
       expect(header).toHaveAttribute('aria-expanded', 'true')
-      expect(screen.getByText('No checklist items.')).toBeInTheDocument()
+      expect(screen.getByText('No checklist items yet.')).toBeInTheDocument()
     })
 
     it('shows the failure copy when the assign is refused', async () => {
@@ -1884,13 +1884,11 @@ describe('CardDetail', () => {
       expect(deleteComment).toHaveBeenCalledTimes(1)
     })
 
-    it('announces the prompt through a polite live region (#1421)', async () => {
+    it('announces the prompt once, through the persistent announcer, not a wrapper (#1421, #2232)', async () => {
       await renderWithComment()
-      const region = screen.getByText('Delete this comment?').closest('[aria-live]')
-      expect(region).not.toBeNull()
-      expect(region).toHaveAttribute('aria-live', 'polite')
-      expect(region).toHaveAttribute('aria-atomic', 'true')
-      expect(region).toHaveAttribute('role', 'status')
+      const question = screen.getByText('Delete this comment?')
+      expect(question.closest('[aria-live]')).toBeNull()
+      expect(announced()).toBe('Delete this comment?')
     })
 
     it('disables Confirm and Cancel while in flight and sends only one DELETE (#1421)', async () => {
@@ -1915,9 +1913,14 @@ describe('CardDetail', () => {
       mockDelete.mockClear()
       mockDelete.mockRejectedValueOnce(new Error('boom'))
       const { user } = await renderWithComment()
+      // The failure slot is mounted with the prompt, empty, so the text lands in an existing region (#2232).
+      const slot = screen.getByText('Delete this comment?').closest('div')!.parentElement!.querySelector('[role="status"]')!
+      expect(slot).toHaveTextContent('')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
       const err = await screen.findByText('Failed to delete comment. Please try again.')
+      expect(err).toBe(slot)
       expect(err.closest('[role="status"]')).not.toBeNull()
+      expect(screen.getByText('Delete this comment?').closest('[aria-live]')).toBeNull()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()

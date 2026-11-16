@@ -357,7 +357,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
             </button>
           )}
           {isAdmin && (
-            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition">
+            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition">
               <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
             </div>
           )}

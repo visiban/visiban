@@ -951,7 +951,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 type="button"
                 onClick={() => setConfirmingSourceSwitch(false)}
                 aria-label="Cancel switching the email configuration source"
-                className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>

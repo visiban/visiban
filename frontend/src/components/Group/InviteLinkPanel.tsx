@@ -477,14 +477,8 @@ export default function InviteLinkPanel({
           </button>
         )}
         {/* BoardSettingsModal inline-confirm pattern (frontend/CLAUDE.md § Modals and dialogs) */}
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={isConfirming ? "basis-full flex flex-wrap items-center gap-2 text-xs" : "contents"}
-        >
-          {isConfirming && (
-            <>
+        {isConfirming && (
+          <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
               <span className="text-fg-tertiary">
                 {isBoard && link.delivery === "email"
                   ? "Revoke this invite? The person it was emailed to will no longer be able to join."
@@ -500,16 +494,21 @@ export default function InviteLinkPanel({
               <button
                 onClick={() => { if (inFlight) return; setConfirmRevokeId(null); setRevokeError(null); }}
                 disabled={inFlight}
-                className="text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
-            </>
-          )}
-          {revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR && (
-            <p className="basis-full text-xs text-danger mt-1">{revokeError.message}</p>
-          )}
-        </div>
+          </div>
+        )}
+        {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+        <p
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR ? "basis-full text-xs text-danger mt-1" : "sr-only"}
+        >
+          {revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR ? revokeError.message : ""}
+        </p>
       </>
     );
   };
@@ -653,7 +652,7 @@ export default function InviteLinkPanel({
             setFormSingleUse(false);
             setPendingFocus("newLink");
           }}
-          className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>

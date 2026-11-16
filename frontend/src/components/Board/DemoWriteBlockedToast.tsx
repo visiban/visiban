@@ -4,12 +4,11 @@ import { DEMO_LEAD } from "../../constants/demoCopy";
 import { useToast } from "../../contexts/useToast";
 
 /**
- * How long the toast stays up before clearing itself. Kept at the shipped 5 s
- * through an explicit override of the 8 s `warning` default: moving it to 8 s
- * (1.3 UI spec Part 9, open conflict 6) waits on the #1179 owner, tracked in
- * #2109.
+ * How long the toast stays up before clearing itself: 8 s, the `warning`
+ * default (owner decision on #2109, 1.3 UI spec Part 9), kept explicit so the
+ * test pins it.
  */
-export const DEMO_TOAST_MS = 5_000;
+export const DEMO_TOAST_MS = 8_000;
 
 export const DEMO_TOAST_KEY = "demo-write-blocked";
 

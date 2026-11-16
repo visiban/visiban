@@ -195,3 +195,69 @@ class BoardSerializerStaleWarningPctTests(TestCase):
         s = BoardSerializer()
         with self.assertRaises(ValidationError):
             s.validate_stale_warning_pct(-5)
+
+
+# ---------------------------------------------------------------------------
+# Board.staleness_threshold_days upper bound (backend-schema-fuzz: POST /boards/ 500)
+# ---------------------------------------------------------------------------
+
+class BoardStalenessThresholdDaysBoundTests(TestCase):
+    """An unbounded threshold overflowed ``now - timedelta(days=N)`` and returned a 500.
+
+    ``29770577`` is the value the schema fuzzer sent (seed 8701996299859313423, MR !1916).
+    """
+
+    FUZZ_VALUE = 29770577
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="stale_days_owner", password="pass")
+        self.board = Board.objects.create(name="Stale Days Board", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_create_with_overflowing_threshold_is_400_not_500(self):
+        with patch(PATCH_BROADCAST):
+            resp = self.client.post(
+                "/api/v1/boards/",
+                {"name": "Fuzz Board", "staleness_threshold_days": self.FUZZ_VALUE},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Board.objects.filter(name="Fuzz Board").exists())
+
+    def test_patch_with_overflowing_threshold_is_400_and_leaves_value(self):
+        with patch(PATCH_BROADCAST):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/",
+                {"staleness_threshold_days": self.FUZZ_VALUE},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.staleness_threshold_days, 7)
+
+    def test_maximum_is_accepted_and_the_board_still_reads(self):
+        from boards.models import MAX_STALENESS_THRESHOLD_DAYS
+
+        with patch(PATCH_BROADCAST):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/",
+                {"staleness_threshold_days": MAX_STALENESS_THRESHOLD_DAYS},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # Every reader subtracts the threshold from now(); the cap must keep that in range.
+        detail = self.client.get(f"/api/v1/boards/{self.board.pk}/full/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+
+    def test_one_past_the_maximum_is_rejected(self):
+        from boards.models import MAX_STALENESS_THRESHOLD_DAYS
+
+        with patch(PATCH_BROADCAST):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/",
+                {"staleness_threshold_days": MAX_STALENESS_THRESHOLD_DAYS + 1},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

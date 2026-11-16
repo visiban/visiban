@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
 import { updateDefaultBoard } from "../api/auth";
@@ -12,6 +12,7 @@ import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoa
 import { canDeleteBoard } from "../utils/canDeleteBoard";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
+import SectionEmptyState from "../components/Common/SectionEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, ImportOptions, User } from "../types";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
@@ -45,16 +46,66 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [joinToken, setJoinToken] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listBoards()
-      .then(setBoards)
-      .catch(() => setLoadError("Failed to load boards. Try refreshing the page."))
-      .finally(() => setLoadingBoards(false));
-    listGroups()
-      .then(setGroups)
-      .catch(() => setLoadError("Failed to load groups. Try refreshing the page."))
-      .finally(() => setLoadingGroups(false));
+  // True when the initial boards or groups fetch rejected. Drives the error state
+  // (with Retry) and keeps a failed load from masquerading as "no data" (#487).
+  const [loadFailed, setLoadFailed] = useState(false);
+  // True while a Retry round is in flight. The Retry button stays mounted (aria-disabled,
+  // "Retrying…") so keyboard focus is not dropped to <body> (#1772, #1437).
+  const [retrying, setRetrying] = useState(false);
+  // Each load round takes the next generation; only the latest round may write state.
+  // Retry is offered on the first rejection while the other fetch can still be pending, so
+  // without this a late rejection or `finally` from round 1 could re-show the error or
+  // clear a loading flag after the retry round succeeded (#487).
+  const loadGenRef = useRef(0);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const groupsHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  const loadAll = useCallback((isRetry = false) => {
+    const gen = ++loadGenRef.current;
+    const isCurrent = () => gen === loadGenRef.current;
+    // A retry keeps the Retry button (loadFailed) mounted until the new round settles, but
+    // clears the alert text: a repeat failure then writes the same string back as a real text
+    // change, which is what makes a screen reader announce it again. The first load starts clean.
+    setLoadError(null);
+    if (!isRetry) setLoadFailed(false);
+    setRetrying(isRetry);
+    setLoadingBoards(true);
+    setLoadingGroups(true);
+    let failed = false;
+    const fail = (message: string) => {
+      if (!isCurrent()) return;
+      failed = true;
+      setLoadFailed(true);
+      setLoadError(message);
+      setRetrying(false);
+    };
+    const boardsRound = listBoards()
+      .then((b) => { if (isCurrent()) setBoards(b); })
+      .catch(() => fail("Failed to load boards."))
+      .finally(() => { if (isCurrent()) setLoadingBoards(false); });
+    const groupsRound = listGroups()
+      .then((g) => { if (isCurrent()) setGroups(g); })
+      .catch(() => fail("Failed to load groups."))
+      .finally(() => { if (isCurrent()) setLoadingGroups(false); });
+    void Promise.all([boardsRound, groupsRound]).then(() => {
+      if (!isCurrent() || failed || !isRetry) return;
+      // The retry recovered: the error and its Retry button unmount, so move focus that was
+      // on Retry to the first section heading instead of letting it fall to <body>.
+      if (document.activeElement === retryButtonRef.current) groupsHeadingRef.current?.focus();
+      setLoadFailed(false);
+      setLoadError(null);
+      setRetrying(false);
+    });
   }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const handleRetry = () => {
+    if (retrying) return;
+    loadAll(true);
+  };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
     const board = await createBoard({ name, template, swimlane_name: swimlaneName });
@@ -127,7 +178,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
   const isLoaded = !loadingBoards && !loadingGroups;
-  const isEmpty = isLoaded && boards.length === 0 && groups.length === 0;
+  const isEmpty = isLoaded && !loadFailed && boards.length === 0 && groups.length === 0;
 
   const renderBoardRow = (b: Board) => (
     <div key={b.id} className="group relative">
@@ -189,9 +240,32 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
 
-        {loadError && (
-          <p className="text-sm text-danger mb-4" data-testid="dashboard-load-error">{loadError}</p>
-        )}
+        {/* The alert is always mounted and only its text changes: a region that mounts together
+            with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
+        <div className={loadFailed ? "flex flex-wrap items-center gap-3 mb-4" : undefined}>
+          <p
+            id="dashboard-load-error"
+            role="alert"
+            aria-atomic="true"
+            className="text-sm text-danger"
+            data-testid="dashboard-load-error"
+          >
+            {loadError}
+          </p>
+          {/* Retry sits beside the alert, never inside it, and stays mounted while retrying (#1772). */}
+          {loadFailed && (
+            <button
+              ref={retryButtonRef}
+              type="button"
+              onClick={handleRetry}
+              aria-disabled={retrying || undefined}
+              aria-describedby="dashboard-load-error"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+            >
+              {retrying ? "Retrying…" : "Retry"}
+            </button>
+          )}
+        </div>
 
         {isEmpty && (
           <OnboardingEmptyState
@@ -203,7 +277,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {/* Groups */}
         <section className="mb-10" aria-labelledby="groups-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 id="groups-heading" className="text-fg text-lg font-semibold">Groups</h2>
+            <h2 id="groups-heading" ref={groupsHeadingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
               className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -214,7 +288,15 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           {loadingGroups ? (
             <Spinner />
           ) : groups.length === 0 ? (
-            <p className="text-fg-muted text-sm">No groups yet. Create one to collaborate with others.</p>
+            // The onboarding state above already says "nothing here yet"; don't repeat it.
+            isEmpty || loadFailed ? null : (
+              <SectionEmptyState
+                testId="groups-empty"
+                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
+                heading="No groups yet"
+                description="Create one to collaborate with others."
+              />
+            )
           ) : (
             <div className="bg-surface/50 rounded-lg border border-line/50 px-2 py-1">
               <GroupTree
@@ -272,8 +354,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <Spinner />
           ) : (
             <div className="flex flex-col gap-2">
-              {personalBoards.length === 0 && (
-                <p className="text-fg-muted text-sm">No personal boards yet.</p>
+              {personalBoards.length === 0 && !isEmpty && !loadFailed && (
+                <SectionEmptyState
+                  testId="personal-boards-empty"
+                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h3a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h3a1 1 0 011 1v8a1 1 0 01-1 1h-3a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h1a1 1 0 011 1v5a1 1 0 01-1 1h-1a1 1 0 01-1-1V4z" /></svg>}
+                  heading="No personal boards yet"
+                  description="Use New board to create one."
+                />
               )}
               {personalBoards.map(renderBoardRow)}
             </div>
@@ -349,7 +436,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={handleJoinSubmit} className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Join</button>
         </div>
       </ModalWrapper>
@@ -404,7 +491,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>

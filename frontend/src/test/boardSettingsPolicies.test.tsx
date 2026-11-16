@@ -243,9 +243,9 @@ describe('BoardSettingsPoliciesSection — switching rows', () => {
     const user = userEvent.setup()
     renderSection()
     await dirtyThenClickDoing(user)
-    const prompt = screen.getByText(PROMPT).closest('[role="status"]') as HTMLElement
-    expect(prompt).toHaveAttribute('aria-live', 'polite')
-    expect(prompt).toHaveAttribute('aria-atomic', 'true')
+    const question = screen.getByText(PROMPT)
+    expect(question.closest('[aria-live]')).toBeNull() // announcer is the only live region (#2232)
+    const prompt = question.parentElement as HTMLElement
     expect(announced()).toBe(PROMPT)
     await user.click(within(prompt).getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByText(PROMPT)).toBeNull()

@@ -485,7 +485,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             )}
             <div className="flex gap-2">
               <button type="button" disabled={moving} onClick={submitMove} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
-              <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0">Cancel</button>
+              <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis text-fg-secondary hover:text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0 hover:bg-surface-hover">Cancel</button>
             </div>
           </div>
         )}
