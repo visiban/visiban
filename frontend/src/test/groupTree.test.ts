@@ -23,6 +23,7 @@ function makeGroup(id: number, parent: number | null = null): Group {
 function makeBoard(id: number, group: number | null = null): Board {
   return {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
+    swimlane_rollup_field: null,
     id, uid: `uid${id}`, name: `Board ${id}`, description: '', owner: fakeUser,
     archived_card_count: 0,
     group, group_name: group !== null ? `Group ${group}` : null,

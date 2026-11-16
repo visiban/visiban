@@ -33,7 +33,7 @@ from visiban.permissions import (
 from visiban.request_shape import id_in_db_range, require_json_object
 
 from .. import broadcast as _broadcast
-from ..models import BoardMembership, CustomFieldDefinition
+from ..models import Board, BoardMembership, CustomFieldDefinition
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     CustomFieldDefinitionSerializer,
@@ -44,6 +44,7 @@ from ._helpers import (
     get_board_for_user,
     lock_board_and_row_or_404,
     lock_board_row_or_404,
+    serialize_boards_for_broadcast,
 )
 
 
@@ -196,6 +197,12 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             # delete queued behind an update (or another delete) serializes
             # and answers 404 instead of broadcasting a second deletion.
             lock_board_and_row_or_404(board, CustomFieldDefinition, instance.pk)
+            # Read under the board lock: is this the board's swimlane rollup
+            # field (#2275)? The delete clears it (SET_NULL), a board field
+            # change that custom_field.deleted does not describe.
+            was_rollup_field = Board.objects.filter(
+                pk=board_id, swimlane_rollup_field_id=instance.pk,
+            ).exists()
             # CASCADE removes every CustomFieldValue for this definition — the
             # values are meaningless without the schema that types them, and
             # keeping orphans would resurrect them if a field of the same name
@@ -208,6 +215,40 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 board_id, _broadcast.EVT_CUSTOM_FIELD_DELETED,
                 {"custom_field_uid": field_uid}, actor_id=self.request.user.id,
             )
+            if was_rollup_field:
+                self._broadcast_board_updated(board_id)
+
+    def _broadcast_board_updated(self, board_id):
+        """Persist ``board.updated`` and send it on commit (#2275).
+
+        Deleting the board's rollup field nulls ``Board.swimlane_rollup_field``;
+        without this frame every open client, the deleting admin's included,
+        keeps the stale id and the settings dialog reads it as a field retyped
+        away from number. Same shape and channels as a board edit's
+        ``board.updated``: the board channel, plus the board's group channel
+        for GroupDetail's row (``serialize_boards_for_broadcast``, as a
+        deactivation's owner transfer sends it). Call inside the write's
+        transaction, after the write.
+        """
+        actor_id = self.request.user.id
+        sends = []
+        for bid, gid, payload in serialize_boards_for_broadcast([board_id], self.request):
+            event_id = _broadcast.persist_board_event(
+                bid, _broadcast.EVT_BOARD_UPDATED, payload, actor_id=actor_id,
+            )
+            sends.append((bid, gid, payload, event_id))
+
+        def _send(sends=sends, aid=actor_id):
+            from groups.broadcast import broadcast_group_event
+
+            for bid, gid, pl, eid in sends:
+                _broadcast.broadcast_board_event(
+                    bid, _broadcast.EVT_BOARD_UPDATED, pl, event_id=eid, actor_id=aid,
+                )
+                if gid is not None:
+                    broadcast_group_event(gid, _broadcast.EVT_BOARD_UPDATED, pl, actor_id=aid)
+
+        transaction.on_commit(_send)
 
     @extend_schema(
         summary="Reorder custom field definitions",

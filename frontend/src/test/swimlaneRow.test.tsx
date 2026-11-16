@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
-import type { Card, Column, Swimlane } from '../types'
+import type { Card, Column, CustomFieldDefinition, Swimlane } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
 
@@ -535,35 +535,38 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()).toBeNull()
   })
 
-  it('under: calm WIP n/limit in a tertiary tone, no accent', () => {
+  it('under: calm WIP n / limit in the foreground tone, no accent (#2275)', () => {
     const { container } = render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 6 })} cards={cardsIn(4)} />)
-    expect(stat()).toHaveTextContent('WIP 4/6')
-    expect(stat()!.className).toContain('text-fg-tertiary')
+    expect(stat()).toHaveTextContent(/^WIP 4 \/ 6$/)
+    expect(stat()!.className).toContain('text-fg')
+    expect(stat()!.className).not.toContain('text-warning')
     expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).toBeNull()
   })
 
   it('at: says "at limit" in text, not color alone, when the board opts in', () => {
     render(<SwimlaneRow {...defaultProps()} showWipAtLimit swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
-    expect(stat()).toHaveTextContent('WIP 5/5 · at limit')
-    expect(stat()!.className).toContain('text-fg-secondary')
+    expect(stat()).toHaveTextContent('WIP 5 / 5 · at limit')
+    expect(stat()!.className).toContain('text-fg')
   })
 
   it('at, with the board opt-in off (the default): reads like under, as the column header does', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
-    expect(stat()).toHaveTextContent('WIP 5/5')
+    expect(stat()).toHaveTextContent(/^WIP 5 \/ 5$/)
     expect(stat()).not.toHaveTextContent('at limit')
-    expect(stat()!.className).toContain('text-fg-tertiary')
   })
 
-  it('over WIP: danger text, the ⚠ glyph and the top accent strip; ⛔ when hard', () => {
+  it('over WIP: "WIP n / limit over" in warning text, no accent strip; ⛔ when hard (#2275)', () => {
     const { container, rerender } = render(
       <SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />,
     )
-    expect(stat()).toHaveTextContent('⚠ Over WIP · 5/4')
-    expect(stat()!.className).toContain('text-danger')
-    expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).not.toBeNull()
+    expect(stat()).toHaveTextContent(/^WIP 5 \/ 4 over$/)
+    expect(stat()!.className).toContain('text-warning-on-tint')
+    expect(stat()!.className).not.toContain('text-danger')
+    expect(stat()).toHaveAttribute('title', "Over the swimlane's WIP limit")
+    expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).toBeNull()
     rerender(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4, limit_enforcement: 'hard' })} cards={cardsIn(5)} />)
-    expect(stat()).toHaveTextContent('⛔ Over WIP · 5/4')
+    expect(stat()).toHaveTextContent('⛔ WIP 5 / 4 over')
+    expect(stat()).toHaveAttribute('title', "Over the swimlane's hard WIP limit — no override possible")
   })
 
   it('a null mode takes the hard glyph from the board flags', () => {
@@ -573,19 +576,19 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
         limitFlags={{ enforce_wip_limits: false, enforce_wip_hard: true, enforce_weight_limits: false }}
       />,
     )
-    expect(stat()).toHaveTextContent('⛔ Over WIP · 2/1')
+    expect(stat()).toHaveTextContent('⛔ WIP 2 / 1 over')
   })
 
-  it('over weight: danger text naming the weight', () => {
+  it('over weight: warning text naming the weight (#2275)', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 9, weight_limit: 12 })} cards={cardsIn(3, 6)} />)
-    expect(stat()).toHaveTextContent('Over weight · 18/12')
-    // § System signals: "Lane over limit" uses fixed danger tokens.
-    expect(stat()!.className).toContain('text-danger')
+    expect(stat()).toHaveTextContent(/^Weight 18 \/ 12 over$/)
+    expect(stat()!.className).toContain('text-warning-on-tint')
+    expect(stat()).toHaveAttribute('title', "Over the swimlane's weight limit")
   })
 
   it('names the metric that is at its limit, not the other one', () => {
     render(<SwimlaneRow {...defaultProps()} showWipAtLimit swimlane={limited({ wip_limit: 5, weight_limit: 6 })} cards={cardsIn(3, 2)} />)
-    expect(stat()).toHaveTextContent('Weight 6/6 · at limit')
+    expect(stat()).toHaveTextContent('Weight 6 / 6 · at limit')
   })
 
   it('keeps the numbers on one line in the band stats', () => {
@@ -597,14 +600,14 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
   it('counts only the counted columns and active cards', () => {
     const cards = [...cardsIn(2), makeCard({ id: 200, uid: 'x1', column: 11 }), makeCard({ id: 201, uid: 'x2', archived_at: '2026-01-01' })]
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5, limit_column_ids: [10] })} cards={cards} />)
-    expect(stat()).toHaveTextContent('WIP 2/5')
+    expect(stat()).toHaveTextContent('WIP 2 / 5')
   })
 
   it('a collapsed row keeps an over-limit state and folds the calm ones', () => {
     const { rerender } = render(
       <SwimlaneRow {...defaultProps()} collapsed swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />,
     )
-    expect(stat()).toHaveTextContent('Over WIP')
+    expect(stat()).toHaveTextContent('WIP 5 / 4 over')
     rerender(<SwimlaneRow {...defaultProps()} collapsed swimlane={limited({ wip_limit: 6 })} cards={cardsIn(5)} />)
     expect(stat()).toBeNull()
   })
@@ -615,6 +618,59 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     const idx = (id: string) => kids.findIndex((k) => k.getAttribute('data-testid') === id)
     expect(idx('swimlane-overdue-count')).toBeLessThan(idx('swimlane-limit-stat'))
     expect(idx('swimlane-limit-stat')).toBeLessThan(idx('swimlane-card-count'))
+  })
+})
+
+describe('SwimlaneRow — number rollup (#2275)', () => {
+  const amount: CustomFieldDefinition = {
+    id: 7, uid: 'cfuid007', name: 'Amount', field_type: 'number', choices: [],
+    position: 0, show_on_card: false, is_required: false, help_text: '',
+    number_prefix: '$', number_suffix: 'k', number_decimals: null, choice_colors: {},
+    threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
+  }
+  const doneColumns: Column[] = [columns[0], { ...columns[1], is_done: true }]
+  const valued = (id: number, value: string, column = 10) =>
+    makeCard({ id, uid: `v${id}`, column, custom_field_values: [{ field_definition: 7, value }] })
+  const rollup = () => screen.queryByTestId('swimlane-rollup')
+
+  it('is hidden when the board chose no rollup field', () => {
+    render(<SwimlaneRow {...defaultProps()} cards={[valued(1, '33')]} />)
+    expect(rollup()).toBeNull()
+  })
+
+  it('shows "{total} open" over the lane\'s cards not in a done column', () => {
+    render(
+      <SwimlaneRow
+        {...defaultProps()} columns={doneColumns} rollupField={amount}
+        cards={[valued(1, '33'), valued(2, '380'), valued(3, '500', 11), makeCard({ id: 4, uid: 'nv' })]}
+      />,
+    )
+    // Visible "$413k open"; the sr-only prefix names the field for screen readers.
+    expect(rollup()).toHaveTextContent(/^Amount: \$413k open$/)
+    expect(rollup()!.querySelector('.sr-only')).toHaveTextContent('Amount:')
+    expect(rollup()).toHaveAttribute('title', 'Amount: total of the cards not in a done column')
+    expect(rollup()!.className).toContain('text-fg')
+  })
+
+  it('updates when a card moves into a done column (live, from the card list)', () => {
+    const { rerender } = render(
+      <SwimlaneRow {...defaultProps()} columns={doneColumns} rollupField={amount} cards={[valued(1, '33'), valued(2, '380')]} />,
+    )
+    expect(rollup()).toHaveTextContent('$413k open')
+    rerender(
+      <SwimlaneRow {...defaultProps()} columns={doneColumns} rollupField={amount} cards={[valued(1, '33'), valued(2, '380', 11)]} />,
+    )
+    expect(rollup()).toHaveTextContent('$33k open')
+  })
+
+  it('sits after the limit line and before the card count', () => {
+    render(
+      <SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, wip_limit: 9 }} rollupField={amount} cards={[valued(1, '33')]} />,
+    )
+    const kids = Array.from(screen.getByTestId('swimlane-band-stats').children)
+    const idx = (id: string) => kids.findIndex((k) => k.getAttribute('data-testid') === id)
+    expect(idx('swimlane-limit-stat')).toBeLessThan(idx('swimlane-rollup'))
+    expect(idx('swimlane-rollup')).toBeLessThan(idx('swimlane-card-count'))
   })
 })
 

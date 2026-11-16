@@ -506,6 +506,9 @@ class BoardViewSet(
             # The group rule was checked against the pre-lock snapshot; check
             # it again against the row as it is now (#1655).
             serializer.recheck_group_under_lock(board)
+            # Same for the rollup field (#2275): a field deleted or retyped
+            # after validation is a 400 here, not an IntegrityError at commit.
+            serializer.recheck_rollup_field_under_lock(board)
             # The group the board is in before this write, read from the
             # locked, refreshed row (as move_group does): a PATCH/PUT that
             # changes ``group`` is a group move to group subscribers (#1684).

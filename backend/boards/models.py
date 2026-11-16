@@ -290,6 +290,24 @@ class Board(models.Model):
             "``?preset=`` link both take precedence. Validated at the serializer layer."
         ),
     )
+    # Swimlane rollup (#2275): the card number field whose values each lane band
+    # sums over its open cards (cards not in a done column). null = no rollup,
+    # which is how every board rendered before. The serializer accepts only a
+    # number field on this board; a field later retyped away from number keeps
+    # the id here and clients simply hide the rollup, so undoing the retype
+    # restores it. Deleting the field clears it (SET_NULL). The sum is computed
+    # by clients from /full/ card values, which every member already sees:
+    # card fields have no admin-only visibility. Revisit if they ever gain it.
+    # Nullable, no default, no index (a definition delete is a rare admin
+    # action on a small table), so ADD COLUMN is catalog-only.
+    swimlane_rollup_field = models.ForeignKey(
+        "CustomFieldDefinition", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", db_index=False,
+        help_text=(
+            "Card number field summed in each swimlane band over cards not in a "
+            "done column (#2275), or null for none."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
