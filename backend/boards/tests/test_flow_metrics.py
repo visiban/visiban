@@ -1465,8 +1465,12 @@ class EndpointResponseTests(EndpointFixture):
         self.assertEqual(backlog["wip_count"], 5)
 
     def test_throughput_reports_completed_in_range(self):
+        # Pin the clock to mid-week: with the wall clock, a run in the first 12 hours of a
+        # Monday UTC puts "0.5 days ago" in the previous (whole) week and total becomes 1.
+        self.now = datetime.datetime(2026, 11, 18, 12, 0, tzinfo=datetime.timezone.utc)
         self.path(self.backlog, 20, self.doing, 16, self.done, 0.5)
-        body = self.client.get(self.url("throughput"), {"days": 30}).json()
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            body = self.client.get(self.url("throughput"), {"days": 30}).json()
         self.assertEqual(body["total"], 0)  # today is never in a whole week
         self.assertEqual(body["completed_in_range"], 1)
 
