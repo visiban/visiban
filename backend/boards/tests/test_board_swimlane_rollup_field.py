@@ -21,7 +21,7 @@ from boards.serializers import PublicBoardSerializer
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
 
-_migration = importlib.import_module("boards.migrations.0108_board_swimlane_rollup_field")
+_migration = importlib.import_module("boards.migrations.0109_board_swimlane_rollup_field")
 
 NUMBER = CustomFieldDefinition.FieldType.NUMBER
 
