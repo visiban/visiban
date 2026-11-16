@@ -5,7 +5,7 @@
  */
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardViewMenu from '../components/Board/BoardViewMenu'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
@@ -226,5 +226,46 @@ describe('BoardViewMenu', () => {
     await user.click(trigger())
     await user.click(panel().getByRole('button', { name: 'Collapse all' }))
     expect(panel().getByRole('button', { name: 'Expand all' })).toHaveFocus()
+  })
+})
+
+describe('BoardViewMenu lane announcements (#2323)', () => {
+  const status = () => screen.getByTestId('view-menu-lanes-status')
+
+  it('announces Collapse all and Expand all by mouse, with the lane count', async () => {
+    const user = userEvent.setup()
+    setup({ laneCount: 3, allSwimlanesExpanded: false })
+    await user.click(trigger())
+    await user.click(panel().getByRole('button', { name: 'Collapse all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 3 lanes'))
+    await user.click(panel().getByRole('button', { name: 'Expand all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Expanded all 3 lanes'))
+  })
+
+  it('announces by keyboard, and re-announces an identical repeat', async () => {
+    const user = userEvent.setup()
+    setup({ laneCount: 1, allSwimlanesExpanded: false })
+    await user.click(trigger())
+    const collapse = panel().getByRole('button', { name: 'Collapse all' })
+    collapse.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 1 lane'))
+    // The same message again must be cleared then re-set so a screen reader speaks it twice.
+    const seen: string[] = []
+    const obs = new MutationObserver(() => seen.push(status().textContent ?? ''))
+    obs.observe(status(), { childList: true, characterData: true, subtree: true })
+    collapse.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 1 lane'))
+    obs.disconnect()
+    expect(seen).toContain('')
+  })
+
+  it('omits the count when unknown', async () => {
+    const user = userEvent.setup()
+    setup({ allSwimlanesExpanded: false })
+    await user.click(trigger())
+    await user.click(panel().getByRole('button', { name: 'Collapse all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all lanes'))
   })
 })

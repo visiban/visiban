@@ -5,6 +5,7 @@ import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchor
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
+import { useLiveAnnouncer, laneStateMessage } from "../../hooks/useLiveAnnouncer";
 import type { CardDensity } from "../../types";
 
 interface Props {
@@ -25,6 +26,8 @@ interface Props {
   allSwimlanesExpanded: boolean;
   allColumnsCollapsed: boolean;
   allColumnsExpanded: boolean;
+  /** Total lane count, for the "Collapsed all N lanes" announcement (#2323). */
+  laneCount?: number;
   onCollapseSwimlanes: () => void;
   onExpandSwimlanes: () => void;
   onCollapseColumns: () => void;
@@ -58,6 +61,11 @@ export default function BoardViewMenu(props: Props) {
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // The panel stays open after Collapse all / Expand all, so say what happened (#2323);
+  // same wording as the Show row. Rendered outside the panel so it survives closing.
+  const { message: laneAnnouncement, announce } = useLiveAnnouncer();
+  const collapseLanes = () => { announce(laneStateMessage(true, props.laneCount)); props.onCollapseSwimlanes(); };
+  const expandLanes = () => { announce(laneStateMessage(false, props.laneCount)); props.onExpandSwimlanes(); };
   const id = useId();
   const panelId = `${id}-panel`;
 
@@ -204,8 +212,8 @@ export default function BoardViewMenu(props: Props) {
       <div role="group" aria-label="Swimlanes">
         <span className={SECTION_LABEL}>Swimlanes <kbd className="ml-1 text-fg-secondary">E</kbd></span>
         <div className="flex gap-2">
-          <button type="button" ref={collapseRef} className={BUTTON_CLASS} disabled={props.allSwimlanesCollapsed} onClick={props.onCollapseSwimlanes}>Collapse all</button>
-          <button type="button" ref={expandRef} className={BUTTON_CLASS} disabled={props.allSwimlanesExpanded} onClick={props.onExpandSwimlanes}>Expand all</button>
+          <button type="button" ref={collapseRef} className={BUTTON_CLASS} disabled={props.allSwimlanesCollapsed} onClick={collapseLanes}>Collapse all</button>
+          <button type="button" ref={expandRef} className={BUTTON_CLASS} disabled={props.allSwimlanesExpanded} onClick={expandLanes}>Expand all</button>
         </div>
       </div>
 
@@ -254,6 +262,7 @@ export default function BoardViewMenu(props: Props) {
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>
+      <span className="sr-only" role="status" aria-live="polite" data-testid="view-menu-lanes-status">{laneAnnouncement}</span>
       {panel && createPortal(panel, document.body)}
     </>
   );

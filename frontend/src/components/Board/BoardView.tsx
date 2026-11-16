@@ -897,6 +897,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
   // mount when a shared link already carries an active lens filter.
   const [lensShowFilters, setLensShowFilters] = useState(() => lensFilterActiveCount(searchParams) > 0);
+  const [lensLaneCount, setLensLaneCount] = useState<number | undefined>(undefined);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   // Alt-gating for the column trash zone (#965). The destructive drop target
@@ -2636,6 +2637,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
                 showFilters={lensShowFilters}
                 onToggleFilters={() => setLensShowFilters((v) => !v)}
+                laneCount={lensLaneCount}
               />
             </SectionErrorBoundary>
           </div>
@@ -2647,6 +2649,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             connection={lensConnection}
             cardLayout={cardLayout}
             showFilters={lensShowFilters}
+            onLaneCountChange={setLensLaneCount}
           />
         </SectionErrorBoundary>
       </div>
@@ -2851,6 +2854,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 allSwimlanesExpanded={allSwimlanesExpanded}
                 allColumnsCollapsed={board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length}
                 allColumnsExpanded={allColumnsExpanded}
+                laneCount={board.swimlanes.length}
                 onCollapseSwimlanes={onHideAllSwimlanes}
                 onExpandSwimlanes={onShowAllSwimlanes}
                 onCollapseColumns={onHideAllColumns}

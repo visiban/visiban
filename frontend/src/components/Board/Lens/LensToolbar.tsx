@@ -6,6 +6,7 @@ import Tooltip from "../../Common/Tooltip";
 import { MENU_ITEM_FOCUS_RING } from "../../Common/menuItemFocusRing";
 import { FilterIcon, LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
 import { formatShortcut } from "../../../utils/platform";
+import { useLiveAnnouncer, laneStateMessage } from "../../../hooks/useLiveAnnouncer";
 import type { LensConnection } from "../../../types";
 import type { CardLayout } from "../../../hooks/useCardLayoutPref";
 import {
@@ -22,6 +23,8 @@ interface Props {
   onToggleLayout: () => void;
   showFilters: boolean;
   onToggleFilters: () => void;
+  /** Live lane count (from LensView) so the announcement can say "all N lanes"; omitted until data loads. */
+  laneCount?: number;
 }
 
 /**
@@ -39,6 +42,7 @@ export default function LensToolbar({
   onToggleLayout,
   showFilters,
   onToggleFilters,
+  laneCount,
 }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
@@ -83,16 +87,25 @@ export default function LensToolbar({
   // Same rule as the board's Show-row button (#2321): the primary offers "Expand"
   // only once EVERY lane is collapsed. LensView normalizes "all lanes" to the
   // "*" sentinel, so a partial collapse leaves the primary on "Collapse".
-  const collapseAll = () =>
+  // Every path (primary click, menu Hide all / Show all, by mouse or keyboard) goes
+  // through these two, so each announces the new lane state (#2323), matching the
+  // Board Show row's wording.
+  const { message: laneAnnouncement, announce } = useLiveAnnouncer();
+  const collapseAll = () => {
     setSearchParams((prev) => { prev.set("lens_collapsed", "*"); return prev; }, { replace: true });
-  const expandAll = () =>
+    announce(laneStateMessage(true, laneCount));
+  };
+  const expandAll = () => {
     setSearchParams((prev) => { prev.delete("lens_collapsed"); return prev; }, { replace: true });
+    announce(laneStateMessage(false, laneCount));
+  };
 
   return (
     <div data-testid="lens-toolbar" className="flex items-center gap-2 flex-wrap">
       {/* Board-style controls (Filters · layout · Collapse) share the board's
           bordered h-9 buttons; the lens-specific pivots follow. No vertical
           dividers: Row 2 has none (#2269). */}
+      <span className="sr-only" role="status" aria-live="polite" data-testid="lens-lanes-status">{laneAnnouncement}</span>
       <SplitButton
         size="toolbar"
         primaryLabel={allCollapsed ? "Expand" : "Collapse"}

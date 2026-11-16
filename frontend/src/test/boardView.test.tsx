@@ -2576,6 +2576,19 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeDisabled()
     })
 
+    it('the View menu announces the live lane count (#2323)', async () => {
+      // Guards BoardView's laneCount={board.swimlanes.length} wiring: without it the
+      // menu falls back to the count-less "Collapsed all lanes".
+      const base = makeBoard()
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: [base.swimlanes[0], { ...base.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Customer B', position: 1 }] }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(openViewPanel().getByRole('button', { name: 'Collapse all' }))
+      await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent('Collapsed all 2 lanes'))
+    })
+
     it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
       render(<BoardView {...defaultProps()} />)
       const user = userEvent.setup()

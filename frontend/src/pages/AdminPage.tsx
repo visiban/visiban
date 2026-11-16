@@ -8,7 +8,7 @@ import {
   clearAdminUserLockout,
   createAdminUser,
   deactivateAdminUser,
-  getAdminInviteLinks,
+  getAdminInviteLinksPage,
   getAdminSettings,
   getAdminUsers,
   createAdminInviteLink,
@@ -26,6 +26,7 @@ import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import { Toggle } from "../components/Common/Toggle";
+import type { AdminInviteLinkPage } from "../api/auth";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
@@ -245,6 +246,8 @@ function formatExpiry(link: AdminInviteLink): string {
 
 function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => void }) {
   const [links, setLinks] = useState<AdminInviteLink[]>([]);
+  // Server cap notice (#2254): older used/expired links are left out of the list.
+  const [truncation, setTruncation] = useState<{ total: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -272,9 +275,14 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
     return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
   }, []);
 
+  const applyPage = (page: AdminInviteLinkPage) => {
+    setLinks(page.links);
+    setTruncation(page.truncated ? { total: page.total } : null);
+  };
+
   useEffect(() => {
-    getAdminInviteLinks()
-      .then(setLinks)
+    getAdminInviteLinksPage()
+      .then(applyPage)
       .catch(() => setError("Failed to load invite links."))
       .finally(() => setLoading(false));
   }, []);
@@ -282,7 +290,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
   // Refetch after an emailed invite so it appears in the list. Only the list is
   // replaced: the one-time reveal lives in `newLink`, separate state.
   const refreshLinks = () => {
-    getAdminInviteLinks().then(setLinks).catch(() => setError("Failed to load invite links."));
+    getAdminInviteLinksPage().then(applyPage).catch(() => setError("Failed to load invite links."));
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -420,6 +428,12 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
       {links.length === 0 ? (
         <p className="text-sm text-fg-muted">No invite links yet.</p>
       ) : (
+        <>
+        {truncation && (
+          <p className="text-xs text-fg-muted" data-testid="invite-links-truncated">
+            Older used, expired, or revoked links are not shown. {truncation.total} links in total.
+          </p>
+        )}
         <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden">
           {links.map((link) => (
             <div key={link.id} className="flex flex-wrap items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition">
@@ -479,6 +493,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
             </div>
           ))}
         </div>
+        </>
       )}
     </div>
   );
