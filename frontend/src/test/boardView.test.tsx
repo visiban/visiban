@@ -167,7 +167,7 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
   },
 }))
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card, compact, overlay, inDoneColumn }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean }) => <div data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
+  default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: () => void }) => <div onClick={onClick} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
@@ -295,6 +295,8 @@ vi.mock('../hooks/useCardSearch', () => ({
 }))
 vi.mock('../api/cards', () => ({
   getCardStatus: vi.fn(),
+  // The peek sheet's history (phone reorder test, #2277).
+  getCardMovements: vi.fn(() => Promise.resolve([])),
   // Card context menu / palette card actions (#2059).
   moveCard: vi.fn(),
   updateCard: vi.fn(),
@@ -3884,6 +3886,55 @@ describe('BoardView phone layout (#2277)', () => {
     render(<BoardView currentUser={fakeUser} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add a card' }))
     expect(screen.getByLabelText(/New card title/)).toBeInTheDocument()
+  })
+
+  it('wires phone reorder to the drag handlers and the peek sheet to Move earlier / Move later', async () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    const base = makeBoard()
+    const lane2 = { ...base.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Customer B', position: 1 }
+    const phoneCard = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card One',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+    const c1 = { ...phoneCard, id: 501, uid: 'carduid0501', column: 10, swimlane: 20, position: 0, title: 'Phone A' }
+    const c2 = { ...phoneCard, id: 502, uid: 'carduid0502', column: 10, swimlane: 20, position: 1, title: 'Phone B' }
+    const ctx = defaultContext({ board: makeBoard({ swimlanes: [base.swimlanes[0], lane2], cards: [c1, c2] }) })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Move column To Do later' }))
+    expect(ctx.reorderColumns).toHaveBeenCalledWith([11, 10])
+    fireEvent.click(screen.getByRole('button', { name: 'Move swimlane Customer A later' }))
+    expect(ctx.reorderSwimlanes).toHaveBeenCalledWith([21, 20])
+    fireEvent.click(screen.getByText('Phone B'))
+    const sheet = await screen.findByTestId('card-peek-sheet')
+    expect(within(sheet).getByRole('button', { name: 'Move later' })).toBeDisabled()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Move earlier' }))
+    expect(ctx.moveCard).toHaveBeenCalledWith(502, 10, 20, 0)
+  })
+
+  it('opens Add column from the phone board', () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByRole('button', { name: '+ Add column' }))
+    expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
+  })
+
+  it('opens Add swimlane from the phone board', () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByRole('button', { name: '+ Add swimlane' }))
+    expect(screen.getByTestId('add-swimlane-modal')).toBeInTheDocument()
   })
 
   it('keeps the grid above phone width', () => {
