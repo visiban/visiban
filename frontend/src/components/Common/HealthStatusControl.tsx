@@ -218,6 +218,7 @@ export default function HealthStatusControl({
       fetchHistory={detailed ? fetchHistory : undefined}
       readOnly={readOnly}
       datePrefs={datePrefs}
+      reviewCue={reviewCue}
       {...fields}
       health_status_changed_at={health_status_changed_at}
       health_status_changed_by={health_status_changed_by}
