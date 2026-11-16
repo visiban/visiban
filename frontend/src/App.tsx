@@ -284,7 +284,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState } = useBoardContext();
+  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -456,7 +456,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
         )}
         {loading && <BoardSkeleton />}
-        {error && <BoardLoadError onRetry={() => window.location.reload()} />}
+        {error && <BoardLoadError onRetry={reload} />}
         {board && (
           // Keyed by board id (#1146): the /boards/:id route keeps this page
           // mounted when the id changes, so without the key every per-board

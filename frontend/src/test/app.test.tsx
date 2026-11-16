@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -415,6 +415,15 @@ describe('App', () => {
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found' })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByText(/The board didn't load/)).toBeInTheDocument()
+  })
+
+  it('Try again refetches the board instead of reloading the page', async () => {
+    const reload = vi.fn()
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found', reload })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(reload).toHaveBeenCalledOnce()
   })
 
   it('renders BoardView when board is loaded', () => {

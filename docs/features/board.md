@@ -753,8 +753,9 @@ With no board default (the setting for every board created or upgraded before 1.
 - **Loading:** a skeleton of column headers, a lane band and cards, announced to screen readers as "Loading board".
 - **No cards yet:** the column headers stay, with an **Add a card** button for people who can add cards.
 - **Filters match nothing:** the notice has a **Show all cards** button that clears the filters and the Show chip.
-- **Offline:** "Reconnecting. Moves are paused until the board is live again." shows while the live connection is down.
-- **Load error:** "The board didn't load." with **Try again**.
+- **Offline:** "Reconnecting. Moves are paused until the board is live again." shows while the live connection is down. If reconnecting gives up, it reads "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
+- **Load error:** "The board didn't load." with **Try again**, which fetches the board again without reloading the page.
+- **Keyboard:** every drag has a keyboard equivalent. Focus a card and press <kbd>Menu</kbd> or <kbd>Shift+F10</kbd>, then choose **Move to…** and a column and swimlane; or open the card and use **Move**. Select several cards with the checkbox on each card and use **Move to…** in the bulk toolbar.
 - **View only:** people with the viewer role see a line saying they can open cards and filter but not move or edit them.
 
 ## Views

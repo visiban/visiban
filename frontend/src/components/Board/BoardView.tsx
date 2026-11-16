@@ -2987,7 +2987,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </button>
         </div>
       )}
-      {(socketStatus === "reconnecting" || socketStatus === "failed") && <BoardOfflineBanner />}
+      {(socketStatus === "reconnecting" || socketStatus === "failed") && <BoardOfflineBanner failed={socketStatus === "failed"} />}
       {!canEdit && !blockedByMaintenance && <ViewOnlyNotice />}
       {view === "board" && board.cards.length === 0 && board.columns.length > 0 && (
         <BoardEmptyState

@@ -32,6 +32,13 @@ describe('board states (#2276)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Reconnecting. Moves are paused until the board is live again.')
   })
 
+  it('offline banner says live updates are off when the socket failed', () => {
+    render(<BoardOfflineBanner failed />)
+    const banner = screen.getByRole('status')
+    expect(banner).toHaveTextContent('Live updates are off')
+    expect(banner).not.toHaveTextContent('Moves are paused')
+  })
+
   it('load error offers Try again', async () => {
     const onRetry = vi.fn()
     render(<BoardLoadError onRetry={onRetry} />)

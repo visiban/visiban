@@ -55,14 +55,16 @@ export function BoardEmptyState({ firstColumnName, onAddCard }: EmptyProps) {
 }
 
 /** Shown while the socket is down; the connection status in the toolbar reads Offline. */
-export function BoardOfflineBanner() {
+export function BoardOfflineBanner({ failed = false }: { failed?: boolean }) {
   return (
     <div
       role="status"
       data-testid="board-offline-banner"
       className="mx-4 mt-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning-on-tint"
     >
-      Reconnecting. Moves are paused until the board is live again.
+      {failed
+        ? "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
+        : "Reconnecting. Moves are paused until the board is live again."}
     </div>
   );
 }
