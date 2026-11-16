@@ -195,7 +195,8 @@ describe('BoardCell', () => {
     props.cards = [card]
     render(<BoardCell {...props} />)
     await userEvent.setup().click(screen.getByTestId('card-1'))
-    expect(props.onCardClick).toHaveBeenCalledWith(card)
+    expect(props.onCardClick).toHaveBeenCalledTimes(1)
+    expect(props.onCardClick.mock.calls[0][0]).toBe(card)
   })
 
   it('filters cards when filteredCardIds is set', () => {

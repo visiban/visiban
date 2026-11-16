@@ -167,7 +167,7 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
   },
 }))
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: () => void }) => <div onClick={onClick} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
+  default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: (opts?: { peek?: boolean }) => void }) => <div onClick={(e) => onClick?.(e.shiftKey ? { peek: true } : undefined)} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
@@ -4098,7 +4098,7 @@ describe('BoardView phone layout (#2277)', () => {
     expect(ctx.reorderColumns).toHaveBeenCalledWith([11, 10])
     fireEvent.click(screen.getByRole('button', { name: 'Move swimlane Customer A later' }))
     expect(ctx.reorderSwimlanes).toHaveBeenCalledWith([21, 20])
-    fireEvent.click(screen.getByText('Phone B'))
+    fireEvent.click(screen.getByText('Phone B'), { shiftKey: true })
     const sheet = await screen.findByTestId('card-peek-sheet')
     expect(within(sheet).getByRole('button', { name: 'Move later' })).toBeDisabled()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Move earlier' }))
@@ -4122,7 +4122,7 @@ describe('BoardView phone layout (#2277)', () => {
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     expect(screen.queryByText('Hidden One')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('Filt B'))
+    fireEvent.click(screen.getByText('Filt B'), { shiftKey: true })
     let sheet = await screen.findByTestId('card-peek-sheet')
     // Move later passes the hidden card: right after C (its position 3, + 1).
     fireEvent.click(within(sheet).getByRole('button', { name: 'Move later' }))
