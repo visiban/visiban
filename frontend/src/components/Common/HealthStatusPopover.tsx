@@ -55,6 +55,12 @@ export interface HealthStatusPopoverProps extends HealthFields, Partial<HealthAt
   auto?: HealthAutoInfo | null;
   /** #2245: Recompute now (board admins, board header). */
   onRecompute?: () => Promise<void>;
+  /**
+   * #2310: the "Not reviewed in N days" cue (built by `healthReviewCue`), shown
+   * as text so the full sentence is reachable on touch, where the cue's
+   * tooltip and its collapsed "18d" form are not. Omit when there is no cue.
+   */
+  reviewCue?: { text: string } | null;
 }
 
 export const HEALTH_NOTE_MAX = 280;
@@ -191,7 +197,7 @@ function RadioCard({ name, value, checked, onSelect, shape, label, description, 
  */
 export default function HealthStatusPopover({
   entityKind, entityName, parentName, anchorRect, triggerRef, onDismiss, onSave,
-  mode: requestedMode = "detailed", onConfirm, fetchHistory, readOnly = false, datePrefs,
+  mode: requestedMode = "detailed", onConfirm, fetchHistory, readOnly = false, datePrefs, reviewCue = null,
   health_status, effective_health_status, health_status_source,
   health_status_changed_at, health_status_changed_by, health_status_note, health_status_origin,
   auto = null, onRecompute,
@@ -402,6 +408,14 @@ export default function HealthStatusPopover({
               title={attributionTime ? formatDateTimeUser(attributionTime, datePrefs) : undefined}
             >
               {attributionLine}
+            </p>
+          )}
+          {reviewCue && (
+            <p className="text-xs font-medium text-warning mt-1" data-testid="health-review-cue-text">
+              {reviewCue.text}
+              {editable && onConfirm !== undefined && (
+                <span className="font-normal text-fg-tertiary">. Confirm or change the status to clear this.</span>
+              )}
             </p>
           )}
           {detailed && health_status !== null && health_status_note && (

@@ -412,4 +412,35 @@ describe('health review cue (#2244)', () => {
     expect(screen.queryByText(/Not reviewed/)).not.toBeInTheDocument()
     expect(document.querySelector('[data-health-review-cue]')).toBeNull()
   })
+
+  it('puts the full cue text and the confirm hint in the popover, reachable on touch (#2310)', async () => {
+    const user = userEvent.setup()
+    const fields = {
+      ...own('at_risk'), health_status_changed_at: new Date(Date.now() - 18 * DAY).toISOString(),
+      health_review_due_at: new Date(Date.now() - DAY).toISOString(),
+    }
+    const admin = renderControl({ ...fields, collapseLabel: true, onConfirm: vi.fn().mockResolvedValue({}) })
+    await user.click(trigger())
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByTestId('health-review-cue-text')).toHaveTextContent(
+      'Not reviewed in 18 days. Confirm or change the status to clear this.',
+    )
+    admin.unmount()
+    // A non-admin sees the sentence but no hint they cannot act on.
+    renderControl({ canEdit: false, ...fields, fetchHistory: vi.fn().mockResolvedValue({ results: [] }) })
+    await user.click(trigger())
+    const text = within(screen.getByRole('dialog')).getByTestId('health-review-cue-text')
+    expect(text).toHaveTextContent('Not reviewed in 18 days')
+    expect(text).not.toHaveTextContent('Confirm or change')
+  })
+
+  it('shows no cue line in the popover within the review window (#2310)', async () => {
+    const user = userEvent.setup()
+    renderControl({
+      ...own('at_risk'), health_status_changed_at: new Date(Date.now() - DAY).toISOString(),
+      health_review_due_at: new Date(Date.now() + 3 * DAY).toISOString(),
+    })
+    await user.click(trigger())
+    expect(screen.queryByTestId('health-review-cue-text')).not.toBeInTheDocument()
+  })
 })
