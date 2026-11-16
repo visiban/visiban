@@ -6,7 +6,7 @@ import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { recomputeBoardHealth } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
-import type { BoardFull, User } from '../types'
+import type { BoardFull, CustomFieldDefinition, User } from '../types'
 
 const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
 
@@ -90,6 +90,7 @@ const fakeMember2: User = {
 
 const fakeBoard: BoardFull = {
   health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
+  swimlane_rollup_field: null,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,
@@ -1819,6 +1820,72 @@ describe('BoardSettingsModal — personal density override', () => {
     await user.click(denseRadios[0]) // the admin board-default radio
     expect(onUpdateBoard).toHaveBeenCalledWith({ card_density: 'dense' })
     expect(onSetOverride).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Swimlane rollup field (#2275) ────────────────────────────────────────────
+
+describe('BoardSettingsModal — Swimlane rollup field (#2275)', () => {
+  const numberDef = (id: number, name: string, field_type: CustomFieldDefinition['field_type'] = 'number'): CustomFieldDefinition => ({
+    id, uid: `cf${id}`, name, field_type, choices: [], position: id, show_on_card: false, is_required: false, help_text: '',
+    number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+    threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
+  })
+  const withFields = { ...fakeBoard, custom_field_definitions: [numberDef(1, 'Amount'), numberDef(2, 'Notes', 'text'), numberDef(3, 'Seats')] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    return { user, onUpdate }
+  }
+
+  it('lists None and only the number fields, None selected by default', async () => {
+    const { user } = await openRules(withFields)
+    const select = screen.getByRole('combobox', { name: 'Swimlane rollup' })
+    expect(select).toHaveTextContent('None')
+    await user.click(select)
+    const names = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(names).toEqual(['None', 'Amount', 'Seats'])
+  })
+
+  it('choosing a field and None fires onUpdateBoardSettings with the id and null', async () => {
+    const { user, onUpdate } = await openRules(withFields)
+    await user.click(screen.getByRole('combobox', { name: 'Swimlane rollup' }))
+    await user.click(screen.getByRole('option', { name: 'Seats' }))
+    expect(onUpdate).toHaveBeenCalledWith({ swimlane_rollup_field: 3 })
+  })
+
+  it('clearing to None sends null', async () => {
+    const { user, onUpdate } = await openRules({ ...withFields, swimlane_rollup_field: 1 })
+    const select = screen.getByRole('combobox', { name: 'Swimlane rollup' })
+    expect(select).toHaveTextContent('Amount')
+    await user.click(select)
+    await user.click(screen.getByRole('option', { name: 'None' }))
+    expect(onUpdate).toHaveBeenCalledWith({ swimlane_rollup_field: null })
+  })
+
+  it('is disabled with a hint when the board has no number field', async () => {
+    await openRules(fakeBoard)
+    // Disabled, the trigger's name is its reason, which still names the setting.
+    expect(screen.getByRole('combobox', { name: 'Swimlane rollup: add a number field first' })).toBeDisabled()
+    expect(screen.getByText(/Add a number field in the Fields tab first/)).toBeInTheDocument()
+  })
+
+  it('says why the bands show no total when the chosen field is no longer a number', async () => {
+    await openRules({ ...withFields, swimlane_rollup_field: 2 })
+    expect(screen.getByRole('combobox', { name: 'Swimlane rollup' })).toHaveTextContent('None')
+    expect(screen.getByText(/no longer a number field/)).toBeInTheDocument()
+  })
+
+  it('non-admins see a read-only line naming the field', async () => {
+    await openRules({ ...withFields, swimlane_rollup_field: 1, current_user_role: 'viewer' }, vi.fn(), false)
+    expect(screen.queryByRole('combobox', { name: 'Swimlane rollup' })).not.toBeInTheDocument()
+    expect(screen.getByText('Swimlane rollup: Amount')).toBeInTheDocument()
   })
 })
 

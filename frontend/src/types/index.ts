@@ -1089,6 +1089,12 @@ export interface Board {
   health_computed_counts: HealthComputedCounts | null;
   /** #2245 — where `effective_health_status` comes from. */
   health_status_origin: BoardHealthStatusOrigin | null;
+  /**
+   * #2275 — id of the card number field each swimlane band sums over the
+   * lane's cards not in a done column, or null for no rollup. A field retyped
+   * away from number keeps its id here; the band hides the rollup then.
+   */
+  swimlane_rollup_field: number | null;
 }
 
 /**
@@ -1274,6 +1280,12 @@ export interface BoardFull {
   health_computed_counts: HealthComputedCounts | null;
   /** #2245 — where `effective_health_status` comes from. */
   health_status_origin: BoardHealthStatusOrigin | null;
+  /**
+   * #2275 — id of the card number field each swimlane band sums over the
+   * lane's cards not in a done column, or null for no rollup. A field retyped
+   * away from number keeps its id here; the band hides the rollup then.
+   */
+  swimlane_rollup_field: number | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

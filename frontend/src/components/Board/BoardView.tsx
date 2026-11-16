@@ -28,6 +28,7 @@ import type { BoardMembership, Card, CardMovedEventPayload, Column, CustomFieldD
 import { userDisplayName } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
+import { resolveRollupField } from "../../utils/laneRollup";
 import { entryCriteriaFor, entryCriteriaSentence, needsEntryConfirm } from "../../utils/columnPolicy";
 import PolicyConfirmModal from "./PolicyConfirmModal";
 import { useBoardContext } from "../../contexts/BoardContext";
@@ -3247,6 +3248,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       limitFlags={board}
                       boardColors={boardColors}
                       showWipAtLimit={board.show_wip_at_limit}
+                      rollupField={resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions)}
                       getDropVerdict={getDropVerdict}
                       getEntryCriteria={getEntryCriteria}
                     />

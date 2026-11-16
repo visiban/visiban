@@ -7,6 +7,7 @@ import { useToast } from "../../contexts/useToast";
 import { canDeleteBoard } from "../../utils/canDeleteBoard";
 import { POPOVER_VIEWPORT_MARGIN, useInputAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
+import { resolveRollupField } from "../../utils/laneRollup";
 import HealthReviewDaysInput from "../Common/HealthReviewDaysInput";
 import HealthOffTrackInput from "../Common/HealthOffTrackInput";
 import { HealthComputedTime, HealthRecomputeButton } from "../Common/HealthComputedBlock";
@@ -501,6 +502,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const shareUrl = revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
   // A link past its expiry is still set (the public page answers 410 Gone)
   // until it is rotated or disabled, so say "Expired" rather than "Expires".
+  // Swimlane rollup (#2275): the chosen field when it still is a number field;
+  // "stale" when the stored id points at a field retyped away from number.
+  const rollupNumberFields = (board.custom_field_definitions ?? []).filter((d) => d.field_type === "number");
+  const rollupField = resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions);
+  const rollupFieldIsStale = board.swimlane_rollup_field != null && rollupField === null;
   const shareExpired = shareExpiresAt !== null && new Date(shareExpiresAt).getTime() <= Date.now();
   const shareExpiryLabel = shareExpiresAt
     ? `${shareExpired ? "Expired" : "Expires"} ${new Date(shareExpiresAt).toLocaleString()}`
@@ -1598,6 +1604,29 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       aria-label="Show at-limit WIP indicator"
                     />
                   </div>
+                  {/* #2275 — the number field each swimlane band sums over its open cards. */}
+                  <div className="flex items-center justify-between gap-3 py-2 border-b border-line/60">
+                    <div className="min-w-0 pr-4">
+                      <label htmlFor="swimlane-rollup-field-select" className="text-sm text-fg">Swimlane rollup</label>
+                      <p id="swimlane-rollup-field-help" className="text-xs text-fg-muted mt-0.5">
+                        Each swimlane band shows the total of this number field over the lane&apos;s cards that are not in a done column, for example &ldquo;$413k open&rdquo;.
+                        {rollupFieldIsStale && " The chosen field is no longer a number field, so the bands show no total; choose another field or None."}
+                        {rollupNumberFields.length === 0 && " Add a number field in the Fields tab first."}
+                      </p>
+                    </div>
+                    <SelectDropdown
+                      id="swimlane-rollup-field-select"
+                      ariaDescribedBy="swimlane-rollup-field-help"
+                      value={rollupField ? String(rollupField.id) : "none"}
+                      onChange={(v) => onUpdateBoardSettings({ swimlane_rollup_field: v === "none" ? null : Number(v) })}
+                      options={[
+                        { value: "none", label: "None" },
+                        ...rollupNumberFields.map((d) => ({ value: String(d.id), label: d.name })),
+                      ]}
+                      disabled={rollupNumberFields.length === 0 && !rollupFieldIsStale}
+                      disabledReason="Swimlane rollup: add a number field first"
+                    />
+                  </div>
                 </section>
               ) : (
                 <section>
@@ -1613,6 +1642,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </p>
                     <p className="text-sm text-fg-secondary">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
                     <p className="text-sm text-fg-secondary">At-limit WIP indicator: {board.show_wip_at_limit ? "shown" : "hidden"}</p>
+                    <p className="text-sm text-fg-secondary">Swimlane rollup: {rollupField ? rollupField.name : "none"}</p>
                   </div>
                 </section>
               )}

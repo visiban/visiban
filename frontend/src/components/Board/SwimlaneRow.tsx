@@ -18,13 +18,16 @@ import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
+import { laneRollup } from "../../utils/laneRollup";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
 
 /**
- * The row's limit state line (#1150), mirroring the column header's stat row
- * (#973): one line, worst offender first (Over WIP > Over weight > At >
- * Under). The text carries the state; the meter is decorative.
+ * The row's limit state line (#1150), restyled to the board redesign (#2275)
+ * so it reads like the column header's count line (#2270): one line, worst
+ * offender first (Over WIP > Over weight > At > Under). `WIP n / limit`, and
+ * `WIP n / limit over` in warning text when over. The word carries the state;
+ * the hue only reinforces it.
  */
 function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean; showAtLimit: boolean }) {
   const wip = swimlane.wip_limit;
@@ -37,34 +40,32 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { sw
   const showWip = reading.metric === "wip";
   const value = showWip ? usage.count : usage.weight;
   const limit = (showWip ? wip : weight) ?? 0;
-  const numbers = `${value}/${limit}`;
   const label = showWip ? "WIP" : "Weight";
+  const numbers = `${label} ${value} / ${limit}`;
   let text: React.ReactNode;
   let tone: string;
   let title: string;
   if (state === "overWip") {
-    text = <><span aria-hidden="true">{hard ? "⛔ " : "⚠ "}</span>Over WIP · <span className="font-semibold">{numbers}</span></>;
-    tone = "text-danger-on-tint font-semibold";
+    // ⛔ only for a hard lane, as on the column header: no override possible.
+    text = <>{hard && <span aria-hidden="true">⛔ </span>}{numbers} over</>;
+    tone = "text-warning-on-tint";
     title = hard ? "Over the swimlane's hard WIP limit — no override possible" : "Over the swimlane's WIP limit";
   } else if (state === "overWeight") {
-    text = <>Over weight · <span className="font-semibold">{numbers}</span></>;
-    // Fixed danger tokens for both over-limit states: § System signals
-    // reserves "Lane over limit" as danger. The words, not the hue, tell
-    // WIP from weight.
-    tone = "text-danger-on-tint font-semibold";
+    text = <>{numbers} over</>;
+    tone = "text-warning-on-tint";
     title = "Over the swimlane's weight limit";
   } else if (state === "at") {
-    text = <>{label} {numbers} · at limit</>;
-    tone = "text-fg-secondary";
-    title = `Swimlane is at its ${label === "WIP" ? "WIP" : "weight"} limit (${numbers})`;
+    text = <>{numbers} · at limit</>;
+    tone = "text-fg";
+    title = `Swimlane is at its ${label === "WIP" ? "WIP" : "weight"} limit (${value} / ${limit})`;
   } else {
-    text = <>{label} {numbers}</>;
-    tone = "text-fg-tertiary";
-    title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${numbers} in the columns that count`;
+    text = numbers;
+    tone = "text-fg";
+    title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${value} / ${limit} in the columns that count`;
   }
   return (
     // One line in the band's stats cluster (#2271); the words carry the state.
-    <span className={`whitespace-nowrap text-sm ${tone}`} title={title} data-testid="swimlane-limit-stat">
+    <span className={`whitespace-nowrap ${tone}`} title={title} data-testid="swimlane-limit-stat">
       {text}
     </span>
   );
@@ -176,6 +177,12 @@ interface Props {
   getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
   /** Entry criteria a dragged card would meet in *column* (#1101); empty for none. */
   getEntryCriteria?: (cardId: number, column: Column) => string[];
+  /**
+   * The board's swimlane rollup field (#2275, `resolveRollupField`): the card
+   * number field the band sums over the lane's open cards. Null or omitted:
+   * no rollup in the band.
+   */
+  rollupField?: CustomFieldDefinition | null;
 }
 
 /** Lane fields shown inline in the band before `+N` (#2271). */
@@ -193,7 +200,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -241,6 +248,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   // A collapsed row keeps only the over-limit states, so nothing over its
   // limit is hidden behind the chevron; the calm states fold away with it.
   const showLimitStat = limitState !== null && (!collapsed || limitState === "overWip" || limitState === "overWeight");
+  // Number rollup (#2275); null when the board chose no number field.
+  const rollup = laneRollup(swimlane.id, rollupField, columns, cards);
 
   const startRenaming = () => {
     setDraft(swimlane.name);
@@ -393,10 +402,6 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           // that control's own gesture, never "open Edit Swimlane".
           onDoubleClick={isAdmin ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, [role=button]")) setEditing(true); } : undefined}
         >
-          {/* Over-WIP top accent (#1150): an inset line, so the band does not grow. */}
-          {limitState === "overWip" && (
-            <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-full bg-danger-emphasis" />
-          )}
           {isAdmin && (
             <span
               {...attributes}
@@ -526,13 +531,20 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           <div className="flex-1 min-w-0" />
 
           {/* Trailing stats: overdue and stale (omitted at zero), the limit line (#1150;
-              a calm one folds away when collapsed, an over-limit one never does), then
-              the card count. Text always carries the state; color only reinforces it. */}
+              a calm one folds away when collapsed, an over-limit one never does), the
+              number rollup (#2275), then the card count. Text always carries the state; color only reinforces it. */}
           <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
             {showLimitStat && limitReading !== null && (
               <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
+            )}
+            {/* Number rollup (#2275): the board's chosen number field summed over the
+                lane's cards not in a done column. Hidden with no (number) field chosen. */}
+            {rollup !== null && (
+              <span className="text-fg whitespace-nowrap" data-testid="swimlane-rollup" title={`${rollup.fieldName}: total of the cards not in a done column`}>
+                {rollup.text} open
+              </span>
             )}
             <span className="text-fg-secondary whitespace-nowrap" data-testid="swimlane-card-count">{countLabel}</span>
           </div>

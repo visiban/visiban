@@ -112,12 +112,20 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 
 | State | Line |
 |---|---|
-| Under the limit | `WIP 4/6` |
-| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on; otherwise the line reads `WIP 5/5` |
-| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the band (`⛔` when the row is in hard mode) |
-| Over the weight limit | `Over weight · 18/12` in red |
+| Under the limit | `WIP 4 / 6` |
+| At the limit | `WIP 5 / 5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on; otherwise the line reads `WIP 5 / 5` |
+| Over the WIP limit | `WIP 5 / 4 over` in warning (orange) text, like an over-limit column header (`⛔ WIP 5 / 4 over` when the row is in hard mode) |
+| Over the weight limit | `Weight 18 / 12 over` in warning text |
 
-The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
+The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones. *Changed in 1.3 (#2275): the line matches the column header's `n / limit over` format and warning color; before, an over-limit row read `⚠ Over WIP · 5/4` in red with a red line across the top of the band.*
+
+### Swimlane rollup
+
+*Added in 1.3 (#2275).* A board can show, in every swimlane band, the total of one card [number field](custom-fields.md) over the lane's open cards, for example `$413k open` on a sales board whose cards carry a deal amount. "Open" means every card in the lane that is not in a column marked done; archived cards never count. Cards without a value add nothing. The total uses the field's prefix, suffix and decimal places, so a field with prefix `$` and suffix `k` reads `$413k open`. It sits after the WIP line in the band and updates live as cards are created, moved, edited and archived.
+
+To choose the field, a board admin opens **Board Settings → Rules → Limit enforcement → Swimlane rollup** and picks one of the board's number fields, or **None** (the default, which shows no total). Other members see the choice as a read-only line. Deleting the field turns the rollup off. Changing the field to another type hides the totals until it is a number field again; the settings then say why.
+
+The lane's own WIP limit is set in **Edit Swimlane** (see [Swimlane limits](#swimlane-limits) above); the rollup does not affect limits or moves.
 
 **What a move does.** A move is checked against a row only when it adds to the row's count: the card enters one of the row's counted columns from another row, from a column of this row that does not count, or by being created or restored there. Moving a card between two counted columns of the same row never trips the row's limit. While you drag a card over a cell whose column or row is full, the cell gets a red ring and names the limit (for example `⚠ WIP limit 5/5 · Payouts`). With the keyboard, the screen reader announcement for each cell includes the same verdict. If you drop anyway, the move is refused with the same toast as a column limit, naming the row; when a column limit and a row limit both trip, the toast names both. Board admins get **Move anyway (admin override)** for a soft limit, never for a hard one.
 
