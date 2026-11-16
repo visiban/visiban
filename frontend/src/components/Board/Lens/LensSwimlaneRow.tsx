@@ -75,7 +75,7 @@ function LensSwimlaneRow({
           aria-pressed={isFocused}
           aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.label}`}
           title={isFocused ? "Exit focus" : `Focus on ${swimlane.label}`}
-          className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${
+          className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${
             isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"
           }`}
         >

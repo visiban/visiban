@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE, SWIMLANE } from './fixtures/board'
 
 // Phone layout (#2277): one column at a time, lanes stacked, 44px targets in the board body.
 test.describe('board phone layout', () => {
@@ -193,5 +193,42 @@ test.describe('board phone layout', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByTestId('board-empty-state').getByRole('button', { name: /Add a card/ }).click()
     await expect(page.getByLabel(/New card title/)).toBeVisible()
+  })
+
+  test('lane band second line: fields, +N, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
+    const def = (id: number, name: string, field_type = 'text') => ({
+      id, uid: `sfd0000${id}x`, name, field_type, choices: [], position: id, show_on_row: false,
+      is_admin_only: false, choice_colors: {}, number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',
+    })
+    const lane = {
+      ...SWIMLANE,
+      name: 'North America with a long lane name that wraps on a phone',
+      wip_limit: 0,
+      custom_field_values: [{ field_definition: 1, value: 'Avery Brooks' }, { field_definition: 2, value: '600000' }, { field_definition: 3, value: 'West' }],
+    }
+    const board = { ...BOARD_FULL, swimlanes: [lane], swimlane_custom_field_definitions: [def(1, 'Owner'), def(2, 'Quota', 'number'), def(3, 'Region')] }
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const band = page.getByTestId('phone-lane-band')
+    const details = band.getByTestId('phone-lane-band-details')
+    await expect(details).toContainText('Avery Brooks')
+    await expect(details).toContainText('600000')
+    await expect(details).not.toContainText('West')
+    await expect(band.getByTestId('swimlane-limit-stat')).toHaveText(/WIP \d+ \/ 0 over/)
+    // One collapse target, at least 44px tall; the second line is outside it.
+    const toggle = band.getByRole('button', { name: /Collapse lane/ })
+    await expect(band.locator('[aria-expanded]').filter({ has: page.locator('svg') })).toHaveCount(1)
+    expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await expect(toggle.getByTestId('phone-lane-band-details')).toHaveCount(0)
+    const more = band.getByRole('button', { name: /^\+1:/ })
+    const box = (await more.boundingBox())!
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
+    await more.click()
+    await expect(details).toContainText('West')
+    await expect(band.getByRole('button', { name: /^Less:/ })).toHaveAttribute('aria-expanded', 'true')
+    // The long name wraps rather than pushing the page sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    await toggle.click()
+    await expect(page.getByRole('button', { name: /Expand lane/ })).toHaveAttribute('aria-expanded', 'false')
   })
 })

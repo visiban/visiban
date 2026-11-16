@@ -114,7 +114,20 @@ A full-width band replaces the left label panel. Left to right:
 - a "+N" pill that shows the remaining lane fields inline and then reads "Less";
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
 
-The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band keeps the card count that `board-dark.png` omits; removing it is the follow-up #2328.
+The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
+
+**Information hierarchy (#2335).** What wins when the band runs out of room, for every band at every width. The phone band follows the same tiers (§ Phone width).
+
+| Tier | Content | Behavior |
+|---|---|---|
+| Primary | Lane name, health pill | Always visible, including collapsed. The name is truncated only when it alone is wider than the band; everything else wraps first. |
+| Secondary | Overdue, stale (and blocked, if a blocked count ever joins the band) | Shown only when nonzero; danger and warning text; survive collapse. |
+| Tertiary | First two lane fields, lane WIP or weight line, number rollup; the card count only as part of a violated limit | Quiet: neutral text, no hue or glyph. A calm limit line folds away when the lane collapses. A violated limit turns to warning text with the word "over" and survives collapse; `WIP 5 / 4 over` already carries the count, so the count never returns on its own. |
+| On demand | Lane fields beyond the first two, "Change field order" (admins, after the revealed fields), drag handle, edit, focus, unset-health icon | Fields and "Change field order" are behind `+N`. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them. |
+
+"Quiet" matches `board-dark.png` as drawn: the calm `WIP 9 / 10` and `$413k open` are neutral text, and only `WIP 10 / 8 over` is colored. Band content states its tier in its issue: #2275 (WIP, rollup) and #2328 (card count) are tertiary; #1851 (computed aggregates) sits with the rollup in the tertiary tier; #2217/#2219 (threshold marks) ride on the lane field they mark and take its tier, so a mark on a field behind `+N` stays behind it. Whether a crossed threshold should promote its field out of `+N` is left open for #2217.
+
+**30 to 50 lanes, long names, several fields (#2335).** Each band stays one line when its name, two fields and stats fit, and wraps when they do not. It never grows past two fields: `+N` holds the rest. A long name wraps the fields and stats onto the next line before it is truncated. For a board this tall, Collapse all lanes (#2308) is the overview: a collapsed band keeps the primary and secondary tiers and any violated limit, so 50 collapsed lanes scan by health and overdue. No usability evidence backs this yet (#1590 has not been run); revisit it when it is.
 
 **Collapsed:** the cells are replaced by one strip aligned to the column grid. Each strip cell shows the card count (an en dash when zero) and one 10px square per card: danger for overdue, warning for stale, primary tint otherwise. A split column shows two counts with the dashed divider.
 
@@ -235,7 +248,7 @@ Screenshot: `board-phone.png`.
 
 - One column at a time. A horizontally scrolling row of column buttons (color dot, name, count) selects it; under it, the column's limit line and meter.
 - A split stage adds a two-part segmented control for its sub-columns.
-- Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line.
+- Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the first two lane fields, `+N` for the rest, overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and `+N` is a button. Tapping an item on the second line, such as "4 overdue", does nothing; only line one collapses the lane. Admins get the same "Change field order" link after the revealed `+N` fields as on the grid. "2 here" is the selected column's cell count, not the lane card count #2328 removed from the desktop band. Lane health stays in the lane actions row under the band (#2277). The second line uses the desktop band's tones (`board-dark.png`), not the dimmer `board-phone.png` draft, so a lane reads the same at every width.
 - Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.
 - The same four tabs as desktop: Board, Summary, History, Analytics. Search, Activity and Filter are icon buttons in the header; the Filter button also opens the View options.
 - Every target is at least 44px. No sideways page scroll at 390px.
