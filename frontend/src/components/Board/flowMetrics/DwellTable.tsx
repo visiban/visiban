@@ -141,10 +141,15 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
                     const avg = getAvg(sw, col);
                     const tooltip = getTooltip(sw, col);
                     let tier = avg !== null ? heatLevel(avg, threshold, warningPct) : null;
-                    // The served average is rounded (6.96 reads 7.0); the server's flag
-                    // compares the unrounded one, so it decides the top tier (#2297).
+                    // The served average is rounded (6.96 reads 7.0); the server's flags
+                    // compare the unrounded one, so they decide the tier (#2297, #2306).
+                    // The server mirrors agingStage's warning rule, so the two agree.
                     const outlier = (mode === "age" ? sw.age_is_outlier : sw.throughput_is_outlier)?.[col];
-                    if (tier === "high" && outlier === false) {
+                    const warning = (mode === "age" ? sw.age_is_warning : sw.throughput_is_warning)?.[col];
+                    if (tier !== null && outlier !== undefined && warning !== undefined) {
+                      tier = outlier ? "high" : warning ? "warning" : "ok";
+                    } else if (tier === "high" && outlier === false) {
+                      // A server older than the warning flag (#2306): only the top tier is exact.
                       // Under the threshold by the unrounded value: yellow only if a yellow band
                       // exists below it (off at 0, empty at 100), else green.
                       const warn = warningFraction(warningPct);

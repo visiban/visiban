@@ -101,6 +101,20 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                 ),
                 "throughput_card_count_per_column": serializers.DictField(child=serializers.IntegerField()),
                 "throughput_is_outlier": serializers.DictField(child=serializers.BooleanField()),
+                "age_is_warning": serializers.DictField(
+                    child=serializers.BooleanField(),
+                    help_text=(
+                        "Whether the unrounded current-dwell mean is in the warning band: at or above "
+                        "stale_warning_pct of the threshold and not an outlier. Additive (#2306)."
+                    ),
+                ),
+                "throughput_is_warning": serializers.DictField(
+                    child=serializers.BooleanField(),
+                    help_text=(
+                        "Whether the unrounded completed-dwell mean is in the warning band: at or above "
+                        "stale_warning_pct of the threshold and not an outlier. Additive (#2306)."
+                    ),
+                ),
                 "deal_velocity_days": serializers.FloatField(allow_null=True),
                 "stalled_cards": inline_serializer(
                     name="BoardAnalyticsStalledCard",
@@ -1368,6 +1382,8 @@ class BoardAnalyticsMixin:
                 "throughput_avg_days_per_column": throughput_avg,
                 "throughput_card_count_per_column": throughput_count,
                 "throughput_is_outlier": {},  # populated below
+                "age_is_warning": {},  # populated below (#2306)
+                "throughput_is_warning": {},  # populated below (#2306)
                 "deal_velocity_days": (
                     round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
                     if deal_velocity_days else None
@@ -1389,11 +1405,35 @@ class BoardAnalyticsMixin:
         def _flags(means: dict) -> dict:
             return {col.name: means[col.name] is not None and means[col.name] >= threshold for col in active_columns}
 
+        # The warning band is the card aging tint's rule, not a second one: the
+        # single source of truth is ``warningFraction``/``agingStage`` in
+        # frontend/src/utils/agingTint.ts (#1841), mirrored here exactly —
+        # ``stale_warning_pct`` is the share of the threshold used before the
+        # warning starts, 0 turns the band off, 100 leaves it empty, and the ratio
+        # divides by max(1, threshold) as the heatmap does. It is served because
+        # the client only sees the rounded mean, and a rounded 3.46 reads 3.5 and
+        # would turn yellow against a 3.5-day boundary it never reached (#2306).
+        pct = board.stale_warning_pct
+        warn_fraction = min(100, pct) / 100 if pct > 0 else None
+
+        def _warnings(means: dict, outliers: dict) -> dict:
+            return {
+                col.name: (
+                    warn_fraction is not None
+                    and means[col.name] is not None
+                    and not outliers[col.name]
+                    and means[col.name] / max(1, threshold) >= warn_fraction
+                )
+                for col in active_columns
+            }
+
         for sw in swimlane_results:
             raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
             sw["is_outlier"] = _flags(raw_avg)
             sw["age_is_outlier"] = _flags(raw_age)
             sw["throughput_is_outlier"] = _flags(raw_throughput)
+            sw["age_is_warning"] = _warnings(raw_age, sw["age_is_outlier"])
+            sw["throughput_is_warning"] = _warnings(raw_throughput, sw["throughput_is_outlier"])
 
         return Response({
             "days": days,
