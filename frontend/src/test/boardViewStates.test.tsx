@@ -300,6 +300,14 @@ describe('BoardView states (#2276)', () => {
     expect(screen.getByTestId('board-offline-banner')).toHaveTextContent(status === 'failed' ? 'Live updates are off and moves are paused' : 'Moves are paused until the board is live again')
   })
 
+  it('clears a held move error while moves are paused so the admin override cannot run (#2325)', () => {
+    socketState.status = 'reconnecting'
+    const clearMoveError = vi.fn()
+    mockBoardContextValue = defaultContext({ moveError: { message: 'blocked' } as never, clearMoveError })
+    render(<BoardView />)
+    expect(clearMoveError).toHaveBeenCalled()
+  })
+
   it('no offline banner while connected', () => {
     render(<BoardView />)
     expect(screen.queryByTestId('board-offline-banner')).not.toBeInTheDocument()

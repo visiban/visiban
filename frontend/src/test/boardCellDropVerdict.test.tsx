@@ -148,7 +148,7 @@ describe('BoardCell populated drop target (#2326, #2320)', () => {
     const placeholder = screen.getByTestId('cell-drop-placeholder')
     expect(placeholder).toHaveAttribute('aria-hidden', 'true')
     expect(placeholder.style.height).toBe('92px')
-    expect(placeholder.className).toContain('bg-primary/20')
+    expect(placeholder.className).toContain('bg-primary/40')
     dnd.active = { id: '7' }
   })
 

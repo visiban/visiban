@@ -2024,6 +2024,11 @@ describe('CardDetail', () => {
       expect(onMoveCard).not.toHaveBeenCalled()
     })
 
+    it('offline: the Column key fact is inert, not a button (#2325)', () => {
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} movesPaused />)
+      expect(within(screen.getByRole('list', { name: 'Key facts' })).queryByRole('button', { name: /Go to Move/ })).not.toBeInTheDocument()
+    })
+
     it('going offline with the Move popover open closes it and returns focus to the Move button (#2325)', async () => {
       const user = userEvent.setup()
       const onMoveCard = vi.fn().mockResolvedValue(undefined)

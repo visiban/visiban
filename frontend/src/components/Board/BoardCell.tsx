@@ -298,7 +298,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               aria-hidden="true"
               data-testid="cell-drop-placeholder"
               style={{ height: placeholderHeight }}
-              className="rounded-md border border-dashed border-info bg-primary/20"
+              className="rounded-md border border-dashed border-info bg-primary/40"
             />
           )}
         </div>
@@ -308,7 +308,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             aria-hidden="true"
             data-testid={dropOpen ? "cell-drop-placeholder" : undefined}
             className={`h-10 rounded-md border border-dashed transition-colors ${
-              blockedBy ? "border-warning" : dropOpen ? "border-info bg-primary/20" : "border-line-strong"
+              blockedBy ? "border-warning" : dropOpen ? "border-info bg-primary/40" : "border-line-strong"
             }`}
           />
         )}

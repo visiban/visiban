@@ -316,6 +316,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     board: boardOrNull,
     moveCard: onMoveCardRaw,
     forceMoveCardTo: forceMoveCardToRaw,
+    moveError,
     clearMoveError,
     addCard: onCardAdded,
     removeCard,
@@ -981,8 +982,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The "Move anyway" toast lives in App, outside this socket's reach: dismiss a held refusal
   // when moves pause so its override cannot retry on a board that may have changed.
   useEffect(() => {
-    if (movesPaused) clearMoveError();
-  }, [movesPaused, clearMoveError]);
+    if (movesPaused && moveError) clearMoveError();
+  }, [movesPaused, moveError, clearMoveError]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);

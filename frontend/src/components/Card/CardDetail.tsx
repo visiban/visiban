@@ -1704,7 +1704,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         {/* Key facts (#1916): row 3 of the header, so it stays put while the body
             scrolls. Read-only viewers keep it: navigation is reading. The Column
             fact has nothing to open for someone who cannot move the card. */}
-        <CardKeyFacts facts={keyFacts} maxLines={windowHeight < 720 && !fullscreen ? 1 : 2} onJump={jumpTo} inertTargets={canEdit && onMoveCard ? [] : ["move"]} />
+        <CardKeyFacts facts={keyFacts} maxLines={windowHeight < 720 && !fullscreen ? 1 : 2} onJump={jumpTo} inertTargets={canEdit && onMoveCard && !movesPaused ? [] : ["move"]} />
 
         {/* Tabs (#967): full tablist pattern with roving tabIndex. A count
             is part of the tab's name ("Comments, 4") and is left out while
