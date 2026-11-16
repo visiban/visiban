@@ -748,6 +748,12 @@ _CUMULATIVE_FLOW_RESPONSE = inline_serializer(
             },
         ),
         "bottleneck_column_uid": serializers.CharField(allow_null=True),
+        "completed": serializers.IntegerField(
+            help_text="First completions after the first day, up to the end of the last (#2307).",
+        ),
+        "completed_per_week": serializers.FloatField(
+            allow_null=True, help_text="completed × 7 ÷ (days − 1); null under two whole days.",
+        ),
     },
 )
 

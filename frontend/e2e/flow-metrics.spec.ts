@@ -49,6 +49,9 @@ const columnFlow = (start: number, end: number) => ({
 })
 const cumulativeFlow = {
   definition: 'for each day, the number of cards in each column at the end of that day.',
+  // 20 first completions (not the done band's 22 entries): 20 * 7 / 89 = 1.6 avg / wk, where the old summed rate read 1.7 (#2307).
+  completed: 20,
+  completed_per_week: (20 * 7) / 89,
   columns: [
     { column_uid: 'col-backlog', column_name: 'Backlog', is_done: false, ...columnFlow(8, 8) },
     { column_uid: 'col-doing', column_name: 'Doing', is_done: false, ...columnFlow(2, 9) },
@@ -213,6 +216,9 @@ test.describe('flow metrics dashboard', () => {
     await expect(page.getByTestId('flow-column-box').filter({ hasText: 'Doing' })).toContainText('11 now')
     await expect(page.getByTestId('flow-done-box')).toContainText('31')
     await expect(page.getByTestId('flow-done-box')).not.toContainText('24')
+    const finished = page.getByTestId('flow-connector').filter({ hasText: 'finished' })
+    await expect(finished).toContainText('1.6 avg / wk')
+    await expect(finished).not.toContainText('1.7')
   })
 
   test('opens the column drawer from a column box and returns focus on close (#2262)', async ({ page }) => {

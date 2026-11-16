@@ -68,8 +68,14 @@ export function buildFlowRow(
     }));
 }
 
-/** Done-band rate: cards per week entering every done column, null when none reports one. */
+/**
+ * Done-band rate: first completions per week (#2307), the server's `completed_per_week`. Summing
+ * the done columns' `entered_per_week` counts a card that moves Done A to Done B twice, and the
+ * payload cannot tell those entries apart, so the sum is only the fallback for a server older
+ * than #2307, which sends no `completed_per_week`. Null when no rate is available.
+ */
 export function doneRate(cumulative: FlowCumulativeFlow): number | null {
+  if (cumulative.completed_per_week !== undefined) return cumulative.completed_per_week;
   const rates = cumulative.columns.filter((c) => c.is_done).map((c) => c.entered_per_week);
   if (rates.length === 0 || rates.every((r) => r === null)) return null;
   return rates.reduce<number>((sum, r) => sum + (r ?? 0), 0);
