@@ -95,11 +95,18 @@ export function BoardNoMatchState({ line, onShowAll }: { line: string; onShowAll
  * Move path are disabled, and this banner is the text that says why.
  */
 export function BoardOfflineBanner({ failed = false }: { failed?: boolean }) {
+  // Tone follows the socket state like the toolbar chip does (#2342): amber while
+  // reconnecting (it may recover), danger once failed (the user must reload). The
+  // copy differs too, so color is never the only channel.
+  const tone = failed
+    ? "border-danger-emphasis/40 bg-danger-bg/30 text-danger-on-tint"
+    : "border-warning/40 bg-warning/10 text-warning-on-tint";
   return (
     <div
       role="status"
       data-testid="board-offline-banner"
-      className="mx-4 mt-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning-on-tint"
+      data-state={failed ? "failed" : "reconnecting"}
+      className={`mx-4 mt-2 rounded-lg border px-4 py-2 text-sm font-medium ${tone}`}
     >
       {failed
         ? "Offline. Live updates are off and moves are paused. Reload the page to reconnect."

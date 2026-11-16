@@ -31,13 +31,22 @@ describe('board states (#2276)', () => {
 
   it('offline banner reads Offline and says moves are paused (#2325, spec § States)', () => {
     render(<BoardOfflineBanner />)
-    expect(screen.getByRole('status')).toHaveTextContent('Offline. Reconnecting. Moves are paused until the board is live again.')
+    const banner = screen.getByRole('status')
+    expect(banner).toHaveTextContent('Offline. Reconnecting. Moves are paused until the board is live again.')
+    // Amber while reconnecting (#2342).
+    expect(banner).toHaveAttribute('data-state', 'reconnecting')
+    expect(banner).toHaveClass('border-warning/40', 'bg-warning/10', 'text-warning-on-tint')
+    expect(banner).not.toHaveClass('text-danger-on-tint')
   })
 
   it('offline banner says live updates are off and moves are paused when the socket failed', () => {
     render(<BoardOfflineBanner failed />)
     const banner = screen.getByRole('status')
     expect(banner).toHaveTextContent('Offline. Live updates are off and moves are paused. Reload the page to reconnect.')
+    // Danger-toned once failed, matching the chip (#2342).
+    expect(banner).toHaveAttribute('data-state', 'failed')
+    expect(banner).toHaveClass('border-danger-emphasis/40', 'bg-danger-bg/30', 'text-danger-on-tint')
+    expect(banner).not.toHaveClass('text-warning-on-tint')
   })
 
   it('load error offers Try again', async () => {
