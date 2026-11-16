@@ -23,6 +23,7 @@ vi.mock('../api/boards', () => ({
   getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
   // #1444 — the Members tab's invite section.
   listBoardInviteLinks: vi.fn().mockResolvedValue([]),
+  listBoardInviteLinksPage: vi.fn().mockResolvedValue({ links: [], total: 0, truncated: false }),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
   // #439 — shareable invite links.
@@ -3316,8 +3317,8 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
   })
 
   it('passes inviteReloadSignal through to the invite list', async () => {
-    const { listBoardInviteLinks } = await import('../api/boards')
-    const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
+    const { listBoardInviteLinksPage } = await import('../api/boards')
+    const mockList = listBoardInviteLinksPage as ReturnType<typeof vi.fn>
     const { rerender } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={0} />)
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1))
     rerender(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)

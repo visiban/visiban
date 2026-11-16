@@ -16,6 +16,7 @@ vi.mock('../api/groups', () => ({
 }))
 vi.mock('../api/boards', () => ({
   listBoardInviteLinks: vi.fn(),
+  listBoardInviteLinksPage: vi.fn(),
   createBoardInviteLink: vi.fn(),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
@@ -23,10 +24,16 @@ vi.mock('../api/boards', () => ({
 vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
 
 import { createInviteLink } from '../api/groups'
-import { createBoardInviteLink, listBoardInviteLinks, revokeBoardInviteLink } from '../api/boards'
+import { createBoardInviteLink, listBoardInviteLinks, listBoardInviteLinksPage, revokeBoardInviteLink } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
 
 const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
+// The panel reads the paged variant (#2339); these tests drive it through `mockList`'s bare array.
+const mockPage = listBoardInviteLinksPage as ReturnType<typeof vi.fn>
+beforeEach(() => {
+  mockPage.mockImplementation((id: number) =>
+    (mockList as unknown as (id: number) => Promise<unknown[]>)(id).then((links) => ({ links, total: links.length, truncated: false })))
+})
 const mockCreate = createBoardInviteLink as ReturnType<typeof vi.fn>
 const mockGroupCreate = createInviteLink as ReturnType<typeof vi.fn>
 const mockGetSiteConfig = getSiteConfig as ReturnType<typeof vi.fn>

@@ -16,17 +16,24 @@ vi.mock('../api/groups', () => ({
 }))
 vi.mock('../api/boards', () => ({
   listBoardInviteLinks: vi.fn(),
+  listBoardInviteLinksPage: vi.fn(),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
 }))
 vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
 
 import { listInviteLinks, revokeInviteLink } from '../api/groups'
-import { listBoardInviteLinks, revokeBoardInviteLink, sendBoardInviteEmail } from '../api/boards'
+import { listBoardInviteLinks, listBoardInviteLinksPage, revokeBoardInviteLink, sendBoardInviteEmail } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
 import { announced } from './confirmAnnouncer'
 
 const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
+// The panel reads the paged variant (#2339); these tests drive it through `mockList`'s bare array.
+const mockPage = listBoardInviteLinksPage as ReturnType<typeof vi.fn>
+beforeEach(() => {
+  mockPage.mockImplementation((id: number) =>
+    (mockList as unknown as (id: number) => Promise<unknown[]>)(id).then((links) => ({ links, total: links.length, truncated: false })))
+})
 const mockRevoke = revokeBoardInviteLink as ReturnType<typeof vi.fn>
 const mockSend = sendBoardInviteEmail as ReturnType<typeof vi.fn>
 const mockGroupList = listInviteLinks as ReturnType<typeof vi.fn>
@@ -385,5 +392,42 @@ describe('InviteLinkPanel — group revoke fixes (#1421)', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(await screen.findByText('Failed to revoke invite. Please try again.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
+  })
+})
+
+// #2339 — the board list caps past invites server-side; the panel must say so.
+describe('InviteLinkPanel — board truncation caption (#2339)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSiteConfig.mockResolvedValue(siteConfig)
+  })
+
+  it('shows the caption with the total when older past invites are left out', async () => {
+    mockPage.mockResolvedValue({ links: [invite()], total: 63, truncated: true })
+    renderBoard()
+    const caption = await screen.findByTestId('invite-links-truncated')
+    expect(caption).toHaveTextContent(
+      'Older used, expired, or revoked invites are not shown. 63 invites in total.',
+    )
+    expect(caption).toHaveClass('text-xs', 'text-fg-muted')
+  })
+
+  it('shows no caption when nothing was left out', async () => {
+    mockPage.mockResolvedValue({ links: [invite()], total: 1, truncated: false })
+    renderBoard()
+    await screen.findByText('Pending invites')
+    await waitFor(() => expect(mockPage).toHaveBeenCalled())
+    expect(screen.queryByTestId('invite-links-truncated')).not.toBeInTheDocument()
+  })
+
+  it('clears the caption when a refetch is no longer truncated', async () => {
+    mockPage.mockResolvedValueOnce({ links: [invite()], total: 60, truncated: true })
+    mockPage.mockResolvedValue({ links: [invite()], total: 1, truncated: false })
+    const { rerender } = renderBoard({ reloadSignal: 0 })
+    await screen.findByTestId('invite-links-truncated')
+    rerender(
+      <InviteLinkPanel scope={{ kind: 'board', id: 9 }} variant="embedded" allowShareableLinks={false} escapePriority={49} reloadSignal={1} />,
+    )
+    await waitFor(() => expect(screen.queryByTestId('invite-links-truncated')).not.toBeInTheDocument())
   })
 })

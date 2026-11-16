@@ -19,6 +19,7 @@ vi.mock('../api/boards', () => ({
   disableBoardSharing: vi.fn(),
   getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
   listBoardInviteLinks: vi.fn().mockResolvedValue([]),
+  listBoardInviteLinksPage: vi.fn().mockResolvedValue({ links: [], total: 0, truncated: false }),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
   createBoardInviteLink: vi.fn(),
