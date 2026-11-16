@@ -1884,13 +1884,11 @@ describe('CardDetail', () => {
       expect(deleteComment).toHaveBeenCalledTimes(1)
     })
 
-    it('announces the prompt through a polite live region (#1421)', async () => {
+    it('announces the prompt once, through the persistent announcer, not a wrapper (#1421, #2232)', async () => {
       await renderWithComment()
-      const region = screen.getByText('Delete this comment?').closest('[aria-live]')
-      expect(region).not.toBeNull()
-      expect(region).toHaveAttribute('aria-live', 'polite')
-      expect(region).toHaveAttribute('aria-atomic', 'true')
-      expect(region).toHaveAttribute('role', 'status')
+      const question = screen.getByText('Delete this comment?')
+      expect(question.closest('[aria-live]')).toBeNull()
+      expect(announced()).toBe('Delete this comment?')
     })
 
     it('disables Confirm and Cancel while in flight and sends only one DELETE (#1421)', async () => {
@@ -1915,9 +1913,14 @@ describe('CardDetail', () => {
       mockDelete.mockClear()
       mockDelete.mockRejectedValueOnce(new Error('boom'))
       const { user } = await renderWithComment()
+      // The failure slot is mounted with the prompt, empty, so the text lands in an existing region (#2232).
+      const slot = screen.getByText('Delete this comment?').closest('div')!.parentElement!.querySelector('[role="status"]')!
+      expect(slot).toHaveTextContent('')
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
       const err = await screen.findByText('Failed to delete comment. Please try again.')
+      expect(err).toBe(slot)
       expect(err.closest('[role="status"]')).not.toBeNull()
+      expect(screen.getByText('Delete this comment?').closest('[aria-live]')).toBeNull()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()

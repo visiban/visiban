@@ -357,8 +357,11 @@ describe('AccessTokensTab', () => {
     renderPage()
     await switchToAccessTokensTab()
     await userEvent.click(await screen.findByRole('button', { name: `Revoke ${token1.name}` }))
+    // The failure slot is mounted, empty, with the prompt; the same element then takes the text (#2232).
+    const slot = screen.getByRole('alert')
+    expect(slot).toHaveTextContent('')
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to revoke token')
+    expect(await screen.findByText('Failed to revoke token. Please try again.')).toBe(slot)
     expect(screen.getByTestId(`confirm-revoke-${token1.id}`)).not.toBeDisabled()
   })
 })

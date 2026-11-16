@@ -477,14 +477,8 @@ export default function InviteLinkPanel({
           </button>
         )}
         {/* BoardSettingsModal inline-confirm pattern (frontend/CLAUDE.md § Modals and dialogs) */}
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={isConfirming ? "basis-full flex flex-wrap items-center gap-2 text-xs" : "contents"}
-        >
-          {isConfirming && (
-            <>
+        {isConfirming && (
+          <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
               <span className="text-fg-tertiary">
                 {isBoard && link.delivery === "email"
                   ? "Revoke this invite? The person it was emailed to will no longer be able to join."
@@ -504,12 +498,17 @@ export default function InviteLinkPanel({
               >
                 Cancel
               </button>
-            </>
-          )}
-          {revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR && (
-            <p className="basis-full text-xs text-danger mt-1">{revokeError.message}</p>
-          )}
-        </div>
+          </div>
+        )}
+        {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+        <p
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR ? "basis-full text-xs text-danger mt-1" : "sr-only"}
+        >
+          {revokeError?.id === link.id && revokeError.message === GENERIC_REVOKE_ERROR ? revokeError.message : ""}
+        </p>
       </>
     );
   };

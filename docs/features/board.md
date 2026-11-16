@@ -187,7 +187,7 @@ Columns represent pipeline stages. Each column has:
 **Managing a column:**
 
 - Drag a column header left or right to reorder it.
-- Use the **`⋮` kebab** on its header (hover or keyboard focus): **Rename**, **Edit settings…**, **Add policy…** (only on a column without a policy), **Delete column**. Double-click the column name to rename directly.
+- Use the **`⋮` kebab** on its header. It appears when you hover over the header or move keyboard focus to it; on a touch device, which has no hover, it is always shown. It offers **Rename**, **Edit settings…**, **Add policy…** (only on a column without a policy), **Delete column**. Double-click the column name to rename directly.
 - The kebab is the keyboard-accessible path; mouse users can also drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
 
 ### Adding columns and swimlanes
@@ -280,7 +280,7 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 
 ### Show chips
 
-A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row. A **Collapse all lanes** button in the same row mirrors the **View** menu's **Collapse all** and **Expand all** items for swimlanes; its label changes to **Expand all lanes** when every lane is collapsed. Screen readers announce "Collapsed all N lanes" or "Expanded all N lanes" when you use it; the **View** menu's swimlane **Collapse all** and **Expand all** items announce the same "Collapsed all N lanes" or "Expanded all N lanes" message. <span class="vb-version" title="Added in 1.3">1.3+</span>
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row. A **Collapse all lanes** button in the same row mirrors the **View** menu's **Collapse all** and **Expand all** items for swimlanes; its label changes to **Expand all lanes** when every lane is collapsed. Screen readers announce "Collapsed all N lanes" or "Expanded all N lanes" when you use it; the **View** menu's swimlane **Collapse all** and **Expand all** items, and the **Expand all swimlanes** button on the strip that appears when lanes are collapsed, announce the same "Collapsed all N lanes" or "Expanded all N lanes" message ("Collapsed all lanes" when the count is not known). <span class="vb-version" title="Added in 1.3">1.3+</span>
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -485,7 +485,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | `.` | Open the overflow menu in the board toolbar |
 | `b` / `s` / `h` / `a` | Switch to the Board / Summary / History / Analytics view |
 | `l` | Switch to the Lens view (when Issue Board Lens is connected) |
-| `e` | Collapse or expand every swimlane and column at once |
+| `e` | Collapse or expand every swimlane and column at once; screen readers hear "Collapsed all N lanes and M columns" or "Expanded all N lanes and M columns" |
 | `c` | Collapse the swimlane you last hovered |
 | `y` | Toggle the Archived tab of the Activity drawer |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
@@ -509,7 +509,7 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
 
-**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel.
+**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel. Screen readers announce the bulk lane and column items: "Collapsed all N lanes" / "Expanded all N lanes" and "Hid all N columns" / "Showed all N columns" ("1 lane", "1 column" in the singular, and no number when the count is not known).
 
 **Overflow menu (`...`):** contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 

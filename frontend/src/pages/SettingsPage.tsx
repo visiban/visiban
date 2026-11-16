@@ -1120,7 +1120,8 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
                   >
                     Cancel
                   </button>
-                  {revokeError && <span role="alert" className="text-danger">{revokeError}</span>}
+                  {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                  <span role="alert" className={revokeError ? "text-danger" : "sr-only"}>{revokeError}</span>
                 </div>
               )}
             </div>

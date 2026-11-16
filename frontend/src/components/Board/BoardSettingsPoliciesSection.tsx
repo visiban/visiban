@@ -322,7 +322,7 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
                   onSavingChange={setSaving}
                 >
                   {pendingSwitchId !== null && (
-                    <div role="status" aria-live="polite" aria-atomic="true" className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-fg-tertiary">Discard changes to “{openName}” and open “{targetName}”?</span>
                       <button
                         type="button"

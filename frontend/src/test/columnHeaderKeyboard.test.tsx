@@ -147,3 +147,16 @@ describe('ColumnHeader — focus returns to the rename opener (#2087)', () => {
     expect(screen.getByRole('button', { name: 'Backlog' })).not.toHaveFocus()
   })
 })
+
+// #2343 — the admin kebab is hover-revealed; a touch device has no hover, so it must show at rest
+describe('ColumnHeader — kebab touch reveal (#2343)', () => {
+  it('the kebab wrapper carries hover, focus-within and no-hover reveals', () => {
+    renderHeader()
+    const wrapper = screen.getByRole('button', { name: 'Actions for column "Backlog"' }).parentElement as HTMLElement
+    const cls = wrapper.closest('[class*="opacity-0"]')?.className ?? ''
+    expect(cls).toContain('opacity-0')
+    expect(cls).toContain('group-hover/col:opacity-100')
+    expect(cls).toContain('focus-within:opacity-100')
+    expect(cls).toContain('[@media(hover:none)]:opacity-100')
+  })
+})
