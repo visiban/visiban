@@ -5118,12 +5118,18 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise err(f"state_json.laneFilter {op} rule takes a value, not min or max.")
 
     def _validate_lane_filter(self, lf):
-        """Shape check for ``laneFilter`` (#2205): {"items": [rule | group]},
+        """Shape check for ``laneFilter`` (#2205): {"items": [rule | group],
+        "hideUnmatched"?: bool} (#2214),
         groups one level deep, bounded counts. Messages are plain strings
         because the view flattens errors into the string ``detail``."""
         err = serializers.ValidationError
-        if not isinstance(lf, dict) or set(lf.keys()) != {"items"}:
+        # ``hideUnmatched`` (#2214) is an optional bool beside ``items``: a setting
+        # on the lane filter ("hide lanes with no matching cards"), not a rule.
+        # Any other key is still rejected, and ``items`` stays required.
+        if not isinstance(lf, dict) or "items" not in lf or not set(lf.keys()) <= {"items", "hideUnmatched"}:
             raise err("state_json.laneFilter must be an object with an items list.")
+        if "hideUnmatched" in lf and not isinstance(lf["hideUnmatched"], bool):
+            raise err("state_json.laneFilter hideUnmatched must be true or false.")
         items = lf["items"]
         if not isinstance(items, list) or len(items) > self._LANE_MAX_ITEMS:
             raise err(f"state_json.laneFilter items must be a list of at most {self._LANE_MAX_ITEMS} entries.")

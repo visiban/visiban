@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ADD_CARD_EVENT } from '../utils/addCardEvent'
 import BoardView from '../components/Board/BoardView'
@@ -53,7 +53,11 @@ vi.mock('react-router-dom', () => ({
   },
   useNavigate: () => vi.fn(),
   MemoryRouter: ({ children }: { children: React.ReactNode }) => children,
+  Link: ({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) => <a href={to} className={className}>{children}</a>,
 }))
+
+const mockGetGroup = vi.hoisted(() => vi.fn())
+vi.mock('../api/groups', () => ({ getGroup: mockGetGroup }))
 
 const socketState = vi.hoisted(() => ({ status: 'connected' }))
 vi.mock('../hooks/useBoardSocket', () => ({
@@ -86,14 +90,14 @@ vi.mock('../components/Board/AnalyticsView', () => ({
 // requestAnimationFrame fallback in BoardView's pending add-card effect.
 const lateCells = vi.hoisted(() => ({ on: false }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: function SwimlaneRowDouble({ swimlane, columns, collapsed }: { swimlane: { id: number; name: string }; columns: { id: number }[]; collapsed: boolean }) {
+  default: function SwimlaneRowDouble({ swimlane, columns, collapsed, noMatch }: { swimlane: { id: number; name: string }; columns: { id: number }[]; collapsed: boolean; noMatch?: boolean }) {
     // While collapsed, arm the delay; on expand the effect below flips it one commit after the
     // parent's effect has already looked for the cells.
     const [ready, setReady] = React.useState(true)
     React.useEffect(() => { setReady(!collapsed || !lateCells.on) }, [collapsed])
     return (
-    <div data-testid={`swim-${swimlane.id}`}>
-      {!collapsed && ready && columns.map((c) => (
+    <div data-testid={`swim-${swimlane.id}`} data-no-match={noMatch ? 'true' : undefined}>
+      {!collapsed && ready && !noMatch && columns.map((c) => (
         <div
           key={c.id}
           data-board-cell
@@ -129,8 +133,9 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
 vi.mock('../components/Board/BoardSettingsModal', () => ({
   default: () => <div data-testid="settings-modal" />,
 }))
+const filterBarProps = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 vi.mock('../components/Board/FilterBar', () => ({
-  default: () => <div data-testid="filter-bar">FilterBar</div>,
+  default: (p: Record<string, unknown>) => { filterBarProps.current = p; return <div data-testid="filter-bar">FilterBar</div> },
   EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
   countActiveFilters: () => 0,
   isCustomFieldFilterActive: () => false,
@@ -327,5 +332,177 @@ describe('BoardView states (#2276)', () => {
     expect(screen.getByText('No cards yet')).toBeInTheDocument()
     expect(screen.queryByText(/No cards match/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Show all cards' })).not.toBeInTheDocument()
+  })
+})
+
+const LANE_B = { id: 21, uid: 'laneuid00002', name: 'Customer B', contact_email: '', notes: '', position: 1, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null } as BoardFull['swimlanes'][number]
+const OVERDUE = { ...CARD, id: 101, due_date: '2020-01-02' } as BoardFull['cards'][number]
+const twoLanes = (cards: BoardFull['cards']) => makeBoard({ swimlanes: [makeBoard().swimlanes[0], LANE_B], cards })
+const follows = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+describe('BoardView states (#2324, #2214, #2337)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+    socketState.status = 'connected'
+    localStorage.clear()
+    mockBoardContextValue = defaultContext()
+    mockGetGroup.mockResolvedValue({ id: 5, can_place_boards: false })
+  })
+
+  it('the empty-board panel sits below the column headers and above the lanes', () => {
+    render(<BoardView />)
+    const panel = screen.getByTestId('board-empty-state')
+    expect(follows(screen.getByTestId('board-header-row'), panel)).toBe(true)
+    expect(follows(panel, screen.getByTestId('swim-20'))).toBe(true)
+  })
+
+  it('offers Import cards, linking to the group import, when the viewer can place boards there', async () => {
+    mockGetGroup.mockResolvedValue({ id: 5, can_place_boards: true })
+    mockBoardContextValue = defaultContext({ board: makeBoard({ group: 5 }) })
+    render(<BoardView />)
+    expect(await screen.findByRole('link', { name: 'Import cards' })).toHaveAttribute('href', '/groups/5?import=1')
+    expect(mockGetGroup).toHaveBeenCalledWith(5)
+    expect(screen.getByText('Add the first card to To Do, or import cards from a file.')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['cannot place boards', () => mockGetGroup.mockResolvedValue({ id: 5, can_place_boards: false })],
+    ['group fetch fails', () => mockGetGroup.mockRejectedValue(new Error('403'))],
+  ])('no Import cards when the viewer %s', async (_label, arrange) => {
+    arrange()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ group: 5 }) })
+    render(<BoardView />)
+    await waitFor(() => expect(mockGetGroup).toHaveBeenCalled())
+    expect(screen.queryByRole('link', { name: 'Import cards' })).not.toBeInTheDocument()
+    expect(screen.getByText('Add the first card to To Do.')).toBeInTheDocument()
+  })
+
+  it('does not look up the group for a board with cards or no group', () => {
+    mockBoardContextValue = defaultContext({ board: makeBoard({ group: 5, cards: [CARD] }) })
+    const { unmount } = render(<BoardView />)
+    unmount()
+    mockBoardContextValue = defaultContext()
+    render(<BoardView />)
+    expect(mockGetGroup).not.toHaveBeenCalled()
+  })
+
+  it('a chip matching nothing shrinks every lane to its band and puts the chip line below the lanes', () => {
+    mockSearchParams = new URLSearchParams('show=due_soon')
+    mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
+    render(<BoardView />)
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-no-match', 'true')
+    expect(screen.getByTestId('swim-21')).toHaveAttribute('data-no-match', 'true')
+    const panel = screen.getByTestId('board-no-match')
+    expect(panel).toHaveTextContent('No cards are due soon')
+    expect(follows(screen.getByTestId('swim-21'), panel)).toBe(true)
+    expect(screen.queryByText('No cards yet')).not.toBeInTheDocument()
+  })
+
+  it('lanes keep their cells when something matches', () => {
+    mockSearchParams = new URLSearchParams('show=overdue')
+    mockBoardContextValue = defaultContext({ board: twoLanes([OVERDUE]) })
+    render(<BoardView />)
+    expect(screen.getByTestId('swim-20')).not.toHaveAttribute('data-no-match')
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    expect(screen.queryByTestId('board-no-match')).not.toBeInTheDocument()
+  })
+
+  it('hideUnmatched (f_hide_unmatched=1) hides lanes with no matching card', () => {
+    mockSearchParams = new URLSearchParams('show=overdue&f_hide_unmatched=1')
+    mockBoardContextValue = defaultContext({ board: twoLanes([OVERDUE]) })
+    render(<BoardView />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+  })
+
+  it('hideUnmatched hides the No matching cards bands too, leaving the panel', () => {
+    mockSearchParams = new URLSearchParams('show=due_soon&f_hide_unmatched=1')
+    mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
+    render(<BoardView />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    expect(screen.getByTestId('board-no-match')).toHaveTextContent('No cards are due soon')
+  })
+
+  it('hideUnmatched has no effect with no card filter or chip', async () => {
+    mockSearchParams = new URLSearchParams('f_hide_unmatched=1')
+    mockBoardContextValue = defaultContext({ board: twoLanes([OVERDUE]) })
+    render(<BoardView />)
+    await userEvent.keyboard('/')
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    expect(filterBarProps.current.cardFilterActive).toBe(false)
+    expect((filterBarProps.current.filters as { laneFilter?: unknown }).laneFilter).toEqual({ items: [], hideUnmatched: true })
+  })
+
+  it('Show all cards clears the chip and the card filters but keeps the lane settings (hide flag)', async () => {
+    mockSearchParams = new URLSearchParams('show=due_soon&f_hide_unmatched=1')
+    mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
+    render(<BoardView />)
+    await userEvent.keyboard('/')
+    expect(filterBarProps.current.cardFilterActive).toBe(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Show all cards' }))
+    const last = mockSetSearchParams.mock.calls.map((c) => c[0]).filter((x) => typeof x === 'function')
+    const params = new URLSearchParams('show=due_soon&f_hide_unmatched=1')
+    for (const fn of last) fn(params)
+    expect(params.get('f_hide_unmatched')).toBe('1')
+    expect(params.get('show')).toBeNull()
+    expect(screen.queryByTestId('board-no-match')).not.toBeInTheDocument()
+  })
+
+  it('shows the No lanes match notice when rules hide one lane and hideUnmatched hides the other (#2324)', async () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Customer B' }])
+    mockSearchParams = new URLSearchParams(`show=overdue&f_hide_unmatched=1&f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: twoLanes([OVERDUE]) })
+    render(<BoardView />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
+    expect(screen.queryByTestId('board-no-match')).not.toBeInTheDocument()
+    await userEvent.keyboard('/')
+    expect(filterBarProps.current.hiddenLaneCount).toBe(2)
+  })
+
+  it('an empty board whose only lane is hidden by lane rules shows No lanes match, not No cards yet (#2324)', () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Nobody' }])
+    mockSearchParams = new URLSearchParams(`f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
+    render(<BoardView />)
+    expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
+    expect(screen.queryByText('No cards yet')).not.toBeInTheDocument()
+  })
+
+  it('shows the no-match panel, not No lanes match, when no card matches and hideUnmatched hides the rest (#2214)', () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Customer B' }])
+    mockSearchParams = new URLSearchParams(`show=due_soon&f_hide_unmatched=1&f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
+    render(<BoardView />)
+    expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('board-no-match')).toHaveTextContent('No cards are due soon')
+    expect(screen.getByRole('button', { name: 'Show all cards' })).toBeInTheDocument()
+  })
+
+  it('the collapsed-lanes strip does not count lanes hideUnmatched hides (#2251)', () => {
+    mockSearchParams = new URLSearchParams('show=overdue&f_hide_unmatched=1')
+    const collapsedB = { ...LANE_B, is_collapsed: true }
+    mockBoardContextValue = defaultContext({
+      board: makeBoard({ swimlanes: [makeBoard().swimlanes[0], collapsedB], cards: [OVERDUE] }),
+    })
+    render(<BoardView />)
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    expect(screen.queryByText(/swimlanes? collapsed/)).not.toBeInTheDocument()
+  })
+
+  it('passes the count of rules on fields the viewer cannot use to the filter bar (#2337)', async () => {
+    mockSearchParams = new URLSearchParams(`f_lanes=1.${JSON.stringify([{ f: 'contact_email', o: 'contains', v: 'x' }, { f: 'name', o: 'is', v: 'A' }])}`)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member', cards: [CARD] }) })
+    const { unmount } = render(<BoardView />)
+    await userEvent.keyboard('/')
+    expect(filterBarProps.current.ignoredLaneRuleCount).toBe(1)
+    unmount()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [CARD] }) })
+    render(<BoardView />)
+    await userEvent.keyboard('/')
+    expect(filterBarProps.current.ignoredLaneRuleCount).toBe(0)
   })
 })

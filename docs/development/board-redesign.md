@@ -218,7 +218,7 @@ Screenshot: `board-states.png`.
 | State | What shows |
 |---|---|
 | Loading | Skeleton column headers, one lane band and card blocks at their final sizes; announced as "Loading board" |
-| Empty board | Column headers with zero counts, then "No cards yet", a sentence, "Add a card" (primary) and "Import cards" |
+| Empty board | Column headers with zero counts, then "No cards yet", a sentence, "Add a card" (primary) and "Import cards". Built with the board's lanes kept below the panel, so their add and edit controls stay (#2324); Import cards links to the group's import flow |
 | Filter or chip matches nothing | Lanes shrink to their band with "No matching cards"; below, "No cards are due soon" and "Show all cards" |
 | Offline | Warning banner while reconnecting, danger banner once failed. Reconnecting copy: "Offline. Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline |
 | Load error | "The board didn't load. Check your connection and try again." with "Try again" |

@@ -1086,6 +1086,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // only at this group's direct roles (#1692).
   const canPlaceBoards = group?.can_place_boards === true;
 
+  // #2324 — `?import=1` (the empty board's Import cards) opens the import dialog
+  // once the group has loaded, only for a viewer who may place boards here; the
+  // param is then dropped so a refresh or Back does not reopen it. The server
+  // enforces placement again on import, so this gate is presentation only.
+  const wantsImport = searchParams.get("import") === "1";
+  useEffect(() => {
+    if (!wantsImport || !group) return;
+    if (group.can_place_boards === true) setImportingBoard(true);
+    setSearchParams((prev) => { prev.delete("import"); return prev; }, { replace: true });
+  }, [wantsImport, group, setSearchParams]);
+
   // Delete is owner-or-all-content only, narrower than isAdmin (#2129).
   const userCanDeleteGroup = canDeleteGroup({
     ownerId: group?.owner.id,
