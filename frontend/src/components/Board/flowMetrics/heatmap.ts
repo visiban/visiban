@@ -27,6 +27,13 @@ export interface SwimlaneStat {
   throughput_avg_days_per_column?: Record<string, number | null>;
   throughput_card_count_per_column?: Record<string, number>;
   throughput_is_outlier?: Record<string, boolean>;
+  /**
+   * In the warning band by the unrounded mean (#2306): at or past
+   * `stale_warning_pct` of the threshold and below it (1-day floor). Absent from a
+   * server older than this field.
+   */
+  age_is_warning?: Record<string, boolean>;
+  throughput_is_warning?: Record<string, boolean>;
   deal_velocity_days: number | null;
   stalled_cards: StalledCard[];
 }

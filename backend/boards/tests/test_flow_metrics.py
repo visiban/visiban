@@ -2963,6 +2963,81 @@ class AnalyticsRoundingTests(FlowFixture):
         self.path(self.backlog, 20, self.doing, 7.2)
         self.assertTrue(self.analytics()["age_is_outlier"]["Doing"])
 
+    def warning_cells(self, mode, cases, **board_fields):
+        """One lane and one card per case, so each cell's mean is that card's dwell."""
+        Board.objects.filter(pk=self.board.pk).update(**board_fields)
+        lanes = {}
+        for label, steps in cases.items():
+            position = Swimlane.objects.filter(board=self.board).count()
+            lanes[label] = Swimlane.objects.create(board=self.board, name=f"{label} {position}", position=position)
+            self.path(*steps, lane=lanes[label])
+        client = APIClient()
+        client.force_authenticate(self.user)
+        resp = client.get(f"/api/v1/boards/{self.board.pk}/analytics/")
+        self.assertEqual(resp.status_code, 200)
+        rows = {s["id"]: s for s in resp.json()["swimlanes"]}
+        return {
+            label: (
+                rows[lane.id][f"{mode}_avg_days_per_column"]["Doing"],
+                rows[lane.id][f"{mode}_is_warning"]["Doing"],
+                rows[lane.id][f"{mode}_is_outlier"]["Doing"],
+            )
+            for label, lane in lanes.items()
+        }
+
+    def test_warning_flag_compares_the_unrounded_mean_at_the_boundary(self):
+        # Threshold 14 at 50% puts the yellow boundary at exactly 7 days (#2306).
+        # Completed visits have fixed ends, so "at" is exactly 7.0, not 7.0 + drift.
+        cells = self.warning_cells("throughput", {
+            "under": (self.backlog, 30, self.doing, 16.96, self.done, 10),
+            "at": (self.backlog, 30, self.doing, 17, self.done, 10),
+            "over": (self.backlog, 30, self.doing, 17.2, self.done, 10),
+            "stale": (self.backlog, 30, self.doing, 25, self.done, 10),
+        }, staleness_threshold_days=14, stale_warning_pct=50)
+        # 6.96 is served as 7.0, yet it never reached the boundary.
+        self.assertEqual(cells["under"], (7.0, False, False))
+        self.assertEqual(cells["at"], (7.0, True, False))
+        self.assertEqual(cells["over"], (7.2, True, False))
+        # At or over the threshold the cell is an outlier, never also a warning.
+        self.assertEqual(cells["stale"], (15.0, False, True))
+
+    def test_warning_flag_is_true_when_only_the_unrounded_mean_reaches_the_boundary(self):
+        # Threshold 7 at 33% puts the boundary at 2.31; a raw 2.32 is served as 2.3,
+        # which alone would read green (#2306).
+        cells = self.warning_cells("age", {
+            "raw": (self.backlog, 30, self.doing, 2.32),
+        }, staleness_threshold_days=7, stale_warning_pct=33)
+        self.assertEqual(cells["raw"], (2.3, True, False))
+
+    def test_warning_flag_at_threshold_0_uses_the_one_day_floor(self):
+        # Every cell is an outlier at threshold 0 (mean >= 0), yet the ratio divides
+        # by max(1, 0): 0.6 days is in the 50% band, 0.3 is under it (#2306).
+        cells = self.warning_cells("age", {
+            "low": (self.backlog, 30, self.doing, 0.3),
+            "mid": (self.backlog, 30, self.doing, 0.6),
+        }, staleness_threshold_days=0, stale_warning_pct=50)
+        self.assertEqual(cells["low"], (0.3, False, True))
+        self.assertEqual(cells["mid"], (0.6, True, True))
+
+    def test_age_warning_flag_uses_the_unrounded_current_dwell(self):
+        cells = self.warning_cells("age", {
+            "under": (self.backlog, 30, self.doing, 6.96),
+            "over": (self.backlog, 30, self.doing, 7.2),
+        }, staleness_threshold_days=14, stale_warning_pct=50)
+        self.assertEqual(cells["under"], (7.0, False, False))
+        self.assertEqual(cells["over"], (7.2, True, False))
+
+    def test_warning_flag_is_off_at_0_and_empty_at_100(self):
+        steps = {"high": (self.backlog, 30, self.doing, 23, self.done, 10)}
+        self.assertEqual(
+            self.warning_cells("throughput", steps, staleness_threshold_days=14, stale_warning_pct=0)["high"],
+            (13.0, False, False),
+        )
+        self.assertEqual(
+            self.warning_cells("throughput", steps, staleness_threshold_days=14, stale_warning_pct=100)["high"],
+            (13.0, False, False),
+        )
+
     def test_deal_velocity_leaves_out_cards_that_were_only_created(self):
         self.path(self.backlog, 3)
         self.path(self.backlog, 10, self.doing, 4)

@@ -417,6 +417,80 @@ describe('AnalyticsView', () => {
     })
   })
 
+  describe('server warning flag decides the yellow tier (#2306)', () => {
+    // Threshold 14 at 50% puts the yellow boundary at 7 days; the server serves
+    // a raw 6.96 as 7, which only its unrounded flag can tell apart from 7.0.
+    const served = async (flags: { warning: boolean; outlier?: boolean; avg?: number; threshold?: number; pct?: number }, mode: 'age' | 'throughput' = 'age') => {
+      const avg = flags.avg ?? 7
+      const cell = { 'To Do': avg }
+      mockGetBoardAnalytics.mockResolvedValue({
+        days: 30, columns: ['To Do'],
+        swimlanes: [{
+          id: 1, name: 'Customer A',
+          avg_days_per_column: cell, is_outlier: { 'To Do': false },
+          age_avg_days_per_column: mode === 'age' ? cell : { 'To Do': null },
+          age_is_outlier: { 'To Do': mode === 'age' && !!flags.outlier },
+          age_is_warning: { 'To Do': mode === 'age' && flags.warning },
+          throughput_avg_days_per_column: mode === 'throughput' ? cell : { 'To Do': null },
+          throughput_is_outlier: { 'To Do': mode === 'throughput' && !!flags.outlier },
+          throughput_is_warning: { 'To Do': mode === 'throughput' && flags.warning },
+          throughput_card_count_per_column: { 'To Do': 3 },
+          deal_velocity_days: null, stalled_cards: [],
+        }],
+        stalled_threshold_days: 14, staleness_threshold_days: flags.threshold ?? 14, stale_warning_pct: flags.pct ?? 50,
+      })
+      renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+      if (mode === 'throughput') {
+        await showTable()
+        await userEvent.setup().click(await screen.findByRole('button', { name: 'In period' }))
+      }
+      return (await screen.findByText(`${avg}d`)).closest('td') as HTMLElement
+    }
+    it('stays green when the rounded average reaches the boundary but the raw one does not', async () => {
+      expect((await served({ warning: false })).className).toContain('bg-success')
+    })
+    it('turns yellow when the server says the raw average is in the band', async () => {
+      expect((await served({ warning: true })).className).toContain('bg-warning')
+    })
+    it('turns yellow when only the raw average reaches the boundary (rounded value alone reads green)', async () => {
+      // Threshold 7 at 33% puts the boundary at 2.31; a raw 2.32 is served as 2.3.
+      const cell = await served({ warning: true, avg: 2.3, threshold: 7, pct: 33 })
+      expect(cell.className).toContain('bg-warning')
+    })
+    it('follows the server flag in In period mode too', async () => {
+      expect((await served({ warning: false }, 'throughput')).className).toContain('bg-success')
+    })
+    describe('threshold 0 counts as 1 day', () => {
+      const atZero = async (avg: number, warning: boolean) => {
+        mockGetBoardAnalytics.mockResolvedValue({
+          days: 30, columns: ['To Do'],
+          swimlanes: [{
+            id: 1, name: 'Customer A',
+            avg_days_per_column: { 'To Do': avg }, is_outlier: { 'To Do': true },
+            age_avg_days_per_column: { 'To Do': avg },
+            age_is_outlier: { 'To Do': true }, age_is_warning: { 'To Do': warning },
+            throughput_avg_days_per_column: { 'To Do': null },
+            throughput_is_outlier: { 'To Do': true }, throughput_is_warning: { 'To Do': false },
+            throughput_card_count_per_column: { 'To Do': 0 },
+            deal_velocity_days: null, stalled_cards: [],
+          }],
+          stalled_threshold_days: 0, staleness_threshold_days: 0, stale_warning_pct: 50,
+        })
+        renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+        return (await screen.findByText(`${avg}d`)).closest('td') as HTMLElement
+      }
+      it('renders yellow, not red, for 0.6 days', async () => {
+        expect((await atZero(0.6, true)).className).toContain('bg-warning')
+      })
+      it('renders green, not red, for 0.3 days', async () => {
+        expect((await atZero(0.3, false)).className).toContain('bg-success')
+      })
+    })
+    it('turns red on the outlier flag whatever the rounded average says', async () => {
+      expect((await served({ warning: false, outlier: true, avg: 13.9 })).className).toContain('bg-danger')
+    })
+  })
+
   it('In period mode renders throughput_avg_days_per_column values', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
