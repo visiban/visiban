@@ -32,6 +32,8 @@ const defaultProps = {
   now,
 };
 
+const openFilters = () => fireEvent.click(screen.getByRole("button", { name: /^filter activity/i }));
+
 describe("BoardActivityDrawer", () => {
   it("shows empty state when feed is empty", () => {
     render(<BoardActivityDrawer {...defaultProps} />);
@@ -45,9 +47,9 @@ describe("BoardActivityDrawer", () => {
       makeEntry({ kind: "member", actor: "@alex", headline: "joined the board", detail: "" }),
     ];
     render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
-    expect(screen.getByText("@kelly")).toBeInTheDocument();
-    expect(screen.getByText("@maya")).toBeInTheDocument();
-    expect(screen.getByText("@alex")).toBeInTheDocument();
+    expect(screen.getByText("kelly")).toBeInTheDocument();
+    expect(screen.getByText("maya")).toBeInTheDocument();
+    expect(screen.getByText("alex")).toBeInTheDocument();
   });
 
   it("filters to only move/create entries on Moves tab", () => {
@@ -56,9 +58,10 @@ describe("BoardActivityDrawer", () => {
       makeEntry({ kind: "member", actor: "@alex", headline: "joined the board", detail: "" }),
     ];
     render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+    openFilters();
     fireEvent.click(screen.getByRole("button", { name: /^moves$/i }));
-    expect(screen.getByText("@kelly")).toBeInTheDocument();
-    expect(screen.queryByText("@alex")).not.toBeInTheDocument();
+    expect(screen.getByText("kelly")).toBeInTheDocument();
+    expect(screen.queryByText("alex")).not.toBeInTheDocument();
   });
 
   it("filters to only member entries on Members tab", () => {
@@ -67,9 +70,10 @@ describe("BoardActivityDrawer", () => {
       makeEntry({ kind: "member", actor: "@alex", headline: "joined the board", detail: "" }),
     ];
     render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+    openFilters();
     fireEvent.click(screen.getByRole("button", { name: /^members$/i }));
-    expect(screen.queryByText("@kelly")).not.toBeInTheDocument();
-    expect(screen.getByText("@alex")).toBeInTheDocument();
+    expect(screen.queryByText("kelly")).not.toBeInTheDocument();
+    expect(screen.getByText("alex")).toBeInTheDocument();
   });
 
   it("calls onClose when close button is clicked", () => {
@@ -99,12 +103,13 @@ describe("BoardActivityDrawer", () => {
         makeEntry({ actor: "@yesterday", timestamp: hoursAgo(30) }),
       ];
       render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
-      expect(screen.getByText("@recent")).toBeInTheDocument();
-      expect(screen.queryByText("@yesterday")).not.toBeInTheDocument();
+      expect(screen.getByText("recent")).toBeInTheDocument();
+      expect(screen.queryByText("yesterday")).not.toBeInTheDocument();
     });
 
     it("renders 1h / 24h / 7d window pills with 24h pressed by default", () => {
       render(<BoardActivityDrawer {...defaultProps} />);
+      openFilters();
       expect(screen.getByRole("button", { name: "1h" })).toHaveAttribute("aria-pressed", "false");
       expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
       expect(screen.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "false");
@@ -116,9 +121,10 @@ describe("BoardActivityDrawer", () => {
         makeEntry({ actor: "@earlier", timestamp: hoursAgo(3) }),
       ];
       render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+      openFilters();
       fireEvent.click(screen.getByRole("button", { name: "1h" }));
-      expect(screen.getByText("@fresh")).toBeInTheDocument();
-      expect(screen.queryByText("@earlier")).not.toBeInTheDocument();
+      expect(screen.getByText("fresh")).toBeInTheDocument();
+      expect(screen.queryByText("earlier")).not.toBeInTheDocument();
     });
 
     it("7d window includes entries from several days ago", () => {
@@ -128,14 +134,16 @@ describe("BoardActivityDrawer", () => {
         makeEntry({ actor: "@tooold", timestamp: daysAgo(10) }),
       ];
       render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+      openFilters();
       fireEvent.click(screen.getByRole("button", { name: "7d" }));
-      expect(screen.getByText("@fresh")).toBeInTheDocument();
-      expect(screen.getByText("@lastweek")).toBeInTheDocument();
-      expect(screen.queryByText("@tooold")).not.toBeInTheDocument();
+      expect(screen.getByText("fresh")).toBeInTheDocument();
+      expect(screen.getByText("lastweek")).toBeInTheDocument();
+      expect(screen.queryByText("tooold")).not.toBeInTheDocument();
     });
 
     it("window selector updates aria-pressed when a different window is chosen", () => {
       render(<BoardActivityDrawer {...defaultProps} />);
+      openFilters();
       fireEvent.click(screen.getByRole("button", { name: "7d" }));
       expect(screen.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
       expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "false");
@@ -144,6 +152,7 @@ describe("BoardActivityDrawer", () => {
 
   it("marks the active kind tab and time window with a check as well as the tint (#2185)", () => {
     render(<BoardActivityDrawer {...defaultProps} />);
+    openFilters();
     const all = screen.getByRole("button", { name: /^all$/i });
     const moves = screen.getByRole("button", { name: /^moves$/i });
     expect(all).toHaveAttribute("aria-pressed", "true");
@@ -157,6 +166,65 @@ describe("BoardActivityDrawer", () => {
     expect(windowGroup.querySelector('[aria-pressed="true"] [data-testid="active-mark"]')).not.toBeNull();
   });
 
+  describe("rows and filter popover (#2316)", () => {
+    it("renders the card title, the move in words, an avatar and a time per row, with no stale chrome", () => {
+      const feed = [makeEntry({ subject: "Zurich Insurance", detail: "Negotiation → Closed Won", timestamp: minutesAgo(12) })];
+      render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+      expect(screen.getByText("Zurich Insurance")).toBeInTheDocument();
+      expect(screen.getByText("Negotiation to Closed Won")).toBeInTheDocument();
+      expect(screen.getByText("by @kelly")).toHaveClass("sr-only");
+      expect(screen.getByRole("listitem").querySelector("time")).not.toBeNull();
+      expect(screen.getByRole("listitem")).toHaveTextContent(/^K/);
+      expect(screen.queryByText(/live · board events/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Activity time window" })).not.toBeInTheDocument();
+    });
+
+    it("shows Created for a create row and the headline under the name for a member row", () => {
+      const feed = [
+        makeEntry({ kind: "create", subject: "New spike", detail: "" }),
+        makeEntry({ kind: "member", actor: "Alex", headline: "joined the board", detail: "" }),
+      ];
+      render(<BoardActivityDrawer {...defaultProps} feed={feed} />);
+      expect(screen.getByText("Created")).toBeInTheDocument();
+      expect(screen.getByText("Alex")).toBeInTheDocument();
+      expect(screen.getByText("joined the board")).toBeInTheDocument();
+    });
+
+    it("keeps the popover closed by default and flags a non-default filter on the button", () => {
+      render(<BoardActivityDrawer {...defaultProps} />);
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("activity-filter-count")).toBeNull();
+      openFilters();
+      expect(screen.getByRole("button", { name: /^filter activity/i })).toHaveAttribute("aria-expanded", "true");
+      fireEvent.click(screen.getByRole("button", { name: /^moves$/i }));
+      fireEvent.click(screen.getByRole("button", { name: "7d" }));
+      expect(screen.getByRole("button", { name: "Filter activity, 2 active" })).toBeInTheDocument();
+      expect(screen.getByTestId("activity-filter-count")).toHaveTextContent("2");
+    });
+
+    it("Escape closes only the popover and returns focus to the button; click outside closes it too", () => {
+      const onClose = vi.fn();
+      render(<BoardActivityDrawer {...defaultProps} onClose={onClose} />);
+      const btn = screen.getByRole("button", { name: "Filter activity" });
+      openFilters();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+      expect(btn).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      openFilters();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+    });
+
+    it("moves focus to the selected option on open", () => {
+      render(<BoardActivityDrawer {...defaultProps} />);
+      openFilters();
+      expect(screen.getByRole("button", { name: /^all$/i })).toHaveFocus();
+    });
+  });
+
   describe("Recent | Archived tabs (#2274)", () => {
     it("shows Recent selected by default and lists both tabs", () => {
       render(<BoardActivityDrawer {...defaultProps} />);
@@ -165,7 +233,7 @@ describe("BoardActivityDrawer", () => {
       expect(screen.getByTestId("drawer-tab-underline")).toHaveClass("bg-primary-emphasis");
       expect(screen.getByRole("button", { name: /open the full history view/i })).toHaveClass("text-fg-secondary");
       expect(screen.getByRole("tab", { name: "Recent" })).toHaveFocus();
-      expect(screen.getByRole("group", { name: "Activity kind filter" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filter activity" })).toBeInTheDocument();
     });
 
     it("asks the host to switch tabs on click and with arrow keys", () => {
@@ -193,8 +261,8 @@ describe("BoardActivityDrawer", () => {
         />,
       );
       expect(screen.getByText("archived body")).toBeInTheDocument();
-      expect(screen.queryByText("@kelly")).not.toBeInTheDocument();
-      expect(screen.queryByRole("group", { name: "Activity kind filter" })).not.toBeInTheDocument();
+      expect(screen.queryByText("kelly")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^filter activity/i })).not.toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "Archived" })).toHaveAttribute("aria-selected", "true");
     });
   });

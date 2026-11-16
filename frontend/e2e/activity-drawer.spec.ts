@@ -17,7 +17,8 @@ test.describe('board activity drawer', () => {
     // the drawer is open, so scope the locator to the drawer's <aside> region.
     const drawer = page.getByRole('complementary').filter({ hasText: 'Activity' })
     await expect(drawer.getByRole('button', { name: 'Close activity drawer' })).toBeVisible({ timeout: 2_000 })
-    await expect(page.getByRole('group', { name: 'Activity kind filter' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Filter activity' })).toBeVisible()
+    await expect(page.getByText('Live · board events')).toHaveCount(0)
     // #2274: one drawer, two tabs; Recent is selected on open.
     await expect(page.getByRole('tab', { name: 'Recent' })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('tab', { name: 'Archived' })).toBeVisible()
@@ -114,7 +115,22 @@ test.describe('board activity drawer', () => {
     const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
     await page.keyboard.press(`${modifier}+\\`)
 
-    // The drawer renders the activity headline text — `created <card title>`.
-    await expect(page.getByText('created Remote-created card')).toBeVisible({ timeout: 3_000 })
+    // #2316: the row's primary line is the card title, with "Created" beneath it.
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer.getByText('Remote-created card')).toBeVisible({ timeout: 3_000 })
+    await expect(drawer.getByText('Created', { exact: true })).toBeVisible()
+
+    // The kind filter lives behind the Filter button and works from the keyboard.
+    const filter = drawer.getByRole('button', { name: 'Filter activity' })
+    await filter.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Activity filters' })).toBeVisible()
+    await page.getByRole('button', { name: 'Members', exact: true }).focus()
+    await page.keyboard.press('Enter')
+    await expect(drawer.getByText('Remote-created card')).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: 'Filter activity, 1 active' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Activity filters' })).toHaveCount(0)
+    await expect(drawer).toBeVisible()
   })
 })
