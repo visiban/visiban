@@ -138,6 +138,27 @@ describe('BoardInvitesTab (#439)', () => {
     expect(screen.getByText('1 invite')).toBeInTheDocument()
   })
 
+  it('a failed revoke fills the slot mounted with the prompt; the question is in no live region (#2232)', async () => {
+    const user = userEvent.setup()
+    mockList.mockResolvedValue(page([row({ id: 1 })]))
+    mockRevoke.mockRejectedValue({ response: { status: 500 } })
+    render(<BoardInvitesTab />)
+    await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1 for Launch Plan' }))
+    const question = screen.getByText(
+      'Revoke this invite link to Launch Plan? Anyone holding it will no longer be able to join.',
+    )
+    // The slot is mounted with the prompt, empty, so the failure lands in an existing region.
+    const slot = question.parentElement!.querySelector('[role="status"]') as HTMLElement
+    expect(slot).toHaveTextContent('')
+    expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    const err = await screen.findByText('Failed to revoke invite. Please try again.')
+    expect(err).toBe(slot)
+    expect(err).toHaveClass('text-danger')
+    expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
+  })
+
   it('under All a revoked row is updated in place (204 has no body)', async () => {
     const user = userEvent.setup()
     mockList.mockResolvedValue(page([row({ id: 1, delivery: 'email' })]))

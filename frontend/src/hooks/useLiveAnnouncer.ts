@@ -21,23 +21,23 @@ export function useLiveAnnouncer(): { message: string; announce: (text: string) 
   return { message, announce };
 }
 
+const countOf = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 /** "Collapsed all 3 lanes" / "Expanded all 1 lane"; the count is omitted when unknown. */
 export function laneStateMessage(collapsed: boolean, laneCount?: number): string {
   const verb = collapsed ? "Collapsed" : "Expanded";
   if (laneCount === undefined) return `${verb} all lanes`;
-  return `${verb} all ${laneCount} ${laneCount === 1 ? "lane" : "lanes"}`;
+  return `${verb} all ${countOf(laneCount, "lane", "lanes")}`;
 }
 
 /** "Hid all 4 columns" / "Showed all 1 column"; the count is omitted when unknown (#2338). */
 export function columnStateMessage(hidden: boolean, columnCount?: number): string {
   const verb = hidden ? "Hid" : "Showed";
   if (columnCount === undefined) return `${verb} all columns`;
-  return `${verb} all ${columnCount} ${columnCount === 1 ? "column" : "columns"}`;
+  return `${verb} all ${countOf(columnCount, "column", "columns")}`;
 }
 
-/** The `e` shortcut changes lanes and columns together, so one message names both (#2338). */
+/** The `e` shortcut changes lanes and columns together, so one message names both (#2338). Composed from the same parts, not by rewriting the other messages. */
 export function boardStateMessage(collapsed: boolean, laneCount: number, columnCount: number): string {
-  const lanes = laneStateMessage(collapsed, laneCount).replace(/^(Collapsed|Expanded) all /, "");
-  const cols = columnStateMessage(collapsed, columnCount).replace(/^(Hid|Showed) all /, "");
-  return `${collapsed ? "Collapsed" : "Expanded"} all ${lanes} and ${cols}`;
+  return `${collapsed ? "Collapsed" : "Expanded"} all ${countOf(laneCount, "lane", "lanes")} and ${countOf(columnCount, "column", "columns")}`;
 }

@@ -412,6 +412,7 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     expect(screen.getByText(/Sending resumes to this address, starting with the events it missed/)).toBeInTheDocument()
     expect(announced()).toMatch(/^Sending resumes to this address, starting with the events it missed/)
+    expect(screen.getByText(/^Sending resumes to this address/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
     // The confirm replaced its trigger, so focus moves into it.
     expect(screen.getByRole('button', { name: 'Turn on' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
@@ -519,6 +520,7 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     expect(screen.getByText(/Rotate the secret\? Choose what happens/)).toBeInTheDocument()
     expect(announced()).toBe('Rotate the secret? Choose what happens to the current one.')
+    expect(screen.getByText(/Rotate the secret\? Choose what happens/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
     expect(m.rotate).toHaveBeenCalledWith(3, 1, 86400)
     const reveal = await screen.findByTestId('webhook-secret-reveal')
@@ -623,8 +625,14 @@ describe('Webhooks tab — detail', () => {
       ['Turn off', "Failed to turn off the webhook. Please try again."],
     ] as const) {
       await user.click(screen.getByRole('button', { name: trigger }))
+      // The failure slot is mounted with the prompt, empty; the same element then takes the message (#2232).
+      const question = screen.getByText(/^(Delete|Turn off) this webhook\?/)
+      const slot = question.parentElement!.querySelector('[role="alert"]') as HTMLElement
+      expect(slot).toHaveTextContent('')
+      expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
       await user.click(screen.getByRole('button', { name: /^Confirm:/ }))
-      expect(await screen.findByText(text)).toBeInTheDocument()
+      expect(await screen.findByText(text)).toBe(slot)
+      expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
       fireEvent.keyDown(document, { key: 'Escape' })
       await waitFor(() => expect(screen.queryByText(text)).not.toBeInTheDocument())
     }
