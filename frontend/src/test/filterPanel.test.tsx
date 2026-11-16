@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
+import { useState } from 'react'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterPanel from '../components/Board/FilterPanel'
-import { EMPTY_FILTER } from '../components/Board/FilterBar'
+import { EMPTY_FILTER, countActiveFilters } from '../components/Board/FilterBar'
 import type { FilterState } from '../components/Board/FilterBar'
 import type { BoardFull, SavedFilter, User } from '../types'
 
@@ -37,7 +38,7 @@ const saved: SavedFilter[] = [
   { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
 ]
 
-function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }> } = {}) {
+function setup(over: { activeCount?: number; filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }> } = {}) {
   const onChange = vi.fn()
   const onLoadSaved = vi.fn()
   const onToggleFilterBar = vi.fn()
@@ -47,7 +48,7 @@ function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: 
       board={over.board ?? makeBoard()}
       filters={over.filters ?? EMPTY_FILTER}
       onChange={onChange}
-      activeCount={0}
+      activeCount={over.activeCount ?? countActiveFilters(over.filters ?? EMPTY_FILTER)}
       icon={null}
       savedFilters={over.savedFilters ?? saved}
       activeFilterId={over.activeFilterId ?? null}
@@ -438,13 +439,95 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
   })
 
-  it('returns focus into the panel when Escape closes the name input, and when the row goes away', async () => {
+  it('returns focus to Save filter when Escape closes the name input', async () => {
     const u = userEvent.setup()
     setup({ filters: active, onSaveFilter: vi.fn() })
     await open(u)
     await u.click(screen.getByRole('button', { name: 'Save filter' }))
     await u.keyboard('{Escape}')
     expect(screen.getByRole('button', { name: 'Save filter' })).toHaveFocus()
+  })
+
+  it('falls back to Find a field when the row goes away (Clear all with the filters prop updated)', async () => {
+    const u = userEvent.setup()
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>(active)
+      return (
+        <FilterPanel
+          board={makeBoard()} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(screen.queryByTestId('filter-panel-chips')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+  })
+
+  it('keeps focus in the panel when a chip is removed: the neighbor chip, then Clear all', async () => {
+    const u = userEvent.setup()
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>(active)
+      return (
+        <FilterPanel
+          board={makeBoard()} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    const group = () => screen.getByRole('group', { name: 'Filtered by' })
+    // Bug, High, Blocked: remove the first; the chip that takes its place (High) gets focus.
+    await u.click(within(group()).getAllByRole('button', { name: 'Remove Bug filter' })[1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(within(group()).getAllByRole('button', { name: 'Remove High filter' })[0]).toHaveFocus()
+    // Remove the last (Blocked): the previous chip (High) gets focus.
+    await u.click(within(group()).getAllByRole('button', { name: 'Remove Blocked only filter' })[1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(within(group()).getAllByRole('button', { name: 'Remove High filter' })[0]).toHaveFocus()
+  })
+
+  it('keeps focus in the panel when a lane chip is removed, falling back to Clear all', async () => {
+    const u = userEvent.setup()
+    const laneBoard = makeBoard({
+      swimlane_custom_field_definitions: [{
+        id: 21, uid: 'slf21', name: 'Team', field_type: 'dropdown', choices: ['Red', 'Blue'], position: 1, show_on_row: false, is_admin_only: false,
+      }] as never,
+    })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', value: 'Red' }] }
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>({ ...EMPTY_FILTER, blockedOnly: true, laneFilter } as unknown as FilterState)
+      return (
+        <FilterPanel
+          board={laneBoard} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    const btns = within(group).getAllByRole('button', { name: 'Lanes: Team is Red, remove' })
+    await u.click(btns[btns.length - 1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    // The lane chip was last; the Blocked chip before it takes focus.
+    expect(within(screen.getByRole('group', { name: 'Filtered by' })).getAllByRole('button', { name: 'Remove Blocked only filter' })[0]).toHaveFocus()
+  })
+
+  it('offers Clear all and Save filter when an unresolved assignee counts but has no chip', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: { ...EMPTY_FILTER, assigneeIds: [9999] }, onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Filtered by' })).toBeNull()
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
   })
 
   it('Save filter asks for a name, saves through the shared handler and closes the form', async () => {

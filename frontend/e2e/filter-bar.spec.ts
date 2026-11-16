@@ -127,9 +127,11 @@ test.describe('filter bar', () => {
   test('saves a filter from the Filter panel chip row (#2315)', async ({ page }) => {
     // Stateful stub: a POST adds the preset so the next GET (and the panel's Saved list) returns it.
     const store: unknown[] = []
+    let posted: { name: string; state_json: { labelIds?: number[] } } | null = null
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/saved-filters/`, async (route) => {
       if (route.request().method() === 'POST') {
-        const body = route.request().postDataJSON() as { name: string; state_json: unknown }
+        const body = route.request().postDataJSON() as { name: string; state_json: { labelIds?: number[] } }
+        posted = body
         const row = { id: 21, name: body.name, state_json: body.state_json, state_version: 1, created_at: '2026-04-01T00:00:00Z' }
         store.push(row)
         await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(row) })
@@ -149,5 +151,9 @@ test.describe('filter bar', () => {
     await page.keyboard.press('Enter')
 
     await expect(panel.getByRole('list', { name: 'Saved filters' }).getByText('Panel preset')).toBeVisible()
+    // The POST must carry the filter that was picked, not an empty one.
+    expect(posted).not.toBeNull()
+    expect(posted!.name).toBe('Panel preset')
+    expect(posted!.state_json.labelIds).toEqual([LABEL_BUG.id])
   })
 })

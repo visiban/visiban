@@ -76,6 +76,8 @@ export default function FilterPanel({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const saveInputRef = useRef<HTMLInputElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const clearAllRef = useRef<HTMLButtonElement>(null);
+  const chipGroupRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const findRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -235,7 +237,19 @@ export default function FilterPanel({
     [filters.laneFilter, laneFields, board.swimlane_custom_field_definitions, userDateFormat],
   );
   // A search-only filter has no chip (search is the bar's input) but still needs Clear all and Save filter.
-  const hasChips = chips.length + laneChips.length > 0 || filters.search.trim() !== "";
+  // An id that resolves to nobody (a removed assignee) counts toward activeCount but has no chip, so
+  // the row also follows activeCount, matching the bar's Clear all and the Saved dropdown's Save.
+  const hasChips = activeCount > 0 || chips.length + laneChips.length > 0 || filters.search.trim() !== "";
+  // Removing a chip unmounts the focused element; keep focus in the panel: the chip that takes its
+  // place, else the one before it, else Clear all, else Find a field (like the bar's lane chips).
+  const dismissChip = (index: number, dismiss: () => void) => {
+    dismiss();
+    setTimeout(() => {
+      const remaining = chipGroupRef.current?.querySelectorAll<HTMLElement>('span[role="button"]');
+      const target = remaining?.[index] ?? remaining?.[index - 1];
+      (target ?? clearAllRef.current ?? findRef.current)?.focus();
+    }, 0);
+  };
   // The chip row and the name input unmount from under focus (Clear all, last chip, Escape, a saved
   // name); without a landing spot focus drops to <body> and Tab skips the panel's trap.
   useEffect(() => {
@@ -387,6 +401,7 @@ export default function FilterPanel({
             <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary">Filtered by</h3>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
+                ref={clearAllRef}
                 type="button"
                 onClick={() => { setSaveMode(false); setSaveName(""); setSaveError(null); onChange(EMPTY_FILTER); }}
                 className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -407,9 +422,9 @@ export default function FilterPanel({
             </div>
           </div>
           {chips.length + laneChips.length > 0 && (
-          <div role="group" aria-label="Filtered by" className="flex items-center gap-1.5 flex-wrap">
-            {chips.map((chip) => (
-              <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
+          <div ref={chipGroupRef} role="group" aria-label="Filtered by" className="flex items-center gap-1.5 flex-wrap">
+            {chips.map((chip, ci) => (
+              <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={() => dismissChip(ci, chip.onDismiss)} />
             ))}
             {laneChips.map((chip, i) => (
               <span key={`lane:${chip.id}`} className="contents">
@@ -417,13 +432,13 @@ export default function FilterPanel({
                 <FilterChip
                   tag="Lanes"
                   label={chip.label}
-                  onDismiss={() => {
+                  onDismiss={() => dismissChip(chips.length + i, () => {
                     if (!filters.laneFilter) return;
                     const laneFilter = removeLaneItem(filters.laneFilter, chip.id);
                     const next = { ...filters, laneFilter };
                     if (!laneFilter) delete next.laneFilter;
                     onChange(next);
-                  }}
+                  })}
                 />
               </span>
             ))}
@@ -452,7 +467,7 @@ export default function FilterPanel({
                   onClick={() => void submitSave()}
                   className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
                 >
-                  Save
+                  {saving ? "Saving…" : "Save"}
                 </button>
               </div>
               {saveError && <p id={`${id}-save-error`} role="alert" className="text-xs text-danger mt-1">{saveError}</p>}
