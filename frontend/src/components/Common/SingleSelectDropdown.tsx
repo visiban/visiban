@@ -380,7 +380,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       {groupRuns.length === 0
         ? options.map((opt, optIndex) => renderOption(opt, optIndex, actions.length + optIndex > 0))
         : groupRuns.map((run, gi) => (
-            <div key={`group-${gi}`} role="group" aria-labelledby={`${id}-group-${gi}`}>
+            <div key={`group-${gi}`} role="group" aria-labelledby={run.group === "" ? undefined : `${id}-group-${gi}`}>
               {/* The separator goes between groups, above the heading, never between a heading and its first option. */}
               {(gi > 0 || actions.length > 0) && (
                 <div role="separator" className="mx-4">
@@ -388,7 +388,9 @@ export default function SingleSelectDropdown<T extends string | number>({
                   <div className="h-px bg-surface-active/50" />
                 </div>
               )}
-              <div id={`${id}-group-${gi}`} className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{run.group}</div>
+              {run.group !== "" && (
+                <div id={`${id}-group-${gi}`} className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{run.group}</div>
+              )}
               {run.opts.map((opt, k) => renderOption(opt, run.start + k, k > 0))}
             </div>
           ))}

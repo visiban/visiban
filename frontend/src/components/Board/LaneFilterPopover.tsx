@@ -302,6 +302,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           ariaLabel={`Filter ${n} field`}
           className="w-40 justify-between"
           labelClassName="truncate"
+          triggerTitle={def?.name}
           escapePriority={INNER_ESCAPE_PRIORITY}
           options={fields.map((d) => ({
             value: d.id,

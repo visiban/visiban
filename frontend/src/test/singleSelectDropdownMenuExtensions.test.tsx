@@ -227,6 +227,27 @@ describe('SingleSelectDropdown option groups (#2336)', () => {
     expect(items[0]).toHaveFocus()
   })
 
+  it('renders no blank heading or dangling aria-labelledby for an ungrouped option among two groups', async () => {
+    const user = userEvent.setup()
+    const opts = [{ value: 'u', label: 'Loose' }, ...GROUPED]
+    render(<SingleSelectDropdown label="Pick" options={opts} selected={null} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Pick' }))
+    const menu = screen.getByRole('menu')
+    const groups = within(menu).getAllByRole('group')
+    expect(groups).toHaveLength(3)
+    expect(groups[0]).not.toHaveAttribute('aria-labelledby')
+    expect(groups[0].querySelectorAll('[id]')).toHaveLength(0)
+    expect(within(groups[0]).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Loose'])
+    expect(within(menu).getByRole('group', { name: 'Built-in' })).toBeInTheDocument()
+    expect(within(menu).getByRole('group', { name: 'Custom fields' })).toBeInTheDocument()
+    const items = screen.getAllByRole('menuitem')
+    items[0].focus()
+    await user.keyboard('{ArrowDown}')
+    expect(items[1]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(items[3]).toHaveFocus()
+  })
+
   it('renders exactly as before with no group or a single group', async () => {
     const plain = GROUPED.map(({ value, label }) => ({ value, label }))
     const before = await menuHtml(plain)

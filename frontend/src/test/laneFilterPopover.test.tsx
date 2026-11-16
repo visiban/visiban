@@ -468,6 +468,8 @@ describe('LaneFilterPopover — built-in fields (#2336)', () => {
     expect(within(dialog).getByText('Reads as: Lane name (built-in) is Globex')).toBeInTheDocument()
     const trigger = within(dialog).getByRole('button', { name: /^Filter 1 field/ })
     expect(trigger).toHaveTextContent('Lane name (built-in)')
+    // The w-40 trigger truncates, so the full name is on the title (#2336).
+    expect(trigger).toHaveAttribute('title', 'Lane name (built-in)')
     await user.click(trigger)
     expect(within(dialog).getByRole('menuitem', { name: 'Lane Name' })).toBeInTheDocument()
   })
