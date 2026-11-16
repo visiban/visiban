@@ -4107,6 +4107,22 @@ describe('BoardView phone layout (#2277)', () => {
     expect(screen.getByTestId('add-swimlane-modal')).toBeInTheDocument()
   })
 
+  it('one Filter button opens the View options on phones, and View keeps its own button above (#2340)', async () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView currentUser={fakeUser} />)
+    const filter = screen.getByRole('button', { name: 'Filters and view options' })
+    expect(screen.getByRole('button', { name: 'View' })).toHaveClass('max-sm:hidden')
+    fireEvent.click(filter)
+    fireEvent.click(within(screen.getByTestId('filter-panel')).getByRole('button', { name: 'View options' }))
+    expect(screen.queryByTestId('filter-panel')).not.toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'View options' })).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'View options' })).not.toBeInTheDocument())
+    expect(filter).toHaveFocus()
+  })
+
   it('keeps the grid above phone width', () => {
     mockPhone(false)
     mockSearchParams = new URLSearchParams()
@@ -4114,5 +4130,7 @@ describe('BoardView phone layout (#2277)', () => {
     render(<BoardView currentUser={fakeUser} />)
     expect(screen.queryByTestId('phone-board')).not.toBeInTheDocument()
     expect(screen.getByTestId('board-grid')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View' })).not.toHaveClass('max-sm:hidden')
   })
 })

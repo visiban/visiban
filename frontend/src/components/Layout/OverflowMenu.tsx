@@ -238,7 +238,7 @@ export default function OverflowMenu({
         // Hidden only for the pre-paint measuring pass.
         visibility: placed ? undefined : "hidden",
       }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-w-[320px] overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-w-[320px] overflow-y-auto max-sm:[&_[role=menuitem]]:min-h-11"
     >
       {items.map((item, i) => (
         <div key={item.id}>

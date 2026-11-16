@@ -39,6 +39,12 @@ interface Props {
   /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
   onSaveFilter?: (name: string) => Promise<{ error?: string }>;
   userDateFormat?: string;
+  /**
+   * Phones only (#2340): the Filter button also opens the View options, through a
+   * "View options" button in this panel's heading row. Called with the Filter trigger,
+   * which the View panel anchors to and returns focus to.
+   */
+  onOpenViewOptions?: (trigger: HTMLButtonElement) => void;
 }
 
 const PANEL_WIDTH = 360;
@@ -63,7 +69,7 @@ interface Row {
  */
 export default function FilterPanel({
   board, filters, onChange, activeCount, icon, savedFilters, savedFiltersLoading = false, activeFilterId, onLoadSaved,
-  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY",
+  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY", onOpenViewOptions,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
@@ -384,9 +390,23 @@ export default function FilterPanel({
       data-shortcut-scope="popover"
       onKeyDown={onPanelKeyDown}
       style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN) }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto max-sm:[&_button]:min-h-11 max-sm:[&_input[type=text]]:min-h-11"
     >
-      <h2 className="text-sm font-semibold text-fg">Filter</h2>
+      {onOpenViewOptions ? (
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-fg">Filter</h2>
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => { const t = triggerRef.current; close(); if (t) onOpenViewOptions(t); }}
+            className={`inline-flex items-center gap-1 text-sm text-fg border border-line-strong rounded px-3 hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
+          >
+            View options
+          </button>
+        </div>
+      ) : (
+        <h2 className="text-sm font-semibold text-fg">Filter</h2>
+      )}
       <input
         ref={findRef}
         type="text"
@@ -559,7 +579,7 @@ export default function FilterPanel({
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-controls={open ? `${id}-panel` : undefined}
-          aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+          aria-label={`${onOpenViewOptions ? "Filters and view options" : "Filters"}${activeCount > 0 ? `, ${activeCount} active` : ""}`}
         >
           {icon}
           {/* Icon-only on phones (#2333); the count badge stays. aria-label above names the button. */}

@@ -35,6 +35,26 @@ function setup(overrides: Partial<React.ComponentProps<typeof BoardViewMenu>> = 
 }
 
 const trigger = () => screen.getByRole('button', { name: 'View' })
+
+// Phones (#2340): the Filter button stands in for the View button.
+function HandoffHarness({ initialRequest = 0 }: { initialRequest?: number }) {
+  const anchorRef = React.useRef<HTMLButtonElement | null>(null)
+  const [req, setReq] = React.useState(initialRequest)
+  return (
+    <>
+      <button type="button" ref={anchorRef} onClick={() => setReq((n) => n + 1)}>Filters</button>
+      <BoardViewMenu
+        presetPicker={<button type="button">Preset picker</button>}
+        overlayPicker={<button type="button">Overlay picker</button>}
+        density="standard" onDensityChange={vi.fn()} cardLayout="expanded" onCardLayoutChange={vi.fn()}
+        allSwimlanesCollapsed={false} allSwimlanesExpanded allColumnsCollapsed={false} allColumnsExpanded
+        onCollapseSwimlanes={vi.fn()} onExpandSwimlanes={vi.fn()} onCollapseColumns={vi.fn()} onExpandColumns={vi.fn()}
+        showArchived={false} onToggleArchived={vi.fn()}
+        phoneHandoff={{ openRequest: req, anchorRef }}
+      />
+    </>
+  )
+}
 const panel = () => within(screen.getByRole('dialog', { name: 'View options' }))
 
 describe('BoardViewMenu', () => {
@@ -275,5 +295,38 @@ describe('BoardViewMenu lane announcements (#2323)', () => {
     await user.click(trigger())
     await user.click(panel().getByRole('button', { name: 'Collapse all' }))
     await waitFor(() => expect(status()).toHaveTextContent('Collapsed all lanes'))
+  })
+})
+
+describe('BoardViewMenu phone handoff from the Filter button (#2340)', () => {
+  it('hides its own button on phones and opens on a request, anchored to the Filter button', async () => {
+    const u = userEvent.setup()
+    render(<HandoffHarness />)
+    expect(trigger()).toHaveClass('max-sm:hidden')
+    expect(screen.queryByRole('dialog', { name: 'View options' })).toBeNull()
+    await u.click(screen.getByRole('button', { name: 'Filters' }))
+    const dialog = screen.getByRole('dialog', { name: 'View options' })
+    expect(dialog).toHaveClass('max-sm:[&_button]:min-h-11')
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+  })
+
+  it('Escape and Shift+Tab off the first control return focus to the Filter button', async () => {
+    const u = userEvent.setup()
+    render(<HandoffHarness />)
+    const filters = screen.getByRole('button', { name: 'Filters' })
+    await u.click(filters)
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'View options' })).toBeNull()
+    expect(filters).toHaveFocus()
+    await u.click(filters)
+    await waitFor(() => expect(panel().getByRole('button', { name: 'Preset picker' })).toHaveFocus())
+    await u.tab({ shift: true })
+    expect(screen.queryByRole('dialog', { name: 'View options' })).toBeNull()
+    expect(filters).toHaveFocus()
+  })
+
+  it('does not open on mount with an old request count', () => {
+    render(<HandoffHarness initialRequest={3} />)
+    expect(screen.queryByRole('dialog', { name: 'View options' })).toBeNull()
   })
 })

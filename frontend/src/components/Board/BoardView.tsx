@@ -1378,6 +1378,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const isLargeViewport = useIsLargeViewport();
   // Phone width (#2277): one column at a time, no drag.
   const isPhone = useIsPhoneViewport();
+  // Phones (#2340): one Filter button opens both panels. Its "View options" button hands
+  // the Filter trigger to the View panel, which anchors to it and returns focus there.
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [viewOpenRequest, setViewOpenRequest] = useState(0);
+  const openViewFromFilter = useCallback((trigger: HTMLButtonElement) => {
+    filterTriggerRef.current = trigger;
+    setViewOpenRequest((n) => n + 1);
+  }, []);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // A drop into a confirm-on-entry column waiting on its checklist (#1101).
   const [pendingPolicyMove, setPendingPolicyMove] = useState<{
@@ -2850,10 +2858,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onOpenLaneFilters={openLaneFilters}
               onSaveFilter={(name) => saveFilter(name, effectiveFilters)}
               userDateFormat={userDateFormat}
+              onOpenViewOptions={isPhone ? openViewFromFilter : undefined}
             />
             <span ref={presetPickerRef} className="contents">
               <BoardViewMenu
                 icon={ViewMenuIcon}
+                phoneHandoff={isPhone ? { openRequest: viewOpenRequest, anchorRef: filterTriggerRef } : undefined}
                 presetPicker={
                   <SingleSelectDropdown<BoardPresetId>
                     label="Preset"
