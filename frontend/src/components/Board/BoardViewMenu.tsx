@@ -267,7 +267,7 @@ export default function BoardViewMenu(props: Props) {
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>
-      <span className="sr-only" role="status" aria-live="polite" data-testid="view-menu-lanes-status">{laneAnnouncement}</span>
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="view-menu-lanes-status">{laneAnnouncement}</span>
       {panel && createPortal(panel, document.body)}
     </>
   );
