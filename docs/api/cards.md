@@ -691,7 +691,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 |---|---|
 | `move` | All `CardMovement` records |
 | `comment` | `comment_added` |
-| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) |
+| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) and `custom_field_changed` (#1921) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
 | `attachment` | `attachment_added`, `attachment_deleted` |
 | `system` | `archived`, `reactivated` |

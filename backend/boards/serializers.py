@@ -51,7 +51,7 @@ from .models import (
     CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
-    CardGateTransition, StageTrack, SubColumn,
+    CardGateTransition, StageTrack, SubColumn, SwimlaneTrackException,
     validate_external_ref_ref, validate_external_ref_url,
 )
 from .custom_field_types import (
@@ -1633,6 +1633,21 @@ def validate_dimension(attrs, instance, field_type):
         key = "is_dimension" if "is_dimension" in attrs else "field_type"
         raise serializers.ValidationError({
             key: "Only a dropdown field can be a dimension."
+        })
+    if (
+        instance is not None and instance.is_dimension and not is_dim
+        and (
+            StageTrack.objects.filter(field_definition=instance).exists()
+            or SwimlaneTrackException.objects.filter(field_definition=instance).exists()
+        )
+    ):
+        # A track binding on a non-dimension field would fail every later
+        # stage save of that column (services.stages._clean_tracks).
+        raise serializers.ValidationError({
+            "is_dimension": (
+                "This field is used as a stage track. Remove it from the stage "
+                "settings first, then turn off dimension."
+            )
         })
     submitted = "choice_resolutions" in attrs
     resolutions = attrs["choice_resolutions"] if submitted else (

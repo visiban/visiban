@@ -13,7 +13,7 @@ from groups.broadcast import broadcast_group_event as _broadcast_group_event
 from . import broadcast as _broadcast
 from .models import (
     Board, BoardHealthChange, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
-    CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, Notification,
+    CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardGateTransition, Notification,
 )
 from .serializers import (
     BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
@@ -441,6 +441,10 @@ class CardAdmin(admin.ModelAdmin):
                 # board (Analytics matches by name when the id is not one of
                 # the board's columns).
                 CardBlock.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
+                    board_id=obj.board_id,
+                )
+                # Gate history (#1102) is board-scoped the same way.
+                CardGateTransition.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
                     board_id=obj.board_id,
                 )
                 # A row an older release wrote mid-rollout has empty snapshots

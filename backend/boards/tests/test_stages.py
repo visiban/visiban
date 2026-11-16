@@ -328,6 +328,33 @@ class DimensionFieldTests(_StageBase):
         }, format="json")
         self.assertEqual(resp.status_code, 400)
 
+    def test_cannot_turn_off_dimension_while_used_as_a_track(self):
+        field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Docs", field_type="dropdown", choices_json=["Done"],
+            is_dimension=True,
+        )
+        StageTrack.objects.create(column=self.stage, field_definition=field, position=0)
+        url = f"{self.url()}{field.pk}/"
+        resp = self.client.patch(url, {"is_dimension": False}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn("is_dimension", resp.data)
+        field.refresh_from_db()
+        self.assertTrue(field.is_dimension)
+        StageTrack.objects.all().delete()
+        resp = self.client.patch(url, {"is_dimension": False}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_cannot_turn_off_dimension_while_a_lane_exception_uses_it(self):
+        field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Docs", field_type="dropdown", choices_json=["Done"],
+            is_dimension=True,
+        )
+        SwimlaneTrackException.objects.create(swimlane=self.lane, field_definition=field)
+        resp = self.client.patch(
+            f"{self.url()}{field.pk}/", {"is_dimension": False}, format="json",
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
     def test_every_value_change_writes_an_activity_row(self):
         field = CustomFieldDefinition.objects.create(
             board=self.board, name="Docs", field_type="dropdown", choices_json=["Done"],
@@ -383,3 +410,64 @@ class HistoryCoverageTests(_StageBase):
         )
         locked = VisibanUserAdmin._cards_to_lock([other.pk]).values_list("pk", flat=True)
         self.assertIn(self.card.pk, set(locked))
+
+
+class AdminBoardMoveGateRowsTests(_StageBase):
+    def test_gate_transitions_follow_a_card_moved_to_another_board(self):
+        from django.contrib import admin as django_admin
+        from django.test import RequestFactory
+
+        from boards.models import Board
+
+        CardGateTransition.objects.create(
+            card=self.card, board=self.board, kind="pass", from_index=0, to_index=1,
+            actor=self.user,
+        )
+        other = Board.objects.create(name="Other", owner=self.user)
+        col = Column.objects.create(board=other, name="C", position=0)
+        lane = Swimlane.objects.create(board=other, name="L", position=0)
+        root = User.objects.create_superuser(username="root1921b", password="pass")
+        request = RequestFactory().post("/")
+        request.user = root
+        obj = Card.objects.get(pk=self.card.pk)
+        obj.board, obj.column, obj.swimlane = other, col, lane
+        model_admin = django_admin.site._registry[Card]
+        model_admin.save_model(request, obj, form=None, change=True)
+        self.assertEqual(
+            list(CardGateTransition.objects.filter(card=self.card).values_list("board_id", flat=True)),
+            [other.pk],
+        )
+
+
+class DateShiftHistoryTests(TestCase):
+    def test_gate_transitions_and_date_field_changes_shift_with_the_board(self):
+        from boards.services.date_shift import shift_board_dates
+
+        data = {
+            "custom_fields": [
+                {"name": "Review by", "field_type": "date"},
+                {"name": "Stage", "field_type": "dropdown"},
+            ],
+            "cards": [{
+                "title": "C",
+                "gate_transitions": [{"created_at": "2026-01-01T00:00:00+00:00"}],
+                "activities": [
+                    {"event_type": "custom_field_changed", "item_text": "Review by",
+                     "from_value": "2026-01-05", "to_value": "2026-01-09",
+                     "created_at": "2026-01-01T00:00:00+00:00"},
+                    {"event_type": "custom_field_changed", "item_text": "Stage",
+                     "from_value": "Open", "to_value": "Done",
+                     "created_at": "2026-01-01T00:00:00+00:00"},
+                    {"event_type": "custom_field_changed", "item_text": ["x"],
+                     "from_value": "2026-01-05", "to_value": "2026-01-09",
+                     "created_at": "2026-01-01T00:00:00+00:00"},
+                ],
+            }],
+        }
+        card = shift_board_dates(data, 10)["cards"][0]
+        self.assertTrue(card["gate_transitions"][0]["created_at"].startswith("2026-01-11"))
+        date_row, dropdown_row, odd_row = card["activities"]
+        self.assertEqual((date_row["from_value"], date_row["to_value"]), ("2026-01-15", "2026-01-19"))
+        self.assertTrue(date_row["created_at"].startswith("2026-01-11"))
+        self.assertEqual((dropdown_row["from_value"], dropdown_row["to_value"]), ("Open", "Done"))
+        self.assertEqual(odd_row["from_value"], "2026-01-05")

@@ -121,8 +121,8 @@ def apply_custom_field_values(*, card, pairs, actor=None):
         actor=actor,
     )
     # #1909 / #1921: every real change leaves a card activity row with the old
-    # and new values and the actor, on every transport (REST, MCP, the board
-    # UI), since they all reach this one writer. ``item_text`` snapshots the
+    # and new values and the actor, on every path that reaches this one writer
+    # (REST and the board UI; MCP has no custom-field write tool). ``item_text`` snapshots the
     # field's name so History stays readable after a rename or delete. One
     # bulk INSERT however many fields changed.
     if changed:

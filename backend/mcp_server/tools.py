@@ -54,7 +54,7 @@ from boards.permissions import (
 )
 from boards.serializers import (
     BlockCardSerializer, CardChecklistSerializer, CardMovementSerializer, CardSerializer,
-    UnblockCardSerializer,
+    SubColumnSerializer, UnblockCardSerializer,
     _card_checklist_items, _card_queryset,
 )
 from boards.services import cards as card_services
@@ -525,6 +525,10 @@ def _serialize_card(card):
         # from columns on the card row, so no extra query.
         "blocked_at": card.blocked_at.isoformat() if card.blocked_at else None,
         "blocked_reason": card.blocked_reason,
+        # Gated stages (#1102), additive: how many sub-columns of its stage
+        # the card has passed (0 outside a stage). A card column on the row, so
+        # no extra query; pair it with list_columns' sub_columns for the range.
+        "gates_passed": card.gates_passed,
     }
 
 
@@ -685,6 +689,7 @@ def _columns_payload(board):
     columns = (
         Column.objects.filter(board=board)
         .annotate(_card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
+        .prefetch_related("sub_columns")
         .order_by("position")
     )
     return [
@@ -700,6 +705,9 @@ def _columns_payload(board):
             # moves cards should read it rather than expect a 409.
             "policy": c.policy,
             "card_count": c._card_count,
+            # #1102: the stage's ordered sub-columns, [] on a plain column.
+            # REST's shape, so `gates_passed` on a card (0..len-1) is readable.
+            "sub_columns": SubColumnSerializer(c.sub_columns.all(), many=True).data,
         }
         for c in columns
     ]
