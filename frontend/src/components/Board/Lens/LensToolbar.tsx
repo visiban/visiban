@@ -4,7 +4,7 @@ import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import SplitButton from "../../Common/SplitButton";
 import Tooltip from "../../Common/Tooltip";
 import { MENU_ITEM_FOCUS_RING } from "../../Common/menuItemFocusRing";
-import { LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
+import { FilterIcon, LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
 import { formatShortcut } from "../../../utils/platform";
 import type { LensConnection } from "../../../types";
 import type { CardLayout } from "../../../hooks/useCardLayoutPref";
@@ -80,6 +80,9 @@ export default function LensToolbar({
   const rawCollapsed = searchParams.get("lens_collapsed");
   const allCollapsed = rawCollapsed === "*";
   const noneCollapsed = !rawCollapsed;
+  // Same rule as the board's Show-row button (#2321): the primary offers "Expand"
+  // only once EVERY lane is collapsed. LensView normalizes "all lanes" to the
+  // "*" sentinel, so a partial collapse leaves the primary on "Collapse".
   const collapseAll = () =>
     setSearchParams((prev) => { prev.set("lens_collapsed", "*"); return prev; }, { replace: true });
   const expandAll = () =>
@@ -92,11 +95,11 @@ export default function LensToolbar({
           dividers: Row 2 has none (#2269). */}
       <SplitButton
         size="toolbar"
-        primaryLabel={noneCollapsed ? "Collapse" : "Expand"}
-        primaryAriaLabel={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}
-        primaryTitle={noneCollapsed ? "Hide all swimlanes" : "Show all swimlanes"}
+        primaryLabel={allCollapsed ? "Expand" : "Collapse"}
+        primaryAriaLabel={allCollapsed ? "Show all swimlanes" : "Hide all swimlanes"}
+        primaryTitle={allCollapsed ? "Show all swimlanes" : "Hide all swimlanes"}
         menuAriaLabel="Collapse menu"
-        onPrimary={noneCollapsed ? collapseAll : expandAll}
+        onPrimary={allCollapsed ? expandAll : collapseAll}
         renderMenu={({ close }) => {
           const item = (label: string, onClick: () => void, disabled: boolean) => (
             <button
@@ -125,16 +128,17 @@ export default function LensToolbar({
         <button
           type="button"
           onClick={onToggleFilters}
-          className={`inline-flex items-center h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
           aria-keyshortcuts="f"
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
+          {FilterIcon}
           Filters
           {activeCount > 0 && (
-            <span className="ml-1.5 bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
+            <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
               {activeCount}
             </span>
           )}

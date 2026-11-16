@@ -48,6 +48,23 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
 }
 
 test.describe('Lens toolbar', () => {
+  test('Summary, History and Analytics keep the Board tab where the Board view has it at 390px (#2321)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
+    const boardTab = page.getByRole('button', { name: 'Board', exact: true })
+    await expect(boardTab).toBeVisible({ timeout: 30_000 })
+    const base = await boxOf(boardTab)
+    for (const view of ['summary', 'history', 'analytics']) {
+      await page.goto(`/boards/${BOARD_FULL.id}?view=${view}`, { timeout: 60_000 })
+      const box = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
+      expect(Math.abs(box.y - base.y), `${view} tab y`).toBeLessThanOrEqual(1)
+      expect(Math.abs(box.x - base.x), `${view} tab x`).toBeLessThanOrEqual(1)
+      const noSideScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      expect(noSideScroll, `${view} no sideways scroll`).toBe(true)
+    }
+  })
+
   test('Board to Lens does not move the tabs, and the 390px page never scrolls sideways', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await setup(page)

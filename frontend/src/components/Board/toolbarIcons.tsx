@@ -55,3 +55,10 @@ export const PresetIcon: ReactNode = (
     <path d="M4 2h8v12l-4-3-4 3z" />
   </svg>
 );
+
+/** Filter glyph shared by the board's Filter button and the Lens Filters button (#2321). */
+export const FilterIcon: ReactNode = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+    <path d="M4 6h16M7 12h10M10 18h4" />
+  </svg>
+);
