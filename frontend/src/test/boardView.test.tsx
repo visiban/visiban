@@ -4132,7 +4132,7 @@ describe('BoardView phone layout (#2277)', () => {
     await waitFor(() => expect(ctx.moveCard).toHaveBeenLastCalledWith(602, 10, 20, 0))
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close card peek' }))
     // C is the last visible card: Move later is off though a hidden card follows it.
-    fireEvent.click(screen.getByText('Filt C'))
+    fireEvent.click(screen.getByText('Filt C'), { shiftKey: true })
     sheet = await screen.findByTestId('card-peek-sheet')
     expect(within(sheet).getByRole('button', { name: 'Move later' })).toBeDisabled()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Move earlier' }))
