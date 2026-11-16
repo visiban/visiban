@@ -5766,7 +5766,7 @@
 <p>The toolbar's <strong>Filter</strong> button opens a panel with:</p>
 <ul>
 <li>A <strong>Find a field</strong> box (focused on open) that narrows the rows below it by name.</li>
-<li>One row per filterable field: <strong>Assignee</strong>, <strong>Label</strong>, <strong>Priority</strong>, <strong>Due date</strong>, <strong>Blocked</strong>, <strong>Lanes</strong> (when you can see swimlane fields) and each custom field. A row shows its current value, or <strong>Any</strong> when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.</li>
+<li>One row per filterable field: <strong>Assignee</strong>, <strong>Label</strong>, <strong>Priority</strong>, <strong>Due date</strong>, <strong>Blocked</strong>, <strong>Lanes</strong> (when the board has a swimlane field you can filter on, two or more lanes, or a lane filter set) and each custom field. A row shows its current value, or <strong>Any</strong> when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.</li>
 <li>A <strong>Filtered by</strong> row at the top while any filter is active: one chip per active filter (click the <strong>x</strong>, or focus a chip and press Enter, Space or Delete, to remove it), <strong>Clear all</strong>, and <strong>Save filter</strong>, which asks for a name and saves like the filter bar does. Lane rules appear as <strong>Lanes</strong> chips.</li>
 <li>Your <strong>saved filters</strong>. Click one to load it and close the panel. Deleting stays in the filter bar.</li>
 <li>A footer button, <strong>Show filter bar</strong> (or <strong>Hide filter bar</strong>), for search, scope, <strong>My cards</strong> and saving a filter.</li>
@@ -5816,10 +5816,11 @@
 <p>The filter row is a search landmark named <strong>Board filters</strong> (it was "Card filters" before 1.3, when it gained lane filters). Next to the chips, a status line reads, for example, "2 lanes hidden · 5 cards hidden"; screen readers announce it as it changes.</p>
 <h4 id="lane-filters">Lane filters<a class="headerlink" href="#lane-filters" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
-<p>On a board with many swimlanes (one per account, say), <strong>Lanes</strong> in the filter bar hides the lanes whose own <a href="../custom-fields/#swimlane-row-custom-fields">swimlane field</a> values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.</p>
+<p>On a board with many swimlanes (one per account, say), <strong>Lanes</strong> in the filter bar hides the lanes whose name, contact email, or own <a href="../custom-fields/#swimlane-row-custom-fields">swimlane field</a> values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.</p>
 <ol>
 <li>Click <strong>Lanes</strong> to open the rule builder, then <strong>+ Add filter</strong>.</li>
-<li>Pick a field, then a value or range:<ul>
+<li>Pick a field, then a value or range. The field list starts with two <strong>built-in</strong> fields (<a href="https://gitlab.com/visiban/visiban/-/issues/2336">#2336</a>), <strong>Lane name</strong> and <strong>Contact email</strong>, then the board's swimlane fields in board order; when both kinds are listed they sit under <strong>Built-in</strong> and <strong>Custom fields</strong> headings. If a swimlane field has the same name as a built-in, the built-in reads, for example, <strong>Lane name (built-in)</strong>.<ul>
+<li><strong>Lane name</strong> and <strong>Contact email</strong>: the same five text operators as a text field, for example <em>Lane name is Acme Corp</em> or <em>Contact email contains @acme.com</em>. <strong>Contact email</strong> is offered to board admins only (see below). A lane with no contact email never matches <strong>is</strong>, <strong>contains</strong> or <strong>matches wildcard</strong>, and always matches <strong>is not</strong> and <strong>does not contain</strong>.</li>
 <li><strong>Dropdown</strong> fields: <strong>is</strong> or <strong>is not</strong> a choice.</li>
 <li><strong>Number</strong> and <strong>Date</strong> fields: <strong>between</strong> two values. Leave either end as <strong>Any</strong> for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.</li>
 <li><strong>Text</strong> and <strong>URL</strong> fields (<a href="https://gitlab.com/visiban/visiban/-/issues/2226">#2226</a>): <strong>is</strong> or <strong>is not</strong> one of the values your lanes already carry for that field (listed alphabetically), or one of three operators that take text you type (up to 500 characters): <strong>contains</strong>, <strong>does not contain</strong>, and <strong>matches wildcard</strong>, for example <em>AE is Ethan Ross</em>, <em>AE contains ross</em>, or <em>AE matches wildcard Ethan*</em>. Matching ignores case and leading or trailing spaces. See <a href="#text-operators-and-wildcards">Text operators and wildcards</a>. A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty text box is an incomplete filter.</li>
@@ -5831,8 +5832,8 @@
 <p>Rules apply as soon as they are complete; <strong>Done</strong> just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.</p>
 <ul>
 <li><strong>Lanes with no value:</strong> a lane with no value for the field, or a value that isn't a valid number or date, fails <strong>is</strong>, <strong>contains</strong>, <strong>matches wildcard</strong>, and <strong>between</strong>, and passes <strong>is not</strong> and <strong>does not contain</strong>.</li>
-<li><strong>Admin-only fields</strong> are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.</li>
-<li><strong>Checkbox and multi-select</strong> swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, <strong>Lanes</strong> is hidden.</li>
+<li><strong>Admin-only fields</strong>, and the built-in <strong>Contact email</strong>, are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them. For them, a rule on one (from a saved filter or a shared link) is dropped as if it were not there: the remaining rules still apply, so the result can show more lanes or, when the dropped rule was one side of an <strong>Or</strong>, fewer.</li>
+<li><strong>Checkbox and multi-select</strong> swimlane fields can't be filtered on yet. <strong>Lanes</strong> is shown when you can see a swimlane field it can filter on, when the board has two or more lanes, or when a lane filter is already set (so you can clear it).</li>
 <li><strong>Chips:</strong> each complete filter or group shows as a chip tagged <strong>Lanes</strong>, joined by "and" / "or". Dismissing a chip removes that filter or group. The <strong>Lanes</strong> button shows how many rules are active; the Filters badge and <strong>Clear all</strong> count all lane rules together as one filter.</li>
 <li><strong>Lanes with no matching cards</strong> stay visible, as they do with card filters alone.</li>
 <li><strong>In focus mode</strong> the rules still apply: see <a href="#swimlane-focus-mode">Swimlane focus mode</a>. The focused lane always shows, even if it doesn't match.</li>
@@ -5842,7 +5843,7 @@
 <p>Lane filters are saved with the rest of the filter state in your browser, in the URL (<code>f_lanes</code>), and in <a href="../saved-filters/">saved filters</a>.</p>
 <h4 id="text-operators-and-wildcards">Text operators and wildcards<a class="headerlink" href="#text-operators-and-wildcards" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
-<p>Text and URL swimlane fields offer five operators in a lane filter:</p>
+<p>Text and URL swimlane fields, and the built-in <strong>Lane name</strong> and <strong>Contact email</strong>, offer five operators in a lane filter:</p>
 <table>
 <thead>
 <tr>
@@ -5903,6 +5904,7 @@
 </tbody>
 </table>
 <ul>
+<li><strong>Email domains:</strong> <strong>Contact email</strong> is matched on the whole stored address. Because a wildcard can match any part of it, <code>*@acme.com</code> also matches <code>pat@acme.com.example</code>; to narrow by domain, <strong>contains</strong> <code>@acme.com</code> is the simpler rule, with the same caveat.</li>
 <li><strong>A literal <code>*</code> or <code>?</code>:</strong> use <strong>contains</strong>, where they are plain characters.</li>
 <li><strong>Lanes with no value</strong> fail <strong>matches wildcard</strong> and <strong>contains</strong>, and pass <strong>does not contain</strong> (as they pass <strong>is not</strong>).</li>
 <li>Wildcard patterns are never treated as regular expressions, so no other character has a special meaning.</li>
