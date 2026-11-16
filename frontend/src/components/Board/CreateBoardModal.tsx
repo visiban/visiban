@@ -394,7 +394,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
           <p className="text-xs h-4 flex-1"><span className="text-danger">{submitError}</span></p>
           <button
             onClick={onCancel}
-            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-tertiary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>

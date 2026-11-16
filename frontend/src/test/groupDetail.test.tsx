@@ -890,6 +890,24 @@ describe('GroupDetail', () => {
     expect(low).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('keeps the defaults status in an always-mounted slot so Saved/error does not shift the row (#487)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['low', 'medium', 'high', 'urgent'] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroupBoardDefaults.mockRejectedValueOnce(new Error('boom'))
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Board defaults')
+    const slot = screen.getByTestId('group-defaults-status')
+    expect(slot).toBeEmptyDOMElement()
+    fireEvent.click(screen.getByRole('button', { name: 'low' }))
+    const alert = await screen.findByRole('alert')
+    expect(slot).toContainElement(alert)
+    expect(screen.getByTestId('group-defaults-status')).toBe(slot)
+  })
+
   it('surfaces an error and stays on the page when group deletion fails (#1386)', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])

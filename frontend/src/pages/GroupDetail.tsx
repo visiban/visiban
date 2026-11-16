@@ -32,6 +32,7 @@ import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoa
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
 import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, Priority, User } from "../types";
+import SectionEmptyState from "../components/Common/SectionEmptyState";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
@@ -1359,15 +1360,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 )}
               </div>
               {subgroups.length === 0 ? (
-                <div className="flex flex-col items-center text-center py-6" data-testid="subgroups-empty">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-fg-faint mb-2" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                  </svg>
-                  <p className="text-fg-tertiary text-sm">No subgroups yet</p>
-                  <p className="text-fg-muted text-sm">
-                    Subgroups let you organize boards and members into nested workspaces.
-                  </p>
-                </div>
+                <SectionEmptyState
+                  testId="subgroups-empty"
+                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
+                  heading="No subgroups yet"
+                  description="Subgroups let you organize boards and members into nested workspaces."
+                />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {subgroups.map((sg) => (
@@ -1652,8 +1650,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       { value: "viewer", label: "Viewer" },
                     ]}
                   />
-                  {defaultsSaved && <span className="text-success text-xs">Saved</span>}
-                  {defaultsError && <span role="alert" className="text-danger text-xs">{defaultsError}</span>}
+                  {/* Reserved status slot: always mounted so Saved/error does not shift the row. */}
+                  <span className="text-xs min-w-[4rem] inline-block" data-testid="group-defaults-status">
+                    {defaultsSaved && <span className="text-success">Saved</span>}
+                    {defaultsError && <span role="alert" className="text-danger">{defaultsError}</span>}
+                  </span>
                 </div>
                 {/* #1430: deprecated; stored but never read. Access comes from GroupMembership.role via get_board_role(). Control kept for API compatibility. */}
                 <p id="group-default-member-role-hint" className="text-fg-muted text-xs mt-2">
@@ -1917,7 +1918,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-fg-tertiary hover:text-fg px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
@@ -1941,7 +1942,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       >
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={() => { void handleDeleteGroup(); }} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>

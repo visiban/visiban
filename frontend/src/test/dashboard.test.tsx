@@ -131,6 +131,25 @@ describe('Dashboard', () => {
     expect(empty).toHaveTextContent('Create one to collaborate with others.')
   })
 
+  it.each([
+    ['listGroups rejects, boards ok (empty)', false],
+    ['listBoards rejects, groups ok (empty)', true],
+  ])('partial failure (%s): error + Retry show and no empty state masquerades as no data', async (_label, boardsFail) => {
+    if (boardsFail) {
+      mockListBoards.mockRejectedValueOnce(new Error('x'))
+      mockListGroups.mockResolvedValue([])
+    } else {
+      mockListBoards.mockResolvedValue([])
+      mockListGroups.mockRejectedValueOnce(new Error('x'))
+    }
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
+    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+  })
+
   it('hides the redundant section empty states below the onboarding state', async () => {
     renderDashboard()
     expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()

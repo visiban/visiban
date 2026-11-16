@@ -348,12 +348,12 @@ describe('CardDetail', () => {
       rememberCardDetailTab('comments')
       ;(addCardComment as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 5, author: fakeUser, body: 'hi', created_at: new Date().toISOString(), updated_at: '' })
       render(<CardDetail {...defaultProps()} />)
-      expect(await screen.findByText('No comments yet')).toBeInTheDocument()
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument()
       await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(1))
       fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hi' } })
       await userEvent.setup().click(screen.getByRole('button', { name: 'Comment' }))
       await waitFor(() => expect(timeline()).toHaveBeenCalledTimes(2))
-      expect(screen.queryByText('No comments yet')).not.toBeInTheDocument()
+      expect(screen.queryByText('No comments yet.')).not.toBeInTheDocument()
     })
   })
 
@@ -680,7 +680,7 @@ describe('CardDetail', () => {
     expect(screen.getByTestId('attachments-skeleton')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByTestId('attachments-skeleton')).not.toBeInTheDocument())
     await userEvent.setup().click(screen.getByText('Attachments'))
-    expect(screen.getByText('No attachments.')).toBeInTheDocument()
+    expect(screen.getByText('No attachments yet.')).toBeInTheDocument()
   })
 
   it('renders upload button when uploads_enabled is true', () => {
@@ -1440,10 +1440,10 @@ describe('CardDetail', () => {
       // An empty checklist loads collapsed; expanding shows the empty state.
       const header = screen.getByRole('button', { name: /^Checklist/ })
       await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'false'))
-      expect(screen.queryByText('No checklist items.')).toBeNull()
+      expect(screen.queryByText('No checklist items yet.')).toBeNull()
       fireEvent.click(header)
       expect(header).toHaveAttribute('aria-expanded', 'true')
-      expect(screen.getByText('No checklist items.')).toBeInTheDocument()
+      expect(screen.getByText('No checklist items yet.')).toBeInTheDocument()
     })
 
     it('shows the failure copy when the assign is refused', async () => {

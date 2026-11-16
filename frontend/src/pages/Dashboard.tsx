@@ -391,7 +391,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={handleJoinSubmit} className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Join</button>
         </div>
       </ModalWrapper>
@@ -446,7 +446,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-tertiary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>

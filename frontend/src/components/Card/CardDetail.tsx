@@ -2177,7 +2177,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {pendingSections.checklist && <SectionSkeleton rows={2} testId="checklist-skeleton" />}
                 {checklistOpen && checklist.length === 0 && !pendingSections.checklist && (
                   // Design § 5 empty state (#445).
-                  <p className="text-xs text-fg-muted italic px-1 mb-2">No checklist items.</p>
+                  <p className="text-xs text-fg-muted italic px-1 mb-2">No checklist items yet.</p>
                 )}
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
@@ -2372,7 +2372,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {attachmentsOpen && (pendingSections.attachments ? (
                   <SectionSkeleton rows={1} testId="attachments-skeleton" />
                 ) : attachments.length === 0 ? (
-                  <p className="text-xs text-fg-muted italic">No attachments.</p>
+                  <p className="text-xs text-fg-muted italic">No attachments yet.</p>
                 ) : (<>
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((a) => (
@@ -2440,7 +2440,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div>
                 {pendingSections.comments && <SectionSkeleton rows={2} testId="comments-skeleton" />}
                 {!pendingSections.comments && comments.length === 0 && (
-                  <p className="text-sm text-fg-tertiary mb-3">No comments yet</p>
+                  <p className="text-xs text-fg-muted italic mb-3">No comments yet.</p>
                 )}
                 <div className="flex flex-col gap-3 mb-3">
                   {comments.map((c) => {
