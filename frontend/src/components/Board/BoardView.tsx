@@ -2238,14 +2238,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     cell.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
     return true;
   }, []);
+  // Phone layout (#2277): there are no cells to dispatch to, so the request is handed to PhoneBoard.
+  const [phoneAddRequest, setPhoneAddRequest] = useState<{ columnId: number; swimlaneId: number; nonce: number } | null>(null);
   const requestAddCard = useCallback((columnId: number, swimlaneId: number) => {
+    if (isPhone) {
+      setPhoneAddRequest({ columnId, swimlaneId, nonce: Date.now() });
+      return;
+    }
     if (collapsedSwimlaneIds.has(swimlaneId)) {
       toggleCollapsedSwimlane(swimlaneId);
       setPendingAddCard({ columnId, swimlaneId });
       return;
     }
     dispatchAddCard(columnId, swimlaneId);
-  }, [collapsedSwimlaneIds, toggleCollapsedSwimlane, dispatchAddCard]);
+  }, [isPhone, collapsedSwimlaneIds, toggleCollapsedSwimlane, dispatchAddCard]);
   useEffect(() => {
     if (!pendingAddCard || collapsedSwimlaneIds.has(pendingAddCard.swimlaneId)) return;
     const { columnId, swimlaneId } = pendingAddCard;
@@ -3132,6 +3138,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               staleness_threshold_days={board.staleness_threshold_days ?? 14}
               stale_warning_pct={board.stale_warning_pct ?? 50}
               customFieldDefinitions={board.custom_field_definitions}
+              isAdmin={isAdmin}
+              allColumns={board.columns}
+              boardColors={boardColors}
+              limitFlags={board}
+              swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              intakeColumnId={intakeColumnId}
+              onCardAdded={onCardAdded}
+              onColumnUpdated={handleColumnUpdated}
+              onRequestDeleteColumn={(col) => setConfirmDeleteColumn(col)}
+              onSwimlaneUpdated={handleLocalSwimlaneUpdated}
+              onSwimlaneDeleted={onSwimlaneDeleted}
+              onAddColumn={() => { setInsertPosition(null); setShowAddColumn(true); }}
+              onAddSwimlane={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
+              focusedSwimlaneId={focusedSwimlaneId}
+              onFocusLane={enterFocus}
+              onExitFocus={exitFocus}
+              addRequest={phoneAddRequest}
             />
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>

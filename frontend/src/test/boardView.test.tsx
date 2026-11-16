@@ -3877,6 +3877,15 @@ describe('BoardView phone layout (#2277)', () => {
     expect(screen.getByTestId('phone-column-switcher')).toBeInTheDocument()
   })
 
+  it('the empty-board Add a card opens the new-card input on phones', () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add a card' }))
+    expect(screen.getByLabelText(/New card title/)).toBeInTheDocument()
+  })
+
   it('keeps the grid above phone width', () => {
     mockPhone(false)
     mockSearchParams = new URLSearchParams()

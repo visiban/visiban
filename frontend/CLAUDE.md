@@ -689,7 +689,7 @@ Below 640px (`useIsPhoneViewport`) `BoardView` renders `components/Board/PhoneBo
 - No drag at this width (`DndContext` gets no sensors). Moving a card goes through the peek sheet's Move and the card's More actions menu, never a drag-only path.
 - Show chips use `phone` on `ShowChips`: one `flex-nowrap overflow-x-auto` row, `min-h-11` chips and lane button, totals hidden.
 - Every control is at least 44px in its smaller dimension; the page never scrolls sideways at 390px (`e2e/board-phone.spec.ts`).
-- Not built yet: the sub-column switcher (needs the #1102 data) and track-state chips on cards (#1920).
+- **No editing control is lost on phones.** `PhoneBoard` keeps the grid's gates: Add card (`canEdit` and the column's `allow_card_creation`, per lane, 44px, inline input that reuses `createCard` and `limitBlockedMessage`), Edit swimlane and Edit column (`isAdmin`, the same `EditSwimlaneModal` / `EditColumnModal`), Focus, and Add swimlane / Add column (`isAdmin`). `requestAddCard` hands phone requests to `PhoneBoard` through `addRequest` because there are no `[data-board-cell]` nodes to dispatch to. A new grid control must get a phone counterpart in the same MR.\n- Not built yet on phones: the lane band's second line (lane fields, lane WIP), the sub-column switcher (needs the #1102 data), track-state chips on cards (#1920), and the icon-button header.
 
 ## Avatar chips
 
