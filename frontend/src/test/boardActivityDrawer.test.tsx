@@ -250,6 +250,14 @@ describe("BoardActivityDrawer", () => {
       expect(elsewhere).toHaveFocus();
     });
 
+    it("keeps the popover open when blur has no related target (Safari click, window blur)", () => {
+      render(<BoardActivityDrawer {...defaultProps} />);
+      openFilters();
+      const inside = screen.getByRole("button", { name: /^all$/i });
+      fireEvent.blur(inside, { relatedTarget: null });
+      expect(screen.getByRole("dialog", { name: "Activity filters" })).toBeInTheDocument();
+    });
+
     it("shows the filter-specific empty copy when a filter hides everything", () => {
       render(<BoardActivityDrawer {...defaultProps} feed={[makeEntry()]} />);
       openFilters();
