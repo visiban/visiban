@@ -1202,7 +1202,7 @@ describe('AdminPage — Escape key', () => {
     await renderAdminPageSettled()
     fireEvent.click(screen.getByText('Invite Links'))
     const note = await screen.findByTestId('invite-links-truncated')
-    expect(note).toHaveTextContent('50 most recent used, expired, or revoked ones, out of 73 links in total')
+    expect(note).toHaveTextContent('Older used, expired, or revoked links are not shown. 73 links in total.')
   })
 
   it('shows no cap caption when the list is complete (#2254)', async () => {

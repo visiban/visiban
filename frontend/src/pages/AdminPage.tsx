@@ -237,9 +237,6 @@ const TTL_OPTIONS: { label: string; value: number | null }[] = [
   { label: "Never", value: null },
 ];
 
-// Mirrors the backend's SITE_INVITE_LIST_MAX_PAST cap on past links (#1885).
-const PAST_LINK_CAP = 50;
-
 function formatExpiry(link: AdminInviteLink): string {
   if (!link.expires_at) return "Never";
   return new Date(link.expires_at).toLocaleDateString("en-US", {
@@ -434,7 +431,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
         <>
         {truncation && (
           <p className="text-xs text-fg-muted" data-testid="invite-links-truncated">
-            Showing every active link and the {PAST_LINK_CAP} most recent used, expired, or revoked ones, out of {truncation.total} links in total.
+            Older used, expired, or revoked links are not shown. {truncation.total} links in total.
           </p>
         )}
         <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden">

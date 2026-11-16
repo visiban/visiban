@@ -26,7 +26,7 @@ interface Props {
   /** Filter-row visibility (toggled by the Filters button on the shared Row 2). */
   showFilters: boolean;
   /** Reports the live lane count up to the shared toolbar for its lane announcements (#2323). */
-  onLaneCountChange?: (count: number) => void;
+  onLaneCountChange?: (count: number | undefined) => void;
 }
 
 /**
@@ -122,7 +122,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
     () => new Set((data?.swimlanes ?? []).map((s) => s.key)),
     [data],
   );
-  useEffect(() => { onLaneCountChange?.(laneKeys.size); }, [laneKeys, onLaneCountChange]);
+  useEffect(() => { onLaneCountChange?.(data ? laneKeys.size : undefined); }, [data, laneKeys, onLaneCountChange]);
   const rawFocus = searchParams.get("lens_focus");
   const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
   // "*" is the collapse-all sentinel set by the Row-2 Collapse button (which has
