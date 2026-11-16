@@ -15,6 +15,8 @@ this save waited; the attempt is retried when that happens.
 
 from django.db import transaction
 
+from visiban.request_shape import id_in_db_range
+
 from .. import broadcast as _broadcast
 from ..models import (
     Card, CardGateTransition, Column, CustomFieldDefinition, StageTrack, SubColumn,
@@ -94,6 +96,12 @@ def _clean_tracks(board, raw):
         raise StageValidationError({"tracks": "Must be a list of field ids."})
     if len(set(raw)) != len(raw):
         raise StageValidationError({"tracks": "A track can appear once."})
+    if not all(id_in_db_range(x) for x in raw):
+        # Same 400 as an unknown id; an out-of-range int would overflow the
+        # integer parameter in the query below (a 500).
+        raise StageValidationError({
+            "tracks": "Each track must be a dimension field on this board.",
+        })
     fields = {
         f.pk: f for f in CustomFieldDefinition.objects.filter(
             board=board, pk__in=raw, is_dimension=True,
@@ -124,6 +132,10 @@ def _clean_exceptions(board, raw, track_field_ids):
             })
         pairs.add((lane, field))
     lane_ids = {lane for lane, _ in pairs}
+    if not all(id_in_db_range(i) for i in lane_ids):
+        raise StageValidationError({
+            "not_applicable": "A swimlane does not belong to this board.",
+        })
     if Swimlane.objects.filter(board=board, pk__in=lane_ids).count() != len(lane_ids):
         raise StageValidationError({
             "not_applicable": "A swimlane does not belong to this board.",
@@ -132,7 +144,11 @@ def _clean_exceptions(board, raw, track_field_ids):
 
 
 def _remap(cards, old_subs, plan):
-    """Return ``{card_pk: new_index}`` for every card whose index changes.
+    """Return ``{card_pk: (new_index, fell_back)}`` for every card whose index changes.
+
+    ``fell_back`` is True only when the card's own sub-column was removed;
+    a pure re-index (a sub-column inserted or removed ahead of a kept one)
+    passes no gate and writes no history (#2360).
 
     A card keeps its sub-column when that sub-column is kept, at its new
     index. A card in a removed sub-column falls back to the nearest kept
@@ -149,13 +165,14 @@ def _remap(cards, old_subs, plan):
     for card in cards:
         p = card.gates_passed
         new = 0
+        own_removed = bool(old_pk_at) and old_pk_at[min(p, len(old_pk_at) - 1)] not in new_index_of
         if plan:
             for q in range(min(p, len(old_pk_at) - 1), -1, -1):
                 if old_pk_at[q] in new_index_of:
                     new = new_index_of[old_pk_at[q]]
                     break
         if new != p:
-            out[card.pk] = new
+            out[card.pk] = (new, own_removed)
     return out
 
 
@@ -226,12 +243,16 @@ def _save_stage_attempt(*, actor, board, column_id, data):
             for card in cards:
                 if card.pk not in changes:
                     continue
-                new = changes[card.pk]
-                write_gate_transitions(
-                    card=card, column=column, sub_columns=new_subs,
-                    from_index=card.gates_passed, to_index=new, actor=actor,
-                    cause=CardGateTransition.Cause.STAGE_EDITED,
-                )
+                new, fell_back = changes[card.pk]
+                # A re-index passes no gate, so it writes no row (flow
+                # metrics would count a phantom pass); only a card whose own
+                # sub-column was removed falls back and is recorded.
+                if fell_back:
+                    write_gate_transitions(
+                        card=card, column=column, sub_columns=new_subs,
+                        from_index=card.gates_passed, to_index=new, actor=actor,
+                        cause=CardGateTransition.Cause.STAGE_EDITED,
+                    )
                 card.gates_passed = new
                 card.version += 1
                 Card.objects.filter(pk=card.pk).update(gates_passed=new, version=card.version)

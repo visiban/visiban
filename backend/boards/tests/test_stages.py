@@ -240,9 +240,76 @@ class StageActionTests(_StageBase):
         remapped = {r["id"]: r for r in resp.data["remapped"]}
         self.assertEqual(set(remapped), {cards[1].pk, cards[2].pk})
         self.assertEqual(remapped[cards[2].pk]["version"], cards[2].version)
+        # Only the card whose own sub-column was removed falls back and is
+        # recorded; the one past it is merely re-indexed (no phantom pass).
         rows = CardGateTransition.objects.filter(cause="stage_edited")
-        self.assertEqual(rows.count(), 2)
-        self.assertTrue(all(r.kind == "reopen" for r in rows))
+        self.assertEqual([(r.card_id, r.kind) for r in rows], [(cards[1].pk, "reopen")])
+
+    def test_inserting_a_sub_column_reindexes_cards_without_history(self):
+        card = Card.objects.create(
+            board=self.board, column=self.stage, swimlane=self.lane, title="S",
+            created_by=self.user, position=1, gates_passed=1, version=3,
+        )
+        resp = self.client.put(
+            self.stage_url(),
+            {"sub_columns": [
+                {"id": self.subs[0].pk, "name": "Doing"}, {"name": "New"},
+                {"id": self.subs[1].pk, "name": "Review"}, {"id": self.subs[2].pk, "name": "Ready to pull"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        card.refresh_from_db()
+        self.assertEqual((card.gates_passed, card.version), (2, 4))
+        self.assertEqual(resp.data["remapped"], [{"id": card.pk, "gates_passed": 2, "version": 4}])
+        self.assertFalse(CardGateTransition.objects.filter(card=card).exists())
+
+    def test_out_of_range_ids_are_400_not_500(self):
+        big = 2 ** 70
+        for body in (
+            {"tracks": [big]},
+            {"not_applicable": [{"swimlane_id": big, "field_id": big}]},
+            {"sub_columns": [{"id": big, "name": "X"}, {"name": "Y"}]},
+        ):
+            resp = self.client.put(self.stage_url(), body, format="json")
+            self.assertEqual(resp.status_code, 400, (body, resp.data))
+        dim = CustomFieldDefinition.objects.create(
+            board=self.board, name="Docs", field_type="dropdown",
+            choices_json=["Done"], is_dimension=True, choice_resolutions={"Done": "satisfied"},
+        )
+        resp = self.client.put(
+            self.stage_url(),
+            {"tracks": [dim.pk], "not_applicable": [{"swimlane_id": big, "field_id": dim.pk}]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_tracks_and_exceptions_from_another_board_are_rejected(self):
+        from boards.models import Board
+
+        other = Board.objects.create(name="Other1921", owner=self.user)
+        foreign_field = CustomFieldDefinition.objects.create(
+            board=other, name="Docs", field_type="dropdown", choices_json=["Done"],
+            is_dimension=True, choice_resolutions={"Done": "satisfied"},
+        )
+        foreign_lane = Swimlane.objects.create(board=other, name="Theirs", position=0)
+        own_field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Mine", field_type="dropdown", choices_json=["Done"],
+            is_dimension=True, choice_resolutions={"Done": "satisfied"},
+        )
+        resp = self.client.put(self.stage_url(), {"tracks": [foreign_field.pk]}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertFalse(StageTrack.objects.filter(column=self.stage).exists())
+        resp = self.client.put(
+            self.stage_url(),
+            {"tracks": [own_field.pk],
+             "not_applicable": [{"swimlane_id": foreign_lane.pk, "field_id": own_field.pk}]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertFalse(SwimlaneTrackException.objects.filter(swimlane=foreign_lane).exists())
+        # The 400 rolled the whole save back, including the valid track.
+        self.assertFalse(StageTrack.objects.filter(column=self.stage).exists())
 
     def test_turning_a_stage_back_into_a_column_puts_cards_at_zero(self):
         c = Card.objects.create(
