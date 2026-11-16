@@ -2077,12 +2077,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [filters.laneFilter, swimlaneFieldDefs, isAdmin],
   );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
-  // The collapsed-lanes strip counts only lanes the reader can see collapsed:
-  // focus collapses every other lane, including ones the lane rules hide (#2251).
-  const visibleCollapsedLaneCount = useMemo(
-    () => [...collapsedSwimlaneIds].filter((id) => !laneFilterHiddenIds.has(id)).length,
-    [collapsedSwimlaneIds, laneFilterHiddenIds],
-  );
   const lanesTriggerRef = useRef<HTMLButtonElement>(null);
   const { notice: laneNotice, dismiss: dismissLaneNotice, markLocalEdit: markLaneLocalEdit } = useLaneFilterNotice({
     swimlanes: board.swimlanes,
@@ -2163,9 +2157,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [hiddenSwimlaneIds, laneFilterHiddenIds, unmatchedLaneIds]);
   // Every lane is hidden by the rules, by "hide unmatched", or one each. Requires the rules to hide at
   // least one lane: with none hidden by rules, an all-unmatched board is the no-match panel's job.
+  // "Hide unmatched" completes the set only while some card matches: when no card matches, the no-match
+  // panel (chip line, Show all cards) is the right recovery, not "No lanes match" with only Clear lane filters.
+  const unmatchedCompletesLanes = (filteredCardIds?.size ?? 0) > 0;
+  const laneHiddenByRulesOrUnmatched = (id: number) =>
+    laneFilterHiddenIds.has(id) || (unmatchedCompletesLanes && (unmatchedLaneIds?.has(id) ?? false));
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size > 0
-    && board.swimlanes.every((s) => laneFilterHiddenIds.has(s.id) || (unmatchedLaneIds?.has(s.id) ?? false));
-  const hiddenLaneTotal = board.swimlanes.filter((s) => laneFilterHiddenIds.has(s.id) || (unmatchedLaneIds?.has(s.id) ?? false)).length;
+    && board.swimlanes.every((s) => laneHiddenByRulesOrUnmatched(s.id));
+  const hiddenLaneTotal = board.swimlanes.filter((s) => laneHiddenByRulesOrUnmatched(s.id)).length;
+  // The collapsed-lanes strip counts only lanes the reader can see collapsed:
+  // focus collapses every other lane, including ones the lane rules or "hide unmatched" hide (#2251).
+  const visibleCollapsedLaneCount = useMemo(
+    () => [...collapsedSwimlaneIds].filter((id) => !laneFilterHiddenIds.has(id) && !(unmatchedLaneIds?.has(id) ?? false)).length,
+    [collapsedSwimlaneIds, laneFilterHiddenIds, unmatchedLaneIds],
+  );
   const noCardMatch = !allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0;
   const showAllCards = useCallback(() => {
     // Lane rules and "hide unmatched" are lane settings, not card filters: Show all cards keeps them.
@@ -2341,7 +2346,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return () => { live = false; };
   }, [board.group, boardIsEmpty]);
   const importHref = importGroup?.ok && importGroup.id === board.group ? `/groups/${board.group}?import=1` : undefined;
-  const emptyBoardPanel = view === "board" && boardIsEmpty && board.columns.length > 0 ? (
+  const emptyBoardPanel = view === "board" && boardIsEmpty && !allLanesFilteredOut && board.columns.length > 0 ? (
     <BoardEmptyState
       firstColumnName={board.columns[0].name}
       onAddCard={canEdit && board.columns[0].allow_card_creation && addCardLanes.length > 0

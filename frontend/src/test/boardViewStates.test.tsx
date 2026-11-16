@@ -455,6 +455,36 @@ describe('BoardView states (#2324, #2214, #2337)', () => {
     expect(filterBarProps.current.hiddenLaneCount).toBe(2)
   })
 
+  it('an empty board whose only lane is hidden by lane rules shows No lanes match, not No cards yet (#2324)', () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Nobody' }])
+    mockSearchParams = new URLSearchParams(`f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
+    render(<BoardView />)
+    expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
+    expect(screen.queryByText('No cards yet')).not.toBeInTheDocument()
+  })
+
+  it('shows the no-match panel, not No lanes match, when no card matches and hideUnmatched hides the rest (#2214)', () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Customer B' }])
+    mockSearchParams = new URLSearchParams(`show=due_soon&f_hide_unmatched=1&f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
+    render(<BoardView />)
+    expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('board-no-match')).toHaveTextContent('No cards are due soon')
+    expect(screen.getByRole('button', { name: 'Show all cards' })).toBeInTheDocument()
+  })
+
+  it('the collapsed-lanes strip does not count lanes hideUnmatched hides (#2251)', () => {
+    mockSearchParams = new URLSearchParams('show=overdue&f_hide_unmatched=1')
+    const collapsedB = { ...LANE_B, is_collapsed: true }
+    mockBoardContextValue = defaultContext({
+      board: makeBoard({ swimlanes: [makeBoard().swimlanes[0], collapsedB], cards: [OVERDUE] }),
+    })
+    render(<BoardView />)
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    expect(screen.queryByText(/swimlanes? collapsed/)).not.toBeInTheDocument()
+  })
+
   it('passes the count of rules on fields the viewer cannot use to the filter bar (#2337)', async () => {
     mockSearchParams = new URLSearchParams(`f_lanes=1.${JSON.stringify([{ f: 'contact_email', o: 'contains', v: 'x' }, { f: 'name', o: 'is', v: 'A' }])}`)
     mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member', cards: [CARD] }) })
