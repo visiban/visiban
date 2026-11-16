@@ -3634,6 +3634,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#instance-time-zone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance time zone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#import-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5137,6 +5148,25 @@
 </tbody>
 </table>
 <p>Two API throttle scopes bound the endpoints that resolve or contact a destination, per user: <code>webhook_config</code> (create, URL change, rotate) at 30/hour and <code>webhook_test</code> at 10/hour.</p>
+<h2 id="instance-time-zone">Instance time zone<a class="headerlink" href="#instance-time-zone" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INSTANCE_TIMEZONE</code></td>
+<td>IANA time zone name (for example <code>America/Los_Angeles</code> or <code>Asia/Tokyo</code>) that decides what "today" is for the date-based card signals: the server-side <strong>overdue</strong> filter and count (card overdue badges, borders and Show chips are computed in the browser from the card's due date, at UTC midnight at the start of the due day, and do not read this setting; aligning them is tracked in #2313), the <code>notify_due_soon</code> job's due-soon window, and <a href="../../features/health-status/">auto health status</a>. Due dates are plain dates, so without a zone a card turns overdue at midnight UTC. An unknown name stops the server at startup with a clear error rather than falling back to UTC. Does not change timestamps, the scheduler's clock (see <a href="../scheduled-jobs/">Scheduled jobs</a>) or Django's <code>TIME_ZONE</code>. Helm: <code>backend.settings.instanceTimezone</code>. <em>(new in 1.3)</em></td>
+<td><code>UTC</code></td>
+</tr>
+</tbody>
+</table>
+<p>Existing installs are unaffected until you set it, with one exception: the card list's <code>?overdue=</code> filter used the host's local date (<code>date.today()</code>) and now uses the instance zone, so on a host whose own zone is not UTC its day boundary moves to UTC until you set this. After changing it, the next auto health run
+(or a board admin's <strong>Recompute now</strong>) applies the new day boundary. Changing it does not move the scheduled jobs: auto health runs at 02:00 UTC by default, which is 18:00 or 19:00 the previous day in Los Angeles and about 11 hours after local midnight in Tokyo, so a card that turns overdue at local midnight is not counted until the next auto run. Also set Helm <code>scheduledJobs.timeZone</code> to the same zone, or on Compose move <code>SCHEDULE_COMPUTE_HEALTH</code> and <code>SCHEDULE_NOTIFY_DUE_SOON</code> to the UTC times just after local midnight and in the local morning. See <a href="../scheduled-jobs/">Scheduled jobs</a>.</p>
 <h2 id="import-limits">Import limits<a class="headerlink" href="#import-limits" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

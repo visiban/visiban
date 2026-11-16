@@ -5044,7 +5044,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </tr>
 <tr>
 <td><code>?overdue=true</code></td>
-<td>Cards past their due date (due date is set and is before today). <code>false</code> returns the rest: cards with no due date or a due date of today or later</td>
+<td>Cards past their due date (due date is set and is before today in <code>INSTANCE_TIMEZONE</code>: UTC by default; before 1.3, the server host's local date). <code>false</code> returns the rest: cards with no due date or a due date of today or later</td>
 </tr>
 <tr>
 <td><code>?blocked=true</code></td>

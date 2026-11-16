@@ -4609,7 +4609,7 @@ item text are shortened to fit.</p>
 <p>""{card title}" is due soon"</p>
 </blockquote>
 <p>Recipients opt in with the <strong>Due date approaching</strong> preference.</p>
-<p><strong>Scheduling:</strong> the scan runs from the <code>notify_due_soon</code> management command rather than on a request, so it has to be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler (the Compose <code>scheduler</code> profile or the Helm <code>scheduledJobs.enabled</code> value), and <strong>nothing is sent until you do</strong>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
+<p><strong>Scheduling:</strong> the scan runs from the <code>notify_due_soon</code> management command rather than on a request, so it has to be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler (the Compose <code>scheduler</code> profile or the Helm <code>scheduledJobs.enabled</code> value), and <strong>nothing is sent until you do</strong>. The due-soon window, and the rule that a card is notified once per due date, follow the <a href="../../administration/configuration/#instance-time-zone">instance time zone</a> (<code>INSTANCE_TIMEZONE</code>, UTC by default). See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
 </code></pre></div>
 <p>Pass <code>--days N</code> to widen the window. <code>Card.due_date</code> is a date, not a timestamp, so the window is expressed in whole days; the default of <code>1</code> is the documented 24-hour warning and covers cards due today or tomorrow.</p>

@@ -5192,6 +5192,11 @@
 <td>Daily run time (<code>HH:MM</code> UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>03:00</code>, <code>off</code>, <code>02:00</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
 </tr>
 <tr>
+<td><code>INSTANCE_TIMEZONE</code></td>
+<td style="text-align: center;">No</td>
+<td>IANA time zone (for example <code>America/Los_Angeles</code>) that decides "today" for overdue, due-soon and auto health (default: <code>UTC</code>). See <a href="../../administration/configuration/#instance-time-zone">Instance time zone</a>. <em>(new in 1.3)</em></td>
+</tr>
+<tr>
 <td><code>GIT_LENS_ENABLED</code></td>
 <td style="text-align: center;">No</td>
 <td>Set <code>true</code> to turn on the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (default: <code>false</code>). See <a href="../../administration/configuration/#optional-features-off-by-default">Optional features</a>.</td>
