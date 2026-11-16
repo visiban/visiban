@@ -4693,7 +4693,7 @@
 <li>a "+N" pill that shows the remaining lane fields inline and then reads "Less";</li>
 <li>at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".</li>
 </ul>
-<p>The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup are new data: see #2275. Until that ships, the band omits them.</p>
+<p>The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane <code>wip_limit</code> (#1150), and the rollup sums the card number field chosen in <code>Board.swimlane_rollup_field</code> (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band keeps the card count that <code>board-dark.png</code> omits; removing it is the follow-up #2328.</p>
 <p><strong>Collapsed:</strong> the cells are replaced by one strip aligned to the column grid. Each strip cell shows the card count (an en dash when zero) and one 10px square per card: danger for overdue, warning for stale, primary tint otherwise. A split column shows two counts with the dashed divider.</p>
 <h2 id="cells">Cells<a class="headerlink" href="#cells" title="Permanent link">&para;</a></h2>
 <p>Screenshot: <code>components.png</code>.</p>
@@ -4934,7 +4934,7 @@
 <h2 id="what-the-api-must-return">What the API must return<a class="headerlink" href="#what-the-api-must-return" title="Permanent link">&para;</a></h2>
 <p>All additive.</p>
 <ul>
-<li>A per-lane WIP limit (nullable) and a per-board choice of the number field to roll up per lane (#2275).</li>
+<li>A per-board choice of the number field to roll up per lane (#2275): <code>Board.swimlane_rollup_field</code>, summed client-side from the card values. The per-lane WIP limit reuses the existing <code>Swimlane.wip_limit</code> (#1150), so it needs no new data.</li>
 <li>Sub-column structure and each card's gate position (#1102).</li>
 <li>Track definitions, per-card track states and per-lane "not applicable" exceptions (#1920).</li>
 <li>Per-card time in each column for the peek. Check whether the analytics drill-down endpoint already covers it before adding one.</li>
@@ -5010,7 +5010,7 @@
 <li>No Classic fallback in 1.3.</li>
 </ul>
 <p>Evidence and its limits: a simulated persona panel (not user research) and desk research informed the History and per-lane decisions. The real usability baseline (#1590) has not been run.</p>
-<p>Open for <code>architect</code>: the lane WIP limit and rollup model (#2275), and how tracks are stored (#1920).</p>
+<p>Decided in #2275: the lane WIP limit reuses #1150's <code>Swimlane.wip_limit</code>, and the rollup is a number field stored on the board (stale ids kept when the field is retyped, nulled when deleted), computed client-side. Open for <code>architect</code>: how tracks are stored (#1920).</p>
 <h2 id="review-checklist">Review checklist<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h2>
 <p>For <code>ux-review</code> and <code>completeness-check</code> on the implementing MRs:</p>
 <ul>

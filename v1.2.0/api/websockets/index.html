@@ -5024,7 +5024,7 @@ payload carries the card's <code>custom_field_values</code>.</p>
 </tr>
 <tr>
 <td><code>custom_field.deleted</code></td>
-<td>Definition deleted (and every card value with it)</td>
+<td>Definition deleted (and every card value with it). When it was the board's <code>swimlane_rollup_field</code>, a <code>board.updated</code> with <code>swimlane_rollup_field: null</code> follows it (since 1.3, #2275)</td>
 <td><code>{ "custom_field_uid": &lt;string&gt; }</code></td>
 </tr>
 <tr>
