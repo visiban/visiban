@@ -551,10 +551,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     boardPreset.applyPreset(id, same ? "reset" : "apply");
   };
+  // Phone width (#2277): one column at a time, no drag.
+  const isPhone = useIsPhoneViewport();
   const presetPickerRef = useRef<HTMLSpanElement>(null);
   const focusPresetTrigger = useCallback(() => {
-    presetPickerRef.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
-  }, []);
+    // On phones the View button is `max-sm:hidden` (#2340), so a focus() on it would
+    // drop focus to <body>. The Filter trigger (a sibling in the same toolbar row)
+    // is the visible entry to the View panel there.
+    const filterTrigger = isPhone
+      ? presetPickerRef.current?.parentElement?.querySelector<HTMLButtonElement>('button[data-tour-step="filter"]')
+      : null;
+    (filterTrigger ?? presetPickerRef.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]"))?.focus();
+  }, [isPhone]);
   const presetNotice = boardPreset.notice;
   const presetMenuActions = [
     ...(presetModified && activePreset
@@ -1387,8 +1395,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const isLargeViewport = useIsLargeViewport();
-  // Phone width (#2277): one column at a time, no drag.
-  const isPhone = useIsPhoneViewport();
+  // Phones (#2340): one Filter button opens both panels. Its "View options" button hands
+  // the Filter trigger to the View panel, which anchors to it and returns focus there.
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [viewOpenRequest, setViewOpenRequest] = useState(0);
+  const openViewFromFilter = useCallback((trigger: HTMLButtonElement) => {
+    filterTriggerRef.current = trigger;
+    setViewOpenRequest((n) => n + 1);
+  }, []);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // A drop into a confirm-on-entry column waiting on its checklist (#1101).
   const [pendingPolicyMove, setPendingPolicyMove] = useState<{
@@ -2945,10 +2959,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onOpenLaneFilters={openLaneFilters}
               onSaveFilter={(name) => saveFilter(name, effectiveFilters)}
               userDateFormat={userDateFormat}
+              onOpenViewOptions={isPhone ? openViewFromFilter : undefined}
             />
             <span ref={presetPickerRef} className="contents">
               <BoardViewMenu
                 icon={ViewMenuIcon}
+                phoneHandoff={isPhone ? { openRequest: viewOpenRequest, anchorRef: filterTriggerRef } : undefined}
                 presetPicker={
                   <SingleSelectDropdown<BoardPresetId>
                     label="Preset"
@@ -3076,7 +3092,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          {/* Phone (#2333): every control in the bar is a 44px target; the facet menus it opens are #2341. */}
+          {/* Phone (#2333): every control in the bar is a 44px target; its facet menus are deferred to #2350. */}
           <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}

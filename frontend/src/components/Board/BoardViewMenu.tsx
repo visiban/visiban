@@ -37,6 +37,12 @@ interface Props {
   // Archived cards
   showArchived: boolean;
   onToggleArchived: () => void;
+  /**
+   * Phones only (#2340): the View button is hidden and the Filter panel's "View options"
+   * button opens this panel instead. Each bump of `openRequest` opens it anchored to
+   * `anchorRef` (the Filter trigger), which also takes focus back on Escape or Tab-off.
+   */
+  phoneHandoff?: { openRequest: number; anchorRef: React.RefObject<HTMLButtonElement | null> };
 }
 
 const PANEL_WIDTH = 320
@@ -62,6 +68,8 @@ export default function BoardViewMenu(props: Props) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Where focus returns on close: the View button, or the Filter button on phones (#2340).
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // The panel stays open after Collapse all / Expand all, so say what happened (#2323);
   // same wording as the Show row. Rendered outside the panel so it survives closing.
@@ -79,7 +87,7 @@ export default function BoardViewMenu(props: Props) {
   };
   // Popover tier 25; the pickers inside pass escapePriority={26} so Escape closes
   // an open picker menu first.
-  useDropdownEscape(open, close, triggerRef, 25);
+  useDropdownEscape(open, close, returnFocusRef, 25);
 
   useEffect(() => {
     if (!open) return;
@@ -139,7 +147,7 @@ export default function BoardViewMenu(props: Props) {
     const edge = e.shiftKey ? items[0] : items[items.length - 1]
     if (items.length > 0 && document.activeElement !== edge) return
     close()
-    triggerRef.current?.focus()
+    returnFocusRef.current?.focus()
     if (e.shiftKey) e.preventDefault()
   }
   const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -149,12 +157,27 @@ export default function BoardViewMenu(props: Props) {
     }
   }
 
-  const toggle = () => {
-    if (open) return close();
-    const rect = triggerRef.current?.getBoundingClientRect();
+  const openAt = (el: HTMLButtonElement | null) => {
+    returnFocusRef.current = el;
+    const rect = el?.getBoundingClientRect();
     if (rect) setAnchor({ top: rect.bottom + 4, right: Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(window.innerWidth - rect.right, window.innerWidth - PANEL_WIDTH - POPOVER_VIEWPORT_MARGIN)) });
     setOpen(true);
   };
+  const toggle = () => {
+    if (open) return close();
+    openAt(triggerRef.current);
+  };
+  const openRequest = props.phoneHandoff?.openRequest ?? 0;
+  const handoffAnchorRef = props.phoneHandoff?.anchorRef;
+  // Only a new request opens the panel: mounting, or returning to phone width with an
+  // old count, must not.
+  const handledRequestRef = useRef(openRequest);
+  useEffect(() => {
+    if (openRequest <= handledRequestRef.current) return;
+    handledRequestRef.current = openRequest;
+    openAt(handoffAnchorRef?.current ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once per request, not per render
+  }, [openRequest]);
 
   const { density, onDensityChange, cardLayout, onCardLayoutChange } = props;
 
@@ -184,7 +207,7 @@ export default function BoardViewMenu(props: Props) {
       onKeyDown={onPanelKeyDown}
       onFocusCapture={(e) => { lastFocusRef.current = e.target }}
       style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN) }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-3 overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-3 overflow-y-auto max-sm:[&_button]:min-h-11"
     >
       <h2 className="text-sm font-semibold text-fg">View</h2>
 
@@ -256,7 +279,7 @@ export default function BoardViewMenu(props: Props) {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         data-tour-step="view-menu"
-        className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        className={`${props.phoneHandoff ? "max-sm:hidden " : ""}inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
         }`}
       >

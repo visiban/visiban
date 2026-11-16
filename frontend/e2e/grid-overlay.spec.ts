@@ -191,7 +191,9 @@ test.describe('board toolbar at phone width', () => {
     await expect(toolbar).toBeVisible()
     const { scroll, client } = await toolbar.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
     expect(scroll).toBeLessThanOrEqual(client)
-    for (const name of ['Filters', 'View', 'Open activity drawer', 'More board actions']) {
+    // View has no button of its own on phones: the Filter button opens it (#2340).
+    await expect(toolbar.getByRole('button', { name: 'View', exact: true })).toBeHidden()
+    for (const name of ['Filters', 'Open activity drawer', 'More board actions']) {
       const box = await toolbar.getByRole('button', { name: new RegExp(`^${name}`) }).first().boundingBox()
       expect(box, name).not.toBeNull()
       expect(box!.x).toBeGreaterThanOrEqual(0)

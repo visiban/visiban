@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from '../components/Layout/Navbar'
+import { MobileNavContext } from '../contexts/MobileNavContext'
 import type { User } from '../types'
 
 vi.mock('../api/notifications', () => ({
@@ -310,6 +311,35 @@ describe('Navbar — hosted demo (#1193)', () => {
     const item = await screen.findByText('moved a card')
     await user.click(item)
     expect(mockMarkRead).toHaveBeenCalledWith([1])
+  })
+})
+
+describe('Navbar phone hamburger (#2344)', () => {
+  it('renders no hamburger outside the shell', () => {
+    renderNavbar()
+    expect(screen.queryByRole('button', { name: 'Open navigation menu' })).toBeNull()
+  })
+
+  it('carries the hamburger on phones, registers with the shell and unregisters on unmount', async () => {
+    const user = userEvent.setup()
+    const unregister = vi.fn()
+    const value = { open: false, openMenu: vi.fn(), registerHeader: vi.fn(() => unregister) }
+    const view = render(
+      <MemoryRouter>
+        <MobileNavContext.Provider value={value}>
+          <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+        </MobileNavContext.Provider>
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    expect(value.registerHeader).toHaveBeenCalledTimes(1)
+    const hamburger = screen.getByRole('button', { name: 'Open navigation menu' })
+    expect(hamburger).toHaveClass('sm:hidden', 'min-h-11', 'min-w-11')
+    expect(hamburger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(hamburger)
+    expect(value.openMenu).toHaveBeenCalledTimes(1)
+    view.unmount()
+    expect(unregister).toHaveBeenCalledTimes(1)
   })
 })
 

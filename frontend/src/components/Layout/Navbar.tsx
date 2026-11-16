@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
@@ -7,6 +7,7 @@ import { formatShortcut } from "../../utils/platform";
 import { useNavbarSearchLabel } from "../../hooks/useNavbarSearchLabel";
 import { DEMO_MARK_READ_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import { useMobileNav } from "../../contexts/MobileNavContext";
 
 interface BreadcrumbItem {
   label: string;
@@ -32,6 +33,11 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const searchLabel = useNavbarSearchLabel();
+  // Phones (#2344): the hamburger lives in this row, and the shell hides its own bar.
+  const mobileNav = useMobileNav();
+  const registerHeader = mobileNav?.registerHeader;
+  // Layout effect: the shell hides its bar before the first paint, never showing two hamburgers.
+  useLayoutEffect(() => registerHeader?.(), [registerHeader]);
 
   // Poll the unread count every 30 s. Real-time push via UserConsumer is
   // deferred to 1.1 — the polling interval is intentional until then.
@@ -143,7 +149,20 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
   return (
     <>
-      <header role="banner" className="h-14 max-sm:h-12 max-sm:relative bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 shrink-0">
+      <header role="banner" className="h-14 max-sm:h-12 max-sm:relative bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 max-sm:gap-1 shrink-0">
+        {mobileNav && (
+          <button
+            type="button"
+            onClick={mobileNav.openMenu}
+            className="sm:hidden inline-flex items-center justify-center min-h-11 min-w-11 shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileNav.open}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
         <Link to="/" className="flex items-center max-sm:hidden hover:opacity-80 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
@@ -259,7 +278,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     )}
                     <button
                       onClick={() => handleClickNotification(n)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
+                      className="w-full max-sm:min-h-11 text-left px-3 py-2.5 hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     >
                       <p className="text-xs text-fg leading-snug">{n.verb}</p>
                       <p className="text-xs text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>

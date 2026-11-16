@@ -38,7 +38,7 @@ const saved: SavedFilter[] = [
   { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
 ]
 
-function setup(over: { activeCount?: number; filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }> } = {}) {
+function setup(over: { activeCount?: number; filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }>; onOpenViewOptions?: (t: HTMLButtonElement) => void } = {}) {
   const onChange = vi.fn()
   const onLoadSaved = vi.fn()
   const onToggleFilterBar = vi.fn()
@@ -57,6 +57,7 @@ function setup(over: { activeCount?: number; filters?: FilterState; board?: Boar
       onToggleFilterBar={onToggleFilterBar}
       onOpenLaneFilters={onOpenLaneFilters}
       onSaveFilter={over.onSaveFilter}
+      onOpenViewOptions={over.onOpenViewOptions}
     />,
   )
   return { onChange, onLoadSaved, onToggleFilterBar, onOpenLaneFilters }
@@ -619,5 +620,40 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     await open(u)
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save filter' })).toBeNull()
+  })
+})
+
+describe('FilterPanel on phones: one Filter button for filters and View (#2340)', () => {
+  it('has no View options button without the phone handoff', async () => {
+    const u = userEvent.setup()
+    setup()
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+    await open(u)
+    expect(screen.queryByRole('button', { name: 'View options' })).toBeNull()
+  })
+
+  it('names the trigger for both panels and hands it to the View panel from the heading row', async () => {
+    const u = userEvent.setup()
+    const onOpenViewOptions = vi.fn()
+    setup({ onOpenViewOptions, activeCount: 2 })
+    const trigger = screen.getByRole('button', { name: 'Filters and view options, 2 active' })
+    await open(u)
+    const viewBtn = within(screen.getByTestId('filter-panel')).getByRole('button', { name: 'View options' })
+    expect(viewBtn).toHaveAttribute('aria-haspopup', 'dialog')
+    await u.click(viewBtn)
+    expect(screen.queryByTestId('filter-panel')).toBeNull()
+    expect(onOpenViewOptions).toHaveBeenCalledWith(trigger)
+  })
+
+  it('lifts every panel button and text input to 44px at phone width', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    expect(screen.getByTestId('filter-panel')).toHaveClass('max-sm:[&_button]:min-h-11', 'max-sm:[&_input[type=text]]:min-h-11', 'max-sm:[&_input[type=date]]:min-h-11')
+    // A checkbox or radio row's target is its label, not the 16px input.
+    await u.click(screen.getByRole('button', { name: /^Due date/ }))
+    expect(screen.getByRole('radio', { name: 'Any' }).closest('label')).toHaveClass('max-sm:min-h-11')
+    await u.click(screen.getByRole('button', { name: /^Priority/ }))
+    expect(screen.getAllByRole('checkbox')[0].closest('label')).toHaveClass('max-sm:min-h-11')
   })
 })

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -71,9 +71,19 @@ vi.mock('../components/Common/GlobalCommandPalette', () => ({
   },
 }))
 
-vi.mock('../components/Layout/Navbar', () => ({
-  default: () => <div data-testid="navbar">Navbar</div>,
-}))
+vi.mock('../components/Layout/Navbar', async () => {
+  // Registers with the shell like the real header, so the phone nav bar hides (#2344).
+  const { useEffect } = await import('react')
+  const { useMobileNav } = await import('../contexts/MobileNavContext')
+  return {
+    default: function NavbarMock() {
+      const nav = useMobileNav()
+      const register = nav?.registerHeader
+      useEffect(() => register?.(), [register])
+      return <div data-testid="navbar">Navbar<button type="button" onClick={nav?.openMenu}>Header hamburger</button></div>
+    },
+  }
+})
 
 vi.mock('../components/Layout/AppSidebar', () => ({
   default: () => <div data-testid="sidebar" />,
@@ -493,6 +503,25 @@ describe('App', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
     expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument()
+  })
+
+  it('keeps the phone nav bar on a route that renders no header (#2344)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('mobile-nav-bar')).not.toHaveClass('max-sm:hidden')
+  })
+
+  it('hides the separate phone nav bar while a page header carries the hamburger (#2344)', async () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    // The board page renders the (mocked) header; the dashboard is mocked whole.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    const bar = screen.getByTestId('mobile-nav-bar')
+    expect(bar).toHaveClass('lg:hidden', 'max-sm:hidden')
+    const barButton = within(bar).getByRole('button', { name: 'Open navigation menu' })
+    expect(barButton).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(screen.getByRole('button', { name: 'Header hamburger' }))
+    expect(barButton).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('shows board name in breadcrumb when board is loaded', () => {

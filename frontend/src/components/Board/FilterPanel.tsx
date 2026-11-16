@@ -39,6 +39,12 @@ interface Props {
   /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
   onSaveFilter?: (name: string) => Promise<{ error?: string }>;
   userDateFormat?: string;
+  /**
+   * Phones only (#2340): the Filter button also opens the View options, through a
+   * "View options" button in this panel's heading row. Called with the Filter trigger,
+   * which the View panel anchors to and returns focus to.
+   */
+  onOpenViewOptions?: (trigger: HTMLButtonElement) => void;
 }
 
 const PANEL_WIDTH = 360;
@@ -63,7 +69,7 @@ interface Row {
  */
 export default function FilterPanel({
   board, filters, onChange, activeCount, icon, savedFilters, savedFiltersLoading = false, activeFilterId, onLoadSaved,
-  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY",
+  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY", onOpenViewOptions,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
@@ -285,7 +291,7 @@ export default function FilterPanel({
   const toggleIn = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const checkbox = (key: string, label: string, checked: boolean, onToggle: () => void, dot?: string) => (
-    <label key={key} className={`flex items-center gap-2 px-2 py-1 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis`}>
+    <label key={key} className={`flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis`}>
       <input type="checkbox" checked={checked} onChange={onToggle} className="accent-primary" />
       {dot && <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dot }} />}
       <span className="min-w-0 break-words">{label}</span>
@@ -358,7 +364,7 @@ export default function FilterPanel({
         return (
           <div role="radiogroup" aria-label="Due date">
             {[{ value: null, label: "Any" }, ...DUE_DATE_OPTIONS].map((o) => (
-              <label key={o.value ?? "any"} className="flex items-center gap-2 px-2 py-1 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
+              <label key={o.value ?? "any"} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
                 <input type="radio" name={`${id}-due`} checked={filters.dueDate === o.value} onChange={() => onChange({ ...filters, dueDate: o.value })} className="accent-primary" />
                 {o.label}
               </label>
@@ -384,9 +390,26 @@ export default function FilterPanel({
       data-shortcut-scope="popover"
       onKeyDown={onPanelKeyDown}
       style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN) }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto max-sm:[&_button]:min-h-11 max-sm:[&_input[type=text]]:min-h-11 max-sm:[&_input[type=number]]:min-h-11 max-sm:[&_input[type=date]]:min-h-11"
     >
-      <h2 className="text-sm font-semibold text-fg">Filter</h2>
+      {onOpenViewOptions ? (
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-fg">Filter</h2>
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => { const t = triggerRef.current; close(); if (t) onOpenViewOptions(t); }}
+            className={`inline-flex items-center gap-1 text-sm text-fg border border-line-strong rounded px-3 hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
+          >
+            View options
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <h2 className="text-sm font-semibold text-fg">Filter</h2>
+      )}
       <input
         ref={findRef}
         type="text"
@@ -466,7 +489,7 @@ export default function FilterPanel({
                   type="button"
                   disabled={saving}
                   onClick={() => void submitSave()}
-                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
+                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 max-sm:min-w-11 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
@@ -547,7 +570,7 @@ export default function FilterPanel({
   return (
     <>
       {/* Tooltip clones its child and takes over the child's ref, so the trigger ref lives on the button inside this span. */}
-      <Tooltip content="Filters" disabled={open}>
+      <Tooltip content={onOpenViewOptions ? "Filters and view options" : "Filters"} disabled={open}>
         <span className="inline-flex shrink-0">
         <button
           ref={triggerRef}
@@ -559,7 +582,7 @@ export default function FilterPanel({
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-controls={open ? `${id}-panel` : undefined}
-          aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+          aria-label={`${onOpenViewOptions ? "Filters and view options" : "Filters"}${activeCount > 0 ? `, ${activeCount} active` : ""}`}
         >
           {icon}
           {/* Icon-only on phones (#2333); the count badge stays. aria-label above names the button. */}

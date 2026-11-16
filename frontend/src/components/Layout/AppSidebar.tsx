@@ -319,7 +319,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       ref={drawerRef}
       {...(mobileOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Navigation menu", tabIndex: -1 } : {})}
       className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line flex-col h-full overflow-hidden focus:outline-none transition-all duration-200
-        ${mobileOpen ? "fixed inset-y-0 left-0 z-50 flex" : "hidden lg:flex"}`}
+        ${mobileOpen ? "fixed inset-y-0 left-0 z-50 flex max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_a]:min-h-11" : "hidden lg:flex"}`}
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >
       {/* Collapse toggle / mobile close */}

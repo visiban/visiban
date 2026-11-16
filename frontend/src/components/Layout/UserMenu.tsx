@@ -97,7 +97,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
           ref={panelRef}
           role="menu"
           aria-label="Account menu"
-          className="absolute right-0 top-full mt-1 w-56 bg-surface border border-line-strong rounded-lg shadow-xl py-1 z-50"
+          className="absolute right-0 top-full mt-1 w-56 bg-surface border border-line-strong rounded-lg shadow-xl py-1 z-50 max-sm:[&_[role=menuitem]]:min-h-11"
         >
           <div className="px-3 py-2" role="none">
             <p className="text-sm font-medium text-fg truncate" title={displayName}>{displayName}</p>

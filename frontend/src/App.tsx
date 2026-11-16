@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
 import { Routes, Route, Navigate, matchPath, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
@@ -6,6 +6,7 @@ import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { MobileNavContext } from "./contexts/MobileNavContext";
 import { ThemeServerSync } from "./context/ThemeServerSync";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
@@ -56,6 +57,18 @@ export default function App() {
     if (!mobileMenuOpen) return false;
     setMobileMenuOpen(false);
   }, 20);
+  // Phones (#2344): a mounted page header carries the hamburger, so the separate
+  // navigation bar hides while one is registered (one row instead of two).
+  const [headerCount, setHeaderCount] = useState(0);
+  const registerHeader = useCallback(() => {
+    setHeaderCount((c) => c + 1);
+    return () => setHeaderCount((c) => c - 1);
+  }, []);
+  const openMobileMenu = useCallback(() => setMobileMenuOpen(true), []);
+  const mobileNav = useMemo(
+    () => ({ open: mobileMenuOpen, openMenu: openMobileMenu, registerHeader }),
+    [mobileMenuOpen, openMobileMenu, registerHeader],
+  );
   // Prevent double-firing in React StrictMode when consuming pendingJoinToken.
   const oauthJoinFired = useRef(false);
 
@@ -217,8 +230,10 @@ export default function App() {
                       settings page explains itself too. It raises a toast in
                       the shared region and renders nothing itself. */}
                   {flags.demo_mode && <DemoWriteBlockedToast />}
-                  {/* Mobile navigation bar — visible below lg breakpoint only */}
-                  <div data-testid="mobile-nav-bar" className="lg:hidden flex items-center gap-3 px-4 py-3 max-sm:py-0 max-sm:h-11 bg-sunken border-b border-line shrink-0">
+                  {/* Mobile navigation bar — visible below lg breakpoint only. On phones
+                      the page header carries the hamburger instead (#2344), so this bar
+                      hides whenever a header is mounted. */}
+                  <div data-testid="mobile-nav-bar" className={`lg:hidden${headerCount > 0 ? " max-sm:hidden" : ""} flex items-center gap-3 px-4 py-3 max-sm:py-0 max-sm:h-11 bg-sunken border-b border-line shrink-0`}>
                     <button type="button"
                       onClick={() => setMobileMenuOpen(true)}
                       className="text-fg-tertiary hover:text-fg transition p-1 max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -232,7 +247,9 @@ export default function App() {
                     <span className="text-sm font-semibold text-fg">Visiban</span>
                   </div>
                   <main role="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+                    <MobileNavContext.Provider value={mobileNav}>
+                      <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+                    </MobileNavContext.Provider>
                   </main>
                 </div>
               </div>
@@ -410,7 +427,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
               <>
                 {starButton}
                 <HealthStatusControl
-                  className="ml-2 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:justify-center"
+                  className="ml-2 max-sm:ml-0 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:justify-center"
                   collapseLabel
                   entityKind="board"
                   entityName={board.name}

@@ -425,6 +425,16 @@ describe('SelectDropdown', () => {
 })
 
 describe('SingleSelectDropdown', () => {
+  // #2341 — option menus can render at document.body (portalMenu), outside any panel's 44px rule,
+  // so the rows carry their own phone-only minimum height.
+  it('gives every option row a phone-only 44px minimum height', async () => {
+    render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+    await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+    const rows = within(screen.getByRole('menu')).getAllByRole('menuitem')
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) expect(row.className).toContain('max-sm:min-h-11')
+  })
+
   // #1147 — portalMenu escapes an `overflow-x-auto` toolbar strip, which clips an
   // in-flow `absolute top-full` menu to the strip's own height.
   describe('portalMenu', () => {

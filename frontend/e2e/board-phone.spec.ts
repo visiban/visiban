@@ -11,7 +11,9 @@ async function smallControls(page: Page, roots: string[]): Promise<string[]> {
     for (const sel of rs) {
       document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
         if (el.closest('[data-card-id]')) return
-        const r = (el as HTMLElement).getBoundingClientRect()
+        // A native checkbox or radio stays 16px by design; its <label> row is the touch target, so measure that (#2341).
+        const isCheck = el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')
+        const r = ((isCheck && el.closest('label')) || el as HTMLElement).getBoundingClientRect()
         if (r.width === 0 && r.height === 0) return
         if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
       })
@@ -130,7 +132,9 @@ test.describe('board phone layout', () => {
 
   test('the header and toolbar show icon buttons for Search, Activity and Filter, with names and the four tabs (#2333)', async ({ page }) => {
     const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
-    for (const name of ['Filters', 'View', /activity drawer/, 'More board actions']) {
+    // View has no button of its own on phones: the Filter button opens it (#2340).
+    await expect(toolbar.getByRole('button', { name: 'View', exact: true })).toBeHidden()
+    for (const name of ['Filters and view options', /activity drawer/, 'More board actions']) {
       const btn = toolbar.getByRole('button', { name })
       await expect(btn).toBeVisible()
       const box = await btn.boundingBox()
@@ -144,7 +148,117 @@ test.describe('board phone layout', () => {
     }
     await expect(page.getByRole('button', { name: /^Search/ }).first()).toBeVisible()
     await expect(page.getByRole('button', { name: /^Notifications/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Open navigation menu' })).toBeVisible()
+  })
+
+  test('the navigation bar and the app header are one row, over the toolbar and tabs (#2344)', async ({ page }) => {
+    await expect(page.getByTestId('mobile-nav-bar')).toBeHidden()
+    const banner = page.getByRole('banner')
+    const hamburger = banner.getByRole('button', { name: 'Open navigation menu' })
+    const nameBtn = banner.getByRole('button', { name: BOARD_FULL.name, exact: true })
+    const search = banner.getByRole('button', { name: /^Search/ })
+    const [hb, nb, sb, bb] = await Promise.all([hamburger.boundingBox(), nameBtn.boundingBox(), search.boundingBox(), banner.boundingBox()])
+    // One row: the hamburger, the board name and the header icons share a line.
+    for (const box of [hb!, nb!, sb!]) {
+      expect(box.y).toBeGreaterThanOrEqual(bb!.y - 1)
+      expect(box.y + box.height).toBeLessThanOrEqual(bb!.y + bb!.height + 1)
+    }
+    expect(hb!.x + hb!.width).toBeLessThanOrEqual(nb!.x + 1)
+    expect(nb!.x + nb!.width).toBeLessThanOrEqual(sb!.x + 1)
+    expect(bb!.y).toBeLessThan(1)
+    // Header row, toolbar icon row, tab row: the separate navigation bar no longer adds a fourth.
+    const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    await hamburger.click()
+    await expect(page.getByRole('dialog', { name: 'Navigation menu' })).toBeVisible()
+  })
+
+  test('the header and toolbar stay on one row, 44px, without overlap in dark mode (#2344)', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.reload()
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    expect(await overlappingControls(page)).toEqual([])
+    expect(await smallControls(page, ['[role="banner"]', 'nav[aria-label="Board toolbar"]'])).toEqual([])
+  })
+
+  test('the Filter button opens the View options too, and focus comes back to it (#2340)', async ({ page }) => {
+    const filter = page.getByRole('button', { name: 'Filters and view options' })
+    await filter.click()
+    const filterPanel = page.getByTestId('filter-panel')
+    await expect(filterPanel).toBeVisible()
+    await filterPanel.getByRole('button', { name: 'View options' }).click()
+    await expect(filterPanel).toBeHidden()
+    const viewPanel = page.getByRole('dialog', { name: 'View options' })
+    await expect(viewPanel).toBeVisible()
+    await expect(viewPanel.getByRole('group', { name: 'Card density' })).toBeVisible()
+    const box = (await viewPanel.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    // The panel takes focus on open; Escape closes it and returns focus to the Filter button.
+    await expect.poll(() => viewPanel.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(viewPanel).toBeHidden()
+    await expect(filter).toBeFocused()
+  })
+
+  test('every control in the open panels, menus, drawer and notifications is at least 44px (#2341)', async ({ page }) => {
+    await page.route(/\/api\/v1\/notifications\/$/, (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: 1, verb: 'Ada moved Fix login to Done', created_at: new Date().toISOString(), board_id: BOARD_FULL.id, card_id: null, action_type: 'card_moved', is_read: false }]),
+    }))
+    const sweep = async (root: string) => {
+      await expect(page.locator(root).first()).toBeVisible()
+      expect(await smallControls(page, [root])).toEqual([])
+    }
+    // Number and date filter editors need custom fields; an active filter shows the save-filter form.
+    const def = (id: number, name: string, field_type: string) => ({
+      id, uid: `cfuid00000${id}`, name, field_type, choices: [], position: id, show_on_card: false,
+      is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+    })
+    await routeBoard(page, { ...BOARD_FULL, custom_field_definitions: [def(1, 'Estimate', 'number'), def(2, 'Review by', 'date')] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}?f_blocked=1`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Filters and view options' }).click()
+    const filterPanel = page.getByTestId('filter-panel')
+    await sweep('[data-testid="filter-panel"]')
+    // One row of each editor kind: checkbox list (Label), radio list (Due date), number, date.
+    for (const row of [/^Label/, /^Due date/, /^Estimate/, /^Review by/]) {
+      await filterPanel.getByRole('button', { name: row }).first().click()
+      await sweep('[data-testid="filter-panel"]')
+    }
+    await filterPanel.getByRole('button', { name: 'Save filter' }).click()
+    await expect(filterPanel.getByLabel('Save current filters as:')).toBeVisible()
+    await sweep('[data-testid="filter-panel"]')
+    await filterPanel.getByRole('button', { name: 'View options' }).click()
+    await sweep('[data-testid="view-menu-panel"]')
+    // The Preset and Overlay option menus render at document.body, outside the View panel.
+    const viewPanel = page.getByTestId('view-menu-panel')
+    for (const trigger of [/^Preset(:|$)/, 'Overlay']) {
+      await viewPanel.getByRole('button', { name: trigger }).click()
+      // The menu is portaled to document.body, so it is not inside the View panel.
+      const menu = page.getByRole('menu').filter({ hasNot: page.getByTestId('view-menu-panel') }).last()
+      await expect(menu).toBeVisible()
+      const heights = await menu.locator('[role^="menuitem"]').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+      expect(heights.length).toBeGreaterThan(0)
+      expect(Math.min(...heights)).toBeGreaterThanOrEqual(44)
+      await page.keyboard.press('Escape')
+    }
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'More board actions' }).click()
+    await sweep('[role="menu"]')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: /^Account menu/ }).click()
+    await sweep('[role="menu"]')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: /^Notifications/ }).click()
+    await expect(page.getByText('Ada moved Fix login to Done')).toBeVisible()
+    await sweep('[role="banner"] .shadow-xl')
+    await page.getByRole('button', { name: /^Notifications/ }).click()
+    await page.getByRole('banner').getByRole('button', { name: 'Open navigation menu' }).click()
+    await sweep('[role="dialog"][aria-label="Navigation menu"]')
   })
 
   test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
