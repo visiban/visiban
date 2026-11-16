@@ -24,6 +24,8 @@ interface Props {
   /** Lane state for the Collapse all lanes button (#2308). Omit `onToggleLanes` to hide it. */
   allLanesCollapsed?: boolean;
   onToggleLanes?: () => void;
+  /** Phone width (#2277): one row that scrolls sideways inside itself, 44px targets. */
+  phone?: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ interface Props {
  * same state as the View menu items; its label, not a pressed state, carries
  * what a click will do, so it is never announced as a toggle with a stale name.
  */
-export default function ShowChips({ active, counts, onChange, columnCount, laneCount, cardCount, allLanesCollapsed = false, onToggleLanes }: Props) {
+export default function ShowChips({ active, counts, onChange, columnCount, laneCount, cardCount, allLanesCollapsed = false, onToggleLanes, phone = false }: Props) {
   // Live-region message for the lane toggle (#2321). Set on click from the state the
   // click is leaving, so the announcement names the action just taken; the region is
   // always mounted so screen readers register it before the text changes.
@@ -58,7 +60,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
       role="group"
       aria-label="Show"
       data-testid="show-chips"
-      className="px-3 py-1.5 bg-sunken shrink-0 flex items-center gap-2 flex-wrap"
+      className={`px-3 py-1.5 bg-sunken shrink-0 flex items-center gap-2 ${phone ? "flex-nowrap overflow-x-auto" : "flex-wrap"}`}
     >
       <span className="text-xs text-fg-secondary" aria-hidden="true">Show</span>
       {SHOW_CHIP_ORDER.map((key) => {
@@ -71,7 +73,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
             aria-pressed={on}
             data-show-chip={key}
             onClick={() => onChange(key)}
-            className={`inline-flex items-center gap-1.5 rounded-full border transition-colors px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            className={`inline-flex items-center gap-1.5 rounded-full border transition-colors px-2.5 py-1 text-xs ${phone ? "min-h-11 shrink-0" : ""} focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               on
                 ? "border-info bg-primary/20 text-fg font-semibold"
                 : "border-line bg-surface-hover text-fg-secondary font-normal hover:text-fg hover:border-line-strong"
@@ -92,7 +94,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
         {active === "all" ? "" : `Showing ${counts[active]} ${SHOW_CHIP_LABEL[active].toLowerCase()} ${counts[active] === 1 ? "card" : "cards"}`}
       </span>
       <span className="sr-only" role="status" aria-live="polite" data-testid="show-chip-lanes-status">{laneAnnouncement}</span>
-      <span className="text-xs text-fg-secondary" data-testid="board-totals">
+      <span className={`text-xs text-fg-secondary ${phone ? "hidden" : ""}`} data-testid="board-totals">
         {plural(laneCount, "swimlane", "swimlanes")} · {plural(columnCount, "column", "columns")} · {plural(cardCount, "card", "cards")}
       </span>
       {onToggleLanes && laneCount > 0 && (
@@ -100,7 +102,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
           type="button"
           data-testid="show-chips-toggle-lanes"
           onClick={toggleLanes}
-          className="inline-flex items-center h-8 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className={`inline-flex items-center ${phone ? "min-h-11" : "h-8"} px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
           {allLanesCollapsed ? "Expand all lanes" : "Collapse all lanes"}
         </button>

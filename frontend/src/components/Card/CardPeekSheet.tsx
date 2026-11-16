@@ -46,6 +46,13 @@ interface Props {
    * no override is shown.
    */
   onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
+  /**
+   * The card's place in its cell (#2277). Given, the sheet offers Move earlier /
+   * Move later: the phone has no drag, and on the grid a reorder is one. Each
+   * calls onMoveCard with the same cell and the raw slot `cellOrderOf` gives
+   * (`earlier` / `later`; `null` disables that button).
+   */
+  cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
   userDateFormat?: string;
   userTimezone?: string;
 }
@@ -60,7 +67,7 @@ interface Props {
  * detail sheet placement): focus goes to Close on open, and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
@@ -245,6 +252,25 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       setMoving(false);
     }
   };
+
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorder = async (dir: -1 | 1) => {
+    // The endpoint's raw slot for the step (`cellOrderOf`), not index + 1:
+    // a same-cell move does not compact the slot the card leaves.
+    const position = !cellOrder ? null : dir === -1 ? cellOrder.earlier : cellOrder.later;
+    if (position === null || moving) return;
+    setMoving(true);
+    setReorderError(null);
+    try {
+      const result = await onMoveCard(card.id, card.column, card.swimlane, position);
+      if (result && result.ok === false) setReorderError(moveFailureMessage(result.error));
+    } catch (err) {
+      setReorderError(moveFailureMessage(err));
+    } finally {
+      setMoving(false);
+    }
+  };
+  const canReorder = canEdit && cellOrder !== undefined && cellOrder.count > 1 && !moveOpen;
 
   const selectClass = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full bg-surface text-fg border border-line-strong rounded-md px-2 py-2 text-sm min-h-[44px] sm:min-h-0 sm:py-1.5";
   const stage = (name: string | undefined, kind: "previous" | "current" | "next") =>
@@ -458,6 +484,13 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             </button>
           )}
         </div>
+        {canReorder && (
+          <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
+            <button type="button" disabled={moving || cellOrder.earlier === null} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" disabled={moving || cellOrder.later === null} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+          </div>
+        )}
+        {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}
       </div>
     </div>
   );

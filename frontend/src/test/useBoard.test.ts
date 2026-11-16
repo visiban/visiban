@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
-import { useBoard } from '../hooks/useBoard'
+import { useBoard, reorderWithinCellOptimistically } from '../hooks/useBoard'
 import { swimlaneForRole } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
@@ -524,6 +524,120 @@ describe('useBoard', () => {
     expect(outcome).toEqual({ ok: true })
     expect(mockMoveCard).toHaveBeenCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0, version: 1 })
     expect(result.current.board!.cards[0].column).toBe(11)
+  })
+
+  it('moveCard within one cell renumbers the siblings optimistically and restores them on failure (#2277)', async () => {
+    const board = makeBoard()
+    const b = { ...board.cards[0], id: 101, uid: 'carduid00009', position: 1, title: 'B' }
+    const c = { ...board.cards[0], id: 102, uid: 'carduid00010', position: 2, title: 'C' }
+    board.cards = [board.cards[0], b, c]
+    mockGetBoardFull.mockResolvedValue(board)
+    let reject: (e: unknown) => void = () => {}
+    mockMoveCard.mockReturnValue(new Promise((_, r) => { reject = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    let pending: Promise<unknown> = Promise.resolve()
+    act(() => { pending = result.current.moveCard(102, 10, 20, 1) })
+    const order = () => [...result.current.board!.cards].sort((x, y) => x.position - y.position).map((x) => x.id)
+    expect(order()).toEqual([100, 102, 101])
+    await act(async () => { reject(new Error('boom')); await pending })
+    expect(order()).toEqual([100, 101, 102])
+    expect(result.current.board!.cards.map((x) => x.position)).toEqual([0, 1, 2])
+  })
+
+  it('reorderWithinCellOptimistically mirrors the server: raw slot, no compaction, shift at or above (#2277)', () => {
+    const base = makeBoard().cards[0]
+    const cell = () => [
+      { ...base, id: 1, position: 0 }, { ...base, id: 2, position: 1 },
+      { ...base, id: 3, position: 2 }, { ...base, id: 4, position: 3 },
+    ]
+    const order = (cards: Card[]) => [...cards].sort((x, y) => x.position - y.position).map((x) => x.id)
+    const positions = (cards: Card[]) => Object.fromEntries(cards.map((x) => [x.id, x.position]))
+    // Move later: the next card's position + 1. Same numbers as the backend test
+    // test_same_cell_move_uses_raw_slots (test_card_move_positions.py).
+    const later = reorderWithinCellOptimistically(cell(), 2, 3)
+    expect(order(later.cards)).toEqual([1, 3, 2, 4])
+    expect(positions(later.cards)).toEqual({ 1: 0, 2: 3, 3: 2, 4: 4 })
+    expect(later.previous).toEqual(new Map([[4, 3]]))
+    expect(later.optimistic).toEqual(new Map([[4, 4]]))
+    // Move earlier: the previous card's position.
+    const earlier = reorderWithinCellOptimistically(cell(), 3, 1)
+    expect(positions(earlier.cards)).toEqual({ 1: 0, 2: 2, 3: 1, 4: 4 })
+    // To the very end: the last card's position + 1; anything above clamps to it.
+    expect(positions(reorderWithinCellOptimistically(cell(), 2, 4).cards)).toEqual({ 1: 0, 2: 4, 3: 2, 4: 3 })
+    expect(positions(reorderWithinCellOptimistically(cell(), 2, 99).cards)).toEqual({ 1: 0, 2: 4, 3: 2, 4: 3 })
+    // The card's own index + 1 is the server's no-op, and here too.
+    const same = cell()
+    expect(reorderWithinCellOptimistically(same, 2, 2).cards.map((x) => x.position)).toEqual([0, 2, 3, 4])
+    expect(order(reorderWithinCellOptimistically(same, 2, 2).cards)).toEqual([1, 2, 3, 4])
+  })
+
+  it('reorderWithinCellOptimistically clamps an empty cell to 0, counts archived cards as the server does, and ignores an unknown card', () => {
+    const base = makeBoard().cards[0]
+    const alone = [{ ...base, id: 1, position: 3 }, { ...base, id: 9, column: 11, position: 0 }]
+    const r = reorderWithinCellOptimistically(alone, 1, 5)
+    expect(r.cards[0].position).toBe(0)
+    expect(r.cards[1]).toBe(alone[1])
+    const cards = [
+      { ...base, id: 1, position: 0 }, { ...base, id: 2, position: 1 },
+      { ...base, id: 3, position: 5, archived_at: '2026-01-01' },
+    ]
+    expect(reorderWithinCellOptimistically(cards, 1, 99).cards.map((x) => x.position)).toEqual([6, 1, 5])
+    expect(reorderWithinCellOptimistically(cards, 42, 0).cards).toBe(cards)
+    const settled = [{ ...base, id: 1, position: 0 }]
+    expect(reorderWithinCellOptimistically(settled, 1, 0).cards).toBe(settled)
+  })
+
+  it("moveCard's optimistic same-cell order is what the card.moved frame confirms: no visible change (#2277)", async () => {
+    const board = makeBoard()
+    const a = { ...board.cards[0], id: 1, uid: 'carduid0x001', position: 0 }
+    const b = { ...board.cards[0], id: 2, uid: 'carduid0x002', position: 1 }
+    const c = { ...board.cards[0], id: 3, uid: 'carduid0x003', position: 2 }
+    const d = { ...board.cards[0], id: 4, uid: 'carduid0x004', position: 3 }
+    board.cards = [a, b, c, d]
+    mockGetBoardFull.mockResolvedValue(board)
+    let resolve: (v: unknown) => void = () => {}
+    mockMoveCard.mockReturnValue(new Promise((r) => { resolve = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const order = () => [...result.current.board!.cards].sort((x, y) => x.position - y.position).map((x) => x.id)
+    let pending: Promise<unknown> = Promise.resolve()
+    // Move later on B: C's position + 1.
+    act(() => { pending = result.current.moveCard(2, 10, 20, 3) })
+    expect(order()).toEqual([1, 3, 2, 4])
+    const optimistic = result.current.board!.cards.map((x) => [x.id, x.position])
+    // The server's frame for that move (positions from the backend's same-cell rule).
+    const movedB = { ...b, position: 3, version: 2 }
+    act(() => { result.current.updateCard(movedB, [{ id: 4, position: 4, version: 1 }], 7) })
+    expect(result.current.board!.cards.map((x) => [x.id, x.position])).toEqual(optimistic)
+    await act(async () => { resolve({ card: movedB }); await pending })
+    expect(result.current.board!.cards.map((x) => [x.id, x.position])).toEqual(optimistic)
+    expect(order()).toEqual([1, 3, 2, 4])
+  })
+
+  it('moveCard rollback keeps a sibling position a frame set while the reorder was in flight (#2277)', async () => {
+    const board = makeBoard()
+    const a = { ...board.cards[0], id: 1, uid: 'carduid0y001', position: 0 }
+    const b = { ...board.cards[0], id: 2, uid: 'carduid0y002', position: 1 }
+    const c = { ...board.cards[0], id: 3, uid: 'carduid0y003', position: 2 }
+    const d = { ...board.cards[0], id: 4, uid: 'carduid0y004', position: 3 }
+    board.cards = [a, b, c, d]
+    mockGetBoardFull.mockResolvedValue(board)
+    let reject: (e: unknown) => void = () => {}
+    mockMoveCard.mockReturnValue(new Promise((_, r) => { reject = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const pos = (id: number) => result.current.board!.cards.find((x) => x.id === id)!.position
+    let pending: Promise<unknown> = Promise.resolve()
+    // Move earlier on C: B's position. Optimistically B 1->2, D 3->4, C 2->1.
+    act(() => { pending = result.current.moveCard(3, 10, 20, 1) })
+    expect([pos(1), pos(2), pos(3), pos(4)]).toEqual([0, 2, 1, 4])
+    // Another user's move of A renumbers B meanwhile.
+    act(() => { result.current.updateCard({ ...a, position: 9, version: 2 }, [{ id: 2, position: 8, version: 1 }]) })
+    await act(async () => { reject(new Error('boom')); await pending })
+    expect(pos(2)).toBe(8)
+    expect(pos(4)).toBe(3)
+    expect(pos(3)).toBe(2)
   })
 
   it('moveCard rolls back on error and reports the failure to the caller', async () => {

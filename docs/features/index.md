@@ -280,7 +280,7 @@ The application sidebar gives you persistent access to your full group and board
 
 Site admins see a **Site Admin** link in the sidebar that opens the administration panel directly. The link is hidden for all other users.
 
-Below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally, so the app stays usable on phones and tablets (see [Navigation → Mobile behavior](navigation.md#mobile-behavior)). Public join, share, and account-recovery pages remain accessible on any viewport.
+Below 1024 px the sidebar becomes a hamburger drawer; on tablets the board grid scrolls sideways inside its own box, and below 640 px the board shows one column at a time, so the app stays usable on phones and tablets (see [Navigation → Mobile behavior](navigation.md#mobile-behavior)). Public join, share, and account-recovery pages remain accessible on any viewport.
 
 → [Navigation](navigation.md)
 

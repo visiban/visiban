@@ -9,7 +9,7 @@ Pick a template in the **Create Board** modal, then drag cards between cells. Ev
 **The big picture:** the board is a grid. Columns are pipeline stages, swimlanes are the entities moving through them (customers, projects, epics), and each card sits in exactly one cell. Every move is logged to the audit trail.
 
 !!! note "Small screens"
-    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. On a touch screen, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
+    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer, and below 640 px the board shows one column at a time (see [Phone layout](#phone-layout)). On a tablet, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
 
 ## Board creation
 
@@ -370,11 +370,31 @@ While you drag, the card tilts slightly and lifts, and the cell under it gets a 
 
 > **Changed in 1.2**
 
-On a tablet or phone, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
+On a tablet, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
 
 To move a card without dragging, open it and tap **Move** next to the column name at the top of the panel. On touch screens this button is larger and shows its label. Or tap the **⋯ More actions** button on a selected card, or on the card you just closed, and choose **Move to…** from its [actions menu](#card-actions-menu).
 
-A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
+On a phone (below 640 px) cards are not draggable; use Move as above. A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
+
+### Phone layout
+
+> **Changed in 1.3**
+
+Below 640px wide the board shows one column at a time instead of the grid. A row of column buttons (color dot, name, card count) selects the column; scroll it sideways if the columns do not fit. Under it, the selected column's limit line and meter appear when the column has a limit.
+
+The limit line shows the card count against the WIP limit (with ⛔ when the board enforces a hard limit and the column is over it) and, when the column is over its weight budget, **Weight** total/budget, as the column header does on a larger screen. Beside it, a column with a policy shows a **Policy** button for everyone; it opens the policy, and board admins can edit it from there.
+
+Swimlanes stack. Each lane has a band showing its name, how many cards it has in this column ("2 here") and its overdue and stale counts; tap the band to collapse or expand the lane. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
+
+Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)). Reordering, a drag on a larger screen, uses buttons instead:
+
+- **Move earlier** / **Move later** beside the column's limit line move the selected column one place (board admins).
+- **Move earlier** / **Move later** under a lane band move the lane one place (board admins).
+- **Move earlier** / **Move later** in the card's peek sheet move the card one place within its lane and column (people who can edit). With a filter on, the step counts only the cards the filter shows, so the card always moves past a card you can see.
+
+Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
+
+Not built yet on phones: the second line of the lane band with lane fields and lane limits (#2329), the sub-column switcher for a split column and track chips on cards (#2330), and the icon-button header with the four-tab strip and 44px header and toolbar targets (#2333; the regular toolbar is used).
 
 ### Board panning
 

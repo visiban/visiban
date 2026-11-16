@@ -45,7 +45,7 @@ export function BoardEmptyState({ firstColumnName, onAddCard }: EmptyProps) {
         <button
           type="button"
           onClick={onAddCard}
-          className="mt-4 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="mt-4 min-h-11 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Add a card
         </button>

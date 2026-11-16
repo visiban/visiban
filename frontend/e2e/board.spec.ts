@@ -165,7 +165,8 @@ test.describe('board view', () => {
   })
 
   test('the grid scrolls sideways inside its own box on a narrow window (#2270)', async ({ page }) => {
-    await page.setViewportSize({ width: 400, height: 700 })
+    // 700px: below 640px the board is the phone layout (#2277), covered by board-phone.spec.ts.
+    await page.setViewportSize({ width: 700, height: 700 })
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const scroller = page.locator('[data-board-scroll]')
     await expect(scroller).toBeVisible({ timeout: 10_000 })
