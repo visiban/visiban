@@ -656,7 +656,9 @@ Nothing here compares with an earlier period. The response shape is additive and
   "days": [
     { "date": "2026-06-01", "counts": { "col0000001": 4, "col0000002": 7, "null": 0 } }
   ],
-  "bottleneck_column_uid": "col0000001"
+  "bottleneck_column_uid": "col0000001",
+  "completed": 9,
+  "completed_per_week": 0.71
 }
 ```
 
@@ -669,6 +671,13 @@ Each column also carries its flow across the range *(added in 1.3, #2260)*, the 
 | `start_count`, `end_count` | Its count at the end of the first and the last day. `null` when the range has no whole day. |
 | `entered`, `left` | How many times a card entered or left it after the first day and up to the end of the last, so `end_count - start_count == entered - left` always. A card that moves out and back the same day counts both ways. Archiving a card outside a done column leaves the column; restoring it enters it again. |
 | `entered_per_week`, `left_per_week` | `entered × 7 ÷ (days − 1)` and the same for `left`, unrounded. `null` with fewer than two whole days. |
+
+The response also carries the done band's rate *(added in 1.3, #2307)*:
+
+| Field | Meaning |
+|---|---|
+| `completed` | Cards whose first completion (first entry into a done column, the [throughput](../architecture/decisions.md#flow-metric-definitions) definition) falls in the same window as `entered`. A card that moves from one done column to another, or finishes again after a reopen, counts once, so this is not the sum of the done columns' `entered`. |
+| `completed_per_week` | `completed × 7 ÷ (days − 1)`, unrounded: a mean over the range, not throughput's weekly median. `null` with fewer than two whole days. |
 
 Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's counts instead:
 

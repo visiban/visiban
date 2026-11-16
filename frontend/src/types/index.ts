@@ -2191,6 +2191,13 @@ export interface FlowCumulativeFlow {
   /** `counts` is keyed by column uid; the deleted-columns band is under "null". */
   days: { date: string; counts: Record<string, number> }[];
   bottleneck_column_uid: string | null;
+  /**
+   * First completions in the `entered` window (#2307): a card moving between done columns
+   * or finishing again after a reopen counts once. Absent from a server older than #2307.
+   */
+  completed?: number;
+  /** `completed × 7 ÷ (days − 1)`; null under two whole days. */
+  completed_per_week?: number | null;
 }
 
 export interface FlowCumulativeDayCards {

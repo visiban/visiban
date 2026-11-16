@@ -4,12 +4,13 @@ import { formatDate, formatDays, formatNumber } from "./flowFormat";
 import type { FlowRowColumn } from "./flowRowData";
 import { columnAlpha, doneRate, HATCH } from "./flowRowData";
 
+// A connector's rate is a mean over the range ("avg / wk"), not the Throughput tile's weekly median (#2307).
 function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: string; maxRate: number; warn: boolean }) {
   // Thickness is proportional to the rate; a null rate keeps the thinnest bar.
   const thickness = rate === null || maxRate === 0 ? 2 : Math.max(2, Math.round((rate / maxRate) * 10));
   return (
     <div className="flex flex-col items-center justify-center gap-1 w-24 shrink-0" data-testid="flow-connector">
-      <span className="text-xs font-semibold text-fg whitespace-nowrap">{rate === null ? "—" : `${formatNumber(rate)} / wk`}</span>
+      <span className="text-xs font-semibold text-fg whitespace-nowrap">{rate === null ? "—" : `${formatNumber(rate)} avg / wk`}</span>
       <span aria-hidden="true" className={`w-full rounded-full ${warn ? "bg-warning" : "bg-line-emphasis"}`} style={{ height: thickness }} />
       <span className="text-xs text-fg-tertiary whitespace-nowrap truncate max-w-full" title={note}>{note}</span>
     </div>

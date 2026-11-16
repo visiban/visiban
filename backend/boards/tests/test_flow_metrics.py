@@ -1700,6 +1700,49 @@ class ColumnFlowTests(FlowFixture):
                 [None, None, 0, 0, None, None],
             )
 
+    # ── #2307: the done band's rate counts first completions ──
+
+    def test_moving_between_done_columns_counts_one_completion(self):
+        self.path(self.backlog, 40, self.doing, 20, self.done, 10, self.released, 5)
+        payload = self.cfd()
+        columns = self.columns(payload)
+        # Each done column saw the card enter, so their sum would say two.
+        self.assertEqual((columns[self.done.uid]["entered"], columns[self.released.uid]["entered"]), (1, 1))
+        self.assertEqual(payload["completed"], 1)
+
+    def test_a_reopened_card_finishing_again_counts_once(self):
+        self.path(self.backlog, 40, self.doing, 20, self.done, 10, self.doing, 8, self.done, 6)
+        payload = self.cfd()
+        self.assertEqual(self.columns(payload)[self.done.uid]["entered"], 2)
+        self.assertEqual(payload["completed"], 1)
+
+    def test_a_card_first_finished_before_the_range_is_not_a_completion_in_it(self):
+        self.path(self.backlog, 60, self.doing, 50, self.done, 40, self.released, 5)
+        payload = self.cfd()
+        self.assertEqual(self.columns(payload)[self.released.uid]["entered"], 1)
+        self.assertEqual(payload["completed"], 0)
+
+    def test_a_card_created_in_done_inside_the_range_is_a_completion(self):
+        self.path(self.done, 5)
+        payload = self.cfd()
+        self.assertEqual(payload["completed"], 1)
+        self.assertEqual(payload["completed"], self.columns(payload)[self.done.uid]["entered"])
+
+    def test_completed_per_week_uses_the_entered_rate_window(self):
+        for _ in range(3):
+            self.path(self.backlog, 40, self.doing, 20, self.done, 3, self.released, 2)
+        payload = self.cfd(self.last(8))
+        self.assertEqual((payload["completed"], payload["completed_per_week"]), (3, 3.0))
+        self.assertEqual(self.cfd(self.last(10))["completed_per_week"], 3 * 7 / 9)
+
+    def test_completed_rate_is_null_without_two_whole_days(self):
+        self.path(self.backlog, 40, self.doing, 20, self.done, 1)
+        payload = self.cfd(self.last(1))
+        self.assertEqual((payload["completed"], payload["completed_per_week"]), (0, None))
+        today = self.now.date()
+        payload = self.cfd(fm.date_range(today, today, now=self.now))
+        self.assertEqual((payload["completed"], payload["completed_per_week"]), (0, None))
+
 
 class ThroughputStartedTests(FlowFixture):
     """Throughput's per-period ``started`` (#2260)."""

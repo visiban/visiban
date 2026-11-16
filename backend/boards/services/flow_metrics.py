@@ -1310,6 +1310,13 @@ def cumulative_flow(flow, flow_range):
     ``end_count - start_count == entered - left`` holds exactly for every band,
     and the bottleneck, which reads the same first and last day, is unchanged.
     Archiving outside done leaves a band; archiving in done does not.
+
+    ``completed`` and ``completed_per_week`` (#2307) are the done band's rate.
+    Summing the done columns' ``entered`` counts a card that moves Done A to
+    Done B twice, and a reopened card each time it finishes again. They count
+    first completions instead (``completion_at``, the throughput definition:
+    a card's first entry into a done column), in the same window as
+    ``entered``, so the rate sits on the row's scale and matches throughput.
     """
     days = flow_range.days
     index = {day: i for i, day in enumerate(days)}
@@ -1364,9 +1371,16 @@ def cumulative_flow(flow, flow_range):
             "entered_per_week": entered[band] * 7 / span if span >= 1 else None,
             "left_per_week": left[band] * 7 / span if span >= 1 else None,
         })
+    completed = sum(
+        1 for card in flow.cards
+        if days and card.completion_at is not None
+        and flow_range.first_day < _utc_date(card.completion_at) <= flow_range.last_day
+    )
     return {
         "definition": DEFINITIONS["cumulative_flow"],
         "columns": columns,
+        "completed": completed,
+        "completed_per_week": completed * 7 / span if span >= 1 else None,
         "days": rows,
         "bottleneck_column_uid": (
             _bottleneck(flow, rows[0]["counts"], rows[-1]["counts"]) if rows else None

@@ -8,7 +8,7 @@ import FlowDrillDrawer from '../components/Board/flowMetrics/FlowDrillDrawer'
 import FlowRow, { MAX_SQUARES, squareCounts } from '../components/Board/flowMetrics/FlowRow'
 import type { DrillSelection } from '../components/Board/flowMetrics/FlowDrillDrawer'
 import { buildColumnSelection } from '../components/Board/flowMetrics/columnDrill'
-import { buildFlowRow, columnAlpha, wipCount } from '../components/Board/flowMetrics/flowRowData'
+import { buildFlowRow, columnAlpha, doneRate, wipCount } from '../components/Board/flowMetrics/flowRowData'
 import type { AnalyticsData } from '../components/Board/flowMetrics/heatmap'
 import type { ChartPanelView } from '../components/Common/Chart'
 import type { FlowCard, FlowCumulativeFlow, FlowDwell, FlowThroughput, FlowWipAge } from '../types'
@@ -114,7 +114,8 @@ describe('the flow row and time bar (#2262)', () => {
     expect(boxes[0]).toHaveTextContent('Queue steady')
     expect(screen.getByText(/Hollow squares are over the limit/)).toBeInTheDocument()
     expect(screen.getByTestId('flow-done-box')).toHaveTextContent('110in 30 days')
-    expect(screen.getByText('7.8 / wk')).toBeInTheDocument()
+    // No completed_per_week in this fixture: an older server's summed fallback (#2307).
+    expect(screen.getByText('7.8 avg / wk')).toBeInTheDocument()
   })
 
   it('shows the range count in the Done box, and the whole-week total from an older server (#2288)', () => {
@@ -279,6 +280,40 @@ describe('the flow row and time bar (#2262)', () => {
   it('handles withheld numbers', () => {
     const row = buildFlowRow({ ...cumulative, columns: [col('ready', 'Ready', { start_count: null, end_count: null, entered_per_week: null })] }, undefined, undefined, [])
     expect(row[0]).toMatchObject({ medianWait: null, queueDelta: null, enteredPerWeek: null, count: 0, limit: null })
+  })
+})
+
+describe('the done-band rate counts first completions (#2307)', () => {
+  // Done A then Done B: each done column saw the card enter, but it finished once.
+  const twoDone: FlowCumulativeFlow = {
+    ...cumulative,
+    columns: [
+      col('ready', 'Ready'),
+      col('done-a', 'Done A', { is_done: true, entered_per_week: 3.5 }),
+      col('done-b', 'Done B', { is_done: true, entered_per_week: 3.5 }),
+    ],
+  }
+
+  it('uses the server rate, not the sum of the done columns', () => {
+    expect(doneRate({ ...twoDone, completed: 4, completed_per_week: 3.5 })).toBe(3.5)
+    expect(doneRate({ ...twoDone, completed: 0, completed_per_week: 0 })).toBe(0)
+    expect(doneRate({ ...twoDone, completed: 0, completed_per_week: null })).toBeNull()
+  })
+
+  it('falls back to the summed entries for a server older than #2307', () => {
+    expect(doneRate(twoDone)).toBe(7)
+    expect(doneRate({ ...twoDone, columns: [col('ready', 'Ready')] })).toBeNull()
+    expect(doneRate({ ...twoDone, columns: twoDone.columns.map((c) => ({ ...c, entered_per_week: null })) })).toBeNull()
+  })
+
+  it('shows the completion rate on the finished connector, labeled a mean', () => {
+    const data = { ...twoDone, completed: 4, completed_per_week: 3.5 }
+    const row = buildFlowRow(data, dwell, wipAge, columns)
+    render(<FlowRow columns={row} cumulative={data} throughput={throughput} days={30} onOpenColumn={() => {}} />)
+    const connectors = screen.getAllByTestId('flow-connector')
+    expect(connectors.at(-1)).toHaveTextContent('3.5 avg / wk')
+    expect(connectors.at(-1)).toHaveTextContent('finished')
+    expect(screen.queryByText('7 avg / wk')).not.toBeInTheDocument()
   })
 })
 
