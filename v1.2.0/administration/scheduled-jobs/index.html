@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#schedule-the-four-maintenance-commands-visiban-needs" class="md-skip">
+        <a href="#schedule-the-maintenance-commands-visiban-needs" class="md-skip">
           Skip to content
         </a>
       
@@ -3663,6 +3663,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#auto-health-status-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto health status job
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#retention-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4300,7 +4311,7 @@
   
 
 
-<h1 id="schedule-the-four-maintenance-commands-visiban-needs">Schedule the four maintenance commands Visiban needs<a class="headerlink" href="#schedule-the-four-maintenance-commands-visiban-needs" title="Permanent link">&para;</a></h1>
+<h1 id="schedule-the-maintenance-commands-visiban-needs">Schedule the maintenance commands Visiban needs<a class="headerlink" href="#schedule-the-maintenance-commands-visiban-needs" title="Permanent link">&para;</a></h1>
 <p>Enable the shipped scheduler (Compose <code>scheduler</code> profile or Helm <code>scheduledJobs.enabled=true</code>) so the notification scans run. On Compose the board-event prune also runs by default; the notification prune stays off until you enable it. On Helm both prune jobs stay off until you enable each one.</p>
 <p><strong>Why it matters:</strong> Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.</p>
 <div class="admonition note">
@@ -4309,12 +4320,13 @@
 them — each needed a hand-written host cron line. 1.2 ships an opt-in
 scheduler for Docker Compose and native CronJobs for Kubernetes.</p>
 </div>
-<p><strong>The big picture:</strong> Visiban has four maintenance commands that must run on a schedule. If nothing schedules them:</p>
+<p><strong>The big picture:</strong> Visiban has five maintenance commands that must run on a schedule. If nothing schedules them:</p>
 <ul>
 <li>users who turn on <strong>Due date approaching</strong> or <strong>Card has gone stale</strong> in
   their notification preferences never receive those notifications, in the bell
   or by email;</li>
-<li>the <code>notifications</code> and <code>board_events</code> tables grow without bound.</li>
+<li>the <code>notifications</code> and <code>board_events</code> tables grow without bound;</li>
+<li>boards with <a href="../../features/health-status/">auto health status</a> turned on are calculated at once when auto is turned on (including on a board created with it on), and after that only when a board admin uses <strong>Recompute now</strong>; their <em>Computed …</em> time keeps aging, and a lane added since shows "Never computed".</li>
 </ul>
 <table>
 <thead>
@@ -4350,12 +4362,18 @@ scheduler for Docker Compose and native CronJobs for Kubernetes.</p>
 <td>03:30</td>
 <td>No</td>
 </tr>
+<tr>
+<td><code>compute_health_status</code></td>
+<td><em>(1.3+)</em> Computes the <a href="../../features/health-status/">auto health status</a> of every board that turned it on; other boards are untouched</td>
+<td>02:00</td>
+<td>Yes</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Yes, but:</strong> the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. On the Compose scheduler, <code>prune_board_events</code> also runs by default (since 1.3), because the change feed keeps card payloads until pruned. <code>prune_notifications</code> deletes user data and stays off until you enable it. The Helm chart is unchanged: both prune CronJobs stay <code>enabled: false</code> until you enable them, so on Helm turn on <code>scheduledJobs.pruneBoardEvents.enabled</code> yourself.</p>
 <p><strong>Deleted cards and boards:</strong> change-feed events hold the full card payload (title, description, custom fields). Deleting a card or a board does not remove or redact them. They are retained until <code>prune_board_events</code> removes them, after <code>BOARD_EVENT_RETENTION_DAYS</code> (default 30). To erase a card's payloads sooner, use <a href="../card-history-retention/"><code>purge_card_history</code></a>. <code>purge_card_history --board</code> refuses a board that has been deleted; use <code>--card</code>, or a date range without <code>--board</code>, instead.</p>
 <p><strong>Email at exit:</strong> notification email is sent on a background thread. <code>notify_due_soon</code> and <code>notify_stale_cards</code> wait up to 30 seconds for it before they exit, so a cron run does not drop mail it just queued. If the mail relay is still busy after that, the command prints a warning to stderr and the unsent mail may be lost. The scheduler does the same when it is stopped.</p>
-<p><strong>Watch out:</strong> all four commands are idempotent, so running one twice in a day does no harm. <strong>Running two copies at the same moment is different.</strong> If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.</p>
+<p><strong>Watch out:</strong> all five commands are idempotent, so running one twice in a day does no harm. <strong>Running two copies at the same moment is different.</strong> If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.</p>
 <div class="admonition note">
 <p class="admonition-title">The webhook dispatcher is not a scheduled job</p>
 <p><a href="../../features/webhooks/">Outbound webhooks</a> <em>(1.3+)</em> need delivery within seconds, so
@@ -4409,6 +4427,10 @@ flags yourself: <code>--profile letsencrypt --profile scheduler</code>.</p>
 <td><code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
 <td><code>off</code></td>
 </tr>
+<tr>
+<td><code>SCHEDULE_COMPUTE_HEALTH</code></td>
+<td><code>02:00</code></td>
+</tr>
 </tbody>
 </table>
 <p>This keeps the notification scans and the board-event prune at their defaults and turns on the notification prune. Set <code>SCHEDULE_PRUNE_BOARD_EVENTS=off</code> to keep change-feed events forever:</p>
@@ -4431,8 +4453,9 @@ flags yourself: <code>--profile letsencrypt --profile scheduler</code>.</p>
 <p>Without the <code>scheduler</code> profile, schedule the same commands from host cron:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="m">0</span><span class="w"> </span><span class="m">7</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="m">0</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">30</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="m">0</span><span class="w"> </span><span class="m">2</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>compute_health_status
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">0</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="m">30</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications
 </code></pre></div>
 <h2 id="kubernetes-helm">Kubernetes (Helm)<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h2>
 <p>The chart renders one <code>CronJob</code> per enabled entry under <code>scheduledJobs</code>, each running in the backend image with the backend's environment and runtime Secret.</p>
@@ -4470,7 +4493,7 @@ flags yourself: <code>--profile letsencrypt --profile scheduler</code>.</p>
 </tr>
 <tr>
 <td><code>scheduledJobs.&lt;job&gt;.enabled</code></td>
-<td><code>true</code> for <code>notifyDueSoon</code> and <code>notifyStaleCards</code>; <code>false</code> for <code>pruneBoardEvents</code> and <code>pruneNotifications</code></td>
+<td><code>true</code> for <code>notifyDueSoon</code>, <code>notifyStaleCards</code> and <code>computeHealthStatus</code>; <code>false</code> for <code>pruneBoardEvents</code> and <code>pruneNotifications</code></td>
 <td>Per-job switch</td>
 </tr>
 <tr>
@@ -4529,6 +4552,8 @@ flags yourself: <code>--profile letsencrypt --profile scheduler</code>.</p>
 <p>To trigger a run by hand, for example to test SMTP delivery:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>job<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>--from<span class="o">=</span>cronjob/visiban-notify-due-soon<span class="w"> </span>notify-due-soon-manual
 </code></pre></div>
+<h2 id="auto-health-status-job">Auto health status job<a class="headerlink" href="#auto-health-status-job" title="Permanent link">&para;</a></h2>
+<p><code>compute_health_status</code> <em>(1.3+, #2245)</em> computes each lane's status from its own open cards, and the board's from its lanes, for every board with <strong>Auto health status</strong> turned on. It is the same code as a board admin's <strong>Recompute now</strong>. Each board is computed in its own transaction under its own row lock, so two runs at once (the job and a manual recompute) never record a change twice. One board that fails is logged and skipped; the command then exits non-zero. "Overdue" uses the server's date in UTC, so for a team far from UTC a card can turn overdue a few hours early or late. With the scheduler off, an auto board keeps the values of its last run (the one made when auto was turned on, or the last <strong>Recompute now</strong>), and its <em>Computed …</em> time shows how old they are; a lane added since that run shows "Never computed".</p>
 <h2 id="retention-settings">Retention settings<a class="headerlink" href="#retention-settings" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

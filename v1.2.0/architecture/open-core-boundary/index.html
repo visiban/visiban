@@ -2723,6 +2723,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#automatic-health-status-oss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic health status (OSS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#health-status-history-oss" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4499,6 +4510,12 @@
 <td>—</td>
 </tr>
 <tr>
+<td>Automatic health status (lanes, board roll-up)</td>
+<td>OSS</td>
+<td>Owner ruling: drives adoption; group roll-up (#2049) not covered</td>
+<td>#2245</td>
+</tr>
+<tr>
 <td>Board / group health status history</td>
 <td>OSS</td>
 <td>Per-entity history shown in-product to members; same class as card movement history</td>
@@ -4890,6 +4907,10 @@
 <h3 id="wip-enforcement-oss">WIP enforcement (OSS)<a class="headerlink" href="#wip-enforcement-oss" title="Permanent link">&para;</a></h3>
 <p>WIP limits (<code>wip_limit</code> on Column) and the enforcement mode, soft (advisory toast) vs hard (blocked move), are OSS. A small team cannot manage capacity with soft-only enforcement. The board setting <code>enforce_wip_hard</code> (boolean, default <code>false</code>) toggles the mode. No enterprise extension point is needed.</p>
 <p><strong>Issue:</strong> #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.</p>
+<hr />
+<h3 id="automatic-health-status-oss">Automatic health status (OSS)<a class="headerlink" href="#automatic-health-status-oss" title="Permanent link">&para;</a></h3>
+<p>Calculating a board's and its lanes' health status from their open cards (overdue, stale, blocked; nightly job and <strong>Recompute now</strong>) is OSS by the product owner's ruling on #2245: it ships in the open-source core to drive adoption, and a small team needs it to keep a status from drifting. The ruling covers lanes and the board roll-up only. A group or dashboard roll-up (#2049) is <strong>not</strong> covered by it and gets its own classification.</p>
+<p><strong>Issue:</strong> #2245</p>
 <hr />
 <h3 id="health-status-history-oss">Health status history (OSS)<a class="headerlink" href="#health-status-history-oss" title="Permanent link">&para;</a></h3>
 <p>Per-entity health status history (who set or confirmed a board's or group's status, when, from what, with an optional note; the last 20 shown in the product) is OSS: it is the same class as card movement history, scoped to one entity and visible to that entity's members, and a team cannot judge whether a status is current without it. A site-wide audit log of every change across the instance stays enterprise (see the audit log ruling above). History is never imported or exported, and no retention setting exists in OSS (rows are deleted with their board or group).</p>
