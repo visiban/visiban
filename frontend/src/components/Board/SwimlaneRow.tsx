@@ -543,7 +543,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                 lane's cards not in a done column. Hidden with no (number) field chosen. */}
             {rollup !== null && (
               <span className="text-fg whitespace-nowrap" data-testid="swimlane-rollup" title={`${rollup.fieldName}: total of the cards not in a done column`}>
-                {rollup.text} open
+                {/* The field name for screen readers: a span's aria-label is not announced
+                    (generic role), and the visible "$413k open" does not say what it sums. */}
+                <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
               </span>
             )}
             <span className="text-fg-secondary whitespace-nowrap" data-testid="swimlane-card-count">{countLabel}</span>

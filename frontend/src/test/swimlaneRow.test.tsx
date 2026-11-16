@@ -645,7 +645,9 @@ describe('SwimlaneRow — number rollup (#2275)', () => {
         cards={[valued(1, '33'), valued(2, '380'), valued(3, '500', 11), makeCard({ id: 4, uid: 'nv' })]}
       />,
     )
-    expect(rollup()).toHaveTextContent(/^\$413k open$/)
+    // Visible "$413k open"; the sr-only prefix names the field for screen readers.
+    expect(rollup()).toHaveTextContent(/^Amount: \$413k open$/)
+    expect(rollup()!.querySelector('.sr-only')).toHaveTextContent('Amount:')
     expect(rollup()).toHaveAttribute('title', 'Amount: total of the cards not in a done column')
     expect(rollup()!.className).toContain('text-fg')
   })

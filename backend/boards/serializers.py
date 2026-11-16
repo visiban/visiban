@@ -3996,6 +3996,33 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"group": exc.detail})
 
+    def recheck_rollup_field_under_lock(self, board):
+        """Re-read the chosen rollup field under the board row lock (#2275).
+
+        ``swimlane_rollup_field`` was validated before BoardViewSet.perform_update
+        took the board lock. A custom field delete (or retype) committed in
+        between would leave ``save()`` writing an id that no longer exists, an
+        IntegrityError at COMMIT on Postgres (a 500). Every definition update
+        and delete takes this board row first (``lock_board_and_row_or_404``),
+        so once the caller holds it the definition cannot change under us:
+        re-reading it here is exact, and a field gone or retyped meanwhile is
+        the same 400 a request naming it afterward would get. Call after the
+        board lock and before ``save()``.
+        """
+        chosen = self.validated_data.get("swimlane_rollup_field")
+        if chosen is None:
+            return
+        fresh = CustomFieldDefinition.objects.filter(pk=chosen.pk, board=board).first()
+        if fresh is None:
+            message = self.fields["swimlane_rollup_field"].error_messages["does_not_exist"]
+            raise serializers.ValidationError(
+                {"swimlane_rollup_field": [message.format(pk_value=chosen.pk)]}
+            )
+        try:
+            self.validated_data["swimlane_rollup_field"] = self.validate_swimlane_rollup_field(fresh)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"swimlane_rollup_field": exc.detail})
+
     @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):
         # Nested expansion is opt-in via ``?expand=group`` so the default response

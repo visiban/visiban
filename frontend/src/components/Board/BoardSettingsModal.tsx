@@ -1610,7 +1610,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <label htmlFor="swimlane-rollup-field-select" className="text-sm text-fg">Swimlane rollup</label>
                       <p id="swimlane-rollup-field-help" className="text-xs text-fg-muted mt-0.5">
                         Each swimlane band shows the total of this number field over the lane&apos;s cards that are not in a done column, for example &ldquo;$413k open&rdquo;.
-                        {rollupFieldIsStale && " The chosen field is no longer a number field, so the bands show no total; choose another field or None."}
+                        {rollupFieldIsStale && " The chosen field is no longer a number field, so the bands show no total; choose another field, or choose None to clear the setting."}
                         {rollupNumberFields.length === 0 && " Add a number field in the Fields tab first."}
                       </p>
                     </div>

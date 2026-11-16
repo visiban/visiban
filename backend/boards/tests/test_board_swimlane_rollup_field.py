@@ -115,7 +115,8 @@ class BoardSwimlaneRollupFieldTests(TestCase):
         self.assertIsNone(self.board.swimlane_rollup_field_id)
 
     def test_malformed_values_are_400_never_500(self):
-        for bad in ("", "abc", -1, 0, 1.5, ["1"], {"id": 1}, True):
+        # 99999999999999999999 is past the id column's range (no OverflowError 500).
+        for bad in ("", "abc", -1, 0, 1.5, ["1"], {"id": 1}, True, 99999999999999999999, "99999999999999999999"):
             with self.subTest(bad=bad):
                 r = self._patch({"swimlane_rollup_field": bad})
                 self.assertEqual(r.status_code, 400, r.content)
@@ -149,7 +150,8 @@ class BoardSwimlaneRollupFieldTests(TestCase):
         client = APIClient()
         client.force_authenticate(stranger)
         r = self._patch({"swimlane_rollup_field": self.amount.pk}, client=client)
-        self.assertIn(r.status_code, (403, 404))
+        # The board is outside the caller's queryset: 404, never 403 (no IDOR oracle).
+        self.assertEqual(r.status_code, 404, r.content)
         self.board.refresh_from_db()
         self.assertIsNone(self.board.swimlane_rollup_field_id)
 
@@ -163,6 +165,78 @@ class BoardSwimlaneRollupFieldTests(TestCase):
         self.board.refresh_from_db()
         self.assertIsNone(self.board.swimlane_rollup_field_id)
         self.assertEqual(self.client.get(f"/api/v1/boards/{self.board.pk}/").status_code, 200)
+
+    def test_deleting_the_rollup_field_broadcasts_board_updated_on_commit(self):
+        # Without this frame every open client keeps the stale id, and the
+        # settings dialog reads it as a field retyped away from number.
+        self._patch({"swimlane_rollup_field": self.amount.pk})
+        with patch(PATCH_BROADCAST) as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                r = self.client.delete(f"/api/v1/boards/{self.board.pk}/custom-fields/{self.amount.pk}/")
+            self.assertEqual(r.status_code, 204, r.content)
+            mock_broadcast.assert_not_called()
+            for callback in callbacks:
+                callback()
+        events = [c[0][1] for c in mock_broadcast.call_args_list]
+        self.assertEqual(events, ["custom_field.deleted", "board.updated"])
+        board_updated = mock_broadcast.call_args_list[1][0][2]
+        self.assertIsNone(board_updated["swimlane_rollup_field"])
+        self.assertEqual(board_updated["id"], self.board.pk)
+        # The same keys a board edit's board.updated carries.
+        edit_keys = set(self.client.get(f"/api/v1/boards/{self.board.pk}/").json())
+        self.assertEqual(set(board_updated), edit_keys)
+        # Persisted, so a client replaying /events/?after= learns of it too.
+        from boards.models import BoardEvent
+        self.assertTrue(
+            BoardEvent.objects.filter(board_id=self.board.pk, event="board.updated").exists()
+        )
+
+    def test_deleting_another_field_sends_no_board_updated(self):
+        self._patch({"swimlane_rollup_field": self.amount.pk})
+        other = CustomFieldDefinition.objects.create(board=self.board, name="Other", field_type=NUMBER, position=1)
+        with patch(PATCH_BROADCAST) as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.client.delete(f"/api/v1/boards/{self.board.pk}/custom-fields/{other.pk}/")
+        self.assertEqual(r.status_code, 204, r.content)
+        self.assertEqual([c[0][1] for c in mock_broadcast.call_args_list], ["custom_field.deleted"])
+
+    def test_field_deleted_after_validation_is_400_not_integrity_error(self):
+        # The race: PATCH validates the id, a concurrent delete of the field
+        # commits, then the PATCH takes the board lock. Simulated
+        # deterministically by deleting the field as the PATCH takes the lock
+        # (the delete holds that same board row first, so under real
+        # concurrency it is either fully before this point or fully after the
+        # PATCH commits). The re-check under the lock answers 400.
+        from boards.views import boards as board_views
+
+        real_lock = board_views.lock_board_row_or_404
+
+        def delete_then_lock(board, **kwargs):
+            CustomFieldDefinition.objects.filter(pk=self.amount.pk).delete()
+            return real_lock(board, **kwargs)
+
+        with patch.object(board_views, "lock_board_row_or_404", side_effect=delete_then_lock):
+            r = self._patch({"swimlane_rollup_field": self.amount.pk})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("swimlane_rollup_field", r.json())
+        self.board.refresh_from_db()
+        self.assertIsNone(self.board.swimlane_rollup_field_id)
+
+    def test_field_retyped_after_validation_is_400(self):
+        from boards.views import boards as board_views
+
+        real_lock = board_views.lock_board_row_or_404
+
+        def retype_then_lock(board, **kwargs):
+            CustomFieldDefinition.objects.filter(pk=self.amount.pk).update(field_type="text")
+            return real_lock(board, **kwargs)
+
+        with patch.object(board_views, "lock_board_row_or_404", side_effect=retype_then_lock):
+            r = self._patch({"swimlane_rollup_field": self.amount.pk})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(r.json()["swimlane_rollup_field"], ["swimlane_rollup_field must be a number field."])
+        self.board.refresh_from_db()
+        self.assertIsNone(self.board.swimlane_rollup_field_id)
 
     def test_retype_away_from_number_keeps_the_id_and_reads_still_succeed(self):
         # Option B (architect review): the server keeps the id and clients hide

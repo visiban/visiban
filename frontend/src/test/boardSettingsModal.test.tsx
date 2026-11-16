@@ -1880,6 +1880,7 @@ describe('BoardSettingsModal — Swimlane rollup field (#2275)', () => {
     await openRules({ ...withFields, swimlane_rollup_field: 2 })
     expect(screen.getByRole('combobox', { name: 'Swimlane rollup' })).toHaveTextContent('None')
     expect(screen.getByText(/no longer a number field/)).toBeInTheDocument()
+    expect(screen.getByText(/choose None to clear the setting/)).toBeInTheDocument()
   })
 
   it('non-admins see a read-only line naming the field', async () => {
