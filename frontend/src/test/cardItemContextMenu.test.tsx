@@ -126,7 +126,7 @@ describe('CardItem — context menu entry points (#2059)', () => {
 
   it('keeps the title clear of the ⋯ button where it can show', () => {
     render(<CardItem card={makeCard()} onOpenMenu={vi.fn()} />)
-    expect(screen.getByText('Fix payout rounding')).toHaveClass('[@media(pointer:coarse)]:group-focus-within:pr-14')
+    expect(screen.getByText('Fix payout rounding')).toHaveClass('[@media(pointer:coarse)]:group-focus-within:pr-28')
   })
 
   it('offers no menu path without onOpenMenu or on a read-only card', () => {

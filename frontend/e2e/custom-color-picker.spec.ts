@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { openCardSheet, routeAuth, routeBoard } from './helpers'
+import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD, SWIMLANE } from './fixtures/board'
 
 // #2095 — the custom color panel inside a real modal. jsdom has no layout and no
@@ -196,7 +196,7 @@ async function openLabelRow(page: Page, name: string) {
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
   )
   await page.goto(`/boards/${BOARD_FULL.id}`)
-  await openCardSheet(page, page.locator(`[data-card-id="${CARD.id}"]`).first())
+  await page.locator(`[data-card-id="${CARD.id}"]`).first().click()
   await page.getByRole('button', { name: '+ New label' }).click()
   await page.getByRole('textbox', { name: 'New label name' }).fill(name)
 }

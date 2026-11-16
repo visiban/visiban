@@ -66,12 +66,12 @@ interface Props {
  * grid. Only the full card detail sheet edits.
  *
  * Focus and Escape follow the card detail sheet (frontend/CLAUDE.md § Card
- * detail sheet placement): focus goes to Close on open, and on close returns to
+ * detail sheet placement): focus goes to Open card on open (#2358), and on close returns to
  * the opener, else the card's face, else the board region.
  */
 export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const openRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
   const [historyFailed, setHistoryFailed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -93,7 +93,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   }, 30);
 
   useEffect(() => {
-    closeRef.current?.focus();
+    openRef.current?.focus();
   }, []);
 
   // The socket dropping while the Move form is open: moves are paused, so close the form
@@ -319,7 +319,6 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       <div className="flex items-start justify-between gap-2 px-4 pt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{lane?.name ?? ""}</p>
         <button
-          ref={closeRef}
           type="button"
           onClick={onClose}
           aria-label="Close card peek"
@@ -392,7 +391,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-fg-secondary">Last moved</dt>
-              <dd className={card.last_moved_at ? "text-fg" : "text-fg-tertiary"}>{card.last_moved_at ? formatRelativeTime(card.last_moved_at) : "Not set"}</dd>
+              <dd className={card.last_moved_at ? "text-fg" : "text-fg-tertiary"}>{card.last_moved_at ? formatRelativeTime(card.last_moved_at) : "Never moved"}</dd>
             </div>
           </dl>
         </section>
@@ -490,7 +489,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           </div>
         )}
         <div className="flex gap-2">
-          <button type="button" onClick={() => onOpenCard(card)} className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-4 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">Open card</button>
+          <button ref={openRef} type="button" onClick={() => onOpenCard(card)} className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-4 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">Open card</button>
           {canEdit && !moveOpen && (
             <button
               type="button"

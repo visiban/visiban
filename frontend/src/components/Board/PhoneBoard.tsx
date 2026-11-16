@@ -37,7 +37,7 @@ interface Props {
   highlightedCardId?: number | null;
   currentCardId?: number | null;
   onToggleCardSelection: (cardId: number) => void;
-  onCardClick: (card: Card) => void;
+  onCardClick: (card: Card, opts?: { peek?: boolean }) => void;
   onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
   contextTargetCardId?: number | null;
   onCardUpdated?: (card: Card) => void;
@@ -520,14 +520,14 @@ export default function PhoneBoard({
               )}
               {!collapsed && (
                 <SortableContext items={shown.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                  {/* 44px card face at phone width (#2277): the face is the tap target that opens the peek sheet. */}
+                  {/* 44px card face at phone width (#2277): the face is the tap target that opens the detail panel. */}
                   <div className="flex flex-col gap-1.5 [&_[data-card-id]]:min-h-11">
                     {shown.length === 0 && <p className="text-xs text-fg-tertiary px-1">No cards here</p>}
                     {shown.map((card) => (
                       <CardItem
                         key={card.id}
                         card={card}
-                        onClick={() => onCardClick(card)}
+                        onClick={(opts) => onCardClick(card, opts)}
                         selected={selectedCardIds.has(card.id)}
                         highlighted={highlightedCardId === card.id}
                         current={currentCardId === card.id}

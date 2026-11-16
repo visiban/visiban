@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { act, render, fireEvent } from '@testing-library/react'
+import { publishActivePreset } from '../boardPresets/activePresetStore'
 import CardItem from '../components/Card/CardItem'
 import type { Card } from '../types'
 
 // Enter or Space on the focused card opens it (#2273): the card is a div role=button, so the browser never turns the key into a click.
 
-const dnd = vi.hoisted(() => ({ isDragging: false }))
+const dnd = vi.hoisted(() => ({ isDragging: false, onMouseDown: vi.fn() }))
 vi.mock('@dnd-kit/core', () => ({
-  useDraggable: () => ({ attributes: { role: 'button', tabIndex: 0 }, listeners: {}, setNodeRef: () => {}, isDragging: dnd.isDragging }),
+  useDraggable: () => ({ attributes: { role: 'button', tabIndex: 0 }, listeners: { onMouseDown: dnd.onMouseDown }, setNodeRef: () => {}, isDragging: dnd.isDragging }),
 }))
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -32,6 +33,7 @@ describe('CardItem keyboard open (#2273)', () => {
     const { container } = render(<CardItem card={makeCard()} onClick={onClick} />)
     const notCanceled = fireEvent.keyDown(face(container), { key })
     expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onClick).toHaveBeenCalledWith(undefined)
     expect(notCanceled).toBe(false)
   })
 
@@ -46,5 +48,64 @@ describe('CardItem keyboard open (#2273)', () => {
     rerender(<CardItem card={makeCard()} onClick={onClick} readOnly />)
     fireEvent.keyDown(face(container), { key: 'Enter' })
     expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('passes peek for Shift+Enter, Shift+click and the Show summary button (#2358)', () => {
+    const onClick = vi.fn()
+    const { container, getByRole } = render(<CardItem card={makeCard()} onClick={onClick} onOpenMenu={() => {}} />)
+    fireEvent.keyDown(face(container), { key: 'Enter', shiftKey: true })
+    expect(onClick).toHaveBeenLastCalledWith({ peek: true })
+    fireEvent.click(face(container), { shiftKey: true })
+    expect(onClick).toHaveBeenLastCalledWith({ peek: true })
+    fireEvent.click(face(container))
+    expect(onClick).toHaveBeenLastCalledWith(undefined)
+    onClick.mockClear()
+    const btn = getByRole('button', { name: 'Show summary' })
+    expect(btn).toHaveAttribute('title', 'Show summary (Shift+click)')
+    fireEvent.click(btn)
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onClick).toHaveBeenCalledWith({ peek: true })
+  })
+
+  it('presses on Show summary neither open the card nor start a drag (#2358)', () => {
+    const onClick = vi.fn()
+    const { getByRole } = render(<CardItem card={makeCard()} onClick={onClick} onOpenMenu={() => {}} />)
+    const btn = getByRole('button', { name: 'Show summary' })
+    fireEvent.keyDown(btn, { key: 'Enter' })
+    fireEvent.pointerDown(btn)
+    fireEvent.mouseDown(btn)
+    fireEvent.touchStart(btn)
+    expect(onClick).not.toHaveBeenCalled()
+    expect(dnd.onMouseDown).not.toHaveBeenCalled()
+  })
+
+  it('reserves title padding at fine pointers without waiting for hover (#2358)', () => {
+    const { container, rerender } = render(<CardItem card={makeCard()} onClick={() => {}} onOpenMenu={() => {}} />)
+    const title = () => container.querySelector('p.leading-snug') as HTMLElement
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    expect(title().className).not.toContain('group-hover:pr-14')
+    // The menu is dropped while a sheet is open; the padding must stay so titles do not re-wrap.
+    rerender(<CardItem card={makeCard()} onClick={() => {}} />)
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    rerender(<CardItem card={makeCard()} overlay />)
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    rerender(<CardItem card={makeCard()} onClick={() => {}} readOnly />)
+    expect(title().className).not.toContain('[@media(pointer:fine)]:pr-14')
+  })
+
+  it('dense density reserves the space on the row, not the title (#2358)', () => {
+    // The dense row belongs to the redesigned (non-Classic) face, which the preset store selects.
+    act(() => publishActivePreset({ boardId: 7, activePresetId: 'default', modified: false }))
+    const { container, getByTestId } = render(<CardItem card={makeCard()} boardId={7} onClick={() => {}} density="dense" />)
+    expect(getByTestId('card-dense-row').className).toContain('[@media(pointer:fine)]:pr-12')
+    expect((container.querySelector('p.leading-snug') as HTMLElement).className).not.toContain('pr-14')
+    act(() => publishActivePreset(null))
+  })
+
+  it('has no Show summary button without a menu, and none on a read-only card', () => {
+    const { queryByRole, rerender } = render(<CardItem card={makeCard()} onClick={() => {}} />)
+    expect(queryByRole('button', { name: 'Show summary' })).toBeNull()
+    rerender(<CardItem card={makeCard()} onClick={() => {}} onOpenMenu={() => {}} readOnly />)
+    expect(queryByRole('button', { name: 'Show summary' })).toBeNull()
   })
 })

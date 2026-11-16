@@ -286,6 +286,9 @@ export default function CardContextMenu({ anchor, label, header, entries, column
                     {entry.id === "open" && (
                       <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">Enter</kbd>
                     )}
+                    {entry.id === "summary" && (
+                      <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">Shift+Enter</kbd>
+                    )}
                     {hasSub && <span aria-hidden="true" className="text-fg-tertiary shrink-0">▸</span>}
                   </span>
                   {!entry.enabled && entry.reason && (

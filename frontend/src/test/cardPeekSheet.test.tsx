@@ -142,9 +142,15 @@ describe('CardPeekSheet', () => {
     expect(screen.getAllByText('History could not be loaded.')).toHaveLength(2)
   })
 
-  it('focuses Close on open; Escape and Close call onClose', async () => {
+  it('reads Never moved for a card that has never moved', async () => {
+    setup({ card: { ...card, last_moved_at: null } as typeof card })
+    expect(screen.getByText('Never moved')).toBeInTheDocument()
+    await screen.findByTestId('card-peek-history')
+  })
+
+  it('focuses Open card on open; Escape and Close call onClose', async () => {
     const p = setup()
-    expect(screen.getByRole('button', { name: 'Close card peek' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Open card' })).toHaveFocus()
     await userEvent.keyboard('{Escape}')
     expect(p.onClose).toHaveBeenCalledTimes(1)
     await userEvent.click(screen.getByRole('button', { name: 'Close card peek' }))

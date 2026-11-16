@@ -32,7 +32,8 @@ import type { CardMenuAnchor } from "./CardContextMenu";
 
 interface Props {
   card: Card;
-  onClick?: () => void;
+  /** `{ peek: true }` (Shift+click, Shift+Enter, the Show summary button) asks for the read-only peek (#2358). */
+  onClick?: (opts?: { peek?: boolean }) => void;
   overlay?: boolean;
   selected?: boolean;
   highlighted?: boolean;
@@ -260,6 +261,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     return { top: r.top, bottom: r.bottom, left: r.left };
   };
   const menuEnabled = !!onOpenMenu && !readOnly && !overlay;
+  // Title padding for the Show summary button follows the card, not the menu: BoardView drops
+  // onOpenMenu while a sheet is open, and gating on it would re-wrap every title on open/close (#2358).
+  const boardFace = !readOnly && (!!onClick || !!overlay);
   // Ref to the peek timer so we can clear it on mouseleave / drag start.
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -690,12 +694,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           onOpenMenu?.(card, rectAnchor(e.currentTarget));
           return;
         }
-        // Enter or Space on the focused card itself opens it (the peek). The div is
+        // Enter or Space on the focused card itself opens it (Shift: the peek, #2358). The div is
         // role="button", so the browser never turns the key into a click; keys typed
         // in a child control (checkbox, menu button, inputs) have another target.
         if (!readOnly && onClick && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
-          onClick();
+          onClick(e.shiftKey ? { peek: true } : undefined);
           return;
         }
         listeners?.onKeyDown?.(e);
@@ -717,7 +721,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         const fromKeyboard = e.clientX === 0 && e.clientY === 0;
         onOpenMenu?.(card, fromKeyboard ? rectAnchor(e.currentTarget) : { top: e.clientY, bottom: e.clientY, left: e.clientX });
       } : undefined}
-      onClick={readOnly ? undefined : onClick}
+      onClick={readOnly || !onClick ? undefined : (e) => onClick(e.shiftKey ? { peek: true } : undefined)}
       // The card detail sheet finds the open card's face by this (#1914). The
       // drag-overlay copy has none, so it never matches.
       data-card-id={overlay ? undefined : card.id}
@@ -819,12 +823,37 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           <span aria-hidden="true" className="w-7 h-7 rounded-full bg-surface-hover border border-line-strong flex items-center justify-center leading-none">⋯</span>
         </button>
       )}
+      {/* Show summary (#2358): the visible path to the read-only peek that
+          Shift+click opens. Revealed like the selection checkbox (hover, focus);
+          on touch it shows with ⋯ More actions (selected or focused card) as a
+          44px target beside it. Presses stop here so they neither open the
+          detail panel nor start a drag (#1287). */}
+      {menuEnabled && onClick && (
+        <button
+          type="button"
+          aria-label="Show summary"
+          title="Show summary (Shift+click)"
+          data-testid="card-show-summary"
+          onClick={(e) => { e.stopPropagation(); onClick({ peek: true }); }}
+          onKeyDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className={`absolute top-[7px] right-6 z-10 w-6 h-6 [@media(pointer:coarse)]:top-0 [@media(pointer:coarse)]:right-16 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
+            selected ? "[@media(pointer:coarse)]:flex [@media(hover:hover)]:group-hover:flex group-focus-within:flex" : "[@media(hover:hover)]:group-hover:flex group-focus-within:flex"
+          } focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        >
+          <span aria-hidden="true" className="w-6 h-6 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:h-7 rounded-full bg-surface-hover border border-line-strong flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 8s2.3-4.5 6.5-4.5S14.5 8 14.5 8 12.2 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="2" /></svg>
+          </span>
+        </button>
+      )}
       <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
-        {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
-        <RowWrap {...(denseRow ? { className: "flex items-center gap-2", "data-testid": "card-dense-row" } : {})}>
+        {/* The title keeps clear of the card-face overlay controls. Show summary reserves pr-14 at fine pointers permanently, so hover never re-wraps the title; ⋯ reserves its width at coarse pointers only while shown. */}
+        <RowWrap {...(denseRow ? { className: `flex items-center gap-2${boardFace ? " [@media(pointer:fine)]:pr-12" : ""}`, "data-testid": "card-dense-row" } : {})}>
         <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
-          menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-14" : " [@media(pointer:coarse)]:group-focus-within:pr-14") : ""
-        }`}>
+          menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-28" : " [@media(pointer:coarse)]:group-focus-within:pr-28") : ""
+        }${boardFace && !denseRow ? " [@media(pointer:fine)]:pr-14" : ""}`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
           {/* The compact layout has no status line, so the overdue border would be
               the only signal; a flag and words keep it from resting on color alone (#2272). */}

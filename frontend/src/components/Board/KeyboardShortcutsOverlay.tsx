@@ -64,6 +64,8 @@ function buildSections(showLens: boolean): ShortcutSection[] {
         { key: formatShortcut({ mod: true, shift: true, key: "E" }), description: "Export the board" },
         { key: `Menu / ${formatShortcut({ shift: true, key: "F10" })}`, description: "Open the focused card's action menu" },
         { key: ".", description: "Open the overflow menu" },
+        { key: "Enter / Space", description: "Open the focused card's detail panel" },
+        { key: "Shift+click / Shift+Enter", description: "Show the focused or clicked card's read-only summary (peek)" },
         { key: "Space + drag", description: "Pan the board" },
         { key: "Tab", description: "Move between filter chips; Delete or Backspace to remove" },
       ],

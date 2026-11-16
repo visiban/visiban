@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { openCardSheet, routeAuth, routeBoard } from './helpers'
+import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_LIST_ITEM, BOARD_USER, CARD, SWIMLANE } from './fixtures/board'
 
 // #2180 — the overflow fades are absolute layers over the bottom (and top) of
@@ -119,7 +119,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await openCardSheet(page, page.getByText(CARD.title).first())
+    await page.getByText(CARD.title).first().click()
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     await page.locator('#card-detail-title').focus()
     for (let i = 0; i < 12; i++) {
@@ -240,7 +240,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await openCardSheet(page, page.getByText(CARD.title).first())
+    await page.getByText(CARD.title).first().click()
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     // The Custom fields section starts collapsed when no field has a value.
     await page.getByRole('button', { name: /Custom fields/ }).click()

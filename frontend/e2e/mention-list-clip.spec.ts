@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openCardSheet, routeAuth, routeBoard } from './helpers'
+import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
 // #2092 — the @-mention suggestion list was `absolute bottom-full` inside the
@@ -28,7 +28,7 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   await routeAuth(page)
   await routeBoard(page, { ...BOARD_FULL, members } as unknown as typeof BOARD_FULL)
   await page.goto(`/boards/${BOARD_FULL.id}`)
-  await openCardSheet(page, page.getByText(CARD.title).first())
+  await page.getByText(CARD.title).first().click()
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
   // #967: the comment composer lives on the Comments tab, not the default one.

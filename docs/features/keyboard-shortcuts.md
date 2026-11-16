@@ -70,7 +70,9 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 | <kbd>⌘⇧E</kbd> / <kbd>Ctrl+Shift+E</kbd> | Export the board (if your role meets the board's [export threshold](permissions.md#permission-matrix)) |
 | <kbd>.</kbd> | Open the overflow menu |
 | <kbd>Menu</kbd> / <kbd>Shift+F10</kbd> | Open the focused card's [actions menu](board.md#card-actions-menu) |
-| <kbd>Space + drag</kbd> | Pan the board with the mouse (Space on a focused card opens its peek instead; Space anywhere else pans) |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Open the focused card's detail panel |
+| <kbd>Shift</kbd>+click / <kbd>Shift+Enter</kbd> | Open the focused or clicked card's read-only summary (peek sheet) |
+| <kbd>Space + drag</kbd> | Pan the board with the mouse (Space on a focused card opens the card instead; Space anywhere else pans) |
 | <kbd>Tab</kbd> | Move between filter chips; <kbd>Delete</kbd> or <kbd>Backspace</kbd> to remove |
 
 - **`E`** toggles all columns and all swimlanes together: if everything is expanded, it collapses both; otherwise it expands both. The **View** menu shows the key on its **Swimlanes** (**Collapse all** / **Expand all**) and **Columns** (**Hide all** / **Show all**) groups, which act on each set separately. Screen readers announce the result: "Collapsed all N lanes and M columns" or "Expanded all N lanes and M columns" for `E`, "Collapsed all N lanes" / "Expanded all N lanes" for the swimlane items, and "Hid all N columns" / "Showed all N columns" for the column items.

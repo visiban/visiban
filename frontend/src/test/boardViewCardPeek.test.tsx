@@ -1,11 +1,11 @@
 /**
- * BoardView wiring of the card peek sheet (#2273): a card click peeks, Open card
+ * BoardView wiring of the card peek sheet (#2273): Shift+click, Shift+Enter or Show summary peeks, Open card
  * hands off to the detail sheet, and the peek never shows with the activity
  * drawer or the detail sheet. Mock setup mirrors boardViewGridOverlay.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, Card, User } from '../types'
@@ -86,9 +86,9 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   ),
 }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, cards, onCardClick, currentCardId, onOpenCardMenu }: { swimlane: { id: number }; cards: Array<{ id: number; title: string }>; onCardClick: (c: unknown) => void; currentCardId: number | null; onOpenCardMenu?: unknown }) => (
+  default: ({ swimlane, cards, onCardClick, currentCardId, onOpenCardMenu }: { swimlane: { id: number }; cards: Array<{ id: number; title: string }>; onCardClick: (c: unknown, opts?: { peek?: boolean }) => void; currentCardId: number | null; onOpenCardMenu?: unknown }) => (
     <div data-testid={`swim-${swimlane.id}`} data-current={String(currentCardId)} data-menu={onOpenCardMenu ? '1' : '0'}>
-      {cards.map((c) => <button key={c.id} data-card-id={c.id} onClick={() => onCardClick(c)}>{`open ${c.title}`}</button>)}
+      {cards.map((c) => <button key={c.id} data-card-id={c.id} onClick={(e) => onCardClick(c, e.shiftKey ? { peek: true } : undefined)}>{`open ${c.title}`}</button>)}
     </div>
   ),
 }))
@@ -250,6 +250,13 @@ function makeCard(id: number, column: number, swimlane: number): Card {
   }
 }
 
+async function peekClick(name: string) {
+  fireEvent.click(screen.getByRole('button', { name }), { shiftKey: true })
+}
+async function plainClick(name: string) {
+  await userEvent.click(screen.getByRole('button', { name }))
+}
+
 describe('BoardView card peek (#2273)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -258,10 +265,10 @@ describe('BoardView card peek (#2273)', () => {
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [makeCard(1, 10, 20), makeCard(2, 10, 20)] }) })
   })
 
-  it('opens the peek on a card click, marks the card current, and Escape closes it', async () => {
+  it('opens the peek on a Shift+click, marks the card current, and Escape closes it', async () => {
     render(<BoardView />)
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-current', '1')
     expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
@@ -272,20 +279,47 @@ describe('BoardView card peek (#2273)', () => {
 
   it('swaps the peek when another card is clicked', async () => {
     render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
+    await peekClick('open Card 1')
+    await plainClick('open Card 2')
     expect(screen.getAllByTestId('card-peek-sheet')).toHaveLength(1)
     expect(screen.getByRole('heading', { name: 'Card 2' })).toBeInTheDocument()
+    expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
+    await peekClick('open Card 1')
+    expect(screen.getByRole('heading', { name: 'Card 1' })).toBeInTheDocument()
+  })
+
+  it('the Show summary menu action opens the peek (#2358)', async () => {
+    render(<BoardView />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'summary' } }))
+    })
+    expect(await screen.findByTestId('card-peek-sheet')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Card 2' })).toBeInTheDocument()
+  })
+
+  it('a plain click opens the detail sheet, not the peek', async () => {
+    render(<BoardView />)
+    await plainClick('open Card 1')
+    expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 1')
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+  })
+
+  it('Shift+click while the detail panel is open swaps the panel, not the peek (#2358)', async () => {
+    render(<BoardView />)
+    await plainClick('open Card 1')
+    await peekClick('open Card 2')
+    expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 2')
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
   })
 
   it('Open card closes the peek and opens the detail sheet', async () => {
     render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     await userEvent.click(screen.getByRole('button', { name: 'Open card' }))
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
     expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 1')
     // With the detail sheet open, a card click swaps it rather than peeking.
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
+    await plainClick('open Card 2')
     expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 2')
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
   })
@@ -294,7 +328,7 @@ describe('BoardView card peek (#2273)', () => {
     render(<BoardView />)
     await userEvent.click(screen.getByLabelText('Open activity drawer'))
     expect(screen.getAllByLabelText('Close activity drawer').length).toBeGreaterThan(0)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByLabelText('Open activity drawer')).toBeInTheDocument()
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('Open activity drawer'))
@@ -303,7 +337,7 @@ describe('BoardView card peek (#2273)', () => {
 
   it('closes when the card disappears from the board', async () => {
     const { rerender } = render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [makeCard(2, 10, 20)] }) })
     rerender(<BoardView />)
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
@@ -313,7 +347,7 @@ describe('BoardView card peek (#2273)', () => {
     render(<BoardView />)
     const live = Number(screen.getByTestId('dnd').getAttribute('data-sensors'))
     expect(live).toBeGreaterThan(0)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('dnd')).toHaveAttribute('data-sensors', '0')
     await userEvent.keyboard('{Escape}')
     expect(screen.getByTestId('dnd')).toHaveAttribute('data-sensors', String(live))
@@ -321,19 +355,19 @@ describe('BoardView card peek (#2273)', () => {
 
   it('never shows with the Archived panel: it closes the peek, and a card click closes it', async () => {
     render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     fireEvent.keyDown(document.body, { key: 'y' })
     expect(await screen.findByTestId('archived-panel')).toBeInTheDocument()
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
-    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    await plainClick('open Card 2')
+    expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 2')
     expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
   })
 
   it('makes the peeked card the command palette target while the peek is open', async () => {
     render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 2' }))
+    await peekClick('open Card 2')
     const detail: { focusedCardId: null; response?: { cardIds: number[]; source: string } | null } = { focusedCardId: null }
     window.dispatchEvent(new CustomEvent('visiban:card-target-query', { detail }))
     expect(detail.response?.cardIds).toEqual([2])
@@ -341,7 +375,7 @@ describe('BoardView card peek (#2273)', () => {
 
   it('clears the peek when the view leaves the board, so returning does not reopen it', async () => {
     render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     fireEvent.keyDown(document.body, { key: 'a' })
     expect(await screen.findByTestId('analytics-view')).toBeInTheDocument()
@@ -354,7 +388,7 @@ describe('BoardView card peek (#2273)', () => {
   it('withholds the card context menu while the peek is open and restores it on close', async () => {
     render(<BoardView />)
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '1')
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '0')
     await userEvent.keyboard('{Escape}')
     expect(screen.getByTestId('swim-20')).toHaveAttribute('data-menu', '1')
@@ -377,7 +411,7 @@ describe('BoardView card peek (#2273)', () => {
     })
     mockBoardContextValue = defaultContext({ board: boardFor('Priya') })
     const { rerender } = render(<BoardView />)
-    await userEvent.click(screen.getByRole('button', { name: 'open Card 1' }))
+    await peekClick('open Card 1')
     expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
     mockBoardContextValue = defaultContext({ board: boardFor('Sam') })
     rerender(<BoardView />)
