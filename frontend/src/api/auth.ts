@@ -190,6 +190,30 @@ export const clearAdminUserLockout = (id: number) =>
 export const getAdminInviteLinks = () =>
   client.get<AdminInviteLink[]>("/api/v1/admin/invite-links/").then((r) => r.data);
 
+/**
+ * The invite list caps past (used / expired / revoked) links and says so in headers
+ * (#1885): `X-Total-Count` is every link, `X-Truncated` is true when older past ones
+ * were left out. `getAdminInviteLinks` keeps its bare-array shape for existing callers.
+ */
+export interface AdminInviteLinkPage {
+  links: AdminInviteLink[];
+  /** Server-reported number of links, or `links.length` if the header is absent. */
+  total: number;
+  /** True when older past links exist that are not in `links`. */
+  truncated: boolean;
+}
+
+export const getAdminInviteLinksPage = (): Promise<AdminInviteLinkPage> =>
+  client.get<AdminInviteLink[]>("/api/v1/admin/invite-links/").then((r) => {
+    const headerTotal = Number(r.headers?.["x-total-count"]);
+    const truncated = String(r.headers?.["x-truncated"]).toLowerCase() === "true";
+    return {
+      links: r.data,
+      total: Number.isFinite(headerTotal) ? Math.max(headerTotal, r.data.length) : r.data.length,
+      truncated,
+    };
+  });
+
 export const createAdminInviteLink = (data: {
   expires_in_days: number | null;
   single_use: boolean;

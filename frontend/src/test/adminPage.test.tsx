@@ -56,6 +56,11 @@ vi.mock('../api/auth', () => ({
   createAdminUser: (...args: unknown[]) => mockCreateAdminUser(...args),
   patchAdminUser: (...args: unknown[]) => mockPatchAdminUser(...args),
   getAdminInviteLinks: (...args: unknown[]) => mockGetAdminInviteLinks(...args),
+  // The page reads the paged variant (#2254). Existing tests resolve a bare array; a
+  // test can resolve { links, total, truncated } to exercise the cap caption.
+  getAdminInviteLinksPage: (...args: unknown[]) =>
+    Promise.resolve(mockGetAdminInviteLinks(...args)).then((v: unknown) =>
+      Array.isArray(v) ? { links: v, total: v.length, truncated: false } : v),
   createAdminInviteLink: (...args: unknown[]) => mockCreateAdminInviteLink(...args),
   deactivateAdminUser: (...args: unknown[]) => mockDeactivateAdminUser(...args),
   clearAdminUserLockout: (...args: unknown[]) => mockClearAdminUserLockout(...args),
@@ -1188,6 +1193,28 @@ describe('AdminPage — Escape key', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
+  it('says older used/expired links are hidden when the server truncated the list (#2254)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue({
+      links: [{ id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' }],
+      total: 73,
+      truncated: true,
+    })
+    await renderAdminPageSettled()
+    fireEvent.click(screen.getByText('Invite Links'))
+    const note = await screen.findByTestId('invite-links-truncated')
+    expect(note).toHaveTextContent('50 most recent used, expired, or revoked ones, out of 73 links in total')
+  })
+
+  it('shows no cap caption when the list is complete (#2254)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
+    ])
+    await renderAdminPageSettled()
+    fireEvent.click(screen.getByText('Invite Links'))
+    await screen.findByText('vbnl_zz', { exact: false })
+    expect(screen.queryByTestId('invite-links-truncated')).not.toBeInTheDocument()
+  })
+
   it('Escape cancels an open invite-link revoke confirm without navigating (#1238)', async () => {
     mockGetAdminInviteLinks.mockResolvedValue([
       { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
@@ -1276,6 +1303,7 @@ describe('admin API — api/auth.ts', () => {
     expect(typeof mod.createAdminUser).toBe('function')
     expect(typeof mod.patchAdminUser).toBe('function')
     expect(typeof mod.getAdminInviteLinks).toBe('function')
+    expect(typeof mod.getAdminInviteLinksPage).toBe('function')
     expect(typeof mod.createAdminInviteLink).toBe('function')
     expect(typeof mod.deactivateAdminUser).toBe('function')
     expect(typeof mod.revokeAdminInviteLink).toBe('function')

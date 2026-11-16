@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, getAdminInviteLinksPage, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -208,6 +208,17 @@ describe('admin invite link API', () => {
     const result = await getAdminInviteLinks()
     expect(mockGet).toHaveBeenCalledWith('/api/v1/admin/invite-links/')
     expect(result).toEqual([])
+  })
+
+  it('getAdminInviteLinksPage reads X-Total-Count and X-Truncated (#2254)', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 1 }], headers: { 'x-total-count': '73', 'x-truncated': 'true' } })
+    expect(await getAdminInviteLinksPage()).toEqual({ links: [{ id: 1 }], total: 73, truncated: true })
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/admin/invite-links/')
+  })
+
+  it('getAdminInviteLinksPage falls back to the array length when headers are absent (#2254)', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }], headers: {} })
+    expect(await getAdminInviteLinksPage()).toEqual({ links: [{ id: 1 }, { id: 2 }], total: 2, truncated: false })
   })
 
   it('createAdminInviteLink calls POST /api/admin/invite-links/ with payload', async () => {

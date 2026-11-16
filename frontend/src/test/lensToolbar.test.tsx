@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LensToolbar from '../components/Board/Lens/LensToolbar'
@@ -204,5 +204,71 @@ describe('LensToolbar', () => {
       expect(container.contains(menu)).toBe(false)
       expect((menu as HTMLElement).style.position).toBe('fixed')
     })
+  })
+})
+
+describe('LensToolbar lane announcements (#2323)', () => {
+  const status = () => screen.getByTestId('lens-lanes-status')
+
+  function renderToolbar(laneCount?: number) {
+    return render(
+      <MemoryRouter initialEntries={['/']}>
+        <LensToolbar connection={conn} cardLayout="expanded" onToggleLayout={vi.fn()} showFilters={false} onToggleFilters={vi.fn()} laneCount={laneCount} />
+      </MemoryRouter>,
+    )
+  }
+
+  it('announces Collapse then Expand from the primary button by mouse', async () => {
+    const user = userEvent.setup()
+    renderToolbar(4)
+    await user.click(screen.getByRole('button', { name: 'Hide all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 4 lanes'))
+    await user.click(screen.getByRole('button', { name: 'Show all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Expanded all 4 lanes'))
+  })
+
+  it('announces from the primary button by keyboard', async () => {
+    const user = userEvent.setup()
+    renderToolbar(2)
+    screen.getByRole('button', { name: 'Hide all swimlanes' }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 2 lanes'))
+  })
+
+  it('announces the menu Hide all / Show all items by mouse', async () => {
+    const user = userEvent.setup()
+    renderToolbar(1)
+    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Hide all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 1 lane'))
+    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Show all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Expanded all 1 lane'))
+  })
+
+  it('announces the menu items by keyboard, and omits the count when unknown', async () => {
+    const user = userEvent.setup()
+    renderToolbar()
+    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    screen.getByRole('menuitem', { name: 'Hide all swimlanes' }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all lanes'))
+  })
+
+  it('re-announces an identical repeat by clearing the region first', async () => {
+    const user = userEvent.setup()
+    renderToolbar(2)
+    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Hide all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 2 lanes'))
+    const seen: string[] = []
+    const obs = new MutationObserver(() => seen.push(status().textContent ?? ''))
+    obs.observe(status(), { childList: true, characterData: true, subtree: true })
+    // Expand by hand (URL), then Collapse again: identical text to the previous message.
+    await user.click(screen.getByRole('button', { name: 'Show all swimlanes' }))
+    await user.click(screen.getByRole('button', { name: 'Hide all swimlanes' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 2 lanes'))
+    obs.disconnect()
+    expect(seen).toContain('')
   })
 })

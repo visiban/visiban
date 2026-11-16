@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
@@ -25,6 +25,8 @@ interface Props {
   cardLayout: CardLayout;
   /** Filter-row visibility (toggled by the Filters button on the shared Row 2). */
   showFilters: boolean;
+  /** Reports the live lane count up to the shared toolbar for its lane announcements (#2323). */
+  onLaneCountChange?: (count: number) => void;
 }
 
 /**
@@ -34,7 +36,7 @@ interface Props {
  * banners, the filter row, and the grid. Pivot/filter values are read from the
  * URL (?column_dim=&swimlane_dim=&state=&milestone=&q=).
  */
-export default function LensView({ boardId, connection, cardLayout, showFilters }: Props) {
+export default function LensView({ boardId, connection, cardLayout, showFilters, onLaneCountChange }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const compact = cardLayout === "compact";
 
@@ -120,6 +122,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
     () => new Set((data?.swimlanes ?? []).map((s) => s.key)),
     [data],
   );
+  useEffect(() => { onLaneCountChange?.(laneKeys.size); }, [laneKeys, onLaneCountChange]);
   const rawFocus = searchParams.get("lens_focus");
   const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
   // "*" is the collapse-all sentinel set by the Row-2 Collapse button (which has

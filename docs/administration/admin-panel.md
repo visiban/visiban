@@ -196,6 +196,8 @@ Each row shows:
 
 Links that Visiban emailed (see [Inviting by email](#inviting-by-email)) carry an **Emailed** badge and never show a copyable link, because the token exists only in the email.
 
+*(1.3+)* The list shows every active link and only the 50 most recent used, expired, or revoked ones. When older ones are left out, a note above the list says so: "Showing every active link and the 50 most recent used, expired, or revoked ones, out of N links in total."
+
 ### Creating a new invite link
 
 Click **New invite link** to open the creation dialog.
