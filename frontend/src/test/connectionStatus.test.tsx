@@ -67,6 +67,9 @@ describe('ConnectionStatus', () => {
     render(<ConnectionStatus status="failed" lastEventAt={null} />)
     const trigger = screen.getByRole('button', { name: /Offline, real-time updates unavailable/i })
     expect(trigger).toHaveTextContent(/Offline/)
+    // #2342: AA text on the danger tint (plain text-danger was 2.98:1 on light surface)
+    expect(trigger.className).toContain('text-danger-on-tint')
+    expect(trigger.className).not.toMatch(/(^|\s)text-danger(\s|$)/)
   })
 
   it('shows a Stale badge when connected but no events for > 60 s', () => {
