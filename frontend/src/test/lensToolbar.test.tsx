@@ -264,7 +264,7 @@ describe('LensToolbar lane announcements (#2323)', () => {
     const seen: string[] = []
     const obs = new MutationObserver(() => seen.push(status().textContent ?? ''))
     obs.observe(status(), { childList: true, characterData: true, subtree: true })
-    // Expand by hand (URL), then Collapse again: identical text to the previous message.
+    // Show all, then Collapse again: identical text to the previous message.
     await user.click(screen.getByRole('button', { name: 'Show all swimlanes' }))
     await user.click(screen.getByRole('button', { name: 'Hide all swimlanes' }))
     await waitFor(() => expect(status()).toHaveTextContent('Collapsed all 2 lanes'))

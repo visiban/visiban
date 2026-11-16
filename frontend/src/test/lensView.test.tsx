@@ -88,7 +88,7 @@ describe('LensView', () => {
     expect(screen.getByRole('link', { name: 'Manage connected accounts' })).toHaveAttribute('href', '/settings?tab=security')
   })
 
-  it('reports the lane count only once data has loaded, so the toolbar never says "0 lanes" (#2323)', () => {
+  it('reports the lane count only once lanes exist, so the toolbar never says "0 lanes" (#2323)', () => {
     const onLaneCountChange = vi.fn()
     mockUseLensData.mockReturnValue({ data: null, error: null, loading: true, refetching: false, refresh })
     const { rerender } = render(
@@ -104,6 +104,14 @@ describe('LensView', () => {
       </MemoryRouter>,
     )
     expect(onLaneCountChange).toHaveBeenLastCalledWith(2)
+    // An empty lens has no swimlanes; fall back to the count-less wording.
+    mockUseLensData.mockReturnValue({ data: lensData([]), error: null, loading: false, refetching: false, refresh })
+    rerender(
+      <MemoryRouter>
+        <LensView boardId={5} connection={conn} cardLayout="expanded" showFilters={false} onLaneCountChange={onLaneCountChange} />
+      </MemoryRouter>,
+    )
+    expect(onLaneCountChange).toHaveBeenLastCalledWith(undefined)
   })
 
   it('hides the filter row unless showFilters is set', () => {

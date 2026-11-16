@@ -122,7 +122,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
     () => new Set((data?.swimlanes ?? []).map((s) => s.key)),
     [data],
   );
-  useEffect(() => { onLaneCountChange?.(data ? laneKeys.size : undefined); }, [data, laneKeys, onLaneCountChange]);
+  useEffect(() => { onLaneCountChange?.(data && laneKeys.size > 0 ? laneKeys.size : undefined); }, [data, laneKeys, onLaneCountChange]);
   const rawFocus = searchParams.get("lens_focus");
   const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
   // "*" is the collapse-all sentinel set by the Row-2 Collapse button (which has
