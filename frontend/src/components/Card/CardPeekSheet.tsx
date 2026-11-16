@@ -49,9 +49,10 @@ interface Props {
   /**
    * The card's place in its cell (#2277). Given, the sheet offers Move earlier /
    * Move later: the phone has no drag, and on the grid a reorder is one. Each
-   * calls onMoveCard with the same cell and the next index, the drop's path.
+   * calls onMoveCard with the same cell and the raw slot `cellOrderOf` gives
+   * (`earlier` / `later`; `null` disables that button).
    */
-  cellOrder?: { index: number; count: number };
+  cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
   userDateFormat?: string;
   userTimezone?: string;
 }
@@ -254,11 +255,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
   const [reorderError, setReorderError] = useState<string | null>(null);
   const reorder = async (dir: -1 | 1) => {
-    if (!cellOrder || moving) return;
+    // The endpoint's raw slot for the step (`cellOrderOf`), not index + 1:
+    // a same-cell move does not compact the slot the card leaves.
+    const position = !cellOrder ? null : dir === -1 ? cellOrder.earlier : cellOrder.later;
+    if (position === null || moving) return;
     setMoving(true);
     setReorderError(null);
     try {
-      const result = await onMoveCard(card.id, card.column, card.swimlane, cellOrder.index + dir);
+      const result = await onMoveCard(card.id, card.column, card.swimlane, position);
       if (result && result.ok === false) setReorderError(moveFailureMessage(result.error));
     } catch (err) {
       setReorderError(moveFailureMessage(err));
@@ -482,8 +486,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         </div>
         {canReorder && (
           <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
-            <button type="button" disabled={moving || cellOrder.index <= 0} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
-            <button type="button" disabled={moving || cellOrder.index >= cellOrder.count - 1} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+            <button type="button" disabled={moving || cellOrder.earlier === null} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" disabled={moving || cellOrder.later === null} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
           </div>
         )}
         {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}

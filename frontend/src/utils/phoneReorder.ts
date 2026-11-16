@@ -18,13 +18,37 @@ export function stepOrder(ids: number[], visible: number[], id: number, dir: -1 
 }
 
 /**
- * A card's index among the live cards of its cell, sorted by position, and the
- * cell's size (#2277): what the peek sheet's Move earlier / Move later step from.
- * The index is the move endpoint's `position` (the cell without the card).
+ * A card's place among the cards of its cell that the board shows, and the
+ * `position` each step sends (#2277): what the peek sheet's Move earlier /
+ * Move later use. `visible` is the filter's card ids (`null`: no filter), so a
+ * step never passes a hidden card and the first/last limits are the visible
+ * ones; the card itself always counts, even if a filter hides it.
+ *
+ * The move endpoint reads `position` as a RAW slot on a same-cell reorder: it
+ * does not compact the slot the card leaves, clamps to one past the top, and
+ * shifts every other card at or above the slot up by one
+ * (`_move_card_attempt`, `backend/boards/services/cards.py`). So the card's
+ * own index + 1 is the slot just above it, a no-op. Instead Move earlier
+ * sends the previous visible card's position (the card lands right before
+ * it) and Move later the next visible card's position + 1 (right after it).
+ * A hidden card between them keeps its side of the neighbor. `null` means
+ * there is no visible card that way.
  */
-export function cellOrderOf(cards: Card[], card: Card): { index: number; count: number } {
+export function cellOrderOf(
+  cards: Card[], card: Card, visible: ReadonlySet<number> | null = null,
+): { index: number; count: number; earlier: number | null; later: number | null } {
   const cell = cards
     .filter((c) => c.column === card.column && c.swimlane === card.swimlane && !c.archived_at)
-    .sort((a, b) => a.position - b.position);
-  return { index: Math.max(0, cell.findIndex((c) => c.id === card.id)), count: cell.length };
+    .filter((c) => c.id === card.id || visible === null || visible.has(c.id))
+    .sort((a, b) => a.position - b.position || a.id - b.id);
+  const index = cell.findIndex((c) => c.id === card.id);
+  if (index === -1) return { index: 0, count: cell.length, earlier: null, later: null };
+  const prev = cell[index - 1];
+  const next = cell[index + 1];
+  return {
+    index,
+    count: cell.length,
+    earlier: prev ? prev.position : null,
+    later: next ? next.position + 1 : null,
+  };
 }

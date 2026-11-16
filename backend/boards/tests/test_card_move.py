@@ -77,6 +77,79 @@ class CardMoveTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 0)
 
+    # Same-cell reorder semantics the client mirrors (#2277): ``position`` is a
+    # RAW slot. A move within one cell does not compact the slot the card
+    # leaves; the server clamps to [0, highest sibling + 1] and shifts every
+    # other card at or above it by one. The phone's Move earlier sends the
+    # previous card's position, Move later the next card's position + 1, and
+    # useBoard.reorderWithinCellOptimistically renumbers the same way (its
+    # vitest uses these numbers).
+    def _cell_abcd(self, extra=()):
+        cards = {"A": self.card}
+        for name, pos in (("B", 1), ("C", 2), ("D", 3), *extra):
+            cards[name] = Card.objects.create(
+                board=self.board, column=self.col_a, swimlane=self.swim_x,
+                title=name, created_by=self.user, position=pos,
+            )
+        return cards
+
+    def _reorder(self, card, position):
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
+            {"column_id": self.col_a.pk, "swimlane_id": self.swim_x.pk, "position": position},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+
+    def _order(self, cards):
+        by_pk = {c.pk: name for name, c in cards.items()}
+        return "".join(
+            by_pk[pk] for pk in Card.objects.filter(
+                column=self.col_a, swimlane=self.swim_x,
+            ).order_by("position", "pk").values_list("pk", flat=True)
+        )
+
+    def test_same_cell_move_uses_raw_slots(self):
+        # Move later on B: C's position + 1 swaps B and C.
+        cards = self._cell_abcd()
+        self._reorder(cards["B"], cards["C"].position + 1)
+        self.assertEqual(self._order(cards), "ACBD")
+        self.assertEqual(
+            dict(Card.objects.filter(pk__in=[c.pk for c in cards.values()]).values_list("title", "position")),
+            {"Test Card": 0, "B": 3, "C": 2, "D": 4},
+        )
+
+    def test_same_cell_move_earlier_sends_previous_position(self):
+        cards = self._cell_abcd()
+        self._reorder(cards["C"], cards["B"].position)
+        self.assertEqual(self._order(cards), "ACBD")
+
+    def test_same_cell_move_to_the_end_sends_last_position_plus_one(self):
+        cards = self._cell_abcd()
+        self._reorder(cards["B"], cards["D"].position + 1)
+        self.assertEqual(self._order(cards), "ACDB")
+
+    def test_same_cell_move_to_own_index_plus_one_is_a_no_op(self):
+        # Why the phone does not send "index + 1": the cell keeps the gap the
+        # card leaves, so the card's own index + 1 is the slot right above it.
+        cards = self._cell_abcd()
+        self._reorder(cards["B"], 2)
+        self.assertEqual(self._order(cards), "ABCD")
+
+    def test_same_cell_step_past_a_hidden_card_lands_next_to_the_visible_neighbor(self):
+        # A filter hides H (A0 B1 H2 C3, D moved to 4): stepping to the visible
+        # neighbor's raw slot puts the card directly beside that neighbor.
+        cards = self._cell_abcd(extra=(("H", 2),))
+        Card.objects.filter(pk=cards["C"].pk).update(position=3)
+        Card.objects.filter(pk=cards["D"].pk).update(position=4)
+        for c in cards.values():
+            c.refresh_from_db()
+        self._reorder(cards["B"], cards["C"].position + 1)
+        self.assertEqual(self._order(cards), "AHCBD")
+        for c in cards.values():
+            c.refresh_from_db()
+        self._reorder(cards["B"], cards["C"].position)
+        self.assertEqual(self._order(cards), "AHBCD")
+
     def test_move_cross_column_and_swimlane_simultaneously(self):
         resp = self.client.post(self._move_url(), {
             "column_id": self.col_b.pk,

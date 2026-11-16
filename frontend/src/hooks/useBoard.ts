@@ -491,34 +491,53 @@ function placeCardOptimistically(
 }
 
 /**
- * A reorder within one cell (#2277, the phone's Move earlier / Move later):
- * placing only the moved card would leave it tied on `position` with the
- * sibling it passed, so the cell would not visibly change until the
- * `card.moved` frame's `sibling_positions` arrived. Renumber the cell the way
- * the server does (compact, then insert at the clamped index) and return the
- * siblings' old positions so a rollback can restore them. The server's
- * numbers still win: the frame's pairs overwrite these when they differ.
+ * A reorder within one cell (#2277, the phone's Move earlier / Move later, and
+ * a same-cell grid drop): placing only the moved card would leave it tied on
+ * `position` with a sibling until the `card.moved` frame's `sibling_positions`
+ * arrived. So renumber the cell exactly as the server's same-cell move does
+ * (`_move_card_attempt` in `backend/boards/services/cards.py`), so the frame
+ * changes nothing visible:
+ *
+ * - `position` is a raw slot, not an index. A same-cell move does NOT compact
+ *   the slot the card leaves (only a move out of the cell compacts).
+ * - It is clamped to `[0, highest + 1]`, `highest` being the top position of
+ *   the cell's other cards (an empty cell clamps to 0).
+ * - Every other card in the cell at or above it shifts up by one; the moved
+ *   card's own old slot is not in that set.
+ *
+ * The server's set includes archived cards in the cell, so this does too (a
+ * client rarely holds one; an archived card's position is never shown).
+ *
+ * Returns the siblings' old positions (`previous`) and the positions given
+ * here (`optimistic`), so a rollback restores only the siblings no frame has
+ * renumbered since. The server's numbers still win: a frame's pairs overwrite
+ * these when they differ.
  */
 export function reorderWithinCellOptimistically(
   cards: Card[], cardId: number, position: number,
-): { cards: Card[]; previous: Map<number, number> } {
+): { cards: Card[]; previous: Map<number, number>; optimistic: Map<number, number> } {
   const moved = cards.find((c) => c.id === cardId);
   const previous = new Map<number, number>();
-  if (!moved) return { cards, previous };
-  const siblings = cards
-    .filter((c) => c.id !== cardId && c.column === moved.column && c.swimlane === moved.swimlane && !c.archived_at)
-    .sort((a, b) => a.position - b.position);
-  const at = Math.max(0, Math.min(position, siblings.length));
-  const next = new Map<number, number>();
-  siblings.forEach((c, i) => next.set(c.id, i >= at ? i + 1 : i));
-  next.set(cardId, at);
+  const optimistic = new Map<number, number>();
+  if (!moved) return { cards, previous, optimistic };
+  const inCell = (c: Card) => c.id !== cardId && c.column === moved.column && c.swimlane === moved.swimlane;
+  let highest: number | null = null;
+  for (const c of cards) if (inCell(c) && (highest === null || c.position > highest)) highest = c.position;
+  const at = Math.max(0, Math.min(position, highest === null ? 0 : highest + 1));
+  let changed = false;
   const out = cards.map((c) => {
-    const p = next.get(c.id);
-    if (p === undefined || p === c.position) return c;
-    if (c.id !== cardId) previous.set(c.id, c.position);
-    return { ...c, position: p };
+    if (c.id === cardId) {
+      if (c.position === at) return c;
+      changed = true;
+      return { ...c, position: at };
+    }
+    if (!inCell(c) || c.position < at) return c;
+    changed = true;
+    previous.set(c.id, c.position);
+    optimistic.set(c.id, c.position + 1);
+    return { ...c, position: c.position + 1 };
   });
-  return { cards: out, previous };
+  return { cards: changed ? out : cards, previous, optimistic };
 }
 
 export function useBoard() {
@@ -789,11 +808,13 @@ export function useBoard() {
     const movedAt = new Date().toISOString();
     const sameCell = before !== undefined && before.column === columnId && before.swimlane === swimlaneId;
     let siblingsBefore = new Map<number, number>();
+    let siblingsOptimistic = new Map<number, number>();
     setBoard((b) => {
       if (!b) return b;
       if (sameCell) {
         const r = reorderWithinCellOptimistically(b.cards, cardId, position);
         siblingsBefore = r.previous;
+        siblingsOptimistic = r.optimistic;
         return { ...b, cards: r.cards };
       }
       return {
@@ -833,12 +854,20 @@ export function useBoard() {
       setBoard((b) => {
         if (!b) return b;
         let cards = rollbackMovedCard(b.cards, before);
-        // A same-cell reorder also renumbered the siblings; put them back.
+        // A same-cell reorder also renumbered the siblings; put them back,
+        // but only those still at the position this move gave them: another
+        // client's `card.moved` frame that renumbered one meanwhile holds the
+        // server's newer slot, which the old one must not overwrite.
         if (siblingsBefore.size > 0) {
-          cards = cards.map((c) => {
+          let restored: Card[] | null = null;
+          for (let i = 0; i < cards.length; i++) {
+            const c = cards[i];
             const p = siblingsBefore.get(c.id);
-            return p === undefined ? c : { ...c, position: p };
-          });
+            if (p === undefined || c.position !== siblingsOptimistic.get(c.id)) continue;
+            restored ??= cards.slice();
+            restored[i] = { ...c, position: p };
+          }
+          if (restored) cards = restored;
         }
         return cards === b.cards ? b : { ...b, cards };
       });

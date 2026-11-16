@@ -389,7 +389,23 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
     expect(stepOrder([1, 2, 3], [1, 3], 3, 1)).toBeNull()
     expect(stepOrder([1, 3], [1, 2, 3], 1, 1)).toBeNull()
     const cards = [card(1, 1, 1, { position: 1 }), card(2, 1, 1, { position: 0 }), card(3, 1, 2), card(4, 1, 1, { position: 2, archived_at: 'x' } as Partial<Card>)]
-    expect(cellOrderOf(cards, cards[0])).toEqual({ index: 1, count: 2 })
+    expect(cellOrderOf(cards, cards[0])).toEqual({ index: 1, count: 2, earlier: 0, later: null })
+    expect(cellOrderOf(cards, cards[1])).toEqual({ index: 0, count: 2, earlier: null, later: 2 })
+  })
+
+  it('cellOrderOf sends raw slots over the visible cards only (#2277)', () => {
+    // A0 B1 H2 C3, H hidden by the filter. Move later on B goes right after C
+    // (C's position + 1), Move earlier on C right before B (B's position).
+    const cells = [card(1, 1, 1, { position: 0 }), card(2, 1, 1, { position: 1 }), card(5, 1, 1, { position: 2 }), card(3, 1, 1, { position: 3 })]
+    const visible = new Set([1, 2, 3])
+    expect(cellOrderOf(cells, cells[1], visible)).toEqual({ index: 1, count: 3, earlier: 0, later: 4 })
+    expect(cellOrderOf(cells, cells[3], visible)).toEqual({ index: 2, count: 3, earlier: 1, later: null })
+    // Without the filter the hidden card is the neighbor.
+    expect(cellOrderOf(cells, cells[1])).toEqual({ index: 1, count: 4, earlier: 0, later: 3 })
+    // The card itself counts even when the filter hides it.
+    expect(cellOrderOf(cells, cells[2], visible)).toEqual({ index: 2, count: 4, earlier: 1, later: 4 })
+    // Not in its own cell (a stale copy): nothing to step.
+    expect(cellOrderOf([cells[0]], { ...cells[1], archived_at: 'x' } as Card)).toEqual({ index: 0, count: 1, earlier: null, later: null })
   })
 })
 
