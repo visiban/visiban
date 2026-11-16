@@ -1,5 +1,5 @@
 /**
- * BoardView wiring of the card peek sheet (#2273): a card click peeks, Open card
+ * BoardView wiring of the card peek sheet (#2273): Shift+click, Shift+Enter or Show summary peeks, Open card
  * hands off to the detail sheet, and the peek never shows with the activity
  * drawer or the detail sheet. Mock setup mirrors boardViewGridOverlay.test.tsx.
  */

@@ -358,7 +358,10 @@ test.describe('board phone layout', () => {
       moveBody = JSON.parse(route.request().postData() ?? '{}')
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...CARD, column: 2, swimlane: 1, position: 0 } }) })
     })
-    await page.locator(`[data-card-id="${CARD.id}"]`).click({ modifiers: ['Shift'] })
+    // Touch route to the peek: tap opens the detail panel; closing it leaves focus on the card, whose Show summary button then shows.
+    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    await page.keyboard.press('Escape')
+    await page.locator(`[data-card-id="${CARD.id}"]`).getByTestId('card-show-summary').click()
     await expect(page.getByTestId('card-peek-sheet')).toBeVisible()
     await page.getByRole('button', { name: 'Move', exact: true }).click()
     await page.getByTestId('card-peek-move-form').locator('select').first().selectOption({ label: 'Done' })
@@ -405,7 +408,10 @@ test.describe('board phone layout', () => {
         if (w.__orders[w.__orders.length - 1] !== o) w.__orders.push(o)
       }).observe(root, { childList: true, subtree: true })
     })
-    await page.locator('[data-card-id="2"]').click({ modifiers: ['Shift'] })
+    // Touch route to the peek: tap opens the detail panel; closing it leaves focus on the card, whose Show summary button then shows.
+    await page.locator('[data-card-id="2"]').click()
+    await page.keyboard.press('Escape')
+    await page.locator('[data-card-id="2"]').getByTestId('card-show-summary').click()
     const sheet = page.getByTestId('card-peek-sheet')
     await expect(sheet).toBeVisible()
     await sheet.getByRole('button', { name: 'Move later' }).click()

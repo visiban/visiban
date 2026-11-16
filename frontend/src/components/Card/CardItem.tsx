@@ -261,6 +261,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     return { top: r.top, bottom: r.bottom, left: r.left };
   };
   const menuEnabled = !!onOpenMenu && !readOnly && !overlay;
+  // Title padding for the Show summary button follows the card, not the menu: BoardView drops
+  // onOpenMenu while a sheet is open, and gating on it would re-wrap every title on open/close (#2358).
+  const boardFace = !readOnly && (!!onClick || !!overlay);
   // Ref to the peek timer so we can clear it on mouseleave / drag start.
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -847,10 +850,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       )}
       <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* The title keeps clear of the card-face overlay controls. Show summary reserves pr-14 at fine pointers permanently, so hover never re-wraps the title; ⋯ reserves its width at coarse pointers only while shown. */}
-        <RowWrap {...(denseRow ? { className: "flex items-center gap-2", "data-testid": "card-dense-row" } : {})}>
+        <RowWrap {...(denseRow ? { className: `flex items-center gap-2${boardFace ? " [@media(pointer:fine)]:pr-12" : ""}`, "data-testid": "card-dense-row" } : {})}>
         <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
           menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-28" : " [@media(pointer:coarse)]:group-focus-within:pr-28") : ""
-        }${menuEnabled && onClick ? " [@media(pointer:fine)]:pr-14" : ""}`}>
+        }${boardFace && !denseRow ? " [@media(pointer:fine)]:pr-14" : ""}`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
           {/* The compact layout has no status line, so the overdue border would be
               the only signal; a flag and words keep it from resting on color alone (#2272). */}

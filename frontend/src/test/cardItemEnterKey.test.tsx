@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { act, render, fireEvent } from '@testing-library/react'
+import { publishActivePreset } from '../boardPresets/activePresetStore'
 import CardItem from '../components/Card/CardItem'
 import type { Card } from '../types'
 
@@ -32,6 +33,7 @@ describe('CardItem keyboard open (#2273)', () => {
     const { container } = render(<CardItem card={makeCard()} onClick={onClick} />)
     const notCanceled = fireEvent.keyDown(face(container), { key })
     expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onClick).toHaveBeenCalledWith(undefined)
     expect(notCanceled).toBe(false)
   })
 
@@ -82,8 +84,22 @@ describe('CardItem keyboard open (#2273)', () => {
     const title = () => container.querySelector('p.leading-snug') as HTMLElement
     expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
     expect(title().className).not.toContain('group-hover:pr-14')
+    // The menu is dropped while a sheet is open; the padding must stay so titles do not re-wrap.
     rerender(<CardItem card={makeCard()} onClick={() => {}} />)
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    rerender(<CardItem card={makeCard()} overlay />)
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    rerender(<CardItem card={makeCard()} onClick={() => {}} readOnly />)
     expect(title().className).not.toContain('[@media(pointer:fine)]:pr-14')
+  })
+
+  it('dense density reserves the space on the row, not the title (#2358)', () => {
+    // The dense row belongs to the redesigned (non-Classic) face, which the preset store selects.
+    act(() => publishActivePreset({ boardId: 7, activePresetId: 'default', modified: false }))
+    const { container, getByTestId } = render(<CardItem card={makeCard()} boardId={7} onClick={() => {}} density="dense" />)
+    expect(getByTestId('card-dense-row').className).toContain('[@media(pointer:fine)]:pr-12')
+    expect((container.querySelector('p.leading-snug') as HTMLElement).className).not.toContain('pr-14')
+    act(() => publishActivePreset(null))
   })
 
   it('has no Show summary button without a menu, and none on a read-only card', () => {

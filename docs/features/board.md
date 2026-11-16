@@ -392,7 +392,7 @@ Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**,
 
 - **Move earlier** / **Move later** beside the column's limit line move the selected column one place (board admins).
 - **Move earlier** / **Move later** under a lane band move the lane one place (board admins).
-- **Move earlier** / **Move later** in the card's peek sheet move the card one place within its lane and column (people who can edit). With a filter on, the step counts only the cards the filter shows, so the card always moves past a card you can see.
+- **Move earlier** / **Move later** in the card's peek sheet (on a phone, tap the card, close its detail panel, then tap the card's **Show summary** button, or use **⋯ More actions** → **Show summary**) move the card one place within its lane and column (people who can edit). With a filter on, the step counts only the cards the filter shows, so the card always moves past a card you can see.
 
 Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
 
