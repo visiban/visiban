@@ -2181,6 +2181,15 @@ GROUP_PLACEMENT_ALLOWLIST: dict[str, str] = {
     "boards.management.commands.seed_demo_data.Command._create_demo_group": (
         "Management command run by an operator with shell access; no request user to authorize."
     ),
+    "boards.services.health_compute._write_board_rollup": (
+        "Queryset update of computed-health columns only (computed_health_status, "
+        "health_computed_at, health_computed_counts); the kwargs are built in the "
+        "function and never carry a group (#2245)."
+    ),
+    "boards.services.health_compute.clear_computed_health": (
+        "Queryset update that nulls the three computed-health columns; the kwargs "
+        "are a literal dict and never carry a group (#2245)."
+    ),
     "groups.consumers.GroupConsumer.connect": "Stores the group id the WebSocket connected to; writes no Board.",
     "groups.admin.TransferOwnershipForm.__init__": "Stores the form's Group instance; writes no Board.",
 }
