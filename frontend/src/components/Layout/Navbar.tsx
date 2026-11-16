@@ -143,23 +143,26 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
   return (
     <>
-      <header role="banner" className="h-14 max-sm:h-12 bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 shrink-0">
+      <header role="banner" className="h-14 max-sm:h-12 max-sm:relative bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 shrink-0">
         <Link to="/" className="flex items-center max-sm:hidden hover:opacity-80 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
         {breadcrumb && breadcrumb.length > 0 && (
-          <nav aria-label="Breadcrumb" className="flex items-center min-w-0 max-sm:flex-1 max-sm:overflow-hidden">
+          <nav aria-label="Breadcrumb" className="flex items-center min-w-0 max-sm:flex-1">
             {breadcrumb.map((item, i) => {
               const isLast = i === breadcrumb.length - 1;
+              // Phones show only the last crumb, so its star and health controls always fit
+              // beside it and the name, not the controls, gives way (#2333). No clip on the nav:
+              // it would cut the focus rings off every crumb control.
               return (
-                <span key={i} className="flex items-center min-w-0">
+                <span key={i} className={`flex items-center min-w-0${isLast ? "" : " max-sm:hidden"}`}>
                   <span className="text-fg-faint mx-1.5 select-none max-sm:hidden" aria-hidden="true">/</span>
                   {item.render ? (
                     item.render
                   ) : item.href ? (
                     <Link
                       to={item.href}
-                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate max-sm:inline-flex max-sm:items-center max-sm:min-h-11"
+                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate max-sm:inline-block max-sm:leading-[2.75rem]"
                       title={item.label}
                     >
                       {item.label}
@@ -173,7 +176,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                       {item.label}
                     </span>
                   )}
-                  {item.suffix}
+                  {item.suffix && <span className="flex items-center max-sm:shrink-0">{item.suffix}</span>}
                 </span>
               );
             })}
@@ -200,7 +203,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           </button>
 
           {/* Notification bell */}
-          <div ref={bellRef} className="relative">
+          <div ref={bellRef} className="relative max-sm:static">
             <button
               type="button"
               onClick={openBell}
@@ -217,8 +220,10 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                 </span>
               )}
             </button>
+            {/* Phones (#2333): anchored to the header, not the bell, so the panel spans the
+                header's width minus 1rem each side and opens just below it, whatever sits above. */}
             {showBell && (
-              <div className="absolute right-0 top-8 max-sm:top-11 w-80 max-sm:w-[calc(100vw-2rem)] bg-surface rounded-lg shadow-xl border border-line-strong z-50">
+              <div className="absolute right-0 top-8 w-80 max-sm:top-full max-sm:mt-1 max-sm:inset-x-4 max-sm:w-auto bg-surface rounded-lg shadow-xl border border-line-strong z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-line">
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   {/* Hosted demo (#1193): mark-read is refused by the server

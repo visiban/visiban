@@ -82,6 +82,52 @@ test.describe('board phone layout', () => {
     for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
   })
 
+  test('a long board name in a group shrinks so Star and Health stay inside the viewport (#2333)', async ({ page }) => {
+    const name = 'Quarterly platform migration and infrastructure hardening board'
+    await routeBoard(page, { ...BOARD_FULL, group: 7, group_name: 'Platform engineering and operations', name } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible()
+    const banner = page.getByRole('banner')
+    // Phones show only the last crumb; the group crumb is hidden, not clipped.
+    await expect(banner.getByRole('link', { name: 'Platform engineering and operations' })).toBeHidden()
+    const nameBtn = banner.getByRole('button', { name, exact: true })
+    await expect(nameBtn).toBeVisible()
+    const nameBox = (await nameBtn.boundingBox())!
+    for (const ctl of [banner.getByRole('button', { name: 'Star board' }), banner.getByRole('button', { name: /^Health status/ })]) {
+      await expect(ctl).toBeVisible()
+      const box = (await ctl.boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(390)
+      expect(box.x).toBeGreaterThanOrEqual(nameBox.x + nameBox.width - 1)
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
+    }
+    // The name truncates with an ellipsis instead of pushing the controls out.
+    expect(await nameBtn.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === 'ellipsis')).toBe(true)
+    expect(await overlappingControls(page)).toEqual([])
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+
+  test('the notifications panel stays inside the viewport and Mark all read is 44px (#2333)', async ({ page }) => {
+    // The list endpoint is a bare array; the shared helper's paginated stub would crash the panel.
+    await page.route(/\/api\/v1\/notifications\/$/, (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: 1, verb: 'Ada moved Fix login to Done', created_at: new Date().toISOString(), board_id: BOARD_FULL.id, card_id: null, action_type: 'card_moved', is_read: false }]),
+    }))
+    await page.getByRole('button', { name: /^Notifications/ }).click()
+    await expect(page.getByText('Ada moved Fix login to Done')).toBeVisible()
+    const panel = page.getByText('Notifications', { exact: true }).locator('xpath=ancestor::div[contains(@class, "shadow-xl")][1]')
+    await expect(panel).toBeVisible()
+    const box = (await panel.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    // Below the header, not over it.
+    const header = (await page.getByRole('banner').boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(header.y + header.height - 1)
+    const markAll = panel.getByRole('button', { name: /Mark all read/ })
+    expect((await markAll.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+  })
+
   test('the header and toolbar show icon buttons for Search, Activity and Filter, with names and the four tabs (#2333)', async ({ page }) => {
     const toolbar = page.getByRole('navigation', { name: 'Board toolbar' })
     for (const name of ['Filters', 'View', /activity drawer/, 'More board actions']) {
