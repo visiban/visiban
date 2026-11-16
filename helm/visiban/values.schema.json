@@ -81,6 +81,10 @@
               "description": "WEBHOOKS_ENABLED (#863). true lets board admins register outbound webhooks; false (default) leaves the variable unset. Refused together with demo.enabled.",
               "type": "boolean"
             },
+            "instanceTimezone": {
+              "type": "string",
+              "description": "INSTANCE_TIMEZONE (#2312). IANA time zone name that decides what 'today' is for overdue, due soon and auto health. Empty (default) means UTC."
+            },
             "webhookAllowedPrivateTargets": {
               "description": "WEBHOOK_ALLOWED_PRIVATE_TARGETS (#863). Comma-separated exact hostnames, private IPs or private CIDRs webhooks may target. Empty (default) means public destinations only.",
               "type": "string"

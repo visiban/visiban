@@ -255,6 +255,15 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 
 Two API throttle scopes bound the endpoints that resolve or contact a destination, per user: `webhook_config` (create, URL change, rotate) at 30/hour and `webhook_test` at 10/hour.
 
+## Instance time zone
+
+| Variable | Description | Default |
+|---|---|---|
+| `INSTANCE_TIMEZONE` | IANA time zone name (for example `America/Los_Angeles` or `Asia/Tokyo`) that decides what "today" is for the date-based card signals: the **overdue** filter and badge, the `notify_due_soon` job's due-soon window, and [auto health status](../features/health-status.md). Due dates are plain dates, so without a zone a card turns overdue at midnight UTC. An unknown name stops the server at startup with a clear error rather than falling back to UTC. Does not change timestamps, the scheduler's clock (see [Scheduled jobs](scheduled-jobs.md)) or Django's `TIME_ZONE`. Helm: `backend.settings.instanceTimezone`. *(new in 1.3)* | `UTC` |
+
+Existing installs are unaffected until you set it. After changing it, the next auto health run
+(or a board admin's **Recompute now**) applies the new day boundary.
+
 ## Import limits
 
 | Variable | Description | Default |

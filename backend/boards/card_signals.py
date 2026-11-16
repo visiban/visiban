@@ -12,7 +12,24 @@ own scope (a board, a lane, an open-cards filter) in SQL.
 
 from __future__ import annotations
 
+import datetime
+import zoneinfo
+
+from django.conf import settings
 from django.db.models import Exists, OuterRef, Q
+from django.utils import timezone
+
+
+def signal_today() -> datetime.date:
+    """Today's date in ``settings.INSTANCE_TIMEZONE`` (#2312).
+
+    The one clock for every date-based card signal: overdue, due soon and auto
+    health. Due dates are plain dates, so "today" needs a zone; UTC (the
+    default) reproduces the pre-#2312 behavior exactly. Read at call time so a
+    settings override takes effect, and independent of Django's ``TIME_ZONE``.
+    """
+    zone = zoneinfo.ZoneInfo(getattr(settings, "INSTANCE_TIMEZONE", "UTC"))
+    return timezone.now().astimezone(zone).date()
 
 
 def open_cards_q():
@@ -27,9 +44,8 @@ def open_cards_q():
 def overdue_q(today):
     """Cards whose due date is before ``today`` (a ``datetime.date``).
 
-    ``today`` is the caller's: the card filter keeps the server's local date
-    it has always used, and the auto health job passes
-    ``timezone.localdate()`` (UTC on a default install; documented, #2245).
+    Callers pass :func:`signal_today` so the card filter, the due-soon job and
+    auto health all share one definition of "today" (#2312).
     Does not exclude done or archived cards; compose with :func:`open_cards_q`.
     """
     return Q(due_date__lt=today)

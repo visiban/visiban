@@ -17,6 +17,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from accounts.models import User
+from boards.card_signals import signal_today
 from boards.models import Card, Notification
 from boards.notifications_email import drain_email_on_exit
 from boards.services.notifications import create_notifications, quoted_card_verb
@@ -64,10 +65,9 @@ class Command(BaseCommand):
             )
             logger.warning(message)
             self.stderr.write(message)
-        # timezone.localdate() rather than date.today(): the window has to be
-        # anchored to the instance's TIME_ZONE, or a run near UTC midnight on a
-        # non-UTC install shifts the window by a day.
-        today = timezone.localdate()
+        # signal_today(), not date.today(): the window has to be anchored to
+        # INSTANCE_TIMEZONE, the same clock overdue and auto health use (#2312).
+        today = signal_today()
         window_end = today + datetime.timedelta(days=horizon)
 
         created_count = 0

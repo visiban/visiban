@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+import zoneinfo
 from urllib.parse import quote, urlparse
 import environ
 from django.core.exceptions import ImproperlyConfigured
@@ -503,6 +504,21 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+
+# The zone that decides what "today" is for date-based card signals (overdue,
+# due soon, auto health; #2312). Separate from TIME_ZONE on purpose: Django's
+# TIME_ZONE also drives timestamp rendering and the scheduler, and changing its
+# meaning would shift existing installs. Default UTC keeps today's behavior.
+# An unknown zone fails at startup rather than silently falling back to UTC,
+# which would leave an operator believing their zone was applied.
+INSTANCE_TIMEZONE = env("INSTANCE_TIMEZONE", default="UTC").strip() or "UTC"
+try:
+    zoneinfo.ZoneInfo(INSTANCE_TIMEZONE)
+except (zoneinfo.ZoneInfoNotFoundError, ValueError) as _tz_exc:
+    raise ImproperlyConfigured(
+        f"INSTANCE_TIMEZONE={INSTANCE_TIMEZONE!r} is not a valid IANA time zone "
+        "name (for example 'UTC', 'America/Los_Angeles', 'Asia/Tokyo')."
+    ) from _tz_exc
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
