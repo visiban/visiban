@@ -473,7 +473,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
                     <button
                       type="button"
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Cancel
                     </button>
@@ -973,7 +973,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
                 <button
                   type="button"
                   onClick={() => setConfirmingEnable(false)}
-                  className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Cancel
                 </button>

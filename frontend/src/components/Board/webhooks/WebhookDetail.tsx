@@ -56,7 +56,7 @@ const DANGER_BTN =
   "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const INERT_WHEN_ARIA_DISABLED = "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const CONFIRM_BTN = "min-h-6 px-1 text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis";
-const CANCEL_BTN = "min-h-6 px-1 text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const CANCEL_BTN = "min-h-6 px-1 text-fg-secondary hover:text-fg hover:bg-surface-hover transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
 function when(iso: string | null, now: number): string {
   if (!iso) return "";
@@ -272,7 +272,7 @@ export default function WebhookDetail(props: Props) {
   };
 
   const inlineConfirm = (kind: WebhookConfirm, text: string, run: () => void) => (
-    <div role="status" aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
       <span>{text}</span>
       <button type="button" onClick={run} disabled={busy(kind)} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
         Confirm
@@ -280,7 +280,8 @@ export default function WebhookDetail(props: Props) {
       <button type="button" onClick={() => onConfirmChange(null)} disabled={busy(kind)} className={CANCEL_BTN}>
         Cancel
       </button>
-      {confirmError && <p role="alert" className="basis-full text-danger">{confirmError}</p>}
+      {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+      <p role="alert" className={confirmError ? "basis-full text-danger" : "sr-only"}>{confirmError}</p>
     </div>
   );
 
@@ -325,7 +326,7 @@ export default function WebhookDetail(props: Props) {
           {reason && <p className="text-xs text-fg-tertiary font-mono">Reason code: {sub.disabled_reason}</p>}
           {sub.disabled_reason !== "secret_unavailable" && (confirm === "reenable" ? (
             <div role="group" aria-labelledby={`${uid}-reenable`} className="flex flex-col gap-2 border-t border-warning/40 pt-2.5 mt-1">
-              <p id={`${uid}-reenable`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+              <p id={`${uid}-reenable`} className="text-xs text-fg">
                 {reenablePrompt}
               </p>
               {takeOver && currentUserHasPassword && (
@@ -350,7 +351,8 @@ export default function WebhookDetail(props: Props) {
               {takeOver && !currentUserHasPassword && (
                 <p className="text-xs text-fg-tertiary">Your account signs in with SSO, so instead of a password Visiban checks that you signed in with your provider in the last few minutes.</p>
               )}
-              {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+              {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+              <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={SECONDARY_BTN}>
                   Cancel
@@ -453,7 +455,7 @@ export default function WebhookDetail(props: Props) {
           {confirm === "rotate"
             ? (
               <div role="group" aria-labelledby={`${uid}-rotate`} className="flex flex-col gap-2 py-1">
-                <p id={`${uid}-rotate`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+                <p id={`${uid}-rotate`} className="text-xs text-fg">
                   Rotate the secret? Choose what happens to the current one.
                 </p>
                 <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">
@@ -466,7 +468,8 @@ export default function WebhookDetail(props: Props) {
                 <p id={`${uid}-rotate-leak`} className="text-xs text-fg-secondary">
                   If the secret leaked, choose Revoke old secret now, then replace the secret on your receiver. Visiban can't revoke the old secret on your receiver, so anyone who holds it can forge requests until your receiver stops accepting it.
                 </p>
-                {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+                {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
                 <div className="flex flex-wrap justify-end gap-3">
                   <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
                     Cancel

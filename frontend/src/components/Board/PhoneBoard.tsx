@@ -513,7 +513,7 @@ export default function PhoneBoard({
                   />
                   <div className="flex gap-2">
                     <button type="button" className="inline-flex items-center justify-center min-h-11 px-4 text-sm rounded font-medium bg-button-primary text-on-primary hover:bg-button-primary-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => void submitCard(lane.id)}>Add</button>
-                    <button type="button" className={ACTION_BTN} onClick={() => { setAddingLane(null); setAddError(null); }}>Cancel</button>
+                    <button type="button" className="inline-flex items-center justify-center min-h-11 px-3 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => { setAddingLane(null); setAddError(null); }}>Cancel</button>
                   </div>
                   <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>
                 </div>

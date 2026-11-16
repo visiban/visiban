@@ -92,7 +92,7 @@
   --primary-soft: 96 165 250;      /* blue-400 — first-encounter dots, soft accents */
 
   /* Primary CTA fill. In dark mode this mirrors --primary/--primary-hover (blue-600/700),
-     which clears WCAG AA against white on slate-900. In light mode it darkens to blue-900/800
+     which clears WCAG AA against white on slate-900. In light mode it darkens to blue-900 (hover blue-950)
      for comfortable AAA contrast — see issue #855. */
   --button-primary: 37 99 235;
   --button-primary-hover: 29 78 216;
@@ -187,9 +187,11 @@
   --chart-cat-5: 161 98 7;         /* yellow-700 */
   --primary-soft: 96 165 250;
 
-  /* Primary CTA fill darkens to blue-900/800 on white for comfortable AAA contrast (#855). */
-  --button-primary: 30 58 138;       /* blue-900 — 10.36:1 on white */
-  --button-primary-hover: 30 64 175; /* blue-800 — 8.59:1 on white */
+  /* Primary CTA fill is blue-900 on white for comfortable AAA contrast (#855). Hover goes one
+     step darker, to blue-950, so a primary button darkens on hover in both themes (#484);
+     blue-800 here made light-mode buttons lighten on hover. */
+  --button-primary: 30 58 138;       /* blue-900 — 10.36:1 with white text */
+  --button-primary-hover: 23 37 84;  /* blue-950 — 14.69:1 with white text */
 
   --danger-bg: 220 38 38;
   --danger-bg-hover: 185 28 28;

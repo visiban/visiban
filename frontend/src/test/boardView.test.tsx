@@ -1125,7 +1125,7 @@ describe('BoardView', () => {
       capturedFilterBarProps = {}
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
-      expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+      expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
       expect(capturedFilterBarProps.filters?.labelIds).toEqual([])
       // derived only: never written back to persisted state
       expect(localStorage.getItem('board:1:filters')).toBeNull()
@@ -1135,7 +1135,7 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams('f_labels=100')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     // #1149
@@ -1146,7 +1146,7 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
       expect((capturedFilterBarProps.filters as { blockedOnly?: boolean } | undefined)?.blockedOnly).toBe(true)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     it('writes f_blocked to the URL when Blocked only is turned on, and removes it when off', () => {
@@ -1205,7 +1205,7 @@ describe('BoardView', () => {
       capturedFilterBarProps = {}
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
-      expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+      expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
       expect(capturedFilterBarProps.filters?.customFields).toEqual({})
       expect(capturedFilterBarProps.filters?.visibleCustomFieldFilterIds).toEqual([])
       expect(localStorage.getItem('board:1:filters')).toBe(before)
@@ -1215,7 +1215,7 @@ describe('BoardView', () => {
       seed({ 5: { kind: 'text', query: 'zzz' } })
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card], custom_field_definitions: [liveDef] }) })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     it('the "my cards" palette event does not write deleted label/field references back to storage', () => {
@@ -1315,6 +1315,19 @@ describe('BoardView', () => {
     mockSearchParams = new URLSearchParams('view=summary')
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+  })
+
+  // #2321 / #2333: the phone toolbar keeps its tabs on row 2 in every view, so switching views
+  // never moves them. jsdom has no layout, so assert the structure the e2e measures.
+  it.each(['summary', 'history', 'analytics'])('the %s toolbar reserves the phone icon row and puts the tabs on row 2', (view) => {
+    mockSearchParams = new URLSearchParams(`view=${view}`)
+    render(<BoardView {...defaultProps()} />)
+    const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
+    const row1 = within(nav).getByTestId('phone-toolbar-row-1')
+    expect(row1).toHaveAttribute('aria-hidden', 'true')
+    expect(row1).toHaveClass('max-sm:order-1', 'max-sm:h-11', 'max-sm:w-full')
+    const tabs = within(nav).getByRole('button', { name: 'Board' }).closest('div.max-sm\\:order-2')
+    expect(tabs).not.toBeNull()
   })
 
   it('reads view from ?view=analytics param on mount and renders AnalyticsView', () => {
@@ -2589,6 +2602,43 @@ describe('BoardView', () => {
       await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent('Collapsed all 2 lanes'))
     })
 
+    it('the e shortcut announces lanes and columns through the page-level region (#2338)', async () => {
+      const base = makeBoard()
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: [base.swimlanes[0], { ...base.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Customer B', position: 1 }] }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      const cols = makeBoard().columns.length
+      await user.keyboard('e')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent(`Collapsed all 2 lanes and ${cols} ${cols === 1 ? 'column' : 'columns'}`))
+      await user.keyboard('e')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent(/^Expanded all 2 lanes and /))
+    })
+
+    it('the collapsed-lanes strip Expand all swimlanes announces, by mouse and keyboard (#2338)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      await user.click(screen.getByRole('button', { name: 'Expand all swimlanes' }))
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent('Expanded all 1 lane'))
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      screen.getByRole('button', { name: 'Expand all swimlanes' }).focus()
+      await user.keyboard('{Enter}')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent('Expanded all 1 lane'))
+    })
+
+    it('the View menu Hide all / Show all columns announce the live column count (#2338)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      const n = makeBoard().columns.length
+      const word = n === 1 ? 'column' : 'columns'
+      await user.click(openViewPanel().getByRole('button', { name: 'Hide all' }))
+      await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent(`Hid all ${n} ${word}`))
+      await user.click(openViewPanel().getByRole('button', { name: 'Show all' }))
+      await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent(`Showed all ${n} ${word}`))
+    })
+
     it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
       render(<BoardView {...defaultProps()} />)
       const user = userEvent.setup()
@@ -3720,7 +3770,7 @@ describe('BoardView lane filters (#2205)', () => {
     mockBoardContextValue = defaultContext({ board: boardWith([lane(21, 'Customer B', 'Sam')]) })
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
-    expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+    expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Clear lane filters' }))
     expect(screen.getByTestId('swim-21')).toBeInTheDocument()
     expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()

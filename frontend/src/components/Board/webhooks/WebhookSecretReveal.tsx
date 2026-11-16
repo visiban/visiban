@@ -106,7 +106,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
       </label>
       <div className="flex flex-wrap items-center justify-end gap-3">
         {guardOpen && (
-          <div role="status" aria-live="polite" aria-atomic="true" className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
+          <div className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
             <span>{GUARD_PROMPT}</span>
             <button
               type="button"
@@ -120,7 +120,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
               type="button"
               onClick={onGuardCancel}
               aria-label="Cancel closing, keep the secret on screen"
-              className="min-h-6 text-fg-tertiary hover:text-fg transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="min-h-6 text-fg-secondary hover:text-fg hover:bg-surface-hover transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>

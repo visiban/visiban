@@ -203,7 +203,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <button
                 onClick={closeDeleteDialog}
                 autoFocus={!hasCards}
-                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>

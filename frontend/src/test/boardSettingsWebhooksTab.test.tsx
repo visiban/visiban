@@ -228,6 +228,7 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     expect(intercepted).toBe(true)
     expect(proceed).not.toHaveBeenCalled()
     expect(announced()).toBe("Close without storing the secret? You'd have to rotate it to get a new one.")
+    expect(screen.getByText(/Close without storing the secret\?/).closest('[aria-live], [role="status"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
     expect(proceed).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('webhook-secret-reveal')).not.toBeInTheDocument()
@@ -390,6 +391,8 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn off' }))
     expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to this address/)).toBeInTheDocument()
     expect(announced()).toMatch(/^Turn off this webhook\? Visiban stops sending to this address/)
+    // The announcer is the only live region for the question (#2232): not the wrapper.
+    expect(screen.getByText(/Turn off this webhook\?/).closest('[aria-live], [role="status"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
     expect(m.disable).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toHaveFocus())
@@ -409,6 +412,7 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     expect(screen.getByText(/Sending resumes to this address, starting with the events it missed/)).toBeInTheDocument()
     expect(announced()).toMatch(/^Sending resumes to this address, starting with the events it missed/)
+    expect(screen.getByText(/^Sending resumes to this address/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
     // The confirm replaced its trigger, so focus moves into it.
     expect(screen.getByRole('button', { name: 'Turn on' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
@@ -516,6 +520,7 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     expect(screen.getByText(/Rotate the secret\? Choose what happens/)).toBeInTheDocument()
     expect(announced()).toBe('Rotate the secret? Choose what happens to the current one.')
+    expect(screen.getByText(/Rotate the secret\? Choose what happens/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
     expect(m.rotate).toHaveBeenCalledWith(3, 1, 86400)
     const reveal = await screen.findByTestId('webhook-secret-reveal')
@@ -620,8 +625,14 @@ describe('Webhooks tab — detail', () => {
       ['Turn off', "Failed to turn off the webhook. Please try again."],
     ] as const) {
       await user.click(screen.getByRole('button', { name: trigger }))
+      // The failure slot is mounted with the prompt, empty; the same element then takes the message (#2232).
+      const question = screen.getByText(/^(Delete|Turn off) this webhook\?/)
+      const slot = question.parentElement!.querySelector('[role="alert"]') as HTMLElement
+      expect(slot).toHaveTextContent('')
+      expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
       await user.click(screen.getByRole('button', { name: /^Confirm:/ }))
-      expect(await screen.findByText(text)).toBeInTheDocument()
+      expect(await screen.findByText(text)).toBe(slot)
+      expect(question.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
       fireEvent.keyDown(document, { key: 'Escape' })
       await waitFor(() => expect(screen.queryByText(text)).not.toBeInTheDocument())
     }
@@ -675,10 +686,43 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
-    await screen.findByRole('alert')
+    const slot = await screen.findByText(ROTATE_UNCONFIRMED_COPY)
     await user.click(screen.getByRole('button', { name: KEEP_OLD }))
     expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The slot stays mounted and empties (#2232), so the next failure lands in an existing region.
+    expect(slot).toBeInTheDocument()
+    expect(slot).toHaveTextContent('')
+    expect(screen.queryByText(ROTATE_UNCONFIRMED_COPY)).not.toBeInTheDocument()
+  })
+
+  it('a turn-on failure lands in a slot mounted, empty, with the prompt (#2232)', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'failures' })])
+    m.reenable.mockRejectedValue(axiosError(500))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Turn on again' }))
+    const reenable = screen.getByRole('group', { name: /^Sending resumes to this address/ })
+    const reenableSlot = within(reenable).getByRole('alert')
+    expect(reenableSlot).toHaveTextContent('')
+    await user.click(screen.getByRole('button', { name: 'Turn on' }))
+    expect(await screen.findByText('Failed to turn on the webhook. Please try again.')).toBe(reenableSlot)
+    expect(screen.getByText(/^Sending resumes to this address/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
+  })
+
+  it('a rotate failure lands in a slot mounted, empty, with the prompt (#2232)', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(axiosError(429))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    const rotate = screen.getByRole('group', { name: /^Rotate the secret\?/ })
+    const rotateSlot = within(rotate).getByRole('alert')
+    expect(rotateSlot).toHaveTextContent('')
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(await screen.findByText('Failed to rotate the secret. Please try again.')).toBe(rotateSlot)
+    expect(screen.getByText(/^Rotate the secret\?/).closest('[aria-live], [role="status"], [role="alert"]')).toBeNull()
   })
 
   it('a webhook deleted elsewhere returns to the list instead of a blank view', async () => {
@@ -738,13 +782,13 @@ describe('Webhooks tab — detail', () => {
       const proceed = vi.fn()
       act(() => { expect(guard!(proceed)).toBe(true) })
       expect(proceed).not.toHaveBeenCalled()
-      const refusal = await screen.findByRole('alert')
-      expect(refusal).toHaveTextContent(PENDING)
+      const refusal = (await screen.findByText(PENDING)).closest('[role="alert"]')
+      expect(refusal).not.toBeNull()
 
       const back = screen.getByRole('button', { name: '← All webhooks' })
       await user.click(back)
       // A new alert each time, or a second refusal would be announced to nobody.
-      expect(screen.getByRole('alert')).not.toBe(refusal)
+      expect(screen.getByText(PENDING).closest('[role="alert"]')).not.toBe(refusal)
       expect(back).toHaveFocus()
       fireEvent.keyDown(document, { key: 'Escape' })
       expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()

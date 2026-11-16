@@ -187,7 +187,7 @@ Columns represent pipeline stages. Each column has:
 **Managing a column:**
 
 - Drag a column header left or right to reorder it.
-- Use the **`⋮` kebab** on its header (hover or keyboard focus): **Rename**, **Edit settings…**, **Add policy…** (only on a column without a policy), **Delete column**. Double-click the column name to rename directly.
+- Use the **`⋮` kebab** on its header. It appears when you hover over the header or move keyboard focus to it; on a touch device, which has no hover, it is always shown. It offers **Rename**, **Edit settings…**, **Add policy…** (only on a column without a policy), **Delete column**. Double-click the column name to rename directly.
 - The kebab is the keyboard-accessible path; mouse users can also drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
 
 ### Adding columns and swimlanes
@@ -280,7 +280,7 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 
 ### Show chips
 
-A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row. A **Collapse all lanes** button in the same row mirrors the **View** menu's **Collapse all** and **Expand all** items for swimlanes; its label changes to **Expand all lanes** when every lane is collapsed. Screen readers announce "Collapsed all N lanes" or "Expanded all N lanes" when you use it; the **View** menu's swimlane **Collapse all** and **Expand all** items announce the same "Collapsed all N lanes" or "Expanded all N lanes" message. <span class="vb-version" title="Added in 1.3">1.3+</span>
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row. A **Collapse all lanes** button in the same row mirrors the **View** menu's **Collapse all** and **Expand all** items for swimlanes; its label changes to **Expand all lanes** when every lane is collapsed. Screen readers announce "Collapsed all N lanes" or "Expanded all N lanes" when you use it; the **View** menu's swimlane **Collapse all** and **Expand all** items, and the **Expand all swimlanes** button on the strip that appears when lanes are collapsed, announce the same "Collapsed all N lanes" or "Expanded all N lanes" message ("Collapsed all lanes" when the count is not known). <span class="vb-version" title="Added in 1.3">1.3+</span>
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -433,7 +433,7 @@ Press **Escape** or click the **×** button to clear the selection. Selection is
 
 Short notices about what just happened appear at the bottom center of the screen: a refused move, the result of an import, an archived or unblocked card, a preset you just applied (with **Undo**), a card link that no longer points to a card on the board, the result of a card action, the confirmation after you join a board or group from an invite, or (on the shared demo) a change that cannot be saved. Up to three show at once, stacked upward, with the most important one nearest the bottom. When the bulk action toolbar is showing, notices sit just above it so they never cover its buttons or its result message.
 
-- **How long they stay.** A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import and preset notices, 20 for a preset applied from a link), and a warning 8 seconds (4 for a card that is no longer on the board) (the shared demo's "can't be saved" notice keeps 5 seconds for now). A refused move stays until you dismiss it or make another move, a failed card action stays until you dismiss it, and so does the "You've joined" confirmation. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.
+- **How long they stay.** A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import and preset notices, 20 for a preset applied from a link), and a warning 8 seconds (4 for a card that is no longer on the board). A refused move stays until you dismiss it or make another move, a failed card action stays until you dismiss it, and so does the "You've joined" confirmation. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.
 - **When more than three arrive**, a less important notice makes room, and a refused move is never pushed out. Notices that cannot fit yet wait, and a **+N waiting** line shows how many.
 - **Dismissing.** Every notice has a **×**. With the keyboard, press **Tab** from the board to reach the notices, and **Escape** dismisses the one that has focus; focus then returns to where you were.
 - **Screen readers** hear each notice once, politely, except refused moves and failures, which are announced right away. A notice raised from inside the card detail panel (for example after **Unblock card**) is announced by the panel itself, so it is not read twice.
@@ -485,7 +485,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | `.` | Open the overflow menu in the board toolbar |
 | `b` / `s` / `h` / `a` | Switch to the Board / Summary / History / Analytics view |
 | `l` | Switch to the Lens view (when Issue Board Lens is connected) |
-| `e` | Collapse or expand every swimlane and column at once |
+| `e` | Collapse or expand every swimlane and column at once; screen readers hear "Collapsed all N lanes and M columns" or "Expanded all N lanes and M columns" |
 | `c` | Collapse the swimlane you last hovered |
 | `y` | Toggle the Archived tab of the Activity drawer |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
@@ -509,7 +509,7 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
 
-**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel.
+**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel. Screen readers announce the bulk lane and column items: "Collapsed all N lanes" / "Expanded all N lanes" and "Hid all N columns" / "Showed all N columns" ("1 lane", "1 column" in the singular, and no number when the count is not known).
 
 **Overflow menu (`...`):** contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 
@@ -553,7 +553,7 @@ Click **Filter** in the toolbar to open the [Filter panel](#filter-panel), then 
 
 An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
 
-When filters are active and no cards match, a **"No cards match"** banner appears across the board area, so it is clear the board has cards but none satisfy the current criteria.
+When filters are active and no cards match, every lane shrinks to a **No matching cards** band and a line below the lanes names the cause, so it is clear the board has cards but none satisfy the current criteria. See [Board states](#board-states).
 
 The filter row is a search landmark named **Board filters** (it was "Card filters" before 1.3, when it gained lane filters). Next to the chips, a status line reads, for example, "2 lanes hidden · 5 cards hidden"; screen readers announce it as it changes.
 
@@ -578,7 +578,8 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 - **Admin-only fields**, and the built-in **Contact email**, are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them. For them, a rule on one (from a saved filter or a shared link) is dropped as if it were not there: the remaining rules still apply, so the result can show more lanes or, when the dropped rule was one side of an **Or**, fewer.
 - **Checkbox and multi-select** swimlane fields can't be filtered on yet. **Lanes** is shown when you can see a swimlane field it can filter on, when the board has two or more lanes, or when a lane filter is already set (so you can clear it).
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
-- **Lanes with no matching cards** stay visible, as they do with card filters alone.
+- **Lanes with no matching cards** stay visible by default. To hide them, turn on **Hide lanes with no matching cards** at the bottom of the lane filter rules (1.3+). It takes effect only while a card filter or a Show chip is active (otherwise it is grayed out but keeps its setting), hides every lane with no card that matches, and is not a rule: it does not count toward the **Lanes** badge, and **Clear lane filters** leaves it on. The focused lane always shows. It travels in the URL as `f_hide_unmatched=1` and in saved filters.
+- **Rules you can't use:** a shared link or saved filter can carry rules on fields only board admins can use (an admin-only swimlane field or **Contact email**). For members and viewers those rules are ignored, and the lane filter rules say so, for example "2 filters ignored: you cannot use these fields", both above and in the **Reads as** line. The rules stay in the link, so an admin opening it still gets them.
 - **In focus mode** the rules still apply: see [Swimlane focus mode](#swimlane-focus-mode). The focused lane always shows, even if it doesn't match.
 - **When every lane is hidden,** the board says "No lanes match your lane filters." with a **Clear lane filters** button.
 - **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
@@ -628,6 +629,7 @@ Active filters are serialized into the page URL as query parameters, so filter c
 | `?f_priorities=` | Comma-separated priority values (e.g. `high,urgent`) |
 | `?f_due=` | Due-date filter value (`overdue`, `today`, `this_week`, `none`) |
 | `?f_lanes=` | [Lane filters](#lane-filters) (1.3+): `1.` followed by compact JSON. A malformed value is ignored |
+| `?f_hide_unmatched=1` | [Hide lanes with no matching cards](#lane-filters) (1.3+); any other value reads as off |
 
 The filter state is restored from the URL on page load and persists across reloads. Share the URL with any board member to hand off a pre-filtered view.
 
@@ -786,8 +788,8 @@ With no board default (the setting for every board created or upgraded before 1.
 ## Board states
 
 - **Loading:** a skeleton of column headers, a lane band and cards, announced to screen readers as "Loading board".
-- **No cards yet:** the column headers stay, with an **Add a card** button for people who can add cards.
-- **Filters match nothing:** the notice has a **Show all cards** button that clears the filters and the Show chip.
+- **No cards yet:** the column headers stay, and below them a panel says "No cards yet" with **Add a card** for people who can add cards and **Import cards** for people who can create boards in the board's group. **Import cards** opens the group's import dialog, which imports a file as a new board in that group. The sentence leaves out what you can't do: "Add the first card to Prospect, or import cards from a file." when you can do both.
+- **Filters or a Show chip match nothing:** each swimlane shrinks to its band, reading **No matching cards**, and below the lanes a line names the cause: the chip ("No cards are due soon", "No cards are overdue", "No cards are stale") when the chip alone empties the board, or "No cards match the active filters" otherwise. **Show all cards** clears the card filters, the selected saved filter and the Show chip; it keeps your lane filters, including **Hide lanes with no matching cards**. With **Hide lanes with no matching cards** on, the bands are hidden and only the line shows. This never shows on an empty board, which shows only "No cards yet" (unless lane filters hide every lane; then "No lanes match your lane filters" takes precedence), or when lane filters, together with **Hide lanes with no matching cards**, hide every lane while some card matches, which shows "No lanes match your lane filters" with **Clear lane filters**. When no card matches, the line and **Show all cards** show instead.
 - **Offline:** while the live connection is down, the banner reads "Offline. Reconnecting. Moves are paused until the board is live again." and the connection status in the toolbar reads **Offline**. Moves are paused so a move never lands on a board that other people changed meanwhile: you cannot drag cards, columns or lanes, and **Move to…** (card menu, ⌘K and bulk toolbar) and **Move** (card details and the card peek) are disabled with "Moves are paused while the board is offline" written beside them. Everything else still works. If reconnecting gives up, the banner reads "Offline. Live updates are off and moves are paused. Reload the page to reconnect."
 - **Dragging:** the card you drag tilts and casts a deep shadow (no tilt or lift with reduced motion), and its place in the cell stays dimmed. The cell under it gets a blue dashed edge, and a dashed placeholder after the last card shows where it will land; a cell that would put a column or lane over its limit turns amber instead and names the limit.
 - **Load error:** "The board didn't load." with **Try again**, which fetches the board again without reloading the page.

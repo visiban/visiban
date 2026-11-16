@@ -518,6 +518,24 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     expect(within(row).getByText('Owner')).toBeTruthy()
   })
 
+  it('reserves the transfer error slot (no layout shift) and fills it on failure (#487)', async () => {
+    mockTransfer.mockRejectedValue(new Error('boom'))
+    await loadWithAlice()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Transfer ownership' }))
+    const slot = screen.getByTestId('group-transfer-error')
+    expect(slot).toBeEmptyDOMElement()
+    // Always-mounted alert: only the text changes, so the failure is announced (#1437).
+    expect(slot).toHaveAttribute('role', 'alert')
+    await user.click(screen.getAllByRole('combobox').slice(-1)[0])
+    await user.click(await screen.findByRole('option', { name: 'Alice Smith' }))
+    await user.type(screen.getByPlaceholderText('Engineering'), 'Engineering')
+    const buttons = screen.getAllByRole('button', { name: 'Transfer ownership' })
+    await user.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(slot).toHaveTextContent('Transfer failed. Please try again.'))
+    expect(screen.getByTestId('group-transfer-error')).toBe(slot)
+  })
+
   it('carries a recorded frame over the initial load when two failed re-reads overlapped it', async () => {
     let answerLoad: (g: Group[]) => void = () => {}
     mockGetSubgroups.mockImplementationOnce(() => new Promise<Group[]>((res) => { answerLoad = res }))

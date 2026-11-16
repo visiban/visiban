@@ -962,3 +962,23 @@ describe('Analytics chart colors on the panel surface (#2264)', () => {
     expect(ratio(rgbOf(lightBlock, 'border-strong'), rgbOf(lightBlock, 'surface'))).toBeCloseTo(2.56, 2)
   })
 })
+
+// #2342: the failed offline banner (and the failed ConnectionStatus chip) put `text-danger-on-tint` on
+// `bg-danger-bg/30` over each page surface. Pin the ratios recorded in frontend/CLAUDE.md § Connection
+// status indicator. Tightest is light canvas; do not darken the fill or lighten the text.
+describe('failed offline banner: danger-on-tint on bg-danger-bg/30 (#2342)', () => {
+  it.each([
+    ['dark', darkBlock, { canvas: 8.32, 'surface-sunken': 7.35, surface: 6.28 }],
+    ['light', lightBlock, { canvas: 4.75, 'surface-sunken': 4.94, surface: 5.13 }],
+  ])('%s theme holds the documented ratio on every surface', (_theme, block, pinned) => {
+    const text = rgbOf(block, 'danger-on-tint')
+    const fill = rgbOf(block, 'danger-bg')
+    for (const [surf, floor] of Object.entries(pinned)) {
+      const base = rgbOf(block, surf)
+      const blended = fill.map((v, i) => 0.3 * v + 0.7 * base[i])
+      const r = ratio(text, blended)
+      expect(r).toBeGreaterThanOrEqual(4.5)
+      expect(r).toBeGreaterThanOrEqual(floor - 0.005)
+    }
+  })
+})

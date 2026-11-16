@@ -224,7 +224,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                 header's width minus 1rem each side and opens just below it, whatever sits above. */}
             {showBell && (
               <div className="absolute right-0 top-8 w-80 max-sm:top-full max-sm:mt-1 max-sm:inset-x-4 max-sm:w-auto bg-surface rounded-lg shadow-xl border border-line-strong z-50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-line">
+                <div className="flex items-center justify-between px-3 py-2">
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   {/* Hosted demo (#1193): mark-read is refused by the server
                       fence; sub-pattern (B) — a compact panel-header button,
@@ -241,15 +241,25 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     Mark all read
                   </button>
                 </div>
+                <div role="separator" className="mx-4">
+                  <div className="h-px bg-sunken" />
+                  <div className="h-px bg-surface-active/50" />
+                </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 && (
                     <p className="text-xs text-fg-tertiary text-center py-6">No notifications</p>
                   )}
-                  {notifications.map((n) => (
+                  {notifications.map((n, i) => (
+                    <React.Fragment key={n.id}>
+                    {i > 0 && (
+                      <div role="separator" className="mx-4">
+                        <div className="h-px bg-sunken" />
+                        <div className="h-px bg-surface-active/50" />
+                      </div>
+                    )}
                     <button
-                      key={n.id}
                       onClick={() => handleClickNotification(n)}
-                      className="w-full text-left px-3 py-2.5 border-b border-line hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
+                      className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     >
                       <p className="text-xs text-fg leading-snug">{n.verb}</p>
                       <p className="text-xs text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
@@ -259,6 +269,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                         </p>
                       )}
                     </button>
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

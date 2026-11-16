@@ -280,14 +280,13 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })
 
-  it('announces the remove-member prompt through a polite live region (#1421)', async () => {
+  it('announces the remove-member prompt once, through the persistent announcer only (#1421, #2232)', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
-    const region = screen.getByText(/from this board\?/).closest('[aria-live]')
-    expect(region).toHaveAttribute('aria-live', 'polite')
-    expect(region).toHaveAttribute('aria-atomic', 'true')
+    expect(screen.getByText(/from this board\?/).closest('[aria-live]')).toBeNull()
+    expect(announced()).toMatch(/from this board\?$/)
   })
 
   // #1828 — the server refuses to demote or remove the owner's membership, so
@@ -558,7 +557,8 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
     const prompt = screen.getByText('Remove this board role? Full access is not affected.')
-    expect(prompt.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
+    // The question is not itself a live region (#2232): the announcer is the only one.
+    expect(prompt.closest('[aria-live]')).toBeNull()
     expect(screen.queryByText(/from this board\?/)).toBeNull()
     expect(announced()).toBe('Remove this board role? Full access is not affected.')
     await user.click(screen.getByRole('button', { name: 'Confirm' }))

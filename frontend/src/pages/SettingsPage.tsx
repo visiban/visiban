@@ -521,7 +521,7 @@ function ConnectedAccountRow({
                 type="button"
                 onClick={onCancelDisconnect}
                 disabled={disconnecting}
-                className="text-xs text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
@@ -1116,11 +1116,12 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
                     type="button"
                     onClick={() => setConfirmRevokeId(null)}
                     disabled={revokingId === token.id}
-                    className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Cancel
                   </button>
-                  {revokeError && <span role="alert" className="text-danger">{revokeError}</span>}
+                  {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                  <span role="alert" className={revokeError ? "text-danger" : "sr-only"}>{revokeError}</span>
                 </div>
               )}
             </div>

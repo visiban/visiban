@@ -658,7 +658,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
         <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Cancel
           </button>

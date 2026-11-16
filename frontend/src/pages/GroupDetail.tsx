@@ -32,6 +32,7 @@ import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoa
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
 import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, Priority, User } from "../types";
+import SectionEmptyState from "../components/Common/SectionEmptyState";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
@@ -1086,6 +1087,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // only at this group's direct roles (#1692).
   const canPlaceBoards = group?.can_place_boards === true;
 
+  // #2324 — `?import=1` (the empty board's Import cards) opens the import dialog
+  // once the group has loaded, only for a viewer who may place boards here; the
+  // param is then dropped so a refresh or Back does not reopen it. The server
+  // enforces placement again on import, so this gate is presentation only.
+  const wantsImport = searchParams.get("import") === "1";
+  useEffect(() => {
+    if (!wantsImport || !group) return;
+    if (group.can_place_boards === true) setImportingBoard(true);
+    setSearchParams((prev) => { prev.delete("import"); return prev; }, { replace: true });
+  }, [wantsImport, group, setSearchParams]);
+
   // Delete is owner-or-all-content only, narrower than isAdmin (#2129).
   const userCanDeleteGroup = canDeleteGroup({
     ownerId: group?.owner.id,
@@ -1195,8 +1207,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </button>
                   </div>
                 )}
-                <p className="text-xs min-h-4 mt-0.5 -mx-1 px-1">
-                  {renameError && <span role="alert" className="text-danger">{renameError}</span>}
+                <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-danger min-h-4 mt-0.5 -mx-1 px-1" data-testid="group-rename-error">
+                  {renameError}
                 </p>
               </div>
             ) : (
@@ -1348,15 +1360,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 )}
               </div>
               {subgroups.length === 0 ? (
-                <div className="flex flex-col items-center text-center py-6" data-testid="subgroups-empty">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-fg-faint mb-2" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                  </svg>
-                  <p className="text-fg-tertiary text-sm">No subgroups yet</p>
-                  <p className="text-fg-muted text-sm">
-                    Subgroups let you organize boards and members into nested workspaces.
-                  </p>
-                </div>
+                <SectionEmptyState
+                  testId="subgroups-empty"
+                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
+                  heading="No subgroups yet"
+                  description="Subgroups let you organize boards and members into nested workspaces."
+                />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {subgroups.map((sg) => (
@@ -1494,7 +1503,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <section>
               <h2 className="text-fg font-semibold mb-1">Members</h2>
               <p className="text-fg-muted text-sm mb-4">Manage who has access to this group and their roles.</p>
-              {memberError && <p role="alert" className="text-danger text-xs mb-2">{memberError}</p>}
+              {/* Always-mounted live slot (#1437, #487): only the text changes, so the error is
+                  announced and the member list does not shift when it appears. */}
+              <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mb-2" data-testid="group-member-error">{memberError}</p>
               <div className="flex flex-col gap-2">
                 {members.map((m) => {
                   // The server refuses to change or remove a site admin's
@@ -1572,7 +1583,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                               )}
                             </span>
                             <button onClick={() => { void handleRemoveMember(m.user.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                           </div>
                         ) : (
                           <button
@@ -1641,8 +1652,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       { value: "viewer", label: "Viewer" },
                     ]}
                   />
-                  {defaultsSaved && <span className="text-success text-xs">Saved</span>}
-                  {defaultsError && <span role="alert" className="text-danger text-xs">{defaultsError}</span>}
+                  {/* Reserved status slot: always mounted so Saved/error does not shift the row. The
+                      live region is the slot itself (#1437), so "Saved" is announced too. */}
+                  <span
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className={`text-xs min-w-[4rem] inline-block ${defaultsError ? "text-danger" : "text-success"}`}
+                    data-testid="group-defaults-status"
+                  >
+                    {defaultsError ?? (defaultsSaved ? "Saved" : "")}
+                  </span>
                 </div>
                 {/* #1430: deprecated; stored but never read. Access comes from GroupMembership.role via get_board_role(). Control kept for API compatibility. */}
                 <p id="group-default-member-role-hint" className="text-fg-muted text-xs mt-2">
@@ -1712,7 +1732,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                             Remove <span className="text-fg font-medium">{label.name}</span> from this group?
                           </span>
                           <button onClick={() => { void handleDeleteGroupLabel(label.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                         </div>
                       ) : (
                         <button
@@ -1759,7 +1779,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </button>
                   </div>
                 </div>
-                {labelError && <p role="alert" className="text-danger text-xs mt-1">{labelError}</p>}
+                <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-1" data-testid="group-label-error">{labelError}</p>
               </div>
             </section>
 
@@ -1792,7 +1812,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   Only the group owner ({group.owner.display_name || group.owner.username}) or a site administrator can delete this group.
                 </p>
               )}
-              {deleteError && <p role="alert" className="text-danger text-xs mt-2">{deleteError}</p>}
+              <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-2" data-testid="group-delete-error">{deleteError}</p>
             </section>
           </div>
         )}
@@ -1898,14 +1918,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             />
           </div>
 
-          {transferError && (
-            <p className="text-danger text-sm">{transferError}</p>
-          )}
+          {/* Reserved error slot: always rendered so an error does not shift the buttons, and the
+              alert is the slot itself so the failure is announced (#1437). */}
+          <p role="alert" aria-atomic="true" className="text-sm text-danger min-h-5" data-testid="group-transfer-error">
+            {transferError}
+          </p>
 
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-fg-tertiary hover:text-fg px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
@@ -1929,7 +1951,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       >
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={() => { void handleDeleteGroup(); }} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>
