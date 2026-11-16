@@ -25,7 +25,7 @@ import {
   type LaneFilter,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
-import { isNumberFilterActive, numberFilterDisplay, type NumberFilterValue } from "../../utils/numberFilter";
+import { isNumberFilterActive, numberFilterDisplay, numberInputStep, type NumberFilterValue } from "../../utils/numberFilter";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Date is equality-only. Number (#2357) adds
@@ -697,6 +697,7 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
       <input
         type={definition.field_type === "number" ? "number" : "date"}
         value={value.equals}
+        step={definition.field_type === "number" ? numberInputStep(definition.number_decimals) : undefined}
         onChange={(e) => onChange(value.kind === "number" ? { kind: "number", equals: e.target.value } : { kind: "date", equals: e.target.value })}
         title={definition.name}
         className={`bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0 ${

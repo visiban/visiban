@@ -91,6 +91,7 @@ describe('useSavedFilters', () => {
         7: active,
         8: { kind: 'number', equals: '', op: 'between', min: '', max: '' },
         9: { kind: 'number', equals: '', op: 'between', min: ' ', max: '' },
+        10: { kind: 'number', equals: '5' },
       },
     }
     await act(async () => { await result.current.saveFilter('Ranges', filters) })
@@ -102,6 +103,7 @@ describe('useSavedFilters', () => {
     for (const id of ['8', '9']) {
       expect(sent.customFields[id]).toEqual({ kind: 'number', equals: '' })
     }
+    expect(sent.customFields['10']).toEqual({ kind: 'number', equals: '5' })
     // Serializer rule: no "between" entry without a non-blank bound.
     for (const e of Object.values(sent.customFields)) {
       if (e.op === 'between') expect((e.min ?? '').trim() || (e.max ?? '').trim()).toBeTruthy()

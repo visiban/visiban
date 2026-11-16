@@ -1,3 +1,5 @@
+import type { FilterState } from "../components/Board/FilterBar";
+
 // #2357 — number custom-field card filter: equals (the original #371 shape),
 // between (either bound optional, inclusive), is empty, and has a value.
 //
@@ -161,4 +163,19 @@ export function isValidNumberFilterValue(obj: Record<string, unknown>): boolean 
   if (obj.min !== undefined && typeof obj.min !== "string") return false;
   if (obj.max !== undefined && typeof obj.max !== "string") return false;
   return true;
+}
+
+/**
+ * Save payload only (#2357): an inactive number entry (a between / at least /
+ * at most whose bound is still blank) is what the editor keeps in live state,
+ * but the server rejects "between" with no bound. Collapse it to the inactive
+ * equals shape, which the serializer accepts and every client reads as inactive.
+ */
+export function normalizeFiltersForSave(filters: FilterState): FilterState {
+  const customFields: FilterState["customFields"] = {};
+  for (const [id, cf] of Object.entries(filters.customFields ?? {})) {
+    customFields[Number(id)] =
+      cf.kind === "number" && !isNumberFilterActive(cf) ? { kind: "number", equals: "" } : cf;
+  }
+  return { ...filters, customFields };
 }

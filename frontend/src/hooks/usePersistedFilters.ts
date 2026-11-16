@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { CustomFieldFilterValue, FilterState } from "../components/Board/FilterBar";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
-import { isValidNumberFilterValue } from "../utils/numberFilter";
+import { isValidNumberFilterValue, normalizeFiltersForSave } from "../utils/numberFilter";
 
 function storageKey(boardId: number): string {
   return `board:${boardId}:filters`;
@@ -81,7 +81,7 @@ function load(boardId: number, pinnedFieldIds: number[]): FilterState {
 
 function save(boardId: number, filters: FilterState): void {
   try {
-    localStorage.setItem(storageKey(boardId), JSON.stringify(filters));
+    localStorage.setItem(storageKey(boardId), JSON.stringify(normalizeFiltersForSave(filters)));
   } catch {
     // localStorage unavailable (e.g. private browsing quota exceeded) — fail silently.
   }

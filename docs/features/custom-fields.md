@@ -247,7 +247,7 @@ In the [Filter panel](board.md#filter-panel), a number field's row has an **is**
 - Chips show the operator: `Estimate: 3–8`, `Estimate: ≥ 13`, `Estimate: ≤ 2`, `Estimate: empty`, `Estimate: has a value`.
 - Switching operators keeps what you typed where it fits: an **equals** value becomes the **between** minimum, and back.
 - The filter bar's own number box sets **equals** only. While another operator is in use it shows that filter read-only (for example `3–8`); change it in the Filter panel or remove its chip.
-- Saved filters keep the operator. A Visiban release before 1.3 ignores a range, **is empty** or **has a value** filter (it shows no filter on that field), and re-saving the preset there drops the operator.
+- Saved filters keep the operator. A Visiban release before 1.3 ignores a range, **is empty** or **has a value** filter (it shows no filter on that field), and it keeps the operator when it re-saves the preset, unless you edit that field's filter there, which replaces the operator filter with a plain **equals** one.
 
 !!! note
     Date, text and choice filters have no operator menu yet: date and choice match an exact value, text a substring ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).

@@ -692,6 +692,19 @@ describe('FilterBar — number operator entries (#2357)', () => {
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
+  it.each([[0, '1'], [2, '0.01'], [null, 'any']])('number box step for decimals %s is %s', (decimals, step) => {
+    const board = numberBoard()
+    board.custom_field_definitions[0].number_decimals = decimals as number | null
+    render(
+      <FilterBar
+        board={board}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('spinbutton')).toHaveAttribute('step', step)
+  })
+
   it('keeps an inactive blank range as an editable box', () => {
     render(
       <FilterBar

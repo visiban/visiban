@@ -53,6 +53,20 @@ describe('usePersistedFilters', () => {
     expect(result.current.filters).toEqual({ ...stored, blockedOnly: false })
   })
 
+  // #2357
+  it('writes a blank between to localStorage normalized, leaves live state and active filters alone', () => {
+    const blank = { kind: 'number' as const, equals: '', op: 'between' as const, min: '', max: '' }
+    const active = { kind: 'number' as const, equals: '', op: 'between' as const, min: '3', max: '' }
+    const { result } = renderHook(() => usePersistedFilters(1))
+    act(() => {
+      result.current.setFilters({ ...EMPTY_FILTER, customFields: { 7: blank, 8: active } })
+    })
+    const stored = JSON.parse(mockStorage.getItem('board:1:filters')!)
+    expect(stored.customFields['7']).toEqual({ kind: 'number', equals: '' })
+    expect(stored.customFields['8']).toEqual(active)
+    expect(result.current.filters.customFields[7]).toEqual(blank)
+  })
+
   // #1149
   it('restores the Blocked only toggle and ignores a non-boolean value', () => {
     mockStorage.setItem('board:1:filters', JSON.stringify({ ...EMPTY_FILTER, blockedOnly: true }))
