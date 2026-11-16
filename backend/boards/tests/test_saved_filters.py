@@ -623,6 +623,7 @@ class SavedFilterNumberOperatorStateTests(TestCase):
             "max NUL": {**base, "op": "between", "max": "1\u00002"},
             "between no bounds": {**base, "op": "between"},
             "between empty bounds": {**base, "op": "between", "min": "", "max": ""},
+            "between whitespace bounds": {**base, "op": "between", "min": " ", "max": "\t"},
             "equals missing": {"kind": "number", "op": "empty"},
         }
         for label, entry in cases.items():

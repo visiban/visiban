@@ -8,7 +8,7 @@ import ActiveMark from "../Common/ActiveMark";
 import FilterChip from "./FilterChip";
 import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
-import { choiceColor, explicitChoiceColor } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -25,7 +25,7 @@ import {
   type LaneFilter,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
-import type { NumberFilterValue } from "../../utils/numberFilter";
+import { numberFilterDisplay, type NumberFilterValue } from "../../utils/numberFilter";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Date is equality-only. Number (#2357) adds
@@ -667,6 +667,23 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
         options={definition.choices.map((c) => ({ value: c, label: c }))}
         selected={value.kind === "multi_choice" ? value.values : []}
         onChange={(values) => onChange({ kind: "multi_choice", values })}
+      />
+    );
+  }
+
+  // #2357 — the toolbar box edits equals only. With another operator set (in
+  // the Filter panel or a loaded saved filter) it shows the operator read-only:
+  // a blank, editable box would hide the active filter, and typing in it would
+  // silently drop op/min/max.
+  if (value.kind === "number" && (value.op ?? "eq") !== "eq") {
+    return (
+      <input
+        type="text"
+        readOnly
+        aria-label={`${definition.name} filter`}
+        value={numberFilterDisplay(value, (raw) => formatCustomFieldValue(definition, raw, ""))}
+        title={`${definition.name}: change this filter in the Filter panel`}
+        className="bg-surface-hover border border-line rounded px-2 py-1 text-sm text-fg-secondary w-24 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0"
       />
     );
   }

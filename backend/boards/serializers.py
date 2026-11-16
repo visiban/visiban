@@ -5103,7 +5103,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             if not isinstance(value, str) or len(value) > cap:
                 raise err(f"state_json.customFields number {bound} must be a string of at most {cap} characters.")
             self._reject_nul(value, f"state_json.customFields number {bound}")
-        if op == "between" and not (entry.get("min") or entry.get("max")):
+        # Whitespace-only counts as blank, matching the client's finiteBound.
+        if op == "between" and not (entry.get("min", "").strip() or entry.get("max", "").strip()):
             raise err("state_json.customFields number between needs a min or a max.")
 
     def _is_lane_id(self, v):
