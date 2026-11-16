@@ -9,7 +9,7 @@ Pick a template in the **Create Board** modal, then drag cards between cells. Ev
 **The big picture:** the board is a grid. Columns are pipeline stages, swimlanes are the entities moving through them (customers, projects, epics), and each card sits in exactly one cell. Every move is logged to the audit trail.
 
 !!! note "Small screens"
-    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. On a touch screen, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
+    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer, and below 640 px the board shows one column at a time (see [Phone layout](#phone-layout)). On a tablet, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
 
 ## Board creation
 
@@ -370,11 +370,11 @@ While you drag, the card tilts slightly and lifts, and the cell under it gets a 
 
 > **Changed in 1.2**
 
-On a tablet or phone, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
+On a tablet, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
 
 To move a card without dragging, open it and tap **Move** next to the column name at the top of the panel. On touch screens this button is larger and shows its label. Or tap the **⋯ More actions** button on a selected card, or on the card you just closed, and choose **Move to…** from its [actions menu](#card-actions-menu).
 
-A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
+On a phone (below 640 px) cards are not draggable; use Move as above. A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
 ### Phone layout
 

@@ -89,13 +89,15 @@ test.describe('Custom color picker in a modal (#2095)', () => {
   })
 
   test('the panel sits on screen with every control hit-testable, at phone width', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 640 })
+    // 640px is the narrowest width that still renders the grid: the phone layout (#2277) has no
+    // swimlane edit button yet, so the modal is unreachable below it.
+    await page.setViewportSize({ width: 640, height: 640 })
     await openEditModal(page)
     await trigger(page).click()
     const box = await panel(page).boundingBox()
     expect(box).not.toBeNull()
     expect(box!.x).toBeGreaterThanOrEqual(8)
-    expect(box!.x + box!.width).toBeLessThanOrEqual(312)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(632)
 
     const grid = page.locator('.custom-color-panel .grid-cols-3 input')
     const tops = await grid.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top))

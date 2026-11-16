@@ -62,7 +62,7 @@ describe('PhoneBoard (#2277)', () => {
     const { onToggleSwimlane } = setup()
     expect(screen.getAllByTestId('phone-lane')).toHaveLength(2)
     expect(screen.getByText('2 here')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Collapse lane APAC' }))
+    await user.click(screen.getByRole('button', { name: /Collapse lane APAC/ }))
     expect(onToggleSwimlane).toHaveBeenCalledWith(2)
   })
 
@@ -70,7 +70,7 @@ describe('PhoneBoard (#2277)', () => {
     setup({ collapsedSwimlaneIds: new Set([2]), filteredCardIds: new Set([1, 2]) })
     expect(screen.getByText('Card 1')).toBeInTheDocument()
     expect(screen.queryByText('Card 2')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Expand lane APAC' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: /Expand lane APAC/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('counts overdue cards in the lane band', () => {
@@ -78,8 +78,28 @@ describe('PhoneBoard (#2277)', () => {
     expect(screen.getByText('1 overdue')).toBeInTheDocument()
   })
 
-  it('renders nothing without columns', () => {
+  it('says so without columns', () => {
     setup({ columns: [] })
-    expect(screen.queryByTestId('phone-board')).not.toBeInTheDocument()
+    expect(screen.getByText('No visible columns')).toBeInTheDocument()
+  })
+
+  it('moves between column tabs with the arrow keys (roving tabindex)', async () => {
+    const user = userEvent.setup()
+    setup()
+    const first = screen.getByRole('tab', { name: /Prospect/ })
+    expect(first).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveAttribute('tabindex', '-1')
+    first.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{Home}')
+    expect(screen.getByRole('tab', { name: /Prospect/ })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{End}')
+    expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('says so without swimlanes', () => {
+    setup({ swimlanes: [] })
+    expect(screen.getByText('No swimlanes')).toBeInTheDocument()
   })
 })

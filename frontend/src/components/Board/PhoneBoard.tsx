@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
@@ -50,14 +50,26 @@ export default function PhoneBoard({
 }: Props) {
   const ordered = [...columns].sort((a, b) => a.position - b.position);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const uid = useId();
   // A column deleted or hidden while selected falls back to the first one.
   const column = ordered.find((c) => c.id === selectedId) ?? ordered[0];
-  if (!column) return null;
+  if (!column) return <p data-testid="phone-board-empty" className="px-3 py-4 text-sm text-fg-secondary">No visible columns</p>;
 
   const columnCards = cards.filter((c) => c.column === column.id);
   const count = columnCards.length;
   const limit = column.wip_limit !== null && column.wip_limit > 0 ? column.wip_limit : null;
   const over = limit !== null && count > limit;
+  const selectColumn = (id: number, focus = false) => {
+    setSelectedId(id);
+    if (focus) requestAnimationFrame(() => document.getElementById(`${uid}-tab-${id}`)?.focus());
+  };
+  // Roving tabindex: arrows, Home and End move between tabs, so one Tab stop covers the row.
+  const onTabKey = (e: React.KeyboardEvent, idx: number) => {
+    const next = e.key === "ArrowRight" ? idx + 1 : e.key === "ArrowLeft" ? idx - 1 : e.key === "Home" ? 0 : e.key === "End" ? ordered.length - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    selectColumn(ordered[(next + ordered.length) % ordered.length].id, true);
+  };
   const doneIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
 
   return (
@@ -68,7 +80,7 @@ export default function PhoneBoard({
         data-testid="phone-column-switcher"
         className="flex gap-2 overflow-x-auto py-2 -mx-3 px-3 sticky top-0 z-20 bg-sunken"
       >
-        {ordered.map((col) => {
+        {ordered.map((col, idx) => {
           const on = col.id === column.id;
           const n = cards.filter((c) => c.column === col.id).length;
           const colOver = col.wip_limit !== null && col.wip_limit > 0 && n > col.wip_limit;
@@ -77,10 +89,15 @@ export default function PhoneBoard({
               key={col.id}
               type="button"
               role="tab"
+              id={`${uid}-tab-${col.id}`}
+              aria-controls={`${uid}-panel`}
               aria-selected={on}
+              tabIndex={on ? 0 : -1}
+              onKeyDown={(e) => onTabKey(e, idx)}
+              aria-label={`${col.name}, ${n} ${n === 1 ? "card" : "cards"}${colOver ? ", over limit" : ""}`}
               data-phone-column={col.id}
-              onClick={() => setSelectedId(col.id)}
-              className={`shrink-0 inline-flex items-center gap-2 min-h-11 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              onClick={() => selectColumn(col.id)}
+              className={`shrink-0 inline-flex items-center gap-2 min-h-11 px-3 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 on ? "border-info bg-primary/20 text-fg font-semibold" : "border-line bg-surface text-fg-secondary hover:border-line-strong"
               }`}
             >
@@ -110,7 +127,8 @@ export default function PhoneBoard({
         </div>
       )}
 
-      <div role="tabpanel" aria-label={column.name} className="flex flex-col gap-2.5">
+      <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${column.id}`} className="flex flex-col gap-2.5">
+        {swimlanes.length === 0 && <p className="text-sm text-fg-secondary">No swimlanes</p>}
         {swimlanes.map((lane) => {
           const laneCards = columnCards.filter((c) => c.swimlane === lane.id).sort((a, b) => a.position - b.position);
           const shown = filteredCardIds ? laneCards.filter((c) => filteredCardIds.has(c.id)) : laneCards;
@@ -124,10 +142,10 @@ export default function PhoneBoard({
               <button
                 type="button"
                 aria-expanded={!collapsed}
-                aria-label={`${collapsed ? "Expand" : "Collapse"} lane ${lane.name}`}
+                aria-label={`${collapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${laneCards.length} here${overdue > 0 ? `, ${overdue} overdue` : ""}${stale > 0 ? `, ${stale} stale` : ""}`}
                 onClick={() => onToggleSwimlane(lane.id)}
                 style={columnTintStyle(lane.color)}
-                className="flex flex-col gap-1 min-h-11 w-full text-left rounded-lg border border-line bg-surface p-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="flex flex-col gap-1 min-h-11 w-full text-left rounded border border-line bg-surface p-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 <span className="flex items-center gap-2 w-full">
                   <span aria-hidden="true" className="text-fg-secondary">{collapsed ? "▸" : "▾"}</span>

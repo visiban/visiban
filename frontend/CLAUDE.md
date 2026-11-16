@@ -684,7 +684,7 @@ The "Show" row sits above the column headers (`components/Board/ShowChips.tsx`):
 
 Below 640px (`useIsPhoneViewport`) `BoardView` renders `components/Board/PhoneBoard.tsx` instead of the grid; tablets keep the grid. Spec: `docs/development/board-redesign.md` § Phone width.
 
-- One column at a time: a `role="tablist"` row of column buttons (dot, name, count) that scrolls sideways inside itself, then the selected column's limit line and `role="meter"`. The selection is local state and falls back to the first column if it disappears.
+- One column at a time: a `role="tablist"` row of column buttons (dot, name, count) that scrolls sideways inside itself, then the selected column's limit line and `role="meter"`. The selection is local state and falls back to the first column if it disappears. The tabs use a roving `tabIndex` with Arrow, Home and End keys, and carry the count and over-limit state in their accessible name. Buttons stay `rounded` (not `rounded-lg`).
 - Lanes stack; the band is one `min-h-11` button (`aria-expanded`) that collapses the lane. Cards are the normal `CardItem`.
 - No drag at this width (`DndContext` gets no sensors). Moving a card goes through the peek sheet's Move and the card's More actions menu, never a drag-only path.
 - Show chips use `phone` on `ShowChips`: one `flex-nowrap overflow-x-auto` row, `min-h-11` chips and lane button, totals hidden.
