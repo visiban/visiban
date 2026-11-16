@@ -3168,6 +3168,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onSwimlanesReordered={(ids) => { void onSwimlanesReordered(ids); }}
               hardWipEnforced={board.enforce_wip_hard}
               healthAutoEnabled={board.health_auto_enabled}
+              showWipAtLimit={board.show_wip_at_limit}
+              rollupField={resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions)}
+              hideRowChipFieldNames={board.show_row_chip_field_names === false}
             />
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>

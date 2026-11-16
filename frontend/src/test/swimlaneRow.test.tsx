@@ -105,11 +105,21 @@ describe('SwimlaneRow', () => {
     expect(container.querySelector('[data-current-card-id="7"]')).not.toBeNull()
   })
 
-  it('shows the name at 17px semibold and the card count as text', () => {
+  it('shows the name at 17px semibold and no card count (#2328: the band ends at the rollup)', () => {
     render(<SwimlaneRow {...defaultProps()} cards={[makeCard({ id: 1 }), makeCard({ id: 2 })]} />)
     expect(screen.getByTestId('swimlane-name').className).toContain('text-[17px]')
     expect(screen.getByTestId('swimlane-name').className).toContain('font-semibold')
-    expect(screen.getByTestId('swimlane-card-count')).toHaveTextContent('2 cards')
+    expect(screen.queryByTestId('swimlane-card-count')).toBeNull()
+    // No "N cards" text anywhere in the band, expanded or collapsed.
+    expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
+  })
+
+  it('keeps the edit control on demand: hidden until hover or focus (#2335)', () => {
+    render(<SwimlaneRow {...defaultProps()} isAdmin />)
+    const edit = screen.getByTitle('Edit swimlane')
+    expect(edit.className).toContain('opacity-0')
+    expect(edit.className).toContain('group-hover:opacity-100')
+    expect(edit.className).toContain('focus:opacity-100')
   })
 
   it('shows overdue and stale counts as text and omits them at zero', () => {
@@ -612,12 +622,12 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()).toBeNull()
   })
 
-  it('puts the limit line before the card count, after overdue and stale', () => {
+  it('puts the limit line after overdue and stale', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={[...cardsIn(5), makeCard({ id: 300, uid: 'od', due_date: '2020-01-01' })]} />)
     const kids = Array.from(screen.getByTestId('swimlane-band-stats').children)
     const idx = (id: string) => kids.findIndex((k) => k.getAttribute('data-testid') === id)
     expect(idx('swimlane-overdue-count')).toBeLessThan(idx('swimlane-limit-stat'))
-    expect(idx('swimlane-limit-stat')).toBeLessThan(idx('swimlane-card-count'))
+    expect(idx('swimlane-limit-stat')).toBe(kids.length - 1)
   })
 })
 
@@ -663,14 +673,14 @@ describe('SwimlaneRow — number rollup (#2275)', () => {
     expect(rollup()).toHaveTextContent('$33k open')
   })
 
-  it('sits after the limit line and before the card count', () => {
+  it('sits after the limit line and ends the band stats (#2328)', () => {
     render(
       <SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, wip_limit: 9 }} rollupField={amount} cards={[valued(1, '33')]} />,
     )
     const kids = Array.from(screen.getByTestId('swimlane-band-stats').children)
     const idx = (id: string) => kids.findIndex((k) => k.getAttribute('data-testid') === id)
     expect(idx('swimlane-limit-stat')).toBeLessThan(idx('swimlane-rollup'))
-    expect(idx('swimlane-rollup')).toBeLessThan(idx('swimlane-card-count'))
+    expect(idx('swimlane-rollup')).toBe(kids.length - 1)
   })
 })
 
