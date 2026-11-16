@@ -498,7 +498,8 @@ The toolbar's **Filter** button opens a panel with:
 
 - A **Find a field** box (focused on open) that narrows the rows below it by name.
 - One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when you can see swimlane fields) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
-- Your **saved filters**. Click one to load it and close the panel. Saving and deleting stay in the filter bar.
+- A **Filtered by** row at the top while any filter is active: one chip per active filter (click the **x**, or focus a chip and press Enter, Space or Delete, to remove it), **Clear all**, and **Save filter**, which asks for a name and saves like the filter bar does. Lane rules appear as **Lanes** chips.
+- Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
 
 The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other, in the URL and in saved filters. Pressing `f` still toggles the filter bar, not the panel.

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -6,8 +6,9 @@ import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
 import ActiveMark from "../Common/ActiveMark";
 import FilterChip from "./FilterChip";
+import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
-import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -218,20 +219,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const swimlaneDefs = board.swimlane_custom_field_definitions;
   const laneFields = useMemo(() => laneFilterFields(swimlaneDefs ?? [], isBoardAdmin), [swimlaneDefs, isBoardAdmin]);
-  const laneFmt: LaneValueFormatter = useCallback(
-    (field, raw) => {
-      const def = (swimlaneDefs ?? []).find((d) => d.id === field.id);
-      if (!def) return raw;
-      const shown = formatCustomFieldValue(def, raw, userDateFormat);
-      // A number with no display format comes back as typed; group its
-      // thousands so "Deal value 50,000 or more" reads at a glance.
-      if (def.field_type === "number" && shown === raw && Number.isFinite(Number(raw))) {
-        return Number(raw).toLocaleString("en-US", { maximumFractionDigits: 10 });
-      }
-      return shown;
-    },
-    [swimlaneDefs, userDateFormat],
-  );
+  const laneFmt: LaneValueFormatter = useMemo(() => makeLaneValueFormatter(swimlaneDefs, userDateFormat), [swimlaneDefs, userDateFormat]);
   // Memoized: chips and the summary are pure in these inputs, and the filter
   // strip re-renders on every keystroke in the search box (#2205 perf-check).
   const laneChips = useMemo(
@@ -339,7 +327,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   };
 
   // Derive chips from active filter state (search is excluded — the input already communicates state)
-  const chips: { key: string; label: string; colorDot?: string; avatarUser?: BoardUser; onDismiss: () => void }[] = [];
+  const chips = buildFilterChips(board, filters, onChange, userDateFormat);
 
   // Assignee choices: the board's members, then any assignee on a card who is
   // not in the member list. The list omits users with all-content access for
@@ -347,83 +335,6 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   const assigneeUsers = new Map<number, BoardUser>(board.members.map((m) => [m.user.id, m.user]));
   for (const card of board.cards) {
     if (card.assignee && !assigneeUsers.has(card.assignee.id)) assigneeUsers.set(card.assignee.id, card.assignee);
-  }
-
-  for (const assigneeId of filters.assigneeIds) {
-    if (assigneeId === -1) {
-      chips.push({
-        key: "assignee:-1",
-        label: "Unassigned",
-        onDismiss: () => onChange({ ...filters, assigneeIds: filters.assigneeIds.filter((id) => id !== -1) }),
-      });
-    } else {
-      const assignee = assigneeUsers.get(assigneeId);
-      if (assignee) {
-        chips.push({
-          key: `assignee:${assigneeId}`,
-          label: userDisplayName(assignee),
-          avatarUser: assignee,
-          onDismiss: () => onChange({ ...filters, assigneeIds: filters.assigneeIds.filter((id) => id !== assigneeId) }),
-        });
-      }
-    }
-  }
-
-  for (const labelId of filters.labelIds) {
-    const label = board.labels.find((l) => l.id === labelId);
-    if (label) {
-      chips.push({
-        key: `label:${labelId}`,
-        label: label.name,
-        colorDot: label.color,
-        onDismiss: () => onChange({ ...filters, labelIds: filters.labelIds.filter((id) => id !== labelId) }),
-      });
-    }
-  }
-
-  for (const priority of filters.priorities) {
-    const option = PRIORITY_OPTIONS.find((o) => o.value === priority);
-    if (option) {
-      chips.push({
-        key: `priority:${priority}`,
-        label: option.label,
-        colorDot: option.color,
-        onDismiss: () => onChange({ ...filters, priorities: filters.priorities.filter((p) => p !== priority) }),
-      });
-    }
-  }
-
-  if (filters.dueDate !== null) {
-    const option = DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate);
-    if (option) {
-      chips.push({
-        key: `due:${filters.dueDate}`,
-        label: option.label,
-        onDismiss: () => onChange({ ...filters, dueDate: null }),
-      });
-    }
-  }
-
-  if (filters.blockedOnly) {
-    chips.push({
-      key: "blocked-only",
-      label: "Blocked only",
-      onDismiss: () => onChange({ ...filters, blockedOnly: false }),
-    });
-  }
-
-  // #371 — custom field filter chips. Dismissing clears the value but keeps
-  // the field in visibleCustomFieldFilterIds so its (now-empty) control
-  // doesn't disappear mid-interaction.
-  for (const def of board.custom_field_definitions) {
-    const v = filters.customFields[def.id];
-    if (!v || !isCustomFieldFilterActive(v)) continue;
-    const displayValue = v.kind === "choice" || v.kind === "multi_choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, userDateFormat);
-    chips.push({
-      key: `cf:${def.id}`,
-      label: `${def.name}: ${displayValue}`,
-      onDismiss: () => onChange({ ...filters, customFields: { ...filters.customFields, [def.id]: emptyCustomFieldFilterValue(def) } }),
-    });
   }
 
   const statusText = [

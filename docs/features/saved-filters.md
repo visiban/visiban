@@ -4,7 +4,7 @@
 
 > **Added in 1.0**
 
-Set your filters, open the **Saved** dropdown next to the filter bar, and click **Save current filters**. Click a preset name later to restore it. (1.3+) The **Filter** panel also lists your saved filters at the bottom; clicking one loads it. Saving and deleting stay in the filter bar.
+Set your filters, open the **Saved** dropdown next to the filter bar, and click **Save current filters**. Click a preset name later to restore it. (1.3+) The **Filter** panel also lists your saved filters at the bottom; clicking one loads it. When a filter is active, the panel also shows a **Filtered by** row with **Save filter**: it asks for a name and saves the current filters exactly like **Save current filters** in the filter bar. Deleting stays in the filter bar.
 
 **Why it matters:** Presets are stored server-side, so they follow you across devices and browsers.
 

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
+import { useState } from 'react'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterPanel from '../components/Board/FilterPanel'
-import { EMPTY_FILTER } from '../components/Board/FilterBar'
+import { EMPTY_FILTER, countActiveFilters } from '../components/Board/FilterBar'
 import type { FilterState } from '../components/Board/FilterBar'
 import type { BoardFull, SavedFilter, User } from '../types'
 
@@ -37,7 +38,7 @@ const saved: SavedFilter[] = [
   { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
 ]
 
-function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null } = {}) {
+function setup(over: { activeCount?: number; filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }> } = {}) {
   const onChange = vi.fn()
   const onLoadSaved = vi.fn()
   const onToggleFilterBar = vi.fn()
@@ -47,7 +48,7 @@ function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: 
       board={over.board ?? makeBoard()}
       filters={over.filters ?? EMPTY_FILTER}
       onChange={onChange}
-      activeCount={0}
+      activeCount={over.activeCount ?? countActiveFilters(over.filters ?? EMPTY_FILTER)}
       icon={null}
       savedFilters={over.savedFilters ?? saved}
       activeFilterId={over.activeFilterId ?? null}
@@ -55,6 +56,7 @@ function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: 
       filterBarShown={false}
       onToggleFilterBar={onToggleFilterBar}
       onOpenLaneFilters={onOpenLaneFilters}
+      onSaveFilter={over.onSaveFilter}
     />,
   )
   return { onChange, onLoadSaved, onToggleFilterBar, onOpenLaneFilters }
@@ -400,5 +402,204 @@ describe('FilterPanel (#2301)', () => {
     dots.forEach((d) => expect((d as HTMLElement).style.backgroundColor).not.toBe(''))
     await u.click(screen.getByRole('button', { name: /^Tags/ }))
     expect(screen.getByRole('group', { name: 'Tags' }).querySelectorAll('span[aria-hidden="true"]')).toHaveLength(0)
+  })
+})
+
+describe('FilterPanel Filtered by row (#2315)', () => {
+  const active: FilterState = { ...EMPTY_FILTER, labelIds: [100], priorities: ['high'], blockedOnly: true }
+
+  it('shows no row when nothing is filtered', async () => {
+    const u = userEvent.setup()
+    setup({ onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.queryByTestId('filter-panel-chips')).toBeNull()
+  })
+
+  it('lists one removable chip per active filter, and dismisses like the filter bar', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    // Each chip is a role=button span holding a (tab-skipped) × button with the same name.
+    const names = new Set(within(group).getAllByRole('button').map((b) => b.getAttribute('aria-label')))
+    expect([...names]).toEqual(['Remove Bug filter', 'Remove High filter', 'Remove Blocked only filter'])
+    await u.click(within(group).getAllByRole('button', { name: 'Remove Bug filter' })[1])
+    expect(onChange).toHaveBeenLastCalledWith({ ...active, labelIds: [] })
+    // Keyboard: Delete on the focused chip dismisses it
+    within(group).getAllByRole('button', { name: 'Remove High filter' })[0].focus()
+    await u.keyboard('{Delete}')
+    expect(onChange).toHaveBeenLastCalledWith({ ...active, priorities: [] })
+  })
+
+  it('Clear all resets to the empty filter', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
+  })
+
+  it('returns focus to Save filter when Escape closes the name input', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    await u.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Save filter' })).toHaveFocus()
+  })
+
+  it('falls back to Find a field when the row goes away (Clear all with the filters prop updated)', async () => {
+    const u = userEvent.setup()
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>(active)
+      return (
+        <FilterPanel
+          board={makeBoard()} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(screen.queryByTestId('filter-panel-chips')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+  })
+
+  it('keeps focus in the panel when a chip is removed: the neighbor chip, then Clear all', async () => {
+    const u = userEvent.setup()
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>(active)
+      return (
+        <FilterPanel
+          board={makeBoard()} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    const group = () => screen.getByRole('group', { name: 'Filtered by' })
+    // Bug, High, Blocked: remove the first; the chip that takes its place (High) gets focus.
+    await u.click(within(group()).getAllByRole('button', { name: 'Remove Bug filter' })[1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(within(group()).getAllByRole('button', { name: 'Remove High filter' })[0]).toHaveFocus()
+    // Remove the last (Blocked): the previous chip (High) gets focus.
+    await u.click(within(group()).getAllByRole('button', { name: 'Remove Blocked only filter' })[1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(within(group()).getAllByRole('button', { name: 'Remove High filter' })[0]).toHaveFocus()
+  })
+
+  it('keeps focus in the panel when a lane chip is removed, falling back to Clear all', async () => {
+    const u = userEvent.setup()
+    const laneBoard = makeBoard({
+      swimlane_custom_field_definitions: [{
+        id: 21, uid: 'slf21', name: 'Team', field_type: 'dropdown', choices: ['Red', 'Blue'], position: 1, show_on_row: false, is_admin_only: false,
+      }] as never,
+    })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', value: 'Red' }] }
+    function Wrapper() {
+      const [f, setF] = useState<FilterState>({ ...EMPTY_FILTER, blockedOnly: true, laneFilter } as unknown as FilterState)
+      return (
+        <FilterPanel
+          board={laneBoard} filters={f} onChange={setF} activeCount={countActiveFilters(f)} icon={null}
+          savedFilters={saved} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false}
+          onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} onSaveFilter={vi.fn()}
+        />
+      )
+    }
+    render(<Wrapper />)
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    const btns = within(group).getAllByRole('button', { name: 'Lanes: Team is Red, remove' })
+    await u.click(btns[btns.length - 1])
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    // The lane chip was last; the Blocked chip before it takes focus.
+    expect(within(screen.getByRole('group', { name: 'Filtered by' })).getAllByRole('button', { name: 'Remove Blocked only filter' })[0]).toHaveFocus()
+  })
+
+  it('offers Clear all and Save filter when an unresolved assignee counts but has no chip', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: { ...EMPTY_FILTER, assigneeIds: [9999] }, onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Filtered by' })).toBeNull()
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
+  })
+
+  it('Save filter asks for a name, saves through the shared handler and closes the form', async () => {
+    const u = userEvent.setup()
+    const onSaveFilter = vi.fn().mockResolvedValue({})
+    setup({ filters: active, onSaveFilter })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    const input = screen.getByRole('textbox', { name: 'Save current filters as:' })
+    expect(input).toHaveFocus()
+    await u.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Filter name is required.')
+    expect(onSaveFilter).not.toHaveBeenCalled()
+    await u.type(input, '  Hot bugs {Enter}')
+    expect(onSaveFilter).toHaveBeenCalledWith('Hot bugs')
+    expect(screen.queryByRole('textbox', { name: 'Save current filters as:' })).toBeNull()
+  })
+
+  it('keeps the form open and shows the error when saving fails; Escape cancels the form first', async () => {
+    const u = userEvent.setup()
+    const onSaveFilter = vi.fn().mockResolvedValue({ error: 'Name already taken.' })
+    setup({ filters: active, onSaveFilter })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    await u.type(screen.getByRole('textbox', { name: 'Save current filters as:' }), 'Dup{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Name already taken.')
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Save current filters as:' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+  })
+
+  it('caps the save name at 100 characters, like the Saved dropdown', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    expect(screen.getByRole('textbox', { name: 'Save current filters as:' })).toHaveAttribute('maxlength', '100')
+  })
+
+  it('dismisses a lane chip through onChange', async () => {
+    const u = userEvent.setup()
+    const laneBoard = makeBoard({
+      swimlane_custom_field_definitions: [{
+        id: 21, uid: 'slf21', name: 'Team', field_type: 'dropdown', choices: ['Red', 'Blue'], position: 1, show_on_row: false, is_admin_only: false,
+      }] as never,
+    })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', value: 'Red' }] }
+    const { onChange } = setup({ board: laneBoard, filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState, onSaveFilter: vi.fn() })
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    const btns = within(group).getAllByRole('button', { name: 'Lanes: Team is Red, remove' })
+    await u.click(btns[btns.length - 1])
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const next = onChange.mock.calls[0][0] as FilterState
+    expect(next.laneFilter).toBeUndefined()
+  })
+
+  it('shows Clear all and Save filter, with no chips, for a search-only filter', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: { ...EMPTY_FILTER, search: 'crash' }, onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.queryByRole('group', { name: 'Filtered by' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeInTheDocument()
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
+  })
+
+  it('omits Save filter when no save handler is wired', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active })
+    await open(u)
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save filter' })).toBeNull()
   })
 })
