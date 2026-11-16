@@ -167,7 +167,85 @@ describe('Dashboard', () => {
     expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
-    expect(screen.queryByTestId('dashboard-load-error')).not.toBeInTheDocument()
+    // The alert stays mounted (#1435/#1437); only its text is cleared.
+    expect(screen.getByTestId('dashboard-load-error')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
+
+  it('keeps focus on Retry while retrying, labels it Retrying…, and moves focus to Groups on recovery (#1772)', async () => {
+    mockListBoards.mockRejectedValueOnce(new Error('x'))
+    mockListGroups.mockResolvedValue([])
+    renderDashboard()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Failed to load boards.')
+    expect(alert).not.toHaveTextContent('refreshing')
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    expect(retry).toHaveAttribute('aria-describedby', 'dashboard-load-error')
+    expect(document.getElementById('dashboard-load-error')).toBe(alert)
+
+    let resolveBoards: (b: unknown[]) => void = () => undefined
+    mockListBoards.mockImplementationOnce(() => new Promise((r) => { resolveBoards = r }))
+    retry.focus()
+    await userEvent.keyboard('{Enter}')
+    // Same element, still focused, inert with a progress label; the error stays until the round settles.
+    const retrying = screen.getByRole('button', { name: 'Retrying…' })
+    expect(retrying).toBe(retry)
+    expect(retrying).toHaveAttribute('aria-disabled', 'true')
+    expect(document.activeElement).toBe(retrying)
+    expect(alert).toHaveTextContent('Failed to load boards.')
+    // A second activation while in flight starts no new round.
+    await userEvent.keyboard('{Enter}')
+    expect(mockListBoards).toHaveBeenCalledTimes(2)
+
+    resolveBoards([])
+    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(alert).toBeEmptyDOMElement()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Groups' }))
+  })
+
+  it('re-enables Retry and keeps the error when the retry round fails again', async () => {
+    mockListBoards.mockRejectedValueOnce(new Error('x')).mockRejectedValueOnce(new Error('y'))
+    mockListGroups.mockResolvedValue([])
+    renderDashboard()
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    expect(retry).not.toHaveAttribute('aria-disabled')
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load boards.')
+    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+  })
+
+  it('ignores a late rejection from the first load round after the retry succeeded (#487)', async () => {
+    // Round 1: boards rejects at once (Retry appears) while groups is still pending.
+    let rejectGroups1: (e: Error) => void = () => undefined
+    mockListBoards.mockRejectedValueOnce(new Error('x'))
+    mockListGroups.mockImplementationOnce(() => new Promise((_r, rej) => { rejectGroups1 = rej }))
+    renderDashboard()
+    // Round 2 (Retry): both succeed.
+    mockListBoards.mockResolvedValueOnce([])
+    mockListGroups.mockResolvedValueOnce([])
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+
+    // Round 1's groups fetch now rejects late; it must not resurrect the error or the Retry button.
+    rejectGroups1(new Error('late'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.getByTestId('dashboard-load-error')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.getByText('Welcome to Visiban')).toBeInTheDocument()
+  })
+
+  it('ignores a late success from the first load round after the retry round loaded newer data (#487)', async () => {
+    let resolveGroups1: (g: unknown[]) => void = () => undefined
+    mockListBoards.mockRejectedValueOnce(new Error('x'))
+    mockListGroups.mockImplementationOnce(() => new Promise((r) => { resolveGroups1 = r }))
+    renderDashboard()
+    mockListBoards.mockResolvedValueOnce([])
+    mockListGroups.mockResolvedValueOnce([])
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    resolveGroups1([{ id: 9, name: 'Stale Group', description: '', owner: fakeUser, parent: null, parent_name: null, member_count: 1, board_count: 0, subgroup_count: 0, created_at: '' }])
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByText('Stale Group')).not.toBeInTheDocument()
   })
 
   it('renders boards when available', async () => {
@@ -479,7 +557,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     mockListGroups.mockResolvedValue([])
     renderDashboard()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
-      'Failed to load boards. Try refreshing the page.'
+      'Failed to load boards.'
     )
   })
 
@@ -488,7 +566,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     mockListGroups.mockRejectedValue(new Error('network error'))
     renderDashboard()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
-      'Failed to load groups. Try refreshing the page.'
+      'Failed to load groups.'
     )
   })
 

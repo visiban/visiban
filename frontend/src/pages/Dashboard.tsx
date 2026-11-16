@@ -49,31 +49,64 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   // True when the initial boards or groups fetch rejected. Drives the error state
   // (with Retry) and keeps a failed load from masquerading as "no data" (#487).
   const [loadFailed, setLoadFailed] = useState(false);
+  // True while a Retry round is in flight. The Retry button stays mounted (aria-disabled,
+  // "Retrying…") so keyboard focus is not dropped to <body> (#1772, #1437).
+  const [retrying, setRetrying] = useState(false);
+  // Each load round takes the next generation; only the latest round may write state.
+  // Retry is offered on the first rejection while the other fetch can still be pending, so
+  // without this a late rejection or `finally` from round 1 could re-show the error or
+  // clear a loading flag after the retry round succeeded (#487).
+  const loadGenRef = useRef(0);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const groupsHeadingRef = useRef<HTMLHeadingElement>(null);
 
-  const loadAll = useCallback(() => {
-    setLoadError(null);
-    setLoadFailed(false);
+  const loadAll = useCallback((isRetry = false) => {
+    const gen = ++loadGenRef.current;
+    const isCurrent = () => gen === loadGenRef.current;
+    // A retry keeps the current error (and its Retry button) on screen until the new round
+    // settles; the first load starts clean.
+    if (!isRetry) {
+      setLoadError(null);
+      setLoadFailed(false);
+    }
+    setRetrying(isRetry);
     setLoadingBoards(true);
     setLoadingGroups(true);
-    listBoards()
-      .then(setBoards)
-      .catch(() => {
-        setLoadFailed(true);
-        setLoadError("Failed to load boards. Try refreshing the page.");
-      })
-      .finally(() => setLoadingBoards(false));
-    listGroups()
-      .then(setGroups)
-      .catch(() => {
-        setLoadFailed(true);
-        setLoadError("Failed to load groups. Try refreshing the page.");
-      })
-      .finally(() => setLoadingGroups(false));
+    let failed = false;
+    const fail = (message: string) => {
+      if (!isCurrent()) return;
+      failed = true;
+      setLoadFailed(true);
+      setLoadError(message);
+      setRetrying(false);
+    };
+    const boardsRound = listBoards()
+      .then((b) => { if (isCurrent()) setBoards(b); })
+      .catch(() => fail("Failed to load boards."))
+      .finally(() => { if (isCurrent()) setLoadingBoards(false); });
+    const groupsRound = listGroups()
+      .then((g) => { if (isCurrent()) setGroups(g); })
+      .catch(() => fail("Failed to load groups."))
+      .finally(() => { if (isCurrent()) setLoadingGroups(false); });
+    void Promise.all([boardsRound, groupsRound]).then(() => {
+      if (!isCurrent() || failed || !isRetry) return;
+      // The retry recovered: the error and its Retry button unmount, so move focus that was
+      // on Retry to the first section heading instead of letting it fall to <body>.
+      if (document.activeElement === retryButtonRef.current) groupsHeadingRef.current?.focus();
+      setLoadFailed(false);
+      setLoadError(null);
+      setRetrying(false);
+    });
   }, []);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  const handleRetry = () => {
+    if (retrying) return;
+    loadAll(true);
+  };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
     const board = await createBoard({ name, template, swimlane_name: swimlaneName });
@@ -208,19 +241,32 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
 
-        {loadError && (
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <p role="alert" className="text-sm text-danger" data-testid="dashboard-load-error">{loadError}</p>
-            {loadFailed && (
-              <button
-                onClick={loadAll}
-                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Retry
-              </button>
-            )}
-          </div>
-        )}
+        {/* The alert is always mounted and only its text changes: a region that mounts together
+            with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
+        <div className={loadError ? "flex flex-wrap items-center gap-3 mb-4" : undefined}>
+          <p
+            id="dashboard-load-error"
+            role="alert"
+            aria-atomic="true"
+            className="text-sm text-danger"
+            data-testid="dashboard-load-error"
+          >
+            {loadError}
+          </p>
+          {/* Retry sits beside the alert, never inside it, and stays mounted while retrying (#1772). */}
+          {loadFailed && (
+            <button
+              ref={retryButtonRef}
+              type="button"
+              onClick={handleRetry}
+              aria-disabled={retrying || undefined}
+              aria-describedby="dashboard-load-error"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+            >
+              {retrying ? "Retrying…" : "Retry"}
+            </button>
+          )}
+        </div>
 
         {isEmpty && (
           <OnboardingEmptyState
@@ -232,7 +278,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {/* Groups */}
         <section className="mb-10" aria-labelledby="groups-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 id="groups-heading" className="text-fg text-lg font-semibold">Groups</h2>
+            <h2 id="groups-heading" ref={groupsHeadingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
               className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
