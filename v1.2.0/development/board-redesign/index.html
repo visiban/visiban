@@ -4693,7 +4693,41 @@
 <li>a "+N" pill that shows the remaining lane fields inline and then reads "Less";</li>
 <li>at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".</li>
 </ul>
-<p>The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane <code>wip_limit</code> (#1150), and the rollup sums the card number field chosen in <code>Board.swimlane_rollup_field</code> (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band keeps the card count that <code>board-dark.png</code> omits; removing it is the follow-up #2328.</p>
+<p>The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane <code>wip_limit</code> (#1150), and the rollup sums the card number field chosen in <code>Board.swimlane_rollup_field</code> (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in <code>board-dark.png</code>: the card count was removed in #2328 (owner ruling 2026-11-16).</p>
+<p><strong>Information hierarchy (#2335).</strong> What wins when the band runs out of room, for every band at every width. The phone band follows the same tiers (§ Phone width).</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Content</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary</td>
+<td>Lane name, health pill</td>
+<td>Always visible, including collapsed. The name is truncated only when it alone is wider than the band; everything else wraps first.</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>Overdue, stale (and blocked, if a blocked count ever joins the band)</td>
+<td>Shown only when nonzero; danger and warning text; survive collapse.</td>
+</tr>
+<tr>
+<td>Tertiary</td>
+<td>First two lane fields, lane WIP or weight line, number rollup; the card count only as part of a violated limit</td>
+<td>Quiet: neutral text, no hue or glyph. A calm limit line folds away when the lane collapses. A violated limit turns to warning text with the word "over" and survives collapse; <code>WIP 5 / 4 over</code> already carries the count, so the count never returns on its own.</td>
+</tr>
+<tr>
+<td>On demand</td>
+<td>Lane fields beyond the first two, "Change field order" (admins, after the revealed fields), drag handle, edit, focus, unset-health icon</td>
+<td>Fields and "Change field order" are behind <code>+N</code>. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them.</td>
+</tr>
+</tbody>
+</table>
+<p>"Quiet" matches <code>board-dark.png</code> as drawn: the calm <code>WIP 9 / 10</code> and <code>$413k open</code> are neutral text, and only <code>WIP 10 / 8 over</code> is colored. Band content states its tier in its issue: #2275 (WIP, rollup) and #2328 (card count) are tertiary; #1851 (computed aggregates) sits with the rollup in the tertiary tier; #2217/#2219 (threshold marks) ride on the lane field they mark and take its tier, so a mark on a field behind <code>+N</code> stays behind it. Whether a crossed threshold should promote its field out of <code>+N</code> is left open for #2217.</p>
+<p><strong>30 to 50 lanes, long names, several fields (#2335).</strong> Each band stays one line when its name, two fields and stats fit, and wraps when they do not. It never grows past two fields: <code>+N</code> holds the rest. A long name wraps the fields and stats onto the next line before it is truncated. For a board this tall, Collapse all lanes (#2308) is the overview: a collapsed band keeps the primary and secondary tiers and any violated limit, so 50 collapsed lanes scan by health and overdue. No usability evidence backs this yet (#1590 has not been run); revisit it when it is.</p>
 <p><strong>Collapsed:</strong> the cells are replaced by one strip aligned to the column grid. Each strip cell shows the card count (an en dash when zero) and one 10px square per card: danger for overdue, warning for stale, primary tint otherwise. A split column shows two counts with the dashed divider.</p>
 <h2 id="cells">Cells<a class="headerlink" href="#cells" title="Permanent link">&para;</a></h2>
 <p>Screenshot: <code>components.png</code>.</p>
@@ -4840,7 +4874,7 @@
 <ul>
 <li>One column at a time. A horizontally scrolling row of column buttons (color dot, name, count) selects it; under it, the column's limit line and meter.</li>
 <li>A split stage adds a two-part segmented control for its sub-columns.</li>
-<li>Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line.</li>
+<li>Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the first two lane fields, <code>+N</code> for the rest, overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and <code>+N</code> is a button. Tapping an item on the second line, such as "4 overdue", does nothing; only line one collapses the lane. Admins get the same "Change field order" link after the revealed <code>+N</code> fields as on the grid. "2 here" is the selected column's cell count, not the lane card count #2328 removed from the desktop band. Lane health stays in the lane actions row under the band (#2277). The second line uses the desktop band's tones (<code>board-dark.png</code>), not the dimmer <code>board-phone.png</code> draft, so a lane reads the same at every width.</li>
 <li>Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.</li>
 <li>The same four tabs as desktop: Board, Summary, History, Analytics. Search, Activity and Filter are icon buttons in the header; the Filter button also opens the View options.</li>
 <li>Every target is at least 44px. No sideways page scroll at 390px.</li>
