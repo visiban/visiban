@@ -160,7 +160,7 @@ test.describe('board phone layout', () => {
     // Record every order the lane renders from here on, to catch a flash.
     await page.evaluate(() => {
       const w = window as unknown as { __orders: string[] }
-      const read = () => [...document.querySelectorAll('[data-testid="phone-board"] [data-card-id]')].map((el) => el.getAttribute('data-card-id')).join('')
+      const read = () => Array.from(document.querySelectorAll('[data-testid="phone-board"] [data-card-id]')).map((el) => el.getAttribute('data-card-id')).join('')
       w.__orders = [read()]
       const root = document.querySelector('[data-testid="phone-board"]')!
       new MutationObserver(() => {
