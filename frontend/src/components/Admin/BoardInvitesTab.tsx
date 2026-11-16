@@ -259,7 +259,7 @@ export default function BoardInvitesTab() {
                       {isConfirming && (
                         <tr>
                           <td colSpan={7} className="px-4 pb-2.5">
-                            <div role="status" aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
                               <span className="text-fg-tertiary">
                                 {row.delivery === "email"
                                   ? `Revoke this invite to ${row.board_name}? The person it was emailed to will no longer be able to join.`
@@ -281,9 +281,10 @@ export default function BoardInvitesTab() {
                               >
                                 Cancel
                               </button>
-                              {revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR && (
-                                <p className="basis-full text-xs text-danger mt-1">{revokeError.message}</p>
-                              )}
+                              {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+                              <p role="status" aria-live="polite" aria-atomic="true" className={revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? "basis-full text-xs text-danger mt-1" : "sr-only"}>
+                                {revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? revokeError.message : ""}
+                              </p>
                             </div>
                           </td>
                         </tr>

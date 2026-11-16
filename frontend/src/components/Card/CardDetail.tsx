@@ -2477,7 +2477,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   </svg>
                                 </button>
                               ) : confirmDeleteCommentId === c.id ? (
-                                <div role="status" aria-live="polite" aria-atomic="true" className="ml-auto flex flex-col items-end text-xs">
+                                <div className="ml-auto flex flex-col items-end text-xs">
                                   <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                                   <span className="text-fg-tertiary">Delete this comment?</span>
                                   <button
@@ -2497,7 +2497,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                     Cancel
                                   </button>
                                   </div>
-                                  {commentDeleteError && <p className="text-xs text-danger mt-1">{commentDeleteError}</p>}
+                                  {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+                                  <p role="status" aria-live="polite" aria-atomic="true" className={commentDeleteError ? "text-xs text-danger mt-1" : "sr-only"}>{commentDeleteError}</p>
                                 </div>
                               ) : (
                                 <button

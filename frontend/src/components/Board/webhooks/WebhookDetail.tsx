@@ -272,7 +272,7 @@ export default function WebhookDetail(props: Props) {
   };
 
   const inlineConfirm = (kind: WebhookConfirm, text: string, run: () => void) => (
-    <div role="status" aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
       <span>{text}</span>
       <button type="button" onClick={run} disabled={busy(kind)} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
         Confirm
@@ -280,7 +280,8 @@ export default function WebhookDetail(props: Props) {
       <button type="button" onClick={() => onConfirmChange(null)} disabled={busy(kind)} className={CANCEL_BTN}>
         Cancel
       </button>
-      {confirmError && <p role="alert" className="basis-full text-danger">{confirmError}</p>}
+      {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+      <p role="alert" className={confirmError ? "basis-full text-danger" : "sr-only"}>{confirmError}</p>
     </div>
   );
 
@@ -325,7 +326,7 @@ export default function WebhookDetail(props: Props) {
           {reason && <p className="text-xs text-fg-tertiary font-mono">Reason code: {sub.disabled_reason}</p>}
           {sub.disabled_reason !== "secret_unavailable" && (confirm === "reenable" ? (
             <div role="group" aria-labelledby={`${uid}-reenable`} className="flex flex-col gap-2 border-t border-warning/40 pt-2.5 mt-1">
-              <p id={`${uid}-reenable`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+              <p id={`${uid}-reenable`} className="text-xs text-fg">
                 {reenablePrompt}
               </p>
               {takeOver && currentUserHasPassword && (
@@ -453,7 +454,7 @@ export default function WebhookDetail(props: Props) {
           {confirm === "rotate"
             ? (
               <div role="group" aria-labelledby={`${uid}-rotate`} className="flex flex-col gap-2 py-1">
-                <p id={`${uid}-rotate`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+                <p id={`${uid}-rotate`} className="text-xs text-fg">
                   Rotate the secret? Choose what happens to the current one.
                 </p>
                 <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">

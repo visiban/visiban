@@ -228,6 +228,7 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     expect(intercepted).toBe(true)
     expect(proceed).not.toHaveBeenCalled()
     expect(announced()).toBe("Close without storing the secret? You'd have to rotate it to get a new one.")
+    expect(screen.getByText(/Close without storing the secret\?/).closest('[aria-live], [role="status"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
     expect(proceed).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('webhook-secret-reveal')).not.toBeInTheDocument()
@@ -390,6 +391,8 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: 'Turn off' }))
     expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to this address/)).toBeInTheDocument()
     expect(announced()).toMatch(/^Turn off this webhook\? Visiban stops sending to this address/)
+    // The announcer is the only live region for the question (#2232): not the wrapper.
+    expect(screen.getByText(/Turn off this webhook\?/).closest('[aria-live], [role="status"]')).toBeNull()
     await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
     expect(m.disable).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toHaveFocus())

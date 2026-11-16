@@ -1308,7 +1308,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     )}
 
                     {isRemoving && (
-                      <div role="status" aria-live="polite" aria-atomic="true" className="mt-1.5 pl-9 flex items-center gap-2 text-xs">
+                      <div className="mt-1.5 pl-9 flex items-center gap-2 text-xs">
                         <span className="text-fg-tertiary">
                           {allContent ? (
                             <>

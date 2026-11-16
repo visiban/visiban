@@ -106,7 +106,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
       </label>
       <div className="flex flex-wrap items-center justify-end gap-3">
         {guardOpen && (
-          <div role="status" aria-live="polite" aria-atomic="true" className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
+          <div className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
             <span>{GUARD_PROMPT}</span>
             <button
               type="button"
