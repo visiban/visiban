@@ -30,7 +30,8 @@ function cancelButtons(): CancelButton[] {
   for (const file of tsxFiles(SRC)) {
     const src = readFileSync(file, 'utf8')
     const constant = (name: string): string | null => {
-      const m = new RegExp(`const ${name}\\s*=\\s*"([^"]*)"`).exec(src)
+      const at = src.indexOf(`const ${name} =`)
+      const m = at === -1 ? null : /^const \w+ =\s*"([^"]*)"/.exec(src.slice(at))
       return m ? m[1] : null
     }
     for (let at = src.indexOf('<button'); at !== -1; at = src.indexOf('<button', at + 1)) {

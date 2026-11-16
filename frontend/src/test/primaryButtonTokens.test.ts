@@ -15,7 +15,8 @@ const blocks = {
 }
 
 function token(block: string, name: string): string {
-  const m = new RegExp(`--${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+);`).exec(block)
+  const at = block.indexOf(`--${name}:`)
+  const m = at === -1 ? null : /^--[\w-]+:\s*(\d+)\s+(\d+)\s+(\d+);/.exec(block.slice(at))
   if (!m) throw new Error(`--${name} not declared`)
   return '#' + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase()
 }
