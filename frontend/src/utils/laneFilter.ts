@@ -9,8 +9,14 @@
  * Dropdown, number, date, text and url swimlane fields can be ruled on
  * (text and url since #2226). Admin-only fields are offered to admins only: their values are never sent
  * to other roles, so a rule on one would hide every lane for a member.
+ *
+ * Two built-in fields (#2336) sit alongside them: the lane's name (everyone)
+ * and its contact email (admins only, for the same reason: `contact_email`
+ * is never sent to other roles). A rule names a built-in by its string key
+ * instead of a numeric id, so an older client's parser drops it rather than
+ * misapplying it.
  */
-import type { Swimlane, SwimlaneCustomFieldDefinition } from "../types";
+import type { Swimlane } from "../types";
 import {
   evalChain,
   isRuleComplete,
@@ -28,7 +34,12 @@ import {
   type RuleFieldType,
 } from "./fieldRules";
 
-export interface LaneRule extends FieldRule {
+/** Built-in swimlane fields a rule can target (#2336). */
+export type LaneBuiltinField = "name" | "contact_email";
+/** A rule's field: a swimlane custom field id or a built-in field. */
+export type LaneFieldKey = number | LaneBuiltinField;
+
+export interface LaneRule extends FieldRule<LaneFieldKey> {
   kind: "rule";
   /** Stable per-filter id (React key, focus target); not semantic. */
   id: number;
@@ -59,16 +70,71 @@ export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 // rule in parseRule, so it can never filter with semantics it cannot apply.
 const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard"];
 
-type FieldLike = Pick<SwimlaneCustomFieldDefinition, "id" | "name" | "field_type" | "is_admin_only" | "position">;
-
-/** The swimlane fields this viewer can rule on, in board order. */
-export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmin: boolean): T[] {
-  return defs
-    .filter((d) => isRuleFieldType(d.field_type) && (isAdmin || !d.is_admin_only))
-    .sort((a, b) => a.position - b.position);
+/** A field a lane rule can target: a custom field definition or a built-in. */
+export interface FieldLike {
+  id: LaneFieldKey;
+  name: string;
+  field_type: string;
+  is_admin_only: boolean;
+  position: number;
 }
 
-function typeMap(fields: readonly FieldLike[]): Map<number, RuleFieldType> {
+/** A built-in field modeled as a synthetic text field definition (#2336). */
+export interface LaneBuiltinFieldDef extends FieldLike {
+  id: LaneBuiltinField;
+  field_type: "text";
+  /** Always empty; present so a built-in fits where a custom definition does. */
+  choices: string[];
+}
+
+/**
+ * Built-in fields, in picker order. Contact email is admin-only exactly like
+ * an `is_admin_only` custom field: the value is never sent to other roles.
+ */
+export const LANE_BUILTIN_FIELDS: readonly { key: LaneBuiltinField; name: string; field_type: "text"; is_admin_only: boolean }[] = [
+  { key: "name", name: "Lane name", field_type: "text", is_admin_only: false },
+  { key: "contact_email", name: "Contact email", field_type: "text", is_admin_only: true },
+];
+
+const BUILTIN_KEYS: readonly string[] = LANE_BUILTIN_FIELDS.map((b) => b.key);
+
+export function isLaneBuiltinField(v: unknown): v is LaneBuiltinField {
+  return typeof v === "string" && BUILTIN_KEYS.includes(v);
+}
+
+/**
+ * The fields this viewer can rule on: the built-ins first, then the swimlane
+ * custom fields in board order. A custom field named like a built-in keeps its
+ * name; the built-in reads "Lane name (built-in)" instead, set here once so
+ * the picker, chips and "Reads as" all agree.
+ */
+export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmin: boolean): (T | LaneBuiltinFieldDef)[] {
+  const custom = defs
+    .filter((d) => isRuleFieldType(d.field_type) && (isAdmin || !d.is_admin_only))
+    .sort((a, b) => a.position - b.position);
+  const taken = new Set(custom.map((d) => d.name.trim().toLowerCase()));
+  const builtins: LaneBuiltinFieldDef[] = LANE_BUILTIN_FIELDS.filter((b) => isAdmin || !b.is_admin_only).map((b, i) => ({
+    id: b.key,
+    name: taken.has(b.name.toLowerCase()) ? `${b.name} (built-in)` : b.name,
+    field_type: b.field_type,
+    is_admin_only: b.is_admin_only,
+    position: i - LANE_BUILTIN_FIELDS.length,
+    choices: [],
+  }));
+  return [...builtins, ...custom];
+}
+
+/**
+ * Whether the Lanes trigger is offered (#2336). With the built-ins there is
+ * always a field to rule on, so the gate is "something worth filtering": a
+ * custom field, two or more lanes, or a filter already set (so it can be
+ * cleared). Shared by FilterBar and FilterPanel so they cannot disagree.
+ */
+export function laneFilterAvailable(customLaneFieldCount: number, laneCount: number, filter: LaneFilter | undefined): boolean {
+  return customLaneFieldCount > 0 || laneCount >= 2 || (filter?.items.length ?? 0) > 0;
+}
+
+function typeMap(fields: readonly FieldLike[]): Map<LaneFieldKey, RuleFieldType> {
   return new Map(fields.filter((f) => isRuleFieldType(f.field_type)).map((f) => [f.id, f.field_type as RuleFieldType]));
 }
 
@@ -109,7 +175,8 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     if (o.kind !== undefined && o.kind !== "rule") return null;
     const op = typeof o.op === "string" && (OPS as readonly string[]).includes(o.op) ? (o.op as FieldRuleOp) : null;
     if (!op) return null;
-    const field = o.field === null || o.field === undefined ? null : validId(o.field) ? o.field : undefined;
+    const field =
+      o.field === null || o.field === undefined ? null : validId(o.field) || isLaneBuiltinField(o.field) ? o.field : undefined;
     if (field === undefined) return null;
     ruleBudget--;
     const rule: LaneRule = { kind: "rule", id: takeId(o.id), join: o.join === "or" ? "or" : "and", field, op };
@@ -120,6 +187,11 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
       // The server accepts these only with a string value and no range
       // bounds. The compact URL form drops an empty value, so restore it.
       rule.value = value ?? "";
+      return rule;
+    }
+    if (isLaneBuiltinField(field)) {
+      // Built-ins are text-only: the server rejects range bounds on them.
+      if (value !== undefined) rule.value = value;
       return rule;
     }
     if (value !== undefined) rule.value = value;
@@ -146,7 +218,7 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
 
 // URL form: `f_lanes=1.<compact JSON>`. The leading version lets a later
 // shape change keep reading old links. Compact keys keep shared links short.
-interface CompactRule { j?: "o"; f: number | null; o: FieldRuleOp; v?: string; a?: string; b?: string }
+interface CompactRule { j?: "o"; f: LaneFieldKey | null; o: FieldRuleOp; v?: string; a?: string; b?: string }
 interface CompactGroup { j?: "o"; g: CompactRule[] }
 
 function toCompactRule(r: LaneRule): CompactRule {
@@ -199,11 +271,13 @@ export function parseLaneFilterParam(param: string | null): LaneFilter | undefin
 // Pruning against the viewer's fields
 // ---------------------------------------------------------------------------
 
-function pruneRule(r: LaneRule, types: Map<number, RuleFieldType>): LaneRule | null {
+function pruneRule(r: LaneRule, types: Map<LaneFieldKey, RuleFieldType>): LaneRule | null {
   if (r.field === null) return r;
   const t = types.get(r.field);
   // A field this viewer may not rule on (deleted, unsupported, or admin-only
-  // for a non-admin) is dropped, so its rule can never hide lanes.
+  // for a non-admin, Contact email included) is dropped. Inside an Or run
+  // that narrows the result rather than widening it; the stored state is
+  // left as is, so an admin's own filter comes back if they regain the role.
   if (!t || !opsForFieldType(t).includes(r.op)) return null;
   if (t === "dropdown" || isTextRuleType(t)) return r;
   const norm = t === "number" ? normalizeNumber : normalizeDate;
@@ -255,21 +329,29 @@ export function isLaneFilterActive(f: LaneFilter | undefined): boolean {
   return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some(done)));
 }
 
-function laneValues(s: Pick<Swimlane, "custom_field_values">): Map<number, string> {
-  return new Map((s.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
+/** The lane fields a filter reads. `contact_email` is absent for non-admins. */
+export type LaneFilterLane = Pick<Swimlane, "custom_field_values"> & Partial<Pick<Swimlane, "name" | "contact_email">>;
+
+function laneValues(s: LaneFilterLane): Map<LaneFieldKey, string> {
+  const m = new Map<LaneFieldKey, string>((s.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
+  // Matched on the full stored text; "" normalizes to no value, so an empty
+  // contact email fails is / contains / wildcard and passes the negations.
+  if (typeof s.name === "string") m.set("name", s.name);
+  if (typeof s.contact_email === "string") m.set("contact_email", s.contact_email);
+  return m;
 }
 
 interface CompiledEntry {
   join: FieldRuleJoin;
-  test: (values: Map<number, string>) => boolean;
+  test: (values: Map<LaneFieldKey, string>) => boolean;
 }
 
-function compileRules(rules: readonly LaneRule[], types: Map<number, RuleFieldType>): CompiledEntry[] {
+function compileRules(rules: readonly LaneRule[], types: Map<LaneFieldKey, RuleFieldType>): CompiledEntry[] {
   return rules
     .filter((r) => isRuleComplete(r, r.field === null ? null : types.get(r.field)))
     .map((r) => {
-      const t = types.get(r.field as number) as RuleFieldType;
-      const id = r.field as number;
+      const t = types.get(r.field as LaneFieldKey) as RuleFieldType;
+      const id = r.field as LaneFieldKey;
       return { join: r.join, test: (vals) => matchRule(r, t, vals.get(id)) };
     });
 }
@@ -282,7 +364,7 @@ function compileRules(rules: readonly LaneRule[], types: Map<number, RuleFieldTy
 export function compileLaneFilter(
   f: LaneFilter | undefined,
   fields: readonly FieldLike[],
-): ((lane: Pick<Swimlane, "custom_field_values">) => boolean) | null {
+): ((lane: LaneFilterLane) => boolean) | null {
   if (!f) return null;
   const types = typeMap(fields);
   const top: CompiledEntry[] = [];
@@ -303,7 +385,7 @@ export function compileLaneFilter(
 
 /** Ids of the lanes the filter hides; empty when it has no complete rule. */
 export function laneIdsHiddenByFilter(
-  swimlanes: readonly Pick<Swimlane, "id" | "custom_field_values">[],
+  swimlanes: readonly (LaneFilterLane & Pick<Swimlane, "id">)[],
   f: LaneFilter | undefined,
   fields: readonly FieldLike[],
 ): Set<number> {
@@ -317,26 +399,29 @@ export function laneIdsHiddenByFilter(
  * trimmed and sorted alphabetically: the choices for a text `is` / `is not`
  * rule (#2226). Values that differ only in case collapse to the first
  * spelling seen, since matching ignores case. A value longer than the
- * saved-filter bound is left out: a rule on it could not be saved.
+ * saved-filter bound is left out: a rule on it could not be saved. The
+ * built-ins (#2336) offer the lanes' names, and their contact emails only
+ * when `fields` carries Contact email (admins).
  */
 export function laneTextValueChoices(
-  swimlanes: readonly Pick<Swimlane, "custom_field_values">[],
+  swimlanes: readonly LaneFilterLane[],
   fields: readonly FieldLike[],
-): Map<number, string[]> {
+): Map<LaneFieldKey, string[]> {
   const textIds = new Set(fields.filter((f) => isRuleFieldType(f.field_type) && isTextRuleType(f.field_type)).map((f) => f.id));
-  const seen = new Map<number, Map<string, string>>();
+  const seen = new Map<LaneFieldKey, Map<string, string>>();
+  const add = (fid: LaneFieldKey, raw: unknown) => {
+    if (!textIds.has(fid) || typeof raw !== "string") return;
+    const shown = raw.trim();
+    if (shown === "" || shown.length > LANE_FILTER_MAX_STRING) return;
+    const byKey = seen.get(fid) ?? new Map<string, string>();
+    seen.set(fid, byKey);
+    const key = shown.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, shown);
+  };
   for (const s of swimlanes) {
-    for (const v of s.custom_field_values ?? []) {
-      if (!textIds.has(v.field_definition) || typeof v.value !== "string") continue;
-      const shown = v.value.trim();
-      if (shown === "" || shown.length > LANE_FILTER_MAX_STRING) continue;
-      const byKey = seen.get(v.field_definition) ?? new Map<string, string>();
-      seen.set(v.field_definition, byKey);
-      const key = shown.toLowerCase();
-      if (!byKey.has(key)) byKey.set(key, shown);
-    }
+    for (const [fid, raw] of laneValues(s)) add(fid, raw);
   }
-  const out = new Map<number, string[]>();
+  const out = new Map<LaneFieldKey, string[]>();
   for (const [id, byKey] of seen) {
     out.set(id, [...byKey.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })));
   }
@@ -345,8 +430,8 @@ export function laneTextValueChoices(
 
 export type LaneValueFormatter = (field: FieldLike, raw: string) => string;
 
-function ruleLabel(r: LaneRule, fieldsById: Map<number, FieldLike>, fmt: LaneValueFormatter): string {
-  const def = fieldsById.get(r.field as number) as FieldLike;
+function ruleLabel(r: LaneRule, fieldsById: Map<LaneFieldKey, FieldLike>, fmt: LaneValueFormatter): string {
+  const def = fieldsById.get(r.field as LaneFieldKey) as FieldLike;
   return ruleText(r, def.field_type as RuleFieldType, def.name, (raw) => fmt(def, raw));
 }
 
@@ -368,7 +453,7 @@ export function laneFilterChipItems(
 ): LaneChipItem[] {
   if (!f) return [];
   const types = typeMap(fields);
-  const byId = new Map(fields.map((d) => [d.id, d]));
+  const byId = new Map<LaneFieldKey, FieldLike>(fields.map((d) => [d.id, d]));
   const complete = (r: LaneRule) => isRuleComplete(r, r.field === null ? null : types.get(r.field));
   const out: LaneChipItem[] = [];
   for (const it of f.items) {

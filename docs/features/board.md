@@ -505,7 +505,7 @@ The preference is stored per user in `localStorage` under the key `user:prefs:ca
 The toolbar's **Filter** button opens a panel with:
 
 - A **Find a field** box (focused on open) that narrows the rows below it by name.
-- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when you can see swimlane fields) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
+- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when the board has a swimlane field you can filter on, two or more lanes, or a lane filter set) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
 - A **Filtered by** row at the top while any filter is active: one chip per active filter (click the **x**, or focus a chip and press Enter, Space or Delete, to remove it), **Clear all**, and **Save filter**, which asks for a name and saves like the filter bar does. Lane rules appear as **Lanes** chips.
 - Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
@@ -537,10 +537,11 @@ The filter row is a search landmark named **Board filters** (it was "Card filter
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-On a board with many swimlanes (one per account, say), **Lanes** in the filter bar hides the lanes whose own [swimlane field](custom-fields.md#swimlane-row-custom-fields) values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.
+On a board with many swimlanes (one per account, say), **Lanes** in the filter bar hides the lanes whose name, contact email, or own [swimlane field](custom-fields.md#swimlane-row-custom-fields) values don't match your rules. Card filters still apply inside the lanes that remain; the two are combined with And.
 
 1. Click **Lanes** to open the rule builder, then **+ Add filter**.
-2. Pick a field, then a value or range:
+2. Pick a field, then a value or range. The field list starts with two **built-in** fields ([#2336](https://gitlab.com/visiban/visiban/-/issues/2336)), **Lane name** and **Contact email**, then the board's swimlane fields in board order; when both kinds are listed they sit under **Built-in** and **Custom fields** headings. If a swimlane field has the same name as a built-in, the built-in reads, for example, **Lane name (built-in)**.
+    - **Lane name** and **Contact email**: the same five text operators as a text field, for example *Lane name is Acme Corp* or *Contact email contains @acme.com*. **Contact email** is offered to board admins only (see below). A lane with no contact email never matches **is**, **contains** or **matches wildcard**, and always matches **is not** and **does not contain**.
     - **Dropdown** fields: **is** or **is not** a choice.
     - **Number** and **Date** fields: **between** two values. Leave either end as **Any** for "or more" / "up to" (numbers) or "on or after" / "on or before" (dates). Both ends are inclusive.
     - **Text** and **URL** fields ([#2226](https://gitlab.com/visiban/visiban/-/issues/2226)): **is** or **is not** one of the values your lanes already carry for that field (listed alphabetically), or one of three operators that take text you type (up to 500 characters): **contains**, **does not contain**, and **matches wildcard**, for example *AE is Ethan Ross*, *AE contains ross*, or *AE matches wildcard Ethan\**. Matching ignores case and leading or trailing spaces. See [Text operators and wildcards](#text-operators-and-wildcards). A value no lane carries any more (from a saved filter or a shared link) stays in the list, marked "(no lane has this)", until you change it. An empty text box is an incomplete filter.
@@ -550,8 +551,8 @@ On a board with many swimlanes (one per account, say), **Lanes** in the filter b
 Rules apply as soon as they are complete; **Done** just closes the builder. A filter with no value yet is ignored (the Reads as line counts it as an incomplete filter), so a half-built rule never hides anything.
 
 - **Lanes with no value:** a lane with no value for the field, or a value that isn't a valid number or date, fails **is**, **contains**, **matches wildcard**, and **between**, and passes **is not** and **does not contain**.
-- **Admin-only fields** are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them; a rule on one (from a saved filter or a shared link) is ignored for them.
-- **Checkbox and multi-select** swimlane fields can't be filtered on yet. If a board has no dropdown, number, date, text, or URL swimlane field you can see, **Lanes** is hidden.
+- **Admin-only fields**, and the built-in **Contact email**, are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them. For them, a rule on one (from a saved filter or a shared link) is dropped as if it were not there: the remaining rules still apply, so the result can show more lanes or, when the dropped rule was one side of an **Or**, fewer.
+- **Checkbox and multi-select** swimlane fields can't be filtered on yet. **Lanes** is shown when you can see a swimlane field it can filter on, when the board has two or more lanes, or when a lane filter is already set (so you can clear it).
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
 - **Lanes with no matching cards** stay visible, as they do with card filters alone.
 - **In focus mode** the rules still apply: see [Swimlane focus mode](#swimlane-focus-mode). The focused lane always shows, even if it doesn't match.
@@ -564,7 +565,7 @@ Lane filters are saved with the rest of the filter state in your browser, in the
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Text and URL swimlane fields offer five operators in a lane filter:
+Text and URL swimlane fields, and the built-in **Lane name** and **Contact email**, offer five operators in a lane filter:
 
 | Operator | Matches a lane when its value... |
 |---|---|
@@ -584,6 +585,7 @@ With **matches wildcard** the pattern may match any part of the value, just as *
 | `ethan` | Ethan Ross, Seth Ethan | Eth |
 | `a*c` | abc, xxabbcxx | cba |
 
+- **Email domains:** **Contact email** is matched on the whole stored address. Because a wildcard can match any part of it, `*@acme.com` also matches `pat@acme.com.example`; to narrow by domain, **contains** `@acme.com` is the simpler rule, with the same caveat.
 - **A literal `*` or `?`:** use **contains**, where they are plain characters.
 - **Lanes with no value** fail **matches wildcard** and **contains**, and pass **does not contain** (as they pass **is not**).
 - Wildcard patterns are never treated as regular expressions, so no other character has a special meaning.

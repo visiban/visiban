@@ -15,6 +15,8 @@ import {
 import {
   compileLaneFilter,
   isLaneFilterActive,
+  LANE_BUILTIN_FIELDS,
+  laneFilterAvailable,
   laneFilterChipItems,
   laneFilterFields,
   laneIdsHiddenByFilter,
@@ -215,8 +217,9 @@ describe('fieldRules — text and url (#2226)', () => {
 describe('laneFilter', () => {
   it('offers dropdown/number/date/text/url fields, admin-only ones to admins only', () => {
     const defs = [SECRET, NOTES, DEAL, AE, SIGNED, SITE, OWNER]
-    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual([1, 3, 6, 8])
-    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual([1, 3, 5, 6, 8, 9])
+    // #2336 — the built-ins come first; Contact email to admins only.
+    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual(['name', 1, 3, 6, 8])
+    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual(['name', 'contact_email', 1, 3, 5, 6, 8, 9])
   })
 
   it('collects the lanes\' distinct text values, trimmed, case-folded and sorted', () => {
@@ -393,5 +396,139 @@ describe('laneFilter', () => {
     expect(nextLaneItemId(undefined)).toBe(1)
     expect(removeLaneItem(f, 1)!.items.map((i) => i.id)).toEqual([4])
     expect(removeLaneItem({ items: [rule(1, 1, 'is')] }, 1)).toBeUndefined()
+  })
+})
+
+describe('laneFilter — built-in fields (#2336)', () => {
+  const NAME_RULE = (id: number, op: LaneRule['op'], value: string, join: 'and' | 'or' = 'and'): LaneRule =>
+    ({ kind: 'rule', id, join, field: 'name', op, value })
+  const EMAIL_RULE = (id: number, op: LaneRule['op'], value: string, join: 'and' | 'or' = 'and'): LaneRule =>
+    ({ kind: 'rule', id, join, field: 'contact_email', op, value })
+  const NOTE = field(6, 'Account note', 'text')
+  const lanes = [
+    { id: 1, name: 'Acme Corp', contact_email: 'pat@acme.com', custom_field_values: [{ field_definition: 6, value: 'gold' }] },
+    { id: 2, name: 'Globex', contact_email: '', custom_field_values: [] },
+    { id: 3, name: 'acme labs', contact_email: 'sam@acme.co.uk', custom_field_values: [] },
+    { id: 4, name: 'Initech', custom_field_values: [] },
+  ]
+  const adminFields = laneFilterFields([NOTE], true)
+  const memberFields = laneFilterFields([NOTE], false)
+
+  it('parses built-in keys and drops unknown strings; old-format rules parse as before', () => {
+    const f = sanitizeLaneFilter({ items: [
+      { kind: 'rule', id: 1, field: 'name', op: 'is', value: 'Acme Corp' },
+      { kind: 'rule', id: 2, field: 'contact_email', op: 'contains', value: '@acme.com' },
+      { kind: 'rule', id: 3, field: 'title', op: 'is', value: 'x' },
+      { kind: 'rule', id: 4, field: 'Name', op: 'is', value: 'x' },
+      { kind: 'group', id: 5, join: 'or', rules: [{ field: 'name', op: 'wildcard', value: 'acme*' }, { field: ['name'], op: 'is', value: 'x' }] },
+      { kind: 'rule', id: 6, field: 6, op: 'is', value: 'gold' },
+    ] })
+    expect(f?.items.map((it) => (it.kind === 'rule' ? it.field : it.rules.map((r) => r.field)))).toEqual(['name', 'contact_email', ['name'], 6])
+    const old = { items: [{ kind: 'rule', id: 1, join: 'and', field: 6, op: 'is', value: 'gold' }] }
+    expect(sanitizeLaneFilter(old)).toEqual(old)
+    expect(parseLaneFilterParam('1.[{"f":6,"o":"is","v":"gold"}]')).toEqual({ items: [{ kind: 'rule', id: 1, join: 'and', field: 6, op: 'is', value: 'gold' }] })
+  })
+
+  it('round-trips built-in rules through the compact URL form', () => {
+    const f: LaneFilter = { items: [NAME_RULE(1, 'is', 'Acme Corp'), { kind: 'group', id: 2, join: 'or', rules: [EMAIL_RULE(3, 'wildcard', '*@acme.*'), { kind: 'rule', id: 4, join: 'and', field: 6, op: 'contains', value: 'go' }] }] }
+    const param = serializeLaneFilterParam(f) as string
+    expect(param).toContain('"f":"name"')
+    expect(param).toContain('"f":"contact_email"')
+    expect(serializeLaneFilterParam(parseLaneFilterParam(param))).toBe(param)
+    expect(parseLaneFilterParam('1.[{"f":"title","o":"is","v":"x"}]')).toBeUndefined()
+  })
+
+  it('models the built-ins as synthetic text fields, with a suffix only on a name collision', () => {
+    expect(LANE_BUILTIN_FIELDS.map((b) => b.key)).toEqual(['name', 'contact_email'])
+    expect(adminFields.slice(0, 2)).toMatchObject([
+      { id: 'name', name: 'Lane name', field_type: 'text', is_admin_only: false },
+      { id: 'contact_email', name: 'Contact email', field_type: 'text', is_admin_only: true },
+    ])
+    const clash = laneFilterFields([field(7, ' lane NAME ', 'text'), field(8, 'Contact Email', 'text')], true)
+    expect(clash.map((f) => f.name)).toEqual(['Lane name (built-in)', 'Contact email (built-in)', ' lane NAME ', 'Contact Email'])
+    // A colliding admin-only field a member cannot see does not rename the built-in for them.
+    const hidden = laneFilterFields([field(8, 'Lane name', 'text', { is_admin_only: true })], false)
+    expect(hidden.map((f) => f.name)).toEqual(['Lane name'])
+    const label = laneFilterChipItems({ items: [NAME_RULE(1, 'is', 'Acme Corp')] }, clash, (_f, raw) => raw)[0].label
+    expect(label).toBe('Lane name (built-in) is Acme Corp')
+  })
+
+  it('drops stray min/max on built-in rules when parsing (server rejects them)', () => {
+    for (const key of ['name', 'contact_email']) {
+      const parsed = parseLaneFilterParam(`1.${JSON.stringify([{ f: key, o: 'is', v: 'x', a: '1', b: '2' }])}`)
+      const r = parsed!.items[0] as LaneRule
+      expect(r.field).toBe(key)
+      expect(r.value).toBe('x')
+      expect(r).not.toHaveProperty('min')
+      expect(r).not.toHaveProperty('max')
+    }
+  })
+
+  it('combines a built-in rule with a custom-field rule in Or and And groups', () => {
+    const noteRule = (join: 'and' | 'or'): LaneRule => ({ kind: 'rule', id: 4, join, field: 6, op: 'contains', value: 'gold' })
+    const orF: LaneFilter = { items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'is', 'Globex'), noteRule('or')] }] }
+    expect([...laneIdsHiddenByFilter(lanes, orF, memberFields)].sort()).toEqual([3, 4])
+    const andF: LaneFilter = { items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'wildcard', 'acme*'), noteRule('and')] }] }
+    expect([...laneIdsHiddenByFilter(lanes, andF, memberFields)].sort()).toEqual([2, 3, 4])
+  })
+
+  it('matches Lane name case-insensitively', () => {
+    const hidden = laneIdsHiddenByFilter(lanes, { items: [NAME_RULE(1, 'is', 'ACME CORP')] }, memberFields)
+    expect([...hidden].sort()).toEqual([2, 3, 4])
+    const wild = laneIdsHiddenByFilter(lanes, { items: [NAME_RULE(1, 'wildcard', 'acme*')] }, memberFields)
+    expect([...wild].sort()).toEqual([2, 4])
+  })
+
+  it('an empty or missing contact email fails is/contains/wildcard and passes is not/does not contain', () => {
+    const test = (op: LaneRule['op'], value: string) =>
+      [2, 4].map((id) => compileLaneFilter({ items: [EMAIL_RULE(1, op, value)] }, adminFields)!(lanes.find((l) => l.id === id)!))
+    expect(test('is', 'pat@acme.com')).toEqual([false, false])
+    expect(test('contains', '@')).toEqual([false, false])
+    expect(test('wildcard', '*')).toEqual([false, false])
+    expect(test('is_not', 'pat@acme.com')).toEqual([true, true])
+    expect(test('not_contains', '@acme.com')).toEqual([true, true])
+  })
+
+  it('matches the full stored address; wildcard is unanchored, so *@acme.com also hits a longer domain', () => {
+    const hidden = (r: LaneRule) => [...laneIdsHiddenByFilter(lanes, { items: [r] }, adminFields)].sort()
+    expect(hidden(EMAIL_RULE(1, 'wildcard', '*@acme.com'))).toEqual([2, 3, 4])
+    expect(hidden(EMAIL_RULE(1, 'contains', '@acme.co'))).toEqual([2, 4])
+    // Unanchored (#2227): "@acme.c" matches pat@acme.com and sam@acme.co.uk alike.
+    expect(hidden(EMAIL_RULE(1, 'wildcard', '*@acme.c'))).toEqual([2, 4])
+    const longer = [{ id: 9, name: 'X', contact_email: 'a@acme.com.evil.test', custom_field_values: [] }]
+    expect([...laneIdsHiddenByFilter(longer, { items: [EMAIL_RULE(1, 'wildcard', '*@acme.com')] }, adminFields)]).toEqual([])
+  })
+
+  it('prunes a Contact email rule for a non-admin, which narrows an Or run', () => {
+    const f: LaneFilter = { items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'is', 'Globex'), EMAIL_RULE(3, 'contains', '@acme.com', 'or')] }] }
+    expect(pruneLaneFilter(f, adminFields)).toBe(f)
+    const pruned = pruneLaneFilter(f, memberFields)
+    expect(pruned).toEqual({ items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'is', 'Globex')] }] })
+    // Admin: Globex or an acme.com contact (lanes 1 and 2); member: Globex only.
+    expect([...laneIdsHiddenByFilter(lanes, f, adminFields)].sort()).toEqual([3, 4])
+    expect([...laneIdsHiddenByFilter(lanes, pruned, memberFields)].sort()).toEqual([1, 3, 4])
+    // The stored filter itself is left untouched.
+    expect(f.items[0].kind === 'group' && f.items[0].rules).toHaveLength(2)
+    expect(pruneLaneFilter({ items: [EMAIL_RULE(1, 'is', 'pat@acme.com')] }, memberFields)).toBeUndefined()
+  })
+
+  it('offers lane names to everyone and contact emails only with the Contact email field', () => {
+    expect(laneTextValueChoices(lanes, adminFields).get('name')).toEqual(['Acme Corp', 'acme labs', 'Globex', 'Initech'])
+    expect(laneTextValueChoices(lanes, adminFields).get('contact_email')).toEqual(['pat@acme.com', 'sam@acme.co.uk'])
+    expect(laneTextValueChoices(lanes, memberFields).has('contact_email')).toBe(false)
+  })
+
+  it('labels chips and Reads as by the built-in name', () => {
+    const f: LaneFilter = { items: [NAME_RULE(1, 'is', 'Acme Corp'), EMAIL_RULE(2, 'wildcard', '*@acme.*', 'or')] }
+    expect(laneFilterChipItems(f, adminFields, (_f, raw) => raw).map((c) => c.label)).toEqual(['Lane name is Acme Corp', 'Contact email matches wildcard *@acme.*'])
+    expect(summarizeLaneFilter(f, adminFields, (_f, raw) => raw).readsAs).toBe('Reads as: Lane name is Acme Corp or Contact email matches wildcard *@acme.*')
+  })
+
+  it('laneFilterAvailable: a custom field, two lanes, or a filter to clear', () => {
+    expect(laneFilterAvailable(0, 1, undefined)).toBe(false)
+    expect(laneFilterAvailable(0, 0, { items: [] })).toBe(false)
+    expect(laneFilterAvailable(1, 0, undefined)).toBe(true)
+    expect(laneFilterAvailable(0, 2, undefined)).toBe(true)
+    expect(laneFilterAvailable(0, 1, { items: [NAME_RULE(1, 'is', '')] })).toBe(true)
   })
 })

@@ -19,7 +19,13 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * admin-only padlock on a lane-filter field option). It carries its own
    * accessible name, if any, and is read after the label.
    */
-  options: { value: T; label: string; description?: string; icon?: ReactNode }[];
+  /**
+   * `group` (#2336) is an optional heading the option sits under. Headings
+   * render only when the options carry two or more distinct groups; then
+   * consecutive same-group options share a `role="group"` named by its
+   * heading. Headings are not menu items: arrow keys, Home and End skip them.
+   */
+  options: { value: T; label: string; description?: string; icon?: ReactNode; group?: string }[];
   selected: T | null;
   onChange: (selected: T | null) => void;
   /**
@@ -255,6 +261,69 @@ export default function SingleSelectDropdown<T extends string | number>({
     }
   };
 
+  // One option row; `withSeparator` draws the double line above it.
+  const renderOption = (opt: SingleSelectDropdownProps<T>["options"][number], optIndex: number, withSeparator: boolean) => {
+    const i = actions.length + optIndex;
+    return (
+        <div key={opt.value}>
+          {withSeparator && (
+            <div role="separator" className="mx-4">
+              <div className="h-px bg-sunken" />
+              <div className="h-px bg-surface-active/50" />
+            </div>
+          )}
+          <button
+            ref={(el) => { itemRefs.current[i] = el; }}
+            role={optionRole}
+            aria-checked={optionRole === "menuitemradio" ? selected === opt.value : undefined}
+            aria-current={optionRole === "menuitem" && selected === opt.value ? "true" : undefined}
+            onClick={() => {
+              onChange(selected === opt.value ? null : opt.value);
+              setOpen(false);
+              // The focused item unmounts with the menu; without this focus drops to <body>,
+              // which for a portaled menu is outside the surrounding dialog (#1478).
+              triggerRef.current?.focus();
+            }}
+            onKeyDown={(e) => handleItemKeyDown(e, i)}
+            // Menu items are real tab stops, reached by roving arrow-key
+            // focus — `hover:` alone is invisible to a keyboard user who
+            // arrowed here without touching the mouse. Pre-existing gap,
+            // fixed here because #1140 newly routes modal-hosted dropdowns
+            // through this primitive. Shared with every other menuitem site
+            // via MENU_ITEM_FOCUS_RING (see menuItemFocusRing.ts) so it can't
+            // drift a third time (#1234).
+            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} ${
+              selected === opt.value ? "text-info" : "text-fg-secondary"
+            }`}
+          >
+            <span className="flex items-start gap-2">
+              {/* Non-color selection cue (#2108). Reserves its width on every option so labels stay aligned. */}
+              <SelectedCheck selected={selected === opt.value} testId="singleselect-selected-mark" slotClassName="w-3 h-5 shrink-0 flex items-center" />
+              {opt.description !== undefined ? (
+                <span className="min-w-0">
+                  <span className="block">{opt.label}</span>
+                  <span className="block text-xs text-fg-tertiary">{opt.description}</span>
+                </span>
+              ) : (
+                <span className="min-w-0">{opt.label}</span>
+              )}
+              {opt.icon && <span className="ml-auto self-center shrink-0">{opt.icon}</span>}
+            </span>
+          </button>
+        </div>
+    );
+  };
+  // Option groups (#2336): only with two or more distinct groups, so a menu
+  // with none (or one) renders exactly as before.
+  const groupRuns: { group: string; start: number; opts: SingleSelectDropdownProps<T>["options"] }[] = [];
+  if (new Set(options.flatMap((o) => (o.group === undefined ? [] : [o.group]))).size >= 2) {
+    options.forEach((opt, optIndex) => {
+      const last = groupRuns[groupRuns.length - 1];
+      if (last && last.group === (opt.group ?? "")) last.opts.push(opt);
+      else groupRuns.push({ group: opt.group ?? "", start: optIndex, opts: [opt] });
+    });
+  }
+
   const menu = (
     <div
       ref={panelRef}
@@ -308,57 +377,23 @@ export default function SingleSelectDropdown<T extends string | number>({
           </button>
         </div>
       ))}
-      {options.map((opt, optIndex) => {
-        const i = actions.length + optIndex;
-        return (
-        <div key={opt.value}>
-          {i > 0 && (
-            <div role="separator" className="mx-4">
-              <div className="h-px bg-sunken" />
-              <div className="h-px bg-surface-active/50" />
-            </div>
-          )}
-          <button
-            ref={(el) => { itemRefs.current[i] = el; }}
-            role={optionRole}
-            aria-checked={optionRole === "menuitemradio" ? selected === opt.value : undefined}
-            aria-current={optionRole === "menuitem" && selected === opt.value ? "true" : undefined}
-            onClick={() => {
-              onChange(selected === opt.value ? null : opt.value);
-              setOpen(false);
-              // The focused item unmounts with the menu; without this focus drops to <body>,
-              // which for a portaled menu is outside the surrounding dialog (#1478).
-              triggerRef.current?.focus();
-            }}
-            onKeyDown={(e) => handleItemKeyDown(e, i)}
-            // Menu items are real tab stops, reached by roving arrow-key
-            // focus — `hover:` alone is invisible to a keyboard user who
-            // arrowed here without touching the mouse. Pre-existing gap,
-            // fixed here because #1140 newly routes modal-hosted dropdowns
-            // through this primitive. Shared with every other menuitem site
-            // via MENU_ITEM_FOCUS_RING (see menuItemFocusRing.ts) so it can't
-            // drift a third time (#1234).
-            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} ${
-              selected === opt.value ? "text-info" : "text-fg-secondary"
-            }`}
-          >
-            <span className="flex items-start gap-2">
-              {/* Non-color selection cue (#2108). Reserves its width on every option so labels stay aligned. */}
-              <SelectedCheck selected={selected === opt.value} testId="singleselect-selected-mark" slotClassName="w-3 h-5 shrink-0 flex items-center" />
-              {opt.description !== undefined ? (
-                <span className="min-w-0">
-                  <span className="block">{opt.label}</span>
-                  <span className="block text-xs text-fg-tertiary">{opt.description}</span>
-                </span>
-              ) : (
-                <span className="min-w-0">{opt.label}</span>
+      {groupRuns.length === 0
+        ? options.map((opt, optIndex) => renderOption(opt, optIndex, actions.length + optIndex > 0))
+        : groupRuns.map((run, gi) => (
+            <div key={`group-${gi}`} role="group" aria-labelledby={run.group === "" ? undefined : `${id}-group-${gi}`}>
+              {/* The separator goes between groups, above the heading, never between a heading and its first option. */}
+              {(gi > 0 || actions.length > 0) && (
+                <div role="separator" className="mx-4">
+                  <div className="h-px bg-sunken" />
+                  <div className="h-px bg-surface-active/50" />
+                </div>
               )}
-              {opt.icon && <span className="ml-auto self-center shrink-0">{opt.icon}</span>}
-            </span>
-          </button>
-        </div>
-        );
-      })}
+              {run.group !== "" && (
+                <div id={`${id}-group-${gi}`} className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{run.group}</div>
+              )}
+              {run.opts.map((opt, k) => renderOption(opt, run.start + k, k > 0))}
+            </div>
+          ))}
       </div>
       {portalMenu && moreBelow && (
         <div

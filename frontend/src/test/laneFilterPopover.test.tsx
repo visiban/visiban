@@ -76,6 +76,19 @@ describe('Lanes trigger', () => {
     expect(screen.queryByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toBeInTheDocument()
   })
 
+  // #2336 — the built-ins are always rulable, so the gate is laneFilterAvailable.
+  it('is shown without custom fields once the board has two lanes or a lane filter', () => {
+    const { unmount } = render(<Harness board={withLanes(makeBoard([], 'member'), [swimlane(1, {})])} />)
+    expect(screen.queryByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toBeInTheDocument()
+    unmount()
+    const two = render(<Harness board={withLanes(makeBoard([], 'member'), [swimlane(1, {}), swimlane(2, {})])} />)
+    expect(screen.getByRole('button', { name: 'Lanes' })).toBeInTheDocument()
+    two.unmount()
+    const lf: LaneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'name', op: 'is', value: 'Lane 1' }] }
+    render(<Harness initial={lf} board={withLanes(makeBoard([], 'member'), [swimlane(1, {})])} />)
+    expect(screen.getByRole('button', { name: 'Lanes, 1 active' })).toBeInTheDocument()
+  })
+
   it('names the active rule count and counts lane rules as one filter dimension', () => {
     const lf: LaneFilter = { items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, 2, 'between', { min: '5' }), rule(3, null, 'is')] }
     render(<Harness initial={lf} />)
@@ -116,7 +129,8 @@ describe('LaneFilterPopover', () => {
     expect(screen.getByText('Reads as: all lanes shown · 1 incomplete filter ignored')).toBeInTheDocument()
     await user.click(fieldTrigger)
     // Admin sees the admin-only field, marked with the padlock.
-    expect(within(dialog).getByRole('menuitem', { name: /Margin/ })).toContainElement(within(dialog).getByRole('img', { name: 'Admin-only field' }))
+    const margin = within(dialog).getByRole('menuitem', { name: /Margin/ })
+    expect(within(margin).getByRole('img', { name: 'Admin-only field' })).toBeInTheDocument()
     await user.click(within(dialog).getByRole('menuitem', { name: 'AE' }))
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'Priya' }))
@@ -386,5 +400,77 @@ describe('lane chips', () => {
     await user.keyboard('{Delete}')
     await waitFor(() => expect(screen.getByRole('button', { name: /^Lanes(, \d+ active)?$/ })).toHaveFocus())
     expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument()
+  })
+})
+
+describe('LaneFilterPopover — built-in fields (#2336)', () => {
+  const LANES = [
+    { ...swimlane(1, { 4: 'gold' }), name: 'Acme Corp', contact_email: 'pat@acme.com' },
+    { ...swimlane(2, {}), name: 'Globex', contact_email: '' },
+  ] as Swimlane[]
+  const fieldMenu = async (user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) => {
+    await user.click(within(dialog).getByRole('button', { name: '+ Add filter' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 field/ }))
+    return within(dialog).getByRole('menu')
+  }
+
+  it('lists Lane name and Contact email under Built-in, then custom fields, for an admin', async () => {
+    const user = userEvent.setup()
+    render(<Harness board={withLanes(makeBoard([NOTES, MARGIN]), LANES)} />)
+    const menu = await fieldMenu(user, await openPopover(user))
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Lane name', 'Contact email', 'Margin', 'Notes'].map((n) => expect.stringContaining(n)))
+    const builtIn = within(menu).getByRole('group', { name: 'Built-in' })
+    expect(within(builtIn).getAllByRole('menuitem')).toHaveLength(2)
+    expect(within(menu).getByRole('group', { name: 'Custom fields' })).toBeInTheDocument()
+    expect(within(within(menu).getByRole('menuitem', { name: /Contact email/ })).getByRole('img', { name: 'Admin-only field' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Contact email Admin-only field' })).toBeInTheDocument()
+  })
+
+  it('shows no headings and no Contact email to a member without custom fields', async () => {
+    const user = userEvent.setup()
+    render(<Harness board={withLanes(makeBoard([], 'member'), LANES)} />)
+    const menu = await fieldMenu(user, await openPopover(user))
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([expect.stringContaining('Lane name')])
+    expect(within(menu).queryByRole('group')).not.toBeInTheDocument()
+    expect(within(menu).queryByText('Built-in')).not.toBeInTheDocument()
+  })
+
+  it('picking a built-in starts at is; Contact email typed ops use the @acme.com placeholder', async () => {
+    const user = userEvent.setup()
+    const onState = vi.fn()
+    render(<Harness board={withLanes(makeBoard([NOTES]), LANES)} onState={onState} />)
+    const dialog = await openPopover(user)
+    const menu = await fieldMenu(user, dialog)
+    await user.click(within(menu).getByRole('menuitem', { name: /Contact email/ }))
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 'contact_email', op: 'is' })
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'pat@acme.com' }))
+    expect(screen.getByText('Reads as: Contact email is pat@acme.com')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'contains' }))
+    const input = within(dialog).getByRole('textbox', { name: 'Filter 1 Contact email contains' })
+    expect(input).toHaveAttribute('placeholder', 'e.g. @acme.com')
+    // Lane name keeps the generic placeholder.
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 field/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'Lane name' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'contains' }))
+    expect(within(dialog).getByRole('textbox', { name: 'Filter 1 Lane name contains' })).toHaveAttribute('placeholder', 'Text to match')
+  })
+
+  it('suffixes a built-in whose name a custom field shares, in the picker, trigger, chip and Reads as', async () => {
+    const user = userEvent.setup()
+    const CLASH = def(7, 'Lane Name', 'text')
+    const lf: LaneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'name', op: 'is', value: 'Globex' }] }
+    render(<Harness initial={lf} board={withLanes(makeBoard([CLASH]), LANES)} />)
+    expect(within(screen.getByRole('group', { name: 'Active filters' })).getAllByRole('button', { name: 'Lanes: Lane name (built-in) is Globex, remove' }).length).toBeGreaterThan(0)
+    const dialog = await openPopover(user)
+    expect(within(dialog).getByText('Reads as: Lane name (built-in) is Globex')).toBeInTheDocument()
+    const trigger = within(dialog).getByRole('button', { name: /^Filter 1 field/ })
+    expect(trigger).toHaveTextContent('Lane name (built-in)')
+    // The w-40 trigger truncates, so the full name is on the title (#2336).
+    expect(trigger).toHaveAttribute('title', 'Lane name (built-in)')
+    await user.click(trigger)
+    expect(within(dialog).getByRole('menuitem', { name: 'Lane Name' })).toBeInTheDocument()
   })
 })

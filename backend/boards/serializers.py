@@ -4926,6 +4926,9 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _LANE_OPS = {"is", "is_not", "between", "contains", "not_contains", "wildcard"}
     # Ops whose operand is one typed string (#2226, #2227).
     _LANE_TEXT_OPS = {"contains", "not_contains", "wildcard"}
+    # #2336: built-in swimlane fields a lane rule may name instead of a custom
+    # field id. Pinned against filter_state_keys.json (laneBuiltinFields).
+    _LANE_BUILTIN_FIELDS = frozenset({"name", "contact_email"})
     _LANE_JOINS = {"and", "or"}
     _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
     _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
@@ -5085,11 +5088,21 @@ class SavedFilterSerializer(serializers.ModelSerializer):
         if not (isinstance(join, str) and join in self._LANE_JOINS):
             raise err("state_json.laneFilter join must be 'and' or 'or'.")
         field = rule.get("field")
-        if field is not None and not self._is_lane_id(field):
-            raise err("state_json.laneFilter rule field must be a field id or null.")
+        # isinstance before the set lookup: a list or dict field is a 400, not a 500.
+        # Deliberately no role check for "contact_email" (admin-only, #2336): this
+        # validator has no board or role context, a demoted admin's stored state
+        # would otherwise become unsavable, saved filters are private to their
+        # owner and evaluated client-side, and contact_email is never sent to
+        # non-admins, whose clients drop such a rule (pruneLaneFilter).
+        builtin = isinstance(field, str) and field in self._LANE_BUILTIN_FIELDS
+        if not (field is None or self._is_lane_id(field) or builtin):
+            raise err("state_json.laneFilter rule field must be a field id, a built-in field name, or null.")
         op = rule.get("op")
         if not (isinstance(op, str) and op in self._LANE_OPS):
             raise err(f"state_json.laneFilter rule op must be one of {sorted(self._LANE_OPS)}.")
+        if builtin and (op == "between" or "min" in rule or "max" in rule):
+            # Built-ins are text fields: no range operator or bounds.
+            raise err(f"state_json.laneFilter rule on {field} takes a text operator and a value, not between, min or max.")
         for key in ("value", "min", "max"):
             if key in rule:
                 v = rule[key]
