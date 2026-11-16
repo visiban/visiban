@@ -277,7 +277,7 @@ export default function BoardInvitesTab() {
                                 type="button"
                                 onClick={() => { if (inFlight) return; setConfirmId(null); setRevokeError(null); }}
                                 disabled={inFlight}
-                                className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                               >
                                 Cancel
                               </button>

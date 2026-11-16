@@ -1330,7 +1330,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <button
                           onClick={() => { if (!isDisabled) setPendingRemove(null); }}
                           aria-disabled={isDisabled || undefined}
-                          className="text-fg-tertiary hover:text-fg transition aria-disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition aria-disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           Cancel
                         </button>
@@ -1571,7 +1571,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         </button>
                         <button
                           onClick={() => setPendingHardWip(false)}
-                          className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           Cancel
                         </button>

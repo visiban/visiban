@@ -120,7 +120,7 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
               type="button"
               onClick={onGuardCancel}
               aria-label="Cancel closing, keep the secret on screen"
-              className="min-h-6 text-fg-tertiary hover:text-fg transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="min-h-6 text-fg-secondary hover:text-fg hover:bg-surface-hover transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>

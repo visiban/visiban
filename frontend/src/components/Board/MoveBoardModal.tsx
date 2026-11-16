@@ -190,7 +190,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       <div className="flex justify-end gap-3 mt-5">
         <button
           onClick={onClose}
-          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>

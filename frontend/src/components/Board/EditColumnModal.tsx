@@ -278,7 +278,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <p id={`${tabsId}-status`} className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true">
           <span className="text-danger">{error ?? (name.trim() ? "" : "Name is required.")}</span>
         </p>
-        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}

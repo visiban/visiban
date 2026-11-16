@@ -2003,7 +2003,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           type="button"
                           aria-label="Cancel new label"
                           onClick={() => { focusNewLabelTriggerRef.current = true; setAddingLabel(false); setLabelError(null); }}
-                          className="text-xs text-fg-muted hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className="text-xs text-fg-muted hover:text-fg-secondary hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >✕</button>
                       </div>
                       <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 mt-0.5">
@@ -2311,7 +2311,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <p role="alert" className="text-xs text-danger -mt-2">{checklistError}</p>
                       )}
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
+                        <button onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
                         <button onClick={() => void handleBulkAdd()} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
                       </div>
                     </div>
@@ -2492,7 +2492,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                     type="button"
                                     onClick={cancelCommentDelete}
                                     disabled={deletingCommentId !== null}
-                                    className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                                    className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                                   >
                                     Cancel
                                   </button>
@@ -2671,7 +2671,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <button
                 onClick={() => closeMovePopover()}
                 disabled={moveForcing}
-                className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40"
+                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40"
               >Cancel</button>
               <button
                 ref={moveSubmitRef}
@@ -2699,7 +2699,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
               <button onClick={executeDelete} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">{cardActionBusy ? "Deleting…" : "Delete"}</button>
             </div>
           </>
@@ -2710,7 +2710,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40">Cancel</button>
               <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-on-warning text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
             </div>
           </>

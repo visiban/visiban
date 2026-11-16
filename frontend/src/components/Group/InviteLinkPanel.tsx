@@ -500,7 +500,7 @@ export default function InviteLinkPanel({
               <button
                 onClick={() => { if (inFlight) return; setConfirmRevokeId(null); setRevokeError(null); }}
                 disabled={inFlight}
-                className="text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
@@ -653,7 +653,7 @@ export default function InviteLinkPanel({
             setFormSingleUse(false);
             setPendingFocus("newLink");
           }}
-          className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>

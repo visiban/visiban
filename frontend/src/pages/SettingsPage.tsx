@@ -521,7 +521,7 @@ function ConnectedAccountRow({
                 type="button"
                 onClick={onCancelDisconnect}
                 disabled={disconnecting}
-                className="text-xs text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
@@ -1116,7 +1116,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
                     type="button"
                     onClick={() => setConfirmRevokeId(null)}
                     disabled={revokingId === token.id}
-                    className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Cancel
                   </button>

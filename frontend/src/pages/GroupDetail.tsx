@@ -1583,7 +1583,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                               )}
                             </span>
                             <button onClick={() => { void handleRemoveMember(m.user.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                           </div>
                         ) : (
                           <button
@@ -1732,7 +1732,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                             Remove <span className="text-fg font-medium">{label.name}</span> from this group?
                           </span>
                           <button onClick={() => { void handleDeleteGroupLabel(label.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                         </div>
                       ) : (
                         <button
@@ -1927,7 +1927,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
@@ -1951,7 +1951,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       >
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={() => { void handleDeleteGroup(); }} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>
