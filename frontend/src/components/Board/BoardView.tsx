@@ -3502,7 +3502,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             // Phone only (#2277): reorder within the cell, which on the grid is a drag.
-            cellOrder={isPhone ? cellOrderOf(board.cards, peekCard) : undefined}
+            // Over the cards the filter shows, as PhoneBoard does.
+            cellOrder={isPhone ? cellOrderOf(board.cards, peekCard, filteredCardIds) : undefined}
             userDateFormat={userDateFormat}
             userTimezone={userTimezone}
           />

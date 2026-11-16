@@ -3919,6 +3919,40 @@ describe('BoardView phone layout (#2277)', () => {
     expect(ctx.moveCard).toHaveBeenCalledWith(502, 10, 20, 0)
   })
 
+  it('steps a card over the filtered cards only, sending the visible neighbor\'s raw slot (#2277)', async () => {
+    mockPhone(true)
+    // Blocked-only filter: H1 and H2 are not blocked, so PhoneBoard hides them.
+    mockSearchParams = new URLSearchParams('f_blocked=1')
+    const base = makeBoard()
+    const face = { ...base.cards[0], column: 10, swimlane: 20, is_blocked: true, blocked_at: '2026-01-01T00:00:00Z', archived_at: null }
+    const cards = [
+      { ...face, id: 601, uid: 'carduid0601', position: 0, title: 'Filt A' },
+      { ...face, id: 602, uid: 'carduid0602', position: 1, title: 'Filt B' },
+      { ...face, id: 603, uid: 'carduid0603', position: 2, title: 'Hidden One', is_blocked: false, blocked_at: null },
+      { ...face, id: 604, uid: 'carduid0604', position: 3, title: 'Filt C' },
+      { ...face, id: 605, uid: 'carduid0605', position: 4, title: 'Hidden Two', is_blocked: false, blocked_at: null },
+    ]
+    const ctx = defaultContext({ board: makeBoard({ cards }) })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    expect(screen.queryByText('Hidden One')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Filt B'))
+    let sheet = await screen.findByTestId('card-peek-sheet')
+    // Move later passes the hidden card: right after C (its position 3, + 1).
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Move later' }))
+    expect(ctx.moveCard).toHaveBeenLastCalledWith(602, 10, 20, 4)
+    await waitFor(() => expect(within(sheet).getByRole('button', { name: 'Move earlier' })).toBeEnabled())
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Move earlier' }))
+    await waitFor(() => expect(ctx.moveCard).toHaveBeenLastCalledWith(602, 10, 20, 0))
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close card peek' }))
+    // C is the last visible card: Move later is off though a hidden card follows it.
+    fireEvent.click(screen.getByText('Filt C'))
+    sheet = await screen.findByTestId('card-peek-sheet')
+    expect(within(sheet).getByRole('button', { name: 'Move later' })).toBeDisabled()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Move earlier' }))
+    await waitFor(() => expect(ctx.moveCard).toHaveBeenLastCalledWith(604, 10, 20, 1))
+  })
+
   it('opens Add column from the phone board', () => {
     mockPhone(true)
     mockSearchParams = new URLSearchParams()
