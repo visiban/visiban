@@ -218,7 +218,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               )}
             </button>
             {showBell && (
-              <div className="absolute right-0 top-8 max-sm:top-11 w-80 bg-surface rounded-lg shadow-xl border border-line-strong z-50">
+              <div className="absolute right-0 top-8 max-sm:top-11 w-80 max-sm:w-[calc(100vw-2rem)] bg-surface rounded-lg shadow-xl border border-line-strong z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-line">
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   {/* Hosted demo (#1193): mark-read is refused by the server
@@ -229,7 +229,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     aria-disabled={demoMode ? true : undefined}
                     aria-label={demoMode ? `Mark all read. ${DEMO_MARK_READ_REASON}` : undefined}
                     title={demoMode ? `Mark all read. ${DEMO_MARK_READ_REASON}` : undefined}
-                    className={`text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
+                    className={`text-xs max-sm:min-h-11 max-sm:px-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
                       demoMode ? "text-fg-muted opacity-40 cursor-not-allowed" : "text-info hover:text-info"
                     }`}
                   >
