@@ -114,12 +114,16 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
   })
 
-  it('keeps the edit control on demand: hidden until hover or focus (#2335)', () => {
+  it('keeps the band controls on demand: hidden until hover or focus, shown without hover (#2335)', () => {
     render(<SwimlaneRow {...defaultProps()} isAdmin />)
     const edit = screen.getByTitle('Edit swimlane')
     expect(edit.className).toContain('opacity-0')
     expect(edit.className).toContain('group-hover:opacity-100')
     expect(edit.className).toContain('focus:opacity-100')
+    // No hover on a touch device: every on-demand control is shown there.
+    for (const el of [edit, screen.getByTitle('Drag to reorder'), screen.getByRole('button', { name: /^Focus on / })]) {
+      expect(el.className).toContain('[@media(hover:none)]:opacity-100')
+    }
   })
 
   it('shows overdue and stale counts as text and omits them at zero', () => {

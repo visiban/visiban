@@ -336,7 +336,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             <span
               {...attributes}
               {...listeners}
-              className="text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity"
+              className="text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity"
               title="Drag to reorder"
             >
               ⠿
@@ -507,8 +507,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             {isAdmin && (
               <button type="button"
                 onClick={() => setEditing(true)}
-                // On-demand tier (#2335): revealed on hover or focus, like the drag handle and focus icon.
-                className="transition text-xs text-fg-tertiary hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                // On-demand tier (#2335): revealed on hover or focus, like the drag handle and focus icon;
+                // always shown where there is no hover (a tablet gets the grid band).
+                className="transition text-xs text-fg-tertiary hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                 title="Edit swimlane"
                 aria-label="Edit swimlane"
               >
@@ -518,7 +519,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button type="button"
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}

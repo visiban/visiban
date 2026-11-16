@@ -248,7 +248,7 @@ Screenshot: `board-phone.png`.
 
 - One column at a time. A horizontally scrolling row of column buttons (color dot, name, count) selects it; under it, the column's limit line and meter.
 - A split stage adds a two-part segmented control for its sub-columns.
-- Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the first two lane fields, `+N` for the rest, overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and `+N` is a button.
+- Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the first two lane fields, `+N` for the rest, overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and `+N` is a button. "2 here" is the selected column's cell count, not the lane card count #2328 removed from the desktop band. Lane health stays in the lane actions row under the band (#2277). The second line uses the desktop band's tones (`board-dark.png`), not the dimmer `board-phone.png` draft, so a lane reads the same at every width.
 - Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.
 - The same four tabs as desktop: Board, Summary, History, Analytics. Search, Activity and Filter are icon buttons in the header; the Filter button also opens the View options.
 - Every target is at least 44px. No sideways page scroll at 390px.
