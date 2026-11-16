@@ -63,12 +63,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const loadAll = useCallback((isRetry = false) => {
     const gen = ++loadGenRef.current;
     const isCurrent = () => gen === loadGenRef.current;
-    // A retry keeps the current error (and its Retry button) on screen until the new round
-    // settles; the first load starts clean.
-    if (!isRetry) {
-      setLoadError(null);
-      setLoadFailed(false);
-    }
+    // A retry keeps the Retry button (loadFailed) mounted until the new round settles, but
+    // clears the alert text: a repeat failure then writes the same string back as a real text
+    // change, which is what makes a screen reader announce it again. The first load starts clean.
+    setLoadError(null);
+    if (!isRetry) setLoadFailed(false);
     setRetrying(isRetry);
     setLoadingBoards(true);
     setLoadingGroups(true);
@@ -243,7 +242,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
         {/* The alert is always mounted and only its text changes: a region that mounts together
             with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
-        <div className={loadError ? "flex flex-wrap items-center gap-3 mb-4" : undefined}>
+        <div className={loadFailed ? "flex flex-wrap items-center gap-3 mb-4" : undefined}>
           <p
             id="dashboard-load-error"
             role="alert"

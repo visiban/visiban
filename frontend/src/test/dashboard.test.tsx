@@ -187,12 +187,12 @@ describe('Dashboard', () => {
     mockListBoards.mockImplementationOnce(() => new Promise((r) => { resolveBoards = r }))
     retry.focus()
     await userEvent.keyboard('{Enter}')
-    // Same element, still focused, inert with a progress label; the error stays until the round settles.
+    // Same element, still focused, inert with a progress label; the alert text is cleared while the round is in flight.
     const retrying = screen.getByRole('button', { name: 'Retrying…' })
     expect(retrying).toBe(retry)
     expect(retrying).toHaveAttribute('aria-disabled', 'true')
     expect(document.activeElement).toBe(retrying)
-    expect(alert).toHaveTextContent('Failed to load boards.')
+    expect(alert).toBeEmptyDOMElement()
     // A second activation while in flight starts no new round.
     await userEvent.keyboard('{Enter}')
     expect(mockListBoards).toHaveBeenCalledTimes(2)
@@ -203,14 +203,32 @@ describe('Dashboard', () => {
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Groups' }))
   })
 
-  it('re-enables Retry and keeps the error when the retry round fails again', async () => {
-    mockListBoards.mockRejectedValueOnce(new Error('x')).mockRejectedValueOnce(new Error('y'))
+  it('announces a repeat failure: clears the alert text while retrying, then writes it again (#487)', async () => {
+    mockListBoards.mockRejectedValueOnce(new Error('x'))
     mockListGroups.mockResolvedValue([])
     renderDashboard()
-    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-    const retry = await screen.findByRole('button', { name: 'Retry' })
-    expect(retry).not.toHaveAttribute('aria-disabled')
-    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load boards.')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Failed to load boards.')
+    const retry = screen.getByRole('button', { name: 'Retry' })
+
+    let rejectBoards: (e: Error) => void = () => undefined
+    mockListBoards.mockImplementationOnce(() => new Promise((_r, rej) => { rejectBoards = rej }))
+    retry.focus()
+    await userEvent.keyboard('{Enter}')
+    // In flight: the text is gone (so the next write is a real change a screen reader announces),
+    // the same button stays mounted and focused, and the slot itself stays mounted.
+    const retrying = screen.getByRole('button', { name: 'Retrying…' })
+    expect(retrying).toBe(retry)
+    expect(document.activeElement).toBe(retry)
+    expect(screen.getByRole('alert')).toBe(alert)
+    expect(alert).toBeEmptyDOMElement()
+
+    rejectBoards(new Error('y'))
+    await waitFor(() => expect(alert).toHaveTextContent('Failed to load boards.'))
+    const again = screen.getByRole('button', { name: 'Retry' })
+    expect(again).toBe(retry)
+    expect(again).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(retry)
     expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
   })
 

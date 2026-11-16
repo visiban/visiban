@@ -39,8 +39,9 @@ function cancelButtons(): CancelButton[] {
       if (end === -1) break
       const body = src.slice(at, end)
       if (body.indexOf('<button', 1) !== -1) continue
-      // The visible label is Cancel: as the text content, or as one branch of a label expression.
-      if (!/>\s*Cancel\s*$|"Cancel"\s*\}?\s*$/.test(body)) continue
+      // The visible label is Cancel: as the text content, or as a string literal in either branch
+      // of a label expression (`{editable ? "Cancel" : "Close"}`).
+      if (!/>\s*Cancel\s*$|"Cancel"/.test(body)) continue
       const where = `${relative(SRC, file)}:${src.slice(0, at).split('\n').length}`
       const literal = /className="([^"]*)"/.exec(body)
       const ref = /className=\{`?\$?\{?([A-Za-z_]\w*)/.exec(body)
@@ -53,6 +54,10 @@ function cancelButtons(): CancelButton[] {
 describe('Cancel buttons use the secondary variant hover fill (#484)', () => {
   const buttons = cancelButtons()
 
+  it('scans a Cancel label that is the first branch of a ternary (HealthStatusPopover)', () => {
+    expect(buttons.some((b) => b.where.startsWith('components/Common/HealthStatusPopover.tsx'))).toBe(true)
+  })
+
   it('finds the Cancel buttons (guards against a scan that silently matches nothing)', () => {
     expect(buttons.length).toBeGreaterThan(40)
   })
@@ -61,6 +66,13 @@ describe('Cancel buttons use the secondary variant hover fill (#484)', () => {
     const bad = buttons
       .filter((b) => b.classes === null || !b.classes.includes('hover:bg-surface-hover') || !/\brounded\b|\brounded-md\b/.test(b.classes))
       .map((b) => `${b.where} ${b.classes ?? '(className not resolvable)'}`)
+    expect(bad).toEqual([])
+  })
+
+  it('every Cancel button carries the secondary text color and its hover:text-fg', () => {
+    const bad = buttons
+      .filter((b) => b.classes !== null && (!/(^|\s)text-fg-secondary(\s|$)/.test(b.classes) || !/(^|\s)hover:text-fg(\s|$)/.test(b.classes)))
+      .map((b) => `${b.where} ${b.classes}`)
     expect(bad).toEqual([])
   })
 
