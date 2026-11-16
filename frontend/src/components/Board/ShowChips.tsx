@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STATUS_SQUARE_CLASS, type CardBoardStatus } from "../../constants/laneStatus";
 import { SHOW_CHIP_LABEL, SHOW_CHIP_ORDER, type ShowChipKey } from "../../utils/showChips";
 
@@ -40,8 +40,16 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
   // click is leaving, so the announcement names the action just taken; the region is
   // always mounted so screen readers register it before the text changes.
   const [laneAnnouncement, setLaneAnnouncement] = useState("");
+  const announceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(announceTimer.current), []);
   const toggleLanes = () => {
-    setLaneAnnouncement(`${allLanesCollapsed ? "Expanded" : "Collapsed"} all ${laneCount} ${laneCount === 1 ? "lane" : "lanes"}`);
+    // Clear first, then set on a short timeout: collapse all, expand one lane by hand, collapse all
+    // again yields the identical string, and React makes no DOM change for an identical string, so
+    // nothing would be announced the second time.
+    clearTimeout(announceTimer.current);
+    setLaneAnnouncement("");
+    const message = `${allLanesCollapsed ? "Expanded" : "Collapsed"} all ${laneCount} ${laneCount === 1 ? "lane" : "lanes"}`;
+    announceTimer.current = setTimeout(() => setLaneAnnouncement(message), 50);
     onToggleLanes?.();
   };
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

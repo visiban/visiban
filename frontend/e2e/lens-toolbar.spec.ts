@@ -48,7 +48,7 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
 }
 
 test.describe('Lens toolbar', () => {
-  test('Summary, History and Analytics keep the Board tab where the Board view has it at 390px (#2321)', async ({ page }) => {
+  test('Summary, History and Analytics do not shift the tabs or scroll sideways at 390px (#2321)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await setup(page)
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
