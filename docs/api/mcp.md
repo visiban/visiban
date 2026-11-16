@@ -364,6 +364,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `force_not_permitted` | Reserved: no tool currently exposes `force`. A `force` override of a WIP or weight limit was requested by someone who is not a board admin. |
 | `invalid_version` | Reserved: `version` (on `move_card` and `update_card` since 1.3) is schema-typed as an integer, so this is not currently reachable. The supplied `version` is not an integer. |
 | `invalid_position` | Reserved: `position` is schema-typed as an integer, so this is not currently reachable. The supplied move `position` is not an integer. |
+| `invalid_gates_passed` | `move_card`: `gates_passed` (since 1.3) is not an integer, is negative, or is past the target stage's last sub-column. |
 | `card_creation_not_allowed` | `create_card` targeted a column that has card creation turned off. Carries a `column` message instead of `detail`: `{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}`. |
 | `container_changed` | Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry. |
 | `use_move_endpoint` | Reserved: no tool currently emits it, because `update_card` takes no column, swimlane, or position. An update tried to change a card's column, swimlane, or position. Use `move_card` instead. |
