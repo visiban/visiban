@@ -283,7 +283,7 @@ the status filter and the uniform response, not scope.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| JSON import | `boards/views/import_export.py` `BoardImportExportMixin._import_json` | `_resolve_import_users` (assignee, checklist assignee); history rows and comments use the importer plus `_imported_from_username` |
+| JSON import | `boards/views/import_export.py` `BoardImportExportMixin._import_json` | `_resolve_import_users` (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions) and comments use the importer plus `_imported_from_username` |
 | CSV import | `boards/views/import_export.py` `BoardImportExportMixin._import_csv` | `_resolve_import_users` (assignee; CSV import writes no history rows) |
 | Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_trello` | `boards/services/trello_import.py` `visible_users`, `match_members` (card members and, since #2197, checklist item members, both only with `add_matched_members`; comments use the importer and keep the author name in `imported_from_username`; Trello import writes no movement or activity rows) |
 | User search | `accounts/views.py` `UserSearchView` | Filters `is_active=True`; matches `username` and `display_name` only |
