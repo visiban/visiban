@@ -476,6 +476,42 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
   })
 
+  it('caps the save name at 100 characters, like the Saved dropdown', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    expect(screen.getByRole('textbox', { name: 'Save current filters as:' })).toHaveAttribute('maxlength', '100')
+  })
+
+  it('dismisses a lane chip through onChange', async () => {
+    const u = userEvent.setup()
+    const laneBoard = makeBoard({
+      swimlane_custom_field_definitions: [{
+        id: 21, uid: 'slf21', name: 'Team', field_type: 'dropdown', choices: ['Red', 'Blue'], position: 1, show_on_row: false, is_admin_only: false,
+      }] as never,
+    })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', value: 'Red' }] }
+    const { onChange } = setup({ board: laneBoard, filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState, onSaveFilter: vi.fn() })
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    const btns = within(group).getAllByRole('button', { name: 'Lanes: Team is Red, remove' })
+    await u.click(btns[btns.length - 1])
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const next = onChange.mock.calls[0][0] as FilterState
+    expect(next.laneFilter).toBeUndefined()
+  })
+
+  it('shows Clear all and Save filter, with no chips, for a search-only filter', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: { ...EMPTY_FILTER, search: 'crash' }, onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.queryByRole('group', { name: 'Filtered by' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeInTheDocument()
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
+  })
+
   it('omits Save filter when no save handler is wired', async () => {
     const u = userEvent.setup()
     setup({ filters: active })

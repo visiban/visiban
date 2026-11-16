@@ -123,4 +123,31 @@ test.describe('filter bar', () => {
 
     await expect(page.getByRole('button', { name: /My open bugs/ })).toBeVisible()
   })
+
+  test('saves a filter from the Filter panel chip row (#2315)', async ({ page }) => {
+    // Stateful stub: a POST adds the preset so the next GET (and the panel's Saved list) returns it.
+    const store: unknown[] = []
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/saved-filters/`, async (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { name: string; state_json: unknown }
+        const row = { id: 21, name: body.name, state_json: body.state_json, state_version: 1, created_at: '2026-04-01T00:00:00Z' }
+        store.push(row)
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(row) })
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(store) })
+      }
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    await page.getByRole('button', { name: /^Filters/ }).click()
+    const panel = page.getByRole('dialog', { name: 'Filter' })
+    await panel.getByRole('button', { name: /^Label/ }).click()
+    await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
+    await panel.getByRole('button', { name: 'Save filter' }).click()
+    await panel.getByRole('textbox', { name: 'Save current filters as:' }).fill('Panel preset')
+    await page.keyboard.press('Enter')
+
+    await expect(panel.getByRole('list', { name: 'Saved filters' }).getByText('Panel preset')).toBeVisible()
+  })
 })

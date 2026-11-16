@@ -234,7 +234,8 @@ export default function FilterPanel({
     () => laneFilterChipItems(filters.laneFilter, laneFields, makeLaneValueFormatter(board.swimlane_custom_field_definitions, userDateFormat)),
     [filters.laneFilter, laneFields, board.swimlane_custom_field_definitions, userDateFormat],
   );
-  const hasChips = chips.length + laneChips.length > 0;
+  // A search-only filter has no chip (search is the bar's input) but still needs Clear all and Save filter.
+  const hasChips = chips.length + laneChips.length > 0 || filters.search.trim() !== "";
   // The chip row and the name input unmount from under focus (Clear all, last chip, Escape, a saved
   // name); without a landing spot focus drops to <body> and Tab skips the panel's trap.
   useEffect(() => {
@@ -405,6 +406,7 @@ export default function FilterPanel({
               )}
             </div>
           </div>
+          {chips.length + laneChips.length > 0 && (
           <div role="group" aria-label="Filtered by" className="flex items-center gap-1.5 flex-wrap">
             {chips.map((chip) => (
               <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
@@ -426,6 +428,7 @@ export default function FilterPanel({
               </span>
             ))}
           </div>
+          )}
           {saveMode && (
             <div className="px-0.5">
               <label className="block text-xs text-fg-secondary mb-1" htmlFor={`${id}-save-name`}>Save current filters as:</label>
@@ -436,6 +439,7 @@ export default function FilterPanel({
                   type="text"
                   value={saveName}
                   placeholder="Filter name"
+                  maxLength={100}
                   aria-invalid={saveError ? true : undefined}
                   aria-describedby={saveError ? `${id}-save-error` : undefined}
                   onChange={(e) => { setSaveName(e.target.value); setSaveError(null); }}
