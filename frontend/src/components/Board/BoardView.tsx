@@ -69,9 +69,9 @@ import CardContextMenu, { type CardMenuAnchor, type CardMenuCloseReason } from "
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import {
-  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, archiveCards, assignCards, cardActionEntries, cardLink,
-  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, resolveCardTarget, setCardsPriority, successMessage,
-  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail,
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, MOVES_PAUSED_REASON, archiveCards, assignCards, cardActionEntries, cardLink,
+  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
+  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep,
 } from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
@@ -314,8 +314,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
   const {
     board: boardOrNull,
-    moveCard: onMoveCard,
-    forceMoveCardTo,
+    moveCard: onMoveCardRaw,
+    forceMoveCardTo: forceMoveCardToRaw,
+    moveError,
+    clearMoveError,
     addCard: onCardAdded,
     removeCard,
     archiveCard,
@@ -348,6 +350,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     getLastFullFetchAt,
   } = useBoardContext();
+  // Backstop for #2325: every Move path (drag, menus, bulk, peek/detail forms, the entry
+  // checklist, "Move anyway") ends in one of these two. A control that was already open
+  // when the socket dropped still reaches them, so they refuse while moves are paused. The ref
+  // is read at call time, so a stale closure cannot slip a move through.
+  const movesPausedRef = useRef(false);
+  const onMoveCard = useCallback<typeof onMoveCardRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : onMoveCardRaw(...args)
+  ), [onMoveCardRaw]);
+  const forceMoveCardTo = useCallback<typeof forceMoveCardToRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : forceMoveCardToRaw(...args)
+  ), [forceMoveCardToRaw]);
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
   // The non-null assertion keeps the existing contract without changing every
@@ -960,6 +973,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (socketStatus === "failed" && !selfDeletingRef.current) silentReload();
   }, [socketStatus, silentReload]);
+  // Offline pauses moves (#2325, spec § States): while the socket is down, drag is off
+  // and every Move path (card menu, bulk toolbar, card detail and peek Move) is disabled
+  // with this reason in text, so a move never lands on a board others changed meanwhile.
+  // Same states as the offline banner, which says so.
+  const movesPaused = socketStatus === "reconnecting" || socketStatus === "failed";
+  movesPausedRef.current = movesPaused;
+  // The "Move anyway" toast lives in App, outside this socket's reach: dismiss a held refusal
+  // when moves pause so its override cannot retry on a board that may have changed.
+  useEffect(() => {
+    if (movesPaused && moveError) clearMoveError();
+  }, [movesPaused, moveError, clearMoveError]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -1580,6 +1604,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     isModerator: isBoardModerator,
     demoMode,
     maintenanceBlocked: blockedByMaintenance,
+    movesPaused,
   };
   // Latest state for the stable callbacks and window listeners below.
   const cardActionStateRef = useRef({ selectedCardIds, selectedCard, peekCardId, cardActionContext });
@@ -2355,6 +2380,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Send a drag-and-drop move and announce its outcome once known. Shared by
   // a plain drop and a drop confirmed through the entry checklist (#1101).
   const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number) => {
+    // The entry checklist can be open when the socket drops (#2325).
+    if (movesPausedRef.current) {
+      setDndAnnouncement("Move canceled, moves are paused while the board is offline");
+      return;
+    }
     const targetCol = board.columns.find((c) => c.id === targetColumnId);
     const targetSwim = board.swimlanes.find((s) => s.id === targetSwimlaneId);
     // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,
@@ -2370,6 +2400,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       } else if (targetCol && targetSwim) {
         setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
       }
+    });
+  };
+
+  // Keyboard reorder within a cell (#2327): the card menu's Move to… offers
+  // "Move earlier / later in this cell" (no new shortcut keys). Same slots and
+  // visible-neighbor rule as the phone peek sheet's steps (`cellOrderOf`), so a
+  // step never passes a card the filter hides.
+  const reorderCardInCell = (card: Card, step: ReorderStep) => {
+    // The menu's own gate, re-read: the board may have gone offline since it opened.
+    if (!cardActionEntries([card], cardActionContext).find((e) => e.id === "move")?.enabled) return;
+    const order = cellOrderOf(board.cards, card, filteredCardIds);
+    const position = step === "earlier" ? order.earlier : order.later;
+    if (position === null) return;
+    const place = step === "earlier" ? order.index : order.index + 2;
+    void Promise.resolve(onMoveCard(card.id, card.column, card.swimlane, position)).then((outcome) => {
+      // A refusal raises its own announced toast (#2060); say nothing twice.
+      if (outcome && outcome.ok === false) { setDndAnnouncement(""); return; }
+      setDndAnnouncement(`Card '${card.title}' moved to place ${place} of ${order.count} in its cell`);
+      focusCardSoon(card.id);
     });
   };
 
@@ -2496,6 +2545,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setActiveCard(null);
     if (!over) {
       setDndAnnouncement("Move canceled, card returned to original position");
+      return;
+    }
+    // A drag that started before the socket dropped must not land while moves are paused (#2325).
+    if (movesPaused) {
+      setDndAnnouncement("Move canceled, moves are paused while the board is offline");
       return;
     }
     // Guard: card drops must land on a cell: zone. col:/swim: zones are not valid targets for cards.
@@ -2734,6 +2788,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -2892,6 +2947,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             status={socketStatus}
             lastEventAt={socketLastEventAt}
             reconnectAttempt={socketReconnectAttempt}
+            reconnectingLabel="Offline"
             onRefresh={silentReload}
             tourStep="live-indicator"
           />
@@ -3091,7 +3147,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard || peekCardId !== null || isPhone ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null || isPhone || movesPaused ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="relative flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3444,9 +3500,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             entries={cardActionEntries(menuCards, cardActionContext)}
             columns={board.columns}
             members={board.members}
+            reorder={menuCards.length === 1 ? reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds)) : []}
             onAction={(action, value) => {
               const ids = menuCards.map((c) => c.id);
               closeCardMenu("action");
+              if (action === "move" && (value === "earlier" || value === "later")) {
+                reorderCardInCell(menuCards[0], value);
+                return;
+              }
               void runCardAction(ids, action, value);
             }}
             onClose={closeCardMenu}
@@ -3511,6 +3572,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             // Phone only (#2277): reorder within the cell, which on the grid is a drag.
             // Over the cards the filter shows, as PhoneBoard does.
             cellOrder={isPhone ? cellOrderOf(board.cards, peekCard, filteredCardIds) : undefined}
@@ -3538,6 +3600,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}

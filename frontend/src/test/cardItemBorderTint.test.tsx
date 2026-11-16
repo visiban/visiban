@@ -108,4 +108,10 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(face().className).toContain('motion-reduce:rotate-0')
     expect(face().className).toContain('motion-reduce:!translate-y-0')
   })
+
+  it('drag overlay copy takes the deep shadow token, not an inline shadow (#2326)', () => {
+    render(<CardItem card={makeCard({})} density="comfortable" overlay />)
+    expect(face().className).toContain('shadow-2xl')
+    expect(face().style.boxShadow).toBe('')
+  })
 })

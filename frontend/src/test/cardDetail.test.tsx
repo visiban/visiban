@@ -2013,6 +2013,41 @@ describe('CardDetail', () => {
       expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toBeInTheDocument()
     })
 
+    it('offline: the Move button stays but is disabled, says why in text, and opens nothing (#2325)', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} movesPaused />)
+      const btn = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      expect(btn).toHaveAttribute('aria-disabled', 'true')
+      expect(btn).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+      await userEvent.click(btn)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      expect(onMoveCard).not.toHaveBeenCalled()
+    })
+
+    it('offline: the Column key fact is inert, not a button (#2325)', () => {
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} movesPaused />)
+      expect(within(screen.getByRole('list', { name: 'Key facts' })).queryByRole('button', { name: /Go to Move/ })).not.toBeInTheDocument()
+    })
+
+    it('going offline with the Move popover open closes it and returns focus to the Move button (#2325)', async () => {
+      const user = userEvent.setup()
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      const props = { ...defaultProps(), board: makeBoardWithTwoCols(), onMoveCard }
+      const { rerender } = render(<CardDetail {...props} />)
+      const btn = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      await user.click(btn)
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      rerender(<CardDetail {...props} movesPaused />)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      expect(btn).toHaveAttribute('aria-disabled', 'true')
+      expect(btn).toHaveFocus()
+      // Back online: the popover must not reappear on its own, and the button opens it again.
+      rerender(<CardDetail {...props} />)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      await user.click(btn)
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+    })
+
     it('does not show move button for viewer even when onMoveCard provided', () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       const board = makeBoardWithTwoCols()

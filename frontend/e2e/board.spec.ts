@@ -154,7 +154,8 @@ test.describe('board view', () => {
     const todoCard = page.locator('[data-card-id="400"]')
     await expect(todoCard).toBeVisible({ timeout: 10_000 })
     const cell = page.locator('[data-board-cell]').filter({ has: todoCard })
-    const addBtn = cell.getByRole('button', { name: '+ Add card' })
+    // Named like the empty cell (#2320).
+    const addBtn = cell.getByRole('button', { name: /^Add card to / })
     await addBtn.hover()
     // The button fills the blank well space, far taller than a single-row strip.
     await expect.poll(async () => (await addBtn.boundingBox())!.height).toBeGreaterThan(40)

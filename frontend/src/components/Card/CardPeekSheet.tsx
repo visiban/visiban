@@ -53,6 +53,8 @@ interface Props {
    * (`earlier` / `later`; `null` disables that button).
    */
   cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
+  /** The board is offline (#2325): Move and the reorder steps are disabled, with the reason in text. */
+  movesPaused?: boolean;
   userDateFormat?: string;
   userTimezone?: string;
 }
@@ -67,7 +69,7 @@ interface Props {
  * detail sheet placement): focus goes to Close on open, and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
@@ -93,6 +95,20 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   useEffect(() => {
     closeRef.current?.focus();
   }, []);
+
+  // The socket dropping while the Move form is open: moves are paused, so close the form
+  // (it would otherwise keep a live "Move card" / "Move anyway" on a stale board), clear its
+  // error, and hand focus back to the Move button once it remounts (#2325).
+  const moveBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!movesPaused || !moveOpen) return;
+    setMoveOpen(false);
+    setMoveError(null);
+    setMoveRefusal(null);
+    const t = setTimeout(() => moveBtnRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the pause edge only
+  }, [movesPaused]);
 
   // Refetch when the card moves (its own Move, or a remote one) so history and
   // the bar stay current. `version` changes on every server write.
@@ -206,7 +222,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
 
   const forceMove = async () => {
-    if (!onForceMoveCard || forcingRef.current) return;
+    if (!onForceMoveCard || forcingRef.current || movesPaused) return;
     forcingRef.current = true;
     setMoving(true);
     try {
@@ -229,6 +245,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   };
 
   const submitMove = async () => {
+    if (movesPaused) return;
     if (targetColumn === card.column && targetSwimlane === card.swimlane) {
       setMoveOpen(false);
       return;
@@ -477,8 +494,12 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           {canEdit && !moveOpen && (
             <button
               type="button"
-              onClick={() => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
-              className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
+              ref={moveBtnRef}
+              // § Withheld actions: aria-disabled keeps it in the tab order, the reason is in text below.
+              aria-disabled={movesPaused || undefined}
+              aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined}
+              onClick={movesPaused ? undefined : () => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
+              className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move
             </button>
@@ -486,11 +507,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         </div>
         {canReorder && (
           <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
-            <button type="button" disabled={moving || cellOrder.earlier === null} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
-            <button type="button" disabled={moving || cellOrder.later === null} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+            <button type="button" disabled={moving || cellOrder.earlier === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" disabled={moving || cellOrder.later === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
           </div>
         )}
         {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}
+        {canEdit && movesPaused && (
+          <p id="card-peek-moves-paused" className="mt-2 text-sm text-fg-secondary">Moves are paused while the board is offline.</p>
+        )}
       </div>
     </div>
   );

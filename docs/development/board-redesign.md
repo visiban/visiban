@@ -220,7 +220,7 @@ Screenshot: `board-states.png`.
 | Loading | Skeleton column headers, one lane band and card blocks at their final sizes; announced as "Loading board" |
 | Empty board | Column headers with zero counts, then "No cards yet", a sentence, "Add a card" (primary) and "Import cards" |
 | Filter or chip matches nothing | Lanes shrink to their band with "No matching cards"; below, "No cards are due soon" and "Show all cards" |
-| Offline | Warning banner "Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline |
+| Offline | Warning banner "Offline. Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline |
 | Load error | "The board didn't load. Check your connection and try again." with "Try again" |
 | View-only | An informational line; add controls, drag handles and stage settings are not rendered; the peek still opens |
 
@@ -232,6 +232,8 @@ Screenshot: `components.png`, "Cells and drag and drop".
 - The cell under the pointer takes a selection-colored dashed border and tint, and a placeholder shows where the card will land.
 - A drop that would put a column or lane over its limit shows the warning treatment and the reason in the cell before the drop. What happens on drop follows the existing limit rules (§ Placement limits on the board, § Move-blocked toast).
 - Dragging across a gate inside a stage passes or reopens gates as #1102 specifies.
+- A drop always appends to the cell, so the placeholder sits after the last card, not at the top as `components.png` draws it.
+- The WIP-blocked reason is a corner pill on the cell, not the centered amber line `components.png` draws (named deviation, #2326).
 - With reduced motion, the tilt and lift are dropped.
 
 ## Keyboard

@@ -44,6 +44,11 @@ interface Props {
   entries: CardActionEntry[];
   columns: Column[];
   members: BoardFull["members"];
+  /**
+   * Steps within the card's own cell (#2327, `reorderChoices`), listed in the
+   * Move submenu before the columns. Empty or omitted: columns only.
+   */
+  reorder?: CardChoice[];
   onAction: (action: CardActionId, value?: number | string | null) => void;
   /** Called on every close; `escape`/`tab` mean focus should return to the target card. */
   onClose: (reason: CardMenuCloseReason) => void;
@@ -60,7 +65,7 @@ interface Props {
  * second line (never hidden), so a keyboard user can read why; activating one
  * does nothing and re-announces the reason.
  */
-export default function CardContextMenu({ anchor, label, header, entries, columns, members, onAction, onClose }: Props) {
+export default function CardContextMenu({ anchor, label, header, entries, columns, members, reorder = [], onAction, onClose }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const subRef = useRef<HTMLDivElement>(null);
@@ -154,7 +159,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
   }, CARD_MENU_ESCAPE_PRIORITY);
 
   const subItems = (id: Submenu): CardChoice[] =>
-    id === "move" ? moveChoices(columns) : id === "assign" ? assignChoices(members) : priorityChoices();
+    id === "move" ? [...reorder, ...moveChoices(columns)] : id === "assign" ? assignChoices(members) : priorityChoices();
 
   const openSubmenu = (id: Submenu, idx: number) => {
     cancelGrace(); // an open trigger replaces the submenu; a stale close must not hit the new one
@@ -300,7 +305,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
           id={submenuId}
           onPointerEnter={cancelGrace}
           role="menu"
-          aria-label={submenu.id === "move" ? "Move to column" : submenu.id === "assign" ? "Assign to" : "Set priority"}
+          aria-label={submenu.id === "move" ? (reorder.length > 0 ? "Move within this cell or to a column" : "Move to column") : submenu.id === "assign" ? "Assign to" : "Set priority"}
           data-testid="card-context-submenu"
           className="fixed z-[46] min-w-[10rem] max-w-[16rem] bg-surface border border-line-strong rounded-lg shadow-lg py-1 overflow-y-auto"
           style={{
@@ -325,6 +330,11 @@ export default function CardContextMenu({ anchor, label, header, entries, column
               {item.dot && <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.dot }} />}
               <span className="truncate">{item.label}</span>
             </button>
+          )).flatMap((el, i) => (
+            // One divider between the in-cell steps and the columns.
+            submenu.id === "move" && reorder.length > 0 && i === reorder.length
+              ? [<div key="reorder-sep" role="separator" className="mx-4 my-1"><div className="h-px bg-sunken" /><div className="h-px bg-surface-active/50" /></div>, el]
+              : [el]
           ))}
         </div>
       )}

@@ -3222,6 +3222,126 @@ describe('BoardView card actions (#2059)', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
+  it('Move to… offers the in-cell steps, and Move earlier reorders the card from the keyboard (#2327)', async () => {
+    const moveSpy = vi.fn().mockResolvedValue({ ok: true })
+    const second = { ...card2, position: 1 }
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, second] }), moveCard: moveSpy })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: /Move to/ }), { key: 'ArrowRight' })
+    const sub = await screen.findByRole('menu', { name: 'Move within this cell or to a column' })
+    // The last card in its cell can only step earlier; the columns follow.
+    expect(within(sub).queryByRole('menuitem', { name: 'Move later in this cell' })).not.toBeInTheDocument()
+    fireEvent.click(within(sub).getByRole('menuitem', { name: 'Move earlier in this cell' }))
+    // Same cell, the previous card's slot (cellOrderOf): it lands right before it.
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(2, 10, 20, 0))
+    expect(await screen.findByText("Card 'Second card' moved to place 1 of 2 in its cell")).toBeInTheDocument()
+    expect(moveCard).not.toHaveBeenCalled()
+  })
+
+  it('a refused in-cell step announces nothing of its own (#2327)', async () => {
+    const moveSpy = vi.fn().mockResolvedValue({ ok: false, error: new Error('x') })
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, { ...card2, position: 1 }] }), moveCard: moveSpy })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Move later in this cell' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 10, 20, 2))
+    expect(screen.queryByText(/moved to place/)).not.toBeInTheDocument()
+  })
+
+  it('offline: Move to… is disabled with the paused reason in text (#2325)', () => {
+    mockSocketStatus = 'reconnecting'
+    try {
+      render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+      fireEvent.click(screen.getByTestId('open-menu-2'))
+      const move = screen.getByRole('menuitem', { name: /Move to/ })
+      expect(move).toHaveAttribute('aria-disabled', 'true')
+      expect(move).toHaveAccessibleDescription('Moves are paused while the board is offline')
+      fireEvent.click(move)
+      expect(screen.queryByTestId('card-context-submenu')).not.toBeInTheDocument()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it.each(['reconnecting', 'failed'])('offline (%s): drag has no sensors and a drop already in flight is canceled (#2325)', (status) => {
+    mockSocketStatus = status
+    try {
+      const moveSpy = vi.fn()
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }), moveCard: moveSpy })
+      render(<BoardView currentUser={fakeUser} />)
+      expect(capturedSensors).toEqual([])
+      act(() => {
+        capturedOnDragEnd!({
+          active: { id: 2, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+          over: { id: 'cell:11:20', data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+          delta: { x: 0, y: 0 }, activatorEvent: new MouseEvent('mousedown'),
+        } as unknown as DragEndEvent)
+      })
+      expect(moveSpy).not.toHaveBeenCalled()
+      expect(screen.getByText('Move canceled, moves are paused while the board is offline')).toBeInTheDocument()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it('offline: the entry-checklist modal cannot commit a move once the socket drops (#2325)', async () => {
+    const user = userEvent.setup()
+    const moveCard = vi.fn().mockResolvedValue({ ok: true })
+    const board = makeBoard({
+      columns: [
+        { id: 10, name: 'Todo', position: 0 },
+        { id: 11, name: 'Review', position: 1, policy: { v: 1, entry: ['Has an owner'], done: [], mode: 'confirm' } },
+      ] as never,
+      swimlanes: [{ id: 20, name: 'Customer A', position: 0 }] as never,
+      cards: [{ ...card1, id: 1, column: 10, swimlane: 20 }],
+    })
+    mockBoardContextValue = defaultContext({ board, moveCard })
+    const { rerender } = render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {
+      capturedOnDragEnd!({
+        active: { id: 1, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+        over: { id: 'cell:11:20', data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        delta: { x: 0, y: 0 }, activatorEvent: new MouseEvent('mousedown'),
+      } as unknown as DragEndEvent)
+    })
+    await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+    mockSocketStatus = 'reconnecting'
+    try {
+      rerender(<BoardView currentUser={fakeUser} />)
+      await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+      expect(moveCard).not.toHaveBeenCalled()
+      expect(screen.getByText('Move canceled, moves are paused while the board is offline')).toBeInTheDocument()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it('offline: "Move anyway" is dismissed and the force path sends nothing (#2325)', async () => {
+    mockSearchParams = new URLSearchParams('card=1')
+    const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
+    const clearMoveError = vi.fn()
+    // A refusal is held while connected; the pause arriving afterwards must clear it so the override can't run.
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1] }), forceMoveCardTo, clearMoveError, moveError: { message: 'blocked' } as never })
+    const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    expect(clearMoveError).not.toHaveBeenCalled()
+    mockSocketStatus = 'reconnecting'
+    try {
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+      expect(clearMoveError).toHaveBeenCalled()
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Force From Detail' }))
+      expect(forceMoveCardTo).not.toHaveBeenCalled()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it('online: drag keeps its sensors (#2325)', () => {
+    render(<BoardView currentUser={fakeUser} />)
+    expect(capturedSensors?.length).toBeGreaterThan(0)
+  })
+
   it('a failed archive is shown with the bulk partial-failure wording', async () => {
     vi.mocked(archiveCard).mockRejectedValue(new Error('offline'))
     render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
