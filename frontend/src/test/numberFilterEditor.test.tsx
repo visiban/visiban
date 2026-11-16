@@ -94,6 +94,31 @@ describe('NumberFilterEditor in the Filter panel (#2357)', () => {
     expect(last()).toEqual({ kind: 'number', equals: '13' })
   })
 
+  it('lays out for phones: bound inputs share the row, targets reach 44px', async () => {
+    const u = userEvent.setup()
+    setup()
+    await openEstimate(u)
+    await pick(u, 'between')
+    for (const name of ['Estimate minimum', 'Estimate maximum']) {
+      const input = screen.getByRole('spinbutton', { name })
+      expect(input).toHaveClass('flex-1', 'min-w-0', 'max-sm:min-h-11')
+    }
+    expect(screen.getByRole('button', { name: /^Estimate operator/ })).toHaveClass('max-sm:min-h-11')
+  })
+
+  it('Escape closes the operator menu first, then the panel (priority 28)', async () => {
+    const u = userEvent.setup()
+    setup()
+    await openEstimate(u)
+    await u.click(screen.getByRole('button', { name: /^Estimate operator/ }))
+    expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0)
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('menuitem')).toBeNull()
+    expect(screen.getByRole('spinbutton', { name: 'Estimate' })).toBeInTheDocument()
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('spinbutton', { name: 'Estimate' })).toBeNull()
+  })
+
   it('is empty / has a value show a description instead of inputs', async () => {
     const u = userEvent.setup()
     const { last } = setup({ ...EMPTY_FILTER, customFields: { 9: { kind: 'number', equals: '4' } } })

@@ -145,12 +145,13 @@ export function numberFilterDisplay(v: NumberFilterValue, format: (raw: string) 
   const hi = finiteBound(v.max) !== null ? format(v.max as string) : null;
   if (lo !== null && hi !== null) return `${lo}–${hi}`;
   if (lo !== null) return `≥ ${lo}`;
-  return `≤ ${hi ?? ""}`;
+  // Only reachable with a bound; an entry with neither is inactive and never shown.
+  return `≤ ${hi as string}`;
 }
 
 /** Input step: 10^-decimals when the field sets decimals, else "any". */
 export function numberInputStep(decimals: number | null | undefined): string {
-  return decimals ? (1 / 10 ** decimals).toFixed(decimals) : "any";
+  return decimals == null ? "any" : (1 / 10 ** decimals).toFixed(decimals);
 }
 
 /** Validates a stored number entry (localStorage or a saved filter's state_json). */

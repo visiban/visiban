@@ -602,9 +602,11 @@ class SavedFilterNumberOperatorStateTests(TestCase):
                 r = self._post(entry, name=f"F{i}")
                 self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
                 self.assertEqual(r.data["state_json"]["customFields"]["7"], entry)
-                fetched = self.client.get(f"{self.url}{r.data['id']}/")
-                if fetched.status_code == status.HTTP_200_OK:
-                    self.assertEqual(fetched.data["state_json"]["customFields"]["7"], entry)
+                # saved-filters/<id>/ is DELETE-only, so round-trip via the list.
+                listed = self.client.get(self.url)
+                self.assertEqual(listed.status_code, status.HTTP_200_OK)
+                saved = next(f for f in listed.data if f["id"] == r.data["id"])
+                self.assertEqual(saved["state_json"]["customFields"]["7"], entry)
 
     def test_invalid_number_operator_payloads_rejected_with_string_detail(self):
         long_str = "1" * 501

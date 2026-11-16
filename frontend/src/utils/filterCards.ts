@@ -159,7 +159,7 @@ export function filterCards(
       // has between / is empty / has a value, compared with Number() (never
       // lexicographically) in matchesNumberFilter. A card with no
       // CustomFieldValue row for a filtered field never matches a specific-value
-      // or numeric filter on that field — only number's "is empty" — — matching every other
+      // or numeric filter on that field — only number's "is empty" — matching every other
       // "no value = doesn't match a specific-value filter" dimension above.
       // Exception (#1848): a checkbox field treats a missing row as "false",
       // since unchecking deletes the row.

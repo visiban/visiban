@@ -89,7 +89,7 @@ describe('numberFilter helpers (#2357)', () => {
   it('derives the input step from number_decimals', () => {
     expect(numberInputStep(2)).toBe('0.01')
     expect(numberInputStep(1)).toBe('0.1')
-    expect(numberInputStep(0)).toBe('any')
+    expect(numberInputStep(0)).toBe('1')
     expect(numberInputStep(null)).toBe('any')
     expect(numberInputStep(undefined)).toBe('any')
   })

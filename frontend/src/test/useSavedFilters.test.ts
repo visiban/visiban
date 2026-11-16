@@ -78,6 +78,38 @@ describe('useSavedFilters', () => {
     expect(result.current.savedFilters[0].name).toBe('My preset')
   })
 
+  it('saveFilter normalizes an inactive number range so the serializer accepts it (#2357)', async () => {
+    vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
+    vi.mocked(savedFiltersApi.createSavedFilter).mockResolvedValue(makeFilter(11, 'Ranges'))
+    const { result } = renderHook(() => useSavedFilters(1))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const active = { kind: 'number' as const, equals: '', op: 'between' as const, min: '3', max: '' }
+    const filters: FilterState = {
+      ...EMPTY_FILTER,
+      customFields: {
+        7: active,
+        8: { kind: 'number', equals: '', op: 'between', min: '', max: '' },
+        9: { kind: 'number', equals: '', op: 'between', min: ' ', max: '' },
+      },
+    }
+    await act(async () => { await result.current.saveFilter('Ranges', filters) })
+
+    const sent = vi.mocked(savedFiltersApi.createSavedFilter).mock.calls[0][1].state_json as {
+      customFields: Record<string, { op?: string; min?: string; max?: string; equals: string }>
+    }
+    expect(sent.customFields['7']).toEqual(active)
+    for (const id of ['8', '9']) {
+      expect(sent.customFields[id]).toEqual({ kind: 'number', equals: '' })
+    }
+    // Serializer rule: no "between" entry without a non-blank bound.
+    for (const e of Object.values(sent.customFields)) {
+      if (e.op === 'between') expect((e.min ?? '').trim() || (e.max ?? '').trim()).toBeTruthy()
+    }
+    // Live editor state is not mutated.
+    expect(filters.customFields[8]).toEqual({ kind: 'number', equals: '', op: 'between', min: '', max: '' })
+  })
+
   it('saveFilter returns error when API rejects', async () => {
     vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
     vi.mocked(savedFiltersApi.createSavedFilter).mockRejectedValue({

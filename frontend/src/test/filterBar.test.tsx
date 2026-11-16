@@ -692,6 +692,32 @@ describe('FilterBar — number operator entries (#2357)', () => {
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
+  it('keeps an inactive blank range as an editable box', () => {
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '', max: '' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('spinbutton')).not.toHaveAttribute('readonly')
+    expect(screen.queryByRole('textbox', { name: 'Estimate filter' })).toBeNull()
+  })
+
+  it('read-only range box is cursor-default and wide enough for the text', () => {
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '1000', max: '50000' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    const box = screen.getByRole('textbox', { name: 'Estimate filter' })
+    expect(box).toHaveClass('cursor-default')
+    expect(box).toHaveAttribute('title', expect.stringContaining('Filter panel'))
+    expect(parseInt(box.style.width, 10)).toBeGreaterThanOrEqual((box as HTMLInputElement).value.length)
+  })
+
   it('keeps the editable equals box for an equals entry', () => {
     const onChange = vi.fn()
     render(

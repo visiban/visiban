@@ -4,6 +4,7 @@ import type { FilterState } from "../components/Board/FilterBar";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
+import { isNumberFilterActive } from "../utils/numberFilter";
 import {
   listSavedFilters,
   createSavedFilter,
@@ -17,6 +18,21 @@ import {
  * The list is kept in local state and updated optimistically on create/delete
  * to avoid an extra round-trip for the common happy-path case.
  */
+/**
+ * Save payload only (#2357): an inactive number entry (a between / at least /
+ * at most whose bound is still blank) is what the editor keeps in live state,
+ * but the server rejects "between" with no bound. Collapse it to the inactive
+ * equals shape, which the serializer accepts and every client reads as inactive.
+ */
+export function normalizeFiltersForSave(filters: FilterState): FilterState {
+  const customFields: FilterState["customFields"] = {};
+  for (const [id, cf] of Object.entries(filters.customFields ?? {})) {
+    customFields[Number(id)] =
+      cf.kind === "number" && !isNumberFilterActive(cf) ? { kind: "number", equals: "" } : cf;
+  }
+  return { ...filters, customFields };
+}
+
 export function useSavedFilters(boardId: number) {
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,7 +52,7 @@ export function useSavedFilters(boardId: number) {
       try {
         const created = await createSavedFilter(boardId, {
           name,
-          state_json: filters as unknown as Record<string, unknown>,
+          state_json: normalizeFiltersForSave(filters) as unknown as Record<string, unknown>,
         });
         setSavedFilters((prev) =>
           [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
