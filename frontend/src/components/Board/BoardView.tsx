@@ -2990,7 +2990,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          {/* Phone (#2333): every control in the bar is a 44px target; the facet menus it opens are #2341. */}
+          {/* Phone (#2333): every control in the bar is a 44px target; its facet menus are deferred to #2350. */}
           <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}

@@ -292,7 +292,7 @@ export default function SingleSelectDropdown<T extends string | number>({
             // through this primitive. Shared with every other menuitem site
             // via MENU_ITEM_FOCUS_RING (see menuItemFocusRing.ts) so it can't
             // drift a third time (#1234).
-            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} ${
+            className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} ${
               selected === opt.value ? "text-info" : "text-fg-secondary"
             }`}
           >
@@ -371,7 +371,7 @@ export default function SingleSelectDropdown<T extends string | number>({
               action.onSelect();
             }}
             onKeyDown={(e) => handleItemKeyDown(e, i)}
-            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} text-fg-secondary`}
+            className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} text-fg-secondary`}
           >
             {action.label}
           </button>

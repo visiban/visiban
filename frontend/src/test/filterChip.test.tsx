@@ -11,6 +11,13 @@ const fakeUser: User = {
 }
 
 describe('FilterChip', () => {
+  it('gives the × button a phone-only 44px target (#2341)', () => {
+    const { container } = render(<FilterChip label="Bug" onDismiss={vi.fn()} />)
+    const btn = container.querySelector('button')!
+    expect(btn.className).toContain('max-sm:min-w-11')
+    expect(btn.className).toContain('max-sm:min-h-11')
+  })
+
   it('renders label text', () => {
     render(<FilterChip label="Bug" onDismiss={vi.fn()} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
