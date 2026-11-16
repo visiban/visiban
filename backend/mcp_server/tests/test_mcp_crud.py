@@ -1985,6 +1985,7 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
         self.assertEqual(set(schemas["move_card"]["properties"]), {
             "card_id", "to_column_id", "to_swimlane_id", "position",
             "version",  # optional, #1974
+            "gates_passed",  # optional, #1102
         })
         self.assertEqual(schemas["move_card"]["required"], ["card_id"])
         for tool in tools_:

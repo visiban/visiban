@@ -342,3 +342,12 @@ This page covers the UI. For the wire format:
 | No aggregates | Custom field values cannot be summed or otherwise rolled up on swimlane headers or in board and report widgets. Tracked in [#1851](https://gitlab.com/visiban/visiban/-/issues/1851) |
 
 The backend also exposes a `CUSTOM_FIELD_VALIDATORS` extension point that lets an extension register additional per-type validators for card values, and a separate `SWIMLANE_CUSTOM_FIELD_VALIDATORS` list for swimlane-row values. See the [open-core boundary](../architecture/open-core-boundary.md).
+
+
+## Dimension fields (1.3)
+
+A **dimension** is a dropdown field whose choices each carry a resolution: `open`, `satisfied` (shown as "done") or `not_applicable`. Set `is_dimension: true` and `choice_resolutions` (a map from choice to resolution) on a dropdown field; a choice without an entry, and a card with no value, count as open. Only dropdown fields can be dimensions. A value can move between any two choices in any order.
+
+Dimensions are what a stage's **tracks** are: a board admin binds dimension fields to a column as its tracks, and can mark a dimension not applicable for a whole swimlane. A lane's not-applicable mark overrides each card's own value for display, and the card's value is kept. Tracks count toward the 30-fields-per-board limit.
+
+Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.

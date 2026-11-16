@@ -51,10 +51,11 @@ from .models import (
     CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
+    CardGateTransition, StageTrack, SubColumn,
     validate_external_ref_ref, validate_external_ref_url,
 )
 from .custom_field_types import (
-    CHOICE_COLOR_KEYS, CHOICE_TYPES, canonical_multi_select, encode_multi_select,
+    CHOICE_COLOR_KEYS, CHOICE_TYPES, DIMENSION_RESOLUTIONS, canonical_multi_select, encode_multi_select,
     parse_multi_select,
 )
 from .column_policy import (
@@ -460,16 +461,44 @@ class ColumnPolicyField(serializers.JSONField):
             raise serializers.ValidationError(str(exc)) from None
 
 
+class SubColumnSerializer(serializers.ModelSerializer):
+    """One sub-column of a gated stage (#1102). Read-only on every column read;
+    written only through ``PUT .../columns/{id}/stage/``."""
+
+    class Meta:
+        model = SubColumn
+        fields = ["id", "uid", "position", "name"]
+        read_only_fields = fields
+
+
+class StageTrackSerializer(serializers.ModelSerializer):
+    """A dimension field shown as a track on a stage (#1920 / #1921)."""
+
+    field_id = serializers.IntegerField(source="field_definition_id", read_only=True)
+    field_uid = serializers.CharField(source="field_definition.uid", read_only=True)
+    name = serializers.CharField(source="field_definition.name", read_only=True)
+
+    class Meta:
+        model = StageTrack
+        fields = ["id", "field_id", "field_uid", "name", "position"]
+        read_only_fields = fields
+
+
 class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     policy = ColumnPolicyField(
         required=False, allow_null=True, help_text=field_enforcement.COLUMN_POLICY,
     )
+    # Additive (#1102, #1921). Read-only: the stage settings action
+    # (PUT .../columns/{id}/stage/) is the only writer, so a column PATCH keeps
+    # its 1.x shape. Empty on a column that is not a gated stage.
+    sub_columns = SubColumnSerializer(many=True, read_only=True)
+    tracks = StageTrackSerializer(source="stage_tracks", many=True, read_only=True)
 
     class Meta:
         model = Column
         fields = [
             "id", "uid", "name", "position", "color", "wip_limit", "weight_limit",
-            "allow_card_creation", "is_done", "policy",
+            "allow_card_creation", "is_done", "policy", "sub_columns", "tracks",
         ]
         read_only_fields = ["uid"]
         # Schema-only (#1077): say which write paths the limits actually bind on.
@@ -527,6 +556,10 @@ class PublicColumnSerializer(ColumnSerializer):
     reversible default: adding the field back later is additive.
     """
 
+    # ``sub_columns`` and ``tracks`` stay on purpose (#1102, #1921): the share
+    # view renders a gated stage's sub-columns, and a track's name is the
+    # board's structure, not team-written card content. Pinned in
+    # ``test_stages.py``.
     class Meta(ColumnSerializer.Meta):
         fields = [f for f in ColumnSerializer.Meta.fields if f != "policy"]
 
@@ -856,6 +889,13 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
     """
 
     custom_field_values = SwimlaneCustomFieldValuesField(read_only=True)
+    not_applicable_field_ids = serializers.SerializerMethodField(
+        help_text=(
+            "Ids of the board's dimension fields marked not applicable for every "
+            "card in this swimlane (#1921). Written through the stage settings "
+            "action; a card's own value is kept underneath."
+        ),
+    )
     # Per-row limits (#1150). On the public serializer, not only the admin one:
     # every member sees the row's limit state in its label panel, as every
     # member sees a column's wip_limit. Writes are admin-gated in the viewset.
@@ -906,6 +946,11 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
 
     MAX_LIMIT_COLUMN_IDS = 90
 
+    @extend_schema_field({"type": "array", "items": {"type": "integer"}})
+    def get_not_applicable_field_ids(self, obj):
+        # ``.all()`` so the board read's prefetch (views._helpers) serves it.
+        return sorted(e.field_definition_id for e in obj.track_exceptions.all())
+
     class Meta:
         model = Swimlane
         fields = [
@@ -915,6 +960,8 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "health_status",
             # Additive (#2245).
             "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
+            # Additive (#1921): dimensions marked not applicable for this lane.
+            "not_applicable_field_ids",
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -1050,6 +1097,8 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             "health_status",
             # Additive (#2245).
             "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
+            # Additive (#1921).
+            "not_applicable_field_ids",
         ]
 
 
@@ -1555,6 +1604,81 @@ class ChoiceColorsField(serializers.JSONField):
     """
 
 
+@extend_schema_field({
+    "type": "object",
+    "additionalProperties": {"type": "string", "enum": list(DIMENSION_RESOLUTIONS)},
+})
+class ChoiceResolutionsField(serializers.JSONField):
+    """``choice_resolutions`` on a dimension field (#1921), schema-only like
+    :class:`ChoiceColorsField`; the rules live in :func:`validate_dimension`."""
+
+
+def validate_dimension(attrs, instance, field_type):
+    """``is_dimension`` and ``choice_resolutions`` rules (#1921).
+
+    * ``is_dimension`` is valid only on a dropdown: a dimension has exactly one
+      state at a time. Retyping a dimension away from dropdown is refused
+      rather than silently clearing the flag, since stages may show it.
+    * ``choice_resolutions`` maps a choice to ``open``, ``satisfied`` or
+      ``not_applicable``. Like ``choice_colors``, entries for choices that no
+      longer exist are pruned, and a choice missing from the map resolves to
+      ``open``. A non-empty map is refused on a field that is not a dimension;
+      ``{}`` is always accepted, and a field that stops being a dimension has
+      its map cleared.
+
+    Must run after :func:`validate_definition_choices`. Mutates *attrs*.
+    """
+    is_dim = attrs.get("is_dimension", instance.is_dimension if instance else False)
+    if is_dim and field_type != CustomFieldDefinition.FieldType.DROPDOWN:
+        key = "is_dimension" if "is_dimension" in attrs else "field_type"
+        raise serializers.ValidationError({
+            key: "Only a dropdown field can be a dimension."
+        })
+    submitted = "choice_resolutions" in attrs
+    resolutions = attrs["choice_resolutions"] if submitted else (
+        instance.choice_resolutions if instance is not None else {}
+    )
+    if submitted:
+        if not isinstance(resolutions, dict):
+            raise serializers.ValidationError({
+                "choice_resolutions": (
+                    "Choice resolutions must be an object mapping a choice to a resolution."
+                )
+            })
+        if len(resolutions) > CHOICE_COLORS_MAX:
+            raise serializers.ValidationError({
+                "choice_resolutions": f"At most {CHOICE_COLORS_MAX} choice resolutions are allowed."
+            })
+        for key, value in resolutions.items():
+            if not isinstance(key, str) or "\x00" in key:
+                raise serializers.ValidationError({
+                    "choice_resolutions": (
+                        "Choice resolution keys must be choice names without NUL (0x00) characters."
+                    )
+                })
+            if value not in DIMENSION_RESOLUTIONS:
+                raise serializers.ValidationError({
+                    "choice_resolutions": (
+                        "Choice resolutions must be one of: " + ", ".join(DIMENSION_RESOLUTIONS) + "."
+                    )
+                })
+    if not is_dim:
+        if submitted and resolutions:
+            raise serializers.ValidationError({
+                "choice_resolutions": "Choice resolutions can only be set on a dimension field."
+            })
+        attrs["choice_resolutions"] = {}
+        return
+    if not isinstance(resolutions, dict):
+        resolutions = {}
+    choices = set(attrs.get("choices_json") or [])
+    attrs["choice_resolutions"] = {
+        key.strip(): value
+        for key, value in resolutions.items()
+        if isinstance(key, str) and key.strip() in choices and value in DIMENSION_RESOLUTIONS
+    }
+
+
 @extend_schema_field({"type": "array", "items": {"type": "string"}})
 class ChoicesField(serializers.JSONField):
     """``choices`` on the two custom-field-definition serializers (#1139).
@@ -1613,6 +1737,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     number_suffix = number_affix_field()
     number_decimals = number_decimals_field()
     choice_colors = ChoiceColorsField(required=False)
+    choice_resolutions = ChoiceResolutionsField(required=False)
     threshold_direction = serializers.ChoiceField(
         choices=CustomFieldDefinition.ThresholdDirection.choices,
         allow_blank=True, required=False,
@@ -1637,6 +1762,8 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "threshold_direction", "threshold_warn", "threshold_alert",
             "threshold_warn_days", "threshold_alert_days",
             "created_at", "has_values",
+            # Additive (#1921): dimension fields.
+            "is_dimension", "choice_resolutions",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
         # Schema-only (#1077): class token without a model help_text migration.
@@ -1716,6 +1843,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         validate_number_format(attrs, instance, field_type)
         validate_choice_colors(attrs, instance, field_type)
         validate_thresholds(attrs, instance, field_type)
+        validate_dimension(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:
@@ -2377,8 +2505,13 @@ class CardMovementSerializer(serializers.ModelSerializer):
             # Additive (#1675): the source file's username on a row created by
             # a board import with history, null on every other row.
             "imported_from_username",
+            # Additive (#1102): gate position at each end, null where that
+            # column is not a gated stage. Left with gates open = from_gates_open > 0.
+            "from_gates_passed", "from_gates_open", "to_gates_passed",
         ]
-        read_only_fields = ["imported_from_username"]
+        read_only_fields = [
+            "imported_from_username", "from_gates_passed", "from_gates_open", "to_gates_passed",
+        ]
 
 
 class CardCommentSerializer(serializers.ModelSerializer):
@@ -3409,10 +3542,13 @@ class CardSerializer(serializers.ModelSerializer):
             # change only through POST .../block/ and .../unblock/, which
             # record the CardBlock row and activity a PATCH would skip.
             "is_blocked", "blocked_at", "blocked_reason",
+            # Gated stages (#1102). Additive; read-only here — it changes only
+            # through the move endpoint, which records each gate crossed.
+            "gates_passed",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
-            "blocked_at", "blocked_reason",
+            "blocked_at", "blocked_reason", "gates_passed",
         ]
         # Schema-only (#1077): `version` reads as an OCC guard on every write;
         # only the move endpoint checks it.
@@ -4468,7 +4604,7 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # without this the /full/ payload costs 1 + 2N queries in swimlane count
         # (#1140). .all() on the prefetched manager keeps the cache; a .filter()
         # here would escape it.
-        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch())
+        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
         return serializer_class(lanes, many=True, context=self.context).data
 
     @extend_schema_field(CardSerializer(many=True))
@@ -5676,3 +5812,30 @@ class AdminBoardInviteLinkSerializer(serializers.ModelSerializer):
 
         return board_link_can_register_cheap(obj, mode=self.context.get("registration_mode"))
 
+
+
+class CardGateTransitionSerializer(serializers.ModelSerializer):
+    """One gate of a stage passed or reopened (#1102).
+
+    The REST move response, the ``card_moved`` WebSocket event, the MCP
+    ``move_card`` tool and the card's gate history all use this one shape
+    (security invariant Rule 10). ``card_uid`` / ``card_title`` are the
+    snapshots, so a row outlives its card.
+    """
+
+    actor = serializers.SerializerMethodField()
+    column = serializers.IntegerField(source="column_id", read_only=True, allow_null=True)
+    movement = serializers.IntegerField(source="movement_id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = CardGateTransition
+        fields = [
+            "id", "card_uid", "card_title", "column", "column_name", "column_uid",
+            "sub_column_name", "sub_column_uid", "kind", "from_index", "to_index",
+            "reason", "cause", "movement", "actor", "created_at", "imported_from_username",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field({"type": "string", "nullable": True})
+    def get_actor(self, obj):
+        return obj.actor.username if obj.actor_id else None

@@ -102,7 +102,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 
 from accounts.models import AdminActionLog
 from boards import broadcast as _broadcast
-from boards.models import Board, BoardEvent, Card, CardBlock, CardMovement
+from boards.models import Board, BoardEvent, Card, CardBlock, CardGateTransition, CardMovement
 
 # Card and board uids are 16 lowercase hex characters (boards/uid.py).
 _UID_RE = re.compile(r"[0-9a-f]{16}")
@@ -301,9 +301,13 @@ class Command(BaseCommand):
 
         rows = CardMovement.objects.all()
         blocks = CardBlock.objects.all()
+        # Gate transitions (#1102) carry the same card snapshot and a free-text
+        # reason, so they leave with the card's other history.
+        gates = CardGateTransition.objects.all()
         if not include_live:
             rows = rows.filter(card__isnull=True)
             blocks = blocks.filter(card__isnull=True)
+            gates = gates.filter(card__isnull=True)
 
         if card_uid is not None:
             card_uid = card_uid.strip().lower()
@@ -318,6 +322,9 @@ class Command(BaseCommand):
                 blocks = blocks.filter(
                     Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
                 )
+                gates = gates.filter(
+                    Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
+                )
             else:
                 if Card.objects.filter(uid=card_uid).exists():
                     raise CommandError(
@@ -327,22 +334,26 @@ class Command(BaseCommand):
                     )
                 rows = rows.filter(card_uid=card_uid)
                 blocks = blocks.filter(card_uid=card_uid)
+                gates = gates.filter(card_uid=card_uid)
 
         board = None
         if board_value is not None:
             board = self._resolve_board(board_value)
             rows = rows.filter(board_id=board.pk)
             blocks = blocks.filter(board_id=board.pk)
+            gates = gates.filter(board_id=board.pk)
 
         since = before = None
         if since_raw is not None:
             since = _parse_moment(since_raw, "--since")
             rows = rows.filter(moved_at__gte=since)
             blocks = blocks.filter(blocked_at__gte=since)
+            gates = gates.filter(created_at__gte=since)
         if before_raw is not None:
             before = _parse_moment(before_raw, "--before")
             rows = rows.filter(moved_at__lt=before)
             blocks = blocks.filter(blocked_at__lt=before)
+            gates = gates.filter(created_at__lt=before)
         if since is not None and before is not None and since >= before:
             raise CommandError("--since must be earlier than --before.")
 
@@ -404,8 +415,10 @@ class Command(BaseCommand):
             # it one statement, like the movements above.
             _, per_model = blocks.order_by().delete()
             deleted_blocks = per_model.get(CardBlock._meta.label, 0)
+            _, per_model = gates.order_by().delete()
+            deleted_gates = per_model.get(CardGateTransition._meta.label, 0)
             redacted = self._redact(events)
-            if deleted or deleted_blocks or redacted:
+            if deleted or deleted_blocks or deleted_gates or redacted:
                 AdminActionLog.record(
                     action=AdminActionLog.Action.CARD_HISTORY_PURGED,
                     source=AdminActionLog.Source.CLI,
@@ -416,11 +429,13 @@ class Command(BaseCommand):
                         "selector": selector,
                         "deleted_count": deleted,
                         "deleted_block_count": deleted_blocks,
+                        # Additive (#1102).
+                        "deleted_gate_transition_count": deleted_gates,
                         "redacted_event_count": redacted,
                     },
                 )
 
-        if deleted or deleted_blocks or redacted:
+        if deleted or deleted_blocks or deleted_gates or redacted:
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Deleted {deleted} {scope} and {deleted_blocks} block row(s), and "

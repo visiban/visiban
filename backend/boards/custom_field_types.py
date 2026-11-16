@@ -88,3 +88,9 @@ def encode_multi_select(entries):
     if not entries:
         return ""
     return json.dumps(entries, separators=(",", ":"), ensure_ascii=False)
+
+
+#: Resolutions a dimension field's choice can carry (#1921). An unset value and
+#: a choice missing from ``choice_resolutions`` both resolve to ``open``. The
+#: UI says "done" for ``satisfied``.
+DIMENSION_RESOLUTIONS = ("open", "satisfied", "not_applicable")

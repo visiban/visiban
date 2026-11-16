@@ -615,7 +615,7 @@ class BoardViewSet(
         # fixed number of queries however many the board has.
         lanes = (
             Swimlane.objects.filter(board_id=board.pk)
-            .prefetch_related(_swimlane_custom_field_prefetch())
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
             .order_by("position", "pk")
         )
         return Response({

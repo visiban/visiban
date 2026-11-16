@@ -978,7 +978,8 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
         return _error_payload(exc)
 
 
-def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, version=None):
+def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, version=None,
+              gates_passed=None):
     """Move a card to a new column, swimlane, and/or position.
 
     At least one of ``to_column_id``/``to_swimlane_id`` is required; the other
@@ -997,6 +998,11 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     increments it and on the ``version_conflict`` error (carrying
     ``current_version``) a stale value gets. Omitted, no check is made, which
     is exactly the pre-1.3 behavior.
+
+    ``gates_passed`` (#1102) is the REST move's optional body field, through
+    the same service argument: omitted keeps the card's sub-column within its
+    column and starts it at 0 in a new one. When the move crosses a gate the
+    result carries ``gate_transitions`` in the REST shape (Rule 10).
     """
     user = get_current_user()
     if to_column_id is None and to_swimlane_id is None:
@@ -1008,13 +1014,16 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
         target_column_id = to_column_id if to_column_id is not None else card.column_id
         target_swimlane_id = to_swimlane_id if to_swimlane_id is not None else card.swimlane_id
         render = _BroadcastRender(board)
-        card_services.move_card(
+        result = card_services.move_card(
             actor=user, board=board, role=role, card_id=card_id,
             target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
             position=position if position is not None else 0,
-            render=render.moved, expected_version=version,
+            render=render.moved, expected_version=version, gates_passed=gates_passed,
         )
-        return {"card": render.tool_card, "movement": render.tool_movement}
+        out = {"card": render.tool_card, "movement": render.tool_movement}
+        if "gate_transitions" in result.payload:
+            out["gate_transitions"] = result.payload["gate_transitions"]
+        return out
     except CardServiceError as exc:
         return _error_payload(exc)
 

@@ -43,7 +43,7 @@ from ..models import (
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     BlockCardSerializer, CardBlockSerializer, UnblockCardSerializer,
-    CardSerializer, CardMovementSerializer, CardCommentSerializer,
+    CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
     CardTimelineEntrySerializer,
@@ -1193,6 +1193,17 @@ class CardViewSet(viewsets.ModelViewSet):
                         "changing concurrently while the server retries its lock."
                     ),
                 ),
+                "gates_passed": serializers.IntegerField(
+                    required=False, min_value=0,
+                    help_text=(
+                        "Gated stages (#1102): the sub-column index the card should end in "
+                        "on the target column (0 = first sub-column). Omitted: a move within "
+                        "the column keeps the card's sub-column, a move into another column "
+                        "starts it at 0. Sent: each gate crossed is passed or reopened, one "
+                        "record per gate. Must be 0 on a column without sub-columns; an "
+                        "invalid value is a 400 `invalid_gates_passed`."
+                    ),
+                ),
             },
         ),
         responses={
@@ -1201,11 +1212,24 @@ class CardViewSet(viewsets.ModelViewSet):
                 fields={
                     "card": CardSerializer(),
                     "movement": CardMovementSerializer(required=False),
+                    # Additive (#1102): present only when the move crossed a gate.
+                    "gate_transitions": CardGateTransitionSerializer(many=True, required=False),
                 },
             ),
             400: OpenApiResponse(
-                description="`version` or `position` was supplied but was not an integer.",
-                response=inline_serializer(name="CardMoveVersionTypeError", fields={"detail": serializers.CharField()}),
+                description=(
+                    "`version` or `position` was supplied but was not an integer; or "
+                    "`invalid_gates_passed` (#1102): `gates_passed` is not an integer, is "
+                    "negative, or is past the target column's last sub-column."
+                ),
+                response=inline_serializer(
+                    name="CardMoveVersionTypeError",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(required=False),
+                        "max_gates_passed": serializers.IntegerField(required=False),
+                    },
+                ),
             ),
             403: OpenApiResponse(
                 description=(
@@ -1332,6 +1356,8 @@ class CardViewSet(viewsets.ModelViewSet):
             expected_version=request.data.get("version"),
             force=_force_requested(request),
             render=render,
+            # Passed raw for the same reason as ``version`` (#1102).
+            gates_passed=request.data.get("gates_passed"),
         )
         return Response(result.payload)
 

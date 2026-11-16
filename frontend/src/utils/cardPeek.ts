@@ -25,7 +25,7 @@ export function buildStatusStrip(card: Card, columns: Column[]): PeekStatusStrip
 export interface PeekTrackState {
   id: number;
   name: string;
-  state: "done" | "open" | "not-applicable";
+  state: "done" | "open" | "not_applicable";
 }
 
 /**

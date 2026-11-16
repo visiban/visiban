@@ -1089,3 +1089,65 @@ All checklist endpoints (`GET`, `POST`, `PATCH`, `POST .../reorder/`) return che
   "created_by": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }
 }
 ```
+
+
+## Gated stages and gate transitions (1.3, #1102)
+
+**Stability:** new in 1.3. The fields below are additive; the `stage` action is a first-release surface and may gain optional keys in a minor release, but no existing key will change meaning.
+
+### Move: `gates_passed`
+
+`POST /api/v1/boards/{board_id}/cards/{card_id}/move/` accepts an optional `gates_passed` integer: the index of the sub-column the card should end in on the target column (`0` = first sub-column).
+
+| Case | `gates_passed` omitted | `gates_passed` sent |
+|---|---|---|
+| Same column (reorder or lane change) | Unchanged | Each gate crossed is passed or reopened; no movement is written and no WIP limit is checked |
+| New column | Card starts at `0` | Applied as passing that many gates, one record each, linked to the movement |
+
+An invalid value (a boolean, a non-integer, a negative number, past the column's last sub-column, or above `0` on a column with no sub-columns) is a `400`:
+
+```json
+{"code": "invalid_gates_passed", "detail": "gates_passed must be between 0 and 2 for this column.", "max_gates_passed": 2}
+```
+
+A non-integer omits `max_gates_passed`. Every gate change bumps the card's `version`. When a move crosses a gate the response (and the `card_moved` WebSocket event, and the MCP `move_card` result) carries `gate_transitions`, a list of:
+
+| Field | Type | Notes |
+|---|---|---|
+| `kind` | `"pass"` \| `"reopen"` | |
+| `from_index`, `to_index` | integer | One row per gate, so passing two gates is two rows |
+| `cause` | `"move"` \| `"stage_edited"` \| `"import"` | |
+| `movement` | integer \| null | Set when the gate was passed as part of a column move |
+| `column`, `column_name`, `column_uid`, `sub_column_name`, `sub_column_uid` | | Snapshots; readable after the column or sub-column is deleted |
+| `card_uid`, `card_title`, `reason`, `actor`, `created_at`, `imported_from_username` | | |
+
+On an in-stage move the body has no `movement` key. Leaving a stage with gates open is allowed (phase 1 warns and records only).
+
+### New read fields
+
+- Card: `gates_passed` (integer, read-only).
+- Column: `sub_columns` (`[{id, uid, position, name}]`, `[]` on a plain column) and `tracks` (`[{id, field_id, field_uid, name, position}]`). Both are read-only on the column endpoints and are included on the public share view.
+- Swimlane: `not_applicable_field_ids` (integer list; not on the public share view).
+- Movement: `from_gates_passed`, `from_gates_open`, `to_gates_passed` (integer or null; null where that end's column is not a gated stage). "Left with gates open" is `from_gates_open > 0`.
+
+### `PUT /api/v1/boards/{board_id}/columns/{column_id}/stage/`
+
+Board admins only (`403` for members, `404` for callers without board access). Saves sub-columns, tracks and lane exceptions in one transaction. Every key is optional; an omitted key is unchanged.
+
+```json
+{
+  "sub_columns": [{"id": 12, "name": "Doing"}, {"name": "Ready to pull"}],
+  "tracks": [41, 42],
+  "not_applicable": [{"swimlane_id": 3, "field_id": 42}]
+}
+```
+
+- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card past it back one and records a `stage_edited` gate transition.
+- `tracks`: ordered ids of the board's dimension fields. Removing a track unbinds it only; the field and every card's value stay.
+- `not_applicable`: replaces the lane exceptions for this stage's tracks.
+
+Response: `{"column": <Column>, "remapped": [{"id", "gates_passed", "version"}]}`. The same `remapped` list rides the `column_updated` WebSocket event; changed lanes emit `swimlane_updated`.
+
+### Card activity: `custom_field_changed`
+
+Every custom field value set, changed or cleared, on any transport, writes a card activity row with `event_type` `custom_field_changed`, `from_value` / `to_value` (`""` = no value), the actor, and `item_text` = the field's name at the time.

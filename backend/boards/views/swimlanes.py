@@ -45,7 +45,7 @@ def _refetch_swimlane(swimlane):
     """
     return (
         Swimlane.objects.filter(pk=swimlane.pk)
-        .prefetch_related(_swimlane_custom_field_prefetch())
+        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
         .first()
         or swimlane
     )
@@ -208,7 +208,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Swimlane.objects.none()  # schema generation (#1788)
         return Swimlane.objects.filter(board=self._board()).prefetch_related(
-            _swimlane_custom_field_prefetch()
+            _swimlane_custom_field_prefetch(), "track_exceptions"
         )
 
     def create(self, request, *args, **kwargs):
@@ -493,7 +493,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
             lanes_data = SwimlaneSerializer(
                 board.swimlanes.order_by("position").prefetch_related(
-                    _swimlane_custom_field_prefetch()
+                    _swimlane_custom_field_prefetch(), "track_exceptions"
                 ),
                 many=True,
             ).data

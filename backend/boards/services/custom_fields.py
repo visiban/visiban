@@ -22,7 +22,7 @@ write here rolls back with the card if any later step fails, and the
 ``card.updated`` broadcast the service defers already reflects it.
 """
 
-from ..models import CustomFieldValue, SwimlaneCustomFieldValue
+from ..models import CardActivity, CustomFieldValue, SwimlaneCustomFieldValue
 from ..signals import (
     custom_field_value_changed, swimlane_custom_field_value_changed,
 )
@@ -120,6 +120,23 @@ def apply_custom_field_values(*, card, pairs, actor=None):
         signal_kwarg="card",
         actor=actor,
     )
+    # #1909 / #1921: every real change leaves a card activity row with the old
+    # and new values and the actor, on every transport (REST, MCP, the board
+    # UI), since they all reach this one writer. ``item_text`` snapshots the
+    # field's name so History stays readable after a rename or delete. One
+    # bulk INSERT however many fields changed.
+    if changed:
+        CardActivity.objects.bulk_create([
+            CardActivity(
+                card=card,
+                event_type=CardActivity.EventType.CUSTOM_FIELD_CHANGED,
+                from_value=old_value,
+                to_value=new_value,
+                actor=actor if getattr(actor, "pk", None) else None,
+                item_text=definition.name[:500],
+            )
+            for definition, old_value, new_value in changed
+        ])
     return [definition for definition, _, _ in changed]
 
 

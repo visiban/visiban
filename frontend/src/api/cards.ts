@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardBlock, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
+import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -43,7 +43,9 @@ export const moveCard = (boardId: number, cardId: number, data: {
   swimlane_id: number;
   position: number;
   version?: number;
-}, force?: boolean) => client.post<{ card: Card; movement?: CardMovement }>(
+  /** Gated stages (#1102): omitted keeps the sub-column within a column and starts at 0 in a new one. */
+  gates_passed?: number;
+}, force?: boolean) => client.post<{ card: Card; movement?: CardMovement; gate_transitions?: CardGateTransition[] }>(
   `/api/v1/boards/${boardId}/cards/${cardId}/move/${force ? "?force=true" : ""}`, data
 ).then((r) => r.data);
 

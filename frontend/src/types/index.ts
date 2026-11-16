@@ -311,6 +311,51 @@ export interface Column {
   /** Explicit column policy (#1101), or null for none. Advisory: the server
    *  never refuses a move for it. */
   policy: ColumnPolicy | null;
+  /** Gated stage (#1102). Always sent by the server since 1.3; optional here so pre-1.3 fixtures and cached payloads type-check. `[]` on a plain column, else at least two, in order. A card's `gates_passed` is its index here. */
+  sub_columns?: SubColumn[];
+  /** Dimension fields shown as tracks on this stage (#1921), in order. */
+  tracks?: StageTrack[];
+}
+
+/** One sub-column of a gated stage (#1102). */
+export interface SubColumn {
+  id: number;
+  uid: string;
+  position: number;
+  name: string;
+}
+
+/** A dimension field bound to a stage as a track (#1921). */
+export interface StageTrack {
+  id: number;
+  field_id: number;
+  field_uid: string;
+  name: string;
+  position: number;
+}
+
+/** Resolution of a dimension field's choice (#1921). Unset and unmapped resolve to `open`. UI copy says "done" for `satisfied`. */
+export type DimensionResolution = "open" | "satisfied" | "not_applicable";
+
+/** One gate passed or reopened (#1102); REST move, `card_moved` WS and MCP share this shape. */
+export interface CardGateTransition {
+  id: number;
+  card_uid: string;
+  card_title: string;
+  column: number | null;
+  column_name: string;
+  column_uid: string;
+  sub_column_name: string;
+  sub_column_uid: string;
+  kind: "pass" | "reopen";
+  from_index: number;
+  to_index: number;
+  reason: string;
+  cause: "move" | "stage_edited" | "import";
+  movement: number | null;
+  actor: string | null;
+  created_at: string;
+  imported_from_username: string | null;
 }
 
 /** A column as the anonymous share link serves it (`PublicColumnSerializer`,
@@ -398,6 +443,8 @@ export interface Swimlane {
   effective_health_status: HealthStatus | null;
   /** #2245 — "manual" (the pin), "computed", or null for no status. */
   health_status_origin: SwimlaneHealthStatusOrigin | null;
+  /** #1921 — dimension field ids marked not applicable for every card in this lane. Optional: absent on the public share. */
+  not_applicable_field_ids?: number[];
   /** #2245 — what the rule computed, readable while pinned; null when auto is off, never computed, or no open cards. */
   computed_health_status: HealthStatus | null;
   /** #2245 — when the lane was last computed; null = never computed. */
@@ -501,6 +548,10 @@ export interface CustomFieldDefinition {
   threshold_warn_days: number | null;
   threshold_alert_days: number | null;
   created_at: string;
+  /** #1921 — a dropdown whose choices resolve to a `DimensionResolution`; tracks are dimensions. */
+  is_dimension?: boolean;
+  /** #1921 — `{choice: resolution}`, keys a subset of `choices`; `{}` on non-dimensions. */
+  choice_resolutions?: Record<string, DimensionResolution>;
 }
 
 /** `CustomFieldDefinition.threshold_direction` (#1122). `""` = thresholds off. */
@@ -766,6 +817,8 @@ export interface Card {
   blocked_at: string | null;
   /** The open manual block's reason; `""` when not manually blocked (#1149). */
   blocked_reason: string;
+  /** Gated stages (#1102): index of the card's sub-column in `column.sub_columns`; 0 on a plain column. */
+  gates_passed?: number;
 }
 
 /** One manual block of a card, from `GET .../cards/{id}/blocks/` (#1149). */
@@ -927,6 +980,10 @@ export interface CardMovement {
    * history imported by earlier versions (the original name was not kept).
    */
   imported_from_username: string | null;
+  /** #1102 — gate position at each end; null where that column is not a gated stage. Left with gates open = `from_gates_open > 0`. */
+  from_gates_passed?: number | null;
+  from_gates_open?: number | null;
+  to_gates_passed?: number | null;
 }
 
 export type CardActivityEventType =
@@ -950,7 +1007,8 @@ export type CardActivityEventType =
   // Manual block state (#1149): `blocked` carries the reason in to_value;
   // `unblocked` the reason in from_value and the resolution in to_value.
   | "blocked"
-  | "unblocked";
+  | "unblocked"
+  | "custom_field_changed";
 
 export interface CardActivity {
   id: number;
