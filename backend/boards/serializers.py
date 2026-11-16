@@ -3773,6 +3773,47 @@ DEFAULT_PRESET_HELP = (
 )
 
 
+SWIMLANE_ROLLUP_FIELD_HELP = (
+    "Id of the board's card number field whose values each swimlane band sums "
+    "over the lane's cards not in a done column (#2275), or null for no rollup. "
+    "Must be a number field on this board. A field later retyped away from "
+    "number keeps its id here; clients hide the rollup until it is a number "
+    "field again. Deleting the field sets this to null."
+)
+
+
+class _BoardRollupFieldRelatedField(serializers.PrimaryKeyRelatedField):
+    """Board-scoped lookup for ``Board.swimlane_rollup_field`` (#2275).
+
+    The queryset is this board's own definitions, so an id from another board
+    fails exactly like an id that does not exist (same message, same 400): the
+    field is no way to learn whether some other board's definition id exists.
+    On create there is no board yet, hence no definitions, so any id fails.
+    """
+
+    default_error_messages = {
+        **serializers.PrimaryKeyRelatedField.default_error_messages,
+        "not_an_id": "swimlane_rollup_field must be a field id or null.",
+    }
+
+    def run_validation(self, data=serializers.empty):
+        # DRF turns "" into None for relational fields, and the pk lookup
+        # coerces True and 1.5 to pk 1; none of those is a spelling of an id
+        # or of "none" here (null is). Only an integer or a digit string is.
+        if data is not serializers.empty and data is not None and not (
+            (isinstance(data, int) and not isinstance(data, bool))
+            or (isinstance(data, str) and data.isdigit())
+        ):
+            self.fail("not_an_id")
+        return super().run_validation(data)
+
+    def get_queryset(self):
+        board = getattr(self.root, "instance", None)
+        if not isinstance(board, Board):
+            return CustomFieldDefinition.objects.none()
+        return CustomFieldDefinition.objects.filter(board=board)
+
+
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
@@ -3841,10 +3882,16 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             ),
         },
     )
+    # #2275: writable by board admins only, like every board field
+    # (BoardViewSet.perform_update). Board-scoped lookup, then the type rule
+    # in validate_swimlane_rollup_field.
+    swimlane_rollup_field = _BoardRollupFieldRelatedField(
+        allow_null=True, required=False, help_text=SWIMLANE_ROLLUP_FIELD_HELP,
+    )
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -3856,6 +3903,18 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             **_BOARD_ENFORCEMENT_EXTRA_KWARGS,
             "group": {"error_messages": {"does_not_exist": _BOARD_GROUP_NOT_ALLOWED_MSG}},
         }
+
+    def validate_swimlane_rollup_field(self, value):
+        """Only a number field can be summed (#2275).
+
+        The board scoping already happened in the field's queryset, so the
+        definition here is this board's and naming its type leaks nothing.
+        """
+        if value is not None and value.field_type != CustomFieldDefinition.FieldType.NUMBER:
+            raise serializers.ValidationError(
+                "swimlane_rollup_field must be a number field."
+            )
+        return value
 
     def validate_group(self, value):
         """Restrict placing a board in a group to admins of that group (#1655).
@@ -4251,6 +4310,11 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         choices=BoardPresetId.choices, allow_null=True, read_only=True,
         help_text=DEFAULT_PRESET_HELP,
     )
+    # Read-only here like every field of /full/; written through
+    # PATCH /boards/{id}/ (BoardSerializer) (#2275).
+    swimlane_rollup_field = serializers.PrimaryKeyRelatedField(
+        read_only=True, allow_null=True, help_text=SWIMLANE_ROLLUP_FIELD_HELP,
+    )
 
     class Meta:
         model = Board
@@ -4267,6 +4331,8 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             *HEALTH_REVIEW_FIELDS,
             # Additive (#2245): auto health status.
             *AUTO_HEALTH_BOARD_FIELDS,
+            # Additive (#2275): the swimlane band rollup field.
+            "swimlane_rollup_field",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
