@@ -9,8 +9,8 @@ function Connector({ rate, note, maxRate, warn }: { rate: number | null; note: s
   // Thickness is proportional to the rate; a null rate keeps the thinnest bar.
   const thickness = rate === null || maxRate === 0 ? 2 : Math.max(2, Math.round((rate / maxRate) * 10));
   return (
-    <div className="flex flex-col items-center justify-center gap-1 w-24 shrink-0" data-testid="flow-connector">
-      <span className="text-xs font-semibold text-fg whitespace-nowrap">{rate === null ? "—" : `${formatNumber(rate)} avg / wk`}</span>
+    <div className="flex flex-col items-center justify-center gap-1 w-28 shrink-0" data-testid="flow-connector">
+      <span className="text-xs font-semibold text-fg whitespace-nowrap" title="Average cards per week over the selected range">{rate === null ? "—" : `${formatNumber(rate)} avg / wk`}</span>
       <span aria-hidden="true" className={`w-full rounded-full ${warn ? "bg-warning" : "bg-line-emphasis"}`} style={{ height: thickness }} />
       <span className="text-xs text-fg-tertiary whitespace-nowrap truncate max-w-full" title={note}>{note}</span>
     </div>
@@ -79,7 +79,7 @@ export default function FlowRow({ columns, cumulative, throughput, days, onOpenC
   const rate = doneRate(cumulative);
   return (
     <div className="overflow-x-auto min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset" data-testid="flow-row" role="region" aria-label="How work flows" tabIndex={0}>
-      <div className="flex items-stretch min-w-[980px] py-1">
+      <div className="flex items-stretch min-w-[1040px] py-1">
         {columns.map((column, index) => {
           const over = column.limit !== null ? Math.max(0, column.count - column.limit) : 0;
           return (

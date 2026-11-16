@@ -115,6 +115,7 @@ One row, left to right, inside a box that scrolls sideways when the panel is nar
     - queue change over the period ("Queue +7 since Aug 16" or "Queue steady")
 - The bottleneck column box has the warning border.
 - A final connector and a **Done** box with the number finished in the period.
+  - Shipped connector copy is "avg / wk" (a mean over the range), not the artboard's "cards per week" (#2307).
 
 ### Where the time goes
 

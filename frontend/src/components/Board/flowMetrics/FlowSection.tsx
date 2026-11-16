@@ -42,8 +42,8 @@ function flowNote(row: ReturnType<typeof buildFlowRow>): string {
   const parts = ["Each square is a card in that column now."];
   if (row.some((c) => squareCounts(c).hollow > 0)) parts.push("Hollow squares are over the limit.");
   parts.push(row.some((c) => c.bottleneck)
-    ? "Connectors show average cards per week moving on; orange ones come after the bottleneck."
-    : "Connectors show average cards per week moving on.");
+    ? "Connectors show average cards per week moving on; the Throughput tile shows the weekly median. Orange connectors come after the bottleneck."
+    : "Connectors show average cards per week moving on; the Throughput tile shows the weekly median.");
   parts.push("Select a column to see its cards.");
   return parts.join(" ");
 }
