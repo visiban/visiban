@@ -3322,7 +3322,8 @@ describe('BoardView card actions (#2059)', () => {
     mockSearchParams = new URLSearchParams('card=1')
     const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
     const clearMoveError = vi.fn()
-    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1] }), forceMoveCardTo, clearMoveError })
+    // A refusal is held while connected; the pause arriving afterwards must clear it so the override can't run.
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1] }), forceMoveCardTo, clearMoveError, moveError: { message: 'blocked' } as never })
     const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
     expect(clearMoveError).not.toHaveBeenCalled()
     mockSocketStatus = 'reconnecting'
