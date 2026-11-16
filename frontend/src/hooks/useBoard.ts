@@ -659,6 +659,8 @@ export function useBoard() {
 
   const load = useCallback(() => {
     setLoading(true);
+    // A retry from the load-error state must clear it, or the error and the skeleton show together.
+    setError(null);
     const seq = ++fetchSeqRef.current;
     const touches = startFetchTouches();
     loadPendingRef.current = true;

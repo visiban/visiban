@@ -356,6 +356,8 @@ Cards are dragged between cells using @dnd-kit. Updates are **optimistic**: the 
 
 Every drag that changes column or swimlane creates a `CardMovement` audit record automatically.
 
+While you drag, the card tilts slightly and lifts, and the cell under it gets a dashed outline and tint. A cell that would go over a limit shows the reason in text before you drop. With reduced motion turned on in your system settings, the tilt and lift are dropped.
+
 ### Touch screens
 
 > **Changed in 1.2**
@@ -745,6 +747,16 @@ Which preset applies, highest first:
 4. The board's own density setting, with no overlay
 
 With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
+
+## Board states
+
+- **Loading:** a skeleton of column headers, a lane band and cards, announced to screen readers as "Loading board".
+- **No cards yet:** the column headers stay, with an **Add a card** button for people who can add cards.
+- **Filters match nothing:** the notice has a **Show all cards** button that clears the filters and the Show chip.
+- **Offline:** "You're offline. Changes may not save until the board reconnects." shows while the live connection is down. If reconnecting gives up, it reads "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
+- **Load error:** "The board didn't load." with **Try again**, which fetches the board again without reloading the page.
+- **Keyboard:** moving a card between columns and lanes has a keyboard equivalent. Reordering a card within a cell has no keyboard path yet (#2327). Focus a card and press <kbd>Menu</kbd> or <kbd>Shift+F10</kbd>, then choose **Move to…** and a column. To change swimlane, open the card and use **Move** in its details. Select several cards with the checkbox on each card and use **Move to…** in the bulk toolbar, which also moves to a column. Keyboard stops for sub-columns wait on #1102, #2278 and #2327.
+- **View only:** people who cannot edit the board (viewers and collaborators) see a line saying they can open cards and filter but not move or edit them.
 
 ## Views
 

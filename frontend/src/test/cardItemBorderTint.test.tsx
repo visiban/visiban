@@ -101,4 +101,11 @@ describe('CardItem — urgency border tint (#977)', () => {
     render(<CardItem card={makeCard({ due_date: OVERDUE })} density="comfortable" overlay />)
     expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
   })
+
+  it('drag overlay copy tilts 2 degrees and drops the tilt and lift under reduced motion (#2276)', () => {
+    render(<CardItem card={makeCard({})} density="comfortable" overlay />)
+    expect(face().className).toContain('rotate-2')
+    expect(face().className).toContain('motion-reduce:rotate-0')
+    expect(face().className).toContain('motion-reduce:!translate-y-0')
+  })
 })

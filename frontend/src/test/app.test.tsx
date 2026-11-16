@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -407,14 +407,23 @@ describe('App', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: true, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('Loading board…')).toBeInTheDocument()
+    expect(screen.getByText('Loading board')).toBeInTheDocument()
   })
 
   it('shows board error state on /boards/:id', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found' })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('Not found')).toBeInTheDocument()
+    expect(screen.getByText(/The board didn't load/)).toBeInTheDocument()
+  })
+
+  it('Try again refetches the board instead of reloading the page', async () => {
+    const reload = vi.fn()
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found', reload })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(reload).toHaveBeenCalledOnce()
   })
 
   it('renders BoardView when board is loaded', () => {
@@ -429,6 +438,37 @@ describe('App', () => {
     expect(screen.getByTestId('board-view')).toBeInTheDocument()
   })
 
+
+  it('shows the board skeleton only before the first board arrives (#2276)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    const fakeBoard = {
+      id: 1, name: 'My Board', description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    }
+    // First load: no board yet, so the skeleton shows.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: true, error: null })
+    const view = render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    expect(screen.getByText('Loading board')).toBeInTheDocument()
+    // A reload (e.g. a move rollback) with a board present must not bring it back.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: true, error: null })
+    view.rerender(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('board-view')).toBeInTheDocument()
+    expect(screen.queryByText('Loading board')).not.toBeInTheDocument()
+  })
+
+  it('shows the skeleton when switching boards while the new one loads (#2276)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    const boardA = {
+      id: 1, name: 'Board A', description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    }
+    // The hook still holds board 1 while /boards/2 loads.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: boardA, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/2']}><App /></MemoryRouter>)
+    expect(screen.getByText('Loading board')).toBeInTheDocument()
+  })
 
   it('remounts BoardView when the board id changes, so no per-board state carries over (#1146)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })

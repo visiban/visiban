@@ -98,6 +98,17 @@ describe('useBoard', () => {
     mockNavigate.mockClear()
   })
 
+  it('reload() after a failed load clears the error and shows the board (#2276)', async () => {
+    mockGetBoardFull.mockRejectedValueOnce({ response: { status: 500 } })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.error).toBe('Failed to load board'))
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Back' }))
+    act(() => { result.current.reload() })
+    expect(result.current.error).toBeNull()
+    await waitFor(() => expect(result.current.board?.name).toBe('Back'))
+    expect(result.current.loading).toBe(false)
+  })
+
   it('ignores a stale silentReload response that resolves after a newer one (#1463)', async () => {
     mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Initial' }))
     const { result } = renderHook(() => useBoard())

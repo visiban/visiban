@@ -147,7 +147,7 @@ describe('BoardPage unavailable state (#2041)', () => {
 
   it('keeps the existing Failed to load error for other failures', () => {
     renderBoardPage({ error: 'Failed to load board' })
-    expect(screen.getByText('Failed to load board')).toBeInTheDocument()
+    expect(screen.getByText(/The board didn't load/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /isn't available/ })).toBeNull()
   })
 })
