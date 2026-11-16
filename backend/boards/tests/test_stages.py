@@ -439,6 +439,29 @@ class AdminBoardMoveGateRowsTests(_StageBase):
         )
 
 
+    def test_admin_column_change_resets_gates_passed_and_field_is_read_only(self):
+        from django.contrib import admin as django_admin
+        from django.test import RequestFactory
+
+        model_admin = django_admin.site._registry[Card]
+        self.assertIn("gates_passed", model_admin.readonly_fields)
+        other_col = Column.objects.create(board=self.board, name="Elsewhere", position=9)
+        Card.objects.filter(pk=self.card.pk).update(gates_passed=2)
+        root = User.objects.create_superuser(username="root1921c", password="pass")
+        request = RequestFactory().post("/")
+        request.user = root
+        # Same column: the stored value is kept, whatever ``obj`` carried.
+        obj = Card.objects.get(pk=self.card.pk)
+        obj.gates_passed = 0
+        model_admin.save_model(request, obj, form=None, change=True)
+        self.assertEqual(Card.objects.get(pk=self.card.pk).gates_passed, 2)
+        # Column change: reset to 0, as move_card does.
+        obj = Card.objects.get(pk=self.card.pk)
+        obj.column = other_col
+        model_admin.save_model(request, obj, form=None, change=True)
+        self.assertEqual(Card.objects.get(pk=self.card.pk).gates_passed, 0)
+
+
 class DateShiftHistoryTests(TestCase):
     def test_gate_transitions_and_date_field_changes_shift_with_the_board(self):
         from boards.services.date_shift import shift_board_dates

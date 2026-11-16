@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardTemplate, Card, CardGateTransition, Column, CustomFieldDefinition, StageTrack,
+    Board, BoardTemplate, Card, CardGateTransition, CardMovement, Column, CustomFieldDefinition, StageTrack,
     SubColumn, Swimlane, SwimlaneTrackException,
 )
 from boards.tests.conftest import _make_board
@@ -59,6 +59,14 @@ class StageImportExportTests(TestCase):
             sub_column_uid=self.subs[1].uid, kind="pass", from_index=0, to_index=1,
             reason="looks good", actor=self.user,
         )
+
+    def _add_linked_movement(self):
+        mv = CardMovement.objects.create(
+            card=self.card, board=self.board, from_column=self.stage, to_column=self.done,
+            from_gates_passed=1, from_gates_open=2, to_gates_passed=0, moved_by=self.user,
+        )
+        CardGateTransition.objects.filter(card=self.card).update(movement=mv)
+        return mv
 
     def _export(self):
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/?format=json")
@@ -107,6 +115,39 @@ class StageImportExportTests(TestCase):
         self.assertEqual((gt.actor, gt.imported_from_username), (self.user, "owner1921ie"))
         self.assertEqual((gt.board_id, gt.column_id, gt.sub_column_uid), (board.pk, stage.pk, stage.sub_columns.get(name="Review").uid))
         self.assertEqual((gt.kind, gt.cause, gt.reason), ("pass", "move", "looks good"))
+
+    def test_round_trip_keeps_movement_gate_fields_and_relinks_transition(self):
+        self._add_linked_movement()
+        data = self._export()
+        card = data["cards"][0]
+        self.assertEqual(
+            [(m["from_gates_passed"], m["from_gates_open"], m["to_gates_passed"]) for m in card["movements"]],
+            [(1, 2, 0)],
+        )
+        self.assertEqual(card["gate_transitions"][0]["movement_index"], 0)
+        board = Board.objects.get(pk=self._import(data).data["id"])
+        mv = CardMovement.objects.get(board=board)
+        self.assertEqual((mv.from_gates_passed, mv.from_gates_open, mv.to_gates_passed), (1, 2, 0))
+        self.assertEqual(CardGateTransition.objects.get(board_id=board.pk).movement_id, mv.pk)
+
+    def test_unlinked_or_bad_movement_index_leaves_link_null(self):
+        self._add_linked_movement()
+        for index in (None, 5):
+            data = self._export()
+            data["cards"][0]["gate_transitions"][0]["movement_index"] = index
+            board = Board.objects.get(pk=self._import(data).data["id"])
+            self.assertIsNone(CardGateTransition.objects.get(board_id=board.pk).movement_id)
+
+    def test_movement_gate_fields_out_of_range_are_400(self):
+        self._add_linked_movement()
+        for key, value in (("from_gates_passed", 40000), ("to_gates_passed", -1), ("from_gates_open", "x")):
+            data = self._export()
+            data["cards"][0]["movements"][0][key] = value
+            resp = self._import(data, status_code=400)
+            self.assertIn(key, resp.data["detail"])
+        data = self._export()
+        data["cards"][0]["gate_transitions"][0]["movement_index"] = -1
+        self.assertIn("movement_index", self._import(data, status_code=400).data["detail"])
 
     def test_history_off_skips_gate_rows_but_keeps_gates_passed(self):
         board = Board.objects.get(pk=self._import(self._export(), options=json.dumps({"history": False})).data["id"])

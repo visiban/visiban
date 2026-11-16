@@ -383,7 +383,9 @@ class CardAdmin(admin.ModelAdmin):
     # change only through the block/unblock service, which writes that row
     # and the activity; an admin edit of the card fields alone would leave
     # the two disagreeing.
-    readonly_fields = ("version", "blocked_at", "blocked_reason")
+    # gates_passed (#1102) is the card's sub-column index in its stage and
+    # changes only through the gate/move services, which write its history.
+    readonly_fields = ("version", "blocked_at", "blocked_reason", "gates_passed")
 
     def save_model(self, request, obj, form, change):
         peers = {}
@@ -410,6 +412,13 @@ class CardAdmin(admin.ModelAdmin):
                 # constraint error.
                 obj.blocked_at = stored.blocked_at
                 obj.blocked_reason = stored.blocked_reason
+                # gates_passed is read-only here (same stale-``obj`` reason),
+                # and a card that lands in another column or board starts at
+                # its first sub-column, as move_card resets it (#1102).
+                moved = (
+                    stored.column_id != obj.column_id or stored.board_id != obj.board_id
+                )
+                obj.gates_passed = 0 if moved else stored.gates_passed
             # The form edits archived_at (fields="__all__"), so a save can
             # archive or restore the card. That moves the blocker_count of
             # every card it blocks, as archive_card / unarchive_card do, so

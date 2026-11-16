@@ -784,6 +784,11 @@ def _gate_index_error(value):
     return None
 
 
+def _nullable_gate_index_error(value):
+    """``_gate_index_error`` that also accepts null (movement gate snapshots)."""
+    return None if value is None else _gate_index_error(value)
+
+
 def _swimlane_limit_error(value):
     """A swimlane ``wip_limit``/``weight_limit`` (#1150): null or at least 1."""
     if value is None:
@@ -1041,6 +1046,11 @@ def _validate_json_import_values(data):
             ("from_swimlane", movement_name), ("to_swimlane", movement_name),
             ("notes", _text(_field_max_length(CardMovement, "notes"))),
             ("imported_from_username", imported_name),
+            # Gate snapshot of the move (#1102); smallint columns, null for
+            # moves that predate gated stages.
+            ("from_gates_passed", _nullable_gate_index_error),
+            ("from_gates_open", _nullable_gate_index_error),
+            ("to_gates_passed", _nullable_gate_index_error),
         )),
         "activities": ("activity", (
             ("from_value", _text()), ("to_value", _text()),
@@ -1065,6 +1075,9 @@ def _validate_json_import_values(data):
                 _optional_name_error, max_length=_field_max_length(CardGateTransition, "sub_column_name"),
             )),
             ("imported_from_username", imported_name),
+            # Position of the linked movement in this card's ``movements``
+            # list (#1102); null when unlinked.
+            ("movement_index", _nullable_int_error),
         )),
     }
     username_len = _field_max_length(get_user_model(), "username")
@@ -2258,6 +2271,7 @@ class BoardImportExportMixin:
                 history_on = options["history"]
 
                 # Movement history
+                card_movement_objs = []  # for gate_transitions' movement_index
                 for mv_data in (card_data.get("movements", []) if history_on else []):
                     from_col_name = mv_data.get("from_column") or ""
                     to_col_name = mv_data.get("to_column") or ""
@@ -2278,8 +2292,7 @@ class BoardImportExportMixin:
                         if isinstance(raw_movement_type, str) and raw_movement_type in valid_movement_types
                         else CardMovement.MovementType.MOVE
                     )
-                    movements_to_create.append((
-                        CardMovement(
+                    mv_obj = CardMovement(
                             card_id=card_pk,
                             # bulk_create skips CardMovement.save(), which
                             # fills these on every other path (#1469).
@@ -2304,9 +2317,12 @@ class BoardImportExportMixin:
                             imported_from_username=_imported_from_username(mv_data, "moved_by"),
                             notes=mv_data.get("notes", ""),
                             movement_type=movement_type,
-                        ),
-                        mv_data.get("moved_at"),
-                    ))
+                            from_gates_passed=mv_data.get("from_gates_passed"),
+                            from_gates_open=mv_data.get("from_gates_open"),
+                            to_gates_passed=mv_data.get("to_gates_passed"),
+                    )
+                    card_movement_objs.append(mv_obj)
+                    movements_to_create.append((mv_obj, mv_data.get("moved_at")))
 
                 blocks_to_create.extend(
                     _imported_card_blocks(card_obj, card_data, column_map, request.user, history_on)
@@ -2326,8 +2342,19 @@ class BoardImportExportMixin:
                     gt_col = column_map.get(gt_col_name)
                     sub_name = gt_data.get("sub_column") or ""
                     sub_obj = sub_column_map.get((gt_col_name, sub_name)) if gt_col else None
+                    # Re-link to the movement by its index in this card's
+                    # exported list; an absent or out-of-range index leaves
+                    # the link null (the file has no other safe key).
+                    mv_index = gt_data.get("movement_index")
+                    linked_mv = (
+                        card_movement_objs[mv_index]
+                        if isinstance(mv_index, int) and not isinstance(mv_index, bool)
+                        and 0 <= mv_index < len(card_movement_objs)
+                        else None
+                    )
                     gate_transitions_to_create.append(CardGateTransition(
                         card_id=card_pk,
+                        movement=linked_mv,
                         # bulk_create skips CardGateTransition.save().
                         board_id=card_obj.board_id,
                         card_uid=card_obj.uid,
@@ -3347,6 +3374,7 @@ class BoardImportExportMixin:
                 # Use .all() + sorted() to read from the prefetch cache instead of
                 # issuing an ORDER BY query per card for movements, comments, and checklist.
                 movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
+                movement_index = {mv.pk: i for i, mv in enumerate(movements)}
                 cards_data.append({
                     "title": card.title,
                     "description": card.description,
@@ -3401,6 +3429,10 @@ class BoardImportExportMixin:
                             "movement_type": mv.movement_type,
                             # Additive (#1675); null unless the row was imported.
                             "imported_from_username": mv.imported_from_username,
+                            # Additive (#1102): gate snapshot of the move.
+                            "from_gates_passed": mv.from_gates_passed,
+                            "from_gates_open": mv.from_gates_open,
+                            "to_gates_passed": mv.to_gates_passed,
                         }
                         for mv in movements
                     ],
@@ -3454,6 +3486,8 @@ class BoardImportExportMixin:
                             "actor": gt.actor.username if gt.actor else None,
                             "created_at": gt.created_at.isoformat(),
                             "imported_from_username": gt.imported_from_username,
+                            # Index into this card's ``movements`` (#1102).
+                            "movement_index": movement_index.get(gt.movement_id),
                         }
                         for gt in sorted(card.gate_transitions.all(), key=lambda g: (g.created_at, g.pk))
                     ],
