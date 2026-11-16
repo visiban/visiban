@@ -31,7 +31,8 @@ Every pod:
       (dict "key" "pruneBoardEvents" "command" "prune_board_events" "suffix" "prune-board-events")
       (dict "key" "pruneNotifications" "command" "prune_notifications" "suffix" "prune-notifications")
       (dict "key" "notifyDueSoon" "command" "notify_due_soon" "suffix" "notify-due-soon")
-      (dict "key" "notifyStaleCards" "command" "notify_stale_cards" "suffix" "notify-stale-cards") }}
+      (dict "key" "notifyStaleCards" "command" "notify_stale_cards" "suffix" "notify-stale-cards")
+      (dict "key" "computeHealthStatus" "command" "compute_health_status" "suffix" "compute-health-status") }}
 {{- range $job := $jobs }}
 {{- $cfg := index $sj $job.key }}
 {{- if $cfg.enabled }}

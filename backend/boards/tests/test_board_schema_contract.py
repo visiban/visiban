@@ -413,6 +413,9 @@ class BoardFullMembersSchemaTests(TestCase):
             "default_preset",
             # Additive (#2244): the review cue.
             "health_review_days", "health_review_due_at",
+            # Additive (#2245): auto health status.
+            "health_auto_enabled", "health_off_track_cards", "computed_health_status",
+            "health_computed_at", "health_computed_counts", "health_status_origin",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

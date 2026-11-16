@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -28,6 +28,7 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 
+from ..card_signals import blocked_q, overdue_q
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
 from ..services.notifications import (
@@ -238,22 +239,15 @@ class CardFilter(django_filters.FilterSet):
     )
 
     def filter_overdue(self, queryset, name, value):
-        today = datetime.date.today()
-        if value:
-            return queryset.filter(due_date__lt=today)
-        return queryset.exclude(due_date__lt=today)
+        # Shared predicate (#2245); this filter keeps the server-local date
+        # it has always used, and still covers done and archived cards.
+        condition = overdue_q(datetime.date.today())
+        return queryset.filter(condition) if value else queryset.exclude(condition)
 
     def filter_blocked(self, queryset, name, value):
-        # The same union CardSerializer.is_blocked reports (#1149): a manual
-        # block, or a `blocks` relation whose blocking card is still on the
-        # board (the _active_blockers_prefetch rule, #449). EXISTS rather than
-        # a join so a card with several blockers is returned once.
-        relation_blocked = Exists(CardRelation.objects.filter(
-            to_card=OuterRef("pk"),
-            relation_type=CardRelation.Type.BLOCKS,
-            from_card__archived_at__isnull=True,
-        ))
-        condition = Q(blocked_at__isnull=False) | Q(relation_blocked)
+        # The same union CardSerializer.is_blocked reports (#1149), shared with
+        # the auto health status through boards.card_signals (#2245).
+        condition = blocked_q()
         return queryset.filter(condition) if value else queryset.exclude(condition)
 
     class Meta:

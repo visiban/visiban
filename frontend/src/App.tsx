@@ -36,7 +36,8 @@ import AdminPage from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import UnavailablePage from "./pages/UnavailablePage";
 import type { HealthStatus, ImportSummary, User } from "./types";
-import { getBoardHealthHistory, setBoardHealthStatus, starBoard, unstarBoard } from "./api/boards";
+import { getBoardHealthHistory, recomputeBoardHealth, setBoardHealthStatus, starBoard, unstarBoard } from "./api/boards";
+import { applyHealthRecompute, boardHealthAuto, pickBoardHealth } from "./utils/healthStatus";
 import { inviteKindOf, joinInvite } from "./api/inviteKinds";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
@@ -285,7 +286,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeBoardId } = useParams<{ id: string }>();
-  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload } = useBoardContext();
+  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload, updateSwimlane } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -333,18 +334,16 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const handleHealthSave = useCallback(async (next: HealthStatus | null, note?: string | null) => {
     if (boardId === undefined) throw new Error("Board not loaded");
     const updated = await setBoardHealthStatus(boardId, { status: next, note: note ?? null });
-    mergeBoardState({
-      health_status: updated.health_status,
-      effective_health_status: updated.effective_health_status,
-      health_status_source: updated.health_status_source,
-      health_status_changed_at: updated.health_status_changed_at,
-      health_status_changed_by: updated.health_status_changed_by,
-      health_status_note: updated.health_status_note,
-      health_review_days: updated.health_review_days,
-      health_review_due_at: updated.health_review_due_at,
-    });
+    // Every health field by name (BOARD_HEALTH_FIELDS), incl. #2245's auto
+    // fields: a hand-copied list here is the trap that dropped new fields.
+    mergeBoardState(pickBoardHealth(updated));
     return updated;
   }, [boardId, mergeBoardState]);
+  // Recompute now (#2245): the board's health and each lane's, by id.
+  const handleHealthRecompute = useCallback(async () => {
+    if (boardId === undefined) throw new Error("Board not loaded");
+    applyHealthRecompute(await recomputeBoardHealth(boardId), mergeBoardState, updateSwimlane);
+  }, [boardId, mergeBoardState, updateSwimlane]);
   const fetchBoardHealthHistory = useCallback(() => {
     if (boardId === undefined) return Promise.reject(new Error("Board not loaded"));
     return getBoardHealthHistory(boardId);
@@ -424,6 +423,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                   health_status_changed_by={board.health_status_changed_by}
                   health_status_note={board.health_status_note}
                   health_review_due_at={board.health_review_due_at}
+                  health_status_origin={board.health_status_origin}
+                  auto={boardHealthAuto(board)}
+                  onRecompute={handleHealthRecompute}
                   onSave={handleHealthSave}
                   onConfirm={handleHealthSave}
                   fetchHistory={fetchBoardHealthHistory}

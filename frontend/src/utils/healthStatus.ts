@@ -8,36 +8,119 @@
  */
 import { healthLabel, type HealthDisplayValue, type HealthStatus } from "../constants/healthStatus";
 import { DEMO_HEALTH_STATUS_REASON } from "../constants/demoCopy";
-import type { BoardUser, HealthStatusSource } from "../types";
+import type {
+  Board, BoardFull, BoardHealthStatusOrigin, BoardUser, HealthComputedCounts, HealthStatusSource, Swimlane, SwimlaneHealthStatusOrigin,
+} from "../types";
 import { formatRelativeTime } from "./date";
 
 export interface HealthFields {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /**
+   * #2245: where the effective value comes from, as the server resolved it.
+   * Omitted by callers that predate auto health; then it is derived.
+   */
+  health_status_origin?: BoardHealthStatusOrigin | null;
 }
 
 /**
  * Which entity a health control edits. Boards and groups inherit through the
- * group tree (#1133); a swimlane (#2243) never inherits and never rolls up, so
- * its null means "no status" and its popover has no Inherit choice.
+ * group tree (#1133); a swimlane (#2243) never inherits, so its null means "no
+ * status" and its popover has no Inherit choice. On a board with auto health
+ * on (#2245), a lane's status rolls up into the board's calculated status.
  */
 export type HealthEntityKind = "board" | "group" | "swimlane";
 
 /**
- * A swimlane's single stored value as the three-field shape the shared health
- * components take (#2243): the stored value is also the effective one, and
- * there is never a source, so the pill is never drawn as inherited (dashed).
+ * A swimlane's health as the shape the shared health components take. The pin
+ * is `health_status` (#2243); on an auto-health board (#2245) the effective
+ * value falls back to the computed one. There is never a source, so a lane
+ * pill is never drawn as inherited (dashed). `effective_health_status` falls
+ * back to the pin for a payload that predates #2245.
  */
-export function laneHealthFields(health_status: HealthStatus | null): HealthFields {
-  return { health_status, effective_health_status: health_status, health_status_source: null };
+export function laneHealthFields(
+  lane: Pick<Swimlane, "health_status"> & Partial<Pick<Swimlane, "effective_health_status" | "health_status_origin">>,
+): HealthFields {
+  // The pin always wins, so a set pin is the effective value whatever the
+  // payload's effective field says.
+  const effective = lane.health_status ?? lane.effective_health_status ?? null;
+  let origin: SwimlaneHealthStatusOrigin | null = lane.health_status !== null ? "manual" : null;
+  if (origin === null && effective !== null) origin = lane.health_status_origin ?? "computed";
+  return {
+    health_status: lane.health_status,
+    effective_health_status: effective,
+    health_status_source: null,
+    health_status_origin: origin,
+  };
 }
+
+/**
+ * The auto health facts for an entity on an auto-health board (#2245). Given
+ * (non-null) only while auto health is on; null means the board is manual
+ * only, and every health surface reads exactly as before #2245.
+ */
+export interface HealthAutoInfo {
+  /** What the rule computed; null = no open cards, or never computed. */
+  computed: HealthStatus | null;
+  /** When it was last computed; null = never. */
+  computedAt: string | null;
+  counts: HealthComputedCounts | null;
+}
+
+export function boardHealthAuto(board: Pick<Board, "health_auto_enabled"> & Partial<Pick<Board, "computed_health_status" | "health_computed_at" | "health_computed_counts">>): HealthAutoInfo | null {
+  if (!board.health_auto_enabled) return null;
+  return {
+    computed: board.computed_health_status ?? null,
+    computedAt: board.health_computed_at ?? null,
+    counts: board.health_computed_counts ?? null,
+  };
+}
+
+export function laneHealthAuto(lane: Partial<Pick<Swimlane, "computed_health_status" | "health_computed_at" | "health_computed_counts">>, boardAutoEnabled: boolean): HealthAutoInfo | null {
+  if (!boardAutoEnabled) return null;
+  return {
+    computed: lane.computed_health_status ?? null,
+    computedAt: lane.health_computed_at ?? null,
+    counts: lane.health_computed_counts ?? null,
+  };
+}
+
+/** Every board health field, by name: the one list App.tsx merges from a health response (#2245). */
+export const BOARD_HEALTH_FIELDS = [
+  "health_status", "effective_health_status", "health_status_source", "health_status_changed_at",
+  "health_status_changed_by", "health_status_note", "health_review_days", "health_review_due_at",
+  "health_auto_enabled", "health_off_track_cards", "computed_health_status", "health_computed_at",
+  "health_computed_counts", "health_status_origin",
+] as const satisfies readonly (keyof Board)[];
+
+/** Every lane health field, by name (#2243, #2245). */
+export const LANE_HEALTH_FIELDS = [
+  "health_status", "effective_health_status", "health_status_origin", "computed_health_status",
+  "health_computed_at", "health_computed_counts",
+] as const satisfies readonly (keyof Swimlane)[];
+
+export function pickBoardHealth(board: Board): Pick<Board, typeof BOARD_HEALTH_FIELDS[number]> {
+  const out: Partial<Board> = {};
+  for (const key of BOARD_HEALTH_FIELDS) (out as Record<string, unknown>)[key] = board[key];
+  return out as Pick<Board, typeof BOARD_HEALTH_FIELDS[number]>;
+}
+
+export function pickLaneHealth(lane: Swimlane): Pick<Swimlane, typeof LANE_HEALTH_FIELDS[number]> {
+  const out: Partial<Swimlane> = {};
+  for (const key of LANE_HEALTH_FIELDS) (out as Record<string, unknown>)[key] = lane[key];
+  return out as Pick<Swimlane, typeof LANE_HEALTH_FIELDS[number]>;
+}
+
+export type HealthOrigin = BoardHealthStatusOrigin | null;
 
 export interface HealthDisplay {
   value: HealthDisplayValue;
   label: string;
   /** Name of the ancestor group the value comes from; null when set here or none. */
   inheritedFrom: string | null;
+  /** #2245: "manual" (set by hand, the pin), "computed", "inherited", or null for none. */
+  origin: HealthOrigin;
 }
 
 export function getHealthDisplay(fields: HealthFields): HealthDisplay {
@@ -47,7 +130,81 @@ export function getHealthDisplay(fields: HealthFields): HealthDisplay {
   const inheritedFrom = fields.health_status === null && fields.effective_health_status !== null
     ? fields.health_status_source?.name ?? null
     : null;
-  return { value, label: healthLabel(value), inheritedFrom };
+  let origin: HealthOrigin;
+  if (fields.health_status_origin !== undefined) origin = fields.health_status_origin;
+  else if (fields.health_status !== null) origin = "manual";
+  else origin = inheritedFrom ? "inherited" : null;
+  if (value === "none") origin = null;
+  return { value, label: healthLabel(value), inheritedFrom: origin === "computed" ? null : inheritedFrom, origin };
+}
+
+/** "Computed 3h ago" / "Never computed" (#2245). Never presents a stale value as current. */
+export function healthComputedWhen(computedAt: string | null): string {
+  if (!computedAt) return "Never computed";
+  const rel = formatRelativeTime(computedAt);
+  return rel ? `Computed ${rel}` : "Never computed";
+}
+
+/** "12 open · 3 overdue · 2 stale · 1 blocked · 5 flagged": zero segments omitted, except open. */
+export function healthCountsLine(counts: HealthComputedCounts | null): string {
+  if (!counts) return "";
+  const parts = [`${counts.open} open`];
+  for (const key of ["overdue", "stale", "blocked", "flagged"] as const) {
+    if (counts[key] > 0) parts.push(`${counts[key]} ${key}`);
+  }
+  return parts.join(" · ");
+}
+
+/** "1 overdue, 2 stale" for a title; "" when nothing is flagged. */
+function countsPhrase(counts: HealthComputedCounts | null): string {
+  if (!counts) return "";
+  return (["overdue", "stale", "blocked"] as const)
+    .filter((k) => counts[k] > 0)
+    .map((k) => `${counts[k]} ${k}`)
+    .join(", ");
+}
+
+/** "At risk", or "No open cards" for a computed null that has run (#2245). */
+export function healthComputedLabel(auto: HealthAutoInfo): string {
+  if (auto.computed) return healthLabel(auto.computed);
+  return auto.computedAt ? "No open cards" : "Never computed";
+}
+
+/**
+ * The auto health clause of a pill title (#2245): "At risk: calculated
+ * automatically. 1 overdue, 2 stale. Computed 3h ago." for a computed value,
+ * "Off track: set by hand. The rule computed At risk." for a pin.
+ */
+export function healthAutoTitle(display: HealthDisplay, auto: HealthAutoInfo): string {
+  if (display.origin === "manual") {
+    const rule = auto.computedAt ? `The rule computed ${healthComputedLabel(auto)}.` : "Never computed.";
+    return `${display.label}: set by hand. ${rule}`;
+  }
+  if (display.origin === "computed") {
+    const phrase = countsPhrase(auto.counts);
+    return `${display.label}: calculated automatically.${phrase ? ` ${phrase}.` : ""} ${healthComputedWhen(auto.computedAt)}.`;
+  }
+  if (display.origin === "inherited") return "";
+  return `${healthComputedLabel(auto)}. ${healthComputedWhen(auto.computedAt)}.`;
+}
+
+/** The sr-only origin suffix after the pill's word (#2245). Glyph is never the only signal. */
+export function healthOriginSuffix(display: HealthDisplay, auto: HealthAutoInfo | null): string {
+  if (!auto) return "";
+  if (display.origin === "manual") return ", set by hand";
+  if (display.origin === "computed") return ", calculated automatically";
+  if (display.value === "none" && auto.computedAt && !auto.computed) return ", no open cards";
+  return "";
+}
+
+/** The message shown when Recompute now fails (#2245). */
+export function healthRecomputeErrorMessage(err: unknown): string {
+  const response = (err as { response?: { status?: number; data?: { code?: unknown } } } | null)?.response;
+  if (response?.status === 409 && response.data?.code === "health_auto_disabled") {
+    return "Automatic health status is turned off for this board.";
+  }
+  if (response?.status === 429) return "Recompute is limited to 30 times per hour. Try again later.";
+  return "Couldn't recompute. Try again.";
 }
 
 /** The last set or confirm of an entity's own status (#2242); all null when never recorded. */
@@ -116,6 +273,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export function healthReviewCue(fields: HealthReviewFields, now: number = Date.now()): HealthReviewCue | null {
   const dueAt = fields.health_review_due_at;
   if (!dueAt || !fields.effective_health_status) return null;
+  // #2245: a computed status is re-rated every night; it never needs review.
+  if (fields.health_status_origin === "computed") return null;
   const due = new Date(dueAt).getTime();
   if (Number.isNaN(due) || now < due) return null;
   const inherited = fields.health_status === null;
@@ -141,7 +300,18 @@ export function healthTitle(
   attribution?: HealthAttribution | null,
   source?: HealthStatusSource | null,
   entityKind: HealthEntityKind = "board",
+  auto: HealthAutoInfo | null = null,
 ): string {
+  if (auto && mode !== "demo") {
+    // #2245: on an auto board the title says where the value comes from.
+    const autoBase = healthAutoTitle(display, auto);
+    if (autoBase) {
+      const base = entityKind === "swimlane" ? `Lane health status: ${autoBase}` : `Health status: ${autoBase}`;
+      if (mode === "interactive") return `${base} Click to change.`;
+      if (mode === "readonly") return `${base} Click for details.`;
+      return base;
+    }
+  }
   if (mode === "demo") {
     const prefix = entityKind === "swimlane" ? "Lane health status" : "Health status";
     return `${prefix}: ${display.label}. ${DEMO_HEALTH_STATUS_REASON}`;
@@ -231,4 +401,24 @@ export function healthStatusAnnouncement(
   if (next !== null) return `Health status set to ${healthLabel(next)}.`;
   if (parentName !== null) return `Health status now follows ${parentName}: ${healthLabel(effective ?? "none")}.`;
   return "Health status cleared.";
+}
+
+/**
+ * Merge a Recompute now response (#2245) into board state: the board's health
+ * fields, and each lane's by id. Shared by the board header and Settings.
+ * Lanes whose status did not change get no broadcast, so their new computed
+ * time comes only from this response.
+ */
+export function applyHealthRecompute(
+  result: { board: Board; swimlanes: Swimlane[] },
+  mergeBoardState: (patch: Partial<BoardFull>) => void,
+  updateSwimlane: (resolver: (board: BoardFull) => Swimlane) => void,
+): void {
+  mergeBoardState(pickBoardHealth(result.board));
+  for (const lane of result.swimlanes) {
+    updateSwimlane((b) => {
+      const prior = b.swimlanes.find((s) => s.id === lane.id);
+      return prior ? { ...prior, ...pickLaneHealth(lane) } : lane;
+    });
+  }
 }

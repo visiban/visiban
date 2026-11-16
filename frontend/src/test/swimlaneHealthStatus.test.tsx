@@ -46,7 +46,7 @@ const columns: Column[] = [
 
 const swimlane: Swimlane = {
   id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: 'a@test.com', notes: '', position: 0,
-  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null,
+  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null,
 }
 
 // collapsed/onToggleCollapse/onFocus/isFocused are now controlled props (Step 2 of #340).
@@ -75,7 +75,7 @@ const defaultProps = () => ({
 
 
 // Lane health status (#2243): the manual pin on a swimlane, admin-edited,
-// never inherited from or rolled up to the board.
+// never inherited from the board (on an auto health board it rolls up, #2245).
 const patchMock = vi.mocked(patchSwimlane)
 const lane = (health_status: Swimlane['health_status']): Swimlane => ({ ...swimlane, health_status })
 
@@ -353,5 +353,53 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     expect(icon.className).toContain('min-h-6')
     await user.click(icon)
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('SwimlaneRow auto health (#2245)', () => {
+  const computedLane: Swimlane = {
+    ...swimlane, effective_health_status: 'at_risk', health_status_origin: 'computed', computed_health_status: 'at_risk',
+    health_computed_at: new Date(Date.now() - 2 * 3600_000).toISOString(), health_computed_counts: { open: 4, overdue: 1, stale: 0, blocked: 0, flagged: 1 },
+  }
+
+  it('shows a computed pill without a pin, and no unset icon', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={computedLane} healthAutoEnabled />)
+    const pill = screen.getByRole('button', { name: /Health status for lane Customer A: At risk ?, calculated automatically/ })
+    expect(pill).toHaveAttribute('title', expect.stringContaining('Lane health status: At risk: calculated automatically. 1 overdue.'))
+    expect(screen.queryByRole('button', { name: 'Set health status for lane Customer A' })).not.toBeInTheDocument()
+  })
+
+  it('an empty computed lane keeps its pill ("No open cards"); auto off shows the icon', () => {
+    const empty: Swimlane = { ...swimlane, health_computed_at: new Date().toISOString(), health_computed_counts: { open: 0, overdue: 0, stale: 0, blocked: 0, flagged: 0 } }
+    const { unmount } = render(<SwimlaneRow {...defaultProps()} swimlane={empty} healthAutoEnabled />)
+    expect(screen.getByRole('button', { name: /no open cards/ })).toBeInTheDocument()
+    unmount()
+    render(<SwimlaneRow {...defaultProps()} swimlane={computedLane} healthAutoEnabled={false} />)
+    // Auto off: the stored computed value is ignored by the server's
+    // effective_health_status only once cleared; the icon shows for a lane with no pill.
+    expect(screen.queryByRole('button', { name: /calculated automatically/ })).not.toBeInTheDocument()
+  })
+
+  it('a pinned lane shows the Calculated row in its popover', async () => {
+    const user = userEvent.setup()
+    const pinned: Swimlane = { ...computedLane, health_status: 'off_track', effective_health_status: 'off_track', health_status_origin: 'manual' }
+    render(<SwimlaneRow {...defaultProps()} swimlane={pinned} healthAutoEnabled />)
+    await user.click(screen.getByRole('button', { name: /set by hand/ }))
+    const block = await screen.findByTestId('health-computed-block')
+    expect(block).toHaveTextContent('Calculated: At risk')
+    expect(block).toHaveTextContent('Set by hand: Off track')
+    expect(within(block).queryByRole('button', { name: 'Recompute now' })).not.toBeInTheDocument()
+  })
+
+  it('clearing a pin keeps the computed pill and returns the effective value', async () => {
+    const user = userEvent.setup()
+    const pinned: Swimlane = { ...computedLane, health_status: 'off_track', effective_health_status: 'off_track', health_status_origin: 'manual' }
+    patchMock.mockResolvedValueOnce(computedLane)
+    const props = defaultProps()
+    render(<SwimlaneRow {...props} swimlane={pinned} healthAutoEnabled />)
+    await user.click(screen.getByRole('button', { name: /set by hand/ }))
+    await user.click(await screen.findByRole('button', { name: 'Clear pin (use calculated)' }))
+    await waitFor(() => expect(patchMock).toHaveBeenCalledWith(1, 20, { health_status: null }))
+    expect(props.onSwimlaneUpdated).toHaveBeenCalledWith(computedLane)
   })
 })

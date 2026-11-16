@@ -1,4 +1,4 @@
-# Schedule the four maintenance commands Visiban needs
+# Schedule the maintenance commands Visiban needs
 
 Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. On Compose the board-event prune also runs by default; the notification prune stays off until you enable it. On Helm both prune jobs stay off until you enable each one.
 
@@ -9,12 +9,13 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
     them — each needed a hand-written host cron line. 1.2 ships an opt-in
     scheduler for Docker Compose and native CronJobs for Kubernetes.
 
-**The big picture:** Visiban has four maintenance commands that must run on a schedule. If nothing schedules them:
+**The big picture:** Visiban has five maintenance commands that must run on a schedule. If nothing schedules them:
 
 - users who turn on **Due date approaching** or **Card has gone stale** in
   their notification preferences never receive those notifications, in the bell
   or by email;
-- the `notifications` and `board_events` tables grow without bound.
+- the `notifications` and `board_events` tables grow without bound;
+- boards with [auto health status](../features/health-status.md) turned on are calculated at once when auto is turned on (including on a board created with it on), and after that only when a board admin uses **Recompute now**; their *Computed …* time keeps aging, and a lane added since shows "Never computed".
 
 | Command | What it does | Default time (UTC) | On by default when the scheduler is enabled |
 |---|---|---|---|
@@ -22,6 +23,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 | `notify_stale_cards` | [Staleness notifications](../features/notifications.md#staleness-notifications) for opted-in users | 08:00 | Yes |
 | `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | Yes on Compose, No on Helm |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
+| `compute_health_status` | *(1.3+)* Computes the [auto health status](../features/health-status.md) of every board that turned it on; other boards are untouched | 02:00 | Yes |
 
 **Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. On the Compose scheduler, `prune_board_events` also runs by default (since 1.3), because the change feed keeps card payloads until pruned. `prune_notifications` deletes user data and stays off until you enable it. The Helm chart is unchanged: both prune CronJobs stay `enabled: false` until you enable them, so on Helm turn on `scheduledJobs.pruneBoardEvents.enabled` yourself.
 
@@ -29,7 +31,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 
 **Email at exit:** notification email is sent on a background thread. `notify_due_soon` and `notify_stale_cards` wait up to 30 seconds for it before they exit, so a cron run does not drop mail it just queued. If the mail relay is still busy after that, the command prints a warning to stderr and the unsent mail may be lost. The scheduler does the same when it is stopped.
 
-**Watch out:** all four commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
+**Watch out:** all five commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
 
 !!! note "The webhook dispatcher is not a scheduled job"
     [Outbound webhooks](../features/webhooks.md) *(1.3+)* need delivery within seconds, so
@@ -77,6 +79,7 @@ Each job's time comes from an `.env` variable. A value is `HH:MM` (24-hour, **UT
 | `SCHEDULE_NOTIFY_STALE_CARDS` | `08:00` |
 | `SCHEDULE_PRUNE_BOARD_EVENTS` | `03:00` |
 | `SCHEDULE_PRUNE_NOTIFICATIONS` | `off` |
+| `SCHEDULE_COMPUTE_HEALTH` | `02:00` |
 
 This keeps the notification scans and the board-event prune at their defaults and turns on the notification prune. Set `SCHEDULE_PRUNE_BOARD_EVENTS=off` to keep change-feed events forever:
 
@@ -104,6 +107,7 @@ Without the `scheduler` profile, schedule the same commands from host cron:
 ```bash
 0 7 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py notify_due_soon
 0 8 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py notify_stale_cards
+0 2 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py compute_health_status
 0 3 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py prune_board_events
 30 3 * * * docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py prune_notifications
 ```
@@ -134,7 +138,7 @@ scheduledJobs:
 |---|---|---|
 | `scheduledJobs.enabled` | `false` | Master switch. Nothing is rendered while it is off. |
 | `scheduledJobs.timeZone` | `""` | IANA zone for every schedule (CronJob `.spec.timeZone`, Kubernetes 1.27+). Empty means the controller's zone, which is UTC on almost every cluster. |
-| `scheduledJobs.<job>.enabled` | `true` for `notifyDueSoon` and `notifyStaleCards`; `false` for `pruneBoardEvents` and `pruneNotifications` | Per-job switch |
+| `scheduledJobs.<job>.enabled` | `true` for `notifyDueSoon`, `notifyStaleCards` and `computeHealthStatus`; `false` for `pruneBoardEvents` and `pruneNotifications` | Per-job switch |
 | `scheduledJobs.<job>.schedule` | See the table at the top of this page | Standard 5-field cron expression |
 | `scheduledJobs.<job>.args` | `[]` | Extra arguments for `manage.py <command>` |
 | `scheduledJobs.activeDeadlineSeconds` | `3600` | A run still going after this is killed and marked failed. |
@@ -160,6 +164,10 @@ To trigger a run by hand, for example to test SMTP delivery:
 ```bash
 kubectl create job -n <namespace> --from=cronjob/visiban-notify-due-soon notify-due-soon-manual
 ```
+
+## Auto health status job
+
+`compute_health_status` *(1.3+, #2245)* computes each lane's status from its own open cards, and the board's from its lanes, for every board with **Auto health status** turned on. It is the same code as a board admin's **Recompute now**. Each board is computed in its own transaction under its own row lock, so two runs at once (the job and a manual recompute) never record a change twice. One board that fails is logged and skipped; the command then exits non-zero. "Overdue" uses the server's date in UTC, so for a team far from UTC a card can turn overdue a few hours early or late. With the scheduler off, an auto board keeps the values of its last run (the one made when auto was turned on, or the last **Recompute now**), and its *Computed …* time shows how old they are; a lane added since that run shows "Never computed".
 
 ## Retention settings
 

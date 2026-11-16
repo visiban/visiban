@@ -8,7 +8,7 @@ A board or group admin can mark a board or a group **On track**, **At risk** or 
 
 **Why it matters:** cards tell you how each piece of work is going, but not whether the workstream as a whole is in trouble. A health status gives a project manager that answer at a glance, on the dashboard, in the group tree and on every board.
 
-**How it works:** the status is set by hand. Visiban never works it out from the cards, and a group's status is never worked out from its boards. When a board or subgroup has no status of its own, it shows the status of the nearest group above it that has one. That inherited status is drawn with a dashed border and says where it comes from.
+**How it works:** a status is set by hand, or, on a board that turns on [automatic health status](#auto-health), calculated each night from its lanes' open cards. A status set by hand always wins over a calculated one. A group's status is never worked out from its boards. When a board or subgroup has no status of its own (set or calculated), it shows the status of the nearest group above it that has one. That inherited status is drawn with a dashed border and says where it comes from.
 
 **Yes, but:** a status is a judgment someone keeps up to date. Visiban shows when it was last set or confirmed and by whom ("Set 3d ago by Priya"), so an old status is visible as old. An admin can also ask for a review every so many days: past that, the status says **Not reviewed in 18 days** until someone confirms or changes it. Nothing is sent: there is no email or notification.
 
@@ -51,7 +51,7 @@ In the hosted demo the status cannot be changed.
 
 A status that nobody looks at goes stale silently. To catch that, set **Review status every** *N* **days** (1 to 365):
 
-- **Board:** **Board Settings** → **Health status review**, below **Card aging settings**. Board admins only.
+- **Board:** **Board Settings** → **Health status**, below **Card aging settings**. Board admins only.
 - **Group:** the group page's **Settings** tab → **Health status review**. Group admins only.
 
 Leave it empty to turn it off, the default.
@@ -83,7 +83,7 @@ Lists show a status only where one applies; they never show **No status**. A gro
 
 The status's tooltip says when it was set and by whom, with the note if there is one: *Health status: At risk. Set 3d ago by Priya. Note: vendor slipped API delivery.* Within a week the time is relative ("3d ago"); after that it is a date ("on Sep 14"). Hover a time for the exact date and time. On a group page the same line shows under the group's name. An inherited status shows when its group set it: *inherited from Eng, set 3d ago*.
 
-**History** in the editor lists the 20 most recent changes, newest first: from and to, who, when, and the note. A confirm shows as one status followed by "confirmed". **System** means the account was removed or the change was automatic. A status set before this history existed has no "Set …" line and no history until it is next set or confirmed. Older changes are kept but not listed.
+**History** in the editor lists the 20 most recent changes, newest first: from and to, who, when, and the note. A confirm shows as one status followed by "confirmed". **Automatic** marks a change made by [automatic health status](#auto-health), with its reason; **System** means the account that made a change was removed. A status set before this history existed has no "Set …" line and no history until it is next set or confirmed. Older changes are kept but not listed.
 
 ## Lane status
 
@@ -93,7 +93,7 @@ A board admin can also give a single swimlane its own status. On a board with on
 
 - **Set it:** hover the lane's header band and choose the half-filled circle icon (on a touch screen it is always visible), or Tab to it. Pick **On track**, **At risk** or **Off track** and choose **Save**. To change or clear it, choose the lane's status pill; **No status** clears it. Only board admins can set or clear a lane's status.
 - **Where it shows:** beside the lane's name in its header band. On a collapsed lane only the shape shows, next to the name; the word is still read out by screen readers. A lane with no status shows nothing to anyone who is not a board admin.
-- **It is independent of the board:** a lane's status never comes from the board's, and the board's status is never worked out from its lanes. Changing one never changes the other. A lane with no status means just that, *no status*: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed.
+- **It is independent of the board's own status:** a lane's status never comes from the board's, and a status set by hand on the board never changes a lane. A lane with no status means just that, *no status*: unlike a board, whose empty status means "inherit from the group above", a lane never inherits, so its pill is never dashed. On a board with [automatic health status](#auto-health) on, the board's *calculated* status is the worst of its lanes' statuses (before 1.3 GA a lane never rolled up to the board; #2245 changed that for auto boards only).
 - **Who sees it:** everyone who can see the board, and a change reaches everyone with the board open at once. A public share link does not show lane status.
 - **Export and import:** a board's JSON export carries each lane's status, and importing the file restores it.
 - **No note or history:** a lane's status has no note, no **Confirm status** and no **History**; those are for boards and groups.
@@ -102,6 +102,39 @@ A board admin can also give a single swimlane its own status. On a board with on
     A board that built its own **Health** dropdown as a [swimlane custom field](custom-fields.md#swimlane-row-custom-fields) now has two: that field and the lane status. Nothing moves the field's values into the lane status. Lane status is the one that shares the board and group pills' shapes and words, and that later lane features will build on; you can delete the custom field once you have set the statuses by hand.
 
 The lane status is the lane's **manual** status: a value an admin pins. Like every 1.0+ field it follows the API stability rules, so it will not be renamed or removed.
+
+## Calculate health status automatically
+
+<a id="auto-health"></a>
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+A status set by hand drifts when nobody revisits it. A board admin can have Visiban calculate it instead: **Board Settings** → **Health status** → **Calculate health status automatically**. It is off by default, so existing boards behave exactly as before.
+
+**The rule.** Each night, every lane is rated from its own open cards (cards in a done column and archived cards are left out). A card is **flagged** when it is overdue, stale (older than the board's stale card threshold in **Board Settings** → **Card aging settings**), or blocked. A card counts once even when it is overdue, stale and blocked at the same time.
+
+- No flagged cards: **On track**.
+- 1 or more flagged cards: **At risk**.
+- **Off track at** *N* **flagged cards** or more: **Off track**. *N* is an absolute count of cards in the lane, not a share of its open cards. It is set per board, 1 to 1000, default 3.
+- A lane with **no open cards** has no calculated status. Its pill reads *No open cards*.
+
+The board's calculated status is the **worst** of its lanes' statuses (a status set by hand on a lane counts as that lane's status). Every card is in a lane, so the board's counts are its lanes' counts added up.
+
+**A status set by hand always wins.** Setting a status on the board or a lane *pins* it: the pin is shown, and the calculated value is still visible next to it in the editor (*Calculated: At risk*, *Set by hand: Off track*). To go back to the calculated value, choose **Clear pin (use calculated)** or **Use calculated status** and save. On a board, the order is: the board's own pin, then the calculated value, then the nearest group above.
+
+**Where it says which it is.** A calculated status has a small sparkle icon after its word, and a pinned one on an auto board has a pin icon; the tooltip and screen readers say *calculated automatically* or *set by hand*. Hover or focus the status for the time it was calculated (*Computed 3h ago*) and the counts behind it (*12 open · 3 overdue · 2 stale · 5 flagged*). A calculated status never shows the **Not reviewed** cue: it is re-rated every night.
+
+**Recompute now.** Board admins can run the calculation at once with **Recompute now**, in **Board Settings** → **Health status** (next to *Last computed*) and at the bottom of the board's status editor. It is limited to 30 runs per hour per person.
+
+**When the time updates.** A status that changes is pushed to everyone viewing the board at once. A run that changes nothing (the same status and counts as last time) is not pushed, so on another open tab or another person's screen *Computed 3h ago* updates on reload or on the next change; the person who clicked **Recompute now** sees the new time straight away.
+
+**Never computed.** The nightly run is a [scheduled job](../administration/scheduled-jobs.md) (`compute_health_status`, 02:00 by default). Turning automatic health on calculates the board and its lanes at once, and so does creating a board with it turned on, so they show the time of that run (*Computed 3h ago*). On an install that does not run the scheduler nothing updates them after that: the time keeps aging until someone uses **Recompute now**, so an old calculated value always says how old it is. **Never computed** is shown for a lane added since the last run, and for any board or lane that has no calculation time yet.
+
+**Times are UTC.** The job runs in UTC and a due date is a plain date, so "overdue" turns over at midnight UTC, not your local midnight. For a team far from UTC a card can read as overdue a few hours early or late.
+
+**History.** A calculated change of the board's status is listed in its **History** as **Automatic**, with the reason (for example *Auto: 1 lane off track (Acme)* or *Auto: every lane on track*). Lane changes are not recorded.
+
+Groups are not calculated: a group's status is still set by hand, and the group roll-up is a separate future change.
 
 ## When other people see a change
 
@@ -113,4 +146,4 @@ A change to a group's status updates that group's page for everyone who has it o
 
 Boards and groups carry `health_review_days` (writable; 1-365 or `null`) and `health_review_due_at` (read-only: when the status shown is due for review, or `null`; 1.3+), and `health_status_changed_at`, `health_status_changed_by` and `health_status_note` (the last set or confirm; 1.3+) and `POST .../health-status/` / `GET .../health-history/` endpoints for setting, confirming and reading the history. They also carry three fields: `health_status` (the entity's own value, or `null` to inherit), `effective_health_status` (the value that applies) and `health_status_source` (the `{id, name, changed_at}` of the group the value comes from, or `null`). Values are `on_track`, `at_risk` and `off_track`. See the [Boards API](../api/boards.md#get-apiv1boardsid) and the [Groups API](../api/groups.md#get-apiv1groupsid).
 
-Swimlanes carry one field, `health_status` (the lane's manual status, or `null` for no status; there is no inheritance, so there is no `effective_health_status` or `health_status_source`). Board admins write it with `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`; see the [Swimlanes API](../api/boards.md#swimlanes).
+Swimlanes carry `health_status` (the lane's pin: its manual status, or `null`). Board admins write it with `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`; see the [Swimlanes API](../api/boards.md#swimlanes). From 1.3 they also carry the read-only `effective_health_status` (the pin, else the calculated value), `health_status_origin` (`manual`, `computed` or `null`), `computed_health_status`, `health_computed_at` and `health_computed_counts`. Boards add `health_auto_enabled` and `health_off_track_cards` (writable), the same computed fields, and `health_status_origin` (`manual`, `computed`, `inherited` or `null`). `POST /api/v1/boards/{id}/health-recompute/` runs the calculation now; see the [Boards API](../api/boards.md).

@@ -142,6 +142,24 @@ def _source_node(start_group_id, health_map):
     return None, None
 
 
+def resolve_health_origin(own, start_group_id, health_map, computed=None):
+    """``(effective, source, origin)`` with the auto health status (#2245).
+
+    Precedence: the entity's own pin (``origin="manual"``), then its
+    ``computed`` value when one is stored (``"computed"``; only boards with
+    auto health on have one: turning it off clears it), then the nearest
+    group (``"inherited"``, the only case with a ``source``), else
+    ``(None, None, None)``.
+    """
+    if valid_health_status(own):
+        return own, None, "manual"
+    computed = valid_health_status(computed)
+    if computed:
+        return computed, None, "computed"
+    effective, source = resolve_health(None, start_group_id, health_map)
+    return effective, source, ("inherited" if effective else None)
+
+
 def resolve_health(own, start_group_id, health_map):
     """Return ``(effective_health_status, health_status_source)``.
 

@@ -155,7 +155,7 @@ class BoardHealthHistoryTests(TestCase):
         self.assertTrue(body["has_more"])
         self.assertEqual(body["results"][0]["note"], f"n{HEALTH_HISTORY_LIMIT}")
         self.assertEqual(
-            set(body["results"][0]), {"from_status", "to_status", "changed_by", "changed_at", "note"},
+            set(body["results"][0]), {"from_status", "to_status", "changed_by", "changed_at", "note", "kind", "reason"},
         )
 
     def test_offset_reaches_older_rows(self):

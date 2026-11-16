@@ -170,6 +170,7 @@ const lane = (id: number, name: string, position: number, color: string, contact
   weight_limit: null,
   limit_enforcement: null,
   limit_column_ids: null, health_status: null,
+  effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null,
 })
 
 /** One swimlane per customer account. */
@@ -284,7 +285,7 @@ export const DETAIL_CARD = CARDS.find((c) => c.id === 2) as Card
 export const BOARD_FULL: BoardFull = {
   health_status: null,
   effective_health_status: null,
-  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null,
+  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null,
   default_preset: null,
   id: BOARD_ID,
   uid: BOARD_UID,
@@ -446,7 +447,7 @@ const boardItem = (
 ): Board => ({
   health_status: null,
   effective_health_status: null,
-  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null,
+  health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null,
   default_preset: null,
   id,
   uid: `bd${String(id).padStart(10, '0')}`,

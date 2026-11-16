@@ -3179,6 +3179,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       hoveredSepIndex={hoveredSepIndex}
                     />
                     <SwimlaneRow
+                      healthAutoEnabled={board.health_auto_enabled}
                       swimlane={swimlane}
                       gridTemplate={gridTemplate}
                       colWidths={colWidths}
@@ -3505,6 +3506,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onManageLens={() => { closeSettings(); setShowLensModal(true); }}
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
+          onUpdateSwimlane={onSwimlaneUpdated}
           demoMode={demoMode}
           currentUserIsSiteAdmin={currentUser?.is_site_admin === true}
           inviteReloadSignal={inviteReloadSignal}

@@ -719,6 +719,8 @@ REST_FRAMEWORK = {
         "board_import_preview": "9999/hour" if DEBUG else "60/hour",
         # Board export: responses can be tens of MB; cap prevents programmatic hammering.
         "board_export": "9999/hour" if DEBUG else "20/hour",
+        # Auto health "Recompute now" (#2245): reads every open card of a board.
+        "board_health_recompute": "9999/hour" if DEBUG else "30/hour",
         # Email verification: HMAC keys are not brute-forceable; scope exists for
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",

@@ -660,20 +660,35 @@ class _BoardEventAdminMixin:
         _broadcast.record_board_event(board_id, event, payload, actor_id=request.user.pk)
 
     def save_model(self, request, obj, form, change):
-        # Board row, then (on change) the row itself (#1602; see
-        # _lock_board_for_admin_save).
+        self._lock_for_save(obj, change)
+        self._under_board_lock(obj)
+        super().save_model(request, obj, form, change)
+        self._after_save(obj, form, change)
+        event = self.event_updated if change else self.event_created
+        self._emit(self._board_id(obj), event, self._payload(obj, request), request)
+
+    def _lock_for_save(self, obj, change):
+        """Board row, then (on change) the row itself (#1602; see
+        ``_lock_board_for_admin_save``). ``SwimlaneAdmin`` overrides it for a
+        lane moved between boards, which needs both board rows."""
         _lock_board_for_admin_save(
             self._board_id(obj), type(obj), obj.pk if change else None,
         )
-        self._under_board_lock(obj)
-        super().save_model(request, obj, form, change)
-        event = self.event_updated if change else self.event_created
-        self._emit(self._board_id(obj), event, self._payload(obj, request), request)
 
     def _under_board_lock(self, obj):
         """Hook run after the save's board lock, before the write; a no-op
         unless a model needs to re-read something the form validated
         unlocked (``SwimlaneAdmin``)."""
+
+    def _after_save(self, obj, form, change):
+        """Hook run after the write, still under the board lock and before
+        the event; a no-op unless a model has derived state to update
+        (``SwimlaneAdmin``: the auto health roll-up, #2245)."""
+
+    def _after_delete(self, board_ids):
+        """Hook run after a delete of rows of ``board_ids``, under their board
+        locks; a no-op unless a model has derived state to update
+        (``SwimlaneAdmin``)."""
 
     def _cards_cascaded_by(self, queryset):
         """Cards a delete of ``queryset`` cascades to, or ``None`` when the
@@ -741,6 +756,7 @@ class _BoardEventAdminMixin:
                 # before the delete removes the relations.
                 peers = blocked_peers_of(cards)
             super().delete_model(request, obj)
+            self._after_delete({board_id})
             self._emit(board_id, self.event_deleted, payload, request)
             publish_blocked_peers(peers, request)
 
@@ -759,6 +775,7 @@ class _BoardEventAdminMixin:
             # Capture identifiers before delete — post-delete each instance's pk is cleared.
             deleted = [(self._board_id(o), self._delete_payload(o)) for o in queryset]
             super().delete_queryset(request, queryset)
+            self._after_delete({board_id for board_id, _ in deleted})
             for board_id, payload in deleted:
                 self._emit(board_id, self.event_deleted, payload, request)
             publish_blocked_peers(peers, request)
@@ -808,6 +825,8 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
     """Admin for Swimlane that broadcasts mutations (see CardAdmin for rationale)."""
 
     form = SwimlaneAdminForm
+    # #2245: written only by boards.services.health_compute.
+    readonly_fields = ("computed_health_status", "health_computed_at", "health_computed_counts")
     event_created = _broadcast.EVT_SWIMLANE_CREATED
     event_updated = _broadcast.EVT_SWIMLANE_UPDATED
     event_deleted = _broadcast.EVT_SWIMLANE_DELETED
@@ -826,6 +845,49 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
     def _delete_payload(self, obj):
         return {"swimlane_uid": obj.uid}
 
+    def _lock_for_save(self, obj, change):
+        """Lock order for a lane save: board rows, then the lane (#2245).
+
+        A lane moved to another board writes both boards' roll-ups, so it
+        needs both board rows. Taking the new board, then the lane, then the
+        board it left (the order this had) inverted the board -> lanes order
+        ``compute_board_health`` takes on the board left (it locks that board,
+        then every lane on it, the moving one included), so the two could
+        deadlock, as could two opposite moves. Both board rows are taken
+        first, in pk order (the order every multi-board lock takes), then the
+        lane; ``_after_save`` takes no further lock. The board the lane is on
+        is read unlocked to know which rows to lock, then re-read under the
+        lane lock: a lane moved again in between (a double move, which holds
+        the board it now sits on only after our pk-ordered pair) has that
+        board locked too, out of order, as the only safe choice left once the
+        write is validated. A save that does not move the lane is unchanged.
+        """
+        old_board_id = (
+            Swimlane.objects.filter(pk=obj.pk).values_list("board_id", flat=True).first()
+            if change else None
+        )
+        if old_board_id is None or old_board_id == obj.board_id:
+            _lock_board_for_admin_save(obj.board_id, Swimlane, obj.pk if change else None)
+            locked = {obj.board_id}
+        else:
+            locked = set(
+                Board.objects.select_for_update(no_key=True)
+                .filter(pk__in={old_board_id, obj.board_id}).order_by("pk").values_list("pk", flat=True)
+            )
+            if obj.board_id not in locked:
+                raise Http404("This board was deleted.")
+            if Swimlane.objects.select_for_update(no_key=True).filter(pk=obj.pk).first() is None:
+                raise Http404("This object was deleted.")
+        # The lane's board before this write (see _after_save), read under the
+        # lane lock. On the instance, not the admin: one ModelAdmin serves
+        # every request.
+        obj._health_old_board_id = (
+            Swimlane.objects.filter(pk=obj.pk).values_list("board_id", flat=True).first()
+            if change else None
+        )
+        if obj._health_old_board_id is not None and obj._health_old_board_id not in locked:
+            Board.objects.select_for_update(no_key=True).filter(pk=obj._health_old_board_id).first()
+
     def _under_board_lock(self, obj):
         """Re-read ``limit_column_ids`` under the board lock (#1150).
 
@@ -843,6 +905,38 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
         if missing:
             kept = [pk for pk in ids if pk not in missing]
             obj.limit_column_ids = kept or None
+
+    def _after_save(self, obj, form, change):
+        """Keep auto health consistent with an admin lane write, as the REST paths do (#2245).
+
+        A pin change (or a new lane with a pin) re-derives an auto board's
+        roll-up, as the lane PATCH does. A lane moved to another board
+        carries computed values from the board it left: they are cleared,
+        the new board recomputes when it computes (its cards are its own),
+        and the board it left re-derives its roll-up without the lane. Both
+        roll-ups are no-ops on a board with auto off.
+        """
+        from .services.health_compute import compute_board_health, rollup_board_health
+
+        old_board_id = getattr(obj, "_health_old_board_id", None)
+        if old_board_id is not None and old_board_id != obj.board_id:
+            computed = {"computed_health_status": None, "health_computed_at": None, "health_computed_counts": None}
+            Swimlane.objects.filter(pk=obj.pk).update(**computed)
+            for name, value in computed.items():
+                setattr(obj, name, value)
+            # Both board rows are already held (_lock_for_save).
+            rollup_board_health(old_board_id)
+            if compute_board_health(obj.board_id) is not None:
+                obj.refresh_from_db(fields=list(computed))
+        elif form is None or "health_status" in form.changed_data:
+            rollup_board_health(obj.board_id)
+
+    def _after_delete(self, board_ids):
+        # A deleted lane no longer counts toward an auto board's roll-up (#2245).
+        from .services.health_compute import rollup_board_health
+
+        for board_id in sorted(board_ids):
+            rollup_board_health(board_id)
 
     def _cards_cascaded_by(self, queryset):
         return Card.objects.filter(swimlane__in=queryset.values("pk"))
@@ -940,7 +1034,13 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
 
     form = BoardAdminForm
     # #2242: written only by groups.health_history (with the history row).
-    readonly_fields = ("health_status_changed_at", "health_status_changed_by", "health_status_note")
+    # #2245: the computed columns are written only by
+    # boards.services.health_compute (with their history rows); the admin
+    # applies the same service when the auto settings change (save_model).
+    readonly_fields = (
+        "health_status_changed_at", "health_status_changed_by", "health_status_note",
+        "computed_health_status", "health_computed_at", "health_computed_counts",
+    )
     stale_save_message = (
         "This board was changed after this page was opened, so nothing was saved. "
         "The page now shows the current state of the board; make your changes again."
@@ -983,12 +1083,35 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                 stored = Board.objects.get(pk=obj.pk)
                 self.check_row_version(form, stored)
                 self.keep_unchanged_fields(obj, form, stored)
+        # A new board is "turned on" from off (#2245): one created with auto
+        # health on is calculated at once, as a PATCH turning it on is.
+        old_auto_settings = (
+            None if change else (False, obj.health_off_track_cards, obj.staleness_threshold_days)
+        )
         if change:
-            # Read from the locked row (#2242), like old_group_id above.
-            old_health_status = (
-                Board.objects.filter(pk=obj.pk).values_list("health_status", flat=True).first()
+            # Read from the locked row (#2242), like old_group_id above. The
+            # auto health settings too (#2245), for apply_auto_health_change.
+            old_health_status, *old_auto_settings = (
+                Board.objects.filter(pk=obj.pk).values_list(
+                    "health_status", "health_auto_enabled", "health_off_track_cards",
+                    "staleness_threshold_days",
+                ).first()
             )
         super().save_model(request, obj, form, change)
+        if old_auto_settings is not None:
+            # The REST PATCH's path (#2245): turning auto off clears every
+            # computed value, on or a rule-input change computes now; the
+            # board.updated below carries the result. Without this a staff
+            # user unticking auto here left the board and its lanes reporting
+            # a computed status the nightly job (which skips auto-off boards)
+            # never cleared.
+            from .services.health_compute import apply_auto_health_change
+
+            old_auto, old_off_track_cards, old_staleness_days = old_auto_settings
+            apply_auto_health_change(
+                obj, old_auto=old_auto, old_off_track_cards=old_off_track_cards,
+                old_staleness_days=old_staleness_days, user=request.user,
+            )
         if form is None or "health_status" in form.changed_data:
             # An admin edit records a change only when the value differs, with
             # no note, attributed to the administrator (#2242).

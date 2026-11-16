@@ -256,6 +256,15 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "board's own state. record_board_event() defers each publish with "
         "on_commit. Bounded by the boards one user enabled sharing on."
     ),
+    "backend/boards/services/health_compute.py::_send_lane_updates": (
+        "One swimlane.updated per lane whose computed health changed (#2245). "
+        "swimlane.updated is the per-lane public event ({event, data} contract), "
+        "so the frames cannot be merged into one list payload, and each carries "
+        "that lane's own serialized state. The lanes are serialized in one "
+        "prefetched query inside the on_commit callback (never a held ORM "
+        "instance), and record_board_event() defers each publish. Bounded by "
+        "the lanes on one board whose status or counts changed in this run."
+    ),
     "backend/groups/views.py::GroupViewSet._evict_stale_ws": (
         "One member.removed per board the user actually lost access to — the "
         "loop iterates boards (distinct channels), not rows on one channel, and "

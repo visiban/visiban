@@ -14,6 +14,7 @@ Each job runs once a day at a fixed UTC time taken from an env var:
     SCHEDULE_NOTIFY_STALE_CARDS    default 08:00
     SCHEDULE_PRUNE_BOARD_EVENTS    default 03:00
     SCHEDULE_PRUNE_NOTIFICATIONS   default off
+    SCHEDULE_COMPUTE_HEALTH        default 02:00 (auto health status, #2245)
 
 A value is ``HH:MM`` (24-hour, UTC) or ``off``/empty. ``prune_notifications``
 defaults to off because turning on scheduled deletion of user data is an
@@ -67,6 +68,8 @@ JOB_SPECS = (
     JobSpec("prune_notifications", "SCHEDULE_PRUNE_NOTIFICATIONS", "off"),
     JobSpec("notify_due_soon", "SCHEDULE_NOTIFY_DUE_SOON", "07:00"),
     JobSpec("notify_stale_cards", "SCHEDULE_NOTIFY_STALE_CARDS", "08:00"),
+    # Auto health status (#2245): only acts on boards that turned it on.
+    JobSpec("compute_health_status", "SCHEDULE_COMPUTE_HEALTH", "02:00"),
 )
 
 

@@ -54,7 +54,7 @@ const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+    health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     id: 1,
     uid: 'boarduid0001',
     archived_card_count: 0,
@@ -63,7 +63,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     group: null,
     group_name: null,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
-    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null }],
+    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null }],
     cards: [{
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
       assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
@@ -429,7 +429,7 @@ describe('useBoard', () => {
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
 
-    const newSwimlane: Swimlane = { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null }
+    const newSwimlane: Swimlane = { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null }
     act(() => { result.current.addSwimlane(newSwimlane) })
     expect(result.current.board!.swimlanes).toHaveLength(2)
   })
@@ -588,8 +588,8 @@ describe('useBoard', () => {
         { id: 11, uid: 'coluid000002', name: 'Doing', position: 1, color: '#3B82F6', wip_limit: 1, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
       swimlanes: [
-        { id: 20, uid: 'laneuid00001', name: 'Lane A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
-        { id: 21, uid: 'laneuid00002', name: 'Lane B', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: [10, 11], health_status: null },
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: [10, 11], health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
       ],
       cards: [
         { ...makeBoard().cards[0] },
@@ -1067,8 +1067,8 @@ describe('useBoard', () => {
   it('evictSwimlane leaves cards in other swimlanes intact', async () => {
     const board = makeBoard({
       swimlanes: [
-        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
-        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
       ],
       cards: [
         { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '' },
@@ -1655,8 +1655,8 @@ describe('useBoard', () => {
   it('reorderSwimlanes optimistically updates and applies the server response', async () => {
     const board = makeBoard({
       swimlanes: [
-        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
-        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)

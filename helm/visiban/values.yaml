@@ -526,6 +526,12 @@ scheduledJobs:
     enabled: false
     schedule: "30 3 * * *"
     args: []
+  # Auto health status (#2245): computes lane and board health for boards that
+  # turned it on (board settings); other boards are untouched.
+  computeHealthStatus:
+    enabled: true
+    schedule: "0 2 * * *"
+    args: []
 
 # -- Outbound webhook dispatcher (#863): a single-replica Deployment running
 # `manage.py dispatch_webhooks --loop`. Off by default, so an upgrade starts

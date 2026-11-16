@@ -154,3 +154,71 @@ test.describe('collapsed swimlane health status height', () => {
     expect(await panelHeight('Alpha')).toBe(await panelHeight('Bravo'))
   })
 })
+
+// Auto health status (#2245): a board admin turns automatic health on in
+// Board Settings, runs Recompute now, and the lane's pill shows the
+// calculated status. The API is mocked; the merge of the recompute response
+// into the board and its lanes is what this exercises.
+test.describe('auto health status', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+
+  test('admin turns on automatic health, recomputes, and the lane shows a calculated status', async ({ page }) => {
+    const computedAt = new Date().toISOString()
+    const counts = { open: 1, overdue: 1, stale: 0, blocked: 0, flagged: 1 }
+    const autoBoard = {
+      ...BOARD_FULL, health_auto_enabled: true, health_off_track_cards: 3,
+      computed_health_status: 'at_risk', health_computed_at: computedAt, health_computed_counts: counts,
+      effective_health_status: 'at_risk', health_status_origin: 'computed', health_status_source: null,
+    }
+    const computedLane = {
+      ...SWIMLANE, health_status: null, computed_health_status: 'at_risk', health_computed_at: computedAt,
+      health_computed_counts: counts, effective_health_status: 'at_risk', health_status_origin: 'computed',
+    }
+    const manualBoard = {
+      ...BOARD_FULL, health_auto_enabled: false, health_off_track_cards: 3,
+      computed_health_status: null, health_computed_at: null, health_computed_counts: null,
+      swimlanes: [{ ...SWIMLANE, health_status: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null }],
+    } as unknown as typeof BOARD_FULL
+    let patched: unknown = null
+    let recomputed = 0
+    await routeAuth(page)
+    await routeBoard(page, manualBoard)
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/`, (route) => {
+      if (route.request().method() !== 'PATCH') return route.fallback()
+      patched = route.request().postDataJSON()
+      // The PATCH that turns auto on computes at once, but answers with the
+      // board only: the lanes update from Recompute now (or the socket).
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(autoBoard) })
+    })
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/health-recompute/`, (route) => {
+      recomputed += 1
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ board: autoBoard, swimlanes: [computedLane] }),
+      })
+    })
+
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await dialog.getByRole('button', { name: 'Rules' }).click()
+
+    const toggle = dialog.getByRole('switch', { name: 'Calculate health status automatically' })
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    const recompute = dialog.getByRole('button', { name: 'Recompute now' })
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(patched).toEqual({ health_auto_enabled: true })
+
+    await recompute.click()
+    await expect.poll(() => recomputed).toBe(1)
+    await expect(dialog.getByTestId('health-last-computed')).toContainText(/Last computed/)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+
+    const pill = page.getByText(`Health status for lane ${SWIMLANE.name}:`).locator('..')
+    await expect(pill).toContainText('At risk')
+    await expect(pill).toContainText('calculated automatically')
+  })
+})

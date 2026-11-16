@@ -14,7 +14,7 @@ import { getBoardMovements } from '../api/boards'
 const mockGetBoardMovements = getBoardMovements as ReturnType<typeof vi.fn>
 
 const mockBoard: BoardFull = {
-  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, default_preset: null,
+  health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   id: 1,
   uid: 'abc123',
   archived_card_count: 0,
@@ -27,7 +27,7 @@ const mockBoard: BoardFull = {
     { id: 2, uid: 'c2', name: 'Done', position: 1, color: '#22C55E', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true, policy: null },
   ],
   swimlanes: [
-    { id: 1, uid: 's1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '2024-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null },
+    { id: 1, uid: 's1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '2024-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
   ],
   cards: [],
   labels: [],

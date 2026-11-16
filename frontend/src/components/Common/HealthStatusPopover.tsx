@@ -7,12 +7,14 @@ import {
   NO_STATUS_LABEL, type HealthDisplayValue, type HealthStatus,
 } from "../../constants/healthStatus";
 import {
-  getHealthDisplay, healthSetLine, healthSetWhen, healthSetterName, healthStatusErrorMessage,
-  type HealthAttribution, type HealthEntityKind, type HealthFields,
+  getHealthDisplay, healthComputedLabel, healthSetLine, healthSetWhen, healthSetterName, healthStatusErrorMessage,
+  type HealthAttribution, type HealthAutoInfo, type HealthEntityKind, type HealthFields,
 } from "../../utils/healthStatus";
 import { formatDateTimeUser, formatRelativeTime, type UserDatePrefs } from "../../utils/date";
 import type { HealthHistory, HealthStatusChange } from "../../types";
 import HealthStatusShape from "./HealthStatusShape";
+import HealthComputedBlock from "./HealthComputedBlock";
+import { AutoGlyph } from "./HealthStatusPill";
 import { isImeComposing } from "../../utils/imeComposition";
 
 /** The draft: a stored value, or "inherit" for null (inherit at a nested level, clear at the root). */
@@ -49,6 +51,10 @@ export interface HealthStatusPopoverProps extends HealthFields, Partial<HealthAt
   readOnly?: boolean;
   /** The viewer's date and time format, for exact times in `<time title>`. */
   datePrefs?: UserDatePrefs | null;
+  /** #2245: the auto health facts while auto health is on; null = manual only. */
+  auto?: HealthAutoInfo | null;
+  /** #2245: Recompute now (board admins, board header). */
+  onRecompute?: () => Promise<void>;
 }
 
 export const HEALTH_NOTE_MAX = 280;
@@ -77,6 +83,9 @@ function HistoryRow({ row, parentName, prefs }: {
   row: HealthStatusChange; parentName: string | null; prefs?: UserDatePrefs | null;
 }) {
   const reconfirm = row.from_status === row.to_status;
+  // #2245: branch on kind, not on a null changed_by: a computed row has no
+  // user by design, a manual one only when the account was removed.
+  const computed = row.kind === "computed";
   return (
     <li className="py-2 border-b border-line last:border-0">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -94,14 +103,19 @@ function HistoryRow({ row, parentName, prefs }: {
           </>
         )}
       </div>
-      <p className="text-xs text-fg-tertiary mt-0.5">
-        {row.changed_by
-          ? healthSetterName(row.changed_by)
-          : <span title="Automatic change or removed account">System</span>}
+      <p className="text-xs text-fg-tertiary mt-0.5 flex items-center gap-1">
+        {computed && <AutoGlyph />}
+        {computed
+          ? "Automatic"
+          : row.changed_by
+            ? healthSetterName(row.changed_by)
+            : <span title="Removed account">System</span>}
         {" · "}
         <TimeAgo iso={row.changed_at} prefs={prefs} />
       </p>
-      {row.note && <p className="text-xs text-fg-secondary break-words mt-0.5">{row.note}</p>}
+      {computed
+        ? row.reason && <p className="text-xs text-fg-secondary break-words mt-0.5">{row.reason}</p>
+        : row.note && <p className="text-xs text-fg-secondary break-words mt-0.5">{row.note}</p>}
     </li>
   );
 }
@@ -117,6 +131,7 @@ const SET_HERE: Record<HealthEntityKind, string> = {
 
 function stateLine(fields: HealthFields, entityKind: HealthEntityKind, parentName: string | null): string {
   if (fields.health_status !== null) return SET_HERE[entityKind];
+  if (fields.health_status_origin === "computed") return "Calculated automatically.";
   if (entityKind === "swimlane") return "No status set.";
   const display = getHealthDisplay(fields);
   if (display.inheritedFrom) return `Inherited from ${display.inheritedFrom}.`;
@@ -178,15 +193,18 @@ export default function HealthStatusPopover({
   entityKind, entityName, parentName, anchorRect, triggerRef, onDismiss, onSave,
   mode: requestedMode = "detailed", onConfirm, fetchHistory, readOnly = false, datePrefs,
   health_status, effective_health_status, health_status_source,
-  health_status_changed_at, health_status_changed_by, health_status_note,
+  health_status_changed_at, health_status_changed_by, health_status_note, health_status_origin,
+  auto = null, onRecompute,
 }: HealthStatusPopoverProps) {
-  const fields = { health_status, effective_health_status, health_status_source };
+  const fields: HealthFields = { health_status, effective_health_status, health_status_source, health_status_origin };
   // A lane is always basic (#2243 ships no lane history), so a caller cannot
   // switch the note, Confirm or History on for one by accident.
   const mode = entityKind === "swimlane" ? "basic" : requestedMode;
   const detailed = mode === "detailed";
   const showHistory = detailed && fetchHistory !== undefined;
-  const editable = !(detailed && readOnly);
+  // readOnly is only ever passed for a viewer who cannot edit (detailed
+  // history, or an auto entity's read-only block, #2245).
+  const editable = !readOnly;
   // A note belongs to a change, so the field always starts empty.
   const [note, setNote] = useState("");
   const [pending, setPending] = useState<"save" | "confirm" | null>(null);
@@ -225,7 +243,7 @@ export default function HealthStatusPopover({
   };
   const top = useAnchoredPlacement(panelRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
-    deps: [error, historyOpen, history],
+    deps: [error, historyOpen, history, auto !== null, health_status],
     onResize: dismissForLayout,
     onOutsideScroll: dismissForLayout,
   });
@@ -330,10 +348,20 @@ export default function HealthStatusPopover({
 
   // A lane never inherits (#2243), whatever parentName the caller passes.
   const inherits = parentName !== null && entityKind !== "swimlane";
-  const resetLabel = inherits ? `Inherit from ${parentName}` : NO_STATUS_LABEL;
-  const resetDescription = inherits
-    ? `Follow ${parentName}, or the nearest group above it that has a status.`
-    : "Clear the status. Nothing is shown as set.";
+  // #2245: with auto health on, clearing the pin returns to the computed value.
+  const useCalculated = auto !== null && (auto.computed !== null || !inherits);
+  const resetLabel = useCalculated
+    ? (auto.computed ? `Use calculated status (${healthComputedLabel(auto)})` : "Use calculated status")
+    : inherits ? `Inherit from ${parentName}` : NO_STATUS_LABEL;
+  const resetDescription = useCalculated
+    ? "Clear the status set by hand and show what the rule calculates."
+    : inherits
+      ? `Follow ${parentName}, or the nearest group above it that has a status.`
+      : "Clear the status. Nothing is shown as set.";
+  const clearPin = () => {
+    if (savingRef.current) return;
+    void run("save", () => detailed ? onSave(null, null) : onSave(null));
+  };
   const left = clampLeftToVisible(anchorRect.left, PANEL_WIDTH);
 
   return createPortal(
@@ -380,6 +408,16 @@ export default function HealthStatusPopover({
             <p className="text-xs text-fg-secondary break-words line-clamp-3 mt-1" title={health_status_note}>
               {health_status_note}
             </p>
+          )}
+          {auto && (
+            <HealthComputedBlock
+              auto={auto}
+              pinned={health_status}
+              canEdit={editable}
+              onClearPin={editable && health_status !== null ? clearPin : undefined}
+              onRecompute={editable ? onRecompute : undefined}
+              datePrefs={datePrefs}
+            />
           )}
         </div>
         {editable && (<>

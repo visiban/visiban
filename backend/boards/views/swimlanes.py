@@ -18,6 +18,7 @@ from visiban.permissions import (
 from visiban.request_shape import require_json_object
 
 from .. import broadcast as _broadcast
+from ..services.health_compute import rollup_board_health
 from ..models import Board, BoardMembership, Card, Column, Swimlane, SwimlaneCustomFieldDefinition
 from ..permissions import SITE_ADMIN
 from ..serializers import (
@@ -252,6 +253,11 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
                     )
+                if serializer.validated_data.get("health_status"):
+                    # A lane created with a pin feeds an auto board's roll-up
+                    # at once, as a PATCH of the pin does (#2245); the board
+                    # row is locked above. No-op when auto is off.
+                    rollup_board_health(board)
                 # Broadcast uses the public serializer — contact_email, notes, and
                 # is_admin_only custom field values must not be sent to viewer-role
                 # members who are connected via WebSocket.
@@ -317,6 +323,10 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
                 board_id = swimlane.board_id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
+                if "health_status" in serializer.validated_data:
+                    # A lane pin feeds an auto board's roll-up (#2245); the
+                    # board row is already locked above. No-op when auto is off.
+                    rollup_board_health(board)
         except IntegrityError:
             # Same race as perform_create.
             raise ValidationError(
@@ -351,6 +361,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             peers = blocked_peers_of(Card.objects.filter(swimlane_id=instance.pk))
             instance.delete()
             _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_DELETED, {"swimlane_uid": swimlane_uid}, actor_id=self.request.user.id)
+            # The deleted lane no longer counts toward an auto board's roll-up (#2245).
+            rollup_board_health(board)
             publish_blocked_peers(peers, self.request, boards=[board])
 
     @_SET_COLLAPSED_SCHEMA

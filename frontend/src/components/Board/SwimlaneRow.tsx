@@ -8,7 +8,7 @@ import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, Swimla
 import { patchSwimlane, updateSwimlane } from "../../api/boards";
 import HealthStatusControl from "../Common/HealthStatusControl";
 import type { HealthStatus } from "../../constants/healthStatus";
-import { laneHealthFields } from "../../utils/healthStatus";
+import { laneHealthAuto, laneHealthFields } from "../../utils/healthStatus";
 import BoardCell from "./BoardCell";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
@@ -72,6 +72,8 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { sw
 
 interface Props {
   swimlane: Swimlane;
+  /** #2245: the board's auto health is on, so the lane shows its computed status. */
+  healthAutoEnabled?: boolean;
   columns: Column[];
   cards: Card[];
   boardId: number;
@@ -181,7 +183,17 @@ const INLINE_FIELD_COUNT = 2;
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+/**
+ * A lane shows its health pill when it has an effective status, or, on an
+ * auto-health board (#2245), once it has been computed (an empty lane reads
+ * "No open cards" rather than vanishing). Otherwise an admin gets the icon.
+ */
+function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
+  if (laneHealthFields(lane).effective_health_status !== null) return true;
+  return autoEnabled && !!lane.health_computed_at;
+}
+
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -258,16 +270,22 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   const saveHealth = useCallback(async (next: HealthStatus | null) => {
     const updated = await patchSwimlane(boardId, swimlane.id, { health_status: next });
     onSwimlaneUpdated(updated);
-    if ((swimlane.health_status === null) !== (next === null)) {
-      if (next !== null) setHealthFocus("pill");
+    // The pill and the icon swap only when the pill's visibility changes; on
+    // an auto board (#2245) clearing a pin keeps the computed pill.
+    const before = lanePillVisible(swimlane, healthAutoEnabled);
+    const after = lanePillVisible(updated, healthAutoEnabled);
+    if (before !== after) {
+      if (after) setHealthFocus("pill");
       else if (collapsed) focusNameAfterHealthClear.current = true;
       else setHealthFocus("icon");
     }
-    return { effective_health_status: updated.health_status };
-  }, [boardId, swimlane.id, swimlane.health_status, onSwimlaneUpdated, collapsed]);
-  const showHealthPill = !!swimlane.health_status || healthOpen === "pill";
-  const showHealthIcon = !collapsed && isAdmin && (!swimlane.health_status || healthOpen === "icon");
-  const healthFields = laneHealthFields(swimlane.health_status);
+    return { effective_health_status: laneHealthFields(updated).effective_health_status };
+  }, [boardId, swimlane, onSwimlaneUpdated, collapsed, healthAutoEnabled]);
+  const pillVisible = lanePillVisible(swimlane, healthAutoEnabled);
+  const showHealthPill = pillVisible || healthOpen === "pill";
+  const showHealthIcon = !collapsed && isAdmin && (!pillVisible || healthOpen === "icon");
+  const healthFields = laneHealthFields(swimlane);
+  const healthAuto = laneHealthAuto(swimlane, healthAutoEnabled);
 
   const commitRename = async (restoreFocus = false) => {
     const trimmed = draft.trim();
@@ -466,6 +484,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 autoFocus={healthFocus === "pill"}
                 onAutoFocused={clearHealthFocus}
                 onOpenChange={onPillOpenChange}
+                auto={healthAuto}
                 {...healthFields}
               />
             </span>
@@ -535,6 +554,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   autoFocus={healthFocus === "icon"}
                   onAutoFocused={clearHealthFocus}
                   onOpenChange={onIconOpenChange}
+                  auto={healthAuto}
                   {...healthFields}
                 />
               </span>
