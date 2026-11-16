@@ -37,7 +37,7 @@ const saved: SavedFilter[] = [
   { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
 ]
 
-function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null } = {}) {
+function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: SavedFilter[]; activeFilterId?: number | null; onSaveFilter?: (name: string) => Promise<{ error?: string }> } = {}) {
   const onChange = vi.fn()
   const onLoadSaved = vi.fn()
   const onToggleFilterBar = vi.fn()
@@ -55,6 +55,7 @@ function setup(over: { filters?: FilterState; board?: BoardFull; savedFilters?: 
       filterBarShown={false}
       onToggleFilterBar={onToggleFilterBar}
       onOpenLaneFilters={onOpenLaneFilters}
+      onSaveFilter={over.onSaveFilter}
     />,
   )
   return { onChange, onLoadSaved, onToggleFilterBar, onOpenLaneFilters }
@@ -400,5 +401,86 @@ describe('FilterPanel (#2301)', () => {
     dots.forEach((d) => expect((d as HTMLElement).style.backgroundColor).not.toBe(''))
     await u.click(screen.getByRole('button', { name: /^Tags/ }))
     expect(screen.getByRole('group', { name: 'Tags' }).querySelectorAll('span[aria-hidden="true"]')).toHaveLength(0)
+  })
+})
+
+describe('FilterPanel Filtered by row (#2315)', () => {
+  const active: FilterState = { ...EMPTY_FILTER, labelIds: [100], priorities: ['high'], blockedOnly: true }
+
+  it('shows no row when nothing is filtered', async () => {
+    const u = userEvent.setup()
+    setup({ onSaveFilter: vi.fn() })
+    await open(u)
+    expect(screen.queryByTestId('filter-panel-chips')).toBeNull()
+  })
+
+  it('lists one removable chip per active filter, and dismisses like the filter bar', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    const group = screen.getByRole('group', { name: 'Filtered by' })
+    // Each chip is a role=button span holding a (tab-skipped) × button with the same name.
+    const names = new Set(within(group).getAllByRole('button').map((b) => b.getAttribute('aria-label')))
+    expect([...names]).toEqual(['Remove Bug filter', 'Remove High filter', 'Remove Blocked only filter'])
+    await u.click(within(group).getAllByRole('button', { name: 'Remove Bug filter' })[1])
+    expect(onChange).toHaveBeenLastCalledWith({ ...active, labelIds: [] })
+    // Keyboard: Delete on the focused chip dismisses it
+    within(group).getAllByRole('button', { name: 'Remove High filter' })[0].focus()
+    await u.keyboard('{Delete}')
+    expect(onChange).toHaveBeenLastCalledWith({ ...active, priorities: [] })
+  })
+
+  it('Clear all resets to the empty filter', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTER)
+  })
+
+  it('returns focus into the panel when Escape closes the name input, and when the row goes away', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    await u.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Save filter' })).toHaveFocus()
+  })
+
+  it('Save filter asks for a name, saves through the shared handler and closes the form', async () => {
+    const u = userEvent.setup()
+    const onSaveFilter = vi.fn().mockResolvedValue({})
+    setup({ filters: active, onSaveFilter })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    const input = screen.getByRole('textbox', { name: 'Save current filters as:' })
+    expect(input).toHaveFocus()
+    await u.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Filter name is required.')
+    expect(onSaveFilter).not.toHaveBeenCalled()
+    await u.type(input, '  Hot bugs {Enter}')
+    expect(onSaveFilter).toHaveBeenCalledWith('Hot bugs')
+    expect(screen.queryByRole('textbox', { name: 'Save current filters as:' })).toBeNull()
+  })
+
+  it('keeps the form open and shows the error when saving fails; Escape cancels the form first', async () => {
+    const u = userEvent.setup()
+    const onSaveFilter = vi.fn().mockResolvedValue({ error: 'Name already taken.' })
+    setup({ filters: active, onSaveFilter })
+    await open(u)
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    await u.type(screen.getByRole('textbox', { name: 'Save current filters as:' }), 'Dup{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Name already taken.')
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Save current filters as:' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+  })
+
+  it('omits Save filter when no save handler is wired', async () => {
+    const u = userEvent.setup()
+    setup({ filters: active })
+    await open(u)
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save filter' })).toBeNull()
   })
 })

@@ -58,6 +58,28 @@ test.describe('filter bar', () => {
     await expect(trigger).toBeFocused()
   })
 
+  test('the Filter panel Filtered by row removes a chip and clears all, reflected in the URL (#2315)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    await page.getByRole('button', { name: /^Filters/ }).click()
+    const panel = page.getByRole('dialog', { name: 'Filter' })
+    await panel.getByRole('button', { name: /^Label/ }).click()
+    await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
+    await expect(page).toHaveURL(/f_labels=/)
+
+    const chips = panel.getByRole('group', { name: 'Filtered by' })
+    await expect(chips.getByText(LABEL_BUG.name)).toBeVisible()
+    await chips.getByRole('button', { name: `Remove ${LABEL_BUG.name} filter` }).first().focus()
+    await page.keyboard.press('Delete')
+    await expect(page).not.toHaveURL(/f_labels=/)
+    await expect(panel.getByTestId('filter-panel-chips')).toHaveCount(0)
+
+    await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
+    await panel.getByRole('button', { name: 'Clear all' }).click()
+    await expect(page).not.toHaveURL(/f_labels=/)
+  })
+
   test('clears all filters via the Clear all button', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })

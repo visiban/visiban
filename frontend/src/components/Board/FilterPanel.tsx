@@ -12,7 +12,12 @@ import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
-import type { CustomFieldFilterValue, FilterState } from "./FilterBar";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { isImeComposing } from "../../utils/imeComposition";
+import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
+import FilterChip from "./FilterChip";
+import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
+import { EMPTY_FILTER, type CustomFieldFilterValue, type FilterState } from "./FilterBar";
 
 interface Props {
   board: BoardFull;
@@ -31,6 +36,8 @@ interface Props {
   onToggleFilterBar: () => void;
   /** Opens the filter bar and then the Lanes popover (#2205). */
   onOpenLaneFilters: () => void;
+  /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
+  onSaveFilter?: (name: string) => Promise<{ error?: string }>;
   userDateFormat?: string;
 }
 
@@ -56,13 +63,19 @@ interface Row {
  */
 export default function FilterPanel({
   board, filters, onChange, activeCount, icon, savedFilters, savedFiltersLoading = false, activeFilterId, onLoadSaved,
-  filterBarShown, onToggleFilterBar, onOpenLaneFilters, userDateFormat = "MM/DD/YYYY",
+  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<RowId | null>(null);
+  const [saveMode, setSaveMode] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const saveInputRef = useRef<HTMLInputElement>(null);
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const findRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -72,7 +85,18 @@ export default function FilterPanel({
     setAnchor(null);
     setQuery("");
     setExpanded(null);
+    setSaveMode(false);
+    setSaveError(null);
   };
+  // Priority 27, above the panel's own Escape (25): Escape cancels the name input first, a second one closes the panel.
+  useEscapeStack(() => {
+    if (!saveMode) return false;
+    setSaveMode(false);
+    setSaveError(null);
+  }, 27);
+  useEffect(() => {
+    if (saveMode) saveInputRef.current?.focus();
+  }, [saveMode]);
   // Popover tier 25, like the View menu.
   useDropdownEscape(open, close, triggerRef, 25);
 
@@ -204,6 +228,41 @@ export default function FilterPanel({
     });
   }
 
+  // "Filtered by" row (#2315): the same chips and dismissals as the filter bar's chip row.
+  const chips = buildFilterChips(board, filters, onChange, userDateFormat);
+  const laneChips = useMemo(
+    () => laneFilterChipItems(filters.laneFilter, laneFields, makeLaneValueFormatter(board.swimlane_custom_field_definitions, userDateFormat)),
+    [filters.laneFilter, laneFields, board.swimlane_custom_field_definitions, userDateFormat],
+  );
+  const hasChips = chips.length + laneChips.length > 0;
+  // The chip row and the name input unmount from under focus (Clear all, last chip, Escape, a saved
+  // name); without a landing spot focus drops to <body> and Tab skips the panel's trap.
+  useEffect(() => {
+    if (!open || !anchor) return;
+    const el = document.activeElement;
+    if (el && el !== document.body && panelRef.current?.contains(el)) return;
+    (saveBtnRef.current ?? findRef.current)?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the row or the form toggles
+  }, [hasChips, saveMode]);
+  const submitSave = async () => {
+    if (!onSaveFilter) return;
+    const trimmed = saveName.trim();
+    if (!trimmed) {
+      setSaveError("Filter name is required.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    const result = await onSaveFilter(trimmed);
+    setSaving(false);
+    if (result.error) {
+      setSaveError(result.error);
+    } else {
+      setSaveName("");
+      setSaveMode(false);
+    }
+  };
+
   const needle = query.trim().toLowerCase();
   const visibleRows = needle ? rows.filter((r) => r.label.toLowerCase().includes(needle)) : rows;
 
@@ -321,6 +380,82 @@ export default function FilterPanel({
         aria-label="Find a field"
         className="w-full bg-sunken border border-line-strong rounded px-2.5 py-2 text-sm text-fg placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       />
+      {hasChips && (
+        <div data-testid="filter-panel-chips" className="flex flex-col gap-1.5 pb-1">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary">Filtered by</h3>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => { setSaveMode(false); setSaveName(""); setSaveError(null); onChange(EMPTY_FILTER); }}
+                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Clear all
+              </button>
+              {onSaveFilter && (
+                <button
+                  ref={saveBtnRef}
+                  type="button"
+                  aria-expanded={saveMode}
+                  onClick={() => { setSaveMode((v) => !v); setSaveError(null); setSaveName(""); }}
+                  className="text-xs text-fg hover:bg-surface-hover border border-line-strong rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Save filter
+                </button>
+              )}
+            </div>
+          </div>
+          <div role="group" aria-label="Filtered by" className="flex items-center gap-1.5 flex-wrap">
+            {chips.map((chip) => (
+              <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
+            ))}
+            {laneChips.map((chip, i) => (
+              <span key={`lane:${chip.id}`} className="contents">
+                {i > 0 && <span className="text-xs text-fg-tertiary">{chip.join}</span>}
+                <FilterChip
+                  tag="Lanes"
+                  label={chip.label}
+                  onDismiss={() => {
+                    if (!filters.laneFilter) return;
+                    const laneFilter = removeLaneItem(filters.laneFilter, chip.id);
+                    const next = { ...filters, laneFilter };
+                    if (!laneFilter) delete next.laneFilter;
+                    onChange(next);
+                  }}
+                />
+              </span>
+            ))}
+          </div>
+          {saveMode && (
+            <div className="px-0.5">
+              <label className="block text-xs text-fg-secondary mb-1" htmlFor={`${id}-save-name`}>Save current filters as:</label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={saveInputRef}
+                  id={`${id}-save-name`}
+                  type="text"
+                  value={saveName}
+                  placeholder="Filter name"
+                  aria-invalid={saveError ? true : undefined}
+                  aria-describedby={saveError ? `${id}-save-error` : undefined}
+                  onChange={(e) => { setSaveName(e.target.value); setSaveError(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void submitSave(); } }}
+                  className="min-w-0 flex-1 bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                />
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void submitSave()}
+                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
+                >
+                  Save
+                </button>
+              </div>
+              {saveError && <p id={`${id}-save-error`} role="alert" className="text-xs text-danger mt-1">{saveError}</p>}
+            </div>
+          )}
+        </div>
+      )}
       <ul aria-label="Filterable fields" className="space-y-0.5">
         {visibleRows.map((row) => {
           const active = row.value !== null;
@@ -357,7 +492,7 @@ export default function FilterPanel({
         {savedFiltersLoading ? (
           <p role="status" className="px-2 py-1 text-xs text-fg-muted italic">Loading…</p>
         ) : savedFilters.length === 0 ? (
-          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet. Save one from the filter bar.</p>
+          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet.</p>
         ) : (
           <ul aria-label="Saved filters" className="space-y-0.5">
             {savedFilters.map((sf) => (

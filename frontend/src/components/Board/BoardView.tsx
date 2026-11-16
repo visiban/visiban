@@ -2774,6 +2774,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               filterBarShown={showFilters}
               onToggleFilterBar={() => setShowFilters((v) => !v)}
               onOpenLaneFilters={openLaneFilters}
+              onSaveFilter={(name) => saveFilter(name, effectiveFilters)}
               userDateFormat={userDateFormat}
             />
             <span ref={presetPickerRef} className="contents">
