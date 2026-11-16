@@ -252,6 +252,7 @@ describe('Card peek popover', () => {
     await act(async () => { vi.advanceTimersByTime(600) })
 
     expect(screen.getByRole('tooltip')).toHaveTextContent('Click to open ↗')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Shift+click for summary')
   })
 
   // ---- #961: peek surfaces metrics hidden from card face at lower densities ----

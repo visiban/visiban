@@ -163,13 +163,13 @@ Overdue is the only state with a colored border. Stale and due-soon thresholds a
 
 **Density:** Standard shows the title on one line, then the status line and pinned fields on one row. Dense is a single row: title, short status ("39d"), first pinned field.
 
-**Interaction states:** hover (stronger border, lifts 1px), keyboard focus (the standard focus ring outside the card), selected while its peek is open (selection border), dragging, and the dimmed source. All are drawn in `components.png`. Motion follows § Motion and reduced motion.
+**Interaction states:** hover (stronger border, lifts 1px), keyboard focus (the standard focus ring outside the card), selected while its peek or detail panel is open (selection border), dragging, and the dimmed source. All are drawn in `components.png`. Motion follows § Motion and reduced motion.
 
 ## Card peek
 
 Screenshot: `board-peek.png`.
 
-Clicking a card, or Enter on a focused card, opens a 400px sheet over the right side of the board. It does not push the grid. Top to bottom:
+Shift+click, Shift+Enter, the card-face Show summary button or the card menu's Show summary opens a 400px sheet over the right side of the board. It does not push the grid. Top to bottom:
 
 - lane name, close button;
 - title and subtitle;
@@ -180,7 +180,7 @@ Clicking a card, or Enter on a focused card, opens a 400px sheet over the right 
 - **History:** the card's moves, newest first;
 - actions: Open card (primary), Move.
 
-Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card).
+Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card). **Deviation (#2358):** the canvas opens the peek on a plain click; shipped, a plain click or Enter opens the detail panel and the peek is opt-in, because editing is the more frequent reason to click a card. Focus lands on Open card; a never-moved card reads "Never moved".
 
 ## Activity drawer
 
@@ -240,7 +240,7 @@ Screenshot: `components.png`, "Cells and drag and drop".
 
 - No new shortcut keys. Existing board shortcuts and the command palette keep working.
 - Tab order: toolbar, filter chip row, Show chips, column header add buttons, then per lane: collapse toggle, "+N", cards in column order and, inside a split stage, sub-column order.
-- Enter or Space on a card opens the peek; Escape closes it and returns focus to the card.
+- Enter or Space on a card opens the detail panel, Shift+Enter opens the peek; Escape closes it and returns focus to the card.
 - The existing keyboard move path gains sub-columns as stops between columns.
 - Every click target here has keyboard parity (§ Click handlers need keyboard parity).
 

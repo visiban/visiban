@@ -37,7 +37,7 @@ interface Props {
   highlightedCardId?: number | null;
   currentCardId?: number | null;
   onToggleCardSelection: (cardId: number) => void;
-  onCardClick: (card: Card) => void;
+  onCardClick: (card: Card, opts?: { peek?: boolean }) => void;
   onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
   contextTargetCardId?: number | null;
   onCardUpdated?: (card: Card) => void;
@@ -527,7 +527,7 @@ export default function PhoneBoard({
                       <CardItem
                         key={card.id}
                         card={card}
-                        onClick={() => onCardClick(card)}
+                        onClick={(opts) => onCardClick(card, opts)}
                         selected={selectedCardIds.has(card.id)}
                         highlighted={highlightedCardId === card.id}
                         current={currentCardId === card.id}

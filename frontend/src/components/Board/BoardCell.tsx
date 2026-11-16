@@ -26,7 +26,7 @@ interface Props {
   /** The card open in the card detail sheet, if any (#1914). */
   currentCardId?: number | null;
   onToggleCardSelection: (cardId: number) => void;
-  onCardClick: (card: Card) => void;
+  onCardClick: (card: Card, opts?: { peek?: boolean }) => void;
   onCardAdded: (card: Card) => void;
   density?: CardDensity;
   userTimezone?: string;
@@ -264,7 +264,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             <CardItem
               key={card.id}
               card={card}
-              onClick={() => onCardClick(card)}
+              onClick={(opts) => onCardClick(card, opts)}
               selected={selectedCardIds.has(card.id)}
               highlighted={highlightedCardId === card.id}
               current={currentCardId === card.id}

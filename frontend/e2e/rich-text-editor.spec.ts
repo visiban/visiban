@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
-import { openCardSheet, END_OF_LINE, routeAuth, routeBoard } from './helpers'
+import { END_OF_LINE, routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
 /**
@@ -112,7 +112,7 @@ async function selectWordInEditor(editor: Locator, word: string): Promise<void> 
 async function openDescriptionEditor(page: Page) {
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
-  await openCardSheet(page, page.getByText(CARD.title).first())
+  await page.getByText(CARD.title).first().click()
 
   const dialog = page.locator('[role="dialog"]')
   await expect(dialog).toBeVisible({ timeout: 5_000 })

@@ -1639,6 +1639,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setCardMenu({ cardIds: contextMenuTargetIds(card.id, cardActionStateRef.current.selectedCardIds), originId: card.id, anchor });
   }, []);
 
+  // Card face click (#2358): a plain click opens the detail panel (swapping it when
+  // open), Shift+click opens the read-only peek. While the peek is open a plain
+  // click swaps the peek; "Open card" is the way into the detail panel from it.
+  const handleCardClick = (card: Card, opts?: { peek?: boolean }) => {
+    clearSelection();
+    if (selectedCard) { setSelectedCard(card); return; }
+    setDrawerOpen(false);
+    setShowArchived(false);
+    if (opts?.peek || peekCardId !== null) { setPeekCardId(card.id); return; }
+    setSelectedCard(card);
+  };
+
   // Focus goes back to the card the menu was opened on (or the board region
   // when the action removed it), so a surface the action opens captures the
   // card as its opener and returns focus there on close (#1775).
@@ -1680,6 +1692,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // Only the board and analytics views render the card sheet.
         if (viewRef.current !== "board" && viewRef.current !== "analytics") setView("board");
         if (action !== "open") setBlockFormRequest({ mode: action, seq: Date.now() });
+        return;
+      }
+      case "summary": {
+        // The read-only peek (#2358): the touch and menu path to what Shift+click opens.
+        clearSelection();
+        setDrawerOpen(false);
+        setShowArchived(false);
+        setPeekCardId(cards[0].id);
         return;
       }
       case "copy-link": {
@@ -3287,13 +3307,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onToggleCardSelection={toggleCardSelection}
               onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
               contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
-              onCardClick={(card) => {
-                clearSelection();
-                if (selectedCard) { setSelectedCard(card); return; }
-                setDrawerOpen(false);
-                setShowArchived(false);
-                setPeekCardId(card.id);
-              }}
+              onCardClick={handleCardClick}
               onCardUpdated={onCardUpdated}
               density={effectiveCardDensity}
               userTimezone={userTimezone}
@@ -3457,14 +3471,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       // on the open card instead.
                       onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
-                      onCardClick={(card) => {
-                        clearSelection();
-                        // While the detail sheet is open a card click swaps it; otherwise it peeks (#2273).
-                        if (selectedCard) { setSelectedCard(card); return; }
-                        setDrawerOpen(false);
-                        setShowArchived(false);
-                        setPeekCardId(card.id);
-                      }}
+                      onCardClick={handleCardClick}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={handleLocalSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}

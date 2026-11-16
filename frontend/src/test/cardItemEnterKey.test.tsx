@@ -47,4 +47,28 @@ describe('CardItem keyboard open (#2273)', () => {
     fireEvent.keyDown(face(container), { key: 'Enter' })
     expect(onClick).not.toHaveBeenCalled()
   })
+
+  it('passes peek for Shift+Enter, Shift+click and the Show summary button (#2358)', () => {
+    const onClick = vi.fn()
+    const { container, getByRole } = render(<CardItem card={makeCard()} onClick={onClick} onOpenMenu={() => {}} />)
+    fireEvent.keyDown(face(container), { key: 'Enter', shiftKey: true })
+    expect(onClick).toHaveBeenLastCalledWith({ peek: true })
+    fireEvent.click(face(container), { shiftKey: true })
+    expect(onClick).toHaveBeenLastCalledWith({ peek: true })
+    fireEvent.click(face(container))
+    expect(onClick).toHaveBeenLastCalledWith(undefined)
+    onClick.mockClear()
+    const btn = getByRole('button', { name: 'Show summary' })
+    expect(btn).toHaveAttribute('title', 'Show summary (Shift+click)')
+    fireEvent.click(btn)
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onClick).toHaveBeenCalledWith({ peek: true })
+  })
+
+  it('has no Show summary button without a menu, and none on a read-only card', () => {
+    const { queryByRole, rerender } = render(<CardItem card={makeCard()} onClick={() => {}} />)
+    expect(queryByRole('button', { name: 'Show summary' })).toBeNull()
+    rerender(<CardItem card={makeCard()} onClick={() => {}} onOpenMenu={() => {}} readOnly />)
+    expect(queryByRole('button', { name: 'Show summary' })).toBeNull()
+  })
 })

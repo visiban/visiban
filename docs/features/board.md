@@ -296,21 +296,21 @@ Empty cells show a dashed border to indicate they are valid drop targets even wh
 
 ### Card peek sheet
 
-*New in 1.3 (#2273).* Click a card, or focus it and press **Enter** or **Space**, to open its **peek sheet**: a 400 px read-only sheet over the right side of the board. It floats over the grid and never resizes it. At 640 px and narrower it fills the screen. Top to bottom it shows:
+*New in 1.3 (#2273, #2358).* Hold **Shift** and click a card, or focus it and press **Shift+Enter**, to open its **peek sheet**. A plain click, **Enter** or **Space** opens the [detail panel](#card-detail-panel) as in 1.2. You can also choose **Show summary** in the card's [actions menu](#card-actions-menu), or press the **Show summary** (eye) button on the card face, which appears on hover or focus and, on touch screens, next to **⋯ More actions**. The peek sheet is a 400 px read-only sheet over the right side of the board. It floats over the grid and never resizes it. At 640 px and narrower it fills the screen. Top to bottom it shows:
 
 - the swimlane name and a **Close** button, then the title and a short description;
 - a banner when the card is overdue (**Was due Nov 12**) or stale (**No movement for 39 days**);
 - **Status**: the previous stage, the current stage (marked, with a border and bold text, not color alone) and the next stage;
-- **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved, and, when the board has custom fields, a note such as **2 of 8 pinned to the card**;
+- **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved (**Never moved** for a card that has not), and, when the board has custom fields, a note such as **2 of 8 pinned to the card**;
 - **Time in each column**: one segmented bar and a list of days per column, with the current column in bold. A column the card visited twice is added up;
 - **History**: the card's moves, newest first, each with a relative time (**39 d ago**) and the exact date and time on hover;
 - **Open card** (opens the full [detail panel](#card-detail-panel)) and **Move** (a column and swimlane picker; shown to people who can edit the card).
 
-The open card is marked on the board with the same ring as the detail panel. Click another card to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card still switches the panel instead of peeking. Opening a card from a link, the command palette or a relation opens the detail panel directly.
+The open card is marked on the board with the same ring as the detail panel. Click another card (or Shift+click it) to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card switches the panel. Opening a card from a link, the command palette or a relation opens the detail panel directly.
 
 ### Card detail panel
 
-Click **Open card** in the peek sheet to open its **detail panel**. Where it opens depends on the window width. *Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.*
+Click a card to open its **detail panel** (from the peek sheet, click **Open card**; focus lands on that button when the peek opens). Where it opens depends on the window width. *Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.*
 
 - **1280 px and wider:** the panel opens next to the card's column, to its right if there is room, otherwise to its left. A small tail on the panel's outer edge points at the card (the panel gets a thin blue outline), and the card gets a thick blue border and ring while it is open. The board is not dimmed. If neither side has room (the panel never covers the swimlane names), the card's column is scrolled off to the side, or the card isn't on the board (for example, it is filtered out or its swimlane is collapsed), the panel opens at the right edge instead. A card scrolled out of view up or down keeps the panel next to its column; the tail then becomes a wedge near the panel's top or bottom corner, pointing up or down toward the card.
 - **641 to 1279 px:** the panel opens at the right edge of the window, over a lightly dimmed board.
@@ -355,7 +355,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open the [peek sheet](#card-peek-sheet), then **Open card** for the full detail panel.
+Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open its detail panel, or Shift+click it for the [peek sheet](#card-peek-sheet). The popover footer carries the hint "Shift+click for summary".
 
 - The peek is not shown on any card while the card detail panel is open, so it never covers the fields you are editing. Closing the panel does not bring a peek back; hover a card again to see it.
 - The 600 ms delay means casual scrolling and rapid drag-and-drop do not trigger the popover unintentionally.
@@ -402,7 +402,7 @@ Not built yet on phones: the sub-column switcher for a split column and track ch
 
 ### Board panning
 
-Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens its [peek sheet](#card-peek-sheet) instead of panning; Space anywhere else pans.
+Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens the card instead of panning; Space anywhere else pans.
 
 ## Bulk card operations
 
@@ -448,7 +448,7 @@ Right-click the empty space in any board cell to open an inline card creation in
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Right-click a card to act on it without opening it: move it, assign it, set its priority, block it, archive it, and more.
+Right-click a card to act on it without opening it: show its read-only summary (**Show summary**, the touch path to the peek sheet), move it, assign it, set its priority, block it, archive it, and more.
 
 **How to open it:**
 

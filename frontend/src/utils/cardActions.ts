@@ -21,6 +21,7 @@ import { isAssignableMember } from "./assignableMembers";
 /** Every card action. `open` and `delete` are menu-only; the palette offers the rest. */
 export type CardActionId =
   | "open"
+  | "summary"
   | "copy-link"
   | "move"
   | "assign"
@@ -144,7 +145,7 @@ export const MOVE_ASSIGNED_REASON = "Assigned to someone else: only its creator,
 export const MOVES_PAUSED_REASON = "Moves are paused while the board is offline";
 
 const VERB: Record<CardActionId, string> = {
-  open: "open", "copy-link": "copy links to", move: "move", assign: "assign",
+  open: "open", summary: "show the summary of", "copy-link": "copy links to", move: "move", assign: "assign",
   priority: "change the priority of", block: "block", unblock: "unblock", archive: "archive", delete: "delete",
 };
 
@@ -250,6 +251,7 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
 
   return [
     entry("open", "Open card", single ? undefined : SELECT_ONE_REASON),
+    entry("summary", "Show summary", single ? undefined : SELECT_ONE_REASON),
     entry("copy-link", "Copy link to card", single ? undefined : SELECT_ONE_REASON),
     // The server refuses a move only for a card assigned to someone else that
     // the user did not create (backend move_card); disabled only when every
@@ -269,7 +271,7 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
 
 /** Menu groups (one divider between groups), by action id. */
 export const CARD_MENU_GROUPS: CardActionId[][] = [
-  ["open", "copy-link"],
+  ["open", "summary", "copy-link"],
   ["move", "assign", "priority"],
   ["block", "unblock"],
   ["archive", "delete"],

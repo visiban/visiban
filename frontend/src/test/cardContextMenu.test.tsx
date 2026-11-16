@@ -84,11 +84,12 @@ describe('CardContextMenu', () => {
     renderMenu()
     const menu = screen.getByRole('menu', { name: 'Card actions: Fix payout rounding' })
     const labels = within(menu).getAllByRole('menuitem').map((el) => el.getAttribute('data-action'))
-    expect(labels).toEqual(['open', 'copy-link', 'move', 'assign', 'priority', 'block', 'archive', 'delete'])
+    expect(labels).toEqual(['open', 'summary', 'copy-link', 'move', 'assign', 'priority', 'block', 'archive', 'delete'])
     expect(within(menu).getAllByRole('separator')).toHaveLength(3)
     expect(item(/Delete card…/)).toHaveClass('focus:ring-danger-emphasis')
     expect(item(/Open card/)).toHaveFocus()
     expect(within(item(/Open card/)).getByText('Enter')).toBeInTheDocument()
+    expect(within(item(/Show summary/)).getByText('Shift+Enter')).toBeInTheDocument()
   })
 
   it('shows Unblock card for a manually blocked card', () => {

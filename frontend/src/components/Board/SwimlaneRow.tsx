@@ -50,7 +50,7 @@ interface Props {
   /** Card context menu (#2059), passed through to each BoardCell. */
   onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
   contextTargetCardId?: number | null;
-  onCardClick: (card: Card) => void;
+  onCardClick: (card: Card, opts?: { peek?: boolean }) => void;
   onCardAdded: (card: Card) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;

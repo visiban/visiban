@@ -76,6 +76,11 @@ describe('cardActionEntries', () => {
     expect(e.block.label).toBe('Block card…')
   })
 
+  it('offers Show summary for one card and asks for a single card otherwise (#2358)', () => {
+    expect(byId([makeCard()], member).summary).toMatchObject({ label: 'Show summary', enabled: true })
+    expect(byId([makeCard({ id: 1 }), makeCard({ id: 2 })], member).summary).toMatchObject({ enabled: false, reason: SELECT_ONE_REASON })
+  })
+
   it('is state-aware: a manually blocked card offers Unblock card', () => {
     const e = byId([makeCard({ blocked_at: '2026-10-01T00:00:00Z' })], member)
     expect(e.unblock).toMatchObject({ label: 'Unblock card', enabled: true })

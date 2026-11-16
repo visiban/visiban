@@ -269,7 +269,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
       })()}
 
       {/* Footer */}
-      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-fg-tertiary">
+      <div className="mt-3 pt-2 border-t border-line flex flex-wrap items-center justify-between gap-y-1 text-xs text-fg-tertiary">
         <span>
           {lastActivityText
             ? lastActivityUser
@@ -277,7 +277,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
               : lastActivityText
             : "No activity yet"}
         </span>
-        <span className="text-fg-tertiary shrink-0 ml-2">Click to open ↗</span>
+        <span className="text-fg-tertiary shrink-0 ml-2">Click to open ↗ · Shift+click for summary</span>
       </div>
     </div>
   );

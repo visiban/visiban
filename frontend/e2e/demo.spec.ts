@@ -10,7 +10,7 @@
  * proven by backend/accounts/tests/test_demo_mode.py's route sweep.
  */
 import { test, expect } from '@playwright/test'
-import { openCardSheet, routeAuth, routeBoard } from './helpers'
+import { routeAuth, routeBoard } from './helpers'
 import { AUTH_PROVIDERS, BOARD_FULL, CARD, COLUMN_DONE, SITE_CONFIG, USER } from './fixtures/board'
 
 // Comfortably outside the 5-minute warning window whenever the spec runs.
@@ -127,7 +127,7 @@ test.describe('hosted demo visitor loop', () => {
     await expect.poll(() => moved, { timeout: 5_000 }).toBe(true)
 
     // 4. ...and it shows in the card's History.
-    await openCardSheet(page, page.getByText(CARD.title, { exact: true }).first())
+    await page.getByText(CARD.title, { exact: true }).first().click()
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     // #1914 (frame 7): the anchored sheet starts below the demo bar and the app
