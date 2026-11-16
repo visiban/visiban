@@ -44,6 +44,37 @@ test.describe('board states', () => {
     await expect(empty.getByRole('button', { name: 'Add a card' })).toBeVisible()
   })
 
+  // #2324 — the panel sits below the column headers; Import cards links to the group import.
+  test('an empty board in a group offers Import cards below the column headers', async ({ page }) => {
+    await routeBoard(page, { ...BOARD_FULL, cards: [], group: 7, group_name: 'Sales' })
+    await page.route('**/api/v1/groups/7/', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 7, name: 'Sales', can_place_boards: true }) }),
+    )
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const empty = page.getByTestId('board-empty-state')
+    await expect(empty).toBeVisible({ timeout: 10_000 })
+    await expect(empty).toContainText('or import cards from a file.')
+    await expect(empty.getByRole('link', { name: 'Import cards' })).toHaveAttribute('href', '/groups/7?import=1')
+    const header = await page.getByTestId('board-header-row').boundingBox()
+    const panel = await empty.boundingBox()
+    expect(panel!.y).toBeGreaterThanOrEqual(header!.y + header!.height)
+  })
+
+  // #2324 / #2214 — a chip matching nothing shrinks lanes to bands; hideUnmatched hides them.
+  test('a chip matching nothing leaves lane bands reading No matching cards; hide option hides them', async ({ page }) => {
+    await routeBoard(page, { ...BOARD_FULL, cards: BOARD_FULL.cards.map((c) => ({ ...c, due_date: null })) })
+    await page.goto(`/boards/${BOARD_FULL.id}?show=due_soon`)
+    await expect(page.getByTestId('board-no-match')).toContainText('No cards are due soon', { timeout: 10_000 })
+    await expect(page.getByTestId('swimlane-no-match').first()).toBeVisible()
+    await expect(page.locator('[data-board-cell]')).toHaveCount(0)
+    await page.goto(`/boards/${BOARD_FULL.id}?show=due_soon&f_hide_unmatched=1`)
+    await expect(page.getByTestId('board-no-match')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('swimlane-band')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Show all cards' }).click()
+    await expect(cardFace(page)).toBeVisible()
+    await expect(page.locator('[data-show-chip="all"]')).toBeFocused()
+  })
+
   test('a failed load shows the error and Try again refetches without a page reload', async ({ page }) => {
     let fail = true
     let fullCalls = 0

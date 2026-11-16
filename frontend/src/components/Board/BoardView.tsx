@@ -3,6 +3,7 @@ import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardF
 import { boardColorsInUse } from "../../utils/boardColors";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
+import { getGroup } from "../../api/groups";
 import { useLocation, useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import { useJoinedToast } from "../Common/useJoinedToast";
@@ -13,7 +14,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { markBoardTreePointerEvent } from "../../hooks/useCardSheetPlacement";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
-import { BoardOfflineBanner, BoardEmptyState, ViewOnlyNotice } from "./BoardStates";
+import { BoardOfflineBanner, BoardEmptyState, BoardNoMatchState, ViewOnlyNotice } from "./BoardStates";
+import { noMatchLine } from "./boardStateCopy";
 import ConnectionStatus from "../Common/ConnectionStatus";
 import {
   DndContext,
@@ -116,7 +118,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
-import { laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam } from "../../utils/laneFilter";
+import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
 interface Props {
@@ -1223,9 +1225,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const fBlocked = searchParams.get("f_blocked");
     // #2205 — lane rules travel as f_lanes=1.<compact JSON>, parsed defensively.
     const fLanes = searchParams.get("f_lanes");
-    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null;
+    // #2214 — "Hide lanes with no matching cards" travels as its own param, so the
+    // versioned f_lanes format (and older clients reading it) is untouched.
+    const fHideUnmatched = searchParams.get("f_hide_unmatched");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null || fHideUnmatched !== null;
     if (!hasUrlFilters) return persistedFilters;
-    const laneFilter = parseLaneFilterParam(fLanes);
+    const laneFilter = withHideUnmatched(parseLaneFilterParam(fLanes), fHideUnmatched === "1");
     return {
       ...(laneFilter ? { laneFilter } : {}),
       search: fSearch ?? "",
@@ -1293,6 +1298,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const lanes = serializeLaneFilterParam(next.laneFilter);
       if (lanes) prev.set("f_lanes", lanes);
       else prev.delete("f_lanes");
+      if (next.laneFilter?.hideUnmatched) prev.set("f_hide_unmatched", "1");
+      else prev.delete("f_hide_unmatched");
       return prev;
     }, { replace: true });
   }, [setPersistedFilters, setSearchParams]);
@@ -2063,9 +2070,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     next.delete(focusedSwimlaneId as number);
     return next;
   }, [laneRuleRejectedIds, focusedLaneFailsRules, focusedSwimlaneId]);
-  const renderHiddenSwimlaneIds = useMemo(
-    () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
-    [hiddenSwimlaneIds, laneFilterHiddenIds],
+  // #2337 — rules the stored filter carries on fields this viewer cannot use;
+  // effectiveFilters drops them, and the lane filter popover says so.
+  const ignoredLaneRuleCount = useMemo(
+    () => countUnusableLaneRules(filters.laneFilter, swimlaneFieldDefs ?? [], isAdmin),
+    [filters.laneFilter, swimlaneFieldDefs, isAdmin],
   );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
@@ -2133,6 +2142,34 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (panelFilteredCardIds === null) return chipIds;
     return new Set([...chipIds].filter((id) => panelFilteredCardIds.has(id)));
   }, [panelFilteredCardIds, board.cards, board.columns, showChip]);
+
+  // #2324 — filters or a Show chip match no card: every lane shrinks to its band
+  // ("No matching cards") and a panel below the lanes offers Show all cards.
+  // Never on an empty board ("No cards yet" owns that) or when the lane rules hide
+  // every lane ("No lanes match" owns that), so the three notices exclude each other.
+  const noCardMatch = !allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0;
+  // #2214 — "Hide lanes with no matching cards": while a card filter or chip is
+  // active, a lane with no matching card is hidden instead of shown empty (or as a
+  // "No matching cards" band; one predicate, so the two cannot disagree). Kept apart
+  // from laneFilterHiddenIds, which counts lanes the lane RULES hide. The focused
+  // lane always shows, as it does for the rules.
+  const hideUnmatchedLanes = effectiveFilters.laneFilter?.hideUnmatched === true;
+  const unmatchedLaneIds = useMemo(() => {
+    if (!hideUnmatchedLanes || filteredCardIds === null) return null;
+    const matched = new Set(board.cards.filter((c) => filteredCardIds.has(c.id)).map((c) => c.swimlane));
+    return new Set(board.swimlanes.filter((s) => !matched.has(s.id) && s.id !== focusedSwimlaneId).map((s) => s.id));
+  }, [hideUnmatchedLanes, filteredCardIds, board.cards, board.swimlanes, focusedSwimlaneId]);
+  const renderHiddenSwimlaneIds = useMemo(() => {
+    if (laneFilterHiddenIds.size === 0 && !unmatchedLaneIds?.size) return hiddenSwimlaneIds;
+    return new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds, ...(unmatchedLaneIds ?? [])]);
+  }, [hiddenSwimlaneIds, laneFilterHiddenIds, unmatchedLaneIds]);
+  const showAllCards = useCallback(() => {
+    setFilters(EMPTY_FILTER);
+    setActiveFilterId(null);
+    setShowChip("all");
+    // The button unmounts; land on the All cards chip rather than <body>.
+    setTimeout(() => document.querySelector<HTMLElement>('[data-show-chip="all"]')?.focus(), 0);
+  }, [setFilters, setShowChip]);
 
   /**
    * #1147 — the active overlay's per-cell values for the whole grid, built once per
@@ -2277,6 +2314,37 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       .map((s) => ({ id: s.id, name: s.name, color: s.color, collapsed: collapsedSwimlaneIds.has(s.id) })),
     [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
   );
+
+  const noMatchPanel = noCardMatch ? (
+    <BoardNoMatchState line={noMatchLine(showChip, panelFilteredCardIds?.size ?? null)} onShowAll={showAllCards} />
+  ) : null;
+
+  // #2324 — Import cards links to the group's import flow (owner ruling 2026-11-16),
+  // offered only when the server says this viewer may place boards in the group
+  // (the same can_place_boards that gates GroupDetail's Import). Fetched only while
+  // the board is empty; any failure means no button. The server enforces it again.
+  const boardIsEmpty = board.cards.length === 0;
+  const [importGroup, setImportGroup] = useState<{ id: number; ok: boolean } | null>(null);
+  useEffect(() => {
+    const gid = board.group;
+    if (!boardIsEmpty || gid == null) return;
+    let live = true;
+    getGroup(gid).then(
+      (g) => { if (live) setImportGroup({ id: gid, ok: g.can_place_boards === true }); },
+      () => { if (live) setImportGroup({ id: gid, ok: false }); },
+    );
+    return () => { live = false; };
+  }, [board.group, boardIsEmpty]);
+  const importHref = importGroup?.ok && importGroup.id === board.group ? `/groups/${board.group}?import=1` : undefined;
+  const emptyBoardPanel = view === "board" && boardIsEmpty && board.columns.length > 0 ? (
+    <BoardEmptyState
+      firstColumnName={board.columns[0].name}
+      onAddCard={canEdit && board.columns[0].allow_card_creation && addCardLanes.length > 0
+        ? () => requestAddCard(board.columns[0].id, addCardLanes[0].id)
+        : undefined}
+      importHref={importHref}
+    />
+  ) : null;
   // Saved per-column widths (#1990 resize), clamped to 160..600. Under the shared
   // grid template they are track weights, not px widths: see `columnTrack`.
   const colWidths = useMemo(() => {
@@ -2951,6 +3019,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               currentUser={currentUser}
               hiddenCount={hiddenCount}
               hiddenLaneCount={laneFilterHiddenIds.size}
+              cardFilterActive={filteredCardIds !== null}
+              ignoredLaneRuleCount={ignoredLaneRuleCount}
               lanesTriggerRef={lanesTriggerRef}
               scope={scope}
               onScopeChange={setScope}
@@ -2988,37 +3058,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           No lanes match your lane filters.
           <button
             type="button"
-            onClick={() => { const next = { ...effectiveFilters }; delete next.laneFilter; setActiveFilterId(null); setFilters(next); }}
+            onClick={() => {
+              // Clears the rules; "Hide lanes with no matching cards" is a setting and stays (#2214).
+              const next = { ...effectiveFilters, laneFilter: withLaneItems(effectiveFilters.laneFilter, []) };
+              if (!next.laneFilter) delete next.laneFilter;
+              setActiveFilterId(null);
+              setFilters(next);
+            }}
             className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Clear lane filters
           </button>
         </div>
       )}
-      {!allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0 && (
-        <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
-          {showChip !== "all" && (panelFilteredCardIds === null || panelFilteredCardIds.size > 0)
-            ? "No cards match the selected Show chip. Choose All cards to see every card."
-            : "No cards match the active filters."}
-          <button
-            type="button"
-            onClick={() => { setFilters(EMPTY_FILTER); setActiveFilterId(null); setShowChip("all"); }}
-            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Show all cards
-          </button>
-        </div>
-      )}
       {(socketStatus === "reconnecting" || socketStatus === "failed") && <BoardOfflineBanner failed={socketStatus === "failed"} />}
       {!canEdit && !blockedByMaintenance && <ViewOnlyNotice />}
-      {view === "board" && board.cards.length === 0 && board.columns.length > 0 && (
-        <BoardEmptyState
-          firstColumnName={board.columns[0].name}
-          onAddCard={canEdit && board.columns[0].allow_card_creation && addCardLanes.length > 0
-            ? () => requestAddCard(board.columns[0].id, addCardLanes[0].id)
-            : undefined}
-        />
-      )}
       {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
@@ -3113,6 +3167,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             wider (then the grid scrolls sideways inside this box, never the page).
             Every row below uses the same `gridTemplate`, so tracks line up.
           */}
+          {isPhone && emptyBoardPanel}
+          {isPhone && noMatchPanel}
           {isPhone && board.columns.length > 0 ? (
             <PhoneBoard
               columns={board.columns.filter((c) => !hiddenColumnIds.has(c.id))}
@@ -3225,6 +3281,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             {activeColumn && altHeldDuringColumnDrag && <ColumnTrashZone />}
           </div>
 
+          {/* #2324 — the empty board's panel sits below the column headers, above the lanes. */}
+          {emptyBoardPanel}
+
           {/* Empty state: no columns */}
           {board.columns.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-fg-tertiary">
@@ -3281,6 +3340,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       collapsedColumnIds={collapsedColumnIds}
                       hiddenColumnIds={hiddenColumnIds}
                       filteredCardIds={filteredCardIds}
+                      noMatch={noCardMatch}
                       selectedCardIds={selectedCardIds}
                       highlightedCardId={highlightedCardId}
                       currentCardId={selectedCard?.id ?? peekCardId}
@@ -3348,6 +3408,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               })()}
             </SortableContext>
           )}
+          {/* #2324 — below the lanes, each shrunk to its band. */}
+          {noMatchPanel}
 
           {/* Empty state: has columns but no swimlanes */}
           {board.columns.length > 0 && board.swimlanes.length === 0 && (

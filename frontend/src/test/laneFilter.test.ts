@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import * as L from '../utils/laneFilter'
 import {
   evalChain,
   isRuleComplete,
@@ -530,5 +531,58 @@ describe('laneFilter — built-in fields (#2336)', () => {
     expect(laneFilterAvailable(1, 0, undefined)).toBe(true)
     expect(laneFilterAvailable(0, 2, undefined)).toBe(true)
     expect(laneFilterAvailable(0, 1, { items: [NAME_RULE(1, 'is', '')] })).toBe(true)
+  })
+})
+
+// #2214 — hideUnmatched is a setting on the lane filter, kept through every rules edit.
+describe('hideUnmatched (#2214)', () => {
+  const r1 = { kind: 'rule' as const, id: 1, join: 'and' as const, field: 'name' as const, op: 'is' as const, value: 'A' }
+  it('withLaneItems keeps the flag, and collapses to undefined only with no items and the flag off', () => {
+    expect(L.withLaneItems(undefined, [])).toBeUndefined()
+    expect(L.withLaneItems({ items: [r1] }, [])).toBeUndefined()
+    expect(L.withLaneItems({ items: [r1] }, [r1])).toEqual({ items: [r1] })
+    expect(L.withLaneItems({ items: [r1], hideUnmatched: true }, [])).toEqual({ items: [], hideUnmatched: true })
+  })
+  it('withHideUnmatched turns the flag on and off, keeping the rules', () => {
+    expect(L.withHideUnmatched(undefined, true)).toEqual({ items: [], hideUnmatched: true })
+    expect(L.withHideUnmatched({ items: [], hideUnmatched: true }, false)).toBeUndefined()
+    expect(L.withHideUnmatched({ items: [r1], hideUnmatched: true }, false)).toEqual({ items: [r1] })
+  })
+  it('sanitize keeps a strict true flag, even with no rules, and drops anything else', () => {
+    expect(L.sanitizeLaneFilter({ items: [], hideUnmatched: true })).toEqual({ items: [], hideUnmatched: true })
+    expect(L.sanitizeLaneFilter({ items: [r1], hideUnmatched: 'yes' })).toEqual({ items: [r1] })
+    expect(L.sanitizeLaneFilter({ items: [], hideUnmatched: 1 })).toBeUndefined()
+  })
+  it('prune and removeLaneItem keep the flag when every rule goes', () => {
+    const f = { items: [{ ...r1, field: 99 }], hideUnmatched: true }
+    expect(L.pruneLaneFilter(f, [])).toEqual({ items: [], hideUnmatched: true })
+    expect(L.removeLaneItem({ items: [r1], hideUnmatched: true }, 1)).toEqual({ items: [], hideUnmatched: true })
+    expect(L.isLaneFilterActive({ items: [], hideUnmatched: true })).toBe(false)
+  })
+  it('the f_lanes URL form carries rules only (the flag has its own param)', () => {
+    expect(L.serializeLaneFilterParam({ items: [], hideUnmatched: true })).toBeNull()
+  })
+})
+
+// #2337 — rules on fields this viewer cannot use.
+describe('countUnusableLaneRules (#2337)', () => {
+  const defs = [{ id: 7, is_admin_only: true }, { id: 8, is_admin_only: false }]
+  const rule = (id: number, field: L.LaneFieldKey | null) => ({ kind: 'rule' as const, id, join: 'and' as const, field, op: 'is' as const, value: 'x' })
+  const f: L.LaneFilter = {
+    items: [rule(1, 7), rule(2, 8), rule(3, 'contact_email'), rule(4, 'name'), rule(5, 404), rule(6, null),
+      { kind: 'group', id: 9, join: 'or', rules: [rule(10, 7)] }],
+  }
+  it('counts admin-only custom fields and Contact email for a non-admin, inside groups too', () => {
+    expect(L.countUnusableLaneRules(f, defs, false)).toBe(3)
+  })
+  it('is zero for an admin and for no filter; deleted fields are not counted', () => {
+    expect(L.countUnusableLaneRules(f, defs, true)).toBe(0)
+    expect(L.countUnusableLaneRules(undefined, defs, false)).toBe(0)
+    expect(L.countUnusableLaneRules({ items: [rule(1, 404)] }, defs, false)).toBe(0)
+  })
+  it('ignoredRulesText is singular or plural, and Reads as appends it', () => {
+    expect(L.ignoredRulesText(1)).toBe('1 filter ignored: you cannot use this field')
+    expect(L.ignoredRulesText(2)).toBe('2 filters ignored: you cannot use these fields')
+    expect(L.summarizeLaneFilter(undefined, [], (_f, v) => v, 2).readsAs).toBe('Reads as: all lanes shown · 2 filters ignored: you cannot use these fields')
   })
 })

@@ -84,6 +84,11 @@ interface Props {
   collapsedColumnIds: Set<number>;
   hiddenColumnIds?: Set<number>;
   filteredCardIds: Set<number> | null;
+  /**
+   * #2324 — filters or a Show chip match no card on the board: the lane shrinks
+   * to its band, reading "No matching cards", with no cells or resize handle.
+   */
+  noMatch?: boolean;
   selectedCardIds: Set<number>;
   highlightedCardId?: number | null;
   /** The card open in the card detail sheet, if any (#1914). */
@@ -200,7 +205,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -533,6 +538,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {/* Trailing stats: overdue and stale (omitted at zero), the limit line (#1150;
               a calm one folds away when collapsed, an over-limit one never does), the
               number rollup (#2275), then the card count. Text always carries the state; color only reinforces it. */}
+          {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
@@ -604,7 +610,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
         </div>
 
         {/* Grid row. Expanded: one cell per column. Collapsed: a strip of count + status
-            squares per column, aligned to the same grid. */}
+            squares per column, aligned to the same grid. None when nothing matches (#2324). */}
+        {!noMatch && (
         <div
           ref={rowRef}
           className="relative grid"
@@ -765,8 +772,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           <div className="w-px self-stretch bg-surface-active/70" />
         </div>
         </div>
+        )}
         {/* Bottom resize handle — drag to set row min-height */}
-        {setSwimlaneHeight && (
+        {setSwimlaneHeight && !noMatch && (
           <div
             className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-info/20 transition-colors group/resize"
             onMouseDown={handleHeightResizeStart}

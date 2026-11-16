@@ -583,6 +583,24 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(r.data["state_json"], state)
 
+    def test_hide_unmatched_round_trips(self):
+        # #2214 — an optional bool beside items; with no rules it keeps items: [].
+        for lane_filter in ({"items": [_lane_rule(1)], "hideUnmatched": True}, {"items": [], "hideUnmatched": True}, {"items": [_lane_rule(1)], "hideUnmatched": False}):
+            with self.subTest(lane_filter=lane_filter):
+                state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+                r = self._post(state)
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+                self.assertEqual(r.data["state_json"], state)
+                self.client.delete(f"{self.url}{r.data['id']}/")
+
+    def test_hide_unmatched_must_be_bool(self):
+        for bad in ("yes", 1, 0, None, [], {}):
+            with self.subTest(bad=bad):
+                self._assert_400({"items": [], "hideUnmatched": bad})
+
+    def test_hide_unmatched_without_items_rejected(self):
+        self._assert_400({"hideUnmatched": True})
+
     def test_filter_without_lane_filter_still_saves(self):
         r = self._post(EMPTY_FILTER_STATE)
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)

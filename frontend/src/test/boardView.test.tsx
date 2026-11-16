@@ -1125,7 +1125,7 @@ describe('BoardView', () => {
       capturedFilterBarProps = {}
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
-      expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+      expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
       expect(capturedFilterBarProps.filters?.labelIds).toEqual([])
       // derived only: never written back to persisted state
       expect(localStorage.getItem('board:1:filters')).toBeNull()
@@ -1135,7 +1135,7 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams('f_labels=100')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     // #1149
@@ -1146,7 +1146,7 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
       expect((capturedFilterBarProps.filters as { blockedOnly?: boolean } | undefined)?.blockedOnly).toBe(true)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     it('writes f_blocked to the URL when Blocked only is turned on, and removes it when off', () => {
@@ -1205,7 +1205,7 @@ describe('BoardView', () => {
       capturedFilterBarProps = {}
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
-      expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+      expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
       expect(capturedFilterBarProps.filters?.customFields).toEqual({})
       expect(capturedFilterBarProps.filters?.visibleCustomFieldFilterIds).toEqual([])
       expect(localStorage.getItem('board:1:filters')).toBe(before)
@@ -1215,7 +1215,7 @@ describe('BoardView', () => {
       seed({ 5: { kind: 'text', query: 'zzz' } })
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card], custom_field_definitions: [liveDef] }) })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
     })
 
     it('the "my cards" palette event does not write deleted label/field references back to storage', () => {
@@ -3600,7 +3600,7 @@ describe('BoardView lane filters (#2205)', () => {
     mockBoardContextValue = defaultContext({ board: boardWith([lane(21, 'Customer B', 'Sam')]) })
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
-    expect(screen.queryByText('No cards match the active filters.')).not.toBeInTheDocument()
+    expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Clear lane filters' }))
     expect(screen.getByTestId('swim-21')).toBeInTheDocument()
     expect(screen.queryByText('No lanes match your lane filters.')).not.toBeInTheDocument()

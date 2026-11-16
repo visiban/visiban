@@ -574,7 +574,8 @@ Rules apply as soon as they are complete; **Done** just closes the builder. A fi
 - **Admin-only fields**, and the built-in **Contact email**, are offered only to board admins. Their values are never sent to other roles, so members and viewers can't filter on them. For them, a rule on one (from a saved filter or a shared link) is dropped as if it were not there: the remaining rules still apply, so the result can show more lanes or, when the dropped rule was one side of an **Or**, fewer.
 - **Checkbox and multi-select** swimlane fields can't be filtered on yet. **Lanes** is shown when you can see a swimlane field it can filter on, when the board has two or more lanes, or when a lane filter is already set (so you can clear it).
 - **Chips:** each complete filter or group shows as a chip tagged **Lanes**, joined by "and" / "or". Dismissing a chip removes that filter or group. The **Lanes** button shows how many rules are active; the Filters badge and **Clear all** count all lane rules together as one filter.
-- **Lanes with no matching cards** stay visible, as they do with card filters alone.
+- **Lanes with no matching cards** stay visible by default. To hide them, turn on **Hide lanes with no matching cards** at the bottom of the lane filter rules (1.3+). It takes effect only while a card filter or a Show chip is active (otherwise it is grayed out but keeps its setting), hides every lane with no card that matches, and is not a rule: it does not count toward the **Lanes** badge, and **Clear lane filters** leaves it on. The focused lane always shows. It travels in the URL as `f_hide_unmatched=1` and in saved filters.
+- **Rules you can't use:** a shared link or saved filter can carry rules on fields only board admins can use (an admin-only swimlane field or **Contact email**). For members and viewers those rules are ignored, and the lane filter rules say so, for example "2 filters ignored: you cannot use these fields", both above and in the **Reads as** line. The rules stay in the link, so an admin opening it still gets them.
 - **In focus mode** the rules still apply: see [Swimlane focus mode](#swimlane-focus-mode). The focused lane always shows, even if it doesn't match.
 - **When every lane is hidden,** the board says "No lanes match your lane filters." with a **Clear lane filters** button.
 - **When a lane stops matching** because its values changed while you were working in it (you edited it, your keyboard focus was in it, or its card is open in the detail panel), it hides at once and a notice says so, with **Edit lane filters** and a dismiss button. A lane a teammate changes elsewhere hides without a notice; the status count still updates.
@@ -624,6 +625,7 @@ Active filters are serialized into the page URL as query parameters, so filter c
 | `?f_priorities=` | Comma-separated priority values (e.g. `high,urgent`) |
 | `?f_due=` | Due-date filter value (`overdue`, `today`, `this_week`, `none`) |
 | `?f_lanes=` | [Lane filters](#lane-filters) (1.3+): `1.` followed by compact JSON. A malformed value is ignored |
+| `?f_hide_unmatched=1` | [Hide lanes with no matching cards](#lane-filters) (1.3+); any other value reads as off |
 
 The filter state is restored from the URL on page load and persists across reloads. Share the URL with any board member to hand off a pre-filtered view.
 
@@ -782,8 +784,8 @@ With no board default (the setting for every board created or upgraded before 1.
 ## Board states
 
 - **Loading:** a skeleton of column headers, a lane band and cards, announced to screen readers as "Loading board".
-- **No cards yet:** the column headers stay, with an **Add a card** button for people who can add cards.
-- **Filters match nothing:** the notice has a **Show all cards** button that clears the filters and the Show chip.
+- **No cards yet:** the column headers stay, and below them a panel says "No cards yet" with **Add a card** for people who can add cards and **Import cards** for people who can create boards in the board's group. **Import cards** opens the group's import dialog, which imports a file as a new board in that group. The sentence leaves out what you can't do: "Add the first card to Prospect, or import cards from a file." when you can do both.
+- **Filters or a Show chip match nothing:** each swimlane shrinks to its band, reading **No matching cards**, and below the lanes a line names the cause: the chip ("No cards are due soon", "No cards are overdue", "No cards are stale") when the chip alone empties the board, or "No cards match the active filters" otherwise. **Show all cards** clears the filters, the selected saved filter and the Show chip; it leaves lane filters alone. With **Hide lanes with no matching cards** on, the bands are hidden and only the line shows. This never shows on an empty board, which shows only "No cards yet", or when lane filters hide every lane.
 - **Offline:** "You're offline. Changes may not save until the board reconnects." shows while the live connection is down. If reconnecting gives up, it reads "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
 - **Load error:** "The board didn't load." with **Try again**, which fetches the board again without reloading the page.
 - **Keyboard:** moving a card between columns and lanes has a keyboard equivalent. Reordering a card within a cell has no keyboard path yet (#2327). Focus a card and press <kbd>Menu</kbd> or <kbd>Shift+F10</kbd>, then choose **Move to…** and a column. To change swimlane, open the card and use **Move** in its details. Select several cards with the checkbox on each card and use **Move to…** in the bulk toolbar, which also moves to a column. Keyboard stops for sub-columns wait on #1102, #2278 and #2327.

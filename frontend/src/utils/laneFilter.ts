@@ -58,6 +58,31 @@ export type LaneFilterItem = LaneRule | LaneGroup;
 
 export interface LaneFilter {
   items: LaneFilterItem[];
+  /**
+   * #2214 — while a card filter or Show chip is active, also hide lanes with
+   * no matching card. Off by default and absent when off. It is a setting on
+   * the lane filter, not a rule: it never counts as an active lane filter, and
+   * a filter holding only this flag keeps `items: []` so the flag survives
+   * clearing the rules. An older client drops the key and keeps the rules.
+   */
+  hideUnmatched?: boolean;
+}
+
+/**
+ * A lane filter with these items, keeping `f`'s hideUnmatched (#2214).
+ * Undefined when there is nothing left (no items and the flag off), so every
+ * "rules changed" path keeps the flag without special-casing it.
+ */
+export function withLaneItems(f: LaneFilter | undefined, items: LaneFilterItem[]): LaneFilter | undefined {
+  if (f?.hideUnmatched === true) return { items, hideUnmatched: true };
+  return items.length > 0 ? { items } : undefined;
+}
+
+/** Turn hideUnmatched (#2214) on or off, keeping the rules. */
+export function withHideUnmatched(f: LaneFilter | undefined, on: boolean): LaneFilter | undefined {
+  const items = f?.items ?? [];
+  if (on) return { items, hideUnmatched: true };
+  return items.length > 0 ? { items } : undefined;
 }
 
 /** Bounds shared with SavedFilterSerializer (backend/boards/serializers.py). */
@@ -213,7 +238,8 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
       if (rule) items.push(rule);
     }
   }
-  return items.length > 0 ? { items } : undefined;
+  // #2214 — strictly true; anything else reads as off.
+  return withLaneItems((raw as { hideUnmatched?: unknown }).hideUnmatched === true ? { items: [], hideUnmatched: true } : undefined, items);
 }
 
 // URL form: `f_lanes=1.<compact JSON>`. The leading version lets a later
@@ -309,7 +335,32 @@ export function pruneLaneFilter(f: LaneFilter | undefined, fields: readonly Fiel
     }
   }
   if (!changed) return f;
-  return items.length > 0 ? { items } : undefined;
+  return withLaneItems(f, items);
+}
+
+/**
+ * #2337 — leaf rules this viewer's filter carries on fields they cannot use:
+ * an admin-only custom field (its definition is sent to every role, flagged
+ * `is_admin_only`) or the admin-only Contact email built-in, for a non-admin.
+ * pruneLaneFilter drops these silently; this count lets the popover say so.
+ * Rules on a deleted field are not counted: that is stale state, not a
+ * permission, and they keep dropping silently.
+ */
+export function countUnusableLaneRules(
+  f: LaneFilter | undefined,
+  defs: readonly Pick<FieldLike, "id" | "is_admin_only">[],
+  isAdmin: boolean,
+): number {
+  if (!f || isAdmin) return 0;
+  const adminOnly = new Set<LaneFieldKey>(defs.filter((d) => d.is_admin_only).map((d) => d.id));
+  for (const b of LANE_BUILTIN_FIELDS) if (b.is_admin_only) adminOnly.add(b.key);
+  const leaves = f.items.flatMap((it) => (it.kind === "rule" ? [it] : it.rules));
+  return leaves.filter((r) => r.field !== null && adminOnly.has(r.field)).length;
+}
+
+/** #2337 — "1 filter ignored: you cannot use this field" (the popover line; Reads as prefixes " · "). */
+export function ignoredRulesText(n: number): string {
+  return n === 1 ? "1 filter ignored: you cannot use this field" : `${n} filters ignored: you cannot use these fields`;
 }
 
 // ---------------------------------------------------------------------------
@@ -480,6 +531,8 @@ export function summarizeLaneFilter(
   f: LaneFilter | undefined,
   fields: readonly FieldLike[],
   fmt: LaneValueFormatter,
+  /** #2337 — rules dropped because the viewer cannot use their field (countUnusableLaneRules). */
+  ignoredCount = 0,
 ): LaneFilterSummary {
   const types = typeMap(fields);
   const leaves = (f?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules));
@@ -488,7 +541,8 @@ export function summarizeLaneFilter(
   const chips = laneFilterChipItems(f, fields, fmt);
   const body = chips.length === 0 ? "all lanes shown" : textChain(chips.map((c) => ({ join: c.join, text: c.label })));
   const suffix =
-    incompleteCount === 0 ? "" : ` · ${incompleteCount} incomplete ${incompleteCount === 1 ? "filter" : "filters"} ignored`;
+    (incompleteCount === 0 ? "" : ` · ${incompleteCount} incomplete ${incompleteCount === 1 ? "filter" : "filters"} ignored`) +
+    (ignoredCount > 0 ? ` · ${ignoredRulesText(ignoredCount)}` : "");
   return { readsAs: `Reads as: ${body}${suffix}`, completeCount, incompleteCount };
 }
 
@@ -509,6 +563,5 @@ export function laneRuleCount(f: LaneFilter | undefined): number {
 
 /** Remove a top-level item (a chip dismiss); the next item's join then binds to whatever precedes it. */
 export function removeLaneItem(f: LaneFilter, id: number): LaneFilter | undefined {
-  const items = f.items.filter((it) => it.id !== id);
-  return items.length > 0 ? { items } : undefined;
+  return withLaneItems(f, f.items.filter((it) => it.id !== id));
 }

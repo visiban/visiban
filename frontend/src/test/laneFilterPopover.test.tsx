@@ -474,3 +474,57 @@ describe('LaneFilterPopover — built-in fields (#2336)', () => {
     expect(within(dialog).getByRole('menuitem', { name: 'Lane Name' })).toBeInTheDocument()
   })
 })
+
+describe('Hide lanes with no matching cards (#2214) and ignored rules (#2337)', () => {
+  function Harness2({ initial, cardFilterActive = false, ignored = 0, onState }: { initial?: LaneFilter; cardFilterActive?: boolean; ignored?: number; onState?: (f: FilterState) => void }) {
+    const [filters, setFilters] = useState<FilterState>(initial ? { ...EMPTY_FILTER, laneFilter: initial } : EMPTY_FILTER)
+    return (
+      <FilterBar
+        board={makeBoard()}
+        filters={filters}
+        onChange={(f) => { setFilters(f); onState?.(f) }}
+        cardFilterActive={cardFilterActive}
+        ignoredLaneRuleCount={ignored}
+      />
+    )
+  }
+
+  it('is off and disabled while no card filter or chip is active, with the reason', async () => {
+    const user = userEvent.setup()
+    render(<Harness2 />)
+    const dialog = await openPopover(user)
+    const box = within(dialog).getByRole('checkbox', { name: 'Hide lanes with no matching cards' })
+    expect(box).not.toBeChecked()
+    expect(box).toBeDisabled()
+    expect(box).toHaveAccessibleDescription('While a card filter or Show chip is active.')
+  })
+
+  it('turns on as a setting, not a rule, and survives clearing the rules', async () => {
+    const user = userEvent.setup()
+    const onState = vi.fn()
+    render(<Harness2 cardFilterActive initial={{ items: [rule(1, 1, 'is', { value: 'Priya' })] }} onState={onState} />)
+    const dialog = await openPopover(user)
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Hide lanes with no matching cards' }))
+    expect(onState).toHaveBeenLastCalledWith(expect.objectContaining({ laneFilter: { items: [expect.objectContaining({ id: 1 })], hideUnmatched: true } }))
+    await user.click(within(dialog).getByRole('button', { name: 'Clear lane filters' }))
+    expect(onState.mock.calls.at(-1)?.[0].laneFilter).toEqual({ items: [], hideUnmatched: true })
+    expect(within(dialog).getByRole('checkbox', { name: 'Hide lanes with no matching cards' })).toBeChecked()
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Hide lanes with no matching cards' }))
+    expect(onState.mock.calls.at(-1)?.[0].laneFilter).toBeUndefined()
+  })
+
+  it('says how many rules were ignored, in the popover and in Reads as', async () => {
+    const user = userEvent.setup()
+    render(<Harness2 ignored={2} />)
+    const dialog = await openPopover(user)
+    expect(within(dialog).getByTestId('lane-filter-ignored')).toHaveTextContent('2 filters ignored: you cannot use these fields')
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Reads as: all lanes shown · 2 filters ignored: you cannot use these fields')
+  })
+
+  it('shows no ignored line when nothing was ignored', async () => {
+    const user = userEvent.setup()
+    render(<Harness2 />)
+    const dialog = await openPopover(user)
+    expect(within(dialog).queryByTestId('lane-filter-ignored')).not.toBeInTheDocument()
+  })
+})

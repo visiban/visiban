@@ -757,3 +757,18 @@ describe('SwimlaneRow — focus returns to the rename opener (#2087)', () => {
     expect(screen.getByRole('button', { name: 'Customer A' })).not.toHaveFocus()
   })
 })
+
+describe('SwimlaneRow — no matching cards (#2324)', () => {
+  it('shrinks to its band reading No matching cards, with no cells or strip, expanded or collapsed', () => {
+    const props = defaultProps()
+    const { rerender } = render(<SwimlaneRow {...props} filteredCardIds={new Set()} noMatch />)
+    expect(screen.getByTestId('swimlane-band')).toHaveTextContent('No matching cards')
+    expect(screen.queryByTestId('cell-10-20')).toBeNull()
+    rerender(<SwimlaneRow {...props} filteredCardIds={new Set()} noMatch collapsed />)
+    expect(screen.getByTestId('swimlane-no-match')).toBeInTheDocument()
+    expect(screen.queryByTestId('swimlane-collapsed-strip')).toBeNull()
+    rerender(<SwimlaneRow {...props} />)
+    expect(screen.queryByTestId('swimlane-no-match')).toBeNull()
+    expect(screen.getByTestId('cell-10-20')).toBeInTheDocument()
+  })
+})
