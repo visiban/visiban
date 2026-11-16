@@ -241,7 +241,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     Mark all read
                   </button>
                 </div>
-                <div role="separator" className="mx-3">
+                <div role="separator" className="mx-4">
                   <div className="h-px bg-sunken" />
                   <div className="h-px bg-surface-active/50" />
                 </div>
@@ -252,7 +252,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   {notifications.map((n, i) => (
                     <React.Fragment key={n.id}>
                     {i > 0 && (
-                      <div role="separator" className="mx-3">
+                      <div role="separator" className="mx-4">
                         <div className="h-px bg-sunken" />
                         <div className="h-px bg-surface-active/50" />
                       </div>

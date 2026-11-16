@@ -324,7 +324,10 @@ describe('Navbar — notification dropdown separators (#487)', () => {
     const first = await screen.findByText('first thing')
     const panel = first.closest('div.absolute') as HTMLElement
     // one after the header, one between the two rows (none before the first row or after the last)
-    expect(within(panel).getAllByRole('separator')).toHaveLength(2)
+    const separators = within(panel).getAllByRole('separator')
+    expect(separators).toHaveLength(2)
+    // Same inset as every other dropdown's separators (frontend/CLAUDE.md § Separators).
+    for (const sep of separators) expect(sep).toHaveClass('mx-4')
     expect(panel.querySelectorAll('button.border-b')).toHaveLength(0)
     expect(panel.querySelector('.border-b')).toBeNull()
   })

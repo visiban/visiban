@@ -4,6 +4,7 @@ import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, PublicColumn, PublicSwimlane, Label } from "../types";
 import { colorForPriority } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
+import Spinner from "../components/Common/Spinner";
 import { colorChipStyle } from "../utils/colorContrast";
 
 // ---------------------------------------------------------------------------
@@ -203,7 +204,7 @@ export default function ShareBoardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-primary-emphasis border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+        <Spinner size="lg" />
       </div>
     );
   }
