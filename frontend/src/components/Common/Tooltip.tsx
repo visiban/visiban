@@ -9,9 +9,11 @@ interface Props {
   children: AnyElement;
   position?: "top" | "bottom";
   delay?: number;
+  /** Suppress the tooltip (and hide one already showing), e.g. while the trigger's own popover is open. */
+  disabled?: boolean;
 }
 
-export default function Tooltip({ content, children, position = "bottom", delay = 300 }: Props) {
+export default function Tooltip({ content, children, position = "bottom", delay = 300, disabled = false }: Props) {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -27,7 +29,15 @@ export default function Tooltip({ content, children, position = "bottom", delay 
     };
   }, []);
 
+  useEffect(() => {
+    if (!disabled) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setVisible(false);
+  }, [disabled]);
+
   const show = () => {
+    if (disabled) return;
     timerRef.current = setTimeout(() => {
       if (!triggerRef.current) return;
       const r = triggerRef.current.getBoundingClientRect();
@@ -70,7 +80,7 @@ export default function Tooltip({ content, children, position = "bottom", delay 
   return (
     <>
       {child}
-      {visible && coords && createPortal(
+      {visible && !disabled && coords && createPortal(
         <div
           id={id}
           role="tooltip"

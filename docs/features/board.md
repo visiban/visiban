@@ -33,6 +33,8 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 - Column headers are sticky on horizontal scroll.
 - Column headers stay visible when the board scrolls vertically, and the grid scrolls sideways inside its own box when the window is narrow.
+- Columns share the board's width, with 8 px between them, and the header row, every swimlane and every collapsed swimlane use the same column grid, so columns line up in every row. Below 1240 px of board width, or once a column would get narrower than 160 px (on a board with many columns, or after one column is widened far past the rest), the grid scrolls sideways inside its own box; the page never scrolls sideways. A board nobody has resized splits its width equally; drag a column separator to resize the column to its left (its edge follows the pointer), and the column keeps that width relative to the others (a column dragged to twice the default width stays twice as wide as a default one at any window width). Column widths persist per board in localStorage. *Changed in 1.3 (#2300).*
+- On a board wider than the window, each swimlane's header band stays pinned to the left edge while the grid scrolls sideways, so the lane name, its fields and its counts at the right stay in view. *Changed in 1.3 (#2305).*
 - Each column header is a panel tinted with the column color: color dot, name (it wraps rather than truncating), an add-card button, a thin WIP meter and a count line. With no limit the line reads `2 cards` and there is no meter; under a limit it reads `2 / 4` with the meter in the column color; at the limit `4 / 4` with a full meter; over the limit `8 / 6 over` in warning text with a full warning-colored meter. A weight budget that is exceeded adds `Weight 14/10` to the same line. *Changed in 1.3 (#2270).*
 - When enforcement is enabled, moves into a full column are blocked (`409` error); board admins can override with `?force=true` (soft) or are denied entirely under hard mode.
 
@@ -40,11 +42,13 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 > **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
 
-An empty cell shows one quiet **+**; the whole cell is the add target. On hover or keyboard focus it gains a dashed edge and the label **Add card**. Its accessible name is `Add card to {column} in {swimlane}`. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.
+An empty cell shows one quiet **+**; the whole cell is the add target. A populated cell's blank space below the cards is the add target too (see below). On hover or keyboard focus it gains a dashed edge and the label **Add card**. The empty cell's accessible name is `Add card to {column} in {swimlane}`; the populated cell's button is named `+ Add card`. A lane is as tall as its tallest cell, so one tall cell does not stretch the cards in the others.
 
 - Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
-- A populated cell keeps the **+ Add card** button anchored at the bottom for additional cards. The add-card button in a column header opens the new-card input in that column's first visible lane.
+- In a populated cell, the **+ Add card** button fills the blank space below the cards, so clicking anywhere in that space adds a card. On hover or keyboard focus it shows a dashed edge and the label **Add card**; it is hidden during a card drag. The **+** button in a column header adds to that column: on a board with one visible swimlane it opens the new-card input directly; with several it opens an **Add card to which swimlane?** menu listing every visible swimlane in board order (swimlanes you hid or a lane filter removed are not offered), and picking one opens the input in that swimlane's cell. A collapsed swimlane is listed as "(collapsed)" and is expanded when you pick it. Escape closes the menu and returns focus to the **+**.
 - Double-click and right-click on a cell still work for power users. Since 1.3 a right-click **on a card** opens that card's [actions menu](#card-actions-menu) instead; right-click the empty space in the cell to add a card.
+
+> **Changed in 1.3 (#2319)** — the **+ Add card** button in a populated cell used to be a small strip at the bottom; it now fills the blank space below the cards.
 
 Card creation requires the column's *Allow card creation* setting and at least the Member role.
 
@@ -61,6 +65,7 @@ The band wraps onto a second line when it runs out of room. The old left label p
 
 **Resizing:**
 
+- **Column width:** drag the separator to the right of a column header (or the same separator in any swimlane row). Width persists per column per board in localStorage. Hidden and collapsed columns keep their narrow stub and are not resized.
 - **Row height:** drag the bottom edge of any swimlane row to set a minimum height. Height persists per swimlane per board in localStorage.
 
 Each swimlane has the following fields:
@@ -87,7 +92,7 @@ Click the chevron on the band to collapse a swimlane and save vertical space. Wh
 - While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).
 - A calm row-limit line is hidden, and an over-limit one stays.
 - The edit (✎) button, drag handle and focus-mode crosshair remain.
-- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's **View** menu (**Collapse all** and **Expand all** under swimlanes).
+- Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. **Collapse all** and **Expand all** for swimlanes live in the toolbar's **View** menu (**Collapse all** and **Expand all** under swimlanes), and the **Show** row has a matching [**Collapse all lanes** button](#show-chips).
 
 Admins can double-click the swimlane band to open the Edit Swimlane modal.
 
@@ -177,9 +182,9 @@ Columns represent pipeline stages. Each column has:
 
 ### Adding columns and swimlanes
 
-The 16 px separators between columns and between swimlane rows are interactive insertion handles:
+The separators between columns (8 px, 16 px at the board's outer edges) and between swimlane rows (16 px) are interactive insertion handles:
 
-- **Column separators** (vertical, between columns): hover to see a centered **+**; click to insert a new column to the right; drag left/right to resize the column to the left.
+- **Column separators** (vertical, between columns): hover to see a centered **+**; click to insert a new column to the right; drag left/right to resize the column to its left. Since 1.3 (#2300) a drag sets the column's share of the board's width, so the header and every swimlane row move together.
 - **Row separators** (horizontal, between swimlane rows): hover to see a **+** at each column's center; click to insert a new swimlane below; drag up/down to resize the swimlane above.
 
 Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator: the column highlight extends through every row separator, and the row highlight extends across the full board width.
@@ -253,19 +258,19 @@ Cards are calm so the urgent ones stand out. The bold title is the text before `
 
 > **Added in 1.1** — replaces the previous per-user *hide field* toggles (Labels / Due date / Assignee / Priority badge / Last moved).
 
-A board admin chooses one of three layouts in **Board Settings → Display → Card density**:
+A board admin chooses one of three layouts in **Board Settings → Display → Card density**. Density does not change the swimlane band, which shows the first two lane fields at every tier (since 1.3, #2303):
 
-| Tier | Best for | What appears on the card face | Pinned swimlane values per row (no effect on the swimlane band since 1.3, #2303) |
-|---|---|---|---|
-| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar | 3 |
-| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count | 5 |
-| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout) | 8 |
+| Tier | Best for | What appears on the card face |
+|---|---|---|
+| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar |
+| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count |
+| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout) |
 
 **Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under **Classic** or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.
 
 ### Show chips
 
-A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row.
+A **Show** row above the column headers has four chips: **All cards**, **Overdue**, **Stale** and **Due soon**, each with the number of cards on the whole board. Click one to hide every card that does not match, in every swimlane and sub-column. The colored squares on a collapsed swimlane use the same colors as the chip swatches. The active chip is shown by bolder text and a blue border, not by color alone. A chip is a quick view rather than a saved filter: it is kept in the page address (`?show=overdue`, `?show=stale` or `?show=due_soon`) so you can share it, it is not remembered between visits, and it combines with the Filter panel. The Show row also appears under the Classic preset. Column counts, WIP meters and lane counts keep counting the whole column or lane. The board totals (swimlanes, columns and cards) are shown at the right of the row. A **Collapse all lanes** button in the same row mirrors the **View** menu's **Collapse all** and **Expand all** items for swimlanes; its label changes to **Expand all lanes** when every lane is collapsed. <span class="vb-version" title="Added in 1.3">1.3+</span>
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
@@ -279,9 +284,23 @@ Any board member, not just admins, can flip **Use my own density** in **Board Se
 
 Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 
+### Card peek sheet
+
+*New in 1.3 (#2273).* Click a card, or focus it and press **Enter** or **Space**, to open its **peek sheet**: a 400 px read-only sheet over the right side of the board. It floats over the grid and never resizes it. At 640 px and narrower it fills the screen. Top to bottom it shows:
+
+- the swimlane name and a **Close** button, then the title and a short description;
+- a banner when the card is overdue (**Was due Nov 12**) or stale (**No movement for 39 days**);
+- **Status**: the previous stage, the current stage (marked, with a border and bold text, not color alone) and the next stage;
+- **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved, and, when the board has custom fields, a note such as **2 of 8 pinned to the card**;
+- **Time in each column**: one segmented bar and a list of days per column, with the current column in bold. A column the card visited twice is added up;
+- **History**: the card's moves, newest first, each with a relative time (**39 d ago**) and the exact date and time on hover;
+- **Open card** (opens the full [detail panel](#card-detail-panel)) and **Move** (a column and swimlane picker; shown to people who can edit the card).
+
+The open card is marked on the board with the same ring as the detail panel. Click another card to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card still switches the panel instead of peeking. Opening a card from a link, the command palette or a relation opens the detail panel directly.
+
 ### Card detail panel
 
-Click a card to open its **detail panel**. Where it opens depends on the window width. *Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.*
+Click **Open card** in the peek sheet to open its **detail panel**. Where it opens depends on the window width. *Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.*
 
 - **1280 px and wider:** the panel opens next to the card's column, to its right if there is room, otherwise to its left. A small tail on the panel's outer edge points at the card (the panel gets a thin blue outline), and the card gets a thick blue border and ring while it is open. The board is not dimmed. If neither side has room (the panel never covers the swimlane names), the card's column is scrolled off to the side, or the card isn't on the board (for example, it is filtered out or its swimlane is collapsed), the panel opens at the right edge instead. A card scrolled out of view up or down keeps the panel next to its column; the tail then becomes a wedge near the panel's top or bottom corner, pointing up or down toward the card.
 - **641 to 1279 px:** the panel opens at the right edge of the window, over a lightly dimmed board.
@@ -326,7 +345,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open the full detail panel.
+Hover over a card for 600 ms to open a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside it; click the card to open the [peek sheet](#card-peek-sheet), then **Open card** for the full detail panel.
 
 - The peek is not shown on any card while the card detail panel is open, so it never covers the fields you are editing. Closing the panel does not bring a peek back; hover a card again to see it.
 - The 600 ms delay means casual scrolling and rapid drag-and-drop do not trigger the popover unintentionally.
@@ -349,7 +368,7 @@ A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
 ### Board panning
 
-Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.
+Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens its [peek sheet](#card-peek-sheet) instead of panning; Space anywhere else pans.
 
 ## Bulk card operations
 
@@ -451,7 +470,7 @@ Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`
 The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:
 
 - **View tabs** (Board / Summary / History / Analytics)
-- **Filter** button (also `f`)
+- **Filter** button, which opens the [Filter panel](#filter-panel) (press `f` to toggle the filter bar instead)
 - **View** button, which opens the View menu
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
@@ -471,9 +490,20 @@ The **Card layout** control in the toolbar's **View** menu switches between two 
 
 The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.
 
+## Filter panel
+
+The toolbar's **Filter** button opens a panel with:
+
+- A **Find a field** box (focused on open) that narrows the rows below it by name.
+- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when you can see swimlane fields) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
+- Your **saved filters**. Click one to load it and close the panel. Saving and deleting stay in the filter bar.
+- A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
+
+The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other, in the URL and in saved filters. Pressing `f` still toggles the filter bar, not the panel.
+
 ## Filtering
 
-Click **Filter** in the toolbar (or press `f`) to open the filter bar. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
+Click **Filter** in the toolbar to open the [Filter panel](#filter-panel), then choose **Show filter bar** in its footer to open the full filter bar. Press `f` to toggle the filter bar directly. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
 
 | Filter | Options |
 |---|---|

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { END_OF_LINE, routeAuth, routeBoard } from './helpers'
+import { openCardSheet, END_OF_LINE, routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
 /**
@@ -34,7 +34,7 @@ test.describe('card description caret', () => {
   test('typing at the end of the description keeps the caret visible in the card panel', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await dialog.getByText(CARD.description).click()

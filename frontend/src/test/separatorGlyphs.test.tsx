@@ -29,11 +29,25 @@ describe('separator hover glyphs are aria-hidden (#2012)', () => {
 
   it('RowSeparator "+" glyphs are aria-hidden when hovered', () => {
     const { container, queryAllByText } = render(
-      <RowSeparator isAdmin onInsert={() => {}} colCenterXs={[10, 50]} />,
+      <RowSeparator isAdmin onInsert={() => {}} gridTemplate="16px minmax(0, 1fr) 8px minmax(0, 1fr) 16px" columnCount={2} />,
     )
     fireEvent.mouseEnter(container.firstElementChild as HTMLElement)
     const glyphs = queryAllByText('+')
     expect(glyphs).toHaveLength(2)
     glyphs.forEach((g) => expect(g).toHaveAttribute('aria-hidden', 'true'))
+  })
+
+  it('RowSeparator continues the hovered column strip on the shared grid (#2300)', () => {
+    const { getByTestId } = render(
+      <RowSeparator isAdmin={false} onInsert={() => {}} gridTemplate="16px minmax(0, 1fr) 8px minmax(0, 1fr) 16px" columnCount={2} hoveredSepIndex={1} />,
+    )
+    // Separator 1 sits on grid line 3, between the two columns.
+    expect(getByTestId('row-separator-column-strip').style.gridColumn).toMatch(/^3/)
+  })
+
+  it('RowSeparator renders no overlay without a grid template', () => {
+    const { container, queryAllByText } = render(<RowSeparator isAdmin onInsert={() => {}} hoveredSepIndex={1} />)
+    fireEvent.mouseEnter(container.firstElementChild as HTMLElement)
+    expect(queryAllByText('+')).toHaveLength(0)
   })
 })

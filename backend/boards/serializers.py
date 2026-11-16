@@ -2079,7 +2079,8 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
     and changed only through ``reorder``, ``choices_json`` exposed as
     ``choices`` — so that the two field editors behave identically and a reader
     of one understands the other. The differences are the pin column
-    (``show_on_row``, capped at 3 rather than 2) and ``is_admin_only``.
+    (``show_on_row``, capped at 8 rather than 2; a legacy flag with no effect
+    on the board since 1.3, kept for the API contract) and ``is_admin_only``.
     """
 
     choices = ChoicesField(source="choices_json", required=False)

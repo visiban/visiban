@@ -2441,8 +2441,8 @@ same board.
 
 Definition objects include a `uid` field — stable across renames, read-only.
 
-**Limits:** at most **15** definitions per board, and at most **3** with `show_on_row:
-true`. These caps are deliberately different from the card-level field's 30/2 — see the
+**Limits:** at most **15** definitions per board, and at most **8** with `show_on_row:
+true` (the flag has no effect on the board since 1.3). These caps are deliberately different from the card-level field's 30/2 — see the
 model docstring for the reasoning; do not assume they track each other.
 
 | Field | Type | Read-only | Description |
@@ -2453,7 +2453,7 @@ model docstring for the reasoning; do not assume they track each other.
 | `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)), `"multi_select"` (see [Multi-select fields](#multi-select-fields)). Immutable once any swimlane holds a value for this definition — see **Errors** below. |
 | `choices` | string[] | no | Permitted values; required, non-empty (at most 100, unique) for `"dropdown"` and `"multi_select"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
-| `show_on_row` | boolean | no | Pin the value to the swimlane row header. Max 3 per board |
+| `show_on_row` | boolean | no | Legacy pin flag; no effect on the board since 1.3 (the swimlane band shows fields by order). Max 8 per board |
 | `is_admin_only` | boolean | no | When `true` (the default), this field's **values** are served only to `admin` and `site_admin` role members and are omitted entirely from share-link payloads. Does not affect who can read the *definition* — see [Swimlanes](#swimlanes) for the values visibility rule. |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
 | `help_text` | string | no | Hint shown next to the input |

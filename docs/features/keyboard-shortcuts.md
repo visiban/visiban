@@ -53,7 +53,7 @@ View-tab shortcuts fire only on a board route (`/boards/<id>`). They write to th
 |---|---|
 | <kbd>↑</kbd> / <kbd>↓</kbd> | Move between rows (only while focus is on the table; they do nothing in the filter controls or the detail panel) |
 | <kbd>Enter</kbd> | Open the detail panel for the focused row |
-| <kbd>Esc</kbd> | Close an open filter menu, then the detail panel, then return to the board, one level per press |
+| <kbd>Esc</kbd> | Close an open filter menu or the Filter panel, then the detail panel, then return to the board, one level per press |
 
 The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focus to the row that opened it, so <kbd>Enter</kbd> reopens it.
 
@@ -70,7 +70,7 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 | <kbd>⌘⇧E</kbd> / <kbd>Ctrl+Shift+E</kbd> | Export the board (if your role meets the board's [export threshold](permissions.md#permission-matrix)) |
 | <kbd>.</kbd> | Open the overflow menu |
 | <kbd>Menu</kbd> / <kbd>Shift+F10</kbd> | Open the focused card's [actions menu](board.md#card-actions-menu) |
-| <kbd>Space + drag</kbd> | Pan the board with the mouse |
+| <kbd>Space + drag</kbd> | Pan the board with the mouse (Space on a focused card opens its peek instead; Space anywhere else pans) |
 | <kbd>Tab</kbd> | Move between filter chips; <kbd>Delete</kbd> or <kbd>Backspace</kbd> to remove |
 
 - **`E`** toggles all columns and all swimlanes together: if everything is expanded, it collapses both; otherwise it expands both. The **View** menu shows the key on its **Swimlanes** (**Collapse all** / **Expand all**) and **Columns** (**Hide all** / **Show all**) groups, which act on each set separately.

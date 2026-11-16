@@ -390,7 +390,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
 describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   it('shows the swimlane caps, not the card caps', () => {
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} />)
-    expect(screen.getByText('1 of 15 · 1 of 8 pinned')).toBeInTheDocument()
+    expect(screen.getByText('1 of 15')).toBeInTheDocument()
   })
 
   it('warns when every field is admin-only, since members then see nothing', () => {
@@ -536,17 +536,19 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.getByText('2 fields left on this board.')).toBeInTheDocument()
   })
 
-  it('names the swimlane row, not the card face, in the pin swap prompt', async () => {
-    const user = userEvent.setup()
+  // #2303: the band shows the first two fields by position, so the pin flag changes
+  // nothing and the tab offers no pin control, count, swap prompt or editor toggle.
+  it('offers no pin control, pin count or swap prompt, even with 8 pinned fields (#2303)', () => {
     const defs = [
       ...Array.from({ length: 8 }, (_, i) =>
         makeDef({ id: i + 1, uid: `sfuid00000${i + 1}`.padEnd(12, '0'), name: `F${i + 1}`, position: i, show_on_row: true })),
       makeDef({ id: 9, uid: 'sfuid0000009', name: 'D', position: 8, show_on_row: false }),
     ]
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: /Pin D to swimlane row/ }))
-    expect(screen.getByText('The row header shows 8 fields.')).toBeInTheDocument()
-    expect(screen.getByText(/still visible in the row's field list/)).toBeInTheDocument()
+    expect(screen.getByText('9 of 15')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull()
+    expect(screen.queryByText(/pinned/i)).toBeNull()
+    expect(screen.queryByText(/The row header shows/)).toBeNull()
   })
 
   it('says values are stored on swimlanes in the delete confirmation', async () => {
@@ -650,11 +652,11 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
   const NAME = 'e.g. Account owner'
 
   describe('read-only view for a non-admin', () => {
-    it('lists the fields with type, lock and pin markers but no edit controls', () => {
+    it('lists the fields with type and lock markers, no pin marker and no edit controls (#2303)', () => {
       renderTab([makeDef({ name: 'Owner', is_admin_only: true, show_on_row: true })], vi.fn(), false)
       expect(screen.getByText('Only board admins can add or edit swimlane fields.')).toBeInTheDocument()
       expect(screen.getByText('Owner')).toBeInTheDocument()
-      expect(screen.getByText('Pinned')).toBeInTheDocument()
+      expect(screen.queryByText('Pinned')).not.toBeInTheDocument()
       expect(screen.getByText('Locked fields store values only board admins can see.')).toBeInTheDocument()
       expect(screen.queryByTitle('Edit Owner')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: '+ Add field' })).not.toBeInTheDocument()
@@ -725,12 +727,10 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       expect(screen.getByText('Region')).toBeInTheDocument()
     })
 
-    it('builds a dropdown from typed, pasted and removed choices, with help text, public and pinned', async () => {
+    it('builds a dropdown from typed, pasted and removed choices, with help text and public', async () => {
       const user = userEvent.setup()
       const created = makeDef({ id: 7, name: 'Region', field_type: 'dropdown', show_on_row: false })
-      const pinned = { ...created, show_on_row: true }
       mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(created)
-      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(pinned)
       const onFieldsUpdated = renderTab([])
       await user.click(screen.getByRole('button', { name: '+ Add field' }))
       await user.type(screen.getByPlaceholderText(NAME), 'Region')
@@ -755,16 +755,17 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
 
       await user.click(screen.getByText('Admin only'))
       expect(screen.getByText(/Everyone on this board will see/)).toBeInTheDocument()
-      await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
+      // #2303: the editor has no pin toggle.
+      expect(screen.queryByRole('switch', { name: 'Pin to swimlane row' })).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Save field' }))
-      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([pinned]))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([created]))
       expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, {
         name: 'Region', field_type: 'dropdown', choices: ['APAC', 'AMER'], choice_colors: {},
         help_text: 'Sales region', is_admin_only: false,
       })
-      // Pinning is a second call: the create endpoint does not take show_on_row.
-      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_row: true })
+      // No follow-up pin call (#2303).
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
     })
 
     describe('pasting a list after removing every original choice (#2192)', () => {
@@ -949,240 +950,29 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
     })
   })
 
-  describe('pinning', () => {
-    it('pins a field under the cap', async () => {
-      const user = userEvent.setup()
-      const pinned = { ...defA, show_on_row: true }
-      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(pinned)
-      const onFieldsUpdated = renderTab([defA, defB])
-      await user.click(screen.getByRole('button', { name: 'Pin A to swimlane row' }))
-      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([pinned, defB]))
-      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_row: true })
-    })
-
-    it('unpins a pinned field', async () => {
+  // #2303: the pin flag no longer controls the band, so nothing in the tab sends it.
+  // A saved pin is left as it was (the field stays in the API, 1.0 contract).
+  describe('the retired pin flag (#2303)', () => {
+    it('saving an existing pinned field never sends show_on_row', async () => {
       const user = userEvent.setup()
       const pinnedA = { ...defA, show_on_row: true }
-      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(defA)
-      const onFieldsUpdated = renderTab([pinnedA])
-      await user.click(screen.getByRole('button', { name: 'Unpin A from swimlane row' }))
-      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defA]))
-      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_row: false })
-    })
-
-    // #2193: saving an existing field from the editor sends a changed pin toggle.
-    it('pins an existing field from the editor', async () => {
-      const user = userEvent.setup()
-      mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
-        (_b: number, id: number, patch: Partial<SwimlaneCustomFieldDefinition>) =>
-          Promise.resolve({ ...[defA, defB].find((d) => d.id === id)!, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) })
-      )
-      renderTab([defA, defB])
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue({ ...pinnedA, name: 'A2' })
+      const onFieldsUpdated = renderTab([pinnedA, defB])
       await user.click(screen.getByTitle('Edit A'))
-      await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
+      expect(screen.queryByRole('switch', { name: 'Pin to swimlane row' })).not.toBeInTheDocument()
+      const name = screen.getByDisplayValue('A')
+      await user.clear(name)
+      await user.type(name, 'A2')
       await user.click(screen.getByRole('button', { name: 'Save field' }))
-      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
-        1, 1, expect.objectContaining({ show_on_row: true })))
-      expect(await screen.findByRole('button', { name: 'Unpin A from swimlane row' })).toBeInTheDocument()
-    })
-
-    it('unpins an existing pinned field from the editor', async () => {
-      const user = userEvent.setup()
-      const pinnedA = { ...defA, show_on_row: true }
-      mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
-        (_b: number, _id: number, patch: Partial<SwimlaneCustomFieldDefinition>) =>
-          Promise.resolve({ ...pinnedA, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) })
-      )
-      renderTab([pinnedA])
-      await user.click(screen.getByTitle('Edit A'))
-      await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
-      await user.click(screen.getByRole('button', { name: 'Save field' }))
-      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(
-        1, 1, expect.objectContaining({ show_on_row: false })))
-      expect(await screen.findByRole('button', { name: 'Pin A to swimlane row' })).toBeInTheDocument()
-    })
-
-    it('leaves the row pin alone when the editor toggle was not touched', async () => {
-      const user = userEvent.setup()
-      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(defA)
-      renderTab([defA])
-      await user.click(screen.getByTitle('Edit A'))
-      await user.click(screen.getByRole('button', { name: 'Save field' }))
-      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalled())
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalled())
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(1)
       expect(mockApi.updateSwimlaneCustomFieldDefinition.mock.calls[0][2]).not.toHaveProperty('show_on_row')
+      expect(mockApi.updateSwimlaneCustomFieldDefinition.mock.calls[0][2]).toMatchObject({ name: 'A2' })
     })
 
-    it('rolls the optimistic pin back when the save fails', async () => {
-      const user = userEvent.setup()
-      mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
-      const onFieldsUpdated = renderTab([defA])
-      await user.click(screen.getByRole('button', { name: 'Pin A to swimlane row' }))
-      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalled())
-      expect(await screen.findByRole('button', { name: 'Pin A to swimlane row' })).toBeInTheDocument()
-      expect(onFieldsUpdated).not.toHaveBeenCalled()
-    })
-
-    describe('at the pin cap', () => {
-      // Eight pinned fields is the cap (SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD).
-      const pinnedDefs = Array.from({ length: 8 }, (_, i) =>
-        makeDef({ id: i + 1, uid: `sfuid00000${i + 1}`.padEnd(12, '0'), name: `P${i + 1}`, position: i, show_on_row: true }))
-      const p2 = pinnedDefs[1]
-      const extra = makeDef({ id: 9, uid: 'sfuid0000009', name: 'Extra', position: 8, show_on_row: false })
-
-      it('swaps: unpins the chosen field and pins the new one together', async () => {
-        const user = userEvent.setup()
-        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
-          (_b: number, id: number, patch: { show_on_row: boolean }) =>
-            Promise.resolve({ ...[...pinnedDefs, extra].find((d) => d.id === id)!, ...patch })
-        )
-        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalled())
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 2, { show_on_row: false })
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 9, { show_on_row: true })
-        const next = onFieldsUpdated.mock.calls[0][0] as SwimlaneCustomFieldDefinition[]
-        expect(next.map((d) => [d.name, d.show_on_row])).toEqual([
-          ...pinnedDefs.map((d) => [d.name, d.name !== 'P2']),
-          ['Extra', true],
-        ])
-        expect(screen.queryByText('The row header shows 8 fields.')).not.toBeInTheDocument()
-      })
-
-      it('dismisses the prompt on Cancel without changing anything', async () => {
-        const user = userEvent.setup()
-        renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: 'Cancel' }))
-        expect(screen.queryByText('The row header shows 8 fields.')).not.toBeInTheDocument()
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
-      })
-
-      // #2193: the editor's pin toggle was dropped when saving an existing field.
-      it('the editor pin toggle, at the cap, saves without the pin and opens the swap prompt', async () => {
-        const user = userEvent.setup()
-        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
-          (_b: number, id: number, patch: Partial<SwimlaneCustomFieldDefinition>) =>
-            Promise.resolve({ ...[...pinnedDefs, extra].find((d) => d.id === id)!, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) })
-        )
-        renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByTitle('Edit Extra'))
-        await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: 'Save field' }))
-        expect(await screen.findByText('The row header shows 8 fields.')).toBeInTheDocument()
-        expect(mockApi.updateSwimlaneCustomFieldDefinition.mock.calls[0][2]).not.toHaveProperty('show_on_row')
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        await waitFor(() => {
-          expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 2, { show_on_row: false })
-          expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 9, { show_on_row: true })
-        })
-      })
-
-      it('a new field asking to be pinned opens the swap prompt instead of a refused pin', async () => {
-        const user = userEvent.setup()
-        const created = makeDef({ id: 10, uid: 'sfuid0000010', name: 'Fresh', position: 9, show_on_row: false })
-        mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(created)
-        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: '+ Add field' }))
-        await user.type(screen.getByPlaceholderText(NAME), 'Fresh')
-        await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: 'Save field' }))
-        await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([...pinnedDefs, extra, created]))
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
-        expect(await screen.findByText('The row header shows 8 fields.')).toBeInTheDocument()
-      })
-
-      it('sends the unpin first and the pin only after the unpin resolves', async () => {
-        const user = userEvent.setup()
-        let resolveUnpin!: (v: SwimlaneCustomFieldDefinition) => void
-        mockApi.updateSwimlaneCustomFieldDefinition
-          .mockImplementationOnce(() => new Promise((r) => { resolveUnpin = r }))
-          .mockImplementationOnce(() => Promise.resolve({ ...extra, show_on_row: true }))
-        renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(1))
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenLastCalledWith(1, 2, { show_on_row: false })
-        resolveUnpin({ ...p2, show_on_row: false })
-        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(2))
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenLastCalledWith(1, 9, { show_on_row: true })
-      })
-
-      it('re-syncs from the server and shows an error when the pin fails after the unpin succeeded', async () => {
-        const user = userEvent.setup()
-        const serverState = [...pinnedDefs.map((d) => (d.id === 2 ? { ...d, show_on_row: false } : d)), extra]
-        mockApi.updateSwimlaneCustomFieldDefinition
-          .mockResolvedValueOnce({ ...p2, show_on_row: false })
-          .mockRejectedValueOnce(new Error('boom'))
-        mockApi.listSwimlaneCustomFieldDefinitions.mockResolvedValue(serverState)
-        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        expect(await screen.findByRole('alert')).toHaveTextContent(/Couldn't finish replacing the pinned field/)
-        expect(mockApi.listSwimlaneCustomFieldDefinitions).toHaveBeenCalledWith(1)
-        expect(onFieldsUpdated).toHaveBeenCalledWith(serverState)
-        expect(screen.getAllByRole('button', { name: /^Unpin / })).toHaveLength(7)
-        expect(screen.getByRole('button', { name: 'Pin P2 to swimlane row' })).toBeInTheDocument()
-      })
-
-      it('keeps only the confirmed unpin when the re-sync itself fails', async () => {
-        const user = userEvent.setup()
-        const unpinned = { ...p2, show_on_row: false }
-        mockApi.updateSwimlaneCustomFieldDefinition
-          .mockResolvedValueOnce(unpinned)
-          .mockRejectedValueOnce(new Error('boom'))
-        mockApi.listSwimlaneCustomFieldDefinitions.mockRejectedValue(new Error('offline'))
-        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        expect(await screen.findByRole('alert')).toBeInTheDocument()
-        await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledTimes(1))
-        expect(onFieldsUpdated).toHaveBeenCalledWith([...pinnedDefs.map((d) => (d.id === 2 ? unpinned : d)), extra])
-      })
-
-      it('never sends the pin and shows an alert when the unpin itself fails', async () => {
-        const user = userEvent.setup()
-        mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValueOnce(new Error('500'))
-        mockApi.listSwimlaneCustomFieldDefinitions.mockResolvedValue([...pinnedDefs, extra])
-        renderTab([...pinnedDefs, extra])
-        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
-        expect(await screen.findByRole('alert')).toBeInTheDocument()
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(1)
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 2, { show_on_row: false })
-      })
-    })
-
-    describe('refused pins on the other paths (#2193)', () => {
-      it('the row Pin button shows an alert and re-syncs when the server refuses', async () => {
-        const user = userEvent.setup()
-        mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('400'))
-        mockApi.listSwimlaneCustomFieldDefinitions.mockResolvedValue([defA, defB])
-        renderTab([defA, defB])
-        await user.click(screen.getByRole('button', { name: 'Pin A to swimlane row' }))
-        expect(await screen.findByRole('alert')).toHaveTextContent(/Couldn't change that pin/)
-        expect(mockApi.listSwimlaneCustomFieldDefinitions).toHaveBeenCalledWith(1)
-        expect(screen.getByRole('button', { name: 'Pin A to swimlane row' })).toBeInTheDocument()
-      })
-
-      it('a created field stays in the list, is not re-created, and an alert shows when its follow-up pin is refused', async () => {
-        const user = userEvent.setup()
-        const created = makeDef({ id: 10, uid: 'sfuid0000010', name: 'Fresh', position: 2, show_on_row: false })
-        mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(created)
-        mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('400'))
-        mockApi.listSwimlaneCustomFieldDefinitions.mockResolvedValue([defA, defB, created])
-        const onFieldsUpdated = renderTab([defA, defB])
-        await user.click(screen.getByRole('button', { name: '+ Add field' }))
-        await user.type(screen.getByPlaceholderText(NAME), 'Fresh')
-        await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
-        await user.click(screen.getByRole('button', { name: 'Save field' }))
-        expect(await screen.findByRole('alert')).toHaveTextContent(/Couldn't change that pin/)
-        expect(mockApi.listSwimlaneCustomFieldDefinitions).toHaveBeenCalledWith(1)
-        expect(onFieldsUpdated).toHaveBeenLastCalledWith([defA, defB, created])
-        expect(screen.getByRole('button', { name: 'Pin Fresh to swimlane row' })).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Save field' })).not.toBeInTheDocument()
-        expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(1)
-      })
+    it('has no row Pin button for a pinned or unpinned field', () => {
+      renderTab([{ ...defA, show_on_row: true }, defB])
+      expect(screen.queryByRole('button', { name: /Pin A|Unpin A|Pin B/ })).toBeNull()
     })
   })
 

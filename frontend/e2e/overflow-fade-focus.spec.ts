@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { routeAuth, routeBoard } from './helpers'
+import { openCardSheet, routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_LIST_ITEM, BOARD_USER, CARD, SWIMLANE } from './fixtures/board'
 
 // #2180 — the overflow fades are absolute layers over the bottom (and top) of
@@ -119,7 +119,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     await page.locator('#card-detail-title').focus()
     for (let i = 0; i < 12; i++) {
@@ -197,6 +197,8 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText('Card 0').first()).toBeVisible({ timeout: 10_000 })
     await page.getByRole('button', { name: /^filters/i }).click()
+    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
+    await page.getByRole('button', { name: /show filter bar/i }).click()
     await page.getByRole('button', { name: /\+ filter/i }).click()
     await page.getByRole('checkbox', { name: /assignee/i }).check()
     await page.keyboard.press('Escape')
@@ -238,7 +240,7 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     // The Custom fields section starts collapsed when no field has a value.
     await page.getByRole('button', { name: /Custom fields/ }).click()

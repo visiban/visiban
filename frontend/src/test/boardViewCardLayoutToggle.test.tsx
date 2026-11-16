@@ -306,12 +306,20 @@ describe('BoardView — card layout control (View menu)', () => {
   it('toolbar toggles that keep a pressed state expose aria-pressed', async () => {
     render(<BoardView />)
     const user = userEvent.setup()
-    for (const [before, after] of [['Open activity drawer', 'Close activity drawer'], ['Filters', 'Filters']]) {
+    for (const [before, after] of [['Open activity drawer', 'Close activity drawer']]) {
       const btn = screen.getByRole('button', { name: before })
       expect(btn).toHaveAttribute('aria-pressed', 'false')
       await user.click(btn)
       expect(screen.getAllByRole('button', { name: after }).some((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true)
     }
+  })
+
+  it('the Filter button reports its panel with aria-expanded', async () => {
+    render(<BoardView />)
+    const btn = screen.getByRole('button', { name: 'Filters' })
+    expect(btn).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.setup().click(btn)
+    expect(btn).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('Escape closes the View menu and returns focus to its button', async () => {

@@ -5,6 +5,8 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
 
+const PANEL_MIN_WIDTH = 240;
+
 export interface OverflowItem {
   /** Stable identity (used for key + for test hooks). */
   id: string;
@@ -51,6 +53,21 @@ interface OverflowMenuProps {
    * by default so other callers render no attribute (#2083).
    */
   triggerDescribedBy?: string;
+  /**
+   * Replaces the kebab dots inside the trigger (for example a "+"). Callers that
+   * pass it also pass `triggerClassName` and `triggerAriaLabel`; the open-state
+   * `aria-haspopup`/`aria-expanded` wiring is unchanged (#2317).
+   */
+  triggerIcon?: ReactNode;
+  /** Replaces the trigger's default kebab styling; receives no open-state tint. */
+  triggerClassName?: string;
+  /** Trigger accessible name when it differs from the menu panel's `ariaLabel`. */
+  triggerAriaLabel?: string;
+  /** Trigger tooltip; defaults to the trigger's accessible name. */
+  triggerTitle?: string;
+  triggerTestId?: string;
+  /** Which trigger edge the panel lines up with. Defaults to "right" (the kebab case). */
+  align?: "left" | "right";
 }
 
 /**
@@ -74,12 +91,18 @@ export default function OverflowMenu({
   onExternalOpenChange,
   ariaLabel = "More board actions",
   triggerDescribedBy,
+  triggerIcon,
+  triggerClassName,
+  triggerAriaLabel,
+  triggerTitle,
+  triggerTestId,
+  align = "right",
 }: OverflowMenuProps) {
   const isControlled = externalOpen !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isControlled ? externalOpen : internalOpen;
 
-  const [anchor, setAnchor] = useState<{ top: number; bottom: number; right: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; bottom: number; right: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -114,7 +137,7 @@ export default function OverflowMenu({
     }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setAnchor({ top: rect.top, bottom: rect.bottom, right: window.innerWidth - rect.right });
+      setAnchor({ top: rect.top, bottom: rect.bottom, right: window.innerWidth - rect.right, left: rect.left });
     }
   }, [open]);
 
@@ -209,12 +232,13 @@ export default function OverflowMenu({
       style={{
         position: "fixed",
         top: top ?? 0,
-        right: anchor.right,
+        // A left-aligned panel flips to right-aligned when 240px would run past the viewport edge.
+        ...(align === "left" && anchor.left + PANEL_MIN_WIDTH + POPOVER_VIEWPORT_MARGIN <= window.innerWidth ? { left: anchor.left } : { right: anchor.right }),
         maxHeight: visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN),
         // Hidden only for the pre-paint measuring pass.
         visibility: placed ? undefined : "hidden",
       }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] overflow-y-auto"
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-w-[320px] overflow-y-auto"
     >
       {items.map((item, i) => (
         <div key={item.id}>
@@ -263,7 +287,7 @@ export default function OverflowMenu({
                 {item.icon}
               </span>
             )}
-            <span className="flex-1 text-left truncate">{item.label}</span>
+            <span className="flex-1 text-left truncate" title={item.label}>{item.label}</span>
             {item.shortcut && (
               <kbd
                 className="bg-surface-hover text-fg-secondary text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"
@@ -289,16 +313,17 @@ export default function OverflowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label={ariaLabel}
+        aria-label={triggerAriaLabel ?? ariaLabel}
         aria-describedby={triggerDescribedBy}
-        title={ariaLabel}
-        className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        title={triggerTitle ?? triggerAriaLabel ?? ariaLabel}
+        data-testid={triggerTestId}
+        className={triggerClassName ?? `relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open
             ? "text-info-on-tint bg-info/10"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
       >
-        <svg
+        {triggerIcon ?? <svg
           className="w-4 h-4"
           viewBox="0 0 24 24"
           fill="currentColor"
@@ -307,7 +332,7 @@ export default function OverflowMenu({
           <circle cx="12" cy="5" r="1.75" />
           <circle cx="12" cy="12" r="1.75" />
           <circle cx="12" cy="19" r="1.75" />
-        </svg>
+        </svg>}
         {showDot && (
           <span
             className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none"

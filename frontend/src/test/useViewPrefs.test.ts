@@ -110,16 +110,6 @@ describe('useViewPrefs', () => {
     expect(result.current.prefs.collapsedColumnIds).toEqual([1, 2, 3])
   })
 
-  it('setSwimlaneColumnWidth enforces 56..400 bounds', () => {
-    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    act(() => { result.current.setSwimlaneColumnWidth(10) })
-    expect(result.current.prefs.swimlaneColumnWidth).toBe(56)
-    act(() => { result.current.setSwimlaneColumnWidth(9999) })
-    expect(result.current.prefs.swimlaneColumnWidth).toBe(400)
-    act(() => { result.current.setSwimlaneColumnWidth(300) })
-    expect(result.current.prefs.swimlaneColumnWidth).toBe(300)
-  })
-
   it('setColumnWidth enforces 160..600 bounds', () => {
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
     act(() => { result.current.setColumnWidth(1, 50) })

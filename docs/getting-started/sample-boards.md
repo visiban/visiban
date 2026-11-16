@@ -115,7 +115,7 @@ Each template's `.csv` file uses the same layout as **Export → CSV**. Use it t
 ## What each template includes
 
 - **Typed custom fields on cards.** Six to eleven per template. Together the templates use every field type: number (with `$`, `%`, or unit formatting), dropdown and multi-select (with choice colors), date, URL, checkbox, and text. Sales Overlay uses all of them on one board. Two per template are pinned to the card face.
-- **Swimlane fields.** Owner, budget, tier, and similar facts about each row, pinned to the row header. Some are admin-only and hidden from non-admin members.
+- **Swimlane fields.** Owner, budget, tier, and similar facts about each row. The swimlane band shows the first two by field order, and the rest are one click away. Some are admin-only and hidden from non-admin members.
 - **Column limits.** WIP and weight limits on the busy columns. On each template one column is deliberately just over its limit, so you can see how that's flagged.
 - **A full audit trail on every card.** Creation, assignments and reassignments, labels added and removed, priority escalations, due-date changes, renames, description edits, checklist items added, checked, unchecked, and deleted, and comments. Each entry has the user and time it happened, written in the same form the app writes it. So every label, assignee, and checked item on a card traces back to the entry that set it.
 - **Block history on Simple Kanban.** Blocked and unblocked entries in the activity trail, two cards with a closed block, and one card that is still blocked.

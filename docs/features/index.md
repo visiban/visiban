@@ -87,7 +87,7 @@ Board admins can bring people onto a board without knowing their username. **Inv
 
 ## Card detail
 
-Click any card to open a side panel with full context:
+Click any card to peek at it, then select **Open card** for the full detail panel with:
 
 - **Priority** — low / medium / high / urgent, shown in the card's accessible name and on the hover peek; only an overdue card has a colored (red) border
 - **Assignee** — any board member; triggers a notification on assignment
@@ -367,7 +367,7 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 
 Board admins can define up to 30 typed metadata fields per board — text, number, date, dropdown, checkbox, URL, or multi-select — for tracking anything specific to that board's workflow. Up to 2 fields can be pinned to the card face as small chips; checkbox and dropdown chips are editable directly from the card face. Every field also gets its own input in the card detail panel, and the filter bar can filter on any of them.
 
-Boards can also define up to 15 separate fields scoped to **swimlanes** (rows) instead of cards, with up to 8 pinned as chips; how many show on each swimlane row follows the board's card density. Swimlane fields are a fully independent per-board schema, managed on their own **Swimlane fields** tab in Board Settings, and each can be marked admin-only so only board admins see its values.
+Boards can also define up to 15 separate fields scoped to **swimlanes** (rows) instead of cards; each swimlane's header band shows the first two by field order and the rest behind a `+N` button. Swimlane fields are a fully independent per-board schema, managed on their own **Swimlane fields** tab in Board Settings, and each can be marked admin-only so only board admins see its values.
 
 Admins can also turn off **Show field names on row chips** (Board Settings → Swimlane fields) so each swimlane row chip shows its value alone; the name stays in the tooltip and for screen readers (added in 1.2).
 

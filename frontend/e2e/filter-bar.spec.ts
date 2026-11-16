@@ -30,6 +30,34 @@ test.describe('filter bar', () => {
     await expect(chips.getByText(LABEL_BUG.name)).toBeVisible()
   })
 
+  test('the Filter panel filters by label from the keyboard and the URL carries it (#2301)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    const trigger = page.getByRole('button', { name: /^Filters/ })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    const panel = page.getByRole('dialog', { name: 'Filter' })
+    await expect(panel).toBeVisible()
+    await expect(panel.getByRole('textbox', { name: 'Find a field' })).toBeFocused()
+
+    await panel.getByRole('textbox', { name: 'Find a field' }).fill('lab')
+    const row = panel.getByRole('button', { name: /^Label/ })
+    await expect(panel.getByRole('button', { name: /^Assignee/ })).toHaveCount(0)
+    await row.focus()
+    await page.keyboard.press('Enter')
+    const bug = panel.getByRole('checkbox', { name: LABEL_BUG.name })
+    await bug.focus()
+    await page.keyboard.press('Space')
+    await expect(bug).toBeChecked()
+
+    await expect(row).toContainText(LABEL_BUG.name)
+    await expect(page).toHaveURL(/f_labels=/)
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+  })
+
   test('clears all filters via the Clear all button', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })

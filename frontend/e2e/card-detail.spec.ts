@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
-import { routeAuth, routeBoard } from './helpers'
+import { openCardSheet, routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD, COLUMN_DONE, COLUMN_TODO, SWIMLANE } from './fixtures/board'
 
 test.describe('card detail', () => {
@@ -53,7 +53,7 @@ test.describe('card detail', () => {
   test('opens card detail when a card is clicked', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     // Description should be rendered.
     await expect(page.getByText(CARD.description)).toBeVisible({ timeout: 5_000 })
@@ -77,7 +77,7 @@ test.describe('card detail', () => {
     })
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
     // Find the title field in the detail panel and update it.
@@ -98,7 +98,7 @@ test.describe('card detail', () => {
     // board state rather than only in a transient local edit.
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(page.locator('[role="dialog"]')).toHaveCount(0)
-    await page.getByText('Updated title').first().click()
+    await openCardSheet(page, page.getByText('Updated title').first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     await expect(page.locator('#card-detail-title')).toHaveValue('Updated title')
   })
@@ -135,7 +135,7 @@ test.describe('card detail', () => {
     )
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
     await page.getByRole('tab', { name: /^History/ }).click()
@@ -165,7 +165,7 @@ test.describe('card detail', () => {
       }),
     )
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
@@ -197,7 +197,7 @@ test.describe('card detail', () => {
     const card = { ...CARD, due_date: '2999-01-01', assignee: BOARD_FULL.owner }
     await routeBoard(page, { ...BOARD_FULL, cards: [card] } as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
@@ -243,7 +243,7 @@ test.describe('card detail', () => {
       }
       await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
       await page.goto(`/boards/${BOARD_FULL.id}`)
-      await page.getByText(CARD.title).first().click()
+      await openCardSheet(page, page.getByText(CARD.title).first())
       const dialog = page.locator('[role="dialog"]')
       await expect(dialog).toBeVisible({ timeout: 5_000 })
       const facts = dialog.getByRole('list', { name: 'Key facts' })
@@ -277,7 +277,7 @@ test.describe('card detail', () => {
       }
       await routeBoard(page, { ...BOARD_FULL, cards: [card], custom_field_definitions: defs } as unknown as typeof BOARD_FULL)
       await page.goto(`/boards/${BOARD_FULL.id}`)
-      await page.getByText(CARD.title).first().click()
+      await openCardSheet(page, page.getByText(CARD.title).first())
       const dialog = page.locator('[role="dialog"]')
       await expect(dialog).toBeVisible({ timeout: 5_000 })
       return dialog.getByRole('list', { name: 'Key facts' })
@@ -316,7 +316,7 @@ test.describe('card detail', () => {
     )
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog.getByTestId('card-blocked-banner')).toBeVisible({ timeout: 5_000 })
     await dialog.getByRole('button', { name: 'Unblock', exact: true }).click()
@@ -354,7 +354,7 @@ test.describe('card detail', () => {
     })
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByText(CARD.title).first().click()
+    await openCardSheet(page, page.getByText(CARD.title).first())
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
@@ -463,7 +463,7 @@ test.describe('card detail sheet — anchored (>= 1280px)', () => {
     const first = page.locator(`[data-card-id="${CARD.id}"]`)
     const second = page.locator(`[data-card-id="${CARD_TWO.id}"]`)
     await expect(first).toBeVisible({ timeout: 10_000 })
-    await first.click()
+    await openCardSheet(page, first)
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toBeVisible()
     await expect(dialog).toHaveAttribute('data-sheet-mode', 'anchored')
@@ -545,7 +545,7 @@ test.describe('card detail sheet — anchored (>= 1280px)', () => {
   test('Escape closes one layer at a time and returns focus to the card', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const first = page.locator(`[data-card-id="${CARD.id}"]`)
-    await first.click()
+    await openCardSheet(page, first)
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Move card to different column or swimlane' }).click()
@@ -566,7 +566,7 @@ test.describe('card detail sheet — docked (641-1279px)', () => {
   test('docks to the right edge with a light backdrop', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const first = page.locator(`[data-card-id="${CARD.id}"]`)
-    await first.click()
+    await openCardSheet(page, first)
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toHaveAttribute('data-sheet-mode', 'docked')
     const box = await settled(dialog)
@@ -587,7 +587,7 @@ test.describe('card detail sheet — Dock to edge (#1915)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const first = page.locator(`[data-card-id="${CARD.id}"]`)
     const second = page.locator(`[data-card-id="${CARD_TWO.id}"]`)
-    await first.click()
+    await openCardSheet(page, first)
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toHaveAttribute('data-sheet-mode', 'anchored')
     const toggle = dialog.getByRole('button', { name: 'Dock to edge' })
@@ -604,7 +604,7 @@ test.describe('card detail sheet — Dock to edge (#1915)', () => {
 
     // Persists across a reload.
     await page.reload()
-    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    await openCardSheet(page, page.locator(`[data-card-id="${CARD.id}"]`))
     await expect(page.getByRole('dialog', { name: /./ })).toHaveAttribute('data-sheet-mode', 'docked')
 
     await page.getByRole('dialog', { name: /./ }).getByRole('button', { name: 'Open next to card' }).click()
@@ -613,7 +613,7 @@ test.describe('card detail sheet — Dock to edge (#1915)', () => {
 
   test('focus opens on Close and Shift+Tab reaches the toggle', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    await openCardSheet(page, page.locator(`[data-card-id="${CARD.id}"]`))
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
     await page.keyboard.press('Shift+Tab')
@@ -624,7 +624,7 @@ test.describe('card detail sheet — Dock to edge (#1915)', () => {
     test('toggling still docks the sheet', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.goto(`/boards/${BOARD_FULL.id}`)
-      await page.locator(`[data-card-id="${CARD.id}"]`).click()
+      await openCardSheet(page, page.locator(`[data-card-id="${CARD.id}"]`))
       const dialog = page.getByRole('dialog', { name: /./ })
       await dialog.getByRole('button', { name: 'Dock to edge' }).click()
       await expect(dialog).toHaveAttribute('data-sheet-mode', 'docked')
@@ -638,7 +638,7 @@ test.describe('card detail sheet — Dock to edge hidden at <= 640px (#1915)', (
 
   test('has no toggle in full-screen', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.locator(`[data-card-id="${CARD.id}"]`).click()
+    await openCardSheet(page, page.locator(`[data-card-id="${CARD.id}"]`))
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toHaveAttribute('data-sheet-mode', 'fullscreen')
     await expect(dialog.getByRole('button', { name: /Dock to edge|Open next to card/ })).toHaveCount(0)
@@ -652,7 +652,7 @@ test.describe('card detail sheet — full-screen (<= 640px)', () => {
   test('fills the screen with a Board back control that returns focus to the card', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const first = page.locator(`[data-card-id="${CARD.id}"]`)
-    await first.click()
+    await openCardSheet(page, first)
     const dialog = page.getByRole('dialog', { name: /./ })
     await expect(dialog).toHaveAttribute('data-sheet-mode', 'fullscreen')
     const box = await settled(dialog)

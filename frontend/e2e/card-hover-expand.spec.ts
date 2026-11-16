@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_DENSE, CARD, CARD_BUSY } from './fixtures/board'
+import { BOARD_DENSE as DENSE_TWO_COLUMNS, CARD, CARD_BUSY, COLUMN_DONE, COLUMN_TODO } from './fixtures/board'
+
+// Columns share the board width and the grid is never narrower than 1240px (#2300), so two
+// columns would each be ~600px wide and the busy card's chips would all fit on one line, with
+// nothing to expand. Six columns put each track near 200px, the width this spec was written for.
+const FILLER_COLUMNS = [3, 4, 5, 6].map((n) => ({ ...COLUMN_DONE, id: n + 10, uid: `col00000${n}fil`, name: `Filler ${n}`, position: n, is_done: false }))
+const BOARD_DENSE = { ...DENSE_TWO_COLUMNS, columns: [COLUMN_TODO, ...FILLER_COLUMNS, COLUMN_DONE].map((c, i) => ({ ...c, position: i })) }
 
 // Hovering a card wraps its clipped metadata row so every chip is readable.
 // That expansion is an overlay inside the cell: the cell (and so the swimlane

@@ -60,7 +60,13 @@ async function setup(page: Page) {
     doneBox,
     cdp: await page.context().newCDPSession(page),
     from: { x: cardBox.x + cardBox.width / 2, y: cardBox.y + cardBox.height / 2 },
-    to: { x: doneBox.x + doneBox.width / 2, y: doneBox.y + doneBox.height / 2 },
+    // The shared grid is never narrower than 1240px (#2300), so on this 712px tablet Done
+    // starts near the right edge and its header text runs past it. Aim at the part of the
+    // header that is on screen; the drop target is the column, not the text's midpoint.
+    to: {
+      x: Math.min(doneBox.x + doneBox.width / 2, (page.viewportSize()?.width ?? 712) - 24),
+      y: doneBox.y + doneBox.height / 2,
+    },
   }
 }
 
@@ -71,7 +77,7 @@ test.describe('touch drag-and-drop (#1287)', () => {
   })
 
   test('press-and-hold then drag moves the card', async ({ page }) => {
-    const { moves, cardEl, cardBox, doneBox, cdp, from, to } = await setup(page)
+    const { moves, cardEl, cardBox, cdp, from, to } = await setup(page)
     await touchDrag(cdp, from, to, 400)
 
     // Assert the actual move payload, not just that *a* move request fired —
@@ -92,7 +98,9 @@ test.describe('touch drag-and-drop (#1287)', () => {
     const movedCardBox = await cardEl.boundingBox()
     if (!movedCardBox) throw new Error('Could not locate card after the move')
     expect(movedCardBox.x).toBeGreaterThan(cardBox.x + 50)
-    expect(Math.abs(movedCardBox.x - doneBox.x)).toBeLessThan(150)
+    // Assert the column it rendered in, not an x offset: the board scrolls sideways during the
+    // drag now that the grid is at least 1240px wide (#2300), so x depends on the scroll.
+    await expect(cardEl.locator('xpath=ancestor::*[@data-board-cell]')).toHaveAttribute('data-column-id', String(COLUMN_DONE.id))
   })
 
   test('a quick swipe does not pick up the card', async ({ page }) => {
@@ -104,7 +112,7 @@ test.describe('touch drag-and-drop (#1287)', () => {
   })
 
   test('holding still past the long-press menu delay does not open the new-card input', async ({ page }) => {
-    const { moves, cardEl, cardBox, doneBox, cdp, from, to } = await setup(page)
+    const { moves, cardEl, cardBox, cdp, from, to } = await setup(page)
     // Android fires contextmenu at ~500ms; the cell's right-click-to-add must
     // not open mid-drag.
     await touchDrag(cdp, from, to, 1_200)
@@ -125,6 +133,8 @@ test.describe('touch drag-and-drop (#1287)', () => {
     const movedCardBox = await cardEl.boundingBox()
     if (!movedCardBox) throw new Error('Could not locate card after the move')
     expect(movedCardBox.x).toBeGreaterThan(cardBox.x + 50)
-    expect(Math.abs(movedCardBox.x - doneBox.x)).toBeLessThan(150)
+    // Assert the column it rendered in, not an x offset: the board scrolls sideways during the
+    // drag now that the grid is at least 1240px wide (#2300), so x depends on the scroll.
+    await expect(cardEl.locator('xpath=ancestor::*[@data-board-cell]')).toHaveAttribute('data-column-id', String(COLUMN_DONE.id))
   })
 })

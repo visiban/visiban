@@ -33,11 +33,13 @@ import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
 import ColumnSeparator from "./ColumnSeparator";
+import { boardGridMinWidth, boardGridTemplate, clampColumnWidth, columnTrack, trackFloor, useBoardViewWidthVar, type BoardTrack } from "./boardGrid";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
+import CardPeekSheet from "../Card/CardPeekSheet";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
@@ -54,6 +56,7 @@ import BoardViewMenu from "./BoardViewMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
+import FilterPanel from "./FilterPanel";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
@@ -126,7 +129,8 @@ function ColumnTrashZone() {
     <div
       ref={setNodeRef}
       aria-label="Drop here to delete column"
-      className={`w-20 shrink-0 flex items-center justify-center px-2 border-l transition-colors ${
+      // Absolutely placed so it never adds a track to the shared grid (#2300).
+      className={`absolute inset-y-0 right-0 w-20 flex items-center justify-center px-2 border-l transition-colors ${
         isOver
           ? "bg-danger/50 border-danger/60"
           : "bg-danger/30 border-line"
@@ -956,6 +960,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  // Card peek (#2273): the read-only side sheet a board click opens. Open card
+  // hands the card to selectedCard (the full detail sheet); the two never show
+  // together, and neither does the peek with the activity drawer.
+  const [peekCardId, setPeekCardId] = useState<number | null>(null);
   // Bumped whenever a `card.updated` socket event arrives for the currently
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
@@ -1437,6 +1445,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // replaces the card reaches it (#1773); falls back to the snapshot for the
   // render before the not-found effect below closes the panel.
   const liveSelectedCard = selectedCard ? (board.cards.find((c) => c.id === selectedCard.id) ?? selectedCard) : null;
+  const peekCard = peekCardId !== null ? (board.cards.find((c) => c.id === peekCardId) ?? null) : null;
+  // Exclusivity (#2273): the detail sheet or the activity drawer opening closes
+  // the peek; a card removed remotely closes it too.
+  useEffect(() => {
+    if (selectedCard || drawerOpen || showArchived || (peekCardId !== null && !peekCard)) setPeekCardId(null);
+  }, [selectedCard, drawerOpen, showArchived, peekCardId, peekCard]);
+  // The peek renders only in the board branch; leaving the board view ends it,
+  // so returning does not reopen it and steal focus.
+  useEffect(() => {
+    if (view !== "board") setPeekCardId(null);
+  }, [view]);
   useEffect(() => {
     if (selectedCardId === null) return;
     if (board.cards.some((c) => c.id === selectedCardId)) return;
@@ -1558,8 +1577,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     maintenanceBlocked: blockedByMaintenance,
   };
   // Latest state for the stable callbacks and window listeners below.
-  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, cardActionContext });
-  cardActionStateRef.current = { selectedCardIds, selectedCard, cardActionContext };
+  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, peekCardId, cardActionContext });
+  cardActionStateRef.current = { selectedCardIds, selectedCard, peekCardId, cardActionContext };
 
   const openCardMenu = useCallback((card: Card, anchor: CardMenuAnchor) => {
     setCardMenu({ cardIds: contextMenuTargetIds(card.id, cardActionStateRef.current.selectedCardIds), originId: card.id, anchor });
@@ -1679,11 +1698,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const detail = (ev as CustomEvent<CardTargetQueryDetail>).detail;
       const current = boardRef.current;
       if (!detail || !current) return;
-      const { selectedCardIds: sel, selectedCard: open, cardActionContext: ctx } = cardActionStateRef.current;
+      const { selectedCardIds: sel, selectedCard: open, peekCardId: peeked, cardActionContext: ctx } = cardActionStateRef.current;
       const target = detail.cardIds
         ? { cardIds: detail.cardIds, source: "result" as const }
         : resolveCardTarget({
-            openCardId: open?.id ?? null,
+            // The peek withholds the context menu and the bulk selection, so the
+            // peeked card is the palette's target while it is open (#2273).
+            openCardId: open?.id ?? peeked,
             // A focused card counts only if it is on this board.
             focusedCardId: detail.focusedCardId != null && current.cards.some((c) => c.id === detail.focusedCardId) ? detail.focusedCardId : null,
             selectedIds: sel,
@@ -1756,6 +1777,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         tag === "SELECT" ||
         (e.target as HTMLElement).closest?.('[contenteditable="true"]')
       ) return;
+      // An open Filter panel or View menu is a dialog over the board: focus on a
+      // row or button inside it must not fire the board's single-key shortcuts
+      // (h, a, e, y, f, /, .) behind it (#2301). Scoped to those popovers, not
+      // every role="dialog", so the card detail's behavior is unchanged.
+      if ((e.target as HTMLElement).closest?.('[data-shortcut-scope="popover"]')) return;
       // ⌘⇧E / Ctrl+Shift+E — open export modal (only when export is permitted)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
         if (!canExport) return;
@@ -2036,10 +2062,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     () => (laneFilterHiddenIds.size === 0 ? hiddenSwimlaneIds : new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds])),
     [hiddenSwimlaneIds, laneFilterHiddenIds],
   );
-  const hasRenderedLane = useMemo(
-    () => board.swimlanes.some((s) => !renderHiddenSwimlaneIds.has(s.id) && !collapsedSwimlaneIds.has(s.id)),
-    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
-  );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
   const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
   // The collapsed-lanes strip counts only lanes the reader can see collapsed:
@@ -2054,7 +2076,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     hiddenIds: laneFilterHiddenIds,
     filterKey: laneFilterKey,
     focusedSwimlaneId,
-    openCardSwimlaneId: selectedCard?.swimlane ?? null,
+    // The peeked card counts too: focus sits in the sheet while it is open, so its lane would otherwise hide silently.
+    openCardSwimlaneId: liveSelectedCard?.swimlane ?? peekCard?.swimlane ?? null,
   });
   // A lane edited from this client (row rename, field values) is "mine" for the notice.
   const handleLocalSwimlaneUpdated = useCallback((s: Swimlane) => {
@@ -2200,53 +2223,75 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The left label panel is gone (#2271): swimlane bands span the grid, so grid math starts at 0.
   // `viewPrefs.swimlaneColumnWidth` is still read and written for old saved prefs, but unused.
 
-
-  // Resizable board columns
-  const DEFAULT_COL_WIDTH = 220;
-  // Header "add card" (#2270): opens the new-card input in the column's first visible lane,
-  // through the cell's own listener, so the cell keeps owning its draft and its focus return.
-  const requestAddCard = useCallback((columnId: number) => {
-    const cell = document.querySelector<HTMLElement>(`[data-board-cell][data-column-id="${columnId}"]`);
-    cell?.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+  // Header "add card" (#2270, #2317): opens the new-card input in the chosen lane's cell for this
+  // column, through the cell's own listener, so the cell keeps owning its draft and its focus return.
+  // A collapsed lane has no cells, so it is expanded first and the request waits for them to render.
+  const [pendingAddCard, setPendingAddCard] = useState<{ columnId: number; swimlaneId: number } | null>(null);
+  const dispatchAddCard = useCallback((columnId: number, swimlaneId: number) => {
+    const cell = document.querySelector<HTMLElement>(
+      `[data-board-cell][data-column-id="${columnId}"][data-swimlane-id="${swimlaneId}"]`,
+    );
+    if (!cell) return false;
+    cell.dispatchEvent(new CustomEvent(ADD_CARD_EVENT));
+    return true;
   }, []);
+  const requestAddCard = useCallback((columnId: number, swimlaneId: number) => {
+    if (collapsedSwimlaneIds.has(swimlaneId)) {
+      toggleCollapsedSwimlane(swimlaneId);
+      setPendingAddCard({ columnId, swimlaneId });
+      return;
+    }
+    dispatchAddCard(columnId, swimlaneId);
+  }, [collapsedSwimlaneIds, toggleCollapsedSwimlane, dispatchAddCard]);
+  useEffect(() => {
+    if (!pendingAddCard || collapsedSwimlaneIds.has(pendingAddCard.swimlaneId)) return;
+    const { columnId, swimlaneId } = pendingAddCard;
+    // Cells commit with the expand render, so the first try normally lands; one frame of grace
+    // covers a lane that mounts its cells a tick later.
+    if (dispatchAddCard(columnId, swimlaneId)) {
+      setPendingAddCard(null);
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      dispatchAddCard(columnId, swimlaneId);
+      setPendingAddCard(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingAddCard, collapsedSwimlaneIds, dispatchAddCard]);
+  // Lanes the header "+" can target, in board order (lanes hidden by the user or a lane filter have no cells).
+  const addCardLanes = useMemo(
+    () => board.swimlanes
+      .filter((s) => !renderHiddenSwimlaneIds.has(s.id))
+      .map((s) => ({ id: s.id, name: s.name, color: s.color, collapsed: collapsedSwimlaneIds.has(s.id) })),
+    [board.swimlanes, renderHiddenSwimlaneIds, collapsedSwimlaneIds],
+  );
+  // Saved per-column widths (#1990 resize), clamped to 160..600. Under the shared
+  // grid template they are track weights, not px widths: see `columnTrack`.
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
-    for (const col of board.columns) {
-      map.set(col.id, Math.max(160, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH));
-    }
+    for (const col of board.columns) map.set(col.id, clampColumnWidth(viewPrefs.columnWidths[col.id]));
     return map;
   }, [board.columns, viewPrefs.columnWidths]);
+  const isNarrowColumn = useCallback(
+    (colId: number) => hiddenColumnIds.has(colId) || collapsedColumnIds.has(colId),
+    [hiddenColumnIds, collapsedColumnIds],
+  );
 
-  // X position of the currently-hovered column separator within the scrollable area.
-  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  // sep[i] left = i*16 + sum(colWidth[j] for j in 0..i-1)
-  const hoveredSepX = useMemo(() => {
-    if (hoveredSepIndex === null) return null;
-    let x = 0;
-    for (let i = 0; i < hoveredSepIndex; i++) {
-      x += 16; // separator width
-      if (i < board.columns.length) {
-        const col = board.columns[i];
-        x += (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id))
-          ? 40
-          : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
-      }
-    }
-    return x;
-  }, [hoveredSepIndex, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
-
-  // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
-  // Layout: sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
-  const colCenterXs = useMemo(() => {
-    const result: number[] = [];
-    let x = 16; // after the first sep
-    for (const col of board.columns) {
-      const w = (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
-      result.push(x + w / 2);
-      x += w + 16;
-    }
-    return result;
-  }, [board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
+  // One shared grid template for the header row, every lane and every row
+  // separator (#2300): one fr track per column, weighted by its saved width
+  // (`minmax(0, 1fr)` at the default 220px), 40px for a hidden or collapsed
+  // stub, 8px between. Every row reads this one string, so a resize moves the
+  // header cell and every lane cell of that column together.
+  const gridTracks = useMemo<BoardTrack[]>(
+    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id)))),
+    [board.columns, isNarrowColumn, colWidths],
+  );
+  const gridTemplate = useMemo(() => boardGridTemplate(gridTracks), [gridTracks]);
+  const gridMinWidth = useMemo(() => boardGridMinWidth(gridTracks), [gridTracks]);
+  // Each column track's floor, read by a separator drag (measureTrackLeftOf) to
+  // keep the resized edge under the pointer when the min width holds the grid open.
+  const gridTrackFloors = useMemo(() => gridTracks.map(trackFloor).join(" "), [gridTracks]);
+  useBoardViewWidthVar(scrollEl);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -2560,28 +2605,28 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
-        {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
-            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row).
-            The Lens toolbar keeps this old layout until #2302 moves it onto
-            the board's new toolbar; the row scrolls instead of wrapping. */}
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
-          <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
-            <div className="flex items-center gap-2 h-full min-w-max">
+        {/* Shared Row 2 (#2302) — the SAME wrapping structure as the board's
+            toolbar below, so switching Board↔Lens does not shift the tabs and
+            the row never scrolls sideways. */}
+        <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-              {/* Inside its own Lens boundary: before the toolbar was split out of
-                  LensView, all lens chrome sat inside the boundary below. Without
-                  this, a throw from LensToolbar escapes the Lens section and takes
-                  down the whole board page instead of just the lens pane. */}
-              <SectionErrorBoundary section="Lens">
-                <LensToolbar
-                  connection={lensConnection}
-                  cardLayout={cardLayout}
-                  onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-                  showFilters={lensShowFilters}
-                  onToggleFilters={() => setLensShowFilters((v) => !v)}
-                />
-              </SectionErrorBoundary>
             </div>
+            <div className="flex-1" />
+            {/* Inside its own Lens boundary: before the toolbar was split out of
+                LensView, all lens chrome sat inside the boundary below. Without
+                this, a throw from LensToolbar escapes the Lens section and takes
+                down the whole board page instead of just the lens pane. */}
+            <SectionErrorBoundary section="Lens">
+              <LensToolbar
+                connection={lensConnection}
+                cardLayout={cardLayout}
+                onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                showFilters={lensShowFilters}
+                onToggleFilters={() => setLensShowFilters((v) => !v)}
+              />
+            </SectionErrorBoundary>
           </div>
         </nav>
         {cardActionNotice}
@@ -2698,6 +2743,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   };
   const onShowAllSwimlanes = () => expandAllSwimlanes();
   const onShowAllColumns = () => expandAllColumns();
+  const allLanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
 
   return (
     <>
@@ -2713,24 +2759,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-2 flex-wrap">
-            <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
-              <button type="button"
-                data-tour-step="filter"
-                onClick={() => setShowFilters((v) => !v)}
-                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
-                aria-pressed={showFilters || activeCount > 0}
-                aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
-                aria-keyshortcuts="F"
-              >
-                {FilterIcon}
-                Filter
-                {activeCount > 0 && (
-                  <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
-                    {activeCount}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
+            <FilterPanel
+              board={board}
+              filters={effectiveFilters}
+              onChange={(next) => { setActiveFilterId(null); setFilters(next); }}
+              activeCount={activeCount}
+              icon={FilterIcon}
+              savedFilters={savedFilters}
+              savedFiltersLoading={savedFiltersLoading}
+              activeFilterId={activeFilterId}
+              onLoadSaved={(sf) => { setFilters(hydrateFilter(sf)); setActiveFilterId(sf.id); }}
+              filterBarShown={showFilters}
+              onToggleFilterBar={() => setShowFilters((v) => !v)}
+              onOpenLaneFilters={openLaneFilters}
+              userDateFormat={userDateFormat}
+            />
             <span ref={presetPickerRef} className="contents">
               <BoardViewMenu
                 icon={ViewMenuIcon}
@@ -2785,7 +2828,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onChange={handleGridOverlayChange}
                   />
                 }
-                allSwimlanesCollapsed={board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length}
+                allSwimlanesCollapsed={allLanesCollapsed}
                 allSwimlanesExpanded={allSwimlanesExpanded}
                 allColumnsCollapsed={board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length}
                 allColumnsExpanded={allColumnsExpanded}
@@ -2999,11 +3042,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           columnCount={board.columns.length}
           laneCount={board.swimlanes.length}
           cardCount={showChipCountsValue.all}
+          allLanesCollapsed={allLanesCollapsed}
+          onToggleLanes={allLanesCollapsed ? onShowAllSwimlanes : onHideAllSwimlanes}
         />
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="relative flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3022,15 +3067,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             sheet closes and its card is no longer on the board. */}
         <div ref={setScrollEl} data-board-scroll role="region" aria-label="Board" tabIndex={-1} onPointerDownCapture={markBoardTreePointerEvent} className="board-scroll flex-1 overflow-auto bg-sunken focus:outline-none">
           {/*
-            min-w-max wrapper — gives the sticky header row and all swimlane
-            rows the same containing-block width (max-content).  Without this,
-            a sticky element may be sized to the scroll-container's layout
-            width rather than the full scrollable content width, so its flex-1
-            columns become narrower than the corresponding cells below.
+            Grid wrapper (#2300) — gives the sticky header row and every lane the
+            same width: the scroll box's width, or the grid's minimum when that is
+            wider (then the grid scrolls sideways inside this box, never the page).
+            Every row below uses the same `gridTemplate`, so tracks line up.
           */}
-          <div className="min-w-max">
+          <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-20 border-b border-line bg-sunken py-1.5" data-testid="board-header-row">
+          <div className="grid sticky top-0 z-20 border-b border-line bg-sunken py-1.5" style={{ gridTemplateColumns: gridTemplate }} data-testid="board-header-row">
             {/* Far-left separator: click inserts column at pos 0 (nothing to its left resizes) */}
             <ColumnSeparator
               isAdmin={isAdmin}
@@ -3055,19 +3099,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
                     abbreviation={columnAbbreviations.get(col.id)}
-                    width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
                     showWipAtLimit={board.show_wip_at_limit}
-                    // No rendered lane cell (every lane collapsed or filtered out) means nothing
-                    // would hear the request, so the control is withheld rather than left dead.
-                    onAddCard={canEdit && col.allow_card_creation && hasRenderedLane ? () => requestAddCard(col.id) : undefined}
+                    // No lane at all (every lane hidden or filtered out) means nothing could hear the
+                    // request, so the control is withheld rather than left dead. Collapsed lanes still
+                    // count: picking one expands it first (#2317).
+                    addCardLanes={addCardLanes}
+                    onAddCard={canEdit && col.allow_card_creation && addCardLanes.length > 0
+                      ? (swimlaneId) => requestAddCard(col.id, swimlaneId ?? addCardLanes[0].id)
+                      : undefined}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}
                     onOpenAdd={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
-                    currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
-                    setWidth={(w) => setColumnWidth(col.id, w)}
+                    // A hidden or collapsed 40px stub has no width to drag.
+                    currentWidth={isNarrowColumn(col.id) ? undefined : colWidths.get(col.id)}
+                    setWidth={isNarrowColumn(col.id) ? undefined : (w) => setColumnWidth(col.id, w)}
                     sepIndex={idx + 1}
                     hoveredSepIndex={hoveredSepIndex}
                     onSepHoverChange={setHoveredSepIndex}
@@ -3108,11 +3156,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
-                      hoveredSepX={hoveredSepX}
-                      colCenterXs={colCenterXs}
+                      gridTemplate={gridTemplate}
+                      columnCount={board.columns.length}
+                      hoveredSepIndex={hoveredSepIndex}
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
+                      gridTemplate={gridTemplate}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
                       onInsertColumn={(colId) => {
@@ -3134,15 +3184,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       filteredCardIds={filteredCardIds}
                       selectedCardIds={selectedCardIds}
                       highlightedCardId={highlightedCardId}
-                      currentCardId={selectedCard?.id ?? null}
+                      currentCardId={selectedCard?.id ?? peekCardId}
                       onToggleCardSelection={toggleCardSelection}
                       // No context menu while the card sheet is open (#2059): the
                       // menu would take focus out of the aria-modal sheet, the same
                       // reason the selection checkbox is withheld (#1914). ⌘K acts
                       // on the open card instead.
-                      onOpenCardMenu={selectedCard ? undefined : openCardMenu}
+                      onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
-                      onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                      onCardClick={(card) => {
+                        clearSelection();
+                        // While the detail sheet is open a card click swaps it; otherwise it peeks (#2273).
+                        if (selectedCard) { setSelectedCard(card); return; }
+                        setDrawerOpen(false);
+                        setShowArchived(false);
+                        setPeekCardId(card.id);
+                      }}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={handleLocalSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}
@@ -3183,8 +3240,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
                     currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
                     setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
-                    hoveredSepX={hoveredSepX}
-                    colCenterXs={colCenterXs}
+                    gridTemplate={gridTemplate}
+                    columnCount={board.columns.length}
+                    hoveredSepIndex={hoveredSepIndex}
                   />
                 );
               })()}
@@ -3205,7 +3263,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </div>
           )}
-          </div>{/* end min-w-max wrapper */}
+          </div>{/* end grid wrapper */}
         </div>{/* end board-scroll */}
         {gridOverlayState && (
           <GridOverlayLegend
@@ -3241,7 +3299,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay canEdit={canEdit} density={effectiveCardDensity} userTimezone={userTimezone} currentUserId={currentUser?.id} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} inDoneColumn={board.columns.find((c) => c.id === activeCard.column)?.is_done ?? false} customFieldDefinitions={board.custom_field_definitions} />}
           {activeColumn && (
-            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
+            // No width of its own: DragOverlay sizes its wrapper from the dragged header
+            // cell's rect, and a saved width is a track weight, not px (#2300).
+            <div className="w-full px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" data-testid="column-drag-overlay">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-fg-secondary text-sm truncate" title={activeColumn.name}>{activeColumn.name}</span>
@@ -3331,6 +3391,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           message={bulkMessage}
           onMessageChange={setBulkMessage}
         />
+      )}
+
+      {peekCard && !selectedCard && (
+        <SectionErrorBoundary section="Card peek">
+          <CardPeekSheet
+            key={peekCard.id}
+            card={peekCard}
+            board={board}
+            canEdit={canEdit}
+            onClose={() => setPeekCardId(null)}
+            onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
+            onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            userDateFormat={userDateFormat}
+            userTimezone={userTimezone}
+          />
+        </SectionErrorBoundary>
       )}
 
       {selectedCard && (

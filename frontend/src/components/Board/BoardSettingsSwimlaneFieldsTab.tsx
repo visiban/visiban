@@ -10,7 +10,6 @@ import { Toggle, ToggleField } from "../Common/Toggle";
 import {
   createSwimlaneCustomFieldDefinition,
   updateSwimlaneCustomFieldDefinition,
-  listSwimlaneCustomFieldDefinitions,
   deleteSwimlaneCustomFieldDefinition,
   reorderSwimlaneCustomFields,
 } from "../../api/boards";
@@ -99,13 +98,15 @@ function hasChoices(t: CustomFieldType): boolean {
 }
 
 
-// Mirror SwimlaneCustomFieldDefinition.MAX_PER_BOARD / MAX_PINNED_PER_BOARD.
-// Deliberately different from the card tab's 30/2 — see the derivation on the
-// model. Keep these in step with the backend; the server is authoritative and
-// will 400 regardless, these only drive the local affordances.
-const PIN_ERROR = "Couldn't change that pin. The list now shows what is pinned.";
+// Mirror SwimlaneCustomFieldDefinition.MAX_PER_BOARD. The server is
+// authoritative and will 400 regardless; this only drives the local affordance.
+//
+// #2303: no pin control. The swimlane band (#2271, docs/development/board-redesign.md
+// § Swimlane bands) shows the first two fields by position and the rest behind +N,
+// so the `show_on_row` pin flag no longer changes anything on the board. The field
+// stays in the API and the TypeScript type (1.0 contract); this tab never sends it,
+// so a saved pin is left as it was.
 const FIELD_CAP = 15;
-const PIN_CAP = 8;
 
 interface FormState {
   name: string;
@@ -116,20 +117,19 @@ interface FormState {
   number_format: NumberFormatDraft;
   /** #1391: per-choice colors keyed by the choice text as typed; sent only for choice types. */
   choice_colors: Record<string, string>;
-  show_on_row: boolean;
   is_admin_only: boolean;
 }
 
 function emptyForm(): FormState {
   // is_admin_only defaults ON, matching the model default. Loosening a field
   // later is additive; tightening one changes what an install already exposes.
-  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, show_on_row: false, is_admin_only: true };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, is_admin_only: true };
 }
 
 function formFromDefinition(d: SwimlaneCustomFieldDefinition): FormState {
   return {
     name: d.name, field_type: d.field_type, choices: [...d.choices],
-    help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, show_on_row: d.show_on_row, is_admin_only: d.is_admin_only,
+    help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, is_admin_only: d.is_admin_only,
   };
 }
 
@@ -150,10 +150,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [formError, setFormError] = useState<string | null>(null);
-  const [swapError, setSwapError] = useState<string | null>(null);
   const [pasteListOpen, setPasteListOpen] = useState(false);
   const [pasteListText, setPasteListText] = useState("");
-  const [swapPromptId, setSwapPromptId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SwimlaneCustomFieldDefinition | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -171,8 +169,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excludes editingId: this should re-run only when board's data changes, not when the user starts/stops editing
   }, [board.swimlane_custom_field_definitions]);
-
-  const pinnedCount = fields.filter((f) => f.show_on_row).length;
 
   /**
    * Whether any swimlane on this board already holds a value for a definition.
@@ -200,57 +196,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   };
   const cancelEdit = () => {
     setEditingId(null); setPasteListOpen(false); setPasteListText("");
-  };
-
-  const handlePin = (def: SwimlaneCustomFieldDefinition) => {
-    setSwapError(null);
-    if (def.show_on_row) { void savePin(def, false); return; }
-    if (pinnedCount >= PIN_CAP) { setSwapPromptId(def.id); return; }
-    void savePin(def, true);
-  };
-
-  const savePin = async (def: SwimlaneCustomFieldDefinition, pinned: boolean) => {
-    const prev = fields;
-    setFields(fields.map((f) => (f.id === def.id ? { ...f, show_on_row: pinned } : f)));
-    try {
-      const updated = await updateSwimlaneCustomFieldDefinition(board.id, def.id, { show_on_row: pinned });
-      commit(fields.map((f) => (f.id === def.id ? updated : f)));
-    } catch {
-      // The server may have refused on a stale count (#2193): say so and
-      // re-sync, keeping the pre-click list only if the re-sync fails too.
-      setSwapError(PIN_ERROR);
-      try {
-        commit(await listSwimlaneCustomFieldDefinitions(board.id));
-      } catch {
-        setFields(prev);
-      }
-    }
-  };
-
-  // The unpin must commit before the pin is sent: the server checks the cap
-  // before taking any lock, so a parallel pin can be refused while the unpin
-  // still succeeds (#2193). On any failure we re-sync from the server rather
-  // than roll back to a stale snapshot, since the unpin may have landed.
-  const swapPin = async (replaceId: number, newId: number) => {
-    setSwapPromptId(null);
-    setSwapError(null);
-    let unpinned: typeof fields[number] | null = null;
-    try {
-      unpinned = await updateSwimlaneCustomFieldDefinition(board.id, replaceId, { show_on_row: false });
-      const pinned = await updateSwimlaneCustomFieldDefinition(board.id, newId, { show_on_row: true });
-      commit(fields.map((f) => (f.id === replaceId ? unpinned! : f.id === newId ? pinned : f)));
-    } catch {
-      setSwapError("Couldn't finish replacing the pinned field. The list now shows what is pinned; try again.");
-      try {
-        commit(await listSwimlaneCustomFieldDefinitions(board.id));
-      } catch {
-        // Re-sync failed too: keep only what the server actually confirmed.
-        if (unpinned) {
-          const confirmed = unpinned;
-          commit(fields.map((f) => (f.id === replaceId ? confirmed : f)));
-        }
-      }
-    }
   };
 
   const addChoice = () => setForm((f) => ({ ...f, choices: [...f.choices, ""] }));
@@ -315,7 +260,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
 
     setSaving(true);
     setFormError(null);
-    setSwapError(null);
     try {
       if (editingId === "new") {
         const created = await createSwimlaneCustomFieldDefinition(board.id, {
@@ -327,36 +271,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           ...numberFormat,
           is_admin_only: form.is_admin_only,
         });
-        // Commit the created field first: if the follow-up pin is refused the
-        // field still exists server-side, and a second Save would re-create it.
         commit([...fields, created]);
-        // At the cap the pin goes through the swap prompt (the editor's "you'll
-        // pick a swap" hint), never a PATCH the server refuses (#2193).
-        let swapFor: number | null = null;
-        if (form.show_on_row) {
-          if (pinnedCount >= PIN_CAP) swapFor = created.id;
-          else {
-            try {
-              const pinned = await updateSwimlaneCustomFieldDefinition(board.id, created.id, { show_on_row: true });
-              commit([...fields, pinned]);
-            } catch {
-              setSwapError(PIN_ERROR);
-              try {
-                commit(await listSwimlaneCustomFieldDefinitions(board.id));
-              } catch {
-                // Re-sync failed: the created field is already in the list.
-              }
-            }
-          }
-        }
-        setSwapPromptId(swapFor);
       } else if (editingId !== null) {
-        // #2193: the editor's pin toggle used to be read on create only, so
-        // saving an existing field could not unpin, re-pin or pin it. Sent only
-        // when it changed, so a plain rename never touches the pin.
-        const current = fields.find((f) => f.id === editingId);
-        const pinChanged = current !== undefined && form.show_on_row !== current.show_on_row;
-        const needsSwap = pinChanged && form.show_on_row && pinnedCount >= PIN_CAP;
         const updated = await updateSwimlaneCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
@@ -365,10 +281,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
           is_admin_only: form.is_admin_only,
-          ...(pinChanged && !needsSwap ? { show_on_row: form.show_on_row } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
-        setSwapPromptId(needsSwap ? editingId : null);
       }
       cancelEdit();
     } catch (err: unknown) {
@@ -448,9 +362,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                 <span className="flex-1 min-w-0 truncate text-sm text-fg" title={f.name}>{f.name}</span>
                 <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[f.field_type]}</span>
                 {f.is_admin_only && <AdminOnlyFieldGlyph />}
-                {f.show_on_row && (
-                  <span className="text-xs text-fg-secondary bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
-                )}
               </div>
             ))}
           </div>
@@ -465,7 +376,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       <div className="flex items-center justify-between mb-2">
         <p ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">Swimlane fields</p>
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
-          {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
+          {fields.length} of {FIELD_CAP}
         </span>
       </div>
       <p className="text-xs text-fg-tertiary mb-2">
@@ -480,8 +391,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           Every field here is admin only — members and viewers see none of these on the board.
         </p>
       )}
-
-      {swapError && <p role="alert" className="text-xs text-danger mb-2">{swapError}</p>}
 
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
@@ -502,11 +411,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                 dragDisabled={editingId !== null}
                 onEdit={() => startEdit(def)}
                 onDelete={() => setDeleteTarget(def)}
-                onPin={() => handlePin(def)}
-                swapPromptOpen={swapPromptId === def.id}
-                pinnedFields={fields.filter((f) => f.show_on_row)}
-                onSwap={(replaceId) => void swapPin(replaceId, def.id)}
-                onCancelSwap={() => setSwapPromptId(null)}
               >
                 {editingId === def.id && (
                   <FieldEditPanel
@@ -522,8 +426,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                     pasteListText={pasteListText}
                     setPasteListText={setPasteListText}
                     applyPastedChoices={applyPastedChoices}
-                    pinnedCount={pinnedCount}
-                    isNew={false}
+                            isNew={false}
                     formError={formError}
                     saving={saving}
                     onSave={() => void handleSave()}
@@ -552,7 +455,6 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
             pasteListText={pasteListText}
             setPasteListText={setPasteListText}
             applyPastedChoices={applyPastedChoices}
-            pinnedCount={pinnedCount}
             isNew
             formError={formError}
             saving={saving}
@@ -657,15 +559,10 @@ interface FieldRowProps {
   dragDisabled: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onPin: () => void;
-  swapPromptOpen: boolean;
-  pinnedFields: SwimlaneCustomFieldDefinition[];
-  onSwap: (replaceId: number) => void;
-  onCancelSwap: () => void;
   children?: React.ReactNode;
 }
 
-function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPromptOpen, pinnedFields, onSwap, onCancelSwap, children }: FieldRowProps) {
+function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, children }: FieldRowProps) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: def.id, disabled: dragDisabled });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -699,46 +596,11 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
             <AdminOnlyFieldGlyph />
           </span>
         )}
-        <button
-          onClick={onPin}
-          aria-label={`${def.show_on_row ? "Unpin" : "Pin"} ${def.name} ${def.show_on_row ? "from" : "to"} swimlane row`}
-          className={`text-xs rounded px-2 py-0.5 whitespace-nowrap shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            def.show_on_row
-              ? "text-info-on-tint bg-primary-emphasis/10 border border-primary-emphasis/25 font-medium"
-              : "text-fg-muted hover:text-fg-secondary"
-          }`}
-        >
-          {def.show_on_row ? "Pinned" : `Pin (${pinnedFields.length} of ${PIN_CAP})`}
-        </button>
         <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
           <button type="button" onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
           <button type="button" onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
         </span>
       </div>
-      {swapPromptOpen && (
-        <div className="bg-sunken border border-primary-soft rounded p-2.5 mb-2 text-xs">
-          <p className="font-semibold text-fg mb-1">The row header shows {PIN_CAP} fields.</p>
-          <p className="text-fg-muted mb-2">Pin <span className="text-fg-secondary font-medium">{def.name}</span> by replacing one of these:</p>
-          <div className="flex flex-col gap-1 mb-2">
-            {pinnedFields.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => onSwap(p.id)}
-                className="flex items-center justify-between px-2 py-1 rounded hover:bg-surface-hover text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                <span className="text-fg-secondary">{p.name}</span>
-                <span className="text-info">Replace</span>
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center justify-between">
-            {/* Deliberately does not name the card detail view or hover peek —
-                neither exists for a row. */}
-            <p className="text-fg-muted">Unpinned values are still visible in the row's field list.</p>
-            <button onClick={onCancelSwap} className="text-fg-secondary hover:text-fg shrink-0 ml-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -757,7 +619,6 @@ interface FieldEditPanelProps {
   pasteListText: string;
   setPasteListText: (text: string) => void;
   applyPastedChoices: () => void;
-  pinnedCount: number;
   isNew: boolean;
   formError: string | null;
   saving: boolean;
@@ -771,11 +632,10 @@ function FieldEditPanel({
   form, setForm, typeLocked,
   addChoice, removeChoice, updateChoice, moveChoice,
   pasteListOpen, setPasteListOpen, pasteListText, setPasteListText, applyPastedChoices,
-  pinnedCount, isNew, formError, saving, onSave, onCancel, onDelete,
+  isNew, formError, saving, onSave, onCancel, onDelete,
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
-  const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_row;
 
   return (
     <div className={isNew ? "" : "bg-sunken border border-primary-soft rounded-lg p-3 my-1"}>
@@ -900,9 +760,8 @@ function FieldEditPanel({
         </div>
       )}
 
-      {/* Visibility sits above the pin toggle: it is the more consequential of
-          the two, and the caution line below fires only on the loosening
-          transition — the one with a blast radius. */}
+      {/* The caution line below fires only on the loosening transition, the one
+          with a blast radius. */}
       <div className="pt-2 border-t border-line">
         <ToggleField
           checked={form.is_admin_only}
@@ -916,12 +775,6 @@ function FieldEditPanel({
             <span className="text-warning">Everyone on this board will see this field's values.</span>
           )}
         </p>
-      </div>
-
-      <div className="flex items-center gap-2 mb-1 pt-2">
-        <Toggle checked={form.show_on_row} onChange={(v) => setForm((f) => ({ ...f, show_on_row: v }))} aria-label="Pin to swimlane row" />
-        <span className="text-xs text-fg-secondary">Pin to swimlane row</span>
-        {atPinCap && <span className="text-xs text-fg-muted ml-1">{PIN_CAP} of {PIN_CAP} pinned — you'll pick a swap.</span>}
       </div>
 
       <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">

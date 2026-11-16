@@ -133,12 +133,12 @@ vi.mock('../components/Board/ColumnHeader', async () => {
     )
   }
   return {
-    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: () => void }) => {
+    default: ({ column, collapsed, onColumnUpdated, isIntakeColumn, onAddCard }: { column: { id: number; name: string; is_done?: boolean }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void; isIntakeColumn?: boolean; onAddCard?: (swimlaneId?: number) => void }) => {
       capturedColumnUpdated = onColumnUpdated
       return (
         <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>
           {column.name}
-          {onAddCard && <button onClick={onAddCard}>{`Header add ${column.name}`}</button>}
+          {onAddCard && <button onClick={() => onAddCard()}>{`Header add ${column.name}`}</button>}
           {renderRealColumnModals && <SettingsToggle column={column} isIntakeColumn={isIntakeColumn} />}
         </div>
       )
@@ -150,9 +150,9 @@ vi.mock('../components/Board/ColumnHeader', async () => {
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
+  default: ({ swimlane, gridTemplate, collapsed, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId, onSwimlaneUpdated }: { swimlane: { id: number; name: string }; gridTemplate?: string; collapsed?: boolean; onSwimlaneUpdated?: (s: { id: number; name: string }) => void; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
+      <div data-testid={`swim-${swimlane.id}`} data-grid-template={gridTemplate} data-swimlane-id={swimlane.id} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-collapsed={String(collapsed ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -238,10 +238,18 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
 }))
 vi.mock('../api/gitLens', () => ({ getLensConnection: vi.fn() }))
 vi.mock('../components/Board/Lens/LensView', () => ({
-  default: () => <div data-testid="lens-view">Lens</div>,
+  default: ({ cardLayout, showFilters }: { cardLayout?: string; showFilters?: boolean }) => (
+    <div data-testid="lens-view" data-card-layout={cardLayout} data-show-filters={String(!!showFilters)}>Lens</div>
+  ),
 }))
+// Exposes the two toggles BoardView wires so a test can drive them (#2302).
 vi.mock('../components/Board/Lens/LensToolbar', () => ({
-  default: () => <div data-testid="lens-toolbar" />,
+  default: ({ onToggleLayout, onToggleFilters }: { onToggleLayout: () => void; onToggleFilters: () => void }) => (
+    <div data-testid="lens-toolbar">
+      <button onClick={onToggleLayout}>Toggle lens layout</button>
+      <button onClick={onToggleFilters}>Toggle lens filters</button>
+    </div>
+  ),
 }))
 
 vi.mock('../components/Common/Tooltip', () => ({
@@ -266,13 +274,16 @@ vi.mock('../components/Board/ArchivedCardsPanel', async () => {
   }
   return { default: ArchivedPanelMock }
 })
+// #2301 — the Filter panel lists these; tests that need a preset set them.
+let mockSavedFilters: { id: number; name: string; state_json: Record<string, unknown>; state_version: number; created_at: string }[] = []
+const mockHydrateFilter = vi.fn()
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
-    savedFilters: [],
+    savedFilters: mockSavedFilters,
     loading: false,
     saveFilter: vi.fn(),
     removeFilter: vi.fn(),
-    hydrateFilter: vi.fn(),
+    hydrateFilter: mockHydrateFilter,
   }),
 }))
 vi.mock('../components/Board/MovementHistoryView', () => ({
@@ -441,7 +452,7 @@ describe('BoardView', () => {
       }
 
       // Far-left separator (insert position 0) puts a not-done column first: take-over note.
-      const separators = Array.from(container.querySelectorAll('div.cursor-col-resize'))
+      const separators = Array.from(container.querySelectorAll('[data-testid="column-separator"]'))
       fireEvent.mouseDown(separators[0])
       fireEvent.mouseUp(window)
       expect(await screen.findByTestId('intake-takeover-note')).toBeInTheDocument()
@@ -591,12 +602,14 @@ describe('BoardView', () => {
       expect(row).toHaveClass('sticky', 'top-0', 'bg-sunken')
     })
 
-    it('the header add-card button asks the first cell of its column to open its input', () => {
+    it('the header add-card button asks the chosen lane cell in its column to open its input', () => {
       render(<BoardView {...defaultProps()} />)
       const first = document.createElement('div')
       first.setAttribute('data-board-cell', '')
       first.setAttribute('data-column-id', '10')
+      first.setAttribute('data-swimlane-id', '20')
       const second = first.cloneNode() as HTMLElement
+      second.setAttribute('data-swimlane-id', '99')
       document.body.append(first, second)
       const opened = vi.fn()
       first.addEventListener('visiban:add-card', opened)
@@ -608,14 +621,14 @@ describe('BoardView', () => {
       first.remove(); second.remove()
     })
 
-    it('withholds the header add-card button when every lane is collapsed (no cell to hear it)', async () => {
+    it('keeps the header add-card button when every lane is collapsed (picking a lane expands it, #2317)', async () => {
       const base = makeBoard()
       mockBoardContextValue = defaultContext({
         board: makeBoard({ swimlanes: base.swimlanes.map((l) => ({ ...l, is_collapsed: true })) }),
       })
       render(<BoardView {...defaultProps()} />)
       await waitFor(() => expect(screen.getByTestId('swim-20')).toHaveAttribute('data-collapsed', 'true'))
-      expect(screen.queryByRole('button', { name: /^Header add/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Header add To Do' })).toBeInTheDocument()
     })
 
     it('a viewer gets no header add-card button', () => {
@@ -647,9 +660,16 @@ describe('BoardView', () => {
     expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
+  // #2301 — the Filter button opens the Filter panel; its footer reveals the full filter bar.
+  async function showFilterBar() {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Filters/ }))
+    await user.click(screen.getByRole('button', { name: /Show filter bar/ }))
+  }
+
   it('FilterBar renders in its own row below the toolbar', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     const filterBar = screen.getByTestId('filter-bar')
     const toolbar = screen.getByTestId('board-toolbar')
     // FilterBar should not be a descendant of the toolbar row
@@ -741,10 +761,10 @@ describe('BoardView', () => {
     expect(screen.getByText('Stalled Card')).toBeInTheDocument()
   })
 
-  it('clicking Filters toggles filter bar', async () => {
+  it('the Filter panel footer toggles the filter bar', async () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+    await showFilterBar()
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
@@ -873,6 +893,65 @@ describe('BoardView', () => {
     expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
   })
 
+  // #2300: one grid template for the header row and every lane, with a 1240px floor below
+  // which the grid scrolls inside [data-board-scroll].
+  it('gives the header row and every lane the same grid template (#2300)', () => {
+    render(<BoardView {...defaultProps()} />)
+    const header = screen.getByTestId('board-header-row')
+    const tpl = header.style.gridTemplateColumns
+    expect(tpl).toMatch(/^16px minmax\(0, 1fr\)( 8px minmax\(0, 1fr\))* 16px$/)
+    const lanes = document.querySelectorAll('[data-grid-template]')
+    expect(lanes.length).toBeGreaterThan(0)
+    lanes.forEach((lane) => expect(lane.getAttribute('data-grid-template')).toBe(tpl))
+    expect(screen.getByTestId('board-grid').style.minWidth).toBe('1240px')
+    const scroll = document.querySelector('[data-board-scroll]') as HTMLElement
+    expect(scroll.contains(screen.getByTestId('board-grid'))).toBe(true)
+    expect(scroll.style.getPropertyValue('--board-view-w')).toMatch(/px$/)
+  })
+
+  it('gives a collapsed column a 40px track in the shared template (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ collapsedColumnIds: [10] }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    expect(screen.getByTestId('board-header-row').style.gridTemplateColumns).toMatch(/^16px 40px 8px /)
+  })
+
+  // #1990 kept under #2300: a saved column width is that column's track weight.
+  it('weights a resized column in the shared template, and makes its header separator resizable (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 440 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    const tpl = screen.getByTestId('board-header-row').style.gridTemplateColumns
+    expect(tpl).toMatch(/^16px minmax\(0, 2fr\) 8px minmax\(0, 1fr\)/)
+    document.querySelectorAll('[data-grid-template]').forEach((lane) => expect(lane.getAttribute('data-grid-template')).toBe(tpl))
+    const seps = screen.getAllByTestId('column-separator')
+    expect(seps[0].className).toContain('cursor-pointer')
+    expect(seps[1].className).toContain('cursor-col-resize')
+  })
+
+  it('publishes each column track floor on the board grid for a separator drag (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 440 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    const grid = screen.getByTestId('board-grid')
+    const n = screen.getByTestId('board-header-row').style.gridTemplateColumns.match(/fr\)/g)!.length
+    expect(grid.getAttribute('data-track-floors')).toBe(Array(n).fill('160').join(' '))
+  })
+
+  // A saved width is a track weight, not px: the column drag overlay takes its
+  // size from the dragged header cell (DragOverlay), never from the saved width.
+  it('sizes the column drag overlay from the dragged cell, not the saved width (#2300)', async () => {
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ columnWidths: { 10: 600 } }))
+    render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    act(() => {
+      capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+    })
+    const overlay = screen.getByTestId('column-drag-overlay')
+    expect(overlay.style.width).toBe('')
+    expect(overlay.className).toContain('w-full')
+  })
+
   it('has no label-panel corner cell in the header row (#2271)', () => {
     render(<BoardView {...defaultProps()} />)
     const header = screen.getByTestId('board-header-row')
@@ -945,6 +1024,19 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
     })
 
+    it('single-key shortcuts do not fire from inside the open Filter panel (#2301)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+      const panel = screen.getByRole('dialog', { name: 'Filter' })
+      const row = within(panel).getByRole('button', { name: /^Label/ })
+      row.focus()
+      fireEvent.keyDown(row, { key: 's' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      // No dialog target: the shortcut still works.
+      fireEvent.keyDown(document.body, { key: 's' })
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    })
+
     it('S switches to the Summary view', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
@@ -992,9 +1084,9 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
     })
 
-    it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
+    it('Filters toolbar button announces the Filter panel it opens (#2301)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'F')
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-haspopup', 'dialog')
     })
 
     it('single-letter shortcuts are suppressed when focus is in an input', () => {
@@ -1566,8 +1658,8 @@ describe('BoardView', () => {
   it('clicking a column separator opens AddColumnModal', async () => {
     const { container } = render(<BoardView {...defaultProps()} />)
     await act(async () => {})
-    // ColumnSeparators are 16px-wide divs with cursor-col-resize; trigger mousedown+mouseup (no drag)
-    const separators = container.querySelectorAll('.cursor-col-resize')
+    // Header ColumnSeparators fill their grid track (#2300); trigger mousedown+mouseup (no drag)
+    const separators = container.querySelectorAll('[data-testid="column-separator"]')
     expect(separators.length).toBeGreaterThan(0)
     const sep = separators[0] as HTMLElement
     fireEvent.mouseDown(sep, { clientX: 100 })
@@ -2315,11 +2407,12 @@ describe('BoardView', () => {
       expect(overflowItem(/^Export board/)).toHaveTextContent('⌘⇧E')
     })
 
-    it('Filters and Activity drawer tooltips advertise their keyboard shortcuts', () => {
+    it('Filters and Activity drawer tooltips name the control; the drawer advertises its shortcut', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Filters').getAttribute('data-tooltip')).toBe('Filters (F)')
+      // The Filter panel wraps its button in the tooltip's span so it can keep its own trigger ref.
+      expect(screen.getByLabelText('Filters').parentElement?.getAttribute('data-tooltip')).toBe('Filters')
       expect(screen.getByLabelText('Open activity drawer').getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
     })
 
@@ -2357,7 +2450,7 @@ describe('BoardView', () => {
 
     it('filter row exposes role="search" labeled "Board filters" when filters are open', async () => {
       render(<BoardView {...defaultProps()} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const search = screen.getByRole('search', { name: 'Board filters' })
       expect(search).toBeInTheDocument()
     })
@@ -2429,7 +2522,7 @@ describe('BoardView', () => {
     it('pressing "c" in an INPUT does not trigger collapse', async () => {
       render(<BoardView {...defaultProps()} />)
       // Open the filter bar which contains an INPUT
-      await userEvent.setup().click(screen.getByRole('button', { name: /^Filters/ }))
+      await showFilterBar()
       const filterBar = screen.getByTestId('filter-bar')
       // No crash or unexpected state change should occur
       expect(filterBar).toBeInTheDocument()
@@ -2478,6 +2571,16 @@ describe('BoardView', () => {
       expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeEnabled()
       await user.click(openViewPanel().getByRole('button', { name: 'Expand all' }))
       expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeDisabled()
+    })
+
+    it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      expect(screen.getByRole('button', { name: 'Expand all lanes' })).toBeInTheDocument()
+      expect(openViewPanel().getByRole('button', { name: 'Expand all' })).toBeEnabled()
+      await user.click(screen.getByRole('button', { name: 'Expand all lanes' }))
+      expect(screen.getByRole('button', { name: 'Collapse all lanes' })).toBeInTheDocument()
     })
 
     it('controls carry a visible keyboard-focus ring', () => {
@@ -3281,6 +3384,25 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('Set “Second card” to high priority.')
   })
 
+  it('the Lens toolbar toggles drive the lens card layout and filter row (#2302)', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView currentUser={lensUser} />)
+    const user = userEvent.setup()
+    const lens = await screen.findByTestId('lens-view')
+    const startLayout = lens.getAttribute('data-card-layout')
+    const startFilters = lens.getAttribute('data-show-filters')
+    await user.click(screen.getByRole('button', { name: 'Toggle lens layout' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-card-layout')).not.toBe(startLayout)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens layout' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-card-layout')).toBe(startLayout)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).not.toBe(startFilters)
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe(startFilters)
+  })
+
   it('shows a palette action result in the Lens view', async () => {
     const lensUser = { ...fakeUser, git_lens_enabled: true } as User
     vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
@@ -3637,5 +3759,61 @@ describe('BoardView lane filters (#2205)', () => {
     rerender(<BoardView {...defaultProps()} />)
     expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
     expect(screen.getAllByText('“Customer A” is now hidden because it no longer matches your lane filters.').length).toBeGreaterThan(0)
+  })
+
+  describe('Filter panel wiring (#2301)', () => {
+    const preset = { id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }
+    const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: /^Filters/ }))
+      return screen.getByRole('dialog', { name: 'Filter' })
+    }
+    beforeEach(() => {
+      mockSavedFilters = [preset]
+      mockHydrateFilter.mockReset()
+      mockHydrateFilter.mockReturnValue({
+        search: '', assigneeIds: [], labelIds: [], priorities: ['high'], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [],
+      })
+    })
+    afterEach(() => { mockSavedFilters = [] })
+
+    it('choosing a saved filter hydrates it into the filters and marks it active', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      expect(mockHydrateFilter).toHaveBeenCalledWith(preset)
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(panel).getByRole('button', { name: /^Priority/ })).toHaveTextContent('High')
+    })
+
+    it('editing a filter in the panel clears the active preset, like the filter bar', async () => {
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      let panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: 'High only' }))
+      panel = await openPanel(user)
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(within(panel).getByRole('button', { name: /^Priority/ }))
+      await user.click(within(panel).getByRole('checkbox', { name: 'High' }))
+      expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('the Lanes row closes the panel and opens the filter bar for the Lanes popover', async () => {
+      const lanesDef = {
+        id: 1, uid: 'sfuid0000001', name: 'F1', field_type: 'text' as const, choices: [], position: 1,
+        show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+        number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      }
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: [lanesDef] }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+      const panel = await openPanel(user)
+      await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
+      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
+    })
   })
 })

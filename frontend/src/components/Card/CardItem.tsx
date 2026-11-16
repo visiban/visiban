@@ -690,6 +690,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           onOpenMenu?.(card, rectAnchor(e.currentTarget));
           return;
         }
+        // Enter or Space on the focused card itself opens it (the peek). The div is
+        // role="button", so the browser never turns the key into a click; keys typed
+        // in a child control (checkbox, menu button, inputs) have another target.
+        if (!readOnly && onClick && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+          return;
+        }
         listeners?.onKeyDown?.(e);
       }}
       onPointerDown={menuEnabled ? (e) => { lastPointerType.current = e.pointerType; } : undefined}

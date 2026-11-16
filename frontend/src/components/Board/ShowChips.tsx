@@ -20,15 +20,21 @@ interface Props {
   columnCount: number;
   laneCount: number;
   cardCount: number;
+  /** Lane state for the Collapse all lanes button (#2308). Omit `onToggleLanes` to hide it. */
+  allLanesCollapsed?: boolean;
+  onToggleLanes?: () => void;
 }
 
 /**
  * The "Show" row above the column headers (#2272). Exactly one chip is active;
  * the active one is marked by weight and a border as well as fill, so the state
  * never rests on color alone (`aria-pressed` carries it for assistive tech).
- * Counts are for the whole board; the board totals sit at the right.
+ * Counts are for the whole board; the board totals sit at the right, followed
+ * by the Collapse all / Expand all lanes button (#2308). The button drives the
+ * same state as the View menu items; its label, not a pressed state, carries
+ * what a click will do, so it is never announced as a toggle with a stale name.
  */
-export default function ShowChips({ active, counts, onChange, columnCount, laneCount, cardCount }: Props) {
+export default function ShowChips({ active, counts, onChange, columnCount, laneCount, cardCount, allLanesCollapsed = false, onToggleLanes }: Props) {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
     <div
@@ -71,6 +77,16 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
       <span className="text-xs text-fg-secondary" data-testid="board-totals">
         {plural(laneCount, "swimlane", "swimlanes")} · {plural(columnCount, "column", "columns")} · {plural(cardCount, "card", "cards")}
       </span>
+      {onToggleLanes && laneCount > 0 && (
+        <button
+          type="button"
+          data-testid="show-chips-toggle-lanes"
+          onClick={onToggleLanes}
+          className="inline-flex items-center h-8 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          {allLanesCollapsed ? "Expand all lanes" : "Collapse all lanes"}
+        </button>
+      )}
     </div>
   );
 }

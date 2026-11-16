@@ -7,8 +7,9 @@
  * controllable per test, which that file's fixed dnd-kit doubles do not allow.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import BoardCell from '../components/Board/BoardCell'
+import { ADD_CARD_EVENT } from '../utils/addCardEvent'
 import { buildGridOverlayState } from '../gridOverlays/slot'
 import { getGridOverlay } from '../gridOverlays/registry'
 import { cellKey } from '../gridOverlays/types'
@@ -81,6 +82,17 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
   beforeEach(() => {
     dnd.isOver = false
     dnd.active = null
+  })
+
+  it('a tinted cell still opens its new-card input on the header add-card request (#2317)', () => {
+    const { cell, label } = overlayFor(2)
+    const { container } = render(
+      <BoardCell {...props({ cards: [makeCard(1), makeCard(2)], overlayCell: cell, overlayLabel: label })} />,
+    )
+    const root = container.querySelector<HTMLElement>('[data-column-id][data-swimlane-id]')!
+    expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
+    act(() => { root.dispatchEvent(new CustomEvent(ADD_CARD_EVENT)) })
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
   })
 
   it('renders nothing extra when no overlay is active (the None default)', () => {
