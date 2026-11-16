@@ -1324,6 +1324,15 @@ class BoardViewSet(
                 {"detail": "name must be 100 characters or fewer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # This view never runs the serializer's field validation, so DRF's own
+        # NUL check on CharField does not apply to ``name``. Postgres refuses
+        # U+0000 in a text column with a DataError, which surfaced as a 500
+        # found by backend-schema-fuzz (#2213 covered only state_json strings).
+        if "\x00" in name:
+            return Response(
+                {"detail": "name must not contain NUL (0x00) characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         state_json = request.data.get("state_json")
         if state_json is None:

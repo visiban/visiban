@@ -121,6 +121,14 @@ class SavedFilterListCreateTests(TestCase):
         r = self.client.post(self.url, {"name": long_name, "state_json": SIMPLE_STATE}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_name_with_nul_returns_400_not_500(self):
+        """Postgres rejects U+0000 in a text column (DataError -> 500); the view
+        bypasses serializer field validation, so it must check ``name`` itself."""
+        r = self.client.post(self.url, {"name": "a\u0000b", "state_json": SIMPLE_STATE}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("NUL", r.data["detail"])
+        self.assertFalse(SavedFilter.objects.filter(user=self.user, board=self.board).exists())
+
     def test_create_missing_state_json_returns_400(self):
         r = self.client.post(self.url, {"name": "Nostate"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)

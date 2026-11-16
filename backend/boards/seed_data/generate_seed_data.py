@@ -175,6 +175,34 @@ def _age_movements(movements: list[dict], days_ago: int) -> None:
         mv["moved_at"] = _iso(_parse(mv["moved_at"]) + delta)
 
 
+# The dwell overlay's fixed steps (#459) are 1, 3, 5 and 8 days. Left to ``_gen_movements``
+# alone, 11 of the 12 samples put every current visit on the 8d+ step once an import shifts
+# the dates, so the overlay read as one dark grid (#2113). (low, high, cumulative share)
+# bands spread the last move across the four steps an import can reach; there is no
+# "under 1d" band because every event stays a day clear of the anchor (#1889).
+_DWELL_BANDS = (
+    (1.0, 3.0, 0.25),
+    (3.0, 5.0, 0.45),
+    (5.0, 8.0, 0.65),
+    (8.0, 28.0, 1.00),
+)
+
+
+def _spread_days_ago(slug: str, title: str) -> float:
+    """A deterministic age, in days before ANCHOR, for a card's last move (#2113).
+
+    Hashed from the template and title rather than drawn from the shared RNG, so no other
+    value in any template moves. Whole hours, so the date is a clean timestamp.
+    """
+    u = zlib.crc32(f"{slug}|dwell|{title}".encode()) / 2**32
+    low = 0.0
+    for lo, hi, upto in _DWELL_BANDS:
+        if u < upto:
+            return round((lo + (u - low) / (upto - low) * (hi - lo)) * 24) / 24
+        low = upto
+    return _DWELL_BANDS[-1][1]
+
+
 # ── Per-card RNG ──────────────────────────────────────────────────────────────
 def _card_rng(slug: str, title: str) -> random.Random:
     """A generator private to one card.
@@ -613,8 +641,14 @@ def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
 
     movs = _drop_crossed_outcomes(_gen_movements(col_names, target_idx, swimlane, card_seed), done_cols)
     days_ago = card.pop("last_moved_days_ago", None)
-    if days_ago is not None:
-        _age_movements(movs, days_ago)
+    if days_ago is None:
+        days_ago = _spread_days_ago(slug, card["title"])
+        # _gen_activities spreads a card's trail over at least 3 days from creation, and
+        # every event must stay a day clear of ANCHOR (#1889): a card with little history
+        # cannot have its last move too close to it.
+        history_days = (_parse(movs[-1]["moved_at"]) - _parse(movs[0]["moved_at"])).total_seconds() / 86400
+        days_ago = max(days_ago, 4 - history_days)
+    _age_movements(movs, days_ago)
     _annotate_movements(movs, col_names, rng)
     card["movements"] = movs
     card["created_by"] = movs[0]["moved_by"]

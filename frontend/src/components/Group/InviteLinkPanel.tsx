@@ -6,7 +6,7 @@ import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { listInviteLinks, createInviteLink, revokeInviteLink, sendInviteLinkEmail } from "../../api/groups";
 import {
   createBoardInviteLink,
-  listBoardInviteLinks,
+  listBoardInviteLinksPage,
   revokeBoardInviteLink,
   sendBoardInviteEmail,
 } from "../../api/boards";
@@ -69,7 +69,8 @@ interface CreatePayload {
 }
 
 interface InviteApi {
-  list: (id: number) => Promise<PanelLink[]>;
+  /** `truncatedTotal` is set when the server left older past invites out (#2339). */
+  list: (id: number) => Promise<{ links: PanelLink[]; truncatedTotal?: number | null }>;
   create: (id: number, payload: CreatePayload) => Promise<PanelLink>;
   revoke: (id: number, linkId: number) => Promise<unknown>;
   send: (id: number, payload: EmailInvitePayload) => ReturnType<typeof sendInviteLinkEmail>;
@@ -79,7 +80,7 @@ interface InviteApi {
 // touched when that kind is in use.
 const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
   group: {
-    list: (id) => listInviteLinks(id),
+    list: (id) => listInviteLinks(id).then((links) => ({ links })),
     create: (id, payload) => createInviteLink(id, payload),
     revoke: (id, linkId) => revokeInviteLink(id, linkId),
     // Emailed group invites are capped at member server-side (#2006), so the
@@ -90,7 +91,10 @@ const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
     }),
   },
   board: {
-    list: (id) => listBoardInviteLinks(id),
+    list: (id) => listBoardInviteLinksPage(id).then((page) => ({
+      links: page.links,
+      truncatedTotal: page.truncated ? page.total : null,
+    })),
     create: (id, payload) => createBoardInviteLink(id, payload),
     revoke: (id, linkId) => revokeBoardInviteLink(id, linkId),
     send: (id, payload) => sendBoardInviteEmail(id, {
@@ -213,6 +217,8 @@ export default function InviteLinkPanel({
   const isBoard = kind === "board";
   const [links, setLinks] = useState<PanelLink[]>([]);
   const [loading, setLoading] = useState(true);
+  // Server cap notice (#2339): older used/expired/revoked invites are left out of the list.
+  const [truncatedTotal, setTruncatedTotal] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   // Track which link was just created and has its raw token available
@@ -307,7 +313,8 @@ export default function InviteLinkPanel({
     // about one of them no longer applies.
     setRevokeError(null);
     try {
-      const data = await api.list(scopeId);
+      const { links: data, truncatedTotal: capTotal } = await api.list(scopeId);
+      setTruncatedTotal(capTotal ?? null);
       // The list never carries raw tokens; keep one we are still revealing so a
       // refetch (e.g. the invite_link.created echo of our own email send) does
       // not wipe a just-created link's one-time token.
@@ -792,6 +799,11 @@ export default function InviteLinkPanel({
             </div>
           ) : (
             <>
+              {truncatedTotal !== null && (
+                <p className="text-xs text-fg-muted" data-testid="invite-links-truncated">
+                  Older used, expired, or revoked invites are not shown. {truncatedTotal} invites in total.
+                </p>
+              )}
               {pendingLinks.length === 0 ? (
                 <p className="text-xs text-fg-muted">No pending invites.</p>
               ) : (

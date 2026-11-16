@@ -20,6 +20,30 @@ export type BoardInviteRole = "member" | "collaborator" | "viewer";
 export const listBoardInviteLinks = (boardId: number) =>
   client.get<BoardInviteLink[]>(`/api/v1/boards/${boardId}/invite-links/`).then((r) => r.data);
 
+/**
+ * The board invite list caps past (used / expired / revoked) invites and says so in
+ * headers (#1885): `X-Total-Count` is every invite, `X-Truncated` is true when older
+ * past ones were left out (#2339). `listBoardInviteLinks` keeps its bare-array shape.
+ */
+export interface BoardInviteLinkPage {
+  links: BoardInviteLink[];
+  /** Server-reported number of invites, or `links.length` if the header is absent. */
+  total: number;
+  /** True when older past invites exist that are not in `links`. */
+  truncated: boolean;
+}
+
+export const listBoardInviteLinksPage = (boardId: number): Promise<BoardInviteLinkPage> =>
+  client.get<BoardInviteLink[]>(`/api/v1/boards/${boardId}/invite-links/`).then((r) => {
+    const headerTotal = Number(r.headers?.["x-total-count"]);
+    const truncated = String(r.headers?.["x-truncated"]).toLowerCase() === "true";
+    return {
+      links: r.data,
+      total: Number.isFinite(headerTotal) ? Math.max(headerTotal, r.data.length) : r.data.length,
+      truncated,
+    };
+  });
+
 export const sendBoardInviteEmail = (
   boardId: number,
   data: { email: string; role?: BoardInviteRole; expiry_days?: 1 | 7 | 30 },

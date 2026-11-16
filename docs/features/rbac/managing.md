@@ -50,6 +50,7 @@ To invite several people at once — or anyone you can reach in a chat channel �
 - An invite link is not the board's **Share link** (Settings → Sharing), which lets anyone *view* the board without signing in.
 - Whether a newcomer can create an account from an invite link depends on the site. On an open site they sign up and then join; on an invite-only or closed site only people who already have an account can use it, and the form tells you so.
 - A board invite never adds the person to the board's group.
+- *(1.3+)* The list shows every pending invite and only the most recent used, expired, or revoked ones. When older ones are left out, a note above the list says so: "Older used, expired, or revoked invites are not shown. N invites in total."
 - The emailed invite needs working outbound email (`INVITE_EMAIL_ENABLED`); the API is documented in [Boards API — Board invites](../../api/boards.md#board-invites).
 
 ## Group membership

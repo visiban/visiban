@@ -17,6 +17,7 @@ import client from '../api/client'
 import {
   recomputeBoardHealth,
   listBoardInviteLinks,
+  listBoardInviteLinksPage,
   createBoardInviteLink,
   sendBoardInviteEmail,
   revokeBoardInviteLink,
@@ -600,6 +601,15 @@ describe('board invite API (#1444)', () => {
   const api = client as unknown as Record<'get' | 'post' | 'delete', ReturnType<typeof vi.fn>>
 
   beforeEach(() => { vi.clearAllMocks() })
+
+  it('listBoardInviteLinksPage reads X-Total-Count and X-Truncated (#2339)', async () => {
+    api.get.mockResolvedValueOnce({ data: [{ id: 1 }], headers: { 'x-total-count': '61', 'x-truncated': 'true' } })
+    expect(await listBoardInviteLinksPage(3)).toEqual({ links: [{ id: 1 }], total: 61, truncated: true })
+    expect(api.get).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/')
+    // Absent headers fall back to the array length and not-truncated.
+    api.get.mockResolvedValueOnce({ data: [{ id: 1 }, { id: 2 }], headers: {} })
+    expect(await listBoardInviteLinksPage(3)).toEqual({ links: [{ id: 1 }, { id: 2 }], total: 2, truncated: false })
+  })
 
   it('lists, sends and revokes against the board invite-links routes', async () => {
     api.get.mockResolvedValue({ data: [{ id: 1 }] })
