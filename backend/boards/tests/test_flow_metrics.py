@@ -3001,6 +3001,14 @@ class AnalyticsRoundingTests(FlowFixture):
         # At or over the threshold the cell is an outlier, never also a warning.
         self.assertEqual(cells["stale"], (15.0, False, True))
 
+    def test_warning_flag_is_true_when_only_the_unrounded_mean_reaches_the_boundary(self):
+        # Threshold 7 at 33% puts the boundary at 2.31; a raw 2.32 is served as 2.3,
+        # which alone would read green (#2306).
+        cells = self.warning_cells("age", {
+            "raw": (self.backlog, 30, self.doing, 2.32),
+        }, staleness_threshold_days=7, stale_warning_pct=33)
+        self.assertEqual(cells["raw"], (2.3, True, False))
+
     def test_warning_flag_at_threshold_0_uses_the_one_day_floor(self):
         # Every cell is an outlier at threshold 0 (mean >= 0), yet the ratio divides
         # by max(1, 0): 0.6 days is in the 50% band, 0.3 is under it (#2306).

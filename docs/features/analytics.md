@@ -212,7 +212,7 @@ Cells are colored from the board's `staleness_threshold_days` and `stale_warning
 - With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.
 - A value of `0` turns the yellow band off, so cells are green until the threshold.
 - The card [aging tint](card-history.md#card-aging-tint) uses the same boundary.
-- A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as `7.0d` but stays green against a 7-day threshold when the yellow band is off, or when it begins at the threshold, and yellow otherwise (*changed in 1.3*, #2297).
+- A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as `7.0d` but stays green against a 7-day threshold when the yellow band is off, or when it begins at the threshold, and yellow otherwise (*changed in 1.3*, #2297). At a threshold of `0` (accepted by the API, blocked in the settings UI) the red tier can still follow the rounded value (#2331).
 - The yellow boundary compares the unrounded average the same way: with a 14-day threshold at 50%, an average of 6.96 days shows as `7.0d` but stays green (*changed in 1.3*, #2306). A threshold of `0` counts as 1 day for the colors.
 
 !!! note "Changed in 1.2 (#1841)"

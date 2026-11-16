@@ -420,7 +420,7 @@ describe('AnalyticsView', () => {
   describe('server warning flag decides the yellow tier (#2306)', () => {
     // Threshold 14 at 50% puts the yellow boundary at 7 days; the server serves
     // a raw 6.96 as 7, which only its unrounded flag can tell apart from 7.0.
-    const served = async (flags: { warning: boolean; outlier?: boolean; avg?: number }, mode: 'age' | 'throughput' = 'age') => {
+    const served = async (flags: { warning: boolean; outlier?: boolean; avg?: number; threshold?: number; pct?: number }, mode: 'age' | 'throughput' = 'age') => {
       const avg = flags.avg ?? 7
       const cell = { 'To Do': avg }
       mockGetBoardAnalytics.mockResolvedValue({
@@ -437,7 +437,7 @@ describe('AnalyticsView', () => {
           throughput_card_count_per_column: { 'To Do': 3 },
           deal_velocity_days: null, stalled_cards: [],
         }],
-        stalled_threshold_days: 14, staleness_threshold_days: 14, stale_warning_pct: 50,
+        stalled_threshold_days: 14, staleness_threshold_days: flags.threshold ?? 14, stale_warning_pct: flags.pct ?? 50,
       })
       renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
       if (mode === 'throughput') {
@@ -451,6 +451,11 @@ describe('AnalyticsView', () => {
     })
     it('turns yellow when the server says the raw average is in the band', async () => {
       expect((await served({ warning: true })).className).toContain('bg-warning')
+    })
+    it('turns yellow when only the raw average reaches the boundary (rounded value alone reads green)', async () => {
+      // Threshold 7 at 33% puts the boundary at 2.31; a raw 2.32 is served as 2.3.
+      const cell = await served({ warning: true, avg: 2.3, threshold: 7, pct: 33 })
+      expect(cell.className).toContain('bg-warning')
     })
     it('follows the server flag in In period mode too', async () => {
       expect((await served({ warning: false }, 'throughput')).className).toContain('bg-success')
