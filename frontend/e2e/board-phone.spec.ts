@@ -131,6 +131,62 @@ test.describe('board phone layout', () => {
     await expect(page.getByRole('tab', { name: /To Do, 0 cards/ })).toBeVisible()
   })
 
+  test('Move later in the peek sheet moves the card down one place and it stays after the server frame', async ({ page }) => {
+    // A0 B1 C2 D3 in one cell. The move endpoint reads `position` as a raw slot
+    // (no same-cell compaction), so Move later on B sends C's position + 1 and the
+    // server answers B 3, D 4: the order A C B D, which the optimistic update
+    // must already show, so the card.moved frame changes nothing visible.
+    const mk = (id: number, title: string, position: number) => ({ ...CARD, id, uid: `card00000${id}a`, title, position })
+    const cards = [mk(1, 'Alpha task', 0), mk(2, 'Bravo task', 1), mk(3, 'Charlie task', 2), mk(4, 'Delta task', 3)]
+    await routeBoard(page, { ...BOARD_FULL, cards } as unknown as typeof BOARD_FULL)
+    let socket: { send: (m: string) => void } | null = null
+    await page.routeWebSocket(`**/ws/boards/${BOARD_FULL.id}/`, (ws) => {
+      socket = ws
+      ws.send(JSON.stringify({ event: 'connected', data: {} }))
+    })
+    await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/movements\/(\?.*)?$/, (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    let moveBody: Record<string, unknown> | null = null
+    const movedB = { ...cards[1], position: 3, version: (cards[1].version ?? 1) + 1 }
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/2/move/`, (route) => {
+      moveBody = JSON.parse(route.request().postData() ?? '{}')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: movedB, movement: null }) })
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const faces = page.locator('[data-testid="phone-board"] [data-card-id]')
+    await expect(faces).toHaveCount(4)
+    const ids = () => faces.evaluateAll((els) => els.map((el) => el.getAttribute('data-card-id')))
+    expect(await ids()).toEqual(['1', '2', '3', '4'])
+    // Record every order the lane renders from here on, to catch a flash.
+    await page.evaluate(() => {
+      const w = window as unknown as { __orders: string[] }
+      const read = () => [...document.querySelectorAll('[data-testid="phone-board"] [data-card-id]')].map((el) => el.getAttribute('data-card-id')).join('')
+      w.__orders = [read()]
+      const root = document.querySelector('[data-testid="phone-board"]')!
+      new MutationObserver(() => {
+        const o = read()
+        if (w.__orders[w.__orders.length - 1] !== o) w.__orders.push(o)
+      }).observe(root, { childList: true, subtree: true })
+    })
+    await page.locator('[data-card-id="2"]').click()
+    const sheet = page.getByTestId('card-peek-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.getByRole('button', { name: 'Move later' }).click()
+    await expect.poll(() => moveBody).toMatchObject({ column_id: 1, swimlane_id: 1, position: 3 })
+    await expect.poll(ids).toEqual(['1', '3', '2', '4'])
+    await expect.poll(() => socket !== null).toBe(true)
+    socket!.send(JSON.stringify({
+      event: 'card.moved', event_id: 501,
+      data: { card: movedB, movement: null, sibling_positions: [{ id: 4, position: 4, version: cards[3].version ?? 1 }] },
+    }))
+    // A later frame with a visible effect: once it shows, the card.moved frame
+    // before it (same socket, in order) has been applied.
+    socket!.send(JSON.stringify({ event: 'card.updated', data: { ...cards[0], title: 'Alpha renamed', version: 2 } }))
+    await expect(page.getByText('Alpha renamed')).toBeVisible()
+    expect(await ids()).toEqual(['1', '3', '2', '4'])
+    expect(await page.evaluate(() => (window as unknown as { __orders: string[] }).__orders)).toEqual(['1234', '1324'])
+  })
+
   test('the empty-board Add card opens the input on phones', async ({ page }) => {
     const empty = { ...BOARD_FULL, cards: [] }
     await routeBoard(page, empty as unknown as typeof BOARD_FULL)
