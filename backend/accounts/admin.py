@@ -655,6 +655,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             CardBlock,
             CardChecklist,
             CardComment,
+            CardGateTransition,
             CardMovement,
             CardRelation,
             Notification,
@@ -674,6 +675,12 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             # Block history (#1149): blocked_by and unblocked_by are SET_NULL.
             | Q(
                 pk__in=CardBlock.objects.filter(Q(blocked_by__in=pks) | Q(unblocked_by__in=pks))
+                .exclude(card__isnull=True)
+                .values("card_id")
+            )
+            # Gate history (#1102): actor is SET_NULL, like a block's.
+            | Q(
+                pk__in=CardGateTransition.objects.filter(actor__in=pks)
                 .exclude(card__isnull=True)
                 .values("card_id")
             )

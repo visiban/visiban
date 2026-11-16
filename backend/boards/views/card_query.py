@@ -137,6 +137,8 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "blocker_count", "external_ref",
             # Manual blocked state (#1149), as on CardSerializer.
             "is_blocked", "blocked_at", "blocked_reason",
+            # Sub-column index in a gated stage (#1102), as on CardSerializer.
+            "gates_passed",
         ]
         read_only_fields = fields
 

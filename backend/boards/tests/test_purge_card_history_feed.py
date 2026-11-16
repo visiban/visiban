@@ -902,6 +902,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "archived_at", "version", "blocker_count", "is_blocked", "blocked_at",
         # #445: dates and user ids of open checklist items — structure, not user text.
         "checklist_open_due_dates", "checklist_open_assignee_ids",
+        # #1102: count of gates passed inside a stage — structure, not user text.
+        "gates_passed",
     }
     MOVEMENT_STRUCTURE = {
         "id", "card_uid",
@@ -910,6 +912,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "from_swimlane", "from_swimlane_name", "from_swimlane_uid",
         "to_swimlane", "to_swimlane_name", "to_swimlane_uid",
         "moved_by", "moved_at", "movement_type", "imported_from_username",
+        # #1102: gate-progress counters/ids on a movement — structure only.
+        "from_gates_passed", "from_gates_open", "to_gates_passed",
     }
     EXTERNAL_REF_STRUCTURE = {"provider"}
 

@@ -373,18 +373,22 @@ class Command(BaseCommand):
                 .order_by().values("_uid")
                 .union(
                     blocks.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
-                    .order_by().values("_uid")
+                    .order_by().values("_uid"),
+                    # Gate transitions (#1102) count like blocks.
+                    gates.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+                    .order_by().values("_uid"),
                 )
                 .count()
             )
             boards = (
                 rows.order_by().values("board_id")
-                .union(blocks.order_by().values("board_id"))
+                .union(blocks.order_by().values("board_id"), gates.order_by().values("board_id"))
                 .count()
             )
             event_count = events.count()
             self.stdout.write(
                 f"Dry run: would delete {count} {scope} and {blocks.count()} block row(s) "
+                f"and {gates.count()} gate transition row(s) "
                 f"({cards} card(s), {boards} board(s)) and redact {event_count} "
                 "change-feed event(s). Re-run with --yes to delete."
             )

@@ -358,3 +358,28 @@ class PurgeGateTransitionTests(_StageBase):
             stdout=StringIO(),
         )
         self.assertFalse(CardGateTransition.objects.exists())
+
+
+class HistoryCoverageTests(_StageBase):
+    def test_purge_dry_run_counts_gate_rows(self):
+        self.assertEqual(self.move(self.stage, gates_passed=2).status_code, 200)
+        User.objects.create_user(
+            username="su1921", password="pass", is_superuser=True, is_staff=True,
+        )
+        out = StringIO()
+        call_command(
+            "purge_card_history", "--board", str(self.board.pk), "--include-live-cards",
+            "--actor", "su1921", stdout=out,
+        )
+        self.assertIn("and 2 gate transition row(s)", out.getvalue())
+        self.assertEqual(CardGateTransition.objects.count(), 2)
+
+    def test_user_delete_locks_cards_with_that_users_gate_rows(self):
+        from accounts.admin import VisibanUserAdmin
+
+        other = User.objects.create_user(username="actor1921", password="pass")
+        CardGateTransition.objects.create(
+            card=self.card, kind="pass", from_index=0, to_index=1, actor=other,
+        )
+        locked = VisibanUserAdmin._cards_to_lock([other.pk]).values_list("pk", flat=True)
+        self.assertIn(self.card.pk, set(locked))
