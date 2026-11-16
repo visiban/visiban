@@ -5,7 +5,7 @@ import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchor
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
-import { useLiveAnnouncer, laneStateMessage } from "../../hooks/useLiveAnnouncer";
+import { useLiveAnnouncer, laneStateMessage, columnStateMessage } from "../../hooks/useLiveAnnouncer";
 import type { CardDensity } from "../../types";
 
 interface Props {
@@ -28,6 +28,8 @@ interface Props {
   allColumnsExpanded: boolean;
   /** Total lane count, for the "Collapsed all N lanes" announcement (#2323). */
   laneCount?: number;
+  /** Total column count, for the "Hid all N columns" announcement (#2338). */
+  columnCount?: number;
   onCollapseSwimlanes: () => void;
   onExpandSwimlanes: () => void;
   onCollapseColumns: () => void;
@@ -66,6 +68,8 @@ export default function BoardViewMenu(props: Props) {
   const { message: laneAnnouncement, announce } = useLiveAnnouncer();
   const collapseLanes = () => { announce(laneStateMessage(true, props.laneCount)); props.onCollapseSwimlanes(); };
   const expandLanes = () => { announce(laneStateMessage(false, props.laneCount)); props.onExpandSwimlanes(); };
+  const hideColumns = () => { announce(columnStateMessage(true, props.columnCount)); props.onCollapseColumns(); };
+  const showColumns = () => { announce(columnStateMessage(false, props.columnCount)); props.onExpandColumns(); };
   const id = useId();
   const panelId = `${id}-panel`;
 
@@ -220,8 +224,8 @@ export default function BoardViewMenu(props: Props) {
       <div role="group" aria-label="Columns">
         <span className={SECTION_LABEL}>Columns <kbd className="ml-1 text-fg-secondary">E</kbd></span>
         <div className="flex gap-2">
-          <button type="button" ref={hideRef} className={BUTTON_CLASS} disabled={props.allColumnsCollapsed} onClick={props.onCollapseColumns}>Hide all</button>
-          <button type="button" ref={showRef} className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={props.onExpandColumns}>Show all</button>
+          <button type="button" ref={hideRef} className={BUTTON_CLASS} disabled={props.allColumnsCollapsed} onClick={hideColumns}>Hide all</button>
+          <button type="button" ref={showRef} className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={showColumns}>Show all</button>
         </div>
       </div>
 

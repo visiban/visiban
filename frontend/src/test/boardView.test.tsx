@@ -2602,6 +2602,43 @@ describe('BoardView', () => {
       await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent('Collapsed all 2 lanes'))
     })
 
+    it('the e shortcut announces lanes and columns through the page-level region (#2338)', async () => {
+      const base = makeBoard()
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: [base.swimlanes[0], { ...base.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Customer B', position: 1 }] }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      const cols = makeBoard().columns.length
+      await user.keyboard('e')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent(`Collapsed all 2 lanes and ${cols} ${cols === 1 ? 'column' : 'columns'}`))
+      await user.keyboard('e')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent(/^Expanded all 2 lanes and /))
+    })
+
+    it('the collapsed-lanes strip Expand all swimlanes announces, by mouse and keyboard (#2338)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      await user.click(screen.getByRole('button', { name: 'Expand all swimlanes' }))
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent('Expanded all 1 lane'))
+      await user.click(screen.getByRole('button', { name: 'Collapse all lanes' }))
+      screen.getByRole('button', { name: 'Expand all swimlanes' }).focus()
+      await user.keyboard('{Enter}')
+      await waitFor(() => expect(screen.getByTestId('bulk-lane-status')).toHaveTextContent('Expanded all 1 lane'))
+    })
+
+    it('the View menu Hide all / Show all columns announce the live column count (#2338)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const user = userEvent.setup()
+      const n = makeBoard().columns.length
+      const word = n === 1 ? 'column' : 'columns'
+      await user.click(openViewPanel().getByRole('button', { name: 'Hide all' }))
+      await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent(`Hid all ${n} ${word}`))
+      await user.click(openViewPanel().getByRole('button', { name: 'Show all' }))
+      await waitFor(() => expect(screen.getByTestId('view-menu-lanes-status')).toHaveTextContent(`Showed all ${n} ${word}`))
+    })
+
     it('the Show row button collapses and expands every lane, in step with the View menu (#2308)', async () => {
       render(<BoardView {...defaultProps()} />)
       const user = userEvent.setup()

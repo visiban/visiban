@@ -277,3 +277,34 @@ describe('BoardViewMenu lane announcements (#2323)', () => {
     await waitFor(() => expect(status()).toHaveTextContent('Collapsed all lanes'))
   })
 })
+
+describe('BoardViewMenu column announcements (#2338)', () => {
+  const status = () => screen.getByTestId('view-menu-lanes-status')
+
+  it('announces Hide all and Show all by mouse, with the column count', async () => {
+    const user = userEvent.setup()
+    setup({ columnCount: 4, allColumnsExpanded: false })
+    await user.click(trigger())
+    await user.click(panel().getByRole('button', { name: 'Hide all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Hid all 4 columns'))
+    await user.click(panel().getByRole('button', { name: 'Show all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Showed all 4 columns'))
+  })
+
+  it('announces by keyboard, singular and count-less forms', async () => {
+    const user = userEvent.setup()
+    setup({ columnCount: 1, allColumnsExpanded: false })
+    await user.click(trigger())
+    panel().getByRole('button', { name: 'Hide all' }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(status()).toHaveTextContent('Hid all 1 column'))
+  })
+
+  it('omits the count when unknown', async () => {
+    const user = userEvent.setup()
+    setup({ allColumnsExpanded: false })
+    await user.click(trigger())
+    await user.click(panel().getByRole('button', { name: 'Hide all' }))
+    await waitFor(() => expect(status()).toHaveTextContent('Hid all columns'))
+  })
+})

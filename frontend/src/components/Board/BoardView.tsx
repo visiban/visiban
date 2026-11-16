@@ -11,6 +11,7 @@ import AnalyticsView from "./AnalyticsView";
 import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useLiveAnnouncer, laneStateMessage, boardStateMessage } from "../../hooks/useLiveAnnouncer";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { markBoardTreePointerEvent } from "../../hooks/useCardSheetPlacement";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
@@ -635,6 +636,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Mirror `allExpanded` into a ref so the single-key `e` shortcut handler
   // in the keydown effect below can read the current value without needing
   // to re-register every time a column or swimlane collapses or expands.
+  // Page-level announcer for the bulk lane/column controls that unmount or live outside
+  // any menu: the `e` shortcut and the collapsed-lanes strip button (#2338).
+  const { message: bulkAnnouncement, announce: announceBulk } = useLiveAnnouncer();
   const allExpandedRef = useRef(allExpanded);
   allExpandedRef.current = allExpanded;
 
@@ -1876,7 +1880,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         e.preventDefault();
         const latestBoard = boardRef.current;
         if (focusedSwimlaneIdRef.current !== null) exitFocus();
-        if (allExpandedRef.current) {
+        const collapsing = allExpandedRef.current;
+        announceBulk(boardStateMessage(collapsing, latestBoard.swimlanes.length, latestBoard.columns.length));
+        if (collapsing) {
           collapseAllColumns(latestBoard.columns.map((c) => c.id));
           collapseAllSwimlanes(latestBoard.swimlanes.map((s) => s.id));
         } else {
@@ -1933,7 +1939,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // never needs to re-subscribe when those inputs change. We pin only the
     // deps that actually change the handler's decision surface.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above; only the decision-surface deps are pinned
-  }, [toggleCollapsedSwimlane, canExport, isAdmin]);
+  }, [toggleCollapsedSwimlane, canExport, isAdmin, announceBulk]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
   useEffect(() => {
@@ -2735,6 +2741,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const cardActionNotice = (
     <div className="sr-only">
       <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status">{cardActionAnnouncement}</p>
+      <p role="status" aria-live="polite" aria-atomic="true" data-testid="bulk-lane-status">{bulkAnnouncement}</p>
     </div>
   );
 
@@ -2998,6 +3005,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 allColumnsCollapsed={board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length}
                 allColumnsExpanded={allColumnsExpanded}
                 laneCount={board.swimlanes.length}
+                columnCount={board.columns.length}
                 onCollapseSwimlanes={onHideAllSwimlanes}
                 onExpandSwimlanes={onShowAllSwimlanes}
                 onCollapseColumns={onHideAllColumns}
@@ -3168,7 +3176,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </span>
           <div className="flex-1" />
           <button
-            onClick={expandAllSwimlanes}
+            onClick={() => { announceBulk(laneStateMessage(false, board.swimlanes.length)); expandAllSwimlanes(); }}
             className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Expand all swimlanes
