@@ -203,7 +203,10 @@ export default function PhoneBoard({
   const canReorderColumns = isAdmin && onColumnsReordered !== undefined && ordered.length > 1;
   const moveColumn = (dir: -1 | 1) => {
     const next = stepOrder(allColumnIds, visibleColumnIds, column.id, dir);
-    if (next) onColumnsReordered?.(next);
+    if (!next) return;
+    // Pin the selection: with none made yet the first column shows, and the moved one may stop being first.
+    setSelectedId(column.id);
+    onColumnsReordered?.(next);
   };
   const visibleLaneIds = swimlanes.map((l) => l.id);
   const allLaneIds = (allSwimlanes ?? swimlanes).map((l) => l.id);

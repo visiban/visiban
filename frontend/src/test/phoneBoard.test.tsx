@@ -361,6 +361,7 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
     expect(screen.getByTestId('phone-column-earlier')).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move column Prospect later' }))
     expect(onColumnsReordered).toHaveBeenLastCalledWith([2, 3, 1, 4])
+    expect(screen.getByRole('tab', { name: /Prospect/ })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('tab', { name: /Won/ }))
     expect(screen.getByTestId('phone-column-later')).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move column Won earlier' }))
