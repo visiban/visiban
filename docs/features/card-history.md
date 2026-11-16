@@ -72,7 +72,7 @@ A `CardMovement` record captures every column or swimlane change. Pure position 
 - Who moved it (`moved_by`)
 - When (`moved_at`), indexed for query performance
 - Optional notes
-- **Movement type** (`movement_type`): one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `unarchived` (card was unarchived from the Archived cards panel)
+- **Movement type** (`movement_type`): one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `unarchived` (card was unarchived from the Archived tab of the Activity drawer)
 
 `archived` and `unarchived` events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's **History** tab.
 

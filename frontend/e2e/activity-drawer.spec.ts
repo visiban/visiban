@@ -18,6 +18,41 @@ test.describe('board activity drawer', () => {
     const drawer = page.getByRole('complementary').filter({ hasText: 'Activity' })
     await expect(drawer.getByRole('button', { name: 'Close activity drawer' })).toBeVisible({ timeout: 2_000 })
     await expect(page.getByRole('group', { name: 'Activity kind filter' })).toBeVisible()
+    // #2274: one drawer, two tabs; Recent is selected on open.
+    await expect(page.getByRole('tab', { name: 'Recent' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Archived' })).toBeVisible()
+  })
+
+  test('floats over the board: the grid does not resize when the drawer opens (#2274)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    const scroll = page.locator('[data-board-scroll]')
+    const before = await scroll.evaluate((el) => el.getBoundingClientRect().width)
+    await page.getByRole('button', { name: 'Open activity drawer' }).click()
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer).toBeVisible()
+    const after = await scroll.evaluate((el) => el.getBoundingClientRect().width)
+    expect(after).toBe(before)
+    const box = await drawer.boundingBox()
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1440)
+    await page.screenshot({ path: process.env.DRAWER_SHOT ?? 'test-results/activity-drawer-1440.png' })
+  })
+
+  test('is a full-height right edge panel at 390px (#2274)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByRole('button', { name: 'Open activity drawer' }).click({ timeout: 10_000 })
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer).toBeVisible()
+    const box = await drawer.boundingBox()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+    expect(box!.height).toBeGreaterThanOrEqual(799)
   })
 
   test('WebSocket card.created event appears in the feed', async ({ page }) => {

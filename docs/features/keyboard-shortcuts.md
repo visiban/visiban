@@ -16,7 +16,7 @@ Press `?` on any board (or use the avatar menu → **Keyboard shortcuts**) to op
 
 ## Shortcuts never fire while typing
 
-Single-letter shortcuts are suppressed when focus is in an input, textarea, select, or rich-text editor. Type `b` in the search box without switching to the Board view, or `y` in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\\) fire everywhere, because the modifier makes the intent unambiguous.
+Single-letter shortcuts are suppressed when focus is in an input, textarea, select, or rich-text editor. Type `b` in the search box without switching to the Board view, or `y` in a card description without toggling the Archived tab. Modifier chords (⌘K, ⌘\\) fire everywhere, because the modifier makes the intent unambiguous.
 
 <a id="navigation-works-on-every-authenticated-page"></a>
 
@@ -64,7 +64,7 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 | <kbd>F</kbd> | Toggle the filter bar |
 | <kbd>E</kbd> | Collapse or expand every swimlane and column |
 | <kbd>C</kbd> | Collapse the hovered swimlane |
-| <kbd>Y</kbd> | Toggle the archived cards panel |
+| <kbd>Y</kbd> | Toggle the Archived tab of the Activity drawer *(1.3+; earlier versions toggle a separate panel)* |
 | <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> | Switch card layout (compact ↔ expanded) |
 | <kbd>⌘\\</kbd> / <kbd>Ctrl+\\</kbd> | Toggle the activity drawer |
 | <kbd>⌘⇧E</kbd> / <kbd>Ctrl+Shift+E</kbd> | Export the board (if your role meets the board's [export threshold](permissions.md#permission-matrix)) |

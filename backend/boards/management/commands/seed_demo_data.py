@@ -2006,7 +2006,7 @@ class Command(BaseCommand):
 
     def _archive_some_cards(self, cards):
         """
-        Archive 7–10 randomly selected cards to populate the Archived panel on
+        Archive 7–10 randomly selected cards to populate the Archived tab on
         the demo board. Archived dates are back-filled between 3 and 45 days ago
         so the panel shows a realistic spread of recently-archived work.
         """

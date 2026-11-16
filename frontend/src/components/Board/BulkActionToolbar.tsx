@@ -369,7 +369,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
-        {/* Archive — amber: meaningful but reversible (cards move to Archived panel).
+        {/* Archive — amber: meaningful but reversible (cards move to the Archived tab of the Activity drawer).
             Archive and Delete are withheld on the hosted demo (#2105), matching
             the card sheet, context menu and ⌘K (#2059/#1179): aria-disabled,
             never native disabled, with the shared reason (frontend/CLAUDE.md

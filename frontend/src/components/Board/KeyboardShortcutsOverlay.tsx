@@ -58,7 +58,7 @@ function buildSections(showLens: boolean): ShortcutSection[] {
         { key: "F", description: "Toggle the filter bar" },
         { key: "E", description: "Collapse or expand everything" },
         { key: "C", description: "Collapse the hovered swimlane" },
-        { key: "Y", description: "Toggle the archived cards panel" },
+        { key: "Y", description: "Toggle the Archived tab of the Activity drawer" },
         { key: formatShortcut({ mod: true, shift: true, key: "L" }), description: "Switch card layout (compact / expanded)" },
         { key: formatShortcut({ mod: true, key: "\\" }), description: "Toggle the activity drawer" },
         { key: formatShortcut({ mod: true, shift: true, key: "E" }), description: "Export the board" },

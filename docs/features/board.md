@@ -219,7 +219,7 @@ Hard enforcement is **off by default**. Enable it in **Board Settings → Rules 
 **Where limits are checked:** WIP and weight limits, soft or hard, are checked whenever a card is moved into a column, created in it, or restored into it from the archive, and weight limits also when a card's weight is raised. *Changed in 1.2 (#1428): before 1.2 only moves were checked.* Since 1.3 the same paths also check a swimlane's own limits; see [Swimlane limits](#swimlane-limits).
 
 - [Board import](#import) is the one exception: it restores a board as it was exported, so an imported column can start out over its limit.
-- When a new card or a restore is refused, the add-card field or the **Archived cards** panel says which limit was reached, and the card stays where it was.
+- When a new card or a restore is refused, the add-card field or the **Archived** tab of the Activity drawer says which limit was reached, and the card stays where it was.
 - When a weight increase is refused, the card detail shows the reason under the weight control and the weight reverts.
 
 See [Field Enforcement](../architecture/field-enforcement.md).
@@ -379,7 +379,7 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 | **Move to...** | Move all selected cards to a target column (each card stays in its current swimlane) |
 | **Assign to...** | Set or clear the assignee on all selected cards |
 | **Priority...** | Set priority on all selected cards |
-| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived cards** panel (toolbar **View** menu, **Show archived cards**) |
+| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived** tab of the Activity drawer (<kbd>Y</kbd>, or toolbar **View** menu, **Show archived cards**; a separate panel before 1.3) |
 | **Delete** | Delete all selected cards (with confirmation) |
 
 On the shared demo, the toolbar's **Archive** and **Delete** are dimmed with the demo notice and do nothing.
@@ -453,7 +453,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | `l` | Switch to the Lens view (when Issue Board Lens is connected) |
 | `e` | Collapse or expand every swimlane and column at once |
 | `c` | Collapse the swimlane you last hovered |
-| `y` | Toggle the Archived cards panel |
+| `y` | Toggle the Archived tab of the Activity drawer |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
 | `⌘K` / `Ctrl+K` | Open the command palette |
 | `Menu` / `Shift+F10` | Open the focused card's [actions menu](#card-actions-menu) |
@@ -923,12 +923,14 @@ Board state updates automatically when other users move cards or make changes. S
 
 A right-hand panel that streams the most recent board events — card moves, creations, and membership changes — as they happen. Open and close it with **⌘\\** (Ctrl+\\ on Linux/Windows) or the activity button in the board toolbar.
 
-The drawer has two filter rows:
+<span class="vb-version" title="Added in 1.3">1.3+</span> The drawer has two tabs: **Recent** (the live board events described below) and **Archived** (the board's archived cards, with **Unarchive**; see [Card archiving](card-archiving.md#viewing-archived-cards)). Press <kbd>Y</kbd> or choose **Show archived cards** in the **View** menu to open the drawer straight on the Archived tab. The drawer and the card detail sheet are never open together: opening one closes the other.
+
+On the Recent tab there are two filter rows:
 
 - **Kind**: *All*, *Moves* (includes creations), *Members*
 - **Window**: *1h*, *24h*, *7d*. It defaults to **24h** so the drawer stays focused on today's activity rather than all history. Widen to **7d** to scan back through the week, or narrow to **1h** for what's happened in the last hour.
 
-The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
+The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open the full History view** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
 
 ## Board sharing
 

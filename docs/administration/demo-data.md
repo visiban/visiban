@@ -203,7 +203,7 @@ A refusal is `403` with a stable body:
 {"code": "demo_read_only", "detail": "This is a shared demo — this change can't be saved here. ..."}
 ```
 
-**What a visitor can do:** sign in and out, watch live updates, and create, edit (including custom-field values), move and restore cards (restoring from the **Archived cards** panel works), and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions. Archive and Delete are not offered in the demo UI: the bulk toolbar, context menu and command palette dim them with the demo notice, and the card panel omits them. The restriction is client-side only; the server still permits archive.
+**What a visitor can do:** sign in and out, watch live updates, and create, edit (including custom-field values), move and restore cards (restoring from the **Archived** tab of the Activity drawer works), and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions. Archive and Delete are not offered in the demo UI: the bulk toolbar, context menu and command palette dim them with the demo notice, and the card panel omits them. The restriction is client-side only; the server still permits archive.
 
 **What a visitor cannot do:**
 

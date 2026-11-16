@@ -54,10 +54,11 @@ function dispatch(e: KeyboardEvent): void {
  *   33 — RichTextEditor color picker
  *   32 — card-face custom-field quick-edit popover (CustomFieldQuickEditPopover, #1856)
  *   31 — RichTextEditor edit-mode cancel
- *   30 — side panels (card detail, archived cards)
+ *   30 — side panels (card detail)
  *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape
  *   21 — inline board text fields (add-card, column/swimlane/board rename, search) — via useInlineEditEscape (#1860)
  *   20 — inline confirmation dialogs (bulk delete confirm)
+ *   19 — Activity drawer, Recent and Archived tabs (BoardActivityDrawer, #2274): non-modal, so below dropdowns, the View menu, inline fields and the bulk-delete confirm
  *   18 — movement-history slide-in (above the view-toggle's 15, below menus and dropdowns at 25)
  *   15 — view-toggle navigation (analytics → summary → board)
  *   12 — focus mode (single-swimlane focus — above selection-clear, below view-toggle)

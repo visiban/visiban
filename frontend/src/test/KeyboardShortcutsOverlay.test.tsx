@@ -52,7 +52,7 @@ describe('KeyboardShortcutsOverlay', () => {
   it('lists the Collapse/expand (E), Archived (Y), and Layout (⌘⇧L) actions', () => {
     render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     expect(screen.getByText('Collapse or expand everything')).toBeInTheDocument()
-    expect(screen.getByText('Toggle the archived cards panel')).toBeInTheDocument()
+    expect(screen.getByText('Toggle the Archived tab of the Activity drawer')).toBeInTheDocument()
     expect(screen.getByText('Switch card layout (compact / expanded)')).toBeInTheDocument()
   })
 

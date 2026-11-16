@@ -77,7 +77,7 @@ Visiban is a self-hosted, open-core Kanban board for teams of any size — from 
 - Edit all fields in a card detail panel
 - Move via drag-and-drop between cells (optimistic update + rollback on failure)
 - Move via "Move to" button in the card detail panel (column + swimlane picker without closing the panel)
-- Archive (soft-delete) — hidden from board, restorable from Archived panel; shows toast with direct link to Archived panel
+- Archive (soft-delete) — hidden from board, restorable from the Archived tab of the Activity drawer; shows toast with direct link to that tab
 - Delete (permanent, confirmation required)
 - Bulk select + bulk archive / bulk assign / bulk priority / bulk delete
 
@@ -537,7 +537,7 @@ Tracked backlog, not a committed roadmap for any specific release — check GitL
 - Card watchers / subscriptions — no per-card "notify me" toggle; notifications currently rely on @mentions and assignment
 - Global, account-scoped activity feed — the activity drawer is still per-board; no combined cross-board feed from the navbar bell
 - Styled, preference-aware date picker — due-date and filter inputs are still native `<input type="date">`
-- Archive organizer search/sort/filters/bulk actions — the Archived panel shows origin and supports pagination/unarchive, but has no title search, sort control, column/swimlane/assignee filters, or bulk restore/delete yet
+- Archive organizer search/sort/filters/bulk actions — the Archived tab of the Activity drawer shows origin and supports pagination/unarchive, but has no title search, sort control, column/swimlane/assignee filters, or bulk restore/delete yet
 - User-selectable accent color — theming is currently limited to the system/dark/light preference, not a per-user hue picker
 - Email invitations UI — since 1.2 the API can email a single-use group or site invite link to one recipient (`POST …/invite-links/send/`, #731), but the web UI for sending one is still to come
 - Site admin row-level actions to edit a user's email, view a user's boards, or delete a user account — only deactivate (with the offboarding/ownership-transfer flow) exists today

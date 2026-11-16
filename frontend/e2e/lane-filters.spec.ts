@@ -39,8 +39,8 @@ test.describe('lane filters', () => {
     })
 
     await page.goto(`/boards/${BOARD.id}`)
-    const acme = page.locator('[data-swimlane-id="1"]')
-    const globex = page.locator('[data-swimlane-id="2"]')
+    const acme = page.locator('[data-swimlane-id="1"]:not([data-board-cell])')
+    const globex = page.locator('[data-swimlane-id="2"]:not([data-board-cell])')
     await expect(acme).toBeVisible()
     await expect(globex).toBeVisible()
 
@@ -105,8 +105,8 @@ test.describe('lane filters', () => {
     await routeAuth(page)
     await routeBoard(page, board as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${board.id}`)
-    const acme = page.locator('[data-swimlane-id="1"]')
-    const globex = page.locator('[data-swimlane-id="2"]')
+    const acme = page.locator('[data-swimlane-id="1"]:not([data-board-cell])')
+    const globex = page.locator('[data-swimlane-id="2"]:not([data-board-cell])')
     await expect(globex).toBeVisible()
 
     await page.getByRole('button', { name: /^filters/i }).click()

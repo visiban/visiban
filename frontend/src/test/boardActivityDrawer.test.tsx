@@ -2,6 +2,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import BoardActivityDrawer from "../components/Board/BoardActivityDrawer";
 import type { ActivityEntry } from "../components/Board/BoardActivityDrawer";
+import { useIsLargeViewport } from "../hooks/useIsLargeViewport";
+
+vi.mock("../hooks/useIsLargeViewport", () => ({ useIsLargeViewport: vi.fn(() => true) }));
 
 // Fixed reference time so tests are deterministic regardless of real clock.
 const NOW = new Date("2026-04-18T12:00:00Z").getTime();
@@ -79,7 +82,7 @@ describe("BoardActivityDrawer", () => {
   it("calls onOpenHistory when full history link is clicked", () => {
     const onOpenHistory = vi.fn();
     render(<BoardActivityDrawer {...defaultProps} onOpenHistory={onOpenHistory} />);
-    fireEvent.click(screen.getByRole("button", { name: /open full history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /open the full history view/i }));
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
   });
 
@@ -152,5 +155,66 @@ describe("BoardActivityDrawer", () => {
     const windowGroup = screen.getByRole("group", { name: "Activity time window" });
     expect(windowGroup.querySelectorAll('[data-testid="active-mark"]')).toHaveLength(1);
     expect(windowGroup.querySelector('[aria-pressed="true"] [data-testid="active-mark"]')).not.toBeNull();
+  });
+
+  describe("Recent | Archived tabs (#2274)", () => {
+    it("shows Recent selected by default and lists both tabs", () => {
+      render(<BoardActivityDrawer {...defaultProps} />);
+      expect(screen.getByRole("tab", { name: "Recent" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Archived" })).toHaveAttribute("aria-selected", "false");
+      expect(screen.getByTestId("drawer-tab-underline")).toHaveClass("bg-primary-emphasis");
+      expect(screen.getByRole("button", { name: /open the full history view/i })).toHaveClass("text-fg-secondary");
+      expect(screen.getByRole("tab", { name: "Recent" })).toHaveFocus();
+      expect(screen.getByRole("group", { name: "Activity kind filter" })).toBeInTheDocument();
+    });
+
+    it("asks the host to switch tabs on click and with arrow keys", () => {
+      const onTabChange = vi.fn();
+      render(<BoardActivityDrawer {...defaultProps} onTabChange={onTabChange} />);
+      fireEvent.click(screen.getByRole("tab", { name: "Archived" }));
+      expect(onTabChange).toHaveBeenLastCalledWith("archived");
+      fireEvent.keyDown(screen.getByRole("tab", { name: "Recent" }), { key: "ArrowRight" });
+      expect(onTabChange).toHaveBeenLastCalledWith("archived");
+      fireEvent.keyDown(screen.getByRole("tab", { name: "Recent" }), { key: "End" });
+      expect(onTabChange).toHaveBeenLastCalledWith("archived");
+      fireEvent.keyDown(screen.getByRole("tab", { name: "Recent" }), { key: "Home" });
+      expect(onTabChange).toHaveBeenLastCalledWith("recent");
+      fireEvent.keyDown(screen.getByRole("tab", { name: "Recent" }), { key: "a" });
+      expect(onTabChange).toHaveBeenCalledTimes(4);
+    });
+
+    it("renders the archived content instead of the feed on the Archived tab", () => {
+      render(
+        <BoardActivityDrawer
+          {...defaultProps}
+          feed={[makeEntry({ actor: "@kelly" })]}
+          tab="archived"
+          archivedContent={<div>archived body</div>}
+        />,
+      );
+      expect(screen.getByText("archived body")).toBeInTheDocument();
+      expect(screen.queryByText("@kelly")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Activity kind filter" })).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Archived" })).toHaveAttribute("aria-selected", "true");
+    });
+  });
+
+  describe("placement (#2274)", () => {
+    it("floats top right over the board on a large viewport", () => {
+      vi.mocked(useIsLargeViewport).mockReturnValue(true);
+      render(<BoardActivityDrawer {...defaultProps} />);
+      const aside = screen.getByTestId("activity-drawer");
+      expect(aside).toHaveClass("absolute", "top-2", "right-3", "rounded-lg", "shadow-xl");
+      expect(aside).not.toHaveClass("fixed");
+    });
+
+    it("becomes a full-height right edge panel below the large breakpoint", () => {
+      vi.mocked(useIsLargeViewport).mockReturnValue(false);
+      render(<BoardActivityDrawer {...defaultProps} />);
+      const aside = screen.getByTestId("activity-drawer");
+      expect(aside).toHaveClass("fixed", "inset-y-0", "right-0", "max-w-full");
+      expect(aside).not.toHaveClass("absolute");
+      vi.mocked(useIsLargeViewport).mockReturnValue(true);
+    });
   });
 });
