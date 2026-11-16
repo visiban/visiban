@@ -649,6 +649,11 @@ describe('FilterPanel on phones: one Filter button for filters and View (#2340)'
     const u = userEvent.setup()
     setup()
     await open(u)
-    expect(screen.getByTestId('filter-panel')).toHaveClass('max-sm:[&_button]:min-h-11', 'max-sm:[&_input[type=text]]:min-h-11')
+    expect(screen.getByTestId('filter-panel')).toHaveClass('max-sm:[&_button]:min-h-11', 'max-sm:[&_input[type=text]]:min-h-11', 'max-sm:[&_input[type=date]]:min-h-11')
+    // A checkbox or radio row's target is its label, not the 16px input.
+    await u.click(screen.getByRole('button', { name: /^Due date/ }))
+    expect(screen.getByRole('radio', { name: 'Any' }).closest('label')).toHaveClass('max-sm:min-h-11')
+    await u.click(screen.getByRole('button', { name: /^Priority/ }))
+    expect(screen.getAllByRole('checkbox')[0].closest('label')).toHaveClass('max-sm:min-h-11')
   })
 })
