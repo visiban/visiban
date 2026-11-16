@@ -143,7 +143,7 @@ describe('Dashboard', () => {
       mockListGroups.mockRejectedValueOnce(new Error('x'))
     }
     renderDashboard()
-    expect(await screen.findByTestId('dashboard-load-error')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(/^Failed to load (boards|groups)\.$/)
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
     expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
@@ -161,7 +161,7 @@ describe('Dashboard', () => {
     mockListBoards.mockRejectedValueOnce(new Error('x'))
     mockListGroups.mockRejectedValueOnce(new Error('x'))
     renderDashboard()
-    expect(await screen.findByTestId('dashboard-load-error')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(/^Failed to load (boards|groups)\.$/)
     expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
     expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
