@@ -3904,12 +3904,22 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             "group": {"error_messages": {"does_not_exist": _BOARD_GROUP_NOT_ALLOWED_MSG}},
         }
 
-    def validate_swimlane_rollup_field(self, value):
+    def validate_swimlane_rollup_field(self, value, stored_id=None):
         """Only a number field can be summed (#2275).
 
         The board scoping already happened in the field's queryset, so the
         definition here is this board's and naming its type leaks nothing.
+
+        The currently stored id is accepted unchanged even when the field was
+        retyped away from number (allowed while it has no values; the id is
+        deliberately kept): otherwise a PUT of the GET body, or a PATCH echoing
+        the id, would 400 on a field the request does not change. Same
+        echo-back rule as ``group``. A different non-number id still 400s.
         """
+        if stored_id is None:
+            stored_id = getattr(self.instance, "swimlane_rollup_field_id", None)
+        if value is not None and value.pk == stored_id:
+            return value
         if value is not None and value.field_type != CustomFieldDefinition.FieldType.NUMBER:
             raise serializers.ValidationError(
                 "swimlane_rollup_field must be a number field."
@@ -4019,7 +4029,9 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
                 {"swimlane_rollup_field": [message.format(pk_value=chosen.pk)]}
             )
         try:
-            self.validated_data["swimlane_rollup_field"] = self.validate_swimlane_rollup_field(fresh)
+            self.validated_data["swimlane_rollup_field"] = self.validate_swimlane_rollup_field(
+                fresh, stored_id=board.swimlane_rollup_field_id
+            )
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"swimlane_rollup_field": exc.detail})
 

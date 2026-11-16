@@ -250,6 +250,54 @@ class BoardSwimlaneRollupFieldTests(TestCase):
         # An unrelated PATCH is not blocked by the stale choice (field absent from body).
         self.assertEqual(self._patch({"name": "Still fine"}).status_code, 200)
 
+    def test_echoing_the_stored_id_after_retype_is_accepted(self):
+        # The id is deliberately kept when the field is retyped away from
+        # number, so a PUT of the GET body or a PATCH echoing it must not 400
+        # on a value the request does not change (same rule as `group`).
+        self._patch({"swimlane_rollup_field": self.amount.pk})
+        CustomFieldDefinition.objects.filter(pk=self.amount.pk).update(field_type="text")
+        url = f"/api/v1/boards/{self.board.pk}/"
+        body = self.client.get(url).json()
+        with patch(PATCH_BROADCAST):
+            put = self.client.put(url, body, format="json")
+        self.assertEqual(put.status_code, 200, put.content)
+        self.assertEqual(put.json()["swimlane_rollup_field"], self.amount.pk)
+        patch_r = self._patch({"swimlane_rollup_field": self.amount.pk})
+        self.assertEqual(patch_r.status_code, 200, patch_r.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.swimlane_rollup_field_id, self.amount.pk)
+
+    def test_a_different_non_number_id_is_still_400_after_retype(self):
+        self._patch({"swimlane_rollup_field": self.amount.pk})
+        CustomFieldDefinition.objects.filter(pk=self.amount.pk).update(field_type="text")
+        other = CustomFieldDefinition.objects.create(
+            board=self.board, name="Notes", field_type="text", position=1,
+        )
+        r = self._patch({"swimlane_rollup_field": other.pk})
+        self.assertEqual(r.status_code, 400, r.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.swimlane_rollup_field_id, self.amount.pk)
+
+    def test_deleting_the_rollup_field_also_broadcasts_to_the_group_channel(self):
+        from groups.models import Group
+
+        group = Group.objects.create(name="Rollup group", owner=self.owner)
+        self.board.group = group
+        self.board.save(update_fields=["group"])
+        self._patch({"swimlane_rollup_field": self.amount.pk})
+        with patch(PATCH_BROADCAST), patch("groups.broadcast.broadcast_group_event") as group_send:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                r = self.client.delete(f"/api/v1/boards/{self.board.pk}/custom-fields/{self.amount.pk}/")
+            self.assertEqual(r.status_code, 204, r.content)
+            group_send.assert_not_called()
+            for callback in callbacks:
+                callback()
+        group_send.assert_called_once()
+        args = group_send.call_args[0]
+        self.assertEqual(args[0], group.pk)
+        self.assertEqual(args[1], "board.updated")
+        self.assertIsNone(args[2]["swimlane_rollup_field"])
+
     def test_public_share_payload_does_not_carry_it(self):
         self._patch({"swimlane_rollup_field": self.amount.pk})
         self.board.refresh_from_db()

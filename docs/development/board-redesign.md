@@ -114,7 +114,7 @@ A full-width band replaces the left label panel. Left to right:
 - a "+N" pill that shows the remaining lane fields inline and then reads "Less";
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
 
-The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset.
+The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band keeps the card count that `board-dark.png` omits; removing it is the follow-up #2328.
 
 **Collapsed:** the cells are replaced by one strip aligned to the column grid. Each strip cell shows the card count (an en dash when zero) and one 10px square per card: danger for overdue, warning for stale, primary tint otherwise. A split column shows two counts with the dashed divider.
 
@@ -273,7 +273,7 @@ Sizes: radius 8px on panels, cards and wells, pill on chips, 4px on track chips.
 
 All additive.
 
-- A per-lane WIP limit (nullable) and a per-board choice of the number field to roll up per lane (#2275).
+- A per-board choice of the number field to roll up per lane (#2275): `Board.swimlane_rollup_field`, summed client-side from the card values. The per-lane WIP limit reuses the existing `Swimlane.wip_limit` (#1150), so it needs no new data.
 - Sub-column structure and each card's gate position (#1102).
 - Track definitions, per-card track states and per-lane "not applicable" exceptions (#1920).
 - Per-card time in each column for the peek. Check whether the analytics drill-down endpoint already covers it before adding one.
@@ -326,7 +326,7 @@ Owner decisions, 2026-11-14:
 
 Evidence and its limits: a simulated persona panel (not user research) and desk research informed the History and per-lane decisions. The real usability baseline (#1590) has not been run.
 
-Open for `architect`: the lane WIP limit and rollup model (#2275), and how tracks are stored (#1920).
+Decided in #2275: the lane WIP limit reuses #1150's `Swimlane.wip_limit`, and the rollup is a number field stored on the board (stale ids kept when the field is retyped, nulled when deleted), computed client-side. Open for `architect`: how tracks are stored (#1920).
 
 ## Review checklist
 
