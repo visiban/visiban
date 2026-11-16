@@ -39,6 +39,7 @@ import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
+import CardPeekSheet from "../Card/CardPeekSheet";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
@@ -959,6 +960,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  // Card peek (#2273): the read-only side sheet a board click opens. Open card
+  // hands the card to selectedCard (the full detail sheet); the two never show
+  // together, and neither does the peek with the activity drawer.
+  const [peekCardId, setPeekCardId] = useState<number | null>(null);
   // Bumped whenever a `card.updated` socket event arrives for the currently
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
@@ -1425,6 +1430,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // replaces the card reaches it (#1773); falls back to the snapshot for the
   // render before the not-found effect below closes the panel.
   const liveSelectedCard = selectedCard ? (board.cards.find((c) => c.id === selectedCard.id) ?? selectedCard) : null;
+  const peekCard = peekCardId !== null ? (board.cards.find((c) => c.id === peekCardId) ?? null) : null;
+  // Exclusivity (#2273): the detail sheet or the activity drawer opening closes
+  // the peek; a card removed remotely closes it too.
+  useEffect(() => {
+    if (selectedCard || drawerOpen || showArchived || (peekCardId !== null && !peekCard)) setPeekCardId(null);
+  }, [selectedCard, drawerOpen, showArchived, peekCardId, peekCard]);
+  // The peek renders only in the board branch; leaving the board view ends it,
+  // so returning does not reopen it and steal focus.
+  useEffect(() => {
+    if (view !== "board") setPeekCardId(null);
+  }, [view]);
   useEffect(() => {
     if (selectedCardId === null) return;
     if (board.cards.some((c) => c.id === selectedCardId)) return;
@@ -1546,8 +1562,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     maintenanceBlocked: blockedByMaintenance,
   };
   // Latest state for the stable callbacks and window listeners below.
-  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, cardActionContext });
-  cardActionStateRef.current = { selectedCardIds, selectedCard, cardActionContext };
+  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, peekCardId, cardActionContext });
+  cardActionStateRef.current = { selectedCardIds, selectedCard, peekCardId, cardActionContext };
 
   const openCardMenu = useCallback((card: Card, anchor: CardMenuAnchor) => {
     setCardMenu({ cardIds: contextMenuTargetIds(card.id, cardActionStateRef.current.selectedCardIds), originId: card.id, anchor });
@@ -1667,11 +1683,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const detail = (ev as CustomEvent<CardTargetQueryDetail>).detail;
       const current = boardRef.current;
       if (!detail || !current) return;
-      const { selectedCardIds: sel, selectedCard: open, cardActionContext: ctx } = cardActionStateRef.current;
+      const { selectedCardIds: sel, selectedCard: open, peekCardId: peeked, cardActionContext: ctx } = cardActionStateRef.current;
       const target = detail.cardIds
         ? { cardIds: detail.cardIds, source: "result" as const }
         : resolveCardTarget({
-            openCardId: open?.id ?? null,
+            // The peek withholds the context menu and the bulk selection, so the
+            // peeked card is the palette's target while it is open (#2273).
+            openCardId: open?.id ?? peeked,
             // A focused card counts only if it is on this board.
             focusedCardId: detail.focusedCardId != null && current.cards.some((c) => c.id === detail.focusedCardId) ? detail.focusedCardId : null,
             selectedIds: sel,
@@ -2023,7 +2041,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     hiddenIds: laneFilterHiddenIds,
     filterKey: laneFilterKey,
     focusedSwimlaneId,
-    openCardSwimlaneId: selectedCard?.swimlane ?? null,
+    // The peeked card counts too: focus sits in the sheet while it is open, so its lane would otherwise hide silently.
+    openCardSwimlaneId: liveSelectedCard?.swimlane ?? peekCard?.swimlane ?? null,
   });
   // A lane edited from this client (row rename, field values) is "mine" for the notice.
   const handleLocalSwimlaneUpdated = useCallback((s: Swimlane) => {
@@ -2993,7 +3012,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3129,15 +3148,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       filteredCardIds={filteredCardIds}
                       selectedCardIds={selectedCardIds}
                       highlightedCardId={highlightedCardId}
-                      currentCardId={selectedCard?.id ?? null}
+                      currentCardId={selectedCard?.id ?? peekCardId}
                       onToggleCardSelection={toggleCardSelection}
                       // No context menu while the card sheet is open (#2059): the
                       // menu would take focus out of the aria-modal sheet, the same
                       // reason the selection checkbox is withheld (#1914). ⌘K acts
                       // on the open card instead.
-                      onOpenCardMenu={selectedCard ? undefined : openCardMenu}
+                      onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
-                      onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                      onCardClick={(card) => {
+                        clearSelection();
+                        // While the detail sheet is open a card click swaps it; otherwise it peeks (#2273).
+                        if (selectedCard) { setSelectedCard(card); return; }
+                        setDrawerOpen(false);
+                        setShowArchived(false);
+                        setPeekCardId(card.id);
+                      }}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={handleLocalSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}
@@ -3318,6 +3344,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           message={bulkMessage}
           onMessageChange={setBulkMessage}
         />
+      )}
+
+      {peekCard && !selectedCard && (
+        <SectionErrorBoundary section="Card peek">
+          <CardPeekSheet
+            key={peekCard.id}
+            card={peekCard}
+            board={board}
+            canEdit={canEdit}
+            onClose={() => setPeekCardId(null)}
+            onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
+            onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            userDateFormat={userDateFormat}
+            userTimezone={userTimezone}
+          />
+        </SectionErrorBoundary>
       )}
 
       {selectedCard && (

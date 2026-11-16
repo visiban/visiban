@@ -49,6 +49,8 @@ export function useBoardPan(el: HTMLElement | null) {
     }
 
     function onKeyDown(e: KeyboardEvent) {
+      // Space on a focused card face opens the peek (#2273); it must not also arm pan.
+      if (e.defaultPrevented || (e.target instanceof Element && e.target.closest("[data-card-id]"))) return;
       if (e.code === "Space" && !e.repeat && !isEditableFocused()) {
         e.preventDefault(); // prevent browser default Space-to-scroll
         if (!panArmed.current) armPan();
