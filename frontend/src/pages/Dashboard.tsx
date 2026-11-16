@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
 import { updateDefaultBoard } from "../api/auth";
@@ -12,6 +12,7 @@ import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoa
 import { canDeleteBoard } from "../utils/canDeleteBoard";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
+import SectionEmptyState from "../components/Common/SectionEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, ImportOptions, User } from "../types";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
@@ -45,16 +46,34 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [joinToken, setJoinToken] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // True when the initial boards or groups fetch rejected. Drives the error state
+  // (with Retry) and keeps a failed load from masquerading as "no data" (#487).
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const loadAll = useCallback(() => {
+    setLoadError(null);
+    setLoadFailed(false);
+    setLoadingBoards(true);
+    setLoadingGroups(true);
     listBoards()
       .then(setBoards)
-      .catch(() => setLoadError("Failed to load boards. Try refreshing the page."))
+      .catch(() => {
+        setLoadFailed(true);
+        setLoadError("Failed to load boards. Try refreshing the page.");
+      })
       .finally(() => setLoadingBoards(false));
     listGroups()
       .then(setGroups)
-      .catch(() => setLoadError("Failed to load groups. Try refreshing the page."))
+      .catch(() => {
+        setLoadFailed(true);
+        setLoadError("Failed to load groups. Try refreshing the page.");
+      })
       .finally(() => setLoadingGroups(false));
   }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
     const board = await createBoard({ name, template, swimlane_name: swimlaneName });
@@ -127,7 +146,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
   const isLoaded = !loadingBoards && !loadingGroups;
-  const isEmpty = isLoaded && boards.length === 0 && groups.length === 0;
+  const isEmpty = isLoaded && !loadFailed && boards.length === 0 && groups.length === 0;
 
   const renderBoardRow = (b: Board) => (
     <div key={b.id} className="group relative">
@@ -190,7 +209,17 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
 
         {loadError && (
-          <p className="text-sm text-danger mb-4" data-testid="dashboard-load-error">{loadError}</p>
+          <div className="flex items-center gap-3 mb-4">
+            <p role="alert" className="text-sm text-danger" data-testid="dashboard-load-error">{loadError}</p>
+            {loadFailed && (
+              <button
+                onClick={loadAll}
+                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         )}
 
         {isEmpty && (
@@ -214,7 +243,15 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           {loadingGroups ? (
             <Spinner />
           ) : groups.length === 0 ? (
-            <p className="text-fg-muted text-sm">No groups yet. Create one to collaborate with others.</p>
+            // The onboarding state above already says "nothing here yet"; don't repeat it.
+            isEmpty || loadFailed ? null : (
+              <SectionEmptyState
+                testId="groups-empty"
+                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
+                heading="No groups yet"
+                description="Create one to collaborate with others."
+              />
+            )
           ) : (
             <div className="bg-surface/50 rounded-lg border border-line/50 px-2 py-1">
               <GroupTree
@@ -272,8 +309,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <Spinner />
           ) : (
             <div className="flex flex-col gap-2">
-              {personalBoards.length === 0 && (
-                <p className="text-fg-muted text-sm">No personal boards yet.</p>
+              {personalBoards.length === 0 && !isEmpty && !loadFailed && (
+                <SectionEmptyState
+                  testId="personal-boards-empty"
+                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h3a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h3a1 1 0 011 1v8a1 1 0 01-1 1h-3a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h1a1 1 0 011 1v5a1 1 0 01-1 1h-1a1 1 0 01-1-1V4z" /></svg>}
+                  heading="No personal boards yet"
+                  description="Use New board to create one."
+                />
               )}
               {personalBoards.map(renderBoardRow)}
             </div>

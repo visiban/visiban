@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from '../components/Layout/Navbar'
@@ -310,5 +310,22 @@ describe('Navbar — hosted demo (#1193)', () => {
     const item = await screen.findByText('moved a card')
     await user.click(item)
     expect(mockMarkRead).toHaveBeenCalledWith([1])
+  })
+})
+
+describe('Navbar — notification dropdown separators (#487)', () => {
+  it('uses engraved double-div separators (header|list and between rows), not border-b', async () => {
+    mockGetUnreadCount.mockResolvedValue(0)
+    const row = (id: number, verb: string) => ({ id, verb, actor: null, card_id: null, card_title: null, board_id: null, board_name: null, action_type: 'card_moved', read: false, created_at: new Date().toISOString() })
+    mockListNotifications.mockResolvedValue([row(1, 'first thing'), row(2, 'second thing')])
+    const user = userEvent.setup()
+    renderNavbar()
+    await user.click(screen.getByTitle('Notifications'))
+    const first = await screen.findByText('first thing')
+    const panel = first.closest('div.absolute') as HTMLElement
+    // one after the header, one between the two rows (none before the first row or after the last)
+    expect(within(panel).getAllByRole('separator')).toHaveLength(2)
+    expect(panel.querySelectorAll('button.border-b')).toHaveLength(0)
+    expect(panel.querySelector('.border-b')).toBeNull()
   })
 })

@@ -115,14 +115,40 @@ describe('Dashboard', () => {
     expect(screen.getByText('My Boards')).toBeInTheDocument()
   })
 
-  it('shows empty state when no boards', async () => {
+  it('shows the canonical empty state when no personal boards (groups exist)', async () => {
+    mockListGroups.mockResolvedValue([{ id: 1, name: 'G', slug: 'g', parent: null, parent_name: null } as never])
     renderDashboard()
-    expect(await screen.findByText('No personal boards yet.')).toBeInTheDocument()
+    expect(await screen.findByTestId('personal-boards-empty')).toHaveTextContent('No personal boards yet')
   })
 
-  it('shows empty state when no groups', async () => {
+  it('shows the canonical empty state when no groups (boards exist)', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+    ])
     renderDashboard()
-    expect(await screen.findByText('No groups yet. Create one to collaborate with others.')).toBeInTheDocument()
+    const empty = await screen.findByTestId('groups-empty')
+    expect(empty).toHaveTextContent('No groups yet')
+    expect(empty).toHaveTextContent('Create one to collaborate with others.')
+  })
+
+  it('hides the redundant section empty states below the onboarding state', async () => {
+    renderDashboard()
+    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+  })
+
+  it('shows an error with Retry, not the onboarding or empty states, when loads fail, and Retry recovers', async () => {
+    mockListBoards.mockRejectedValueOnce(new Error('x'))
+    mockListGroups.mockRejectedValueOnce(new Error('x'))
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toBeInTheDocument()
+    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-load-error')).not.toBeInTheDocument()
   })
 
   it('renders boards when available', async () => {
