@@ -2922,6 +2922,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             status={socketStatus}
             lastEventAt={socketLastEventAt}
             reconnectAttempt={socketReconnectAttempt}
+            reconnectingLabel="Offline"
             onRefresh={silentReload}
             tourStep="live-indicator"
           />

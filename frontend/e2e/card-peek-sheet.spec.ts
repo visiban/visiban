@@ -64,7 +64,7 @@ test.describe('card peek sheet', () => {
     const card = page.locator(`[data-card-id="${CARD.id}"]`)
     await card.click()
     await expect(page.getByTestId('card-peek-sheet')).toBeVisible()
-    await page.getByRole('button', { name: /^Add card to / }).first().click()
+    await page.locator('[data-board-cell]').getByRole('button', { name: /^Add card to / }).first().click()
     await expect(page.getByTestId('card-peek-sheet')).toHaveCount(0)
     await expect(page.getByPlaceholder(/title/i)).toHaveCount(0)
   })

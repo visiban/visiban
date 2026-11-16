@@ -65,7 +65,7 @@ docker compose up --build
 **Next:** On first boot the backend creates a one-time admin password. See [First boot](first-boot.md) to retrieve it.
 
 !!! warning "Accessing it from anything but localhost? Change two variables first"
-    The `.env.example` defaults only work on `localhost`. If you reach Visiban from a LAN IP, a hostname, or any address other than `127.0.0.1`, set these before starting the stack. Otherwise API calls may fail and WebSocket connections stay stuck on **Reconnecting**.
+    The `.env.example` defaults only work on `localhost`. If you reach Visiban from a LAN IP, a hostname, or any address other than `127.0.0.1`, set these before starting the stack. Otherwise API calls may fail and WebSocket connections stay stuck on **Reconnecting** (**Offline** on a board).
 
     ```bash
     ALLOWED_HOSTS=192.168.1.100          # or your LAN hostname
@@ -485,7 +485,7 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 
 **nginx returns `502 Bad Gateway`:** The backend may still be starting. Check `docker compose -f docker-compose.prod.yml logs backend`, and wait for the `daphne` line before reloading the page.
 
-**The Live dot stays yellow (Reconnecting) or never turns green.** The toolbar indicator shows the WebSocket connection to `/ws/boards/{id}/`. If it stays yellow after the page loads, work down this list:
+**The Live dot stays yellow (Reconnecting, or Offline on a board) or never turns green.** The toolbar indicator shows the WebSocket connection to `/ws/boards/{id}/`. If it stays yellow after the page loads, work down this list:
 
 1. **Backend not ready.** WebSocket connections are rejected until daphne has fully started:
    ```bash
@@ -509,7 +509,7 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 
 5. **Upstream proxy stripping upgrade headers.** If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the `Upgrade` and `Connection` headers and doesn't terminate WebSocket connections.
 
-**You're signed out as soon as you open a board or group page** (since 1.3). The browser's session cookie isn't reaching the WebSocket handshake on `/ws/`, so the server refuses it with `4001` and the web app signs you out, as for any expired session. Before 1.3 the same misconfiguration showed up as a Live dot stuck on **Reconnecting…** instead (#2145). The web app authenticates `/ws/` with the same session cookie as `/api/`, so:
+**You're signed out as soon as you open a board or group page** (since 1.3). The browser's session cookie isn't reaching the WebSocket handshake on `/ws/`, so the server refuses it with `4001` and the web app signs you out, as for any expired session. Before 1.3 the same misconfiguration showed up as a Live dot stuck on **Reconnecting…** (**Offline** on a board) instead (#2145). The web app authenticates `/ws/` with the same session cookie as `/api/`, so:
 
 - Serve `/ws/` from the same host as `/api/` (the host in `VITE_API_URL`, or the SPA's own origin behind a single proxy). The session cookie is scoped to the host that set it, so a `/ws/` on another host never receives it.
 - With TLS, connect over `wss://`: the session cookie is `Secure` unless `FORCE_INSECURE_COOKIES` is set, so a browser doesn't send it on a plain `ws://` upgrade. The web app picks `wss://` itself when the page or `VITE_API_URL` is `https://`.

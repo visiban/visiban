@@ -229,8 +229,13 @@ describe('CardPeekSheet', () => {
     expect(move).toHaveAccessibleDescription('Moves are paused while the board is offline.')
     await userEvent.click(move)
     expect(screen.queryByLabelText('Column')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Move later' })).toBeDisabled()
+    for (const name of ['Move earlier', 'Move later']) {
+      const step = screen.getByRole('button', { name })
+      expect(step).toHaveAttribute('aria-disabled', 'true')
+      expect(step).not.toBeDisabled()
+      expect(step).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+      await userEvent.click(step)
+    }
     expect(p.onMoveCard).not.toHaveBeenCalled()
   })
 

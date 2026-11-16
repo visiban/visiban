@@ -372,7 +372,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
           // The wash is `surface-active/50`: `surface-hover` equals `canvas` in light mode, so
           // the old wash was invisible there (#2320).
-          className={`group/addbtn flex-1 min-h-11 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-active/50 focus:border-dashed focus:border-line-strong focus:bg-surface-active/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "opacity-0 pointer-events-none" : ""}`}
+          className={`group/addbtn flex-1 min-h-11 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-active/50 focus:text-fg focus:border-dashed focus:border-line-strong focus:bg-surface-active/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "opacity-0 pointer-events-none" : ""}`}
         >
           <span aria-hidden="true" className="text-base leading-none">+</span>
           <span aria-hidden="true" className="hidden group-hover/addbtn:inline group-focus/addbtn:inline ml-1.5">Add card</span>

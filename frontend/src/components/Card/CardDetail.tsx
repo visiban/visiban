@@ -459,6 +459,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     }
     moveOpenerRef.current = null;
   };
+  // The socket dropping while the popover is open hides it (the render is gated on
+  // !movesPaused); close it for real so Escape and focus are not left pointing at a popover
+  // that is not there, and hand focus back to the Move button (#2325).
+  useEffect(() => {
+    if (movesPaused && showMovePopover) closeMovePopover(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeMovePopover only touches refs and a stable setter
+  }, [movesPaused]);
   const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);
   // The Move button's viewport position when the popover was anchored, so a
   // scroll dismisses only when it actually displaced the anchor (#1171).
@@ -1617,7 +1624,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     // On coarse pointers (touch) this is the non-drag way to move a card,
                     // but a 20px icon is too small to tap and its hover tooltip never
                     // shows (#1287). Grow it to 32px and show the "Move" label inline.
-                    className="w-5 h-5 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-5 h-5 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-muted aria-disabled:hover:bg-transparent transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     aria-label="Move card to different column or swimlane"
                   >
                     {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
@@ -1627,13 +1634,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <span className="hidden [@media(pointer:coarse)]:inline text-xs" aria-hidden="true">Move</span>
                   </button>
                   {/* Styled tooltip — 300ms delay on show, immediate hide */}
-                  <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">
+                  <div className={`pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg opacity-0 transition-opacity delay-300 ${movesPaused ? "" : "group-hover/move:opacity-100 group-hover/move:delay-300"}`}>
                     Move card
                   </div>
                 </div>
               )}
             </div>
-            {/* Always mounted, takes no space while empty; text swapped inside so it is announced (#1773). */}
+            {/* Mounted only while moves are paused; it is the Move button's aria-describedby text, not a live region (the move-notice below is the live one, #1773). */}
             {canEdit && onMoveCard && movesPaused && (
               <p id="card-detail-moves-paused" className="text-xs text-fg-secondary mt-1 px-1">Moves are paused while the board is offline.</p>
             )}

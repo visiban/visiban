@@ -333,7 +333,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
           )).flatMap((el, i) => (
             // One divider between the in-cell steps and the columns.
             submenu.id === "move" && reorder.length > 0 && i === reorder.length
-              ? [<div key="reorder-sep" role="separator" className="mx-4 my-1 h-px bg-line" />, el]
+              ? [<div key="reorder-sep" role="separator" className="mx-4 my-1"><div className="h-px bg-sunken" /><div className="h-px bg-surface-active/50" /></div>, el]
               : [el]
           ))}
         </div>

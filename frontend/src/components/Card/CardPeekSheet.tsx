@@ -483,7 +483,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               aria-disabled={movesPaused || undefined}
               aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined}
               onClick={movesPaused ? undefined : () => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
-              className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
+              className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move
             </button>
@@ -491,8 +491,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         </div>
         {canReorder && (
           <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
-            <button type="button" disabled={moving || movesPaused || cellOrder.earlier === null} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
-            <button type="button" disabled={moving || movesPaused || cellOrder.later === null} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+            <button type="button" disabled={moving || cellOrder.earlier === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" disabled={moving || cellOrder.later === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
           </div>
         )}
         {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}
