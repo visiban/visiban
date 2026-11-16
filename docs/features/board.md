@@ -382,11 +382,19 @@ On a phone (below 640 px) cards are not draggable; use Move as above. A Bluetoot
 
 Below 640px wide the board shows one column at a time instead of the grid. A row of column buttons (color dot, name, card count) selects the column; scroll it sideways if the columns do not fit. Under it, the selected column's limit line and meter appear when the column has a limit.
 
-Swimlanes stack. Each lane has a band showing its name, how many cards it has in this column ("2 here") and its overdue and stale counts; tap the band to collapse or expand the lane. Under each band are the lane's actions: **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button is at least 44px tall.
+The limit line shows the card count against the WIP limit (with ⛔ when the board enforces a hard limit and the column is over it) and, when the column is over its weight budget, **Weight** total/budget, as the column header does on a larger screen. Beside it, a column with a policy shows a **Policy** button for everyone; it opens the policy, and board admins can edit it from there.
 
-Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)).
+Swimlanes stack. Each lane has a band showing its name, how many cards it has in this column ("2 here") and its overdue and stale counts; tap the band to collapse or expand the lane. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
 
-Not built yet on phones: the second line of lane fields and lane limits on the lane band, the sub-column switcher for a split column, track chips on cards, and the icon-button header from the design (the regular toolbar is used).
+Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)). Reordering, a drag on a larger screen, uses buttons instead:
+
+- **Move earlier** / **Move later** beside the column's limit line move the selected column one place (board admins).
+- **Move earlier** / **Move later** under a lane band move the lane one place (board admins).
+- **Move earlier** / **Move later** in the card's peek sheet move the card one place within its lane and column (people who can edit).
+
+Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
+
+Not built yet on phones: the second line of the lane band with lane fields and lane limits (#2329), the sub-column switcher for a split column and track chips on cards (#2330), and the icon-button header with the four-tab strip and 44px header and toolbar targets (#2333; the regular toolbar is used).
 
 ### Board panning
 
