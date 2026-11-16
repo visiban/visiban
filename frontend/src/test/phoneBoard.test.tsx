@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { createCard } from '../api/cards'
@@ -492,6 +492,33 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     setup({ swimlanes: [fielded(1, 'North', [], { wip_limit: 9 } as Partial<Swimlane>)] })
     // North holds card 1 (Prospect, shown) and card 4 (Qualified, not shown).
     expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
+  })
+
+  it('counts the lane WIP over allColumns even when a column is hidden from `columns`', () => {
+    setup({
+      columns: [col(1, 'Prospect')],
+      allColumns: [col(1, 'Prospect'), col(2, 'Qualified')],
+      swimlanes: [fielded(1, 'North', [], { wip_limit: 9 } as Partial<Swimlane>)],
+    })
+    // Card 4 sits in the hidden Qualified column: 2 over allColumns, 1 over `columns`.
+    expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
+  })
+
+  it('offers admins "Change field order" after the revealed +N fields, 44px, and hides it otherwise', async () => {
+    const user = userEvent.setup()
+    const onEditFieldOrder = vi.fn()
+    const props = { swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs, onEditFieldOrder }
+    setup({ ...props, isAdmin: true })
+    expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    const link = screen.getByRole('button', { name: 'Change field order' })
+    expect(link.className).toContain('min-h-11')
+    await user.click(link)
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup({ ...props, isAdmin: false })
+    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
   })
 
   it('shows the number rollup over the lane\'s open cards, and orders stats as the grid band', () => {

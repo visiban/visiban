@@ -51,6 +51,8 @@ interface Props {
   /** Editing surfaces (#2277): the same gates and modals as the grid, so phones lose no controls. */
   isAdmin?: boolean;
   allColumns?: Column[];
+  /** Admin shortcut from the revealed `+N` fields to Board settings -> Swimlane fields, as on the grid band. */
+  onEditFieldOrder?: () => void;
   boardColors?: BoardColor[];
   limitFlags?: LimitFlags;
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
@@ -162,7 +164,7 @@ export default function PhoneBoard({
   selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onOpenCardMenu,
   contextTargetCardId, onCardUpdated, density, userTimezone, currentUserId, userDateFormat,
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
-  isAdmin = false, allColumns, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
+  isAdmin = false, allColumns, onEditFieldOrder, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
@@ -440,6 +442,15 @@ export default function PhoneBoard({
                         </button>
                         <div id={extraId} className="contents" data-testid="phone-lane-extra-fields">
                           {fieldsOpen && fields.extra.map(renderField)}
+                          {fieldsOpen && isAdmin && onEditFieldOrder && (
+                            <button
+                              type="button"
+                              onClick={onEditFieldOrder}
+                              className="inline-flex items-center min-h-11 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              Change field order
+                            </button>
+                          )}
                         </div>
                       </>
                     )}

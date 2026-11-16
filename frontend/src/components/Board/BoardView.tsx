@@ -3146,6 +3146,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               customFieldDefinitions={board.custom_field_definitions}
               isAdmin={isAdmin}
               allColumns={board.columns}
+              onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
               boardColors={boardColors}
               limitFlags={board}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}

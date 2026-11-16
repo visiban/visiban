@@ -61,7 +61,7 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 - the swimlane's first two field values as `Label value` pairs, then a **+N** button for the rest (it reveals them in place and then reads **Less**; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band));
 - at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the swimlane rollup total (`$413k open`) when the board has chosen one.
 
-The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle and the edit and focus buttons appear when you hover over the band or move keyboard focus to them.
+The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle and the edit and focus buttons appear when you hover over the band or move keyboard focus to them. On a touch device, which has no hover, they are always shown.
 
 > **Changed in 1.3 (#2328, #2335)** — the band no longer shows the swimlane's card count. A lane over its WIP limit still shows the count in its limit line (`WIP 5 / 4 over`), and the collapsed strip shows the count per column. The edit button is now hidden until you hover the band or focus it, like the drag handle and the focus button. The old left label panel is gone, so the cards start at the left edge of the board.
 

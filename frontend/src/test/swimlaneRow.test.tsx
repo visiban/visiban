@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
@@ -111,6 +111,10 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTestId('swimlane-name').className).toContain('font-semibold')
     expect(screen.queryByTestId('swimlane-card-count')).toBeNull()
     // No "N cards" text anywhere in the band, expanded or collapsed.
+    expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
+    cleanup()
+    render(<SwimlaneRow {...defaultProps()} collapsed cards={[makeCard({ id: 1 }), makeCard({ id: 2 })]} />)
+    expect(screen.queryByTestId('swimlane-card-count')).toBeNull()
     expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
   })
 
