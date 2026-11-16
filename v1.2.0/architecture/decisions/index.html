@@ -5111,7 +5111,7 @@
 </tr>
 <tr>
 <td>Cumulative flow</td>
-<td><code>definition</code>, <code>columns: [{column_uid, column_name, is_done}]</code> in position order, plus the <code>null</code> band; <code>days: [{date, counts: {column_uid: n}}]</code>; <code>bottleneck_column_uid</code> (or <code>null</code>)</td>
+<td><code>definition</code>, <code>columns: [{column_uid, column_name, is_done}]</code> in position order, plus the <code>null</code> band; <code>days: [{date, counts: {column_uid: n}}]</code>; <code>completed</code>, <code>completed_per_week</code> (#2307); <code>bottleneck_column_uid</code> (or <code>null</code>)</td>
 <td>the same endpoint with <code>date=YYYY-MM-DD</code> returns <code>{date, columns: [{column_uid, card_uids}]}</code>, the cards behind that day's counts</td>
 </tr>
 </tbody>
@@ -5132,6 +5132,9 @@
 </ul>
 </li>
 </ul>
+<blockquote>
+<p><strong>Note (2026-11-15, #2307):</strong> the done-side rate on the flow row needs a count that sums the done bands' <code>entered</code> without double counting, so the cumulative-flow payload adds <code>completed</code> and <code>completed_per_week</code>. <code>completed</code> counts first completions only, in the window <code>first_day &lt; date &lt;= last_day</code>, on the same <code>completion_at</code> definition as throughput. A card moving Done A to Done B counts once, and a finish after a reopen is not counted again. <code>completed_per_week</code> is <code>completed × 7 ÷ (days − 1)</code>, unrounded, and <code>null</code> under two whole days.</p>
+</blockquote>
 <h3 id="swimlane-comparison-2266">Swimlane comparison (#2266)<a class="headerlink" href="#swimlane-comparison-2266" title="Permanent link">&para;</a></h3>
 <p>The Swimlanes tab of Analytics compares each swimlane with the board. A lane's cycle time is the board's cycle time, restricted to the cards now in that lane, so its median and p85 follow the same definition and sample-size rule (p50 needs 5 cards, p85 needs 7). The board median is the median over every swimlane for the same filters (label, period). A lane with no cards still gets a row.</p>
 <ul>

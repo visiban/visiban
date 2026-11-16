@@ -6703,8 +6703,10 @@
 <a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">  </span><span class="nt">"days"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-06-01"</span><span class="p">,</span><span class="w"> </span><span class="nt">"counts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"col0000001"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"col0000002"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"null"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">  </span><span class="nt">"bottleneck_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"col0000001"</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="p">}</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">  </span><span class="nt">"bottleneck_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"col0000001"</span><span class="p">,</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">  </span><span class="nt">"completed"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">  </span><span class="nt">"completed_per_week"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.71</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="p">}</span>
 </code></pre></div>
 <p>The last column, <code>column_uid: null</code>, is one band for every deleted column; in <code>counts</code> it is the key <code>"null"</code>. <code>bottleneck_column_uid</code> is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie). The first not-done (intake) column is excluded. It is <code>null</code> when no column grew or only one column is not done.</p>
 <p>Each column also carries its flow across the range <em>(added in 1.3, #2260)</em>, the done columns and the <code>null</code> band included:</p>
@@ -6727,6 +6729,25 @@
 <tr>
 <td><code>entered_per_week</code>, <code>left_per_week</code></td>
 <td><code>entered × 7 ÷ (days − 1)</code> and the same for <code>left</code>, unrounded. <code>null</code> with fewer than two whole days.</td>
+</tr>
+</tbody>
+</table>
+<p>The response also carries the done band's rate <em>(added in 1.3, #2307)</em>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>completed</code></td>
+<td>Cards whose first completion (first entry into a done column, the <a href="../../architecture/decisions/#flow-metric-definitions">throughput</a> definition) falls in the same window as <code>entered</code>. A card that moves from one done column to another, or finishes again after a reopen, counts once, so this is not the sum of the done columns' <code>entered</code>.</td>
+</tr>
+<tr>
+<td><code>completed_per_week</code></td>
+<td><code>completed × 7 ÷ (days − 1)</code>, unrounded: a mean over the range, not throughput's weekly median. <code>null</code> with fewer than two whole days.</td>
 </tr>
 </tbody>
 </table>
