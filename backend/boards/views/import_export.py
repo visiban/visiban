@@ -771,6 +771,19 @@ def _int_error(value, *, nullable=False):
     return None
 
 
+def _gate_index_error(value):
+    """A gate transition ``from_index``/``to_index`` (#1102): 0..MAX_PER_COLUMN.
+
+    The model columns are smallint, so ``_int_error``'s 2^31-1 cap would let a
+    value through that Postgres rejects at bulk insert (a 500, not a 400).
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return "must be a non-negative integer"
+    if value > SubColumn.MAX_PER_COLUMN:
+        return f"must be at most {SubColumn.MAX_PER_COLUMN}"
+    return None
+
+
 def _swimlane_limit_error(value):
     """A swimlane ``wip_limit``/``weight_limit`` (#1150): null or at least 1."""
     if value is None:
@@ -1045,7 +1058,7 @@ def _validate_json_import_values(data):
         # Gate history (#1102). ``kind`` and ``cause`` are matched against
         # their enums when the row is built, like ``movement_type``.
         "gate_transitions": ("gate transition", (
-            ("from_index", _int_error), ("to_index", _int_error),
+            ("from_index", _gate_index_error), ("to_index", _gate_index_error),
             ("reason", _text(_field_max_length(CardGateTransition, "reason"))),
             ("column", movement_name),
             ("sub_column", functools.partial(

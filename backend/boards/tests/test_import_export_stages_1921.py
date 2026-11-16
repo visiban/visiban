@@ -137,6 +137,9 @@ class StageImportExportTests(TestCase):
             (lambda d: d["cards"][0].update(gates_passed=True), "gates_passed"),
             (lambda d: d["cards"][0]["gate_transitions"][0].update(actor=["x"]), "actor"),
             (lambda d: d["cards"][0]["gate_transitions"][0].update(created_at="nope"), "created_at"),
+            # smallint columns: out-of-range / negative indexes are 400, not a DB 500.
+            (lambda d: d["cards"][0]["gate_transitions"][0].update(to_index=40000), "to_index"),
+            (lambda d: d["cards"][0]["gate_transitions"][0].update(from_index=-1), "from_index"),
         ]
         before = Board.objects.count()
         for mutate, needle in cases:

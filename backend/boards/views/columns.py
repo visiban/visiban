@@ -1,7 +1,7 @@
 """ColumnViewSet — CRUD endpoints for columns on a board."""
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Max, prefetch_related_objects
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -103,6 +103,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 _max = board.columns.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 column = serializer.save(board=board, position=max_pos)
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
                 column_data = ColumnSerializer(column).data
                 board_id = board.id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_CREATED, column_data, actor_id=self.request.user.id)
@@ -143,6 +144,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 # a reorder would write the old position back.
                 serializer.instance.refresh_from_db()
                 column = serializer.save()
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
                 column_data = ColumnSerializer(column).data
                 board_id = column.board_id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_UPDATED, column_data, actor_id=self.request.user.id)
@@ -185,27 +187,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
             publish_blocked_peers(peers, self.request, boards=[board])
 
-    @extend_schema(
-        summary="Reorder columns",
-        description=(
-            "Admin only. Accepts this board's full set of column IDs, with no "
-            "duplicates, in the desired order, and returns the reordered list. "
-            "`order` must be exactly this board's current column IDs — a partial "
-            "list, a duplicate, an ID from another board, or an empty list on a "
-            "non-empty board is rejected with `400` (#1302, same rule as "
-            "checklist-item reorder, #1292)."
-        ),
-        request=inline_serializer(
-            name="ColumnReorder",
-            fields={
-                "order": serializers.ListField(
-                    child=serializers.IntegerField(),
-                    help_text="This board's column IDs, all of them, no duplicates, in the desired display order.",
-                ),
-            },
-        ),
-        responses=ColumnSerializer(many=True),
-    )
     @extend_schema(
         summary="Save a column's stage settings (sub-columns, tracks, lane exceptions)",
         description=(
@@ -287,6 +268,27 @@ class ColumnViewSet(viewsets.ModelViewSet):
         ).get(pk=column.pk)
         return Response({"column": ColumnSerializer(fresh).data, "remapped": remapped})
 
+    @extend_schema(
+        summary="Reorder columns",
+        description=(
+            "Admin only. Accepts this board's full set of column IDs, with no "
+            "duplicates, in the desired order, and returns the reordered list. "
+            "`order` must be exactly this board's current column IDs — a partial "
+            "list, a duplicate, an ID from another board, or an empty list on a "
+            "non-empty board is rejected with `400` (#1302, same rule as "
+            "checklist-item reorder, #1292)."
+        ),
+        request=inline_serializer(
+            name="ColumnReorder",
+            fields={
+                "order": serializers.ListField(
+                    child=serializers.IntegerField(),
+                    help_text="This board's column IDs, all of them, no duplicates, in the desired display order.",
+                ),
+            },
+        ),
+        responses=ColumnSerializer(many=True),
+    )
     @action(detail=False, methods=["post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
         """Reorder columns by accepting the full list of column IDs in the desired order (admin only)."""
@@ -349,7 +351,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 if col_id in id_to_col:
                     id_to_col[col_id].position = pos
             Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
-            cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
+            cols_data = ColumnSerializer(
+                board.columns.order_by("position").prefetch_related("sub_columns", "stage_tracks__field_definition"),
+                many=True,
+            ).data
             board_id = board.id
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_COLUMN_REORDERED, {"columns": list(cols_data)},

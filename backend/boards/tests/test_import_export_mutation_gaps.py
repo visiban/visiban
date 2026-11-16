@@ -1772,6 +1772,8 @@ class ExportJsonShapeTests(ExportBase):
                 "allow_card_creation",
                 "is_done",
                 "policy",  # #1101
+                "sub_columns",  # #1102, additive
+                "tracks",  # #1921, additive
             ],
         )
         self.assertEqual(
@@ -1785,6 +1787,8 @@ class ExportJsonShapeTests(ExportBase):
                 "allow_card_creation": True,
                 "is_done": False,
                 "policy": None,
+                "sub_columns": [],
+                "tracks": [],
             },
         )
         self.assertEqual(data["columns"][1]["is_done"], True)
@@ -1805,6 +1809,8 @@ class ExportJsonShapeTests(ExportBase):
                 "limit_columns",
                 # Lane health status (#2243), additive.
                 "health_status",
+                # #1921, additive.
+                "not_applicable_tracks",
             ],
         )
         self.assertEqual(
@@ -1821,6 +1827,7 @@ class ExportJsonShapeTests(ExportBase):
                 "limit_enforcement": None,
                 "limit_columns": None,
                 "health_status": None,
+                "not_applicable_tracks": [],
             },
         )
         self.assertEqual(data["labels"], [{"name": "Bug", "color": "#FF0000"}])
@@ -1881,6 +1888,9 @@ class ExportJsonShapeTests(ExportBase):
                 "blocked_at",
                 "blocked_reason",
                 "blocks",
+                # #1102, additive.
+                "gates_passed",
+                "gate_transitions",
             ],
         )
         self.assertEqual(
@@ -2196,6 +2206,9 @@ class ExportJsonShapeTests(ExportBase):
                 "threshold_alert",
                 "threshold_warn_days",
                 "threshold_alert_days",
+                # #1921, additive.
+                "is_dimension",
+                "choice_resolutions",
             ],
         )
         self.assertEqual(
@@ -2217,6 +2230,8 @@ class ExportJsonShapeTests(ExportBase):
                 "threshold_alert": None,
                 "threshold_warn_days": None,
                 "threshold_alert_days": None,
+                "is_dimension": False,
+                "choice_resolutions": {},
             },
         )
         self.assertEqual(
