@@ -4840,7 +4840,7 @@
 </tr>
 <tr>
 <td>Offline</td>
-<td>Warning banner "Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline</td>
+<td>Warning banner "Offline. Reconnecting. Moves are paused until the board is live again." and the connection status reads Offline</td>
 </tr>
 <tr>
 <td>Load error</td>
@@ -4859,6 +4859,8 @@
 <li>The cell under the pointer takes a selection-colored dashed border and tint, and a placeholder shows where the card will land.</li>
 <li>A drop that would put a column or lane over its limit shows the warning treatment and the reason in the cell before the drop. What happens on drop follows the existing limit rules (§ Placement limits on the board, § Move-blocked toast).</li>
 <li>Dragging across a gate inside a stage passes or reopens gates as #1102 specifies.</li>
+<li>A drop always appends to the cell, so the placeholder sits after the last card, not at the top as <code>components.png</code> draws it.</li>
+<li>The WIP-blocked reason is a corner pill on the cell, not the centered amber line <code>components.png</code> draws (named deviation, #2326).</li>
 <li>With reduced motion, the tilt and lift are dropped.</li>
 </ul>
 <h2 id="keyboard">Keyboard<a class="headerlink" href="#keyboard" title="Permanent link">&para;</a></h2>
