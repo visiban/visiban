@@ -489,7 +489,7 @@ export default function FilterPanel({
                   type="button"
                   disabled={saving}
                   onClick={() => void submitSave()}
-                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
+                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 max-sm:min-w-11 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
