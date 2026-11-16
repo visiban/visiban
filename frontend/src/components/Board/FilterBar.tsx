@@ -126,6 +126,10 @@ interface Props {
   userDateFormat?: string;
   /** #2205 — lanes the lane filter hides (excludes the focused lane, which always shows). */
   hiddenLaneCount?: number;
+  /** #2214 — a card filter or Show chip is active (BoardView's filteredCardIds is set). */
+  cardFilterActive?: boolean;
+  /** #2337 — lane rules the viewer's filter carries on fields they cannot use. */
+  ignoredLaneRuleCount?: number;
   /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
   lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -214,7 +218,7 @@ const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "blocked", label: "Blocked" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef, cardFilterActive = false, ignoredLaneRuleCount = 0 }: Props) {
   const activeCount = countActiveFilters(filters);
   // #2205 — the swimlane fields this viewer may rule on. Admin-only fields are
   // offered to admins only: their values are never sent to other roles.
@@ -562,6 +566,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             activeRuleCount={laneRuleCount}
             triggerRef={lanesTrigger}
             textChoices={laneTextChoices}
+            cardFilterActive={cardFilterActive}
+            ignoredCount={ignoredLaneRuleCount}
           />
         )}
 

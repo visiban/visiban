@@ -22,7 +22,10 @@ import {
   laneRuleCount,
   isLaneBuiltinField,
   nextLaneItemId,
+  ignoredRulesText,
   summarizeLaneFilter,
+  withHideUnmatched,
+  withLaneItems,
   type LaneBuiltinFieldDef,
   type LaneFieldKey,
   type LaneFilter,
@@ -64,6 +67,10 @@ interface Props {
   id: string;
   /** Text/url field id to the lanes' distinct values (laneTextValueChoices). */
   textChoices?: Map<LaneFieldKey, string[]>;
+  /** #2214 — a card filter or Show chip is active, so hideUnmatched has an effect. */
+  cardFilterActive?: boolean;
+  /** #2337 — rules dropped because this viewer cannot use their field (countUnusableLaneRules). */
+  ignoredCount?: number;
 }
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
@@ -91,7 +98,7 @@ function MenuUnmountGuard({ ruleId, onGone }: { ruleId: number; onGone: (key: st
  * closes. Inner menus are deliberately not portaled: a portaled menu would sit
  * outside the panel and the focusin-outside close would fire on it.
  */
-export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices }: Props) {
+export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices, cardFilterActive = false, ignoredCount = 0 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // #2231 — the inner menus are in-flow (not portaled, see frontend/CLAUDE.md
@@ -186,7 +193,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     setFocusTarget(null);
   }, [focusTarget, placed]);
 
-  const commit = (next: LaneFilterItem[]) => onChange(next.length > 0 ? { items: next } : undefined);
+  // withLaneItems keeps hideUnmatched (#2214) when the rules change or are all removed.
+  const commit = (next: LaneFilterItem[]) => onChange(withLaneItems(filter, next));
 
   const newRule = (join: FieldRuleJoin, idOffset = 0): LaneRule => ({
     kind: "rule", id: nextLaneItemId(filter) + idOffset, join, field: null, op: "is",
@@ -249,7 +257,9 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   const setItemJoin = (iid: number, join: FieldRuleJoin) =>
     commit(items.map((it) => (it.id === iid ? { ...it, join } : it)));
 
-  const summary = summarizeLaneFilter(filter, fields, fmt);
+  const summary = summarizeLaneFilter(filter, fields, fmt, ignoredCount);
+  const hideUnmatched = filter?.hideUnmatched === true;
+  const hideHelpId = `${id}-hide-unmatched-help`;
 
   const itemName = (it: LaneFilterItem) =>
     it.kind === "rule" ? `filter ${leafNumber.get(it.id)}` : `group ${groupNumber.get(it.id)}`;
@@ -281,7 +291,9 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     updateRule(r.id, { op });
   };
 
-  const listMaxHeight = visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, "9rem");
+  // Reserve for the header, Reads-as, the hide-unmatched row (#2214) and the footer,
+  // plus the ignored-rules line (#2337) while it shows.
+  const listMaxHeight = visibleMaxHeight(2 * POPOVER_VIEWPORT_MARGIN, ignoredCount > 0 ? "15rem" : "12.5rem");
 
   const renderRule = (r: LaneRule) => {
     const n = leafNumber.get(r.id) as number;
@@ -521,9 +533,38 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
           <div aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none" />
         )}
       </div>
+      {/* #2337 — a standing fact about the viewer's role, so static and not dismissible;
+          the Reads-as status below carries the same text for screen readers. */}
+      {ignoredCount > 0 && (
+        <p className="flex items-center gap-2 px-3 py-2 border-t border-line bg-warning/10 text-xs text-warning-on-tint" data-testid="lane-filter-ignored">
+          <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="6.5" />
+            <line x1="8" y1="7" x2="8" y2="11.5" />
+            <circle cx="8" cy="4.75" r="0.5" fill="currentColor" />
+          </svg>
+          <span aria-hidden="true">{ignoredRulesText(ignoredCount)}</span>
+        </p>
+      )}
       <p id={readsAsId} role="status" aria-live="polite" aria-atomic="true" className="px-3 py-2 border-t border-line text-xs text-fg-tertiary min-h-4">
         {summary.readsAs}
       </p>
+      {/* #2214 — a setting on the lane filter, not a rule. Stays visible and keeps its
+          value while no card filter is active; the helper line says why it is off. */}
+      <div className="px-3 py-2 border-t border-line">
+        <label className={`flex items-center gap-2 select-none ${cardFilterActive ? "cursor-pointer" : "cursor-not-allowed"}`}>
+          <input
+            type="checkbox"
+            checked={hideUnmatched}
+            disabled={!cardFilterActive}
+            aria-describedby={hideHelpId}
+            onChange={(e) => onChange(withHideUnmatched(filter, e.target.checked))}
+            className="w-4 h-4 rounded accent-primary shrink-0 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            data-testid="lane-filter-hide-unmatched"
+          />
+          <span className="text-xs text-fg-secondary">Hide lanes with no matching cards</span>
+        </label>
+        <p id={hideHelpId} className="mt-0.5 pl-6 text-xs text-fg-tertiary">While a card filter or Show chip is active.</p>
+      </div>
       <div className="flex items-center gap-3 px-3 py-2 border-t border-line">
         <button type="button" data-lane-add className={SECONDARY_BTN} disabled={!canAdd} onClick={addRule}>
           + Add filter
@@ -580,10 +621,14 @@ interface ControlProps {
   triggerRef?: RefObject<HTMLButtonElement | null>;
   /** Text/url field id to the lanes' distinct values, for text `is` rules. */
   textChoices?: Map<LaneFieldKey, string[]>;
+  /** #2214 — passed to the popover's "Hide lanes with no matching cards". */
+  cardFilterActive?: boolean;
+  /** #2337 — rules ignored because the viewer cannot use their field. */
+  ignoredCount?: number;
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */
-export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices }: ControlProps) {
+export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -632,6 +677,8 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
           onClose={onClose}
           fmt={fmt}
           textChoices={textChoices}
+          cardFilterActive={cardFilterActive}
+          ignoredCount={ignoredCount}
         />
       )}
     </>

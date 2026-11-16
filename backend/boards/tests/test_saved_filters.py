@@ -511,6 +511,25 @@ class SavedFilterCustomFieldStateTests(TestCase):
         self.assertEqual(set(builtins), S._LANE_BUILTIN_FIELDS)
         self.assertEqual(len(builtins), len(S._LANE_BUILTIN_FIELDS))
 
+    def test_lane_filter_keys_match_shared_fixture(self):
+        """#2214 — the laneFilter object accepts exactly the fixture's keys
+        (the Vitest parity test pins sanitizeLaneFilter to the same list)."""
+        import json
+        from pathlib import Path
+
+        from rest_framework import serializers as drf
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        keys = json.loads(fixture.read_text())["laneFilterKeys"]
+        full = {"items": [], "hideUnmatched": True}
+        self.assertEqual(set(keys), set(full))
+        S()._validate_lane_filter(full)
+        for extra in ("bogus", "hide_unmatched"):
+            with self.assertRaises(drf.ValidationError):
+                S()._validate_lane_filter({**full, extra: True})
+
     def test_unhashable_values_are_400_not_500(self):
         for label, extra in {
             "kind list": {"customFields": {"1": {"kind": []}}},
@@ -582,6 +601,24 @@ class SavedFilterLaneFilterStateTests(TestCase):
         r = self._post(state)
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(r.data["state_json"], state)
+
+    def test_hide_unmatched_round_trips(self):
+        # #2214 — an optional bool beside items; with no rules it keeps items: [].
+        for lane_filter in ({"items": [_lane_rule(1)], "hideUnmatched": True}, {"items": [], "hideUnmatched": True}, {"items": [_lane_rule(1)], "hideUnmatched": False}):
+            with self.subTest(lane_filter=lane_filter):
+                state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+                r = self._post(state)
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+                self.assertEqual(r.data["state_json"], state)
+                self.client.delete(f"{self.url}{r.data['id']}/")
+
+    def test_hide_unmatched_must_be_bool(self):
+        for bad in ("yes", 1, 0, None, [], {}):
+            with self.subTest(bad=bad):
+                self._assert_400({"items": [], "hideUnmatched": bad})
+
+    def test_hide_unmatched_without_items_rejected(self):
+        self._assert_400({"hideUnmatched": True})
 
     def test_filter_without_lane_filter_still_saves(self):
         r = self._post(EMPTY_FILTER_STATE)

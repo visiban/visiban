@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { User, Group } from '../types'
@@ -158,6 +158,10 @@ const fakeGroup: Group = {
 
 // `withToasts` mounts the shared toast region (#2107); omitted elsewhere because its always-mounted
 // assertive region would make every `getByRole('alert')` below ambiguous.
+function LocationProbe() {
+  return <span data-testid="location-probe">{useLocation().search}</span>
+}
+
 function renderGroupDetail(locationState?: Record<string, unknown>, user: User = fakeUser, withToasts = false) {
   const initialEntries = locationState
     ? [{ pathname: '/groups/1', state: locationState }]
@@ -279,6 +283,34 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     expect(await screen.findByText('+ New board')).toBeInTheDocument()
+  })
+
+  // #2324 — the empty board's Import cards deep-links here with ?import=1.
+  const renderAt = (url: string) => render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/groups/:id" element={<><GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} /><LocationProbe /></>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  it('?import=1 opens the import dialog for a viewer who can place boards, then drops the param', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderAt('/groups/1?import=1')
+    expect(await screen.findByTestId('import-board-modal')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent(/^$/))
+  })
+
+  it('?import=1 does nothing for a viewer who cannot place boards, and the param is dropped', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: false })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'member', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderAt('/groups/1?import=1')
+    await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent(/^$/))
+    expect(screen.queryByTestId('import-board-modal')).not.toBeInTheDocument()
   })
 
   // #1692 — + New board and Import follow the server's board-placement rule

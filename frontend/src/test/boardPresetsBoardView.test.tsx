@@ -912,6 +912,6 @@ describe('BoardView — Show chips (#2272)', () => {
 
   it('says so when only the chip empties the board, and does not count chip-hidden cards as filtered out', () => {
     renderBoard(makeBoard({ cards: [makeCard(1, { title: 'Calm one' })] }), 'show=overdue')
-    expect(screen.getByText(/No cards match the selected Show chip/)).toBeInTheDocument()
+    expect(screen.getByText('No cards are overdue')).toBeInTheDocument()
   })
 })
