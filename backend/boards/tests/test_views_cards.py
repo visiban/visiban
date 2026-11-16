@@ -3,6 +3,7 @@ import json
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -568,6 +569,7 @@ class CardFilterTests(TestCase):
         self.client.force_authenticate(self.user)
 
         import datetime
+
         today = timezone.localdate()
         yesterday = today - datetime.timedelta(days=1)
         tomorrow = today + datetime.timedelta(days=1)
@@ -647,7 +649,6 @@ class CardFilterTests(TestCase):
         self.assertNotIn("High priority", titles)  # no due date — excluded
 
     def test_filter_due_after(self):
-        import datetime
         today = timezone.localdate().isoformat()
         r = self.client.get(self._url(), {"due_after": today})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
