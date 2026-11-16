@@ -356,6 +356,8 @@ Cards are dragged between cells using @dnd-kit. Updates are **optimistic**: the 
 
 Every drag that changes column or swimlane creates a `CardMovement` audit record automatically.
 
+While you drag, the card tilts slightly and lifts, and the cell under it gets a dashed outline and tint. A cell that would go over a limit shows the reason in text before you drop. With reduced motion turned on in your system settings, the tilt and lift are dropped.
+
 ### Touch screens
 
 > **Changed in 1.2**
@@ -745,6 +747,15 @@ Which preset applies, highest first:
 4. The board's own density setting, with no overlay
 
 With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
+
+## Board states
+
+- **Loading:** a skeleton of column headers, a lane band and cards, announced to screen readers as "Loading board".
+- **No cards yet:** the column headers stay, with an **Add a card** button for people who can add cards.
+- **Filters match nothing:** the notice has a **Show all cards** button that clears the filters and the Show chip.
+- **Offline:** "Reconnecting. Moves are paused until the board is live again." shows while the live connection is down.
+- **Load error:** "The board didn't load." with **Try again**.
+- **View only:** people with the viewer role see a line saying they can open cards and filter but not move or edit them.
 
 ## Views
 

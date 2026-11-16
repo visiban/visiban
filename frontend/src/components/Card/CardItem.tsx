@@ -733,7 +733,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         ${calmFace && !current && !isOverdueCard ? "border-line hover:border-line-strong" : ""}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
-        ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
+        ${overlay ? "rotate-2 opacity-95 !-translate-y-1 motion-reduce:rotate-0 motion-reduce:!translate-y-0" : ""}
         ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? `ring-1 ring-info${overlayClass ? "" : " bg-info/10"}` : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-primary-emphasis/20"}` : ""}
       `}
       onMouseEnter={handleMouseEnter}

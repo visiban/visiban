@@ -141,7 +141,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   useInlineEditEscape(() => adding && !!addEditorRef.current?.contains(document.activeElement), cancelAdd);
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
-  // already owns the cell's background channel (`bg-surface-hover/40` here, `bg-info/20`
+  // already owns the cell's background channel (`bg-info/15` here, `bg-info/20`
   // on the empty-cell indicator), and compositing a tint on top weakens it — the same
   // reason the centered "+ Add card" overlay hides during a drag.
   const overlay = overlayCell && overlayLabel && !(isOver && isDraggingCard) ? overlayCell : null;
@@ -189,7 +189,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // otherwise as tall as its cards. The empty cell shows a quiet plus and gains a dashed
       // edge and the "Add card" label on hover or focus.
       className={`group/cell relative min-w-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
-        isOver && isDraggingCard && !blockedBy ? "bg-surface-hover/40" : "bg-canvas"
+        isOver && isDraggingCard && !blockedBy ? "bg-info/15 border-dashed border-primary-emphasis" : "bg-canvas"
       } ${isPopulatedAddable ? "flex flex-col" : ""
       } ${blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : ""
       } ${

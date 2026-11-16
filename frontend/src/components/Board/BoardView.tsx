@@ -13,6 +13,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { markBoardTreePointerEvent } from "../../hooks/useCardSheetPlacement";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
+import { BoardOfflineBanner, BoardEmptyState, ViewOnlyNotice } from "./BoardStates";
 import ConnectionStatus from "../Common/ConnectionStatus";
 import {
   DndContext,
@@ -2977,7 +2978,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           {showChip !== "all" && (panelFilteredCardIds === null || panelFilteredCardIds.size > 0)
             ? "No cards match the selected Show chip. Choose All cards to see every card."
             : "No cards match the active filters."}
+          <button
+            type="button"
+            onClick={() => { setFilters(EMPTY_FILTER); setActiveFilterId(null); setShowChip("all"); }}
+            className="ml-3 text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Show all cards
+          </button>
         </div>
+      )}
+      {(socketStatus === "reconnecting" || socketStatus === "failed") && <BoardOfflineBanner />}
+      {!canEdit && !blockedByMaintenance && <ViewOnlyNotice />}
+      {view === "board" && board.cards.length === 0 && board.columns.length > 0 && (
+        <BoardEmptyState
+          firstColumnName={board.columns[0].name}
+          onAddCard={canEdit && board.columns[0].allow_card_creation && addCardLanes.length > 0
+            ? () => requestAddCard(board.columns[0].id, addCardLanes[0].id)
+            : undefined}
+        />
       )}
       {cardActionNotice}
 

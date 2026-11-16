@@ -61,7 +61,9 @@ describe('BoardCell drop verdict (#1150)', () => {
     const { container } = renderCell(() => [])
     expect(screen.queryByTestId('cell-drop-blocked')).toBeNull()
     const cell = container.querySelector('[data-board-cell]') as HTMLElement
-    expect(cell.className).toContain('bg-surface-hover/40')
+    expect(cell.className).toContain('bg-info/15')
+    expect(cell.className).toContain('border-dashed')
+    expect(cell.className).toContain('border-primary-emphasis')
     expect(cell.className).not.toContain('ring-danger-emphasis')
   })
 

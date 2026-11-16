@@ -16,6 +16,7 @@ import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
+import { BoardSkeleton, BoardLoadError } from "./components/Board/BoardStates";
 import ImportSkippedToast from "./components/Board/ImportSkippedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
 import HealthStatusControl from "./components/Common/HealthStatusControl";
@@ -454,18 +455,8 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         {importSummary && board && (
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
         )}
-        {loading && <div className="flex items-center justify-center h-full text-fg-tertiary">Loading board…</div>}
-        {error && (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <p className="text-danger text-sm">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        {loading && <BoardSkeleton />}
+        {error && <BoardLoadError onRetry={() => window.location.reload()} />}
         {board && (
           // Keyed by board id (#1146): the /boards/:id route keeps this page
           // mounted when the id changes, so without the key every per-board

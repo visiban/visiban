@@ -407,14 +407,14 @@ describe('App', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: true, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('Loading board…')).toBeInTheDocument()
+    expect(screen.getByText('Loading board')).toBeInTheDocument()
   })
 
   it('shows board error state on /boards/:id', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found' })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('Not found')).toBeInTheDocument()
+    expect(screen.getByText(/The board didn't load/)).toBeInTheDocument()
   })
 
   it('renders BoardView when board is loaded', () => {
