@@ -539,6 +539,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               a calm one folds away when collapsed, an over-limit one never does), the
               number rollup (#2275), then the card count. Text always carries the state; color only reinforces it. */}
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
+          {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
+          {!noMatch && (
           <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
@@ -556,6 +558,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             )}
             <span className="text-fg-secondary whitespace-nowrap" data-testid="swimlane-card-count">{countLabel}</span>
           </div>
+          )}
 
           <div className="flex items-center gap-1 shrink-0">
             {/* Unset lane, admins only (#2243): a hover/focus-revealed icon,

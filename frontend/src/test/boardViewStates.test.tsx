@@ -427,7 +427,7 @@ describe('BoardView states (#2324, #2214, #2337)', () => {
     expect((filterBarProps.current.filters as { laneFilter?: unknown }).laneFilter).toEqual({ items: [], hideUnmatched: true })
   })
 
-  it('Show all cards clears the chip, the filters and the hide flag from the URL', async () => {
+  it('Show all cards clears the chip and the card filters but keeps the lane settings (hide flag)', async () => {
     mockSearchParams = new URLSearchParams('show=due_soon&f_hide_unmatched=1')
     mockBoardContextValue = defaultContext({ board: twoLanes([CARD]) })
     render(<BoardView />)
@@ -437,9 +437,22 @@ describe('BoardView states (#2324, #2214, #2337)', () => {
     const last = mockSetSearchParams.mock.calls.map((c) => c[0]).filter((x) => typeof x === 'function')
     const params = new URLSearchParams('show=due_soon&f_hide_unmatched=1')
     for (const fn of last) fn(params)
-    expect(params.get('f_hide_unmatched')).toBeNull()
+    expect(params.get('f_hide_unmatched')).toBe('1')
     expect(params.get('show')).toBeNull()
     expect(screen.queryByTestId('board-no-match')).not.toBeInTheDocument()
+  })
+
+  it('shows the No lanes match notice when rules hide one lane and hideUnmatched hides the other (#2324)', async () => {
+    const rule = JSON.stringify([{ f: 'name', o: 'is', v: 'Customer B' }])
+    mockSearchParams = new URLSearchParams(`show=overdue&f_hide_unmatched=1&f_lanes=1.${rule}`)
+    mockBoardContextValue = defaultContext({ board: twoLanes([OVERDUE]) })
+    render(<BoardView />)
+    expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    expect(screen.getByText('No lanes match your lane filters.')).toBeInTheDocument()
+    expect(screen.queryByTestId('board-no-match')).not.toBeInTheDocument()
+    await userEvent.keyboard('/')
+    expect(filterBarProps.current.hiddenLaneCount).toBe(2)
   })
 
   it('passes the count of rules on fields the viewer cannot use to the filter bar (#2337)', async () => {

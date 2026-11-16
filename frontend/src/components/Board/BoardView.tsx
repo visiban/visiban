@@ -2077,7 +2077,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [filters.laneFilter, swimlaneFieldDefs, isAdmin],
   );
   const laneFilterKey = useMemo(() => serializeLaneFilterParam(effectiveFilters.laneFilter) ?? "", [effectiveFilters.laneFilter]);
-  const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size === board.swimlanes.length;
   // The collapsed-lanes strip counts only lanes the reader can see collapsed:
   // focus collapses every other lane, including ones the lane rules hide (#2251).
   const visibleCollapsedLaneCount = useMemo(
@@ -2147,7 +2146,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // ("No matching cards") and a panel below the lanes offers Show all cards.
   // Never on an empty board ("No cards yet" owns that) or when the lane rules hide
   // every lane ("No lanes match" owns that), so the three notices exclude each other.
-  const noCardMatch = !allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0;
   // #2214 — "Hide lanes with no matching cards": while a card filter or chip is
   // active, a lane with no matching card is hidden instead of shown empty (or as a
   // "No matching cards" band; one predicate, so the two cannot disagree). Kept apart
@@ -2163,13 +2161,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (laneFilterHiddenIds.size === 0 && !unmatchedLaneIds?.size) return hiddenSwimlaneIds;
     return new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds, ...(unmatchedLaneIds ?? [])]);
   }, [hiddenSwimlaneIds, laneFilterHiddenIds, unmatchedLaneIds]);
+  // Every lane is hidden by the rules, by "hide unmatched", or one each. Requires the rules to hide at
+  // least one lane: with none hidden by rules, an all-unmatched board is the no-match panel's job.
+  const allLanesFilteredOut = board.swimlanes.length > 0 && laneFilterHiddenIds.size > 0
+    && board.swimlanes.every((s) => laneFilterHiddenIds.has(s.id) || (unmatchedLaneIds?.has(s.id) ?? false));
+  const hiddenLaneTotal = board.swimlanes.filter((s) => laneFilterHiddenIds.has(s.id) || (unmatchedLaneIds?.has(s.id) ?? false)).length;
+  const noCardMatch = !allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0;
   const showAllCards = useCallback(() => {
-    setFilters(EMPTY_FILTER);
+    // Lane rules and "hide unmatched" are lane settings, not card filters: Show all cards keeps them.
+    setFilters(filters.laneFilter ? { ...EMPTY_FILTER, laneFilter: filters.laneFilter } : EMPTY_FILTER);
     setActiveFilterId(null);
     setShowChip("all");
     // The button unmounts; land on the All cards chip rather than <body>.
     setTimeout(() => document.querySelector<HTMLElement>('[data-show-chip="all"]')?.focus(), 0);
-  }, [setFilters, setShowChip]);
+  }, [setFilters, setShowChip, filters.laneFilter]);
 
   /**
    * #1147 — the active overlay's per-cell values for the whole grid, built once per
@@ -3018,7 +3023,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               isSearching={isSearching}
               currentUser={currentUser}
               hiddenCount={hiddenCount}
-              hiddenLaneCount={laneFilterHiddenIds.size}
+              hiddenLaneCount={hiddenLaneTotal}
               cardFilterActive={filteredCardIds !== null}
               ignoredLaneRuleCount={ignoredLaneRuleCount}
               lanesTriggerRef={lanesTriggerRef}

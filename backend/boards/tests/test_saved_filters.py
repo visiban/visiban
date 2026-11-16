@@ -511,6 +511,25 @@ class SavedFilterCustomFieldStateTests(TestCase):
         self.assertEqual(set(builtins), S._LANE_BUILTIN_FIELDS)
         self.assertEqual(len(builtins), len(S._LANE_BUILTIN_FIELDS))
 
+    def test_lane_filter_keys_match_shared_fixture(self):
+        """#2214 — the laneFilter object accepts exactly the fixture's keys
+        (the Vitest parity test pins sanitizeLaneFilter to the same list)."""
+        import json
+        from pathlib import Path
+
+        from rest_framework import serializers as drf
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        keys = json.loads(fixture.read_text())["laneFilterKeys"]
+        full = {"items": [], "hideUnmatched": True}
+        self.assertEqual(set(keys), set(full))
+        S()._validate_lane_filter(full)
+        for extra in ("bogus", "hide_unmatched"):
+            with self.assertRaises(drf.ValidationError):
+                S()._validate_lane_filter({**full, extra: True})
+
     def test_unhashable_values_are_400_not_500(self):
         for label, extra in {
             "kind list": {"customFields": {"1": {"kind": []}}},
