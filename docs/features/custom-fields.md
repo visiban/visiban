@@ -15,7 +15,7 @@ Board admins define typed fields in **Board Settings → Card fields** (or **Swi
 
 **By the numbers:** up to **30 card fields**, with up to **2 of them pinned** to the card face. Swimlane fields have smaller caps; see [Swimlane (row) custom fields](#swimlane-row-custom-fields).
 
-**Yes, but:** `is_required` isn't enforced ([#1433](https://gitlab.com/visiban/visiban/-/issues/1433)) and filters match exact values only ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)). See [Limitations in this release](#limitations-in-this-release).
+**Yes, but:** `is_required` isn't enforced ([#1433](https://gitlab.com/visiban/visiban/-/issues/1433)) and only number filters have operators such as a range; date and choice filters match exact values ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)). See [Limitations in this release](#limitations-in-this-release).
 
 ## Field types
 
@@ -226,15 +226,31 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 | Field type | Filter behavior |
 |---|---|
 | Text | Substring match |
-| Number | Exact value match |
+| Number | **equals**, **between**, **at least**, **at most**, **is empty** or **has a value** (1.3+, in the Filter panel) |
 | Date | Exact value match |
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No; a card that was never checked counts as **No** |
 | URL | Substring match on the full address |
 | Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
 
+### Number filter operators
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+In the [Filter panel](board.md#filter-panel), a number field's row has an **is** menu above its input: **equals**, **between**, **at least**, **at most**, **is empty** and **has a value**. Use it for filters like "Estimate 3–8" or "Estimate ≥ 13".
+
+- **between** takes a minimum and a maximum, both inclusive. Leave either one blank for an open range; **at least** and **at most** are the same filter with one bound.
+- A card with no value for the field never matches **equals**, **between**, **at least** or **at most**; only **is empty** matches it.
+- Values compare as numbers, unrounded: the field's decimal places only set the input's step. Type the raw number, not the formatted text.
+- A minimum greater than the maximum shows a warning and matches no cards; the filter is kept so you can fix it.
+- A **between** with both bounds blank is not a filter and shows no chip.
+- Chips show the operator: `Estimate: 3–8`, `Estimate: ≥ 13`, `Estimate: ≤ 2`, `Estimate: empty`, `Estimate: has a value`.
+- Switching operators keeps what you typed where it fits: an **equals** value becomes the **between** minimum, and back.
+- The filter bar's own number box sets **equals** only. While another operator is in use it shows that filter read-only (for example `3–8`); change it in the Filter panel or remove its chip.
+- Saved filters keep the operator. A Visiban release before 1.3 ignores a range, **is empty** or **has a value** filter (it shows no filter on that field), and it keeps the operator when it re-saves the preset, unless you edit that field's filter there, which replaces the operator filter with a plain **equals** one.
+
 !!! note
-    Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
+    Date, text and choice filters have no operator menu yet: date and choice match an exact value, text a substring ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
 
 - A multi-select filter matches whole values only: checking `web` matches a card holding `web`, never one holding only `webhooks`.
 - Within one field the checked choices are **or**-ed; different fields, and every other filter, are **and**-ed.
@@ -318,7 +334,7 @@ This page covers the UI. For the wire format:
 | Limitation | Detail |
 |---|---|
 | No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N). Only dropdown and multi-select choices can carry a color, a fixed one per choice — see [Choice colors](#choice-colors) |
-| No range filtering | Number and date filters match an exact value only, not a range. Tracked in [#1847](https://gitlab.com/visiban/visiban/-/issues/1847) |
+| No date range filtering | Date filters match an exact value only, not a range (number filters take ranges from 1.3, #2357). Tracked in [#1847](https://gitlab.com/visiban/visiban/-/issues/1847) |
 | Number formatting ignores the Number format preference | Formatted custom field numbers always use US separators (`1,234.50`), not the per-user **Number format** setting |
 | `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank. Tracked in [#1433](https://gitlab.com/visiban/visiban/-/issues/1433) |
 | Swimlane fields aren't filterable | The board's filter bar only offers controls for card fields; swimlane field values cannot be used as filter criteria in this release |

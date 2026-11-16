@@ -93,3 +93,17 @@ describe('countActiveFilters', () => {
     })).toBe(0)
   })
 })
+
+describe('countActiveFilters — number operators (#2357)', () => {
+  const count = (cf: Record<string, unknown>) =>
+    countActiveFilters({ ...EMPTY_FILTER, customFields: { 1: { kind: 'number', equals: '', ...cf } as never } })
+
+  it('counts empty / not_empty and a range with a bound, not an unbounded range', () => {
+    expect(count({ op: 'empty' })).toBe(1)
+    expect(count({ op: 'not_empty' })).toBe(1)
+    expect(count({ op: 'between', min: '3' })).toBe(1)
+    expect(count({ op: 'between', min: '', max: '' })).toBe(0)
+    expect(count({ equals: '4' })).toBe(1)
+    expect(count({})).toBe(0)
+  })
+})

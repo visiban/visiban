@@ -241,3 +241,56 @@ describe("pruneStaleCustomFields (#1928)", () => {
     expect(Object.keys(out.customFields)).toEqual(["9"]);
   });
 });
+
+describe("filterCards — number operators (#2357)", () => {
+  const cards = [
+    makeCard({ id: 1, custom_field_values: [{ field_definition: 5, value: "2" }] }),
+    makeCard({ id: 2, custom_field_values: [{ field_definition: 5, value: "3" }] }),
+    makeCard({ id: 3, custom_field_values: [{ field_definition: 5, value: "5.5" }] }),
+    makeCard({ id: 4, custom_field_values: [{ field_definition: 5, value: "8" }] }),
+    makeCard({ id: 5, custom_field_values: [{ field_definition: 5, value: "13" }] }),
+    makeCard({ id: 6, custom_field_values: [] }),
+    makeCard({ id: 7, custom_field_values: [{ field_definition: 5, value: "" }] }),
+  ];
+  const run = (cf: Record<string, unknown>) =>
+    filterCards(cards, { ...EMPTY_FILTER, customFields: { 5: { kind: "number", equals: "", ...cf } as never } });
+
+  it("between is inclusive on both ends, compared numerically", () => {
+    expect(run({ op: "between", min: "3", max: "8" })).toEqual([2, 3, 4]);
+  });
+
+  it("open bounds act as at least / at most", () => {
+    expect(run({ op: "between", min: "8", max: "" })).toEqual([4, 5]);
+    expect(run({ op: "between", min: "", max: "3" })).toEqual([1, 2]);
+    expect(run({ op: "between", max: "3" })).toEqual([1, 2]);
+  });
+
+  it("does not round: a decimal value is compared as stored", () => {
+    expect(run({ op: "between", min: "5.51" })).toEqual([4, 5]);
+  });
+
+  it("a card with no stored value never matches a numeric comparison", () => {
+    expect(run({ op: "between", min: "-1000" })).not.toContain(6);
+    expect(run({ op: "between", min: "-1000" })).not.toContain(7);
+  });
+
+  it("is empty matches only cards without a value; has a value is its complement", () => {
+    expect(run({ op: "empty" })).toEqual([6, 7]);
+    expect(run({ op: "not_empty" })).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("min > max matches no card", () => {
+    expect(run({ op: "between", min: "8", max: "3" })).toEqual([]);
+  });
+
+  it("a between with no finite bound is inactive; a non-finite bound is treated as absent", () => {
+    expect(run({ op: "between", min: "", max: "" })).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(run({ op: "between", min: "abc", max: "Infinity" })).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(run({ op: "between", min: "abc", max: "3" })).toEqual([1, 2]);
+  });
+
+  it("legacy equals-only and explicit eq entries still match on equality", () => {
+    expect(run({ equals: "8" })).toEqual([4]);
+    expect(run({ equals: "8", op: "eq" })).toEqual([4]);
+  });
+});

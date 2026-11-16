@@ -1,5 +1,5 @@
 {
-  "_comment": "Top-level keys of the frontend FilterState (frontend/src/components/Board/FilterBar.tsx; EMPTY_FILTER plus the optional laneFilter, #2205). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213). laneFilterLimits (#2205) pins the lane-filter bounds on both sides; laneBuiltinFields (#2336) pins the built-in lane rule fields. laneFilterKeys (#2214) pins the keys of the laneFilter object itself.",
+  "_comment": "Top-level keys of the frontend FilterState (frontend/src/components/Board/FilterBar.tsx; EMPTY_FILTER plus the optional laneFilter, #2205). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213). laneFilterLimits (#2205) pins the lane-filter bounds on both sides; laneBuiltinFields (#2336) pins the built-in lane rule fields. laneFilterKeys (#2214) pins the keys of the laneFilter object itself. numberFilterOps / numberFilterValidEntries (#2357) pin the number custom-field operator enum and entries both sides must accept.",
   "keys": [
     "assigneeIds",
     "blockedOnly",
@@ -13,6 +13,17 @@
   ],
   "laneFilterKeys": ["hideUnmatched", "items"],
   "laneBuiltinFields": ["contact_email", "name"],
+  "numberFilterOps": ["between", "empty", "eq", "not_empty"],
+  "numberFilterValidEntries": [
+    {"kind": "number", "equals": "5"},
+    {"kind": "number", "equals": "5", "op": "eq"},
+    {"kind": "number", "equals": "", "op": "between", "min": "3", "max": "8"},
+    {"kind": "number", "equals": "", "op": "between", "min": "13"},
+    {"kind": "number", "equals": "", "op": "between", "min": "", "max": "2.5"},
+    {"kind": "number", "equals": "", "op": "between", "min": "8", "max": "3"},
+    {"kind": "number", "equals": "", "op": "empty"},
+    {"kind": "number", "equals": "", "op": "not_empty"}
+  ],
   "laneFilterLimits": {
     "maxItems": 20,
     "maxRules": 50,

@@ -4,6 +4,7 @@ import type { FilterState } from "../components/Board/FilterBar";
 import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
 import { isCardBlocked } from "./blockedState";
+import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -154,17 +155,18 @@ export function filterCards(
       }
 
       // #371 — custom field filters, AND-combined with everything above like
-      // every other dimension. Equality-only for number/date (see FilterBar's
-      // CustomFieldFilterValue JSDoc — the value is stored as TextField
-      // server-side, so a range comparison would be lexicographic, not
-      // numeric). A card with no CustomFieldValue row for a filtered field
-      // never matches a non-empty filter on that field — matching every other
+      // every other dimension. Equality-only for date; number (#2357) also
+      // has between / is empty / has a value, compared with Number() (never
+      // lexicographically) in matchesNumberFilter. A card with no
+      // CustomFieldValue row for a filtered field never matches a specific-value
+      // or numeric filter on that field — only number's "is empty" — matching every other
       // "no value = doesn't match a specific-value filter" dimension above.
       // Exception (#1848): a checkbox field treats a missing row as "false",
       // since unchecking deletes the row.
       for (const [idStr, cf] of Object.entries(filters.customFields)) {
         if (cf.kind === "text" && cf.query === "") continue;
-        if ((cf.kind === "number" || cf.kind === "date") && cf.equals === "") continue;
+        if (cf.kind === "number" && !isNumberFilterActive(cf)) continue;
+        if (cf.kind === "date" && cf.equals === "") continue;
         if ((cf.kind === "choice" || cf.kind === "multi_choice") && cf.values.length === 0) continue;
 
         const fieldId = Number(idStr);
@@ -179,9 +181,7 @@ export function filterCards(
         if (cf.kind === "text") {
           if (!cardValue || !cardValue.toLowerCase().includes(cf.query.toLowerCase())) return false;
         } else if (cf.kind === "number") {
-          const a = cardValue !== undefined ? Number(cardValue) : NaN;
-          const b = Number(cf.equals);
-          if (!Number.isFinite(a) || !Number.isFinite(b) || a !== b) return false;
+          if (!matchesNumberFilter(cf, cardValue)) return false;
         } else if (cf.kind === "date") {
           if (cardValue !== cf.equals) return false;
         } else if (cf.kind === "choice") {

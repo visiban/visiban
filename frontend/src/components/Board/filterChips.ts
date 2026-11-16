@@ -4,6 +4,7 @@ import type { BoardFull, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 import { formatCustomFieldValue } from "../../utils/customFieldValue";
 import type { LaneValueFormatter } from "../../utils/laneFilter";
+import { numberFilterDisplay } from "../../utils/numberFilter";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import type { FilterState } from "./FilterBar";
 
@@ -125,7 +126,7 @@ export function buildFilterChips(
   for (const def of board.custom_field_definitions) {
     const v = filters.customFields[def.id];
     if (!v || !isCustomFieldFilterActive(v)) continue;
-    const displayValue = v.kind === "choice" || v.kind === "multi_choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, userDateFormat);
+    const displayValue = v.kind === "choice" || v.kind === "multi_choice" ? v.values.join(", ") : v.kind === "text" ? v.query : v.kind === "number" ? numberFilterDisplay(v, (raw) => formatCustomFieldValue(def, raw, userDateFormat)) : formatCustomFieldValue(def, v.equals, userDateFormat);
     chips.push({
       key: `cf:${def.id}`,
       label: `${def.name}: ${displayValue}`,

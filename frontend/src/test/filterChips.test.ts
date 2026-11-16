@@ -62,3 +62,30 @@ describe('makeLaneValueFormatter', () => {
     expect(makeLaneValueFormatter(undefined, 'MM/DD/YYYY')(field, 'a')).toBe('a')
   })
 })
+
+describe('buildFilterChips — number operators (#2357)', () => {
+  const chipFor = (cf: Record<string, unknown>) =>
+    buildFilterChips(board, { ...EMPTY_FILTER, customFields: { 9: { kind: 'number', ...cf } as never } }, vi.fn(), 'MM/DD/YYYY').map((c) => c.label)
+
+  it('shows the operator in the chip, one chip per field', () => {
+    expect(chipFor({ equals: '', op: 'between', min: '3', max: '8' })).toEqual(['Budget: 3–8'])
+    expect(chipFor({ equals: '', op: 'between', min: '13', max: '' })).toEqual(['Budget: ≥ 13'])
+    expect(chipFor({ equals: '', op: 'between', min: '', max: '2' })).toEqual(['Budget: ≤ 2'])
+    expect(chipFor({ equals: '', op: 'empty' })).toEqual(['Budget: empty'])
+    expect(chipFor({ equals: '', op: 'not_empty' })).toEqual(['Budget: has a value'])
+    expect(chipFor({ equals: '', op: 'between', min: '8', max: '3' })).toEqual(['Budget: 8–3'])
+  })
+
+  it('keeps the legacy equals chip text and drops an inactive range', () => {
+    expect(chipFor({ equals: '5' })).toEqual(['Budget: 5'])
+    expect(chipFor({ equals: '5', op: 'eq' })).toEqual(['Budget: 5'])
+    expect(chipFor({ equals: '', op: 'between', min: '', max: '' })).toEqual([])
+  })
+
+  it('dismissing a range chip resets the field to an empty equals entry', () => {
+    const onChange = vi.fn()
+    const [chip] = buildFilterChips(board, { ...EMPTY_FILTER, customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '3', max: '8' } } }, onChange, 'MM/DD/YYYY')
+    chip.onDismiss()
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, customFields: { 9: { kind: 'number', equals: '' } } })
+  })
+})

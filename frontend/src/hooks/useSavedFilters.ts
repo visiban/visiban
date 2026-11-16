@@ -4,6 +4,9 @@ import type { FilterState } from "../components/Board/FilterBar";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
+import { normalizeFiltersForSave } from "../utils/numberFilter";
+
+export { normalizeFiltersForSave };
 import {
   listSavedFilters,
   createSavedFilter,
@@ -36,7 +39,7 @@ export function useSavedFilters(boardId: number) {
       try {
         const created = await createSavedFilter(boardId, {
           name,
-          state_json: filters as unknown as Record<string, unknown>,
+          state_json: normalizeFiltersForSave(filters) as unknown as Record<string, unknown>,
         });
         setSavedFilters((prev) =>
           [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),

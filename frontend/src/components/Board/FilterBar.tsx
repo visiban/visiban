@@ -8,7 +8,7 @@ import ActiveMark from "../Common/ActiveMark";
 import FilterChip from "./FilterChip";
 import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
-import { choiceColor, explicitChoiceColor } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -25,12 +25,14 @@ import {
   type LaneFilter,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
+import { isNumberFilterActive, numberFilterDisplay, numberInputStep, type NumberFilterValue } from "../../utils/numberFilter";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
-// FilterState.customFields. Number/date are equality-only (the value is
-// stored as TextField server-side, so a range comparison would be
-// lexicographic, not numeric — out of scope for this phase, see the ux-design
-// spec's explicit non-goal). Dropdown and checkbox share the multi-select
+// FilterState.customFields. Date is equality-only. Number (#2357) adds
+// between / is empty / has a value on top of equals — see
+// utils/numberFilter.ts for the shape and the `equals: ""` constraint that
+// keeps older SPAs from misreading a range entry. Matching is client-side and
+// numeric (Number()), never a lexicographic compare of the stored TextField. Dropdown and checkbox share the multi-select
 // "choice" shape since a checkbox is just a 2-choice dropdown for filtering
 // purposes.
 //
@@ -41,7 +43,8 @@ import {
 // it holds any of the picked entries.
 export type CustomFieldFilterValue =
   | { kind: "text"; query: string }
-  | { kind: "number" | "date"; equals: string }
+  | NumberFilterValue
+  | { kind: "date"; equals: string }
   | { kind: "choice"; values: string[] }
   | { kind: "multi_choice"; values: string[] };
 
@@ -332,7 +335,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     }, 0);
   };
 
-  // Derive chips from active filter state (search is excluded — the input already communicates state)
+  // Derive chips from active filter state (search is excluded — the input
+  // already communicates state)
   const chips = buildFilterChips(board, filters, onChange, userDateFormat);
 
   // Assignee choices: the board's members, then any assignee on a card who is
@@ -668,12 +672,33 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
     );
   }
 
+  // #2357 — the toolbar box edits equals only. With another operator active
+  // (set in the Filter panel or a loaded saved filter) it shows the operator
+  // read-only: a blank, editable box would hide the active filter, and typing
+  // in it would silently drop op/min/max. An inactive entry (a blank range)
+  // stays an editable box, since there is no filter to hide.
+  if (value.kind === "number" && (value.op ?? "eq") !== "eq" && isNumberFilterActive(value)) {
+    const text = numberFilterDisplay(value, (raw) => formatCustomFieldValue(definition, raw, ""));
+    return (
+      <input
+        type="text"
+        readOnly
+        aria-label={`${definition.name} filter`}
+        value={text}
+        title={`${definition.name}: change this filter in the Filter panel`}
+        className="bg-surface-hover border border-line rounded px-2 py-1 text-sm text-fg-secondary min-w-24 cursor-default focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0"
+        style={{ width: `${Math.max(6, text.length + 2)}ch` }}
+      />
+    );
+  }
+
   if ((definition.field_type === "number" || definition.field_type === "date") && (value.kind === "number" || value.kind === "date")) {
     return (
       <input
         type={definition.field_type === "number" ? "number" : "date"}
         value={value.equals}
-        onChange={(e) => onChange({ kind: definition.field_type as "number" | "date", equals: e.target.value })}
+        step={definition.field_type === "number" ? numberInputStep(definition.number_decimals) : undefined}
+        onChange={(e) => onChange(value.kind === "number" ? { kind: "number", equals: e.target.value } : { kind: "date", equals: e.target.value })}
         title={definition.name}
         className={`bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0 ${
           definition.field_type === "number" ? "w-24" : "w-32"

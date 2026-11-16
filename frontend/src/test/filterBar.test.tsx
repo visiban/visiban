@@ -667,6 +667,84 @@ describe('FilterBar — URL custom fields (#1390)', () => {
   })
 })
 
+describe('FilterBar — number operator entries (#2357)', () => {
+  const numberBoard = () => {
+    const board = makeBoard()
+    board.custom_field_definitions = [{
+      id: 9, uid: 'cfuid009', name: 'Estimate', field_type: 'number', choices: [], position: 0,
+      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, created_at: '',
+    }]
+    return board
+  }
+
+  it('shows a non-equals operator read-only instead of a blank, editable box', () => {
+    const onChange = vi.fn()
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '3', max: '8' } } }}
+        onChange={onChange}
+      />
+    )
+    const box = screen.getByRole('textbox', { name: 'Estimate filter' })
+    expect(box).toHaveValue('3–8')
+    expect(box).toHaveAttribute('readonly')
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+  })
+
+  it.each([[0, '1'], [2, '0.01'], [null, 'any']])('number box step for decimals %s is %s', (decimals, step) => {
+    const board = numberBoard()
+    board.custom_field_definitions[0].number_decimals = decimals as number | null
+    render(
+      <FilterBar
+        board={board}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('spinbutton')).toHaveAttribute('step', step)
+  })
+
+  it('keeps an inactive blank range as an editable box', () => {
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '', max: '' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('spinbutton')).not.toHaveAttribute('readonly')
+    expect(screen.queryByRole('textbox', { name: 'Estimate filter' })).toBeNull()
+  })
+
+  it('read-only range box is cursor-default and wide enough for the text', () => {
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '', op: 'between', min: '1000', max: '50000' } } }}
+        onChange={vi.fn()}
+      />
+    )
+    const box = screen.getByRole('textbox', { name: 'Estimate filter' })
+    expect(box).toHaveClass('cursor-default')
+    expect(box).toHaveAttribute('title', expect.stringContaining('Filter panel'))
+    expect(parseInt(box.style.width, 10)).toBeGreaterThanOrEqual((box as HTMLInputElement).value.length)
+  })
+
+  it('keeps the editable equals box for an equals entry', () => {
+    const onChange = vi.fn()
+    render(
+      <FilterBar
+        board={numberBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9], customFields: { 9: { kind: 'number', equals: '4', op: 'eq' } } }}
+        onChange={onChange}
+      />
+    )
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ customFields: { 9: { kind: 'number', equals: '5' } } }))
+  })
+})
+
 describe('FilterBar — multi-select custom fields (#1391)', () => {
   function msBoard() {
     const board = makeBoard()

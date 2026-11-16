@@ -8,7 +8,7 @@ Set your filters, open the **Saved** dropdown next to the filter bar, and click 
 
 **Why it matters:** Presets are stored server-side, so they follow you across devices and browsers.
 
-**By the numbers:** a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters, and (1.3+) [lane filters](board.md#lane-filters). Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.
+**By the numbers:** a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters (1.3+: including a number field's operator and range, see [Number filter operators](custom-fields.md#number-filter-operators)), and (1.3+) [lane filters](board.md#lane-filters). Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.
 
 ## Saving a filter
 
