@@ -189,6 +189,11 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
       rule.value = value ?? "";
       return rule;
     }
+    if (isLaneBuiltinField(field)) {
+      // Built-ins are text-only: the server rejects range bounds on them.
+      if (value !== undefined) rule.value = value;
+      return rule;
+    }
     if (value !== undefined) rule.value = value;
     if (min !== undefined) rule.min = min;
     if (max !== undefined) rule.max = max;

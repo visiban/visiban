@@ -453,6 +453,25 @@ describe('laneFilter — built-in fields (#2336)', () => {
     expect(label).toBe('Lane name (built-in) is Acme Corp')
   })
 
+  it('drops stray min/max on built-in rules when parsing (server rejects them)', () => {
+    for (const key of ['name', 'contact_email']) {
+      const parsed = parseLaneFilterParam(`1.${JSON.stringify([{ f: key, o: 'is', v: 'x', a: '1', b: '2' }])}`)
+      const r = parsed!.items[0] as LaneRule
+      expect(r.field).toBe(key)
+      expect(r.value).toBe('x')
+      expect(r).not.toHaveProperty('min')
+      expect(r).not.toHaveProperty('max')
+    }
+  })
+
+  it('combines a built-in rule with a custom-field rule in Or and And groups', () => {
+    const noteRule = (join: 'and' | 'or'): LaneRule => ({ kind: 'rule', id: 4, join, field: 6, op: 'contains', value: 'gold' })
+    const orF: LaneFilter = { items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'is', 'Globex'), noteRule('or')] }] }
+    expect([...laneIdsHiddenByFilter(lanes, orF, memberFields)].sort()).toEqual([3, 4])
+    const andF: LaneFilter = { items: [{ kind: 'group', id: 1, join: 'and', rules: [NAME_RULE(2, 'wildcard', 'acme*'), noteRule('and')] }] }
+    expect([...laneIdsHiddenByFilter(lanes, andF, memberFields)].sort()).toEqual([2, 3, 4])
+  })
+
   it('matches Lane name case-insensitively', () => {
     const hidden = laneIdsHiddenByFilter(lanes, { items: [NAME_RULE(1, 'is', 'ACME CORP')] }, memberFields)
     expect([...hidden].sort()).toEqual([2, 3, 4])
