@@ -239,7 +239,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             </p>
             <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
             <div className="flex items-center justify-end gap-3">
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel
               </button>
               <button onClick={handleDelete} className="px-3 py-1.5 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
@@ -448,7 +448,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               Delete swimlane
             </button>
             <div className="flex gap-2">
-              <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+              <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}

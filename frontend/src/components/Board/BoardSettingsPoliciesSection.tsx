@@ -122,7 +122,7 @@ function PolicyRowEditor({ column, panelId, buttonId, onSave, onSaved, onCancel,
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
+          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
         >
           Cancel
         </button>
@@ -338,7 +338,7 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
                       <button
                         type="button"
                         onClick={() => setPendingSwitchId(null)}
-                        className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         Cancel
                       </button>

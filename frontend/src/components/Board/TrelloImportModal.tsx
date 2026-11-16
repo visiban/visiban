@@ -35,7 +35,7 @@ const DEFAULT_CONFIG: TrelloImportMapping = {
 const primaryBtn =
   "bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis inline-flex items-center gap-2";
 const textBtn =
-  "text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
+  "text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
 
 function pctOf(e: AxiosProgressEvent): number {
   if (!e.total) return 0;

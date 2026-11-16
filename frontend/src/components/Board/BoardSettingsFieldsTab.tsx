@@ -746,7 +746,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
           </div>
           <div className="flex items-center justify-between">
             <p className="text-fg-muted">Unpinned values stay on the card detail view and in the hover peek.</p>
-            <button onClick={onCancelSwap} className="text-fg-secondary hover:text-fg shrink-0 ml-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
+            <button onClick={onCancelSwap} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 shrink-0 ml-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
           </div>
         </div>
       )}
@@ -848,7 +848,7 @@ function FieldEditPanel({
         <div className="mb-3 flex items-center gap-2 text-xs">
           <span className="text-warning">If cards already have values for this field, the save will be refused. To use a different type, add a new field of that type, then delete this one. Continue?</span>
           <button onClick={onConfirmTypeChange} className="text-warning hover:underline focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded">Change type</button>
-          <button onClick={onCancelTypeChange} className="text-fg-secondary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
+          <button onClick={onCancelTypeChange} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
         </div>
       )}
 

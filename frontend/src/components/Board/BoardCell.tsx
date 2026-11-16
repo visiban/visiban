@@ -331,7 +331,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           />
           <div className="flex gap-1.5 mt-1.5">
             <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
-            <button onClick={cancelAdd} className="text-xs text-fg-tertiary hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+            <button onClick={cancelAdd} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           </div>
           <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>
         </div>

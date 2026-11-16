@@ -56,7 +56,7 @@ const DANGER_BTN =
   "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const INERT_WHEN_ARIA_DISABLED = "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const CONFIRM_BTN = "min-h-6 px-1 text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis";
-const CANCEL_BTN = "min-h-6 px-1 text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const CANCEL_BTN = "min-h-6 px-1 text-fg-secondary hover:text-fg hover:bg-surface-hover transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
 function when(iso: string | null, now: number): string {
   if (!iso) return "";
