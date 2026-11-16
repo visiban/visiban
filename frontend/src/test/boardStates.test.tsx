@@ -27,7 +27,7 @@ describe('board states (#2276)', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('offline banner carries the spec copy', () => {
+  it('offline banner shows the reconnecting copy', () => {
     render(<BoardOfflineBanner />)
     expect(screen.getByRole('status')).toHaveTextContent("You're offline. Changes may not save until the board reconnects.")
   })

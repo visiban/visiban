@@ -2973,7 +2973,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </button>
         </div>
       )}
-      {!allLanesFilteredOut && filteredCardIds !== null && filteredCardIds.size === 0 && (
+      {!allLanesFilteredOut && board.cards.length > 0 && filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
           {showChip !== "all" && (panelFilteredCardIds === null || panelFilteredCardIds.size > 0)
             ? "No cards match the selected Show chip. Choose All cards to see every card."

@@ -311,4 +311,12 @@ describe('BoardView states (#2276)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show all cards' }))
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
+
+  it('an empty board with a filter active shows only the empty-board notice (#2276)', () => {
+    mockSearchParams = new URLSearchParams('show=due_soon')
+    render(<BoardView />)
+    expect(screen.getByText('No cards yet')).toBeInTheDocument()
+    expect(screen.queryByText(/No cards match/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show all cards' })).not.toBeInTheDocument()
+  })
 })

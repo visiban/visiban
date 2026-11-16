@@ -457,6 +457,19 @@ describe('App', () => {
     expect(screen.queryByText('Loading board')).not.toBeInTheDocument()
   })
 
+  it('shows the skeleton when switching boards while the new one loads (#2276)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    const boardA = {
+      id: 1, name: 'Board A', description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    }
+    // The hook still holds board 1 while /boards/2 loads.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: boardA, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/2']}><App /></MemoryRouter>)
+    expect(screen.getByText('Loading board')).toBeInTheDocument()
+  })
+
   it('remounts BoardView when the board id changes, so no per-board state carries over (#1146)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     const boardOf = (id: number) => ({

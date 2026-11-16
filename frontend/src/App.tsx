@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
-import { Routes, Route, Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, matchPath, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
@@ -284,6 +284,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: routeBoardId } = useParams<{ id: string }>();
   const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
@@ -457,7 +458,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         )}
         {/* Only before the first board arrives: move-rollback and retry reloads
             set `loading` too, and must not cover or announce over a live board. */}
-        {loading && !board && <BoardSkeleton />}
+        {/* Also when the route id changed: the hook keeps the previous board until
+            the new one lands, and that stale board must not mask the loading state. */}
+        {loading && (!board || board.id !== Number(routeBoardId)) && <BoardSkeleton />}
         {error && <BoardLoadError onRetry={reload} />}
         {board && (
           // Keyed by board id (#1146): the /boards/:id route keeps this page
