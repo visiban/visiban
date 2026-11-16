@@ -566,6 +566,88 @@ class SavedFilterCustomFieldStateTests(TestCase):
                 self.assertIn("NUL", r.data["detail"])
 
 
+def _filter_fixture():
+    import json
+    from pathlib import Path
+
+    return json.loads((Path(__file__).parent / "fixtures" / "filter_state_keys.json").read_text())
+
+
+class SavedFilterNumberOperatorStateTests(TestCase):
+    """#2357 — number custom-field entries accept op/min/max additively."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="nora", password="pass")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
+
+    def _post(self, entry, name="F"):
+        return self.client.post(
+            self.url,
+            {"name": name, "state_json": {**EMPTY_FILTER_STATE, "customFields": {"7": entry}}},
+            format="json",
+        )
+
+    def test_number_ops_match_shared_fixture(self):
+        from boards.serializers import SavedFilterSerializer as S
+
+        self.assertEqual(set(_filter_fixture()["numberFilterOps"]), S._CF_NUMBER_OPS)
+
+    def test_valid_number_entries_save_and_round_trip(self):
+        """Includes legacy equals-only and min > max (an empty-result filter, not a 400)."""
+        for i, entry in enumerate(_filter_fixture()["numberFilterValidEntries"]):
+            with self.subTest(entry=entry):
+                r = self._post(entry, name=f"F{i}")
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+                self.assertEqual(r.data["state_json"]["customFields"]["7"], entry)
+                fetched = self.client.get(f"{self.url}{r.data['id']}/")
+                if fetched.status_code == status.HTTP_200_OK:
+                    self.assertEqual(fetched.data["state_json"]["customFields"]["7"], entry)
+
+    def test_invalid_number_operator_payloads_rejected_with_string_detail(self):
+        long_str = "1" * 501
+        base = {"kind": "number", "equals": ""}
+        cases = {
+            "unknown op": {**base, "op": "gte"},
+            "op list": {**base, "op": []},
+            "op dict": {**base, "op": {}},
+            "op int": {**base, "op": 1},
+            "op null": {**base, "op": None},
+            "min not str": {**base, "op": "between", "min": 3},
+            "max not str": {**base, "op": "between", "max": [8]},
+            "min too long": {**base, "op": "between", "min": long_str},
+            "max too long": {**base, "op": "between", "min": "1", "max": long_str},
+            "min NUL": {**base, "op": "between", "min": "1\u00002"},
+            "max NUL": {**base, "op": "between", "max": "1\u00002"},
+            "between no bounds": {**base, "op": "between"},
+            "between empty bounds": {**base, "op": "between", "min": "", "max": ""},
+            "equals missing": {"kind": "number", "op": "empty"},
+        }
+        for label, entry in cases.items():
+            with self.subTest(label):
+                r = self._post(entry)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIsInstance(r.data["detail"], str)
+
+    def test_date_entries_unchanged(self):
+        """Date stays equality-only: op/min/max are not interpreted for date, and
+        the equals string check is the same as before #2357."""
+        ok = self._post({"kind": "date", "equals": "2026-11-13"})
+        self.assertEqual(ok.status_code, status.HTTP_201_CREATED, ok.data)
+        for label, entry in {
+            "equals not str": {"kind": "date", "equals": 5},
+            "equals missing": {"kind": "date"},
+            "equals too long": {"kind": "date", "equals": "x" * 501},
+            "equals NUL": {"kind": "date", "equals": "a\u0000b"},
+        }.items():
+            with self.subTest(label):
+                r = self._post(entry)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIsInstance(r.data["detail"], str)
+
+
 def _lane_rule(rid=1, **kw):
     return {"kind": "rule", "id": rid, "join": "and", "field": 7, "op": "is", "value": "Priya", **kw}
 

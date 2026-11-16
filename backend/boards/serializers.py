@@ -4916,6 +4916,11 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _CF_MAX_VALUES = 50
     _CF_MAX_STRING = 500
     _CF_KINDS_EQUALS = {"number", "date"}
+    # #2357 — operators a number entry may carry, additive-only and mirrored in
+    # frontend/src/utils/numberFilter.ts (pinned by filter_state_keys.json).
+    # An absent op means "eq". There is no gte/lte: "at least"/"at most" are a
+    # "between" with one bound left empty.
+    _CF_NUMBER_OPS = {"eq", "between", "empty", "not_empty"}
     _CF_KINDS_VALUES = {"choice", "multi_choice"}
     _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
     # laneFilter bounds, mirrored in frontend/src/utils/laneFilter.ts. The op
@@ -5051,6 +5056,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 if not isinstance(entry.get("equals"), str) or len(entry["equals"]) > cap:
                     raise err(f"state_json.customFields {kind} equals must be a string of at most {cap} characters.")
                 self._reject_nul(entry["equals"], f"state_json.customFields {kind} equals")
+                if kind == "number":
+                    self._validate_number_operator(entry)
             elif kind in self._CF_KINDS_VALUES:
                 vals = entry.get("values")
                 if (
@@ -5069,6 +5076,35 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                     "state_json.customFields kind must be one of "
                     "['choice', 'date', 'multi_choice', 'number', 'text']."
                 )
+
+    def _validate_number_operator(self, entry):
+        """#2357 — optional ``op``/``min``/``max`` on a number entry, on top of the
+        ``equals`` string every number entry still carries (an older SPA reads
+        only ``equals``; the client writes ``equals: ""`` for every non-eq op so
+        that SPA sees an inactive filter rather than a wrong one).
+
+        Bounds are opaque strings here — nothing server-side applies a card
+        filter, so the client decides what a non-numeric bound means. A min
+        greater than max is a valid (empty-result) filter, not a 400.
+        """
+        err = serializers.ValidationError
+        cap = self._CF_MAX_STRING
+        op = entry.get("op", "eq")
+        # Checked before the set lookup: a list/dict op is unhashable and would 500.
+        if not isinstance(op, str) or op not in self._CF_NUMBER_OPS:
+            raise err(
+                "state_json.customFields number op must be one of "
+                f"{sorted(self._CF_NUMBER_OPS)}."
+            )
+        for bound in ("min", "max"):
+            if bound not in entry:
+                continue
+            value = entry[bound]
+            if not isinstance(value, str) or len(value) > cap:
+                raise err(f"state_json.customFields number {bound} must be a string of at most {cap} characters.")
+            self._reject_nul(value, f"state_json.customFields number {bound}")
+        if op == "between" and not (entry.get("min") or entry.get("max")):
+            raise err("state_json.customFields number between needs a min or a max.")
 
     def _is_lane_id(self, v):
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= self._LANE_MAX_ID
