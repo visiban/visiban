@@ -548,10 +548,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     boardPreset.applyPreset(id, same ? "reset" : "apply");
   };
+  // Phone width (#2277): one column at a time, no drag.
+  const isPhone = useIsPhoneViewport();
   const presetPickerRef = useRef<HTMLSpanElement>(null);
   const focusPresetTrigger = useCallback(() => {
-    presetPickerRef.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
-  }, []);
+    // On phones the View button is `max-sm:hidden` (#2340), so a focus() on it would
+    // drop focus to <body>. The Filter trigger (a sibling in the same toolbar row)
+    // is the visible entry to the View panel there.
+    const filterTrigger = isPhone
+      ? presetPickerRef.current?.parentElement?.querySelector<HTMLButtonElement>('button[data-tour-step="filter"]')
+      : null;
+    (filterTrigger ?? presetPickerRef.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]"))?.focus();
+  }, [isPhone]);
   const presetNotice = boardPreset.notice;
   const presetMenuActions = [
     ...(presetModified && activePreset
@@ -1376,8 +1384,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const isLargeViewport = useIsLargeViewport();
-  // Phone width (#2277): one column at a time, no drag.
-  const isPhone = useIsPhoneViewport();
   // Phones (#2340): one Filter button opens both panels. Its "View options" button hands
   // the Filter trigger to the View panel, which anchors to it and returns focus there.
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);

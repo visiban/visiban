@@ -401,6 +401,26 @@ describe('BoardView — board presets (#1146)', () => {
       expect(screen.getByRole('button', { name: 'View' })).toHaveFocus()
     })
 
+    it('returns focus to the Filter button on phones, where View is hidden (#2344)', async () => {
+      const user = userEvent.setup()
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: vi.fn((q: string) => ({ matches: q.includes('max-width: 639px'), addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+      })
+      try {
+        renderBoard()
+        await choosePreset(user, 'Default')
+        await user.click(within(screen.getByTestId('preset-notice')).getByRole('button', { name: 'Undo' }))
+        expect(screen.getByRole('button', { name: /^Filters and view options/ })).toHaveFocus()
+        await choosePreset(user, 'Classic')
+        await user.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+        expect(screen.getByRole('button', { name: /^Filters and view options/ })).toHaveFocus()
+      } finally {
+        Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: undefined })
+      }
+    })
+
     it('describes the menu with what changed', async () => {
       const user = userEvent.setup()
       renderBoard()
