@@ -14,7 +14,6 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from boards.card_signals import overdue_q, signal_today
 from boards.models import BoardMembership, Card, Notification, Swimlane
@@ -97,11 +96,9 @@ class DateSignalsTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.board.owner)
         with _frozen():
-            resp = client.get(f"/api/boards/{self.board.pk}/cards/", {"overdue": "true"})
+            resp = client.get(f"/api/v1/boards/{self.board.pk}/cards/", {"overdue": "true"})
         self.assertEqual(resp.status_code, 200, resp.content)
-        body = resp.json()
-        results = body["results"] if isinstance(body, dict) and "results" in body else body
-        self.assertEqual([c["id"] for c in results], [])
+        self.assertEqual(resp.json(), [])
 
 
 class InvalidZoneSettingTests(TestCase):

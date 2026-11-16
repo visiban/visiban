@@ -1,6 +1,5 @@
 """CardViewSet — CRUD endpoints for cards on a board, including move, archive, comments, etc."""
 
-import datetime
 import logging
 import os
 from urllib.parse import urlencode
