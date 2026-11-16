@@ -217,6 +217,13 @@ NO_BROADCAST_BY_DESIGN: dict[str, str] = {
 # Fan-outs that legitimately call an emit function inside a loop, because the
 # loop iterates over *channels* rather than over rows on one channel.
 LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
+    "backend/boards/views/custom_fields.py::CustomFieldDefinitionViewSet._send": (
+        "board.updated from CustomFieldDefinitionViewSet when a deleted number "
+        "field was the board's swimlane_rollup_field (#2275). The loop runs over "
+        "serialize_boards_for_broadcast([board_id]) — exactly one board — and "
+        "sends that board's channel frame plus its group channel frame, so it is "
+        "a one-iteration loop, not a per-row storm. Deferred with on_commit."
+    ),
     "backend/groups/views.py::_announce": (
         "One invite_link.revoked per revoked link, fired from the commit hook in "
         "_revoke_lapsed_admin_invite_links. A lapsed creator's links span groups "
