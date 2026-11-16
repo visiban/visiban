@@ -7152,7 +7152,7 @@
 <tr>
 <td><code>customFields</code></td>
 <td>object</td>
-<td>Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is <code>{kind: "text", query}</code>, <code>{kind: "number" \| "date", equals}</code> (strings), or <code>{kind: "choice" \| "multi_choice", values}</code> (at most 50 strings). Strings are capped at 500 characters.</td>
+<td>Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is <code>{kind: "text", query}</code>, <code>{kind: "number" \| "date", equals}</code> (strings), or <code>{kind: "choice" \| "multi_choice", values}</code> (at most 50 strings). Strings are capped at 500 characters. <em>Added in 1.3</em> (#2357): a <code>number</code> value may also carry <code>op</code>, one of <code>eq</code> (the default when absent), <code>between</code>, <code>empty</code> or <code>not_empty</code>, and <code>min</code> / <code>max</code> strings. A <code>between</code> needs a non-blank <code>min</code> or <code>max</code>; one empty bound means "at least" or "at most", both bounds are inclusive, and <code>min</code> greater than <code>max</code> is accepted (it matches no card). Every number value still carries <code>equals</code>, and clients write <code>equals: ""</code> for any op other than <code>eq</code>. An unknown <code>op</code> returns <code>400</code>. <code>date</code> values are unchanged: <code>equals</code> only.</td>
 </tr>
 <tr>
 <td><code>visibleCustomFieldFilterIds</code></td>
@@ -7166,7 +7166,8 @@
 </tr>
 </tbody>
 </table>
-<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code>, custom-field <code>query</code>, <code>equals</code>, and <code>values</code> entries, and lane-rule <code>value</code>, <code>min</code>, and <code>max</code>) must not contain NUL (0x00) characters; they return <code>400</code>.</p>
+<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code>, custom-field <code>query</code>, <code>equals</code>, <code>min</code>, <code>max</code> and <code>values</code> entries, and lane-rule <code>value</code>, <code>min</code>, and <code>max</code>) must not contain NUL (0x00) characters; they return <code>400</code>.</p>
+<p><strong>Compatibility (#2357):</strong> the number <code>op</code>, <code>min</code> and <code>max</code> keys are additive and follow the 1.0+ API stability rules: the op list only grows, and <code>equals</code> is never removed or retyped. A client released before 1.3 reads only <code>equals</code>, so it treats a range, "is empty" or "has a value" entry (whose <code>equals</code> is <code>""</code>) as no filter on that field; it keeps the <code>op</code>, <code>min</code> and <code>max</code> keys when it saves a preset again, unless the user edits that field's filter in the old client, which rewrites the entry as <code>equals</code> only.</p>
 <p><strong>Errors:</strong> <code>400 Bad Request</code> if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, <code>state_json</code> contains unknown keys or wrong-typed values, or <code>state_version</code> is not an integer between 1 and 32767.</p>
 <h3 id="delete-apiv1boardsidsaved-filtersfilter_id"><code>DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/</code><a class="headerlink" href="#delete-apiv1boardsidsaved-filtersfilter_id" title="Permanent link">&para;</a></h3>
 <p>Delete a saved filter preset. Only its owner can delete it; deleting another user's filter returns <code>404 Not Found</code>.</p>
