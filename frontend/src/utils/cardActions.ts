@@ -127,6 +127,12 @@ export interface CardActionContext {
   demoMode: boolean;
   /** Maintenance mode is on and this user is not exempt (BoardView's `blockedByMaintenance`). */
   maintenanceBlocked: boolean;
+  /**
+   * The board's live connection is down (#2325, spec § States): moves are paused
+   * until it is back, so a move cannot land on a board other people changed meanwhile.
+   * Optional: surfaces without a socket (the palette's tests, older callers) never pause.
+   */
+  movesPaused?: boolean;
 }
 
 export const SELECT_ONE_REASON = "Select one card";
@@ -134,6 +140,8 @@ export const MAINTENANCE_REASON = "Maintenance mode is active — changes can't 
 export const OWNER_ONLY_REASON = "Only the card's creator or a board admin";
 export const DEMO_BLOCK_REASON = demoReason("cards can't be blocked here");
 export const MOVE_ASSIGNED_REASON = "Assigned to someone else: only its creator, its assignee or a board admin";
+/** Shown on every Move path while the board is offline (#2325); the banner says the same. */
+export const MOVES_PAUSED_REASON = "Moves are paused while the board is offline";
 
 const VERB: Record<CardActionId, string> = {
   open: "open", "copy-link": "copy links to", move: "move", assign: "assign",
@@ -246,7 +254,7 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
     // The server refuses a move only for a card assigned to someone else that
     // the user did not create (backend move_card); disabled only when every
     // target card is known to be such a card.
-    entry("move", "Move to…", writeGate("move") ?? everyRefused("move")),
+    entry("move", "Move to…", writeGate("move") ?? (ctx.movesPaused ? MOVES_PAUSED_REASON : everyRefused("move"))),
     entry("assign", "Assign to…", writeGate("assign") ?? everyRefused("assign")),
     // Any PATCH takes the server's own-content gate ("You can only edit cards
     // you created"), so Priority follows Assign's ownership rule.
@@ -332,6 +340,23 @@ export interface CardChoice {
 
 export function moveChoices(columns: Column[]): CardChoice[] {
   return columns.map((c) => ({ key: `col-${c.id}`, label: c.name, value: c.id, dot: c.color }));
+}
+
+/** Move submenu values for a step within the card's own cell (#2327). */
+export type ReorderStep = "earlier" | "later";
+
+/**
+ * Keyboard reorder within a cell (#2327): the card menu's Move to… lists these
+ * before the columns, for one card, only for a step that exists. The wording is
+ * the phone peek sheet's (#2277), which does the same move; `cellOrderOf` gives
+ * the slots. No new shortcut keys: this rides the existing Menu / Shift+F10 path.
+ */
+export function reorderChoices(order: { earlier: number | null; later: number | null } | null | undefined): CardChoice[] {
+  if (!order) return [];
+  const out: CardChoice[] = [];
+  if (order.earlier !== null) out.push({ key: "step-earlier", label: "Move earlier in this cell", value: "earlier" });
+  if (order.later !== null) out.push({ key: "step-later", label: "Move later in this cell", value: "later" });
+  return out;
 }
 
 /** Unassign, then every member who can hold a card (viewers cannot). */

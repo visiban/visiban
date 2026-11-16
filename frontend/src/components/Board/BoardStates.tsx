@@ -54,7 +54,11 @@ export function BoardEmptyState({ firstColumnName, onAddCard }: EmptyProps) {
   );
 }
 
-/** Shown while the socket is down; the connection status in the toolbar reads Offline. */
+/**
+ * Shown while the socket is down; the connection status in the toolbar reads Offline too.
+ * Moves are paused until the board is live again (#2325, spec § States): drag and every
+ * Move path are disabled, and this banner is the text that says why.
+ */
 export function BoardOfflineBanner({ failed = false }: { failed?: boolean }) {
   return (
     <div
@@ -63,8 +67,8 @@ export function BoardOfflineBanner({ failed = false }: { failed?: boolean }) {
       className="mx-4 mt-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning-on-tint"
     >
       {failed
-        ? "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
-        : "You're offline. Changes may not save until the board reconnects."}
+        ? "Offline. Live updates are off and moves are paused. Reload the page to reconnect."
+        : "Offline. Reconnecting. Moves are paused until the board is live again."}
     </div>
   );
 }

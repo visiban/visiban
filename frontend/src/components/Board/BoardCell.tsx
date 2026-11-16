@@ -141,8 +141,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   useInlineEditEscape(() => adding && !!addEditorRef.current?.contains(document.activeElement), cancelAdd);
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
-  // already owns the cell's background channel (`bg-info/15` here, `bg-info/20`
-  // on the empty-cell indicator), and compositing a tint on top weakens it — the same
+  // already owns the cell's background channel (`bg-primary/20`, or `bg-warning/20`
+  // for a blocked drop, #2326), and compositing a tint on top weakens it — the same
   // reason the centered "+ Add card" overlay hides during a drag.
   const overlay = overlayCell && overlayLabel && !(isOver && isDraggingCard) ? overlayCell : null;
   // An empty addable cell is `role="button"` with an `aria-label`, and an aria-label
@@ -150,6 +150,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // discarded. Fold the overlay reading into the cell's own label instead.
   const addLabel = `Add card to ${column.name} in ${swimlane.name}`;
   const cellAriaLabel = overlay ? `${addLabel} — ${overlayLabel}: ${overlay.label}, ${overlay.encoding.levelLabel}` : addLabel;
+  // Drop feedback (#2326, spec § Drag and drop): an open target takes the selection
+  // treatment (dashed `border-info`, `bg-primary/20`) plus a placeholder where the card
+  // lands; a blocked one takes the warning treatment and names the limit in text.
+  const dropOpen = isOver && isDraggingCard && !blockedBy;
+  // The placeholder is as tall as the lifted card, so the cell shows the space it needs.
+  const placeholderHeight = Math.max(40, Math.round(active?.rect?.current?.initial?.height ?? 40));
 
   return (
     <div
@@ -188,12 +194,13 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // the dashed hover border reuses, so content never shifts); 56px tall when empty and
       // otherwise as tall as its cards. The empty cell shows a quiet plus and gains a dashed
       // edge and the "Add card" label on hover or focus.
-      className={`group/cell relative min-w-0 min-h-14 p-[5px] rounded-lg border border-transparent transition-colors ${
-        isOver && isDraggingCard && !blockedBy ? "bg-info/15 border-dashed border-primary-emphasis" : "bg-canvas"
+      className={`group/cell relative min-w-0 min-h-14 p-[5px] rounded-lg border transition-colors ${
+        blockedBy ? "bg-warning/20 border-dashed border-warning"
+          : dropOpen ? "bg-primary/20 border-dashed border-info"
+          : "bg-canvas border-transparent"
       } ${isPopulatedAddable ? "flex flex-col" : ""
-      } ${blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : ""
       } ${
-        isEmptyAddable ? "cursor-pointer hover:border-dashed hover:border-line-strong focus:border-dashed focus:border-line-strong hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
+        isEmptyAddable ? "cursor-pointer hover:border-dashed hover:border-line-strong focus:border-dashed focus:border-line-strong hover:bg-surface-active/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
       }`}
     >
       {/* Grid overlay shading (#1147) — FIRST child on purpose: it is absolutely
@@ -206,16 +213,16 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           valueAnnouncedByCell={isEmptyAddable}
         />
       )}
-      {/* Blocked drop target (#1150): the ring is color only, so the limit is
-          also written out (WCAG 1.4.1). aria-hidden: keyboard and screen-reader
-          users get the same verdict from the drag live region. */}
+      {/* Blocked drop target (#1150, warning treatment #2326): the tint is color
+          only, so the limit is also written out (WCAG 1.4.1). aria-hidden: keyboard
+          and screen-reader users get the same verdict from the drag live region. */}
       {blockedBy && (
         <span
           aria-hidden="true"
           data-testid="cell-drop-blocked"
           // An opaque pill: the label sits over the first card or the empty
           // drop target, so it needs its own surface to stay legible.
-          className="absolute left-2 top-1 z-[6] max-w-[calc(100%-1rem)] truncate rounded bg-canvas px-1.5 py-0.5 shadow text-xs font-medium text-danger pointer-events-none"
+          className="absolute left-2 top-1 z-[6] max-w-[calc(100%-1rem)] truncate rounded bg-canvas px-1.5 py-0.5 shadow text-xs font-medium text-warning-on-tint pointer-events-none"
         >
           {blockedBy.mode === "hard" ? "⛔ " : "⚠ "}{trippedLimitLabel(blockedBy)}
         </span>
@@ -284,11 +291,26 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               contextTarget={contextTargetCardId === card.id}
             />
           ))}
+          {/* Drop placeholder (#2326): where the card lands. A drop always appends
+              (handleDragEnd sends the cell's count), so it sits after the last card. */}
+          {dropOpen && cards.length > 0 && (
+            <div
+              aria-hidden="true"
+              data-testid="cell-drop-placeholder"
+              style={{ height: placeholderHeight }}
+              className="rounded-md border border-dashed border-info bg-primary/20"
+            />
+          )}
         </div>
         {cards.length === 0 && active && (
-          <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            blockedBy ? "border-danger-emphasis" : isOver ? "border-primary-emphasis bg-info/20" : "border-line"
-          }`} />
+          // An empty cell's slot doubles as the placeholder while it is the open target.
+          <div
+            aria-hidden="true"
+            data-testid={dropOpen ? "cell-drop-placeholder" : undefined}
+            className={`h-10 rounded-md border border-dashed transition-colors ${
+              blockedBy ? "border-warning" : dropOpen ? "border-info bg-primary/20" : "border-line-strong"
+            }`}
+          />
         )}
       </SortableContext>
 
@@ -336,17 +358,21 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       {/* Populated-cell affordance (#2319) — a real button that fills the cell's remaining
           height (the swimlane row stretches cells to the tallest neighbor), so the blank space
           below the cards offers the same dashed hover edge and "+ Add card" label as an empty
-          cell. Still ONE tab stop. During a drag it stays in layout but is invisible and inert
-          so the drop indicator owns the cell. */}
+          cell. Still ONE tab stop, named like the empty cell (#2320). At least 44px tall so it
+          stays a touch target when cards fill the cell. During a drag it stays in layout but is
+          transparent and inert so the drop indicator owns the cell; opacity, not `invisible`,
+          because a hidden element drops keyboard focus and the focus would not come back (#2320). */}
       {isPopulatedAddable && (
         <button
           ref={addButtonRef}
           type="button"
-          aria-label="+ Add card"
+          aria-label={addLabel}
           onClick={() => setAdding(true)}
           // On an overlay tint fg-faint sinks out of sight, and this button sits on the
           // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
-          className={`group/addbtn flex-1 min-h-8 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-hover/30 focus:border-dashed focus:border-line-strong focus:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "invisible pointer-events-none" : ""}`}
+          // The wash is `surface-active/50`: `surface-hover` equals `canvas` in light mode, so
+          // the old wash was invisible there (#2320).
+          className={`group/addbtn flex-1 min-h-11 mt-1 w-full flex items-center justify-center text-xs rounded border border-transparent transition ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-muted"} hover:text-fg hover:border-dashed hover:border-line-strong hover:bg-surface-active/50 focus:border-dashed focus:border-line-strong focus:bg-surface-active/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${active ? "opacity-0 pointer-events-none" : ""}`}
         >
           <span aria-hidden="true" className="text-base leading-none">+</span>
           <span aria-hidden="true" className="hidden group-hover/addbtn:inline group-focus/addbtn:inline ml-1.5">Add card</span>

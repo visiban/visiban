@@ -223,13 +223,13 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
     it('lifts the add-card button off the tint, and leaves it quiet with no tint under it', () => {
       const tinted = dwellFor(9)
       const { unmount } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: tinted.cell, overlayLabel: tinted.label })} />)
-      expect(screen.getByRole('button', { name: '+ Add card' }).className).toContain('text-fg-secondary')
-      expect(screen.getByRole('button', { name: '+ Add card' }).className).not.toContain('text-fg-muted')
+      expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }).className).toContain('text-fg-secondary')
+      expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }).className).not.toContain('text-fg-muted')
       unmount()
       const fresh = dwellFor(0.5)
       render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: fresh.cell, overlayLabel: fresh.label })} />)
       // #2030: the label is informative, so its quiet tone is fg-muted (AA on canvas), never fg-faint.
-      const quiet = screen.getByRole('button', { name: '+ Add card' }).className
+      const quiet = screen.getByRole('button', { name: 'Add card to To Do in Customer A' }).className
       expect(quiet).toContain('text-fg-muted')
       expect(quiet).not.toContain('text-fg-faint')
     })

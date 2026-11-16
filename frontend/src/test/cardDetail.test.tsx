@@ -2013,6 +2013,17 @@ describe('CardDetail', () => {
       expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toBeInTheDocument()
     })
 
+    it('offline: the Move button stays but is disabled, says why in text, and opens nothing (#2325)', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} movesPaused />)
+      const btn = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      expect(btn).toHaveAttribute('aria-disabled', 'true')
+      expect(btn).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+      await userEvent.click(btn)
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+      expect(onMoveCard).not.toHaveBeenCalled()
+    })
+
     it('does not show move button for viewer even when onMoveCard provided', () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       const board = makeBoardWithTwoCols()

@@ -82,6 +82,11 @@ interface Props {
   // the panel is open; the popover offers it itself (#1772). Omitted: no
   // override is shown.
   onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
+  /**
+   * The board is offline (#2325, spec § States): the Move button and the column
+   * fact stay in place but are disabled, with the reason in text.
+   */
+  movesPaused?: boolean;
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
@@ -164,7 +169,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -1366,6 +1371,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Inert while the popover's admin override is in flight: toggling
     // would close the popover and hide the pending outcome (#1772).
     if (moveForcingRef.current) return;
+    // Offline pauses moves (#2325): nothing opens; the reason line under the header says why.
+    if (movesPaused && !showMovePopover) return;
     moveOpenerRef.current = null;
     setMoveToSeen(true);
     // Calculate fixed position from the button's viewport rect so the
@@ -1605,6 +1612,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <button
                     ref={moveButtonRef}
                     onClick={toggleMovePopover}
+                    aria-disabled={movesPaused || undefined}
+                    aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined}
                     // On coarse pointers (touch) this is the non-drag way to move a card,
                     // but a 20px icon is too small to tap and its hover tooltip never
                     // shows (#1287). Grow it to 32px and show the "Move" label inline.
@@ -1625,6 +1634,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               )}
             </div>
             {/* Always mounted, takes no space while empty; text swapped inside so it is announced (#1773). */}
+            {canEdit && onMoveCard && movesPaused && (
+              <p id="card-detail-moves-paused" className="text-xs text-fg-secondary mt-1 px-1">Moves are paused while the board is offline.</p>
+            )}
             <div role="status" aria-live="polite" aria-atomic="true" data-testid="move-notice">
               {moveNotice && <p className="text-xs text-warning mt-1 px-1">{moveNotice}</p>}
             </div>
@@ -2602,7 +2614,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         )}
 
         {/* Move popover — position:fixed so the body's overflow-hidden scroll region doesn't clip it; inside panelRef so the focus trap includes it (#1732) */}
-        {showMovePopover && movePopoverAnchor && (
+        {showMovePopover && !movesPaused && movePopoverAnchor && (
           <div
             ref={movePopoverRef}
             // Owns the inline role="alert" for a refused move, so the shared

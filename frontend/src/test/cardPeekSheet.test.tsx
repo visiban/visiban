@@ -222,6 +222,18 @@ describe('CardPeekSheet', () => {
     expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
   })
 
+  it('offline: Move and both steps are disabled, with the reason in text (#2325)', async () => {
+    const p = setup({ movesPaused: true, cellOrder: { index: 1, count: 3, earlier: 4, later: 8 } })
+    const move = screen.getByRole('button', { name: 'Move' })
+    expect(move).toHaveAttribute('aria-disabled', 'true')
+    expect(move).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+    await userEvent.click(move)
+    expect(screen.queryByLabelText('Column')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move later' })).toBeDisabled()
+    expect(p.onMoveCard).not.toHaveBeenCalled()
+  })
+
   it('offers no reorder alone in the cell', () => {
     setup({ cellOrder: { index: 0, count: 1, earlier: null, later: null } })
     expect(screen.queryByTestId('card-peek-reorder')).not.toBeInTheDocument()

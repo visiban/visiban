@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import CardContextMenu, { CARD_MENU_ESCAPE_PRIORITY, SUBMENU_CLOSE_GRACE_MS } from '../components/Card/CardContextMenu'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import { useEscapeStack } from '../hooks/useEscapeStack'
-import { cardActionEntries, type CardActionContext } from '../utils/cardActions'
+import { cardActionEntries, reorderChoices, type CardActionContext } from '../utils/cardActions'
 import { DEMO_CARD_FOOTER_NOTE } from '../constants/demoCopy'
 import type { BoardFull, Card, Column } from '../types'
 
@@ -61,6 +61,25 @@ function renderMenu(cards: Card[] = [makeCard()], ctx: CardActionContext = membe
 const item = (name: string | RegExp) => screen.getByRole('menuitem', { name })
 
 describe('CardContextMenu', () => {
+  it('lists the in-cell steps before the columns, behind one divider (#2327)', () => {
+    const { onAction } = renderMenu([makeCard()], member, { reorder: reorderChoices({ earlier: 0, later: 3 }) })
+    fireEvent.keyDown(item(/Move to…/), { key: 'ArrowRight' })
+    const sub = screen.getByRole('menu', { name: 'Move within this cell or to a column' })
+    const names = within(sub).getAllByRole('menuitem').map((el) => el.textContent)
+    expect(names.slice(0, 2)).toEqual(['Move earlier in this cell', 'Move later in this cell'])
+    expect(names.length).toBe(2 + columns.length)
+    expect(within(sub).getAllByRole('separator')).toHaveLength(1)
+    fireEvent.click(within(sub).getByRole('menuitem', { name: 'Move later in this cell' }))
+    expect(onAction).toHaveBeenCalledWith('move', 'later')
+  })
+
+  it('without steps the Move submenu is columns only, named as before', () => {
+    renderMenu()
+    fireEvent.keyDown(item(/Move to…/), { key: 'ArrowRight' })
+    const sub = screen.getByRole('menu', { name: 'Move to column' })
+    expect(within(sub).queryAllByRole('separator')).toHaveLength(0)
+  })
+
   it('lists the four groups in order with Delete last, and focuses the first item', () => {
     renderMenu()
     const menu = screen.getByRole('menu', { name: 'Card actions: Fix payout rounding' })

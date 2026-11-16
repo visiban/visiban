@@ -53,6 +53,8 @@ interface Props {
    * (`earlier` / `later`; `null` disables that button).
    */
   cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
+  /** The board is offline (#2325): Move and the reorder steps are disabled, with the reason in text. */
+  movesPaused?: boolean;
   userDateFormat?: string;
   userTimezone?: string;
 }
@@ -67,7 +69,7 @@ interface Props {
  * detail sheet placement): focus goes to Close on open, and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
@@ -477,7 +479,10 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           {canEdit && !moveOpen && (
             <button
               type="button"
-              onClick={() => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
+              // § Withheld actions: aria-disabled keeps it in the tab order, the reason is in text below.
+              aria-disabled={movesPaused || undefined}
+              aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined}
+              onClick={movesPaused ? undefined : () => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
               className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move
@@ -486,11 +491,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         </div>
         {canReorder && (
           <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
-            <button type="button" disabled={moving || cellOrder.earlier === null} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
-            <button type="button" disabled={moving || cellOrder.later === null} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+            <button type="button" disabled={moving || movesPaused || cellOrder.earlier === null} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={() => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" disabled={moving || movesPaused || cellOrder.later === null} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={() => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
           </div>
         )}
         {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}
+        {canEdit && movesPaused && (
+          <p id="card-peek-moves-paused" className="mt-2 text-sm text-fg-secondary">Moves are paused while the board is offline.</p>
+        )}
       </div>
     </div>
   );

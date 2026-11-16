@@ -39,10 +39,11 @@ describe('ConnectionStatus', () => {
     expect(trigger).toHaveTextContent(/Connecting/)
   })
 
-  it('shows a visible "Reconnecting…" label while reconnecting', () => {
+  it('reads "Offline" while reconnecting, matching the board banner (#2325)', () => {
     render(<ConnectionStatus status="reconnecting" lastEventAt={null} reconnectAttempt={3} />)
-    const trigger = screen.getByRole('button', { name: /Reconnecting to real-time updates/i })
-    expect(trigger).toHaveTextContent(/Reconnecting/)
+    const trigger = screen.getByRole('button', { name: 'Offline, reconnecting to real-time updates' })
+    expect(trigger).toHaveTextContent('Offline')
+    expect(trigger).not.toHaveTextContent(/Reconnecting…/)
   })
 
   it('shows an "Offline" badge when failed', () => {
