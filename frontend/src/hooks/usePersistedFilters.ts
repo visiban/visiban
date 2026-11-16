@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { CustomFieldFilterValue, FilterState } from "../components/Board/FilterBar";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
+import { isValidNumberFilterValue } from "../utils/numberFilter";
 
 function storageKey(boardId: number): string {
   return `board:${boardId}:filters`;
@@ -15,7 +16,9 @@ function validCustomFieldFilterValue(v: unknown): v is CustomFieldFilterValue {
   if (typeof v !== "object" || v === null) return false;
   const obj = v as Record<string, unknown>;
   if (obj.kind === "text") return typeof obj.query === "string";
-  if (obj.kind === "number" || obj.kind === "date") return typeof obj.equals === "string";
+  // #2357 — number also accepts op/min/max; legacy equals-only entries stay valid.
+  if (obj.kind === "number") return isValidNumberFilterValue(obj);
+  if (obj.kind === "date") return typeof obj.equals === "string";
   if (obj.kind === "choice" || obj.kind === "multi_choice") return Array.isArray(obj.values) && obj.values.every((x) => typeof x === "string");
   return false;
 }

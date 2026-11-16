@@ -4,8 +4,10 @@
 import type { CustomFieldDefinition, Priority } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import type { CustomFieldFilterValue, FilterState } from "./FilterBar";
+import { isNumberFilterActive } from "../../utils/numberFilter";
 
 export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
+  if (v.kind === "number") return isNumberFilterActive(v); // #2357 — op-aware
   return v.kind === "choice" || v.kind === "multi_choice"
     ? v.values.length > 0
     : v.kind === "text" ? v.query !== "" : v.equals !== "";

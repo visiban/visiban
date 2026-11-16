@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePersistedFilters } from '../hooks/usePersistedFilters'
+import { loadCustomFields, usePersistedFilters } from '../hooks/usePersistedFilters'
 import { EMPTY_FILTER } from '../components/Board/FilterBar'
 import type { FilterState } from '../components/Board/FilterBar'
 
@@ -208,5 +208,25 @@ describe('usePersistedFilters', () => {
     expect(renderHook(() => usePersistedFilters(1)).result.current.filters.laneFilter).toEqual(laneFilter)
     localStorage.setItem('board:2:filters', JSON.stringify({ ...EMPTY_FILTER, laneFilter: 'nope' }))
     expect(renderHook(() => usePersistedFilters(2)).result.current.filters).not.toHaveProperty('laneFilter')
+  })
+})
+
+describe('loadCustomFields — number operators (#2357)', () => {
+  it('keeps legacy and new number shapes and drops malformed ones', () => {
+    const raw = {
+      1: { kind: 'number', equals: '5' },
+      2: { kind: 'number', equals: '', op: 'between', min: '3', max: '8' },
+      3: { kind: 'number', equals: '', op: 'empty' },
+      4: { kind: 'number', equals: '', op: 'not_empty' },
+      5: { kind: 'number', equals: '', op: 'gte', min: '3' },
+      6: { kind: 'number', equals: '', op: ['between'] },
+      7: { kind: 'number', equals: '', op: 'between', min: 3 },
+      8: { kind: 'number', equals: '', op: 'between', max: null },
+      9: { kind: 'number', op: 'empty' },
+      10: { kind: 'date', equals: '2026-11-13', op: 'between' },
+    }
+    const out = loadCustomFields(raw)
+    expect(Object.keys(out).map(Number)).toEqual([1, 2, 3, 4, 10])
+    expect(out[2]).toEqual(raw[2])
   })
 })

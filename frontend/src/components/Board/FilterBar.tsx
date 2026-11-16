@@ -25,12 +25,14 @@ import {
   type LaneFilter,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
+import type { NumberFilterValue } from "../../utils/numberFilter";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
-// FilterState.customFields. Number/date are equality-only (the value is
-// stored as TextField server-side, so a range comparison would be
-// lexicographic, not numeric — out of scope for this phase, see the ux-design
-// spec's explicit non-goal). Dropdown and checkbox share the multi-select
+// FilterState.customFields. Date is equality-only. Number (#2357) adds
+// between / is empty / has a value on top of equals — see
+// utils/numberFilter.ts for the shape and the `equals: ""` constraint that
+// keeps older SPAs from misreading a range entry. Matching is client-side and
+// numeric (Number()), never a lexicographic compare of the stored TextField. Dropdown and checkbox share the multi-select
 // "choice" shape since a checkbox is just a 2-choice dropdown for filtering
 // purposes.
 //
@@ -41,7 +43,8 @@ import {
 // it holds any of the picked entries.
 export type CustomFieldFilterValue =
   | { kind: "text"; query: string }
-  | { kind: "number" | "date"; equals: string }
+  | NumberFilterValue
+  | { kind: "date"; equals: string }
   | { kind: "choice"; values: string[] }
   | { kind: "multi_choice"; values: string[] };
 
@@ -673,7 +676,7 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
       <input
         type={definition.field_type === "number" ? "number" : "date"}
         value={value.equals}
-        onChange={(e) => onChange({ kind: definition.field_type as "number" | "date", equals: e.target.value })}
+        onChange={(e) => onChange(value.kind === "number" ? { kind: "number", equals: e.target.value } : { kind: "date", equals: e.target.value })}
         title={definition.name}
         className={`bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0 ${
           definition.field_type === "number" ? "w-24" : "w-32"

@@ -16,6 +16,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
 import FilterChip from "./FilterChip";
+import NumberFilterEditor from "./NumberFilterEditor";
+import { numberFilterDisplay } from "../../utils/numberFilter";
 import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
 import { EMPTY_FILTER, type CustomFieldFilterValue, type FilterState } from "./FilterBar";
 
@@ -232,7 +234,7 @@ export default function FilterPanel({
       id: `cf:${def.id}`,
       label: def.name,
       value: active
-        ? v.kind === "choice" || v.kind === "multi_choice" ? (def.field_type === "checkbox" ? v.values.map((x) => (x === "true" ? "Yes" : "No")) : v.values).join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, userDateFormat)
+        ? v.kind === "choice" || v.kind === "multi_choice" ? (def.field_type === "checkbox" ? v.values.map((x) => (x === "true" ? "Yes" : "No")) : v.values).join(", ") : v.kind === "text" ? v.query : v.kind === "number" ? numberFilterDisplay(v, (raw) => formatCustomFieldValue(def, raw, userDateFormat)) : formatCustomFieldValue(def, v.equals, userDateFormat)
         : null,
     });
   }
@@ -307,8 +309,11 @@ export default function FilterPanel({
     if (v.kind === "text") {
       return <input type="text" aria-label={def.name} value={v.query} placeholder={`${def.name} contains…`} onChange={(e) => setCustom(def.id, { kind: "text", query: e.target.value })} className={inputClass} />;
     }
-    if (v.kind === "number" || v.kind === "date") {
-      return <input type={v.kind === "number" ? "number" : "date"} aria-label={def.name} value={v.equals} onChange={(e) => setCustom(def.id, { kind: v.kind as "number" | "date", equals: e.target.value })} className={inputClass} />;
+    if (v.kind === "number") {
+      return <NumberFilterEditor definition={def} value={v} onChange={(next) => setCustom(def.id, next)} inputClass={inputClass} />;
+    }
+    if (v.kind === "date") {
+      return <input type="date" aria-label={def.name} value={v.equals} onChange={(e) => setCustom(def.id, { kind: "date", equals: e.target.value })} className={inputClass} />;
     }
     if (v.kind !== "choice" && v.kind !== "multi_choice") return null;
     const kind = v.kind;
