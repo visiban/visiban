@@ -1,6 +1,44 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+
+
+// Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
+// the face is the 44px target and its select checkbox stays 16px (frontend/CLAUDE.md § Phone layout).
+async function smallControls(page: Page, roots: string[]): Promise<string[]> {
+  return page.evaluate((rs) => {
+    const out: string[] = []
+    for (const sel of rs) {
+      document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
+        if (el.closest('[data-card-id]')) return
+        const r = (el as HTMLElement).getBoundingClientRect()
+        if (r.width === 0 && r.height === 0) return
+        if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
+      })
+    }
+    return out
+  }, roots)
+}
+
+// Pairs of header and toolbar controls whose boxes overlap (a control may not cover another).
+async function overlappingControls(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="mobile-nav-bar"] button, nav[aria-label="Board toolbar"] button'))
+      .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' })
+    const name = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)
+    const out: string[] = []
+    for (let i = 0; i < els.length; i++) {
+      for (let j = i + 1; j < els.length; j++) {
+        if (els[i].contains(els[j]) || els[j].contains(els[i])) continue
+        const a = els[i].getBoundingClientRect(), b = els[j].getBoundingClientRect()
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        if (w > 1 && h > 1) out.push(`${name(els[i])} overlaps ${name(els[j])}`)
+      }
+    }
+    return out
+  })
+}
 
 // Phone layout (#2277): one column at a time, lanes stacked, 44px targets in the board body.
 test.describe('board phone layout', () => {
@@ -36,24 +74,9 @@ test.describe('board phone layout', () => {
   test('has no sideways page scroll and every board-body control is at least 44px', async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    const small = await page.evaluate(() => {
-      const out: string[] = []
-      // The board body, the app header (navigation bar, search, notifications, account menu)
-      // and the board toolbar (tabs, Filter, View, Activity, More board actions): no carve-out (#2333).
-      const roots = ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="mobile-nav-bar"]', 'nav[aria-label="Board toolbar"]']
-      for (const sel of roots) {
-        document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
-          // Inside a card face: the face itself is the 44px target (asserted below). Its select
-          // checkbox stays 16px, a recorded exception (frontend/CLAUDE.md § Phone layout).
-          if (el.closest('[data-card-id]')) return
-          const r = (el as HTMLElement).getBoundingClientRect()
-          if (r.width === 0 && r.height === 0) return
-          if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
-        })
-      }
-      return out
-    })
+    const small = await smallControls(page, ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="mobile-nav-bar"]', 'nav[aria-label="Board toolbar"]'])
     expect(small).toEqual([])
+    expect(await overlappingControls(page)).toEqual([])
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
     expect(faces.length).toBeGreaterThan(0)
     for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
@@ -92,6 +115,25 @@ test.describe('board phone layout', () => {
     const showAll = page.getByRole('button', { name: 'Show all cards' })
     await expect(showAll).toBeVisible()
     expect((await showAll.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    expect(await smallControls(page, ['[role="status"]'])).toEqual([])
+  })
+
+  test('the filter bar, the collapsed-lanes strip and the lane-filter banner have 44px targets (#2333)', async ({ page }) => {
+    // Filter bar (role=search): the `/` shortcut opens it and focuses its search box.
+    await page.keyboard.press('/')
+    await expect(page.getByRole('search', { name: 'Board filters' })).toBeVisible()
+    expect(await smallControls(page, ['[role="search"]'])).toEqual([])
+    // Collapsed-lanes strip: collapse the lane, then Expand all swimlanes appears.
+    await page.getByRole('button', { name: /Collapse lane/ }).click()
+    const expand = page.getByRole('button', { name: 'Expand all swimlanes' })
+    await expect(expand).toBeVisible()
+    expect((await expand.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    // Lane-filter banner: a lane rule matching nothing hides every lane.
+    const rule = encodeURIComponent('1.[{"f":"name","o":"contains","v":"zzzz"}]')
+    await page.goto(`/boards/${BOARD_FULL.id}?f_lanes=${rule}`)
+    const clear = page.getByRole('button', { name: 'Clear lane filters' })
+    await expect(clear).toBeVisible()
+    expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
   })
 
   test('adds a card to a lane and Edit swimlane opens the modal', async ({ page }) => {

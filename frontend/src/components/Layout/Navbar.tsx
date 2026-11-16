@@ -143,17 +143,17 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
   return (
     <>
-      <header role="banner" className="h-14 bg-sunken border-b border-line flex items-center px-4 gap-3 shrink-0">
-        <Link to="/" className="flex items-center max-sm:min-w-11 max-sm:shrink-0 hover:opacity-80 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+      <header role="banner" className="h-14 max-sm:h-12 bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 shrink-0">
+        <Link to="/" className="flex items-center max-sm:hidden hover:opacity-80 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
         {breadcrumb && breadcrumb.length > 0 && (
-          <nav aria-label="Breadcrumb" className="flex items-center min-w-0">
+          <nav aria-label="Breadcrumb" className="flex items-center min-w-0 max-sm:flex-1 max-sm:overflow-hidden">
             {breadcrumb.map((item, i) => {
               const isLast = i === breadcrumb.length - 1;
               return (
                 <span key={i} className="flex items-center min-w-0">
-                  <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>
+                  <span className="text-fg-faint mx-1.5 select-none max-sm:hidden" aria-hidden="true">/</span>
                   {item.render ? (
                     item.render
                   ) : item.href ? (
@@ -179,7 +179,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
             })}
           </nav>
         )}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-3 max-sm:gap-1 shrink-0">
           {/* Global search entry (#852, #869). Dispatches visiban:open-palette
               which GlobalCommandPalette at the shell / board-page level
               listens for. Visible placeholder adapts per surface (see

@@ -2774,12 +2774,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           hidden and the page never scrolls sideways. Connection status is the
           last item and stays pinned to the trailing edge. */}
       <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto">
+        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
+          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex-1 max-sm:hidden" />
+          <div className="flex items-center gap-2 flex-wrap max-sm:order-1 max-sm:ml-auto">
             <FilterPanel
               board={board}
               filters={effectiveFilters}
@@ -2887,7 +2887,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             />
           </div>
         </div>
-        <div className="flex items-center shrink-0 ml-auto">
+        <div className="flex items-center shrink-0 ml-auto max-sm:order-1 max-sm:ml-0">
           <ConnectionStatus
             status={socketStatus}
             lastEventAt={socketLastEventAt}
@@ -2924,7 +2924,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
+          {/* Phone (#2333): every control in the bar is a 44px target; the facet menus it opens are #2341. */}
+          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}
