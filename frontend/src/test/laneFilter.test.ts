@@ -586,3 +586,10 @@ describe('countUnusableLaneRules (#2337)', () => {
     expect(L.summarizeLaneFilter(undefined, [], (_f, v) => v, 2).readsAs).toBe('Reads as: all lanes shown · 2 filters ignored: you cannot use these fields')
   })
 })
+
+describe('laneFilterAvailable with only hideUnmatched (#2214)', () => {
+  it('keeps the Lanes control so the flag can be turned off', () => {
+    expect(L.laneFilterAvailable(0, 1, { items: [], hideUnmatched: true })).toBe(true)
+    expect(L.laneFilterAvailable(0, 1, undefined)).toBe(false)
+  })
+})

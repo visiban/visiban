@@ -42,8 +42,9 @@ interface EmptyProps {
   importHref?: string;
 }
 
+// No text color here: each call site sets one, so two color utilities never compete.
 const SECONDARY_BTN =
-  "inline-flex items-center justify-center min-h-11 px-4 py-2 rounded text-sm border border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+  "inline-flex items-center justify-center min-h-11 px-4 py-2 rounded text-sm border border-line-strong hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
 /** Empty board: renders below the column headers (zero counts), above the lanes. */
 export function BoardEmptyState({ firstColumnName, onAddCard, importHref }: EmptyProps) {
@@ -66,7 +67,7 @@ export function BoardEmptyState({ firstColumnName, onAddCard, importHref }: Empt
           )}
           {/* A link, not a button: it navigates to the group's import flow. */}
           {importHref && (
-            <Link to={importHref} className={SECONDARY_BTN}>
+            <Link to={importHref} className={`${SECONDARY_BTN} text-fg-secondary`}>
               Import cards
             </Link>
           )}

@@ -156,7 +156,8 @@ export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmi
  * cleared). Shared by FilterBar and FilterPanel so they cannot disagree.
  */
 export function laneFilterAvailable(customLaneFieldCount: number, laneCount: number, filter: LaneFilter | undefined): boolean {
-  return customLaneFieldCount > 0 || laneCount >= 2 || (filter?.items.length ?? 0) > 0;
+  // A filter holding only hideUnmatched (#2214) still needs its control, to turn it off.
+  return customLaneFieldCount > 0 || laneCount >= 2 || (filter?.items.length ?? 0) > 0 || filter?.hideUnmatched === true;
 }
 
 function typeMap(fields: readonly FieldLike[]): Map<LaneFieldKey, RuleFieldType> {

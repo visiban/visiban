@@ -551,19 +551,19 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
       {/* #2214 — a setting on the lane filter, not a rule. Stays visible and keeps its
           value while no card filter is active; the helper line says why it is off. */}
       <div className="px-3 py-2 border-t border-line">
-        <label className={`flex items-center gap-2 select-none ${cardFilterActive ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
+        <label className={`flex items-center gap-2 select-none ${cardFilterActive ? "cursor-pointer" : "cursor-not-allowed"}`}>
           <input
             type="checkbox"
             checked={hideUnmatched}
             disabled={!cardFilterActive}
             aria-describedby={hideHelpId}
             onChange={(e) => onChange(withHideUnmatched(filter, e.target.checked))}
-            className="w-4 h-4 rounded accent-primary shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="w-4 h-4 rounded accent-primary shrink-0 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             data-testid="lane-filter-hide-unmatched"
           />
           <span className="text-xs text-fg-secondary">Hide lanes with no matching cards</span>
         </label>
-        <p id={hideHelpId} className="mt-0.5 pl-6 text-xs text-fg-muted">While a card filter or Show chip is active.</p>
+        <p id={hideHelpId} className="mt-0.5 pl-6 text-xs text-fg-tertiary">While a card filter or Show chip is active.</p>
       </div>
       <div className="flex items-center gap-3 px-3 py-2 border-t border-line">
         <button type="button" data-lane-add className={SECONDARY_BTN} disabled={!canAdd} onClick={addRule}>

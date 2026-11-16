@@ -46,7 +46,7 @@ test.describe('board states', () => {
 
   // #2324 — the panel sits below the column headers; Import cards links to the group import.
   test('an empty board in a group offers Import cards below the column headers', async ({ page }) => {
-    await routeBoard(page, { ...BOARD_FULL, cards: [], group: 7, group_name: 'Sales' })
+    await routeBoard(page, { ...BOARD_FULL, cards: [], group: 7, group_name: 'Sales' } as unknown as typeof BOARD_FULL)
     await page.route('**/api/v1/groups/7/', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 7, name: 'Sales', can_place_boards: true }) }),
     )
