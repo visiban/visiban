@@ -376,6 +376,16 @@ To move a card without dragging, open it and tap **Move** next to the column nam
 
 A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
+### Phone layout
+
+> **Changed in 1.3**
+
+Below 640px wide the board shows one column at a time instead of the grid. A row of column buttons (color dot, name, card count) selects the column; scroll it sideways if the columns do not fit. Under it, the selected column's limit line and meter appear when the column has a limit.
+
+Swimlanes stack, each with a band showing its name, how many cards it has in this column ("2 here") and its overdue and stale counts. Tap a band to collapse or expand the lane. The Show chips sit in one row that scrolls sideways, and every button is at least 44px tall.
+
+Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)).
+
 ### Board panning
 
 Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens its [peek sheet](#card-peek-sheet) instead of panning; Space anywhere else pans.

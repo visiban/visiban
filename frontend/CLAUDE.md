@@ -680,6 +680,17 @@ The "Show" row sits above the column headers (`components/Board/ShowChips.tsx`):
 - **Chips and band use different precedences (owner-approved).** The chips use `cardShowChip` (overdue > due soon > stale); the collapsed squares and band stats use `cardBoardStatus` (overdue > stale, due soon ignored). A stale card that is also due soon therefore appears under Due soon, not Stale, in the chips, but counts as stale in the band and squares.
 - **Collapse all lanes button (#2308).** The last item in the row, after the board totals: `h-8 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover`. It drives the same lane state as the View menu's swimlane Collapse all / Expand all (`BoardView`'s `onHideAllSwimlanes` / `onShowAllSwimlanes`, so it also exits lane focus). Its label is the state: "Collapse all lanes" while any lane is expanded, "Expand all lanes" once every lane is collapsed. It carries no `aria-pressed`, because a label that changes with state plus a pressed state announces twice. It is hidden when the board has no lanes. The View menu items and the shortcut stay. Clicking it announces the action in an always-mounted `sr-only role="status"` region inside `ShowChips` ("Collapsed all N lanes" / "Expanded all N lanes", #2321); the message is set on click, so keep the region mounted rather than rendering it on demand. The Lens Collapse split button follows the same rule (#2321): it reads "Expand" when the URL holds the `*` sentinel (`?lens_collapsed=*`, which `LensView` normalizes "all" to) and "Collapse" otherwise. It is not computed from the visible lanes: `LensView` checks collapsed keys against the current lane set, which shrinks after a re-pivot or filter, so a filter or re-pivot can leave every visible lane collapsed while the toolbar still reads "Collapse" (clicking it sets `*` and nothing visibly changes). A hand-edited or shared URL listing every lane key reads "Collapse" for the same reason. Known edge, accepted. The Lens Collapse/Expand button does not yet announce its result to screen readers, and neither do the View menu's swimlane Collapse all / Expand all items (`BoardViewMenu.tsx`, wired in `BoardView.tsx`); both are tracked in #2323.
 
+### Phone layout (#2277)
+
+Below 640px (`useIsPhoneViewport`) `BoardView` renders `components/Board/PhoneBoard.tsx` instead of the grid; tablets keep the grid. Spec: `docs/development/board-redesign.md` § Phone width.
+
+- One column at a time: a `role="tablist"` row of column buttons (dot, name, count) that scrolls sideways inside itself, then the selected column's limit line and `role="meter"`. The selection is local state and falls back to the first column if it disappears.
+- Lanes stack; the band is one `min-h-11` button (`aria-expanded`) that collapses the lane. Cards are the normal `CardItem`.
+- No drag at this width (`DndContext` gets no sensors). Moving a card goes through the peek sheet's Move and the card's More actions menu, never a drag-only path.
+- Show chips use `phone` on `ShowChips`: one `flex-nowrap overflow-x-auto` row, `min-h-11` chips and lane button, totals hidden.
+- Every control is at least 44px in its smaller dimension; the page never scrolls sideways at 390px (`e2e/board-phone.spec.ts`).
+- Not built yet: the sub-column switcher (needs the #1102 data) and track-state chips on cards (#1920).
+
 ## Avatar chips
 
 - Shape: `rounded-full flex items-center justify-center flex-shrink-0`

@@ -38,6 +38,8 @@ import ColumnSeparator from "./ColumnSeparator";
 import { boardGridMinWidth, boardGridTemplate, clampColumnWidth, columnTrack, trackFloor, useBoardViewWidthVar, type BoardTrack } from "./boardGrid";
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
+import PhoneBoard from "./PhoneBoard";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import CardItem from "../Card/CardItem";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
@@ -1348,6 +1350,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const isLargeViewport = useIsLargeViewport();
+  // Phone width (#2277): one column at a time, no drag.
+  const isPhone = useIsPhoneViewport();
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // A drop into a confirm-on-entry column waiting on its checklist (#1101).
   const [pendingPolicyMove, setPendingPolicyMove] = useState<{
@@ -3068,11 +3072,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           cardCount={showChipCountsValue.all}
           allLanesCollapsed={allLanesCollapsed}
           onToggleLanes={allLanesCollapsed ? onShowAllSwimlanes : onHideAllSwimlanes}
+          phone={isPhone}
         />
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard || peekCardId !== null ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null || isPhone ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="relative flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3096,6 +3101,39 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             wider (then the grid scrolls sideways inside this box, never the page).
             Every row below uses the same `gridTemplate`, so tracks line up.
           */}
+          {isPhone && board.columns.length > 0 ? (
+            <PhoneBoard
+              columns={board.columns.filter((c) => !hiddenColumnIds.has(c.id))}
+              swimlanes={board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id))}
+              cards={board.cards}
+              boardId={board.id}
+              canEdit={canEdit}
+              filteredCardIds={filteredCardIds}
+              collapsedSwimlaneIds={collapsedSwimlaneIds}
+              onToggleSwimlane={toggleCollapsedSwimlane}
+              selectedCardIds={selectedCardIds}
+              highlightedCardId={highlightedCardId}
+              currentCardId={selectedCard?.id ?? peekCardId}
+              onToggleCardSelection={toggleCardSelection}
+              onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
+              contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
+              onCardClick={(card) => {
+                clearSelection();
+                if (selectedCard) { setSelectedCard(card); return; }
+                setDrawerOpen(false);
+                setShowArchived(false);
+                setPeekCardId(card.id);
+              }}
+              onCardUpdated={onCardUpdated}
+              density={effectiveCardDensity}
+              userTimezone={userTimezone}
+              currentUserId={currentUser?.id}
+              userDateFormat={userDateFormat}
+              staleness_threshold_days={board.staleness_threshold_days ?? 14}
+              stale_warning_pct={board.stale_warning_pct ?? 50}
+              customFieldDefinitions={board.custom_field_definitions}
+            />
+          ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
           {/* Header row — sticky to the top of the scroll container */}
           <div className="grid sticky top-0 z-20 border-b border-line bg-sunken py-1.5" style={{ gridTemplateColumns: gridTemplate }} data-testid="board-header-row">
@@ -3289,7 +3327,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </div>
           )}
-          </div>{/* end grid wrapper */}
+          </div>
+          )}{/* end grid wrapper */}
         </div>{/* end board-scroll */}
         {gridOverlayState && (
           <GridOverlayLegend

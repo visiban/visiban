@@ -100,3 +100,11 @@ describe('ShowChips Collapse all lanes button (#2308)', () => {
     }
   })
 })
+
+describe('ShowChips phone layout (#2277)', () => {
+  it('scrolls sideways in one row and hides the totals', () => {
+    setup({ phone: true })
+    expect(screen.getByTestId('show-chips').className).toContain('overflow-x-auto')
+    expect(screen.getByTestId('board-totals').className).toContain('hidden')
+  })
+})

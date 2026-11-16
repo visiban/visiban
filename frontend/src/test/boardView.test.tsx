@@ -3854,3 +3854,35 @@ describe('BoardView lane filters (#2205)', () => {
     })
   })
 })
+
+describe('BoardView phone layout (#2277)', () => {
+  const mockPhone = (phone: boolean) => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn((q: string) => ({ matches: q.includes('max-width: 639px') ? phone : true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    })
+  }
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: undefined })
+  })
+
+  it('renders one column at a time instead of the grid at phone width', () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView currentUser={fakeUser} />)
+    expect(screen.getByTestId('phone-board')).toBeInTheDocument()
+    expect(screen.queryByTestId('board-grid')).not.toBeInTheDocument()
+    expect(screen.getByTestId('phone-column-switcher')).toBeInTheDocument()
+  })
+
+  it('keeps the grid above phone width', () => {
+    mockPhone(false)
+    mockSearchParams = new URLSearchParams()
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView currentUser={fakeUser} />)
+    expect(screen.queryByTestId('phone-board')).not.toBeInTheDocument()
+    expect(screen.getByTestId('board-grid')).toBeInTheDocument()
+  })
+})
