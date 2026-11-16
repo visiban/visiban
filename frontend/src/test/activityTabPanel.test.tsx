@@ -435,3 +435,26 @@ describe("ActivityTabPanel checklist assignee and due labels (#445)", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ActivityTabPanel custom field change label (#1921)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("names the field and shows from → to, with (none) for empty values", async () => {
+    const long = "A very long custom field name that overflows the row";
+    (getCardTimeline as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({ id: 1, event_type: "custom_field_changed", data: { from_value: "Open", to_value: "Done", item_text: "Security", event_type: "custom_field_changed" } }),
+        makeEntry({ id: 2, event_type: "custom_field_changed", data: { from_value: "", to_value: "Done", item_text: "Docs", event_type: "custom_field_changed" } }),
+        makeEntry({ id: 3, event_type: "custom_field_changed", data: { from_value: "Done", to_value: "", item_text: null, event_type: "custom_field_changed" } }),
+        makeEntry({ id: 4, event_type: "custom_field_changed", data: { from_value: "a", to_value: "b", item_text: long, event_type: "custom_field_changed" } }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(await screen.findByText("Security: Open → Done")).toBeInTheDocument();
+    expect(screen.getByText("Docs: (none) → Done")).toBeInTheDocument();
+    expect(screen.getByText("Custom field: Done → (none)")).toBeInTheDocument();
+    expect(screen.getByText("A very long custom field name that over\u2026: a → b")).toBeInTheDocument();
+  });
+});

@@ -1413,7 +1413,7 @@ class CardViewSet(viewsets.ModelViewSet):
             "label_change", "title_change", "description_change", "due_date_change",
             # Manual block state (#1149) is a field of the card.
             "blocked", "unblocked",
-            # Dimension field value changes (#1921).
+            # Every custom field value change (#1921), dimension or not.
             "custom_field_changed",
         ],
         "checklist": [
