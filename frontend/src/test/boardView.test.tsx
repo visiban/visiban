@@ -3286,6 +3286,56 @@ describe('BoardView card actions (#2059)', () => {
     }
   })
 
+  it('offline: the entry-checklist modal cannot commit a move once the socket drops (#2325)', async () => {
+    const user = userEvent.setup()
+    const moveCard = vi.fn().mockResolvedValue({ ok: true })
+    const board = makeBoard({
+      columns: [
+        { id: 10, name: 'Todo', position: 0 },
+        { id: 11, name: 'Review', position: 1, policy: { v: 1, entry: ['Has an owner'], done: [], mode: 'confirm' } },
+      ] as never,
+      swimlanes: [{ id: 20, name: 'Customer A', position: 0 }] as never,
+      cards: [{ ...card1, id: 1, column: 10, swimlane: 20 }],
+    })
+    mockBoardContextValue = defaultContext({ board, moveCard })
+    const { rerender } = render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {
+      capturedOnDragEnd!({
+        active: { id: 1, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+        over: { id: 'cell:11:20', data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        delta: { x: 0, y: 0 }, activatorEvent: new MouseEvent('mousedown'),
+      } as unknown as DragEndEvent)
+    })
+    await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+    mockSocketStatus = 'reconnecting'
+    try {
+      rerender(<BoardView currentUser={fakeUser} />)
+      await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+      expect(moveCard).not.toHaveBeenCalled()
+      expect(screen.getByText('Move canceled, moves are paused while the board is offline')).toBeInTheDocument()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it('offline: "Move anyway" is dismissed and the force path sends nothing (#2325)', async () => {
+    mockSearchParams = new URLSearchParams('card=1')
+    const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
+    const clearMoveError = vi.fn()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1] }), forceMoveCardTo, clearMoveError })
+    const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    expect(clearMoveError).not.toHaveBeenCalled()
+    mockSocketStatus = 'reconnecting'
+    try {
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+      expect(clearMoveError).toHaveBeenCalled()
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Force From Detail' }))
+      expect(forceMoveCardTo).not.toHaveBeenCalled()
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
   it('online: drag keeps its sensors (#2325)', () => {
     render(<BoardView currentUser={fakeUser} />)
     expect(capturedSensors?.length).toBeGreaterThan(0)

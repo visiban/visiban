@@ -134,6 +134,8 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     const column = board.columns.find((c) => c.id === columnId);
     if (!column) return;
     setDropdown(null);
+    // The dropdown may have been opened before the board went offline (#2325).
+    if (!moveEntry.enabled) { refuse("move", "moved", moveEntry.reason); return; }
     setPartialError(null);
     setBusy(true);
     const r = await moveCardsToColumn(board.id, selectedCards, column, cardActionCtx);

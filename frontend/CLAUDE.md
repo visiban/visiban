@@ -396,7 +396,7 @@ empty state. Rules:
   severity signal, not a generic scalar, so it does step yellow → orange → red → deep red —
   see § Card aging ramp. It still has no green step.) The ramp is `primary-emphasis`, identical in both themes, so
   it is verified once. **Never `bg-info/*` inside a cell:** `/10` is the active-toggle
-  state, `/15` the filter-match pulse on collapsed stubs, `/20` the drop-target indicator.
+  state and `/15` the filter-match pulse on collapsed stubs. The drop target is `bg-primary/20` (§ Drag states), so `bg-info/*` never appears in a cell.
   The ramp starts at `/10`; `/5` is below the perceptibility floor over `bg-canvas`.
 - **The tint is the first child of the cell root, `z-0`, `pointer-events-none`,
   `aria-hidden`; the value badge is a sibling at `z-[5]`.** A positioned descendant paints

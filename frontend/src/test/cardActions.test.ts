@@ -195,6 +195,13 @@ describe('writes over a target set (§ Bulk operations wording)', () => {
   beforeEach(() => { vi.clearAllMocks() })
   afterEach(() => { vi.clearAllMocks() })
 
+  it('sends nothing while moves are paused, even from an already-open control (#2325)', async () => {
+    const r = await moveCardsToColumn(1, [makeCard(), makeCard({ id: 2 })], column, { ...member, movesPaused: true })
+    expect(moveCard).not.toHaveBeenCalled()
+    expect(r.done).toHaveLength(0)
+    expect(r.failureMessage).toBe('2 of 2 cards could not be moved — moves are paused while the board is offline.')
+  })
+
   it('moves serially and names a single cause', async () => {
     vi.mocked(moveCard)
       .mockResolvedValueOnce({ card: makeCard({ column: 11 }) } as never)

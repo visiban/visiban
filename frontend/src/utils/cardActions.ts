@@ -407,6 +407,8 @@ function summarize<T>(done: T[], total: number, verb: string, reasons: Set<strin
  * on one column deadlock. Each card keeps its swimlane and lands last.
  */
 export async function moveCardsToColumn(boardId: number, cards: Card[], column: Column, ctx?: CardActionContext): Promise<CardActionResult<Card>> {
+  // A dropdown opened before the socket dropped still calls this: moves are paused, so send nothing (#2325).
+  if (ctx?.movesPaused) return summarize<Card>([], cards.length, "moved", new Set([MOVES_PAUSED_REASON.toLowerCase()]));
   const { sendable, clause } = partitionRefused(cards, "move", ctx);
   const done: Card[] = [];
   const reasons = new Set<string>(clause ? [clause] : []);

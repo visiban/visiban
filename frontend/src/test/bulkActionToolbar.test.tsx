@@ -123,6 +123,20 @@ describe('BulkActionToolbar', () => {
     expect(screen.getByText('To Do').parentElement?.querySelector('.color-dot')).not.toBeNull()
   })
 
+  it('offline: a Move dropdown opened before the socket dropped sends nothing (#2325)', async () => {
+    const board = makeBoard()
+    const props = { board, selectedCardIds: selectedIds, onCardsUpdated: vi.fn(), onCardsDeleted: vi.fn(), onCardsArchived: vi.fn(), onClearSelection: vi.fn() }
+    const online: CardActionContext = { role: 'admin', currentUserId: 1, isModerator: false, demoMode: false, maintenanceBlocked: false }
+    const { rerender } = render(<BulkActionToolbar {...props} cardActionCtx={online} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Move to...'))
+    rerender(<BulkActionToolbar {...props} cardActionCtx={{ ...online, movesPaused: true }} />)
+    const target = screen.queryByText('Done')
+    if (target) await user.click(target)
+    expect(mockMoveCard).not.toHaveBeenCalled()
+    expect(props.onCardsUpdated).not.toHaveBeenCalled()
+  })
+
   it('publishes its height for the toast region and outranks it while a menu is open (#2060)', async () => {
     const { container } = render(
       <BulkActionToolbar

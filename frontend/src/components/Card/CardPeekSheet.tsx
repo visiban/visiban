@@ -96,6 +96,20 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     closeRef.current?.focus();
   }, []);
 
+  // The socket dropping while the Move form is open: moves are paused, so close the form
+  // (it would otherwise keep a live "Move card" / "Move anyway" on a stale board), clear its
+  // error, and hand focus back to the Move button once it remounts (#2325).
+  const moveBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!movesPaused || !moveOpen) return;
+    setMoveOpen(false);
+    setMoveError(null);
+    setMoveRefusal(null);
+    const t = setTimeout(() => moveBtnRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the pause edge only
+  }, [movesPaused]);
+
   // Refetch when the card moves (its own Move, or a remote one) so history and
   // the bar stay current. `version` changes on every server write.
   useEffect(() => {
@@ -208,7 +222,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
 
   const forceMove = async () => {
-    if (!onForceMoveCard || forcingRef.current) return;
+    if (!onForceMoveCard || forcingRef.current || movesPaused) return;
     forcingRef.current = true;
     setMoving(true);
     try {
@@ -231,6 +245,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   };
 
   const submitMove = async () => {
+    if (movesPaused) return;
     if (targetColumn === card.column && targetSwimlane === card.swimlane) {
       setMoveOpen(false);
       return;
@@ -479,6 +494,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           {canEdit && !moveOpen && (
             <button
               type="button"
+              ref={moveBtnRef}
               // § Withheld actions: aria-disabled keeps it in the tab order, the reason is in text below.
               aria-disabled={movesPaused || undefined}
               aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined}

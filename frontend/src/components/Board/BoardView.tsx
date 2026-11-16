@@ -69,7 +69,7 @@ import CardContextMenu, { type CardMenuAnchor, type CardMenuCloseReason } from "
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import {
-  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, archiveCards, assignCards, cardActionEntries, cardLink,
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, MOVES_PAUSED_REASON, archiveCards, assignCards, cardActionEntries, cardLink,
   cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
   type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep,
 } from "../../utils/cardActions";
@@ -314,8 +314,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
   const {
     board: boardOrNull,
-    moveCard: onMoveCard,
-    forceMoveCardTo,
+    moveCard: onMoveCardRaw,
+    forceMoveCardTo: forceMoveCardToRaw,
+    clearMoveError,
     addCard: onCardAdded,
     removeCard,
     archiveCard,
@@ -348,6 +349,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     getLastFullFetchAt,
   } = useBoardContext();
+  // Backstop for #2325: every Move path (drag, menus, bulk, peek/detail forms, the entry
+  // checklist, "Move anyway") ends in one of these two. A control that was already open
+  // when the socket dropped still reaches them, so they refuse while moves are paused. The ref
+  // is read at call time, so a stale closure cannot slip a move through.
+  const movesPausedRef = useRef(false);
+  const onMoveCard = useCallback<typeof onMoveCardRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : onMoveCardRaw(...args)
+  ), [onMoveCardRaw]);
+  const forceMoveCardTo = useCallback<typeof forceMoveCardToRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : forceMoveCardToRaw(...args)
+  ), [forceMoveCardToRaw]);
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
   // The non-null assertion keeps the existing contract without changing every
@@ -965,6 +977,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // with this reason in text, so a move never lands on a board others changed meanwhile.
   // Same states as the offline banner, which says so.
   const movesPaused = socketStatus === "reconnecting" || socketStatus === "failed";
+  movesPausedRef.current = movesPaused;
+  // The "Move anyway" toast lives in App, outside this socket's reach: dismiss a held refusal
+  // when moves pause so its override cannot retry on a board that may have changed.
+  useEffect(() => {
+    if (movesPaused) clearMoveError();
+  }, [movesPaused, clearMoveError]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -2361,6 +2379,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Send a drag-and-drop move and announce its outcome once known. Shared by
   // a plain drop and a drop confirmed through the entry checklist (#1101).
   const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number) => {
+    // The entry checklist can be open when the socket drops (#2325).
+    if (movesPausedRef.current) {
+      setDndAnnouncement("Move canceled, moves are paused while the board is offline");
+      return;
+    }
     const targetCol = board.columns.find((c) => c.id === targetColumnId);
     const targetSwim = board.swimlanes.find((s) => s.id === targetSwimlaneId);
     // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,

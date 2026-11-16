@@ -222,6 +222,17 @@ describe('CardPeekSheet', () => {
     expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
   })
 
+  it('offline: a Move form already open closes, returns focus to Move, and sends nothing (#2325)', async () => {
+    const props = { card, board, canEdit: true, onClose: vi.fn(), onOpenCard: vi.fn(), onMoveCard: vi.fn().mockResolvedValue({ ok: true }) }
+    const { rerender } = render(<CardPeekSheet {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    expect(screen.getByTestId('card-peek-move-form')).toBeInTheDocument()
+    rerender(<CardPeekSheet {...props} movesPaused />)
+    expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Move' })).toHaveFocus())
+    expect(props.onMoveCard).not.toHaveBeenCalled()
+  })
+
   it('offline: Move and both steps are disabled, with the reason in text (#2325)', async () => {
     const p = setup({ movesPaused: true, cellOrder: { index: 1, count: 3, earlier: 4, later: 8 } })
     const move = screen.getByRole('button', { name: 'Move' })
