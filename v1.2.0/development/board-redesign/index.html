@@ -4780,10 +4780,10 @@
 </table>
 <p>Overdue is the only state with a colored border. Stale and due-soon thresholds are the existing ones.</p>
 <p><strong>Density:</strong> Standard shows the title on one line, then the status line and pinned fields on one row. Dense is a single row: title, short status ("39d"), first pinned field.</p>
-<p><strong>Interaction states:</strong> hover (stronger border, lifts 1px), keyboard focus (the standard focus ring outside the card), selected while its peek is open (selection border), dragging, and the dimmed source. All are drawn in <code>components.png</code>. Motion follows § Motion and reduced motion.</p>
+<p><strong>Interaction states:</strong> hover (stronger border, lifts 1px), keyboard focus (the standard focus ring outside the card), selected while its peek or detail panel is open (selection border), dragging, and the dimmed source. All are drawn in <code>components.png</code>. Motion follows § Motion and reduced motion.</p>
 <h2 id="card-peek">Card peek<a class="headerlink" href="#card-peek" title="Permanent link">&para;</a></h2>
 <p>Screenshot: <code>board-peek.png</code>.</p>
-<p>Clicking a card, or Enter on a focused card, opens a 400px sheet over the right side of the board. It does not push the grid. Top to bottom:</p>
+<p>Shift+click, Shift+Enter, the card-face Show summary button or the card menu's Show summary opens a 400px sheet over the right side of the board. It does not push the grid. Top to bottom:</p>
 <ul>
 <li>lane name, close button;</li>
 <li>title and subtitle;</li>
@@ -4794,7 +4794,7 @@
 <li><strong>History:</strong> the card's moves, newest first;</li>
 <li>actions: Open card (primary), Move.</li>
 </ul>
-<p>Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card).</p>
+<p>Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card). <strong>Deviation (#2358):</strong> the canvas opens the peek on a plain click; shipped, a plain click or Enter opens the detail panel and the peek is opt-in, because editing is the more frequent reason to click a card. Focus lands on Open card; a never-moved card reads "Never moved".</p>
 <h2 id="activity-drawer">Activity drawer<a class="headerlink" href="#activity-drawer" title="Permanent link">&para;</a></h2>
 <p>Screenshot: <code>board-activity.png</code>.</p>
 <p>Same sheet position as the peek; only one of the two is open at a time. Two tabs: Recent (board moves, newest first: avatar, card title, "Qualified to Discovery", relative time) and Archived (archived cards with Restore). A link at the bottom opens the full History view.</p>
@@ -4867,7 +4867,7 @@
 <ul>
 <li>No new shortcut keys. Existing board shortcuts and the command palette keep working.</li>
 <li>Tab order: toolbar, filter chip row, Show chips, column header add buttons, then per lane: collapse toggle, "+N", cards in column order and, inside a split stage, sub-column order.</li>
-<li>Enter or Space on a card opens the peek; Escape closes it and returns focus to the card.</li>
+<li>Enter or Space on a card opens the detail panel, Shift+Enter opens the peek; Escape closes it and returns focus to the card.</li>
 <li>The existing keyboard move path gains sub-columns as stops between columns.</li>
 <li>Every click target here has keyboard parity (§ Click handlers need keyboard parity).</li>
 </ul>
