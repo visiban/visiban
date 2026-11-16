@@ -31,9 +31,13 @@ export function isTextRuleType(t: RuleFieldType): t is "text" | "url" {
   return t === "text" || t === "url";
 }
 
-export interface FieldRule {
-  /** Field definition id; null while the user has not picked one yet. */
-  field: number | null;
+/**
+ * `K` is the field key: a custom field definition id by default. Lane filters
+ * widen it with built-in field names (#2336); the evaluator never reads it.
+ */
+export interface FieldRule<K = number> {
+  /** Field key; null while the user has not picked one yet. */
+  field: K | null;
   op: FieldRuleOp;
   /** `is` / `is_not` / `contains` / `not_contains` / `wildcard` operand. */
   value?: string;
@@ -94,7 +98,7 @@ function normalizeFor(t: RuleFieldType, raw: string | null | undefined): number 
  * so a half-built filter never hides anything. A `between` needs at least one
  * bound that normalizes.
  */
-export function isRuleComplete(rule: FieldRule, t: RuleFieldType | null | undefined): boolean {
+export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null | undefined): boolean {
   if (rule.field === null || !t) return false;
   if (!opsForFieldType(t).includes(rule.op)) return false;
   if (t === "dropdown") return typeof rule.value === "string" && rule.value !== "";
@@ -108,7 +112,7 @@ export function isRuleComplete(rule: FieldRule, t: RuleFieldType | null | undefi
  * item has no value for the field). The empty-value rule: no value (or an
  * unparsable one) fails `is`, `contains`, `wildcard` and `between`, and passes `is_not` and `not_contains`.
  */
-export function matchRule(rule: FieldRule, t: RuleFieldType, raw: string | undefined): boolean {
+export function matchRule(rule: FieldRule<unknown>, t: RuleFieldType, raw: string | undefined): boolean {
   if (t === "dropdown") {
     const has = typeof raw === "string" && raw !== "";
     if (rule.op === "is_not") return !has || raw !== rule.value;
@@ -178,7 +182,7 @@ const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
  * Plain-language text for one complete rule. `fmt` renders a stored value for
  * display (number grouping, the user's date format).
  */
-export function ruleText(rule: FieldRule, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
+export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
     const word = TEXT_OP_WORDS[rule.op] ?? "is";

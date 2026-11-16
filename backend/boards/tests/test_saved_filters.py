@@ -498,6 +498,19 @@ class SavedFilterCustomFieldStateTests(TestCase):
             },
         )
 
+    def test_lane_builtin_fields_match_shared_fixture(self):
+        """#2336 — LANE_BUILTIN_FIELDS in laneFilter.ts and the serializer's
+        _LANE_BUILTIN_FIELDS are pinned by the same fixture."""
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        builtins = json.loads(fixture.read_text())["laneBuiltinFields"]
+        self.assertEqual(set(builtins), S._LANE_BUILTIN_FIELDS)
+        self.assertEqual(len(builtins), len(S._LANE_BUILTIN_FIELDS))
+
     def test_unhashable_values_are_400_not_500(self):
         for label, extra in {
             "kind list": {"customFields": {"1": {"kind": []}}},
@@ -590,7 +603,9 @@ class SavedFilterLaneFilterStateTests(TestCase):
             "id bool": {"items": [_lane_rule(True)]},
             "id str": {"items": [_lane_rule("1")]},
             "id too big": {"items": [_lane_rule(2**31)]},
-            "field str": {"items": [_lane_rule(field="7")]},
+            # #2336: only the built-in names are accepted as a string field.
+            "field str": {"items": [_lane_rule(field="title")]},
+            "field numeric str": {"items": [_lane_rule(field="7")]},
             "field bool": {"items": [_lane_rule(field=False)]},
             "value not str": {"items": [_lane_rule(value=5)]},
             "value too long": {"items": [_lane_rule(value=long_str)]},
@@ -606,6 +621,47 @@ class SavedFilterLaneFilterStateTests(TestCase):
         for label, lane_filter in cases.items():
             with self.subTest(label):
                 self._assert_400(lane_filter)
+
+    def test_builtin_field_rules_round_trip(self):
+        """#2336 — rules on the built-in "name" and "contact_email" fields save
+        alone, in groups, and mixed with custom field ids."""
+        lane_filter = {
+            "items": [
+                _lane_rule(1, field="name", value="Acme Corp"),
+                {
+                    "kind": "group", "id": 2, "join": "or",
+                    "rules": [
+                        _lane_rule(3, field="contact_email", op="wildcard", value="*@acme.*"),
+                        _lane_rule(4, join="or", field=7, value="Priya"),
+                        _lane_rule(5, field="name", op="not_contains", value=""),
+                    ],
+                },
+                _lane_rule(6, field="contact_email", op="is_not", value="pat@acme.com"),
+            ]
+        }
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+
+    def test_builtin_field_rules_rejected_when_malformed(self):
+        """#2336 — unknown or wrongly-cased names, unhashable fields (400, not
+        500), and range operators or bounds on a built-in are all 400s."""
+        cases = {
+            "unknown name": _lane_rule(field="title"),
+            "empty string": _lane_rule(field=""),
+            "case-sensitive": _lane_rule(field="Name"),
+            "list": _lane_rule(field=["name"]),
+            "dict": _lane_rule(field={}),
+            "between on name": {"kind": "rule", "id": 1, "join": "and", "field": "name", "op": "between", "min": "a"},
+            "min on email": _lane_rule(field="contact_email", op="is", min="a"),
+            "max on name": _lane_rule(field="name", op="is", max="z"),
+        }
+        for label, rule in cases.items():
+            with self.subTest(label):
+                r = self._assert_400({"items": [rule]})
+                if label in ("unknown name", "list", "dict"):
+                    self.assertIn("built-in field name", r.data["detail"])
 
     def test_text_op_rules_round_trip(self):
         """#2226/#2227 — `contains`, `not_contains` and `wildcard` are accepted

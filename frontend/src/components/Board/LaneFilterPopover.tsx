@@ -20,8 +20,11 @@ import {
   LANE_FILTER_MAX_RULES,
   LANE_FILTER_MAX_STRING,
   laneRuleCount,
+  isLaneBuiltinField,
   nextLaneItemId,
   summarizeLaneFilter,
+  type LaneBuiltinFieldDef,
+  type LaneFieldKey,
   type LaneFilter,
   type LaneFilterItem,
   type LaneRule,
@@ -40,6 +43,9 @@ const NO_CHOICES: string[] = [];
 /** Operators that take a typed operand instead of a choice from the lanes' values. */
 const TYPED_OPS: readonly FieldRuleOp[] = ["contains", "not_contains", "wildcard"];
 const isTypedOp = (op: FieldRuleOp) => TYPED_OPS.includes(op);
+/** Typed-text placeholder; Contact email's never implies an anchored match (#2336). */
+const TEXT_PLACEHOLDER = "Text to match";
+const EMAIL_PLACEHOLDER = "e.g. @acme.com";
 const WILDCARD_HINT = "Use * for any text and ? for one character. It matches any part of the value.";
 
 const INPUT_CLS =
@@ -48,7 +54,7 @@ const INPUT_CLS =
 interface Props {
   filter: LaneFilter | undefined;
   /** Already limited to what this viewer may rule on (laneFilterFields). */
-  fields: SwimlaneCustomFieldDefinition[];
+  fields: (SwimlaneCustomFieldDefinition | LaneBuiltinFieldDef)[];
   onChange: (next: LaneFilter | undefined) => void;
   anchorRect: DOMRect;
   triggerRef: RefObject<HTMLButtonElement | null>;
@@ -57,7 +63,7 @@ interface Props {
   fmt: LaneValueFormatter;
   id: string;
   /** Text/url field id to the lanes' distinct values (laneTextValueChoices). */
-  textChoices?: Map<number, string[]>;
+  textChoices?: Map<LaneFieldKey, string[]>;
 }
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
@@ -130,7 +136,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   const headingId = `${id}-heading`;
   const items = filter?.items ?? [];
   const ruleCount = laneRuleCount(filter);
-  const fieldsById = new Map(fields.map((f) => [f.id, f]));
+  const fieldsById = new Map<LaneFieldKey, SwimlaneCustomFieldDefinition | LaneBuiltinFieldDef>(fields.map((f) => [f.id, f]));
   const typeOf = (r: LaneRule): RuleFieldType | null =>
     r.field === null ? null : ((fieldsById.get(r.field)?.field_type as RuleFieldType | undefined) ?? null);
 
@@ -290,7 +296,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     return (
       <div key={r.id} data-lane-row={r.id} className="flex flex-wrap items-center gap-2">
         <MenuUnmountGuard ruleId={r.id} onGone={trackMenu} />
-        <SingleSelectDropdown<number>
+        <SingleSelectDropdown<LaneFieldKey>
           label="Choose a field"
           onOpenChange={(o) => trackMenu(`${r.id}:field`, o)}
           ariaLabel={`Filter ${n} field`}
@@ -301,6 +307,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             value: d.id,
             label: d.name,
             icon: d.is_admin_only ? <AdminOnlyFieldGlyph className="w-3 h-3 text-fg-tertiary shrink-0" /> : undefined,
+            // #2336 — headings show only when both groups are present.
+            group: isLaneBuiltinField(d.id) ? "Built-in" : "Custom fields",
           }))}
           selected={r.field}
           onChange={(fid) => {
@@ -344,7 +352,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             <input
               type="text"
               value={r.value ?? ""}
-              placeholder="Text to match"
+              placeholder={r.field === "contact_email" ? EMAIL_PLACEHOLDER : TEXT_PLACEHOLDER}
               maxLength={LANE_FILTER_MAX_STRING}
               aria-label={`Filter ${n} ${def.name} ${OP_LABELS[r.op]}`}
               aria-describedby={r.op === "wildcard" ? `lane-rule-${r.id}-hint` : undefined}
@@ -563,14 +571,14 @@ export function JoinToggle({ label, join, onChange }: { label: string; join: Fie
 
 interface ControlProps {
   filter: LaneFilter | undefined;
-  fields: SwimlaneCustomFieldDefinition[];
+  fields: (SwimlaneCustomFieldDefinition | LaneBuiltinFieldDef)[];
   onChange: (next: LaneFilter | undefined) => void;
   fmt: LaneValueFormatter;
   /** Complete leaf rules, for the badge. */
   activeRuleCount: number;
   triggerRef?: RefObject<HTMLButtonElement | null>;
   /** Text/url field id to the lanes' distinct values, for text `is` rules. */
-  textChoices?: Map<number, string[]>;
+  textChoices?: Map<LaneFieldKey, string[]>;
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */

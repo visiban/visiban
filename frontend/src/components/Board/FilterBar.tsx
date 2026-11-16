@@ -16,8 +16,10 @@ import { LaneFilterControl } from "./LaneFilterPopover";
 import {
   isLaneFilterActive,
   laneFilterChipItems,
+  laneFilterAvailable,
   laneFilterFields,
   laneTextValueChoices,
+  isLaneBuiltinField,
   removeLaneItem,
   summarizeLaneFilter,
   type LaneFilter,
@@ -542,8 +544,12 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           />
         )}
 
-        {/* #2205 — hidden when this viewer has no swimlane field to rule on. */}
-        {laneFields.length > 0 && (
+        {/* #2205, #2336 — offered when there is something to filter lanes by (laneFilterAvailable). */}
+        {laneFilterAvailable(
+          laneFields.filter((f) => !isLaneBuiltinField(f.id)).length,
+          board.swimlanes.length,
+          filters.laneFilter,
+        ) && (
           <LaneFilterControl
             filter={filters.laneFilter}
             fields={laneFields}

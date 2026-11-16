@@ -177,3 +177,61 @@ describe('SingleSelectDropdown portalMenu viewport dismissals (#1171)', () => {
     expect(menu.style.top).toBe('124px')
   })
 })
+
+describe('SingleSelectDropdown option groups (#2336)', () => {
+  const GROUPED = [
+    { value: 'n', label: 'Lane name', group: 'Built-in' },
+    { value: 'e', label: 'Contact email', group: 'Built-in' },
+    { value: 'x', label: 'Notes', group: 'Custom fields' },
+  ]
+  const menuHtml = async (options: { value: string; label: string; group?: string }[]) => {
+    const { unmount } = render(<SingleSelectDropdown label="Pick" options={options} selected={null} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Pick' }))
+    // useId differs per mount; compare structure, not generated ids.
+    const html = screen.getByRole('menu').innerHTML.replace(/id="[^"]*"/g, '').replace(/aria-labelledby="[^"]*"/g, '')
+    unmount()
+    return html
+  }
+
+  it('renders a named group per heading when the options carry two groups', async () => {
+    render(<SingleSelectDropdown label="Pick" options={GROUPED} selected={null} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Pick' }))
+    const menu = screen.getByRole('menu')
+    const builtIn = within(menu).getByRole('group', { name: 'Built-in' })
+    expect(within(builtIn).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Lane name', 'Contact email'])
+    const custom = within(menu).getByRole('group', { name: 'Custom fields' })
+    expect(within(custom).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Notes'])
+    expect(within(builtIn).getByText('Built-in')).toHaveClass('uppercase', 'text-xs', 'font-semibold', 'text-fg-tertiary')
+    // One separator inside Built-in (between its two options), one above the Custom fields heading.
+    expect(within(builtIn).getAllByRole('separator')).toHaveLength(1)
+    const customSeps = within(custom).getAllByRole('separator')
+    expect(customSeps).toHaveLength(1)
+    expect(customSeps[0].nextElementSibling).toHaveTextContent('Custom fields')
+  })
+
+  it('arrow keys, Home and End skip the headings', async () => {
+    const user = userEvent.setup()
+    render(<SingleSelectDropdown label="Pick" options={GROUPED} selected={null} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Pick' }))
+    const items = screen.getAllByRole('menuitem')
+    items[0].focus()
+    await user.keyboard('{ArrowDown}')
+    expect(items[1]).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(items[2]).toHaveFocus()
+    await user.keyboard('{ArrowUp}')
+    expect(items[1]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(items[2]).toHaveFocus()
+    await user.keyboard('{Home}')
+    expect(items[0]).toHaveFocus()
+  })
+
+  it('renders exactly as before with no group or a single group', async () => {
+    const plain = GROUPED.map(({ value, label }) => ({ value, label }))
+    const before = await menuHtml(plain)
+    expect(before).not.toContain('role="group"')
+    expect(await menuHtml(GROUPED.map((o) => ({ ...o, group: 'Built-in' })))).toBe(before)
+    expect(await menuHtml([{ ...plain[0], group: 'Only' }, plain[1], plain[2]])).toBe(before)
+  })
+})

@@ -3606,6 +3606,42 @@ describe('BoardView lane filters (#2205)', () => {
     expect(laneProps().filters?.laneFilter).toBeUndefined()
   })
 
+  // #2336 — a Contact email rule is admin-only, exactly like an admin-only custom field.
+  const emailParam = `f_lanes=${encodeURIComponent('1.[{"f":"contact_email","o":"contains","v":"@acme.com"}]')}`
+
+  it('a Contact email rule from ?f_lanes hides nothing for a member', () => {
+    mockSearchParams = new URLSearchParams(emailParam)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A'), lane(21, 'Customer B')], { current_user_role: 'member' }) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(laneProps().filters?.laneFilter).toBeUndefined()
+    expect(laneProps().hiddenLaneCount).toBe(0)
+  })
+
+  it('applies a Contact email rule for an admin and prunes it after a self-demotion', () => {
+    mockSearchParams = new URLSearchParams(emailParam)
+    const acme = { ...lane(20, 'Customer A'), contact_email: 'pat@acme.com' }
+    mockBoardContextValue = defaultContext({ board: boardWith([acme, lane(21, 'Customer B')]) })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+    // Demoted: the server stops sending contact_email, and the rule is dropped rather than hiding every lane.
+    mockBoardContextValue = defaultContext({ board: boardWith([{ ...lane(20, 'Customer A'), contact_email: undefined as unknown as string }, lane(21, 'Customer B')], { current_user_role: 'member' }) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.getByTestId('swim-21')).toBeInTheDocument()
+  })
+
+  it('a Lane name rule from ?f_lanes applies for a member', () => {
+    mockSearchParams = new URLSearchParams(`f_lanes=${encodeURIComponent('1.[{"f":"name","o":"is","v":"customer a"}]')}`)
+    mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A'), lane(21, 'Customer B')], { current_user_role: 'member' }) })
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+    expect(screen.queryByTestId('swim-21')).not.toBeInTheDocument()
+  })
+
   it('writes lane rules to ?f_lanes and removes the param when they are cleared', () => {
     mockBoardContextValue = defaultContext({ board: boardWith([lane(20, 'Customer A', 'Priya')]) })
     render(<BoardView {...defaultProps()} />)

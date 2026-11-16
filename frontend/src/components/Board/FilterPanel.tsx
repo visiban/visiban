@@ -7,7 +7,7 @@ import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchor
 import { isCardBlocked } from "../../utils/blockedState";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
-import { isLaneFilterActive, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
+import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -214,7 +214,8 @@ export default function FilterPanel({
   });
   rows.push({ id: "dueDate", label: "Due date", value: DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate)?.label ?? null });
   rows.push({ id: "blocked", label: "Blocked", value: filters.blockedOnly ? "Blocked only" : null });
-  if (laneFields.length > 0) {
+  // #2336 — the same gate as the filter bar's Lanes trigger.
+  if (laneFilterAvailable(laneFields.filter((f) => !isLaneBuiltinField(f.id)).length, board.swimlanes.length, filters.laneFilter)) {
     const n = summarizeLaneFilter(filters.laneFilter, laneFields, (_f, raw) => raw).completeCount;
     rows.push({ id: "lanes", label: "Lanes", value: isLaneFilterActive(filters.laneFilter) ? `${n} ${n === 1 ? "rule" : "rules"}` : null });
   }

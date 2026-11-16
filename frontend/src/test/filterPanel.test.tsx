@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterPanel from '../components/Board/FilterPanel'
 import { EMPTY_FILTER, countActiveFilters } from '../components/Board/FilterBar'
@@ -213,6 +213,24 @@ describe('FilterPanel (#2301)', () => {
     setup()
     await open(u)
     expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+  })
+
+  // #2336 — the same laneFilterAvailable gate as the filter bar's Lanes trigger.
+  it('shows the Lanes row without swimlane fields once there are two lanes or a lane filter', async () => {
+    const u = userEvent.setup()
+    const lane = (id: number) => ({ id, name: `L${id}`, custom_field_values: [] })
+    setup({ board: makeBoard({ swimlanes: [lane(1)] as never }) })
+    await open(u)
+    expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+    cleanup()
+    setup({ board: makeBoard({ swimlanes: [lane(1), lane(2)] as never }) })
+    await open(u)
+    expect(screen.getByRole('button', { name: /^Lanes/ })).toBeInTheDocument()
+    cleanup()
+    const lf = { items: [{ kind: 'rule' as const, id: 1, join: 'and' as const, field: 'name' as const, op: 'is' as const, value: 'L1' }] }
+    setup({ board: makeBoard({ swimlanes: [lane(1)] as never }), filters: { ...EMPTY_FILTER, laneFilter: lf } })
+    await open(u)
+    expect(screen.getByRole('button', { name: /^Lanes(?!:)/ })).toHaveTextContent('1 rule')
   })
 
   it('loads a saved filter and closes, marking the active one', async () => {

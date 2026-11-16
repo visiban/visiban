@@ -21,6 +21,7 @@ export function makeLaneValueFormatter(
   userDateFormat: string,
 ): LaneValueFormatter {
   return (field, raw) => {
+    // A built-in field (#2336, string id) has no definition and shows as stored.
     const def = (swimlaneDefs ?? []).find((d) => d.id === field.id);
     if (!def) return raw;
     const shown = formatCustomFieldValue(def, raw, userDateFormat);
