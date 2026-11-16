@@ -1910,8 +1910,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           </div>
 
           {/* Reserved error slot: always rendered so an error does not shift the buttons. */}
-          <p className="text-sm min-h-5" role={transferError ? "alert" : undefined}>
-            {transferError && <span className="text-danger">{transferError}</span>}
+          <p className="text-sm min-h-5">
+            {transferError && <span role="alert" className="text-danger">{transferError}</span>}
           </p>
 
           <div className="flex gap-3 justify-end pt-1">

@@ -209,7 +209,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
 
         {loadError && (
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <p role="alert" className="text-sm text-danger" data-testid="dashboard-load-error">{loadError}</p>
             {loadFailed && (
               <button
