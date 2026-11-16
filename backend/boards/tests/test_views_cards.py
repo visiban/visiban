@@ -568,7 +568,7 @@ class CardFilterTests(TestCase):
         self.client.force_authenticate(self.user)
 
         import datetime
-        today = datetime.date.today()
+        today = timezone.localdate()
         yesterday = today - datetime.timedelta(days=1)
         tomorrow = today + datetime.timedelta(days=1)
 
@@ -638,7 +638,7 @@ class CardFilterTests(TestCase):
 
     def test_filter_due_before(self):
         import datetime
-        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        tomorrow = (timezone.localdate() + datetime.timedelta(days=1)).isoformat()
         r = self.client.get(self._url(), {"due_before": tomorrow})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         titles = [c["title"] for c in r.json()]
@@ -648,7 +648,7 @@ class CardFilterTests(TestCase):
 
     def test_filter_due_after(self):
         import datetime
-        today = datetime.date.today().isoformat()
+        today = timezone.localdate().isoformat()
         r = self.client.get(self._url(), {"due_after": today})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         titles = [c["title"] for c in r.json()]
