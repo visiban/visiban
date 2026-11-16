@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
 import {
+  MOVES_PAUSED_REASON, reorderChoices,
   DEMO_BLOCK_REASON, MAINTENANCE_REASON, MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, PALETTE_COMMAND_LABELS, SELECT_ONE_REASON,
   REFUSAL_CLAUSE, archiveCards, assignCards, cardActionEntries, cardRefusal, partitionRefused, cardIdFromElement, cardLink, cardTargetSummary,
   contextMenuTargetIds, focusedCardFaceId, moveCardsToColumn, paletteCardActions, resolveCardTarget, setCardsPriority, successMessage,
@@ -90,6 +91,25 @@ describe('cardActionEntries', () => {
     expect(c.move.reason).toBe("Collaborators can't move cards")
   })
 
+  it('offline pauses Move only, with the paused reason (#2325)', () => {
+    const e = byId([makeCard()], { ...member, movesPaused: true })
+    expect(e.move.enabled).toBe(false)
+    expect(e.move.reason).toBe(MOVES_PAUSED_REASON)
+    for (const id of ['assign', 'priority', 'archive']) expect(e[id].enabled).toBe(true)
+    // A role or maintenance gate still names its own reason first.
+    expect(byId([makeCard()], { ...member, role: 'viewer', movesPaused: true }).move.reason).toBe("Viewers can't move cards")
+  })
+
+  it('reorderChoices lists only the steps that exist (#2327)', () => {
+    expect(reorderChoices(null)).toEqual([])
+    expect(reorderChoices({ earlier: null, later: null })).toEqual([])
+    expect(reorderChoices({ earlier: 0, later: 3 }).map((c) => [c.label, c.value])).toEqual([
+      ['Move earlier in this cell', 'earlier'],
+      ['Move later in this cell', 'later'],
+    ])
+    expect(reorderChoices({ earlier: null, later: 2 }).map((c) => c.value)).toEqual(['later'])
+  })
+
   it('maintenance mode disables every write with its own reason', () => {
     const e = byId([makeCard()], { ...member, role: 'admin', maintenanceBlocked: true })
     for (const id of ['move', 'assign', 'priority', 'block', 'archive', 'delete']) expect(e[id].reason).toBe(MAINTENANCE_REASON)
@@ -174,6 +194,13 @@ describe('palette commands', () => {
 describe('writes over a target set (§ Bulk operations wording)', () => {
   beforeEach(() => { vi.clearAllMocks() })
   afterEach(() => { vi.clearAllMocks() })
+
+  it('sends nothing while moves are paused, even from an already-open control (#2325)', async () => {
+    const r = await moveCardsToColumn(1, [makeCard(), makeCard({ id: 2 })], column, { ...member, movesPaused: true })
+    expect(moveCard).not.toHaveBeenCalled()
+    expect(r.done).toHaveLength(0)
+    expect(r.failureMessage).toBe('2 of 2 cards could not be moved — moves are paused while the board is offline.')
+  })
 
   it('moves serially and names a single cause', async () => {
     vi.mocked(moveCard)

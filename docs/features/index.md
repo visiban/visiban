@@ -184,7 +184,7 @@ Powered by Django Channels and Valkey. No configuration is required in the defau
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time, with no manual refresh. A **Live / Reconnecting… / Failed** status indicator mirrors the board-view connection badge.
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time, with no manual refresh. A **Live / Reconnecting… / Offline** status indicator uses the board view's connection badge; the group page keeps **Reconnecting…** while it retries, where a board reads **Offline**.
 
 → [Groups — Live board list](groups.md#live-board-list)
 

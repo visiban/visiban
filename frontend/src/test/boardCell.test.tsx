@@ -375,9 +375,12 @@ describe('BoardCell', () => {
     props.cards = [makeCard({ id: 1 })]
     render(<BoardCell {...props} />)
     // Populated cells keep the dense info-rich layout — the cell wrapper is no
-    // longer a button, the fill-height button is the only create affordance.
-    expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Add card' })).toBeInTheDocument()
+    // longer a button, the fill-height button is the only create affordance,
+    // and it is named like the empty cell (#2320).
+    const buttons = screen.getAllByRole('button', { name: /Add card to/i })
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].tagName).toBe('BUTTON')
+    expect(buttons[0]).toHaveAccessibleName('Add card to To Do in Customer A')
   })
 
   it('populated addable cell: the add button fills the cell with the empty-cell hover look (#2319)', () => {
@@ -385,11 +388,32 @@ describe('BoardCell', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1 })]
     const { container } = render(<BoardCell {...props} />)
-    const btn = screen.getByRole('button', { name: '+ Add card' })
-    expect(btn).toHaveClass('flex-1', 'focus:ring-2', 'hover:border-dashed', 'hover:border-line-strong', 'hover:bg-surface-hover/30')
-    expect(btn).not.toHaveClass('invisible')
+    const btn = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    expect(btn).toHaveClass('flex-1', 'focus:ring-2', 'hover:border-dashed', 'hover:border-line-strong')
+    // #2320: a 44px touch target, and a wash that differs from canvas in light mode
+    // (surface-hover equals canvas there, so surface-hover/30 was invisible).
+    expect(btn).toHaveClass('min-h-11', 'hover:bg-surface-active/50', 'focus:bg-surface-active/50')
+    expect(btn).not.toHaveClass('min-h-8')
+    expect(btn).not.toHaveClass('hover:bg-surface-hover/30')
+    expect(btn).not.toHaveClass('opacity-0')
     expect(screen.getByText('Add card', { selector: 'span' })).toHaveClass('hidden', 'group-hover/addbtn:inline')
     expect(container.firstElementChild).toHaveClass('flex', 'flex-col')
+  })
+
+  it('populated cell: a focused add button keeps focus through a drag and after it (#2320)', () => {
+    dnd.active = null
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    const { rerender } = render(<BoardCell {...props} />)
+    const btn = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    btn.focus()
+    dnd.active = { id: '1' }
+    rerender(<BoardCell {...props} />)
+    expect(btn).toHaveFocus()
+    dnd.active = null
+    rerender(<BoardCell {...props} />)
+    expect(btn).toHaveFocus()
+    expect(btn).not.toHaveClass('opacity-0')
   })
 
   it('populated cell: add button is neutralized during a drag (#2319)', () => {
@@ -397,7 +421,10 @@ describe('BoardCell', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1 })]
     render(<BoardCell {...props} />)
-    expect(screen.getByText('+', { selector: 'span' }).closest('button')).toHaveClass('invisible', 'pointer-events-none')
+    // Transparent, not `invisible`: a hidden button would drop keyboard focus (#2320).
+    const btn = screen.getByText('+', { selector: 'span' }).closest('button')
+    expect(btn).toHaveClass('opacity-0', 'pointer-events-none')
+    expect(btn).not.toHaveClass('invisible')
     dnd.active = null
   })
 
@@ -406,7 +433,7 @@ describe('BoardCell', () => {
     props.cards = [makeCard({ id: 1 })]
     props.column = { ...props.column, allow_card_creation: false }
     const { container } = render(<BoardCell {...props} />)
-    expect(screen.queryByRole('button', { name: '+ Add card' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add card to To Do in Customer A' })).not.toBeInTheDocument()
     expect(container.firstElementChild).not.toHaveClass('flex-col')
   })
 
@@ -415,10 +442,10 @@ describe('BoardCell', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1 })]
     render(<BoardCell {...props} />)
-    await user.click(screen.getByRole('button', { name: '+ Add card' }))
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
     await user.click(screen.getByText('Cancel'))
-    expect(screen.getByRole('button', { name: '+ Add card' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toHaveFocus()
   })
 
   it('right-click (or touch long-press) opens the new-card input when no drag is active', () => {
@@ -577,25 +604,25 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
     it('Escape returns focus to the + Add card button', async () => {
       const user = userEvent.setup()
       render(<BoardCell {...populated()} />)
-      await user.click(screen.getByRole('button', { name: '+ Add card' }))
+      await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
       await user.keyboard('{Escape}')
-      expect(screen.getByRole('button', { name: '+ Add card' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toHaveFocus()
     })
     it('Cancel returns focus to the + Add card button', async () => {
       const user = userEvent.setup()
       render(<BoardCell {...populated()} />)
-      await user.click(screen.getByRole('button', { name: '+ Add card' }))
+      await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
       await user.click(screen.getByText('Cancel'))
-      expect(screen.getByRole('button', { name: '+ Add card' })).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toHaveFocus()
     })
     it('a committed add returns focus to the + Add card button', async () => {
       const user = userEvent.setup()
       mockCreateCard.mockResolvedValue(makeCard({ id: 99, title: 'N' }))
       render(<BoardCell {...populated()} />)
-      await user.click(screen.getByRole('button', { name: '+ Add card' }))
+      await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
       await user.type(screen.getByPlaceholderText('Card title…'), 'N')
       await user.click(screen.getByText('Add'))
-      await waitFor(() => expect(screen.getByRole('button', { name: '+ Add card' })).toHaveFocus())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toHaveFocus())
     })
   })
 })

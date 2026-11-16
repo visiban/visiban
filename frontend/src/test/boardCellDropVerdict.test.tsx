@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import BoardCell from '../components/Board/BoardCell'
-import type { Column, Swimlane } from '../types'
+import type { Card, Column, Swimlane } from '../types'
 import type { TrippedLimit } from '../utils/placementLimits'
 
-// The drop ring (#1150): a card drag over a cell whose limit the drop would
-// trip draws a danger ring and writes the limit out (WCAG 1.4.1).
+// Drop feedback (#1150, #2326): a card drag over a cell whose limit the drop
+// would trip takes the warning treatment and writes the limit out (WCAG 1.4.1);
+// an open target takes the selection treatment and shows a placeholder.
 
-const dnd = vi.hoisted(() => ({ isOver: true, active: { id: '7' } as { id: string } | null }))
+const dnd = vi.hoisted(() => ({ isOver: true, active: { id: '7' } as { id: string; rect?: { current: { initial: { height: number } } } } | null }))
 
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: dnd.isOver }),
@@ -17,6 +18,7 @@ vi.mock('@dnd-kit/core', () => ({
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   verticalListSortingStrategy: {},
+  rectSortingStrategy: {},
 }))
 
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
@@ -39,17 +41,25 @@ function renderCell(getDropVerdict?: (cardId: number) => TrippedLimit[]) {
 }
 
 describe('BoardCell drop verdict (#1150)', () => {
-  it('rings a blocked target in danger and names the limit', () => {
+  it('gives a blocked target the warning treatment and names the limit (#2326)', () => {
     const verdict = vi.fn(() => [tripped('block')])
     const { container } = renderCell(verdict)
     expect(verdict).toHaveBeenCalledWith(7, column, swimlane)
     expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⚠ WIP limit 5/5 · Payouts')
     expect(screen.getByTestId('cell-drop-blocked')).toHaveAttribute('aria-hidden', 'true')
-    // An opaque pill, legible over the card beneath it.
+    // An opaque pill, legible over the card beneath it; warning text, never danger.
     expect(screen.getByTestId('cell-drop-blocked').className).toContain('bg-canvas')
+    expect(screen.getByTestId('cell-drop-blocked').className).toContain('text-warning-on-tint')
+    expect(screen.getByTestId('cell-drop-blocked').className).not.toContain('text-danger')
     const cell = container.querySelector('[data-board-cell]') as HTMLElement
-    expect(cell.className).toContain('ring-danger-emphasis')
-    expect(container.querySelector('.border-danger-emphasis')).not.toBeNull()
+    expect(cell.className).toContain('border-warning')
+    expect(cell.className).toContain('bg-warning/20')
+    expect(cell.className).toContain('border-dashed')
+    expect(cell.className).not.toContain('ring-danger-emphasis')
+    expect(cell.className).not.toContain('bg-primary/20')
+    // The empty slot follows the warning edge and is not a landing placeholder.
+    expect(container.querySelector('.border-warning.h-10')).not.toBeNull()
+    expect(screen.queryByTestId('cell-drop-placeholder')).toBeNull()
   })
 
   it('uses the hard glyph for a hard limit', () => {
@@ -57,14 +67,15 @@ describe('BoardCell drop verdict (#1150)', () => {
     expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⛔ WIP limit 5/5 · Payouts')
   })
 
-  it('keeps the ordinary drop feedback when nothing trips', () => {
+  it('gives an open target the selection treatment and a placeholder (#2326)', () => {
     const { container } = renderCell(() => [])
     expect(screen.queryByTestId('cell-drop-blocked')).toBeNull()
     const cell = container.querySelector('[data-board-cell]') as HTMLElement
-    expect(cell.className).toContain('bg-info/15')
+    expect(cell.className).toContain('bg-primary/20')
     expect(cell.className).toContain('border-dashed')
-    expect(cell.className).toContain('border-primary-emphasis')
-    expect(cell.className).not.toContain('ring-danger-emphasis')
+    expect(cell.className).toContain('border-info')
+    expect(cell.className).not.toContain('border-warning')
+    expect(screen.getByTestId('cell-drop-placeholder').className).toContain('border-info')
   })
 
   it('asks nothing while no card drag is over the cell', () => {
@@ -117,5 +128,39 @@ describe('BoardCell entry criteria drop message (#1101)', () => {
   it('shows nothing for a column without criteria', () => {
     renderWithCriteria(() => [], () => [])
     expect(screen.queryByTestId('cell-drop-entry-criteria')).not.toBeInTheDocument()
+  })
+})
+
+describe('BoardCell populated drop target (#2326, #2320)', () => {
+  const cards = [{ id: 1, column: 10, swimlane: 20, position: 0, title: 'One' }] as unknown as Card[]
+  const renderPopulated = () => render(
+    <BoardCell
+      column={column} swimlane={swimlane} cards={cards} boardId={1} canEdit closeEditorOnEnter={false}
+      filteredCardIds={null} selectedCardIds={new Set()} onToggleCardSelection={vi.fn()}
+      onCardClick={vi.fn()} onCardAdded={vi.fn()}
+      getDropVerdict={() => []}
+    />,
+  )
+
+  it('shows the placeholder after the last card, as tall as the lifted card', () => {
+    dnd.active = { id: '7', rect: { current: { initial: { height: 92 } } } }
+    renderPopulated()
+    const placeholder = screen.getByTestId('cell-drop-placeholder')
+    expect(placeholder).toHaveAttribute('aria-hidden', 'true')
+    expect(placeholder.style.height).toBe('92px')
+    expect(placeholder.className).toContain('bg-primary/40')
+    dnd.active = { id: '7' }
+  })
+
+  it('falls back to 40px when the lifted card has no measured rect', () => {
+    renderPopulated()
+    expect(screen.getByTestId('cell-drop-placeholder').style.height).toBe('40px')
+  })
+
+  it('keeps the add button focusable during a drag: transparent, never invisible (#2320)', () => {
+    renderPopulated()
+    const btn = screen.getByRole('button', { name: 'Add card to Ready in Payouts' })
+    expect(btn.className).toContain('opacity-0')
+    expect(btn.className).not.toContain('invisible')
   })
 })

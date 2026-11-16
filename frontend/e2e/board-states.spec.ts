@@ -145,4 +145,36 @@ test.describe('keyboard move', () => {
     await expect.poll(() => moved).not.toBeNull()
     expect((moved as { column_id: number }).column_id).toBe(COLUMN_DONE.id)
   })
+
+  test('Shift+F10, Move to, Move earlier in this cell: the card reorders with no pointer (#2327)', async ({ page }) => {
+    await routeAuth(page)
+    const second = { ...CARD, id: CARD.id + 1000, uid: 'e2ereorder0001', title: 'Second in the cell', position: CARD.position + 1 }
+    await routeBoard(page, { ...BOARD_FULL, cards: [CARD, second] })
+    let moved: unknown = null
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${second.id}/move/**`, async (route) => {
+      moved = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...second, position: CARD.position, version: 2 } }) })
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const face = page.locator(`[data-card-id="${second.id}"]`)
+    await expect(face).toBeVisible({ timeout: 10_000 })
+    const cell = page.locator('[data-board-cell]').filter({ has: face })
+    const order = () => cell.locator('[data-card-id]').evaluateAll((els) => els.map((el) => el.getAttribute('data-card-id')))
+    await expect.poll(order).toEqual([String(CARD.id), String(second.id)])
+    await face.focus()
+    await page.keyboard.press('Shift+F10')
+    const menu = page.getByRole('menu', { name: `Card actions: ${second.title}` })
+    await expect(menu).toBeVisible()
+    await menu.getByRole('menuitem', { name: /Move to/ }).focus()
+    await page.keyboard.press('ArrowRight')
+    const sub = page.getByRole('menu', { name: 'Move within this cell or to a column' })
+    // The last card can only step earlier, and that step is the submenu's first item.
+    await expect(sub.getByRole('menuitem', { name: 'Move earlier in this cell' })).toBeFocused()
+    await expect(sub.getByRole('menuitem', { name: 'Move later in this cell' })).toHaveCount(0)
+    await page.keyboard.press('Enter')
+    await expect.poll(() => moved).not.toBeNull()
+    // Same cell, the previous card's slot: it lands right before it.
+    expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
+    await expect.poll(order).toEqual([String(second.id), String(CARD.id)])
+  })
 })

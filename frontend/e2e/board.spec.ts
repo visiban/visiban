@@ -154,7 +154,8 @@ test.describe('board view', () => {
     const todoCard = page.locator('[data-card-id="400"]')
     await expect(todoCard).toBeVisible({ timeout: 10_000 })
     const cell = page.locator('[data-board-cell]').filter({ has: todoCard })
-    const addBtn = cell.getByRole('button', { name: '+ Add card' })
+    // Named like the empty cell (#2320).
+    const addBtn = cell.getByRole('button', { name: /^Add card to / })
     await addBtn.hover()
     // The button fills the blank well space, far taller than a single-row strip.
     await expect.poll(async () => (await addBtn.boundingBox())!.height).toBeGreaterThan(40)
@@ -304,7 +305,8 @@ test.describe('board view', () => {
     await scroller.evaluate((el) => { el.scrollLeft = el.scrollWidth })
     await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100)
     await expect(band.getByTestId('swimlane-name')).toBeInViewport({ ratio: 1 })
-    await expect(band.getByTestId('swimlane-card-count')).toBeInViewport({ ratio: 1 })
+    // The band's right end (the focus icon; the card count is gone, #2328) stays on screen too.
+    await expect(band.getByRole('button', { name: /^Focus on / })).toBeInViewport({ ratio: 1 })
     const [bandBox, scrollBox] = [await band.boundingBox(), await scroller.boundingBox()]
     expect(bandBox!.x).toBeGreaterThanOrEqual(scrollBox!.x)
     expect(bandBox!.x + bandBox!.width).toBeLessThanOrEqual(scrollBox!.x + scrollBox!.width)

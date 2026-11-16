@@ -222,6 +222,34 @@ describe('CardPeekSheet', () => {
     expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
   })
 
+  it('offline: a Move form already open closes, returns focus to Move, and sends nothing (#2325)', async () => {
+    const props = { card, board, canEdit: true, onClose: vi.fn(), onOpenCard: vi.fn(), onMoveCard: vi.fn().mockResolvedValue({ ok: true }) }
+    const { rerender } = render(<CardPeekSheet {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    expect(screen.getByTestId('card-peek-move-form')).toBeInTheDocument()
+    rerender(<CardPeekSheet {...props} movesPaused />)
+    expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Move' })).toHaveFocus())
+    expect(props.onMoveCard).not.toHaveBeenCalled()
+  })
+
+  it('offline: Move and both steps are disabled, with the reason in text (#2325)', async () => {
+    const p = setup({ movesPaused: true, cellOrder: { index: 1, count: 3, earlier: 4, later: 8 } })
+    const move = screen.getByRole('button', { name: 'Move' })
+    expect(move).toHaveAttribute('aria-disabled', 'true')
+    expect(move).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+    await userEvent.click(move)
+    expect(screen.queryByLabelText('Column')).not.toBeInTheDocument()
+    for (const name of ['Move earlier', 'Move later']) {
+      const step = screen.getByRole('button', { name })
+      expect(step).toHaveAttribute('aria-disabled', 'true')
+      expect(step).not.toBeDisabled()
+      expect(step).toHaveAccessibleDescription('Moves are paused while the board is offline.')
+      await userEvent.click(step)
+    }
+    expect(p.onMoveCard).not.toHaveBeenCalled()
+  })
+
   it('offers no reorder alone in the cell', () => {
     setup({ cellOrder: { index: 0, count: 1, earlier: null, later: null } })
     expect(screen.queryByTestId('card-peek-reorder')).not.toBeInTheDocument()

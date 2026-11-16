@@ -71,9 +71,9 @@ import CardContextMenu, { type CardMenuAnchor, type CardMenuCloseReason } from "
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import {
-  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, archiveCards, assignCards, cardActionEntries, cardLink,
-  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, resolveCardTarget, setCardsPriority, successMessage,
-  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail,
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, MOVES_PAUSED_REASON, archiveCards, assignCards, cardActionEntries, cardLink,
+  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
+  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep,
 } from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
@@ -193,7 +193,7 @@ export function ViewToggle({
     >
       <button
         onClick={() => onChange(val)}
-        className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+        className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
           view === val
             ? "text-fg font-bold border-primary"
             : muted
@@ -218,7 +218,7 @@ export function ViewToggle({
       <Tooltip content="Analytics (A)">
         <button
           onClick={() => onChange("analytics")}
-          className={`text-sm px-3 h-10 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
+          className={`text-sm px-3 h-10 max-sm:h-11 border-b-2 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${
             view === "analytics"
               ? "text-fg font-bold border-primary"
               : "text-fg-secondary border-transparent hover:text-fg"
@@ -316,8 +316,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
   const {
     board: boardOrNull,
-    moveCard: onMoveCard,
-    forceMoveCardTo,
+    moveCard: onMoveCardRaw,
+    forceMoveCardTo: forceMoveCardToRaw,
+    moveError,
+    clearMoveError,
     addCard: onCardAdded,
     removeCard,
     archiveCard,
@@ -350,6 +352,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     getLastFullFetchAt,
   } = useBoardContext();
+  // Backstop for #2325: every Move path (drag, menus, bulk, peek/detail forms, the entry
+  // checklist, "Move anyway") ends in one of these two. A control that was already open
+  // when the socket dropped still reaches them, so they refuse while moves are paused. The ref
+  // is read at call time, so a stale closure cannot slip a move through.
+  const movesPausedRef = useRef(false);
+  const onMoveCard = useCallback<typeof onMoveCardRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : onMoveCardRaw(...args)
+  ), [onMoveCardRaw]);
+  const forceMoveCardTo = useCallback<typeof forceMoveCardToRaw>((...args) => (
+    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : forceMoveCardToRaw(...args)
+  ), [forceMoveCardToRaw]);
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
   // The non-null assertion keeps the existing contract without changing every
@@ -962,6 +975,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (socketStatus === "failed" && !selfDeletingRef.current) silentReload();
   }, [socketStatus, silentReload]);
+  // Offline pauses moves (#2325, spec § States): while the socket is down, drag is off
+  // and every Move path (card menu, bulk toolbar, card detail and peek Move) is disabled
+  // with this reason in text, so a move never lands on a board others changed meanwhile.
+  // Same states as the offline banner, which says so.
+  const movesPaused = socketStatus === "reconnecting" || socketStatus === "failed";
+  movesPausedRef.current = movesPaused;
+  // The "Move anyway" toast lives in App, outside this socket's reach: dismiss a held refusal
+  // when moves pause so its override cannot retry on a board that may have changed.
+  useEffect(() => {
+    if (movesPaused && moveError) clearMoveError();
+  }, [movesPaused, moveError, clearMoveError]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -1587,6 +1611,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     isModerator: isBoardModerator,
     demoMode,
     maintenanceBlocked: blockedByMaintenance,
+    movesPaused,
   };
   // Latest state for the stable callbacks and window listeners below.
   const cardActionStateRef = useRef({ selectedCardIds, selectedCard, peekCardId, cardActionContext });
@@ -2433,6 +2458,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Send a drag-and-drop move and announce its outcome once known. Shared by
   // a plain drop and a drop confirmed through the entry checklist (#1101).
   const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number) => {
+    // The entry checklist can be open when the socket drops (#2325).
+    if (movesPausedRef.current) {
+      setDndAnnouncement("Move canceled, moves are paused while the board is offline");
+      return;
+    }
     const targetCol = board.columns.find((c) => c.id === targetColumnId);
     const targetSwim = board.swimlanes.find((s) => s.id === targetSwimlaneId);
     // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,
@@ -2448,6 +2478,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       } else if (targetCol && targetSwim) {
         setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
       }
+    });
+  };
+
+  // Keyboard reorder within a cell (#2327): the card menu's Move to… offers
+  // "Move earlier / later in this cell" (no new shortcut keys). Same slots and
+  // visible-neighbor rule as the phone peek sheet's steps (`cellOrderOf`), so a
+  // step never passes a card the filter hides.
+  const reorderCardInCell = (card: Card, step: ReorderStep) => {
+    // The menu's own gate, re-read: the board may have gone offline since it opened.
+    if (!cardActionEntries([card], cardActionContext).find((e) => e.id === "move")?.enabled) return;
+    const order = cellOrderOf(board.cards, card, filteredCardIds);
+    const position = step === "earlier" ? order.earlier : order.later;
+    if (position === null) return;
+    const place = step === "earlier" ? order.index : order.index + 2;
+    void Promise.resolve(onMoveCard(card.id, card.column, card.swimlane, position)).then((outcome) => {
+      // A refusal raises its own announced toast (#2060); say nothing twice.
+      if (outcome && outcome.ok === false) { setDndAnnouncement(""); return; }
+      setDndAnnouncement(`Card '${card.title}' moved to place ${place} of ${order.count} in its cell`);
+      focusCardSoon(card.id);
     });
   };
 
@@ -2574,6 +2623,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setActiveCard(null);
     if (!over) {
       setDndAnnouncement("Move canceled, card returned to original position");
+      return;
+    }
+    // A drag that started before the socket dropped must not land while moves are paused (#2325).
+    if (movesPaused) {
+      setDndAnnouncement("Move canceled, moves are paused while the board is offline");
       return;
     }
     // Guard: card drops must land on a cell: zone. col:/swim: zones are not valid targets for cards.
@@ -2812,6 +2866,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -2852,12 +2907,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           hidden and the page never scrolls sideways. Connection status is the
           last item and stays pinned to the trailing edge. */}
       <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto">
+        <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
+          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex-1 max-sm:hidden" />
+          <div className="flex items-center gap-2 flex-wrap max-sm:order-1 max-sm:ml-auto">
             <FilterPanel
               board={board}
               filters={effectiveFilters}
@@ -2947,12 +3002,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onClick={() => setDrawerOpen((v) => !v)}
                 aria-pressed={drawerOpen}
                 aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-                className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   drawerOpen ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
                 }`}
               >
                 {ActivityDrawerIcon}
-                Activity
+                {/* Icon-only on phones (#2333); the text stays in the DOM as the accessible name. */}
+                <span className="max-sm:sr-only">Activity</span>
               </button>
             </Tooltip>
             <OverflowMenu
@@ -2964,11 +3020,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             />
           </div>
         </div>
-        <div className="flex items-center shrink-0 ml-auto">
+        <div className="flex items-center shrink-0 ml-auto max-sm:order-1 max-sm:ml-0">
           <ConnectionStatus
             status={socketStatus}
             lastEventAt={socketLastEventAt}
             reconnectAttempt={socketReconnectAttempt}
+            reconnectingLabel="Offline"
             onRefresh={silentReload}
             tourStep="live-indicator"
           />
@@ -3001,7 +3058,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
+          {/* Phone (#2333): every control in the bar is a 44px target; the facet menus it opens are #2341. */}
+          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}
@@ -3054,10 +3112,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {laneNotice && (
         <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
           <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
-          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Edit lane filters
           </button>
-          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 max-sm:w-11 max-sm:h-11 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             <span aria-hidden="true">×</span>
           </button>
         </div>
@@ -3075,7 +3133,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               setActiveFilterId(null);
               setFilters(next);
             }}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Clear lane filters
           </button>
@@ -3101,7 +3159,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="flex-1" />
           <button
             onClick={expandAllSwimlanes}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Expand all swimlanes
           </button>
@@ -3129,7 +3187,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             )}
           </span>
           <div className="flex-1" />
-          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
           </button>
         </div>
@@ -3153,7 +3211,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={selectedCard || peekCardId !== null || isPhone ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={selectedCard || peekCardId !== null || isPhone || movesPaused ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="relative flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
@@ -3212,6 +3270,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               customFieldDefinitions={board.custom_field_definitions}
               isAdmin={isAdmin}
               allColumns={board.columns}
+              onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
               boardColors={boardColors}
               limitFlags={board}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
@@ -3234,6 +3293,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onSwimlanesReordered={(ids) => { void onSwimlanesReordered(ids); }}
               hardWipEnforced={board.enforce_wip_hard}
               healthAutoEnabled={board.health_auto_enabled}
+              showWipAtLimit={board.show_wip_at_limit}
+              rollupField={resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions)}
+              hideRowChipFieldNames={board.show_row_chip_field_names === false}
             />
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
@@ -3510,9 +3572,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             entries={cardActionEntries(menuCards, cardActionContext)}
             columns={board.columns}
             members={board.members}
+            reorder={menuCards.length === 1 ? reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds)) : []}
             onAction={(action, value) => {
               const ids = menuCards.map((c) => c.id);
               closeCardMenu("action");
+              if (action === "move" && (value === "earlier" || value === "later")) {
+                reorderCardInCell(menuCards[0], value);
+                return;
+              }
               void runCardAction(ids, action, value);
             }}
             onClose={closeCardMenu}
@@ -3577,6 +3644,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             // Phone only (#2277): reorder within the cell, which on the grid is a drag.
             // Over the cards the filter shows, as PhoneBoard does.
             cellOrder={isPhone ? cellOrderOf(board.cards, peekCard, filteredCardIds) : undefined}
@@ -3604,6 +3672,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            movesPaused={movesPaused}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}

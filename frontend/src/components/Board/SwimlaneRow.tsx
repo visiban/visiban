@@ -16,60 +16,13 @@ import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import { STATUS_LABEL, STATUS_SQUARE_CLASS, cardBoardStatus, type CardBoardStatus } from "../../constants/laneStatus";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
-import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
+import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
+import { laneBandFields, laneBandLimit, type LaneBandField } from "../../utils/laneBand";
+import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
-
-/**
- * The row's limit state line (#1150), restyled to the board redesign (#2275)
- * so it reads like the column header's count line (#2270): one line, worst
- * offender first (Over WIP > Over weight > At > Under). `WIP n / limit`, and
- * `WIP n / limit over` in warning text when over. The word carries the state;
- * the hue only reinforces it.
- */
-function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean; showAtLimit: boolean }) {
-  const wip = swimlane.wip_limit;
-  const weight = swimlane.weight_limit;
-  // "At limit" is the board's opt-in ambient indicator (Board.show_wip_at_limit),
-  // (it applies to swimlane rows only; the column header ignores it); off, an at-limit row reads like an under-limit
-  // one. The two over-limit states are violations and always show.
-  const state = reading.state === "at" && !showAtLimit ? "under" : reading.state;
-  // The line names the metric that decided the state (laneLimitState).
-  const showWip = reading.metric === "wip";
-  const value = showWip ? usage.count : usage.weight;
-  const limit = (showWip ? wip : weight) ?? 0;
-  const label = showWip ? "WIP" : "Weight";
-  const numbers = `${label} ${value} / ${limit}`;
-  let text: React.ReactNode;
-  let tone: string;
-  let title: string;
-  if (state === "overWip") {
-    // ⛔ only for a hard lane, as on the column header: no override possible.
-    text = <>{hard && <span aria-hidden="true">⛔ </span>}{numbers} over</>;
-    tone = "text-warning-on-tint";
-    title = hard ? "Over the swimlane's hard WIP limit — no override possible" : "Over the swimlane's WIP limit";
-  } else if (state === "overWeight") {
-    text = <>{numbers} over</>;
-    tone = "text-warning-on-tint";
-    title = "Over the swimlane's weight limit";
-  } else if (state === "at") {
-    text = <>{numbers} · at limit</>;
-    tone = "text-fg";
-    title = `Swimlane is at its ${label === "WIP" ? "WIP" : "weight"} limit (${value} / ${limit})`;
-  } else {
-    text = numbers;
-    tone = "text-fg";
-    title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${value} / ${limit} in the columns that count`;
-  }
-  return (
-    // One line in the band's stats cluster (#2271); the words carry the state.
-    <span className={`whitespace-nowrap ${tone}`} title={title} data-testid="swimlane-limit-stat">
-      {text}
-    </span>
-  );
-}
 
 interface Props {
   swimlane: Swimlane;
@@ -190,9 +143,6 @@ interface Props {
   rollupField?: CustomFieldDefinition | null;
 }
 
-/** Lane fields shown inline in the band before `+N` (#2271). */
-const INLINE_FIELD_COUNT = 2;
-
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
 /**
@@ -220,24 +170,10 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const extraFieldsId = useId();
 
-  // Row field values to render (#1140). Three guards, all deliberate:
-  // an empty-string value renders nothing (never a dashed ghost chip — dashed
-  // already means "unset" on the card face and must not gain a second
-  // meaning; #2193's card-face ghost does not apply here, since row chips are
-  // read-only and Edit Swimlane lists every field, set or not, so an empty row
-  // value is never stranded); a value whose definition is missing is dropped silently (a WS
-  // race between a definition delete and this render); and the pinned slice is
-  // capped client-side so a server-side cap violation cannot blow out the row.
-  const swimlaneFieldsById = new Map((swimlaneFieldDefinitions ?? []).map((d) => [d.id, d]));
-  const rowFieldEntries = (swimlane.custom_field_values ?? [])
-    .filter((v) => v.value !== "")
-    .map((v) => ({ def: swimlaneFieldsById.get(v.field_definition), value: v.value }))
-    .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def)
-    .sort((a, b) => a.def.position - b.def.position);
-  // The band shows the first two fields inline; the rest sit behind `+N` (#2271).
-  // Pinning no longer decides what shows: the band has room, so position does.
-  const inlineFields = rowFieldEntries.slice(0, INLINE_FIELD_COUNT);
-  const extraFields = rowFieldEntries.slice(INLINE_FIELD_COUNT);
+  // The band shows the first two fields inline; the rest sit behind `+N` (#2271,
+  // on-demand tier #2335). Pinning no longer decides what shows: position does.
+  // Guards and order: `laneBandFields`, shared with the phone band (#2329).
+  const { inline: inlineFields, extra: extraFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -246,13 +182,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   const staleCount = cards.filter((c) => statusOf(c) === "stale").length;
 
   // Row limit state (#1150), from the row's active cards in its counted columns.
-  const limitUsage = laneUsage(swimlane, columns, cards);
-  const limitReading = laneLimitState(swimlane, limitUsage);
-  const limitState = limitReading?.state ?? null;
-  const hardWip = swimlaneLimitModes(limitFlags, swimlane).wip === "hard";
-  // A collapsed row keeps only the over-limit states, so nothing over its
-  // limit is hidden behind the chevron; the calm states fold away with it.
-  const showLimitStat = limitState !== null && (!collapsed || limitState === "overWip" || limitState === "overWeight");
+  // Null when unset, or calm on a collapsed row (tertiary tier, #2335).
+  const limit = laneBandLimit(swimlane, columns, cards, limitFlags, collapsed);
   // Number rollup (#2275); null when the board chose no number field.
   const rollup = laneRollup(swimlane.id, rollupField, columns, cards);
 
@@ -360,10 +291,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   } = useSortable({ id: `swim:${swimlane.id}`, disabled: !isAdmin });
 
   const color = swimlane.color || "";
-  const countLabel = `${cards.length} ${cards.length === 1 ? "card" : "cards"}`;
   const fieldTriggerText = fieldsOpen ? "Less" : `+${extraFields.length}`;
 
-  const renderField = ({ def, value }: { def: SwimlaneCustomFieldDefinition; value: string }) => (
+  const renderField = ({ def, value }: LaneBandField) => (
     <CustomFieldValueDisplay
       key={def.id}
       definition={def}
@@ -411,7 +341,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             <span
               {...attributes}
               {...listeners}
-              className="text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity"
+              className="text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity"
               title="Drag to reorder"
             >
               ⠿
@@ -535,17 +465,19 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
 
           <div className="flex-1 min-w-0" />
 
-          {/* Trailing stats: overdue and stale (omitted at zero), the limit line (#1150;
-              a calm one folds away when collapsed, an over-limit one never does), the
-              number rollup (#2275), then the card count. Text always carries the state; color only reinforces it. */}
+          {/* Trailing stats (tiers: frontend/CLAUDE.md § Swimlane bands, #2335): overdue and
+              stale (secondary, omitted at zero), the limit line (#1150; tertiary: a calm one
+              folds away when collapsed, an over-limit one never does), then the number rollup
+              (#2275). The band ends at the rollup, as in board-dark.png: no card count (#2328).
+              Text always carries the state; color only reinforces it. */}
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
           {!noMatch && (
           <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
-            {showLimitStat && limitReading !== null && (
-              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
+            {limit !== null && (
+              <SwimlaneLimitStat swimlane={swimlane} usage={limit.usage} reading={limit.reading} hard={limit.hard} showAtLimit={showWipAtLimit} />
             )}
             {/* Number rollup (#2275): the board's chosen number field summed over the
                 lane's cards not in a done column. Hidden with no (number) field chosen. */}
@@ -556,7 +488,6 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                 <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
               </span>
             )}
-            <span className="text-fg-secondary whitespace-nowrap" data-testid="swimlane-card-count">{countLabel}</span>
           </div>
           )}
 
@@ -585,7 +516,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             {isAdmin && (
               <button type="button"
                 onClick={() => setEditing(true)}
-                className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                // On-demand tier (#2335): revealed on hover or focus, like the drag handle and focus icon;
+                // always shown where there is no hover (a tablet gets the grid band).
+                className="transition text-xs text-fg-tertiary hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                 title="Edit swimlane"
                 aria-label="Edit swimlane"
               >
@@ -595,7 +528,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button type="button"
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}

@@ -9,6 +9,8 @@ interface Props {
   status: SocketStatus;
   lastEventAt: number | null;
   reconnectAttempt?: number;
+  /** Chip text while reconnecting. The Board passes "Offline" to match its banner; pages with no banner keep the default. */
+  reconnectingLabel?: string;
   /** Fires the board's silent resync (or any consumer-provided refetch). */
   onRefresh?: () => void;
   /** Custom reload implementation for test environments; defaults to window.location.reload. */
@@ -31,6 +33,7 @@ export default function ConnectionStatus({
   status,
   lastEventAt,
   reconnectAttempt,
+  reconnectingLabel = "Reconnecting…",
   onRefresh,
   onReloadPage,
   className = "",
@@ -103,12 +106,14 @@ export default function ConnectionStatus({
     setOpen(true);
   };
 
+  // Reconnecting reads "Offline" (#2325, spec § States): the board banner says the
+  // same word, and the popover still says it is reconnecting and on which attempt.
   const variant = {
     connected:    { wrapper: "text-success px-1 py-0.5",                                       dot: "w-1.5 h-1.5 rounded-full bg-success-emphasis shrink-0",             label: "Live",           labelClass: "hidden lg:inline",    aria: "Real-time updates active" },
     connecting:   { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: "Connecting\u2026", labelClass: "",                    aria: "Connecting to real-time updates" },
-    reconnecting: { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: "Reconnecting\u2026", labelClass: "",                  aria: "Reconnecting to real-time updates" },
+    reconnecting: { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: reconnectingLabel, labelClass: "",                    aria: "Offline, reconnecting to real-time updates" },
     stale:        { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis shrink-0",                label: "Stale",          labelClass: "",                    aria: "Real-time updates delayed" },
-    failed:       { wrapper: "text-danger bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-danger-emphasis shrink-0",        label: "Offline",        labelClass: "",                    aria: "Real-time updates unavailable" },
+    failed:       { wrapper: "text-danger bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-danger-emphasis shrink-0",        label: "Offline",        labelClass: "",                    aria: "Offline, real-time updates unavailable" },
   }[effective];
 
   const handleReload = () => {
@@ -153,7 +158,7 @@ export default function ConnectionStatus({
         aria-expanded={open}
         aria-label={variant.aria}
         data-tour-step={tourStep}
-        className={`flex items-center gap-1 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
+        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
       >
         <span className={variant.dot} aria-hidden="true" />
         {variant.label && <span className={variant.labelClass}>{variant.label}</span>}
@@ -212,12 +217,12 @@ function PopoverBody({ state, lastEventAt, reconnectAttempt, onRefresh, onReload
   }
 
   if (state === "connecting") {
-    return <p className="text-sm text-fg-secondary">Establishing real-time connection\u2026</p>;
+    return <p className="text-sm text-fg-secondary">Establishing real-time connection…</p>;
   }
 
   if (state === "reconnecting") {
     const n = reconnectAttempt ?? 1;
-    return <p className="text-sm text-fg-secondary">Reconnecting\u2026 attempt {n}.</p>;
+    return <p className="text-sm text-fg-secondary">Reconnecting… attempt {n}.</p>;
   }
 
   // failed

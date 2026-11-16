@@ -39,15 +39,33 @@ describe('ConnectionStatus', () => {
     expect(trigger).toHaveTextContent(/Connecting/)
   })
 
-  it('shows a visible "Reconnecting…" label while reconnecting', () => {
-    render(<ConnectionStatus status="reconnecting" lastEventAt={null} reconnectAttempt={3} />)
-    const trigger = screen.getByRole('button', { name: /Reconnecting to real-time updates/i })
-    expect(trigger).toHaveTextContent(/Reconnecting/)
+  it('reads "Offline" while reconnecting, matching the board banner (#2325)', () => {
+    render(<ConnectionStatus status="reconnecting" lastEventAt={null} reconnectAttempt={3} reconnectingLabel="Offline" />)
+    const trigger = screen.getByRole('button', { name: 'Offline, reconnecting to real-time updates' })
+    expect(trigger).toHaveTextContent('Offline')
+    expect(trigger).not.toHaveTextContent(/Reconnecting…/)
+  })
+
+  it('reads "Reconnecting…" by default and takes a reconnectingLabel override', () => {
+    const { rerender } = render(<ConnectionStatus status="reconnecting" lastEventAt={null} />)
+    expect(screen.getByRole('button', { name: /reconnecting to real-time updates/i })).toHaveTextContent('Reconnecting…')
+    rerender(<ConnectionStatus status="reconnecting" lastEventAt={null} reconnectingLabel="Offline" />)
+    expect(screen.getByRole('button', { name: /reconnecting to real-time updates/i })).toHaveTextContent('Offline')
+  })
+
+  it('popover text has no literal unicode escape', () => {
+    const { rerender } = render(<ConnectionStatus status="connecting" lastEventAt={null} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Establishing real-time connection…')
+    expect(screen.getByRole('dialog').textContent).not.toContain('\\')
+    rerender(<ConnectionStatus status="reconnecting" lastEventAt={null} reconnectAttempt={3} />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Reconnecting… attempt 3.')
+    expect(screen.getByRole('dialog').textContent).not.toContain('\\')
   })
 
   it('shows an "Offline" badge when failed', () => {
     render(<ConnectionStatus status="failed" lastEventAt={null} />)
-    const trigger = screen.getByRole('button', { name: /Real-time updates unavailable/i })
+    const trigger = screen.getByRole('button', { name: /Offline, real-time updates unavailable/i })
     expect(trigger).toHaveTextContent(/Offline/)
   })
 
@@ -93,7 +111,7 @@ describe('ConnectionStatus', () => {
     render(
       <ConnectionStatus status="failed" lastEventAt={null} onReloadPage={onReloadPage} />,
     )
-    await user.click(screen.getByRole('button', { name: /Real-time updates unavailable/i }))
+    await user.click(screen.getByRole('button', { name: /Offline, real-time updates unavailable/i }))
 
     const reload = await screen.findByRole('button', { name: 'Reload page' })
     await user.click(reload)

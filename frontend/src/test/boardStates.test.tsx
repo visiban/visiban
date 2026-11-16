@@ -29,16 +29,15 @@ describe('board states (#2276)', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('offline banner shows the reconnecting copy', () => {
+  it('offline banner reads Offline and says moves are paused (#2325, spec § States)', () => {
     render(<BoardOfflineBanner />)
-    expect(screen.getByRole('status')).toHaveTextContent("You're offline. Changes may not save until the board reconnects.")
+    expect(screen.getByRole('status')).toHaveTextContent('Offline. Reconnecting. Moves are paused until the board is live again.')
   })
 
-  it('offline banner says live updates are off when the socket failed', () => {
+  it('offline banner says live updates are off and moves are paused when the socket failed', () => {
     render(<BoardOfflineBanner failed />)
     const banner = screen.getByRole('status')
-    expect(banner).toHaveTextContent('Live updates are off')
-    expect(banner).not.toHaveTextContent('offline')
+    expect(banner).toHaveTextContent('Offline. Live updates are off and moves are paused. Reload the page to reconnect.')
   })
 
   it('load error offers Try again', async () => {
