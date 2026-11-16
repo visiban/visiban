@@ -42,6 +42,41 @@ test.describe('board activity drawer', () => {
     await page.screenshot({ path: process.env.DRAWER_SHOT ?? 'test-results/activity-drawer-1440.png' })
   })
 
+  test('populated feed renders in both themes at 1440px for visual parity (#2316)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await routeAuth(page)
+    const mk = (id: number, title: string, column: number) => ({
+      ...CARD, id, uid: `card0000${id}a`, title, column, last_moved_at: new Date().toISOString(),
+    })
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/full/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(BOARD_FULL) }),
+    )
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, results: [CARD] }) }),
+    )
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/saved-filters/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
+    )
+    await page.routeWebSocket(`**/ws/boards/${BOARD_FULL.id}/`, (ws) => {
+      ws.send(JSON.stringify({ event: 'connected', data: {} }))
+      setTimeout(() => {
+        ws.send(JSON.stringify({ event: 'card.created', data: mk(98, 'Zurich Insurance renewal', 1) }))
+        ws.send(JSON.stringify({ event: 'card.created', data: mk(99, 'Draft onboarding checklist', 1) }))
+      }, 200)
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Open activity drawer' }).click()
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer.getByText('Zurich Insurance renewal')).toBeVisible({ timeout: 3_000 })
+    await expect(drawer.getByText('Draft onboarding checklist')).toBeVisible()
+    const dir = process.env.DRAWER_SHOT_DIR ?? 'test-results'
+    for (const theme of ['dark', 'light'] as const) {
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme)
+      await page.screenshot({ path: `${dir}/activity-drawer-populated-${theme}-1440.png` })
+    }
+  })
+
   test('is a full-height right edge panel at 390px (#2274)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await routeAuth(page)

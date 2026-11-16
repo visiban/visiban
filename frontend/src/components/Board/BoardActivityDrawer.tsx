@@ -188,7 +188,14 @@ export default function BoardActivityDrawer({
         })}
       </div>
       {drawerTab === "recent" && (
-        <div className="relative">
+        <div
+          className="relative"
+          onBlur={(e) => {
+            // Tabbing away deliberately closes the popover without stealing focus back.
+            const next = e.relatedTarget as Node | null;
+            if (next && !e.currentTarget.contains(next)) setFilterOpen(false);
+          }}
+        >
           <button
             ref={filterBtnRef}
             type="button"
@@ -226,7 +233,7 @@ export default function BoardActivityDrawer({
                       type="button"
                       onClick={() => setTab(t.id)}
                       aria-pressed={tab === t.id}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                      className={`inline-flex items-center gap-1 min-h-6 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         tab === t.id ? "bg-surface-hover text-fg font-medium" : "text-fg-tertiary hover:text-fg"
                       }`}
                     >
@@ -245,7 +252,7 @@ export default function BoardActivityDrawer({
                       type="button"
                       onClick={() => setTimeWindow(w.id)}
                       aria-pressed={timeWindow === w.id}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                      className={`inline-flex items-center gap-1 min-h-6 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         timeWindow === w.id ? "bg-surface-hover text-fg font-medium" : "text-fg-tertiary hover:text-fg"
                       }`}
                     >

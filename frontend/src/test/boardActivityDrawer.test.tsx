@@ -223,6 +223,57 @@ describe("BoardActivityDrawer", () => {
       openFilters();
       expect(screen.getByRole("button", { name: /^all$/i })).toHaveFocus();
     });
+
+    it("option buttons carry min-h-6 touch targets", () => {
+      render(<BoardActivityDrawer {...defaultProps} />);
+      openFilters();
+      expect(screen.getByRole("button", { name: /^moves$/i })).toHaveClass("min-h-6");
+      expect(screen.getByRole("button", { name: "7d" })).toHaveClass("min-h-6");
+    });
+
+    it("closes on focus leaving the popover and trigger without stealing focus back", () => {
+      render(
+        <div>
+          <button type="button">elsewhere</button>
+          <BoardActivityDrawer {...defaultProps} />
+        </div>,
+      );
+      openFilters();
+      const inside = screen.getByRole("button", { name: /^all$/i });
+      // Focus moving between the popover and its trigger keeps it open.
+      fireEvent.blur(inside, { relatedTarget: screen.getByRole("button", { name: /^filter activity/i }) });
+      expect(screen.getByRole("dialog", { name: "Activity filters" })).toBeInTheDocument();
+      const elsewhere = screen.getByRole("button", { name: "elsewhere" });
+      elsewhere.focus();
+      fireEvent.blur(inside, { relatedTarget: elsewhere });
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+      expect(elsewhere).toHaveFocus();
+    });
+
+    it("shows the filter-specific empty copy when a filter hides everything", () => {
+      render(<BoardActivityDrawer {...defaultProps} feed={[makeEntry()]} />);
+      openFilters();
+      fireEvent.click(screen.getByRole("button", { name: /^members$/i }));
+      expect(screen.getByText("No activity matches the filter")).toBeInTheDocument();
+      expect(screen.queryByText("No activity yet")).not.toBeInTheDocument();
+    });
+
+    it("closes the popover when switching to the Archived tab and does not reopen on return", () => {
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} tab="recent" />);
+      openFilters();
+      expect(screen.getByRole("dialog", { name: "Activity filters" })).toBeInTheDocument();
+      rerender(<BoardActivityDrawer {...defaultProps} tab="archived" archivedContent={<div>archived body</div>} />);
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+      rerender(<BoardActivityDrawer {...defaultProps} tab="recent" />);
+      expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
+    });
+
+    it("falls back to headline plus detail for a move with no card title", () => {
+      render(<BoardActivityDrawer {...defaultProps} feed={[makeEntry({ headline: "moved a card", detail: "Todo → Done" })]} />);
+      expect(screen.getByText("kelly")).toBeInTheDocument();
+      expect(screen.getByText("moved a card")).toBeInTheDocument();
+      expect(screen.getByText("Todo → Done")).toBeInTheDocument();
+    });
   });
 
   describe("Recent | Archived tabs (#2274)", () => {
