@@ -39,9 +39,9 @@ from visiban.parsers import LimitedMultiPartParser
 
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
-    CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardMovement, Column,
-    CustomFieldDefinition, CustomFieldValue, Label, Swimlane, SwimlaneCustomFieldDefinition,
-    SwimlaneCustomFieldValue,
+    CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardGateTransition,
+    CardMovement, Column, CustomFieldDefinition, CustomFieldValue, Label, StageTrack, SubColumn,
+    Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue, SwimlaneTrackException,
 )
 from .. import broadcast as _broadcast
 from ..column_policy import PolicyError, normalize_policy
@@ -666,6 +666,8 @@ _IMPORT_MAX_CHILDREN_PER_CARD = {
     "activities": 5000,
     # Manual block history (#1149).
     "blocks": 1000,
+    # Gate history (#1102): one row per gate crossed.
+    "gate_transitions": 2000,
 }
 # Bound on every row one import writes, so 500 cards each just under their
 # per-card caps are still refused. _board_rows + _card_rows count each row
@@ -885,6 +887,31 @@ def _nullable_item_text(value):
     return _text_error(value, CardActivity._meta.get_field("item_text").max_length)
 
 
+def _name_list_error(value):
+    """A list of names (#1921 stage tracks, lane exceptions); null or absent is none."""
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
+        return "must be a list of non-empty names"
+    if len(set(value)) != len(value):
+        return "must not repeat a name"
+    if len(value) > CustomFieldDefinition.MAX_PER_BOARD:
+        return f"has more than {CustomFieldDefinition.MAX_PER_BOARD} entries"
+    return None
+
+
+def _sub_columns_error(value):
+    """A stage's sub-column names (#1102): none, or 2 to the cap, like the stage action."""
+    if problem := _name_list_error(value):
+        return problem
+    if value and not 2 <= len(value) <= SubColumn.MAX_PER_COLUMN:
+        return f"must list between 2 and {SubColumn.MAX_PER_COLUMN} sub-columns, or none"
+    max_len = _field_max_length(SubColumn, "name")
+    if value and any(len(v) > max_len or "\x00" in v for v in value):
+        return f"names must be at most {max_len} characters, without NUL"
+    return None
+
+
 def _validate_json_import_values(data):
     """Value-level checks for a JSON import, run before the transaction (#1507).
 
@@ -910,6 +937,10 @@ def _validate_json_import_values(data):
         ("is_done", _bool_error),
         # Explicit column policy (#1101), validated like a REST write.
         ("policy", _policy_error),
+        # Gated stage (#1102) and its tracks (#1921), by name. Additive: a
+        # file from before 1.3 has neither key.
+        ("sub_columns", _sub_columns_error),
+        ("tracks", _name_list_error),
     )
     swimlane_specs = (
         ("name", _text(_field_max_length(Swimlane, "name"))),
@@ -924,6 +955,8 @@ def _validate_json_import_values(data):
         ("limit_columns", _limit_columns_error),
         # Lane health status (#2243): the manual pin, restored as exported.
         ("health_status", _health_status_error),
+        # Dimensions marked not applicable for this lane (#1921), by name.
+        ("not_applicable_tracks", _name_list_error),
     )
     label_specs = (
         ("name", _text(_field_max_length(Label, "name"))),
@@ -966,7 +999,11 @@ def _validate_json_import_values(data):
         ("weight", _int_error),
         ("position", _int_error),
         ("blocked_reason", _text(_field_max_length(Card, "blocked_reason"))),
+        # Sub-column index in its stage (#1102); range-checked below.
+        ("gates_passed", _int_error),
     )
+    # How many sub-columns each column of this file has (#1102).
+    sub_counts = {col["name"]: len(col.get("sub_columns") or ()) for col in data["columns"]}
     movement_name = functools.partial(
         _optional_name_error, max_length=_field_max_length(CardMovement, "from_column_name"),
     )
@@ -1005,6 +1042,17 @@ def _validate_json_import_values(data):
             ("column", movement_name),
             ("imported_from_username", imported_name),
         )),
+        # Gate history (#1102). ``kind`` and ``cause`` are matched against
+        # their enums when the row is built, like ``movement_type``.
+        "gate_transitions": ("gate transition", (
+            ("from_index", _int_error), ("to_index", _int_error),
+            ("reason", _text(_field_max_length(CardGateTransition, "reason"))),
+            ("column", movement_name),
+            ("sub_column", functools.partial(
+                _optional_name_error, max_length=_field_max_length(CardGateTransition, "sub_column_name"),
+            )),
+            ("imported_from_username", imported_name),
+        )),
     }
     username_len = _field_max_length(get_user_model(), "username")
     usernames = set()
@@ -1013,6 +1061,10 @@ def _validate_json_import_values(data):
         where = f"Card at index {ci}"
         if error := _check_keys(card, card_specs, where):
             return error
+        col_ref = card.get("column")
+        gates = card.get("gates_passed")
+        if gates and gates >= max(sub_counts.get(col_ref, 0) if isinstance(col_ref, str) else 0, 1):
+            return f"{where}: 'gates_passed' must be less than the number of sub-columns of its column"
         if len(card.get("labels", [])) > _IMPORT_MAX_LABEL_REFS_PER_CARD:
             return f"{where}: 'labels' has more than {_IMPORT_MAX_LABEL_REFS_PER_CARD} entries"
         for child, (child_label, specs) in child_specs.items():
@@ -1084,6 +1136,12 @@ def _board_rows(data):
             _value_rows(sw.get("custom_field_values"), SwimlaneCustomFieldDefinition.MAX_PER_BOARD)
             for sw in data.get("swimlanes", [])
         )
+        # Sub-columns and stage tracks (#1102, #1921), and lane exceptions.
+        + sum(
+            _list_len(col.get("sub_columns")) + _list_len(col.get("tracks"))
+            for col in data.get("columns", [])
+        )
+        + sum(_list_len(sw.get("not_applicable_tracks")) for sw in data.get("swimlanes", []))
     )
 
 
@@ -1110,6 +1168,8 @@ def _card_rows(card):
         # a card that is blocked now.
         + len(card.get("blocks", []))
         + (1 if card.get("blocked_at") else 0)
+        # Gate history (#1102).
+        + len(card.get("gate_transitions", []))
         + 2
     )
 
@@ -1123,6 +1183,7 @@ def _card_usernames(card):
         ("checklist", "assignee"),
         ("movements", "moved_by"), ("activities", "actor"),
         ("blocks", "blocked_by"), ("blocks", "unblocked_by"),
+        ("gate_transitions", "actor"),
     ):
         for entry in card.get(child, []):
             value = entry.get(key)
@@ -1623,7 +1684,7 @@ class BoardImportExportMixin:
             for _child, _child_label in (
                 ("comments", "comment"), ("movements", "movement"),
                 ("activities", "activity"), ("checklist", "checklist item"),
-                ("blocks", "block"),
+                ("blocks", "block"), ("gate_transitions", "gate transition"),
             ):
                 _items = _card.get(_child, [])
                 if not isinstance(_items, list):
@@ -1650,6 +1711,7 @@ class BoardImportExportMixin:
                         # read, and a non-string one is still ignored (#1702).
                         "comments": ("imported_from_username",),
                         "checklist": ("assignee",),
+                        "gate_transitions": ("actor", "imported_from_username"),
                     }.get(_child, ())
                     for _k in _str_keys:
                         if _is_truthy_non_string(_entry.get(_k)):
@@ -1723,6 +1785,7 @@ class BoardImportExportMixin:
                 ("activities", "activity", "created_at"),
                 ("blocks", "block", "blocked_at"),
                 ("blocks", "block", "unblocked_at"),
+                ("gate_transitions", "gate transition", "created_at"),
             ):
                 for _ji, _entry in enumerate(_card.get(_child, [])):
                     _v = _entry.get(_key)
@@ -1781,6 +1844,22 @@ class BoardImportExportMixin:
         )
         if _err:
             return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        # Stage tracks and lane exceptions (#1921) name dimension fields of
+        # this file's ``custom_fields``, the way a card's column names a column.
+        _dimension_names = {d["name"] for d in card_field_defs if d.get("is_dimension")}
+        for _list_name, _label, _key in (
+            ("columns", "Column", "tracks"), ("swimlanes", "Swimlane", "not_applicable_tracks"),
+        ):
+            for _i, _item in enumerate(data[_list_name]):
+                for _name in _item.get(_key) or ():
+                    if _name not in _dimension_names:
+                        return Response(
+                            {"detail": (
+                                f"{_label} at index {_i}: '{_key}' references a field that is not "
+                                f"a dimension in 'custom_fields': {_bounded_repr(_name)}"
+                            )},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
         explicit_name = request.data.get("name")
         if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
@@ -1823,6 +1902,17 @@ class BoardImportExportMixin:
                 for i, col in enumerate(col_data)
             ])
             column_map = {col["name"]: obj for col, obj in zip(col_data, col_objs)}
+            # Gated stages (#1102): validated above to be none or 2..cap
+            # unique names per column. Imported, like every structure row,
+            # without the limit checks a REST write applies.
+            sub_column_map = {
+                (sc.column.name, sc.name): sc
+                for sc in SubColumn.objects.bulk_create([
+                    SubColumn(column=column_map[col["name"]], position=p, name=name)
+                    for col in col_data
+                    for p, name in enumerate(col.get("sub_columns") or ())
+                ])
+            }
 
             # Create swimlanes — bulk_create avoids one INSERT per swimlane.
             sw_data = data["swimlanes"]
@@ -1881,6 +1971,21 @@ class BoardImportExportMixin:
                     for i, attrs in enumerate(swimlane_field_defs)
                 ])
             }
+            # Stage tracks and lane exceptions (#1921), by dimension name;
+            # every name was checked against these definitions above.
+            StageTrack.objects.bulk_create([
+                StageTrack(column=column_map[col["name"]], field_definition=card_field_map[name], position=p)
+                for col in col_data
+                for p, name in enumerate(col.get("tracks") or ())
+            ])
+            SwimlaneTrackException.objects.bulk_create([
+                SwimlaneTrackException(
+                    swimlane=swimlane_map[sw["name"]], field_definition=card_field_map[name],
+                    created_by=request.user,
+                )
+                for sw in sw_data
+                for name in sw.get("not_applicable_tracks") or ()
+            ])
             if swimlane_field_map:
                 SwimlaneCustomFieldValue.objects.bulk_create([
                     SwimlaneCustomFieldValue(
@@ -1921,6 +2026,8 @@ class BoardImportExportMixin:
             valid_priorities = {c[0] for c in Card.Priority.choices}
             valid_event_types = {e[0] for e in CardActivity.EventType.choices}
             valid_movement_types = {t[0] for t in CardMovement.MovementType.choices}
+            valid_gate_kinds = {k[0] for k in CardGateTransition.Kind.choices}
+            valid_gate_causes = {c[0] for c in CardGateTransition.Cause.choices}
 
             cards_to_create = []
             # Parallel list: the raw card_data dict for each Card instance so we
@@ -1963,6 +2070,8 @@ class BoardImportExportMixin:
                     due_date=card_data.get("due_date") or None,
                     weight=card_data.get("weight", 1),
                     position=card_data.get("position", 0),
+                    # Range-checked against the column's sub-columns (#1102).
+                    gates_passed=card_data.get("gates_passed", 0),
                     created_by=request.user,
                 )
                 # Restore archived state directly on the instance — bulk_create
@@ -2010,6 +2119,7 @@ class BoardImportExportMixin:
 
             movements_to_create = []      # (CardMovement obj, moved_at str or None)
             blocks_to_create = []         # CardBlock objs (#1149)
+            gate_transitions_to_create = []  # CardGateTransition objs (#1102)
             imported_activities = []      # (CardActivity obj, created_at str or None)
             external_refs_to_create = []
             field_values_to_create = []
@@ -2189,6 +2299,41 @@ class BoardImportExportMixin:
                     _imported_card_blocks(card_obj, card_data, column_map, request.user, history_on)
                 )
 
+                # Gate history (#1102), behind ``history`` like movements and
+                # blocks, and attributed the same way (Rule 5): the importer is
+                # the actor and the file's ``actor`` is kept only as text.
+                for gt_data in (card_data.get("gate_transitions", []) if history_on else []):
+                    kind = gt_data.get("kind")
+                    if not isinstance(kind, str) or kind not in valid_gate_kinds:
+                        continue
+                    cause = gt_data.get("cause")
+                    if not isinstance(cause, str) or cause not in valid_gate_causes:
+                        cause = CardGateTransition.Cause.IMPORT
+                    gt_col_name = gt_data.get("column") or ""
+                    gt_col = column_map.get(gt_col_name)
+                    sub_name = gt_data.get("sub_column") or ""
+                    sub_obj = sub_column_map.get((gt_col_name, sub_name)) if gt_col else None
+                    gate_transitions_to_create.append(CardGateTransition(
+                        card_id=card_pk,
+                        # bulk_create skips CardGateTransition.save().
+                        board_id=card_obj.board_id,
+                        card_uid=card_obj.uid,
+                        card_title=card_obj.title,
+                        column=gt_col,
+                        column_name=gt_col.name if gt_col else gt_col_name,
+                        column_uid=gt_col.uid if gt_col else "",
+                        sub_column_name=sub_name,
+                        sub_column_uid=sub_obj.uid if sub_obj else "",
+                        kind=kind,
+                        from_index=gt_data.get("from_index", 0),
+                        to_index=gt_data.get("to_index", 0),
+                        reason=gt_data.get("reason", ""),
+                        cause=cause,
+                        actor=request.user,
+                        imported_from_username=_imported_from_username(gt_data, "actor"),
+                        created_at=_aware_timestamp(gt_data.get("created_at")) or import_now,
+                    ))
+
                 # Imported activity log entries (field-change history)
                 for act_data in (card_data.get("activities", []) if history_on else []):
                     event_type = act_data.get("event_type", "")
@@ -2272,6 +2417,9 @@ class BoardImportExportMixin:
             # backfill pass is needed.
             if blocks_to_create:
                 CardBlock.objects.bulk_create(blocks_to_create)
+            # Gate history (#1102); created_at is a plain default, as above.
+            if gate_transitions_to_create:
+                CardGateTransition.objects.bulk_create(gate_transitions_to_create)
 
             # Imported activities with optional created_at backfill.
             if imported_activities:
@@ -3150,14 +3298,21 @@ class BoardImportExportMixin:
             from ..serializers import _swimlane_custom_field_prefetch
             prefetch_related_objects(
                 [board],
-                "columns",
+                # Sub-columns and stage tracks (#1102, #1921) ride the column
+                # prefetch so the per-column block below issues no query.
+                Prefetch(
+                    "columns",
+                    queryset=Column.objects.prefetch_related(
+                        "sub_columns", "stage_tracks__field_definition",
+                    ),
+                ),
                 # The swimlane prefetch carries its row field values (#1140) so
                 # the per-swimlane block below reads from cache rather than
                 # issuing two queries per row.
                 Prefetch(
                     "swimlanes",
                     queryset=Swimlane.objects.prefetch_related(
-                        _swimlane_custom_field_prefetch(), "track_exceptions"
+                        _swimlane_custom_field_prefetch(), "track_exceptions__field_definition",
                     ),
                 ),
             )
@@ -3168,7 +3323,11 @@ class BoardImportExportMixin:
             labels = board.labels.all()
             # Manual block history (#1149): JSON only, so the CSV branch does
             # not pay for queries it never reads.
-            prefetch_related_objects(cards, "blocks__blocked_by", "blocks__unblocked_by")
+            prefetch_related_objects(
+                cards, "blocks__blocked_by", "blocks__unblocked_by",
+                # Gate history (#1102), JSON only like blocks.
+                "gate_transitions__actor",
+            )
 
             cards_data = []
             for card in cards:
@@ -3266,6 +3425,25 @@ class BoardImportExportMixin:
                         }
                         for blk in sorted(card.blocks.all(), key=lambda b: (b.blocked_at, b.pk))
                     ],
+                    # Gated stages (#1102). Additive: the card's sub-column
+                    # index and its gate history, oldest first, restored with
+                    # the history option.
+                    "gates_passed": card.gates_passed,
+                    "gate_transitions": [
+                        {
+                            "kind": gt.kind,
+                            "from_index": gt.from_index,
+                            "to_index": gt.to_index,
+                            "column": gt.column_name,
+                            "sub_column": gt.sub_column_name,
+                            "reason": gt.reason,
+                            "cause": gt.cause,
+                            "actor": gt.actor.username if gt.actor else None,
+                            "created_at": gt.created_at.isoformat(),
+                            "imported_from_username": gt.imported_from_username,
+                        }
+                        for gt in sorted(card.gate_transitions.all(), key=lambda g: (g.created_at, g.pk))
+                    ],
                 })
 
             payload = {
@@ -3282,6 +3460,10 @@ class BoardImportExportMixin:
                         "allow_card_creation": col.allow_card_creation,
                         "is_done": col.is_done,
                         "policy": col.policy,
+                        # Gated stage (#1102) and its tracks (#1921), by name.
+                        # Additive keys; an older importer ignores them.
+                        "sub_columns": [sc.name for sc in col.sub_columns.all()],
+                        "tracks": [st.field_definition.name for st in col.stage_tracks.all()],
                     }
                     for col in columns
                 ],
@@ -3314,6 +3496,10 @@ class BoardImportExportMixin:
                         # Lane health status (#2243), the manual pin; an
                         # additive key, last so existing key order holds.
                         "health_status": sw.health_status,
+                        # Dimensions not applicable in this lane (#1921), by name.
+                        "not_applicable_tracks": sorted(
+                            exc.field_definition.name for exc in sw.track_exceptions.all()
+                        ),
                     }
                     for sw in swimlanes
                 ],
@@ -3350,6 +3536,9 @@ class BoardImportExportMixin:
                         "threshold_alert": cf.threshold_alert,
                         "threshold_warn_days": cf.threshold_warn_days,
                         "threshold_alert_days": cf.threshold_alert_days,
+                        # Dimension fields (#1921): additive; restored on import.
+                        "is_dimension": cf.is_dimension,
+                        "choice_resolutions": cf.choice_resolutions,
                     }
                     for cf in custom_field_definitions
                 ],

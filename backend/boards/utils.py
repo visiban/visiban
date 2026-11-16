@@ -57,7 +57,7 @@ def create_template_columns(board, template):
     # 500 that fails board creation entirely. The color gets the same rule:
     # a non-hex provider value falls back to the default rather than being
     # stored (#2093).
-    Column.objects.bulk_create([
+    columns = Column.objects.bulk_create([
         Column(
             board=board,
             name=col.get("name") or f"Column {i + 1}",
@@ -72,6 +72,57 @@ def create_template_columns(board, template):
         )
         for i, col in enumerate(template.columns_json)
     ])
+    _create_template_stages(board, template.columns_json, columns)
+
+
+def _template_names(raw, limit, max_length):
+    """Unique, non-empty, length-bounded names from a template list, in order."""
+    if not isinstance(raw, list):
+        return []
+    names = []
+    for value in raw:
+        if isinstance(value, str) and value.strip() and "\x00" not in value:
+            name = value.strip()[:max_length]
+            if name not in names:
+                names.append(name)
+    return names[:limit]
+
+
+def _create_template_stages(board, columns_json, columns):
+    """Sub-columns (#1102) and stage tracks (#1921) a template column carries.
+
+    Optional ``sub_columns: [names]`` and ``tracks: [names]`` on a template
+    column. Same leniency as the column dicts above (provider data may be
+    malformed): a sub-column list that does not have 2 to the cap valid names
+    is dropped rather than failing board creation. Each track becomes a
+    dimension dropdown with the "Add track" defaults, shared by name across
+    columns and bounded by the per-board custom field cap.
+    """
+    from .models import CustomFieldDefinition, StageTrack, SubColumn
+
+    sub_rows, track_rows, fields = [], [], {}
+    sub_max = SubColumn._meta.get_field("name").max_length
+    field_max = CustomFieldDefinition._meta.get_field("name").max_length
+    for col_data, column in zip(columns_json, columns):
+        if not isinstance(col_data, dict):
+            continue
+        subs = _template_names(col_data.get("sub_columns"), SubColumn.MAX_PER_COLUMN, sub_max)
+        if len(subs) >= 2:
+            sub_rows += [SubColumn(column=column, position=p, name=n) for p, n in enumerate(subs)]
+        for p, name in enumerate(
+            _template_names(col_data.get("tracks"), CustomFieldDefinition.MAX_PER_BOARD, field_max)
+        ):
+            if name not in fields:
+                if len(fields) >= CustomFieldDefinition.MAX_PER_BOARD:
+                    continue
+                fields[name] = CustomFieldDefinition.objects.create(
+                    board=board, name=name, field_type="dropdown", position=len(fields),
+                    choices_json=["Done", "Not applicable"], is_dimension=True,
+                    choice_resolutions={"Done": "satisfied", "Not applicable": "not_applicable"},
+                )
+            track_rows.append(StageTrack(column=column, field_definition=fields[name], position=p))
+    SubColumn.objects.bulk_create(sub_rows)
+    StageTrack.objects.bulk_create(track_rows)
 
 
 def extract_mentions(text: str) -> set:
