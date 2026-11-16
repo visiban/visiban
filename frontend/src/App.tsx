@@ -455,7 +455,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         {importSummary && board && (
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
         )}
-        {loading && <BoardSkeleton />}
+        {/* Only before the first board arrives: move-rollback and retry reloads
+            set `loading` too, and must not cover or announce over a live board. */}
+        {loading && !board && <BoardSkeleton />}
         {error && <BoardLoadError onRetry={reload} />}
         {board && (
           // Keyed by board id (#1146): the /boards/:id route keeps this page

@@ -64,7 +64,7 @@ export function BoardOfflineBanner({ failed = false }: { failed?: boolean }) {
     >
       {failed
         ? "Live updates are off, so other people's changes may not show. Reload the page to reconnect."
-        : "Reconnecting. Moves are paused until the board is live again."}
+        : "You're offline. Changes may not save until the board reconnects."}
     </div>
   );
 }

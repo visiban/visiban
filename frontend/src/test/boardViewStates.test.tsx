@@ -296,7 +296,7 @@ describe('BoardView states (#2276)', () => {
     socketState.status = status
     render(<BoardView />)
     expect(screen.getByTestId('board-offline-banner')).toBeInTheDocument()
-    expect(screen.getByTestId('board-offline-banner')).toHaveTextContent(status === 'failed' ? 'Live updates are off' : 'Moves are paused')
+    expect(screen.getByTestId('board-offline-banner')).toHaveTextContent(status === 'failed' ? 'Live updates are off' : 'Changes may not save')
   })
 
   it('no offline banner while connected', () => {
