@@ -304,6 +304,14 @@ describe('BoardView card peek (#2273)', () => {
     expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
   })
 
+  it('Shift+click while the detail panel is open swaps the panel, not the peek (#2358)', async () => {
+    render(<BoardView />)
+    await plainClick('open Card 1')
+    await peekClick('open Card 2')
+    expect(screen.getByTestId('card-detail')).toHaveTextContent('Card 2')
+    expect(screen.queryByTestId('card-peek-sheet')).not.toBeInTheDocument()
+  })
+
   it('Open card closes the peek and opens the detail sheet', async () => {
     render(<BoardView />)
     await peekClick('open Card 1')

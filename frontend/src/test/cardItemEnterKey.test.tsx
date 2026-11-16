@@ -5,9 +5,9 @@ import type { Card } from '../types'
 
 // Enter or Space on the focused card opens it (#2273): the card is a div role=button, so the browser never turns the key into a click.
 
-const dnd = vi.hoisted(() => ({ isDragging: false }))
+const dnd = vi.hoisted(() => ({ isDragging: false, onMouseDown: vi.fn() }))
 vi.mock('@dnd-kit/core', () => ({
-  useDraggable: () => ({ attributes: { role: 'button', tabIndex: 0 }, listeners: {}, setNodeRef: () => {}, isDragging: dnd.isDragging }),
+  useDraggable: () => ({ attributes: { role: 'button', tabIndex: 0 }, listeners: { onMouseDown: dnd.onMouseDown }, setNodeRef: () => {}, isDragging: dnd.isDragging }),
 }))
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -63,6 +63,27 @@ describe('CardItem keyboard open (#2273)', () => {
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
     expect(onClick).toHaveBeenCalledWith({ peek: true })
+  })
+
+  it('presses on Show summary neither open the card nor start a drag (#2358)', () => {
+    const onClick = vi.fn()
+    const { getByRole } = render(<CardItem card={makeCard()} onClick={onClick} onOpenMenu={() => {}} />)
+    const btn = getByRole('button', { name: 'Show summary' })
+    fireEvent.keyDown(btn, { key: 'Enter' })
+    fireEvent.pointerDown(btn)
+    fireEvent.mouseDown(btn)
+    fireEvent.touchStart(btn)
+    expect(onClick).not.toHaveBeenCalled()
+    expect(dnd.onMouseDown).not.toHaveBeenCalled()
+  })
+
+  it('reserves title padding at fine pointers without waiting for hover (#2358)', () => {
+    const { container, rerender } = render(<CardItem card={makeCard()} onClick={() => {}} onOpenMenu={() => {}} />)
+    const title = () => container.querySelector('p.leading-snug') as HTMLElement
+    expect(title().className).toContain('[@media(pointer:fine)]:pr-14')
+    expect(title().className).not.toContain('group-hover:pr-14')
+    rerender(<CardItem card={makeCard()} onClick={() => {}} />)
+    expect(title().className).not.toContain('[@media(pointer:fine)]:pr-14')
   })
 
   it('has no Show summary button without a menu, and none on a read-only card', () => {

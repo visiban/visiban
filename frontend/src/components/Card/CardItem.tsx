@@ -836,7 +836,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className={`absolute top-[5px] right-6 z-10 w-6 h-6 [@media(pointer:coarse)]:top-0 [@media(pointer:coarse)]:right-16 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
+          className={`absolute top-[7px] right-6 z-10 w-6 h-6 [@media(pointer:coarse)]:top-0 [@media(pointer:coarse)]:right-16 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
             selected ? "[@media(pointer:coarse)]:flex [@media(hover:hover)]:group-hover:flex group-focus-within:flex" : "[@media(hover:hover)]:group-hover:flex group-focus-within:flex"
           } focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
@@ -846,11 +846,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         </button>
       )}
       <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
-        {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
+        {/* The title keeps clear of the card-face overlay controls. Show summary reserves pr-14 at fine pointers permanently, so hover never re-wraps the title; ⋯ reserves its width at coarse pointers only while shown. */}
         <RowWrap {...(denseRow ? { className: "flex items-center gap-2", "data-testid": "card-dense-row" } : {})}>
         <p title={calmFace && !compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : calmFace ? `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}` : "text-sm text-fg line-clamp-2"}${
           menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-28" : " [@media(pointer:coarse)]:group-focus-within:pr-28") : ""
-        }${menuEnabled && onClick ? " [@media(pointer:fine)]:group-hover:pr-14 [@media(pointer:fine)]:group-focus-within:pr-14" : ""}`}>
+        }${menuEnabled && onClick ? " [@media(pointer:fine)]:pr-14" : ""}`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
           {/* The compact layout has no status line, so the overdue border would be
               the only signal; a flag and words keep it from resting on color alone (#2272). */}

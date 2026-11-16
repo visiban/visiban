@@ -18,7 +18,7 @@ import { blockedElapsedMs, formatBlockedDuration, isManuallyBlocked } from "./bl
 import { failureReason } from "./moveFailure";
 import { isAssignableMember } from "./assignableMembers";
 
-/** Every card action. `open` and `delete` are menu-only; the palette offers the rest. */
+/** Every card action. `open`, `summary` and `delete` are menu-only (`PALETTE_CARD_ACTIONS` omits them); the palette offers the rest. */
 export type CardActionId =
   | "open"
   | "summary"

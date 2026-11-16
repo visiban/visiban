@@ -177,7 +177,7 @@ describe('useBoardPan', () => {
     expect((el as unknown as { scrollLeft: number }).scrollLeft).toBe(100)
   })
 
-  it('does not arm pan when Space is pressed on a focused card face (it opens the peek)', () => {
+  it('does not arm pan when Space is pressed on a focused card face (it opens the detail panel)', () => {
     const el = makeScrollEl()
     renderPan(el)
     const card = document.createElement('div')

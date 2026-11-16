@@ -1001,7 +1001,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  // Card peek (#2273): the read-only side sheet a board click opens. Open card
+  // Card peek (#2273): the read-only side sheet that Shift+click, Shift+Enter and Show summary open. Open card
   // hands the card to selectedCard (the full detail sheet); the two never show
   // together, and neither does the peek with the activity drawer.
   const [peekCardId, setPeekCardId] = useState<number | null>(null);
