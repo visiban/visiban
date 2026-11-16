@@ -17,7 +17,8 @@ test.describe('board activity drawer', () => {
     // the drawer is open, so scope the locator to the drawer's <aside> region.
     const drawer = page.getByRole('complementary').filter({ hasText: 'Activity' })
     await expect(drawer.getByRole('button', { name: 'Close activity drawer' })).toBeVisible({ timeout: 2_000 })
-    await expect(page.getByRole('group', { name: 'Activity kind filter' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Filter activity' })).toBeVisible()
+    await expect(page.getByText('Live · board events')).toHaveCount(0)
     // #2274: one drawer, two tabs; Recent is selected on open.
     await expect(page.getByRole('tab', { name: 'Recent' })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('tab', { name: 'Archived' })).toBeVisible()
@@ -39,6 +40,41 @@ test.describe('board activity drawer', () => {
     const box = await drawer.boundingBox()
     expect(box!.x + box!.width).toBeLessThanOrEqual(1440)
     await page.screenshot({ path: process.env.DRAWER_SHOT ?? 'test-results/activity-drawer-1440.png' })
+  })
+
+  test('populated feed renders in both themes at 1440px for visual parity (#2316)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await routeAuth(page)
+    const mk = (id: number, title: string, column: number) => ({
+      ...CARD, id, uid: `card0000${id}a`, title, column, last_moved_at: new Date().toISOString(),
+    })
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/full/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(BOARD_FULL) }),
+    )
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, results: [CARD] }) }),
+    )
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/saved-filters/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
+    )
+    await page.routeWebSocket(`**/ws/boards/${BOARD_FULL.id}/`, (ws) => {
+      ws.send(JSON.stringify({ event: 'connected', data: {} }))
+      setTimeout(() => {
+        ws.send(JSON.stringify({ event: 'card.created', data: mk(98, 'Zurich Insurance renewal', 1) }))
+        ws.send(JSON.stringify({ event: 'card.created', data: mk(99, 'Draft onboarding checklist', 1) }))
+      }, 200)
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Open activity drawer' }).click()
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer.getByText('Zurich Insurance renewal')).toBeVisible({ timeout: 3_000 })
+    await expect(drawer.getByText('Draft onboarding checklist')).toBeVisible()
+    const dir = process.env.DRAWER_SHOT_DIR ?? 'test-results'
+    for (const theme of ['dark', 'light'] as const) {
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme)
+      await page.screenshot({ path: `${dir}/activity-drawer-populated-${theme}-1440.png` })
+    }
   })
 
   test('is a full-height right edge panel at 390px (#2274)', async ({ page }) => {
@@ -114,7 +150,22 @@ test.describe('board activity drawer', () => {
     const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
     await page.keyboard.press(`${modifier}+\\`)
 
-    // The drawer renders the activity headline text — `created <card title>`.
-    await expect(page.getByText('created Remote-created card')).toBeVisible({ timeout: 3_000 })
+    // #2316: the row's primary line is the card title, with "Created" beneath it.
+    const drawer = page.getByRole('complementary', { name: 'Activity' })
+    await expect(drawer.getByText('Remote-created card')).toBeVisible({ timeout: 3_000 })
+    await expect(drawer.getByText('Created', { exact: true })).toBeVisible()
+
+    // The kind filter lives behind the Filter button and works from the keyboard.
+    const filter = drawer.getByRole('button', { name: 'Filter activity' })
+    await filter.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Activity filters' })).toBeVisible()
+    await page.getByRole('button', { name: 'Members', exact: true }).focus()
+    await page.keyboard.press('Enter')
+    await expect(drawer.getByText('Remote-created card')).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: 'Filter activity, 1 active' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Activity filters' })).toHaveCount(0)
+    await expect(drawer).toBeVisible()
   })
 })

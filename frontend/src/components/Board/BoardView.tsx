@@ -846,6 +846,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         kind: "move",
         actor: movement?.user?.display_name ?? "Someone",
         headline: `moved ${card?.title ?? "a card"}`,
+        subject: card?.title,
         detail: movement ? `${movement.from_column_name} → ${movement.to_column_name}` : "",
       };
     } else if (event.event === "card.created") {
@@ -856,6 +857,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         kind: "create",
         actor: card.created_by?.display_name ?? "Someone",
         headline: `created ${card.title ?? "a card"}`,
+        subject: card.title,
         detail: "",
       };
     } else if (event.event === "member.added") {
