@@ -147,7 +147,10 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
                     const outlier = (mode === "age" ? sw.age_is_outlier : sw.throughput_is_outlier)?.[col];
                     const warning = (mode === "age" ? sw.age_is_warning : sw.throughput_is_warning)?.[col];
                     if (tier !== null && outlier !== undefined && warning !== undefined) {
-                      tier = outlier ? "high" : warning ? "warning" : "ok";
+                      // At a threshold of 0 the server calls every cell an outlier (mean >= 0) while the
+                      // ratio divides by max(1, 0), so there the flag may only confirm a red the
+                      // rounded value already shows. From 1 up the flag is exact and decides.
+                      tier = warning ? "warning" : outlier && (tier === "high" || threshold >= 1) ? "high" : "ok";
                     } else if (tier === "high" && outlier === false) {
                       // A server older than the warning flag (#2306): only the top tier is exact.
                       // Under the threshold by the unrounded value: yellow only if a yellow band

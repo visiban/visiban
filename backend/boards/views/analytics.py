@@ -105,14 +105,14 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                     child=serializers.BooleanField(),
                     help_text=(
                         "Whether the unrounded current-dwell mean is in the warning band: at or above "
-                        "stale_warning_pct of the threshold and not an outlier. Additive (#2306)."
+                        "stale_warning_pct of the threshold and below the threshold (a threshold of 0 counts as 1 day). Additive (#2306)."
                     ),
                 ),
                 "throughput_is_warning": serializers.DictField(
                     child=serializers.BooleanField(),
                     help_text=(
                         "Whether the unrounded completed-dwell mean is in the warning band: at or above "
-                        "stale_warning_pct of the threshold and not an outlier. Additive (#2306)."
+                        "stale_warning_pct of the threshold and below the threshold (a threshold of 0 counts as 1 day). Additive (#2306)."
                     ),
                 ),
                 "deal_velocity_days": serializers.FloatField(allow_null=True),
@@ -1416,13 +1416,14 @@ class BoardAnalyticsMixin:
         pct = board.stale_warning_pct
         warn_fraction = min(100, pct) / 100 if pct > 0 else None
 
-        def _warnings(means: dict, outliers: dict) -> dict:
+        def _warnings(means: dict) -> dict:
+            # ratio < 1 (not "not an outlier"): at threshold 0 every cell is an outlier
+            # (mean >= 0) yet a 0.3-day cell is still under the 1-day floor the ratio uses.
             return {
                 col.name: (
                     warn_fraction is not None
                     and means[col.name] is not None
-                    and not outliers[col.name]
-                    and means[col.name] / max(1, threshold) >= warn_fraction
+                    and warn_fraction <= means[col.name] / max(1, threshold) < 1
                 )
                 for col in active_columns
             }
@@ -1432,8 +1433,8 @@ class BoardAnalyticsMixin:
             sw["is_outlier"] = _flags(raw_avg)
             sw["age_is_outlier"] = _flags(raw_age)
             sw["throughput_is_outlier"] = _flags(raw_throughput)
-            sw["age_is_warning"] = _warnings(raw_age, sw["age_is_outlier"])
-            sw["throughput_is_warning"] = _warnings(raw_throughput, sw["throughput_is_outlier"])
+            sw["age_is_warning"] = _warnings(raw_age)
+            sw["throughput_is_warning"] = _warnings(raw_throughput)
 
         return Response({
             "days": days,

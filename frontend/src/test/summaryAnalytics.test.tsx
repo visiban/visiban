@@ -455,6 +455,32 @@ describe('AnalyticsView', () => {
     it('follows the server flag in In period mode too', async () => {
       expect((await served({ warning: false }, 'throughput')).className).toContain('bg-success')
     })
+    describe('threshold 0 counts as 1 day', () => {
+      const atZero = async (avg: number, warning: boolean) => {
+        mockGetBoardAnalytics.mockResolvedValue({
+          days: 30, columns: ['To Do'],
+          swimlanes: [{
+            id: 1, name: 'Customer A',
+            avg_days_per_column: { 'To Do': avg }, is_outlier: { 'To Do': true },
+            age_avg_days_per_column: { 'To Do': avg },
+            age_is_outlier: { 'To Do': true }, age_is_warning: { 'To Do': warning },
+            throughput_avg_days_per_column: { 'To Do': null },
+            throughput_is_outlier: { 'To Do': true }, throughput_is_warning: { 'To Do': false },
+            throughput_card_count_per_column: { 'To Do': 0 },
+            deal_velocity_days: null, stalled_cards: [],
+          }],
+          stalled_threshold_days: 0, staleness_threshold_days: 0, stale_warning_pct: 50,
+        })
+        renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+        return (await screen.findByText(`${avg}d`)).closest('td') as HTMLElement
+      }
+      it('renders yellow, not red, for 0.6 days', async () => {
+        expect((await atZero(0.6, true)).className).toContain('bg-warning')
+      })
+      it('renders green, not red, for 0.3 days', async () => {
+        expect((await atZero(0.3, false)).className).toContain('bg-success')
+      })
+    })
     it('turns red on the outlier flag whatever the rounded average says', async () => {
       expect((await served({ warning: false, outlier: true, avg: 13.9 })).className).toContain('bg-danger')
     })
