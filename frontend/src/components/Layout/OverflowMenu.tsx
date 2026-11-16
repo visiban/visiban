@@ -317,7 +317,7 @@ export default function OverflowMenu({
         aria-describedby={triggerDescribedBy}
         title={triggerTitle ?? triggerAriaLabel ?? ariaLabel}
         data-testid={triggerTestId}
-        className={triggerClassName ?? `relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        className={triggerClassName ?? `relative p-1.5 max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open
             ? "text-info-on-tint bg-info/10"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"

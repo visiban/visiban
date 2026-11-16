@@ -218,10 +218,10 @@ export default function App() {
                       the shared region and renders nothing itself. */}
                   {flags.demo_mode && <DemoWriteBlockedToast />}
                   {/* Mobile navigation bar — visible below lg breakpoint only */}
-                  <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
+                  <div data-testid="mobile-nav-bar" className="lg:hidden flex items-center gap-3 px-4 py-3 max-sm:py-0 max-sm:h-11 bg-sunken border-b border-line shrink-0">
                     <button type="button"
                       onClick={() => setMobileMenuOpen(true)}
-                      className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="text-fg-tertiary hover:text-fg transition p-1 max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       aria-label="Open navigation menu"
                       aria-expanded={mobileMenuOpen}
                     >
@@ -372,7 +372,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       onClick={handleStarToggle}
       disabled={!demoMode && starLoading}
       aria-disabled={demoMode ? true : undefined}
-      className={`text-sm transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      className={`text-sm max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         demoMode
           ? "text-fg-muted opacity-40 cursor-not-allowed"
           : isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"
@@ -410,7 +410,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
               <>
                 {starButton}
                 <HealthStatusControl
-                  className="ml-2"
+                  className="ml-2 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:justify-center"
                   collapseLabel
                   entityKind="board"
                   entityName={board.name}
