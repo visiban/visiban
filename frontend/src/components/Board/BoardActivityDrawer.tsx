@@ -103,6 +103,10 @@ export default function BoardActivityDrawer({
     setFilterOpen(false);
     filterBtnRef.current?.focus();
   }, 19.5);
+  // Leaving Recent closes the popover for good, so returning does not reopen it.
+  useEffect(() => {
+    if (drawerTab !== "recent") setFilterOpen(false);
+  }, [drawerTab]);
   useEffect(() => {
     if (!filterShown) return;
     const onDown = (e: MouseEvent) => {
@@ -110,8 +114,8 @@ export default function BoardActivityDrawer({
       if (filterPopRef.current?.contains(t) || filterBtnRef.current?.contains(t)) return;
       setFilterOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
   }, [filterShown]);
   // Focus moves into the popover on open so keyboard users can reach the options.
   useEffect(() => {
@@ -201,7 +205,7 @@ export default function BoardActivityDrawer({
             </svg>
             Filter
             {activeFilters > 0 && (
-              <span data-testid="activity-filter-count" aria-hidden="true" className="min-w-4 h-4 px-1 rounded-full bg-primary text-on-primary text-[10px] leading-4 text-center">
+              <span data-testid="activity-filter-count" aria-hidden="true" className="min-w-4 h-4 px-1 rounded-full bg-primary text-on-primary text-xs leading-4 text-center">
                 {activeFilters}
               </span>
             )}
@@ -268,9 +272,9 @@ export default function BoardActivityDrawer({
       ) : (
       <>
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-4 text-sm" tabIndex={0}>
+      <div className="flex-1 overflow-y-auto px-4 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" tabIndex={0}>
         {filtered.length === 0 ? (
-          <p className="text-fg-muted italic text-center py-8 text-xs">No activity yet</p>
+          <p className="text-fg-muted italic text-center py-8 text-xs">{activeFilters ? "No activity matches the filter" : "No activity yet"}</p>
         ) : (
           <ul className="divide-y divide-line">
             {filtered.map((entry) => {

@@ -214,7 +214,7 @@ describe("BoardActivityDrawer", () => {
       fireEvent.keyDown(document, { key: "Escape" });
       expect(onClose).toHaveBeenCalledTimes(1);
       openFilters();
-      fireEvent.mouseDown(document.body);
+      fireEvent.pointerDown(document.body);
       expect(screen.queryByRole("dialog", { name: "Activity filters" })).not.toBeInTheDocument();
     });
 
