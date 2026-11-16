@@ -505,7 +505,7 @@ The preference is stored per user in `localStorage` under the key `user:prefs:ca
 The toolbar's **Filter** button opens a panel with:
 
 - A **Find a field** box (focused on open) that narrows the rows below it by name.
-- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when you can see swimlane fields) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
+- One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Lanes** (when the board has a swimlane field you can filter on, two or more lanes, or a lane filter set) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time.
 - A **Filtered by** row at the top while any filter is active: one chip per active filter (click the **x**, or focus a chip and press Enter, Space or Delete, to remove it), **Clear all**, and **Save filter**, which asks for a name and saves like the filter bar does. Lane rules appear as **Lanes** chips.
 - Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
