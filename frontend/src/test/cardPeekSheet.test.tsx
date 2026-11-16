@@ -206,6 +206,40 @@ describe('CardPeekSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
   })
 
+  it('Move earlier / Move later reorder within the cell through onMoveCard, disabled at the ends (#2277)', async () => {
+    const p = setup({ cellOrder: { index: 1, count: 3 } })
+    await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+    expect(p.onMoveCard).toHaveBeenLastCalledWith(9, 2, 5, 0)
+    await userEvent.click(screen.getByRole('button', { name: 'Move later' }))
+    expect(p.onMoveCard).toHaveBeenLastCalledWith(9, 2, 5, 2)
+  })
+
+  it('disables Move earlier on the first card and Move later on the last', () => {
+    setup({ cellOrder: { index: 0, count: 2 } })
+    expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
+  })
+
+  it('offers no reorder alone in the cell', () => {
+    setup({ cellOrder: { index: 0, count: 1 } })
+    expect(screen.queryByTestId('card-peek-reorder')).not.toBeInTheDocument()
+  })
+
+  it('hides reorder from a viewer and on the grid (no cellOrder)', () => {
+    const { unmount } = render(<span />)
+    unmount()
+    setup({ canEdit: false, cellOrder: { index: 0, count: 2 } })
+    expect(screen.queryByTestId('card-peek-reorder')).not.toBeInTheDocument()
+  })
+
+  it('shows a refused or thrown reorder inline', async () => {
+    setup({ cellOrder: { index: 1, count: 2 }, onMoveCard: vi.fn().mockResolvedValueOnce({ ok: false, error: new Error('limit') }).mockRejectedValueOnce(new Error('boom')) })
+    await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Card could not be moved')
+    await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Card could not be moved')
+  })
+
   it('hides Move for a viewer', () => {
     setup({ canEdit: false })
     expect(screen.queryByRole('button', { name: 'Move' })).not.toBeInTheDocument()

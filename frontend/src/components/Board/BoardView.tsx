@@ -39,6 +39,7 @@ import { boardGridMinWidth, boardGridTemplate, clampColumnWidth, columnTrack, tr
 import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import PhoneBoard from "./PhoneBoard";
+import { cellOrderOf } from "../../utils/phoneReorder";
 import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import CardItem from "../Card/CardItem";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
@@ -2240,6 +2241,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, []);
   // Phone layout (#2277): there are no cells to dispatch to, so the request is handed to PhoneBoard.
   const [phoneAddRequest, setPhoneAddRequest] = useState<{ columnId: number; swimlaneId: number; nonce: number } | null>(null);
+  const clearPhoneAddRequest = useCallback(() => setPhoneAddRequest(null), []);
   const requestAddCard = useCallback((columnId: number, swimlaneId: number) => {
     if (isPhone) {
       setPhoneAddRequest({ columnId, swimlaneId, nonce: Date.now() });
@@ -3155,6 +3157,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onFocusLane={enterFocus}
               onExitFocus={exitFocus}
               addRequest={phoneAddRequest}
+              onAddRequestHandled={clearPhoneAddRequest}
+              allSwimlanes={board.swimlanes}
+              // The drag handlers' reorder paths: same endpoints, optimistic update and rollback.
+              onColumnsReordered={(ids) => { void onColumnsReordered(ids); }}
+              onSwimlanesReordered={(ids) => { void onSwimlanesReordered(ids); }}
+              hardWipEnforced={board.enforce_wip_hard}
+              healthAutoEnabled={board.health_auto_enabled}
             />
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
@@ -3492,6 +3501,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            // Phone only (#2277): reorder within the cell, which on the grid is a drag.
+            cellOrder={isPhone ? cellOrderOf(board.cards, peekCard) : undefined}
             userDateFormat={userDateFormat}
             userTimezone={userTimezone}
           />

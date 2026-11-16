@@ -490,6 +490,37 @@ function placeCardOptimistically(
   return { ...placed, column_entered_at: isDone ? null : now };
 }
 
+/**
+ * A reorder within one cell (#2277, the phone's Move earlier / Move later):
+ * placing only the moved card would leave it tied on `position` with the
+ * sibling it passed, so the cell would not visibly change until the
+ * `card.moved` frame's `sibling_positions` arrived. Renumber the cell the way
+ * the server does (compact, then insert at the clamped index) and return the
+ * siblings' old positions so a rollback can restore them. The server's
+ * numbers still win: the frame's pairs overwrite these when they differ.
+ */
+export function reorderWithinCellOptimistically(
+  cards: Card[], cardId: number, position: number,
+): { cards: Card[]; previous: Map<number, number> } {
+  const moved = cards.find((c) => c.id === cardId);
+  const previous = new Map<number, number>();
+  if (!moved) return { cards, previous };
+  const siblings = cards
+    .filter((c) => c.id !== cardId && c.column === moved.column && c.swimlane === moved.swimlane && !c.archived_at)
+    .sort((a, b) => a.position - b.position);
+  const at = Math.max(0, Math.min(position, siblings.length));
+  const next = new Map<number, number>();
+  siblings.forEach((c, i) => next.set(c.id, i >= at ? i + 1 : i));
+  next.set(cardId, at);
+  const out = cards.map((c) => {
+    const p = next.get(c.id);
+    if (p === undefined || p === c.position) return c;
+    if (c.id !== cardId) previous.set(c.id, c.position);
+    return { ...c, position: p };
+  });
+  return { cards: out, previous };
+}
+
 export function useBoard() {
   const { id } = useParams<{ id: string }>();
   const boardId = Number(id);
@@ -756,8 +787,15 @@ export function useBoard() {
     // the ref so this callback does not depend on the `board` state value.
     const before = boardRef.current.cards.find((c) => c.id === cardId);
     const movedAt = new Date().toISOString();
+    const sameCell = before !== undefined && before.column === columnId && before.swimlane === swimlaneId;
+    let siblingsBefore = new Map<number, number>();
     setBoard((b) => {
       if (!b) return b;
+      if (sameCell) {
+        const r = reorderWithinCellOptimistically(b.cards, cardId, position);
+        siblingsBefore = r.previous;
+        return { ...b, cards: r.cards };
+      }
       return {
         ...b,
         cards: b.cards.map((c) =>
@@ -794,7 +832,14 @@ export function useBoard() {
       // Roll back the optimistic update, leaving frames that landed meanwhile.
       setBoard((b) => {
         if (!b) return b;
-        const cards = rollbackMovedCard(b.cards, before);
+        let cards = rollbackMovedCard(b.cards, before);
+        // A same-cell reorder also renumbered the siblings; put them back.
+        if (siblingsBefore.size > 0) {
+          cards = cards.map((c) => {
+            const p = siblingsBefore.get(c.id);
+            return p === undefined ? c : { ...c, position: p };
+          });
+        }
         return cards === b.cards ? b : { ...b, cards };
       });
       // On 409, surface a structured error for the UI to display.

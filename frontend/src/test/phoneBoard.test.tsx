@@ -1,11 +1,30 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { createCard } from '../api/cards'
 import PhoneBoard from '../components/Board/PhoneBoard'
 import type { Card, Column, Swimlane } from '../types'
+import { patchSwimlane } from '../api/boards'
+import { stepOrder, cellOrderOf } from '../utils/phoneReorder'
 
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
+vi.mock('../api/boards', () => ({ patchSwimlane: vi.fn() }))
+// Stubs that expose the wiring: the real controls have their own suites.
+vi.mock('../components/Common/HealthStatusControl', () => ({
+  default: (p: { entityName: string; canEdit: boolean; trigger?: string; onSave: (v: string | null) => Promise<unknown>; onOpenChange?: (o: boolean) => void; className?: string }) => (
+    <span data-testid="health-stub" data-can-edit={String(p.canEdit)} data-trigger={p.trigger} className={p.className}>
+      {p.canEdit && <button onClick={() => { p.onOpenChange?.(true); void p.onSave('at_risk'); }}>set-health {p.entityName}</button>}
+    </span>
+  ),
+}))
+vi.mock('../components/Board/ColumnPolicyPopover', () => ({
+  default: (p: { columnName: string; onEdit?: () => void; onDismiss: () => void }) => (
+    <div role="dialog" aria-label={`Policy ${p.columnName}`}>
+      {p.onEdit && <button onClick={p.onEdit}>edit-policy</button>}<button onClick={p.onDismiss}>dismiss-policy</button>
+    </div>
+  ),
+}))
 vi.mock('../components/Board/EditSwimlaneModal', () => ({
   default: (p: { swimlane: { name: string }; onUpdated: (s: unknown) => void; onDeleted: (id: number) => void; onClose: () => void }) => (
     <div role="dialog" aria-label="Edit Swimlane"><span>{p.swimlane.name}</span>
@@ -13,8 +32,8 @@ vi.mock('../components/Board/EditSwimlaneModal', () => ({
   ),
 }))
 vi.mock('../components/Board/EditColumnModal', () => ({
-  default: (p: { column: { name: string }; onUpdated: (c: unknown) => void; onRequestDelete: (c: unknown) => void; onClose: () => void }) => (
-    <div role="dialog" aria-label="Edit Column"><span>{p.column.name}</span>
+  default: (p: { column: { name: string }; initialTab?: string; onUpdated: (c: unknown) => void; onRequestDelete: (c: unknown) => void; onClose: () => void }) => (
+    <div role="dialog" aria-label="Edit Column"><span>{p.column.name}</span><span data-testid="col-tab">{p.initialTab ?? 'settings'}</span>
       <button onClick={() => p.onUpdated({ id: 8 })}>save-col</button><button onClick={() => p.onRequestDelete(p.column)}>delete-col</button><button onClick={p.onClose}>close-col</button></div>
   ),
 }))
@@ -246,3 +265,130 @@ describe('PhoneBoard editing controls (#2277)', () => {
     expect(screen.queryByRole('button', { name: /Add card/ })).not.toBeInTheDocument()
   })
 })
+
+describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
+  const policy = { entry: [{ id: 'e1', text: 'Has owner', confirm: false }], done: [] }
+  const lanes = [
+    lane(1, 'North'),
+    { ...lane(2, 'APAC'), health_status: 'on_track', effective_health_status: 'on_track' } as unknown as Swimlane,
+  ]
+
+  it('shows a viewer the policy and a set lane health read-only, and nothing for an unset lane', async () => {
+    const user = userEvent.setup()
+    setup({ columns: [col(1, 'Prospect', { policy } as unknown as Partial<Column>), col(2, 'Qualified')], swimlanes: lanes, canEdit: false })
+    const stubs = screen.getAllByTestId('health-stub')
+    expect(stubs).toHaveLength(1)
+    expect(stubs[0]).toHaveAttribute('data-can-edit', 'false')
+    expect(stubs[0].className).toContain('!min-h-11')
+    await user.click(screen.getByRole('button', { name: /Column policy for Prospect: 1 entry criterion, 0 done criteria/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Policy Prospect' })
+    expect(within(dialog).queryByText('edit-policy')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByText('dismiss-policy'))
+    expect(screen.queryByRole('dialog', { name: 'Policy Prospect' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-column-earlier')).not.toBeInTheDocument()
+  })
+
+  it('lets an admin set lane health and open the policy tab from the popover', async () => {
+    const user = userEvent.setup()
+    const onSwimlaneUpdated = vi.fn()
+    vi.mocked(patchSwimlane).mockResolvedValue({ ...lanes[0], health_status: 'at_risk', effective_health_status: 'at_risk' } as unknown as Swimlane)
+    setup({ isAdmin: true, onSwimlaneUpdated, onColumnUpdated: vi.fn(), onRequestDeleteColumn: vi.fn(), columns: [col(1, 'Prospect', { policy } as unknown as Partial<Column>)], swimlanes: lanes })
+    const stubs = screen.getAllByTestId('health-stub')
+    expect(stubs.map((s) => s.getAttribute('data-trigger'))).toEqual(['icon', 'pill'])
+    await user.click(screen.getByText('set-health North'))
+    expect(patchSwimlane).toHaveBeenCalledWith(1, 1, { health_status: 'at_risk' })
+    expect(onSwimlaneUpdated).toHaveBeenCalled()
+    await user.click(screen.getByTestId('phone-column-policy'))
+    await user.click(screen.getByText('edit-policy'))
+    expect(screen.getByTestId('col-tab')).toHaveTextContent('policy')
+  })
+
+  it('shows the weight budget when over it and the hard-limit glyph on an over hard limit', async () => {
+    const user = userEvent.setup()
+    setup({
+      columns: [col(1, 'Prospect', { wip_limit: 1, weight_limit: 2 }), col(2, 'Qualified', { weight_limit: 0 })],
+      cards: [card(1, 1, 1, { weight: 2 }), card(2, 1, 2, { weight: 3 }), card(4, 2, 1, { weight: 1 })],
+      hardWipEnforced: true,
+    })
+    const limit = screen.getByTestId('phone-column-limit')
+    expect(within(limit).getByText('Weight 5/2')).toBeInTheDocument()
+    expect(within(limit).getByTestId('phone-hard-limit')).toBeInTheDocument()
+    expect(within(limit).getByText(', hard limit')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /Qualified/ }))
+    // Weight over budget without a WIP limit still shows the line, without a meter.
+    expect(within(screen.getByTestId('phone-column-limit')).getByText('Weight 1/0')).toBeInTheDocument()
+    expect(screen.queryByRole('meter')).not.toBeInTheDocument()
+  })
+
+  it('shows no glyph on a soft limit', () => {
+    setup()
+    expect(screen.queryByTestId('phone-hard-limit')).not.toBeInTheDocument()
+  })
+
+  it('clears an outside add request once handled, so a remount does not reopen the input', () => {
+    function Host({ show }: { show: boolean }) {
+      const [req, setReq] = useState<{ columnId: number; swimlaneId: number; nonce: number } | null>({ columnId: 2, swimlaneId: 1, nonce: 7 })
+      return show ? (
+        <PhoneBoard columns={[col(1, 'Prospect'), col(2, 'Qualified')]} swimlanes={[lane(1, 'North')]} cards={[]} boardId={1} canEdit
+          filteredCardIds={null} collapsedSwimlaneIds={new Set()} onToggleSwimlane={() => {}} selectedCardIds={new Set()}
+          onToggleCardSelection={() => {}} onCardClick={() => {}} addRequest={req} onAddRequestHandled={() => setReq(null)} />
+      ) : null
+    }
+    const { rerender } = render(<Host show />)
+    expect(screen.getByTestId('phone-add-card')).toBeInTheDocument()
+    rerender(<Host show={false} />)
+    rerender(<Host show />)
+    expect(screen.queryByTestId('phone-add-card')).not.toBeInTheDocument()
+  })
+
+  it('drops the add input and its error when the column changes', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createCard).mockRejectedValue(new Error('x'))
+    setup()
+    await user.click(screen.getAllByRole('button', { name: /Add card/ })[0])
+    await user.type(screen.getByLabelText(/New card title/), 'A{Enter}')
+    expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /Qualified/ }))
+    expect(screen.queryByText('Failed to add card.')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-add-card')).not.toBeInTheDocument()
+  })
+
+  it('moves the selected column earlier or later through the reorder path, disabled at the ends', async () => {
+    const user = userEvent.setup()
+    const onColumnsReordered = vi.fn()
+    const all = [col(1, 'Prospect'), col(2, 'Hidden'), col(3, 'Qualified'), col(4, 'Won')]
+    setup({ isAdmin: true, onColumnsReordered, allColumns: all, columns: [all[0], all[2], all[3]] })
+    expect(screen.getByTestId('phone-column-earlier')).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Move column Prospect later' }))
+    expect(onColumnsReordered).toHaveBeenLastCalledWith([2, 3, 1, 4])
+    await user.click(screen.getByRole('tab', { name: /Won/ }))
+    expect(screen.getByTestId('phone-column-later')).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Move column Won earlier' }))
+    expect(onColumnsReordered).toHaveBeenLastCalledWith([1, 2, 4, 3])
+  })
+
+  it('moves a lane earlier or later, admins only, disabled at the ends', async () => {
+    const user = userEvent.setup()
+    const onSwimlanesReordered = vi.fn()
+    setup({ isAdmin: true, onSwimlanesReordered, allSwimlanes: [lane(1, 'North'), lane(2, 'APAC'), lane(3, 'Gone')] })
+    expect(screen.getByRole('button', { name: 'Move swimlane North earlier' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move swimlane APAC later' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Move swimlane APAC earlier' }))
+    expect(onSwimlanesReordered).toHaveBeenCalledWith([2, 1, 3])
+  })
+
+  it('offers no reorder to a non-admin', () => {
+    setup({ isAdmin: false, onSwimlanesReordered: vi.fn(), onColumnsReordered: vi.fn() })
+    expect(screen.queryByTestId('phone-lane-earlier')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-column-later')).not.toBeInTheDocument()
+  })
+
+  it('stepOrder and cellOrderOf compute the step and the place in the cell', () => {
+    expect(stepOrder([1, 2, 3], [1, 3], 9, 1)).toBeNull()
+    expect(stepOrder([1, 2, 3], [1, 3], 3, 1)).toBeNull()
+    expect(stepOrder([1, 3], [1, 2, 3], 1, 1)).toBeNull()
+    const cards = [card(1, 1, 1, { position: 1 }), card(2, 1, 1, { position: 0 }), card(3, 1, 2), card(4, 1, 1, { position: 2, archived_at: 'x' } as Partial<Card>)]
+    expect(cellOrderOf(cards, cards[0])).toEqual({ index: 1, count: 2 })
+  })
+})
+

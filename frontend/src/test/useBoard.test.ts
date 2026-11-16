@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
-import { useBoard } from '../hooks/useBoard'
+import { useBoard, reorderWithinCellOptimistically } from '../hooks/useBoard'
 import { swimlaneForRole } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
@@ -524,6 +524,39 @@ describe('useBoard', () => {
     expect(outcome).toEqual({ ok: true })
     expect(mockMoveCard).toHaveBeenCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0, version: 1 })
     expect(result.current.board!.cards[0].column).toBe(11)
+  })
+
+  it('moveCard within one cell renumbers the siblings optimistically and restores them on failure (#2277)', async () => {
+    const board = makeBoard()
+    const b = { ...board.cards[0], id: 101, uid: 'carduid00009', position: 1, title: 'B' }
+    const c = { ...board.cards[0], id: 102, uid: 'carduid00010', position: 2, title: 'C' }
+    board.cards = [board.cards[0], b, c]
+    mockGetBoardFull.mockResolvedValue(board)
+    let reject: (e: unknown) => void = () => {}
+    mockMoveCard.mockReturnValue(new Promise((_, r) => { reject = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    let pending: Promise<unknown> = Promise.resolve()
+    act(() => { pending = result.current.moveCard(102, 10, 20, 1) })
+    const order = () => [...result.current.board!.cards].sort((x, y) => x.position - y.position).map((x) => x.id)
+    expect(order()).toEqual([100, 102, 101])
+    await act(async () => { reject(new Error('boom')); await pending })
+    expect(order()).toEqual([100, 101, 102])
+    expect(result.current.board!.cards.map((x) => x.position)).toEqual([0, 1, 2])
+  })
+
+  it('reorderWithinCellOptimistically clamps, skips archived cards and ignores an unknown card', () => {
+    const base = makeBoard().cards[0]
+    const cards = [
+      { ...base, id: 1, position: 0 }, { ...base, id: 2, position: 1 },
+      { ...base, id: 3, position: 5, archived_at: '2026-01-01' },
+    ]
+    const r = reorderWithinCellOptimistically(cards, 1, 99)
+    expect(r.cards.find((x) => x.id === 1)!.position).toBe(1)
+    expect(r.cards.find((x) => x.id === 2)!.position).toBe(0)
+    expect(r.cards[2]).toBe(cards[2])
+    expect(r.previous).toEqual(new Map([[2, 1]]))
+    expect(reorderWithinCellOptimistically(cards, 42, 0).cards).toBe(cards)
   })
 
   it('moveCard rolls back on error and reports the failure to the caller', async () => {
