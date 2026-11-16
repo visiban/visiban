@@ -173,7 +173,7 @@ See [Change Feed](events.md) for the full contract, retention, and the reconnect
 {"board": {"id": 1, "computed_health_status": "at_risk", "health_computed_at": "2026-11-15T02:00:04Z", "...": "..."}, "swimlanes": [{"id": 4, "computed_health_status": "at_risk", "...": "..."}]}
 ```
 
-`board` is the board as `GET /boards/{id}/` returns it; `swimlanes` are the board's lanes as `GET .../swimlanes/` returns them. "Today" for overdue is the server's date in UTC (`TIME_ZONE`), so for a team far from UTC a card can turn overdue a few hours early or late. This endpoint and its fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
+`board` is the board as `GET /boards/{id}/` returns it; `swimlanes` are the board's lanes as `GET .../swimlanes/` returns them. "Today" for overdue is the date in the instance time zone (`INSTANCE_TIMEZONE`, UTC by default; see [Instance time zone](../administration/configuration.md#instance-time-zone)), so for a team far from that zone a card can turn overdue a few hours early or late. This endpoint and its fields follow the 1.0+ API stability rules: fields may be added, never removed or retyped.
 
 ### `GET /api/v1/boards/{id}/health-history/`
 

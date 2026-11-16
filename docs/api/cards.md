@@ -127,7 +127,7 @@ Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an
 | `?swimlane=<id>` | Filter by swimlane ID |
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
-| `?overdue=true` | Cards past their due date (due date is set and is before today). `false` returns the rest: cards with no due date or a due date of today or later |
+| `?overdue=true` | Cards past their due date (due date is set and is before today in `INSTANCE_TIMEZONE`: UTC by default; before 1.3, the server host's local date). `false` returns the rest: cards with no due date or a due date of today or later |
 | `?blocked=true` | Cards that are blocked, manually or by an active `blocks` relation (the card's `is_blocked`). `false` returns the rest. *Added in 1.3* (#1149) |
 | `?ordering=<field>` | Sort results. Prefix with `-` for descending. Allowed fields: `position` (default), `due_date`, `created_at`, `priority`. Example: `?ordering=-due_date` |
 

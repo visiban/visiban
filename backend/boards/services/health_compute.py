@@ -18,8 +18,8 @@ Rules (owner decisions 2026-11-14 and 2026-11-15; frozen at 1.3 GA):
 * ``health_off_track_cards`` is an **absolute** count: a lane with at least
   that many flagged cards is off track, with at least one it is at risk,
   otherwise on track. A lane with no open cards computes no status (null).
-* "Today" for overdue is ``timezone.localdate()``, UTC on a default install;
-  a team far from UTC can see a card turn overdue a few hours early or late.
+* "Today" for overdue is ``card_signals.signal_today()``: the date in the
+  ``INSTANCE_TIMEZONE`` setting (UTC by default, #2312).
 
 Concurrency: the counts are read before any lock (one grouped query). The
 write is one transaction holding the board row ``FOR NO KEY UPDATE`` and
@@ -44,7 +44,7 @@ from groups.health import valid_health_status
 from groups.health_history import record_computed_health_change
 from groups.models import HealthStatus
 
-from ..card_signals import blocked_q, open_cards_q, overdue_q
+from ..card_signals import blocked_q, open_cards_q, overdue_q, signal_today
 
 COUNT_KEYS = ("open", "overdue", "stale", "blocked", "flagged")
 EMPTY_COUNTS = dict.fromkeys(COUNT_KEYS, 0)
@@ -77,7 +77,7 @@ def lane_counts(board):
     from ..models import Card
     from ..serializers import _annotate_is_stale
 
-    today = timezone.localdate()
+    today = signal_today()
     cutoff = timezone.now() - datetime.timedelta(days=board.staleness_threshold_days)
     overdue = overdue_q(today)
     blocked = blocked_q()

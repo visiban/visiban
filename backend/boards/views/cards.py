@@ -1,6 +1,5 @@
 """CardViewSet — CRUD endpoints for cards on a board, including move, archive, comments, etc."""
 
-import datetime
 import logging
 import os
 from urllib.parse import urlencode
@@ -28,7 +27,7 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 
-from ..card_signals import blocked_q, overdue_q
+from ..card_signals import blocked_q, overdue_q, signal_today
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
 from ..services.notifications import (
@@ -239,9 +238,9 @@ class CardFilter(django_filters.FilterSet):
     )
 
     def filter_overdue(self, queryset, name, value):
-        # Shared predicate (#2245); this filter keeps the server-local date
-        # it has always used, and still covers done and archived cards.
-        condition = overdue_q(datetime.date.today())
+        # Shared predicate (#2245) and shared clock (#2312); this filter still
+        # covers done and archived cards.
+        condition = overdue_q(signal_today())
         return queryset.filter(condition) if value else queryset.exclude(condition)
 
     def filter_blocked(self, queryset, name, value):

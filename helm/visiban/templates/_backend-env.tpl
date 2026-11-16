@@ -222,6 +222,11 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: WEBHOOKS_ENABLED
   value: "true"
 {{- end }}
+{{- /* INSTANCE_TIMEZONE (#2312). Rendered only when set; the app defaults to UTC. */}}
+{{- if $ctx.Values.backend.settings.instanceTimezone }}
+- name: INSTANCE_TIMEZONE
+  value: {{ $ctx.Values.backend.settings.instanceTimezone | quote }}
+{{- end }}
 {{- if $ctx.Values.backend.settings.webhookAllowedPrivateTargets }}
 - name: WEBHOOK_ALLOWED_PRIVATE_TARGETS
   value: {{ $ctx.Values.backend.settings.webhookAllowedPrivateTargets | quote }}
