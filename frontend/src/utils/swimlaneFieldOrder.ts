@@ -1,5 +1,5 @@
 /**
- * Whether the swimlane "N fields" grid offers "Edit field order…" (#1458). Order
+ * Whether the swimlane "N fields" grid offers "Change field order" (#1458). Order
  * only means something with two or more field definitions, and the order is
  * board-wide and admin-edited, so members and viewers never get the shortcut.
  * Counts full board definitions, not the popover's visible entries.

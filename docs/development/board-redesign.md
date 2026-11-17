@@ -114,6 +114,7 @@ A full-width band replaces the left label panel. Left to right:
 - the lane's health status (the pill when set, the unset icon when not: one slot), then the lane actions beside the name (#2353): **Focus** (everyone) and a `⋮` menu (admins) holding "Edit swimlane…" and "Change field order…". There is no action cluster at the far right;
 - the first two lane fields as "Label value";
 - an "N fields" toggle (rotating chevron) that opens an aligned definition grid of every field on its own line in the band (#2354);
+  - Until #2356 ships, the toggle sits after the name and health pill and renders only when eligible fields exceed the two inline ones. The truncated-slot rule and the fixed-x-on-every-lane rule arrive with #2356 (fixed left zone, K slots, toggle track).
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
 
 The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
