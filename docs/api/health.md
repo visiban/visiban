@@ -48,9 +48,10 @@ Returns `200 OK` while the database is reachable. No authentication required. A 
 
 Valkey backs realtime updates and the cache. With it down the database is fine, so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
 
-**What works while Valkey is down** *(1.3+)*:
+**What works while Valkey is down** *(1.3+)*. Each cache call gives up after `REDIS_CACHE_SOCKET_TIMEOUT` / `REDIS_CACHE_SOCKET_CONNECT_TIMEOUT` (0.5 s by default), so this holds whether Valkey refuses connections or silently drops them:
 
 - **Ordinary REST requests succeed.** The global `anon` (300/hour) and `user` (5000/hour) rate limits **fail open**: they cannot read their counters, so they let the request through and are not enforced until Valkey returns. Maintenance mode, the registration mode and the uploads toggle are read from the database instead of the cache, so they keep their real values.
+- **The Git lens board fails closed** *(experimental, `GIT_LENS_ENABLED`)*: `GET /api/v1/git-lens/board/{board_id}/` returns `503` with `code: "lens_unavailable"` and makes no request to GitHub or GitLab until Valkey returns. Its per-user fetch budgets, refresh cooldown and fetch lock live in Valkey, so it cannot fetch without them and has no cached copy to serve.
 - **Endpoints with their own security rate limit fail closed** and return `500` until Valkey returns: login (including the failed-login lockout), registration, password change and reset, user search, invite-link redemption, share-link reads, and the other named limits in `DEFAULT_THROTTLE_RATES`. These limits exist to stop brute force and enumeration, so they are never silently lifted. With the default database session engine, signed-in users keep their sessions; with `SESSION_ENGINE` set to the cache-only engine, session requests return a retryable `503` until Valkey returns, and nobody is signed out.
 - **Realtime board updates stop**, and WebSocket connections cannot be opened, until Valkey returns.
 
@@ -69,7 +70,7 @@ The server log carries one `Cache unreachable (...)` warning per affected compon
 Only the database can fail readiness, so `db` is the only key that appears in `errors`, with the fixed value `unavailable`. (Before 1.3 a Valkey failure returned `503` with a `redis` key; it now returns the `200` `degraded` response above.) Failure details are written to the server log, not the response. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
 
 !!! warning "Deprecated *(1.3+)*: the `errors` object"
-    The `errors` object, and its component keys `db` and `redis`, are deprecated. They are still returned unchanged on every `503` for all of 1.x, but they name the backing services to anonymous callers, so they are planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)). After that the degraded body is `{"status": "error"}` only.
+    The `errors` object is deprecated. It is still returned, with its `db` key, on every `503` for all of 1.x, but it names the backing services to anonymous callers, so it is planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)). After that the not-ready body is `{"status": "error"}` only. The `redis` key no longer appears from 1.3, because a Valkey failure no longer fails readiness (see above).
 
     Decide readiness from the HTTP status code (`200` or `503`), or from `status`. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses `errors`, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (`Readiness check failed: database` or `Readiness degraded: cache`).
 

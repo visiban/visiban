@@ -30,7 +30,7 @@ To try Visiban, run `docker compose up --build`. To run it for real, use `init-p
 
 **You need:**
 
-- Docker and Docker Compose, **or** Python 3.12+ and Node.js 18+ to run from source
+- Docker and Docker Compose, **or** Python 3.12+ and Node.js 22+ to run from source
 - Valkey 8, the Redis-compatible, BSD-licensed fork. Docker Compose and Helm include it automatically. Real-time WebSocket updates require it.
 
 <a id="docker-recommended"></a>

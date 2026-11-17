@@ -31,6 +31,7 @@ from visiban.permissions import (
 )
 
 from accounts.admin_views import _ADMIN_PERMISSIONS
+from visiban.cache_outage import CACHE_OUTAGE_ERRORS, log_cache_outage
 
 from . import metrics, providers
 from .models import LensConnection
@@ -365,6 +366,26 @@ def _board_response(payload: dict, request) -> Response:
     return resp
 
 
+def _lens_cache_unavailable_response() -> Response:
+    """503 for a lens board read while Valkey/Redis is unreachable (#1465).
+
+    The cache is not just an accelerator here: it holds the per-viewer fetch
+    budgets, the force-refresh cooldown and the single-flight lock that keep the
+    lens's outbound provider traffic provably bounded (see ``lens_bounds()``).
+    With the cache down none of them can be consulted, so the conservative
+    answer is to make NO upstream fetch rather than fetch unbounded, and with no
+    cached copy readable there is nothing to serve. The rest of the board (cards,
+    REST) is unaffected; the lens comes back when the cache does.
+    """
+    return Response(
+        {
+            "detail": "The lens is temporarily unavailable. Try again shortly.",
+            "code": "lens_unavailable",
+        },
+        status=503,
+    )
+
+
 def _provider_error_response(exc) -> Response:
     if isinstance(exc, providers.LensRateLimited):
         return Response(
@@ -592,12 +613,17 @@ class LensBoardView(APIView):
         # sequential re-fetches and burn the shared provider quota for every board
         # on that provider (#1073 rbac-check finding).
         force = request.query_params.get("refresh") in ("1", "true")
-        if force and not _claim_force_refresh(conn, request.user):
-            force = False
+        try:
+            if force and not _claim_force_refresh(conn, request.user):
+                force = False
 
-        return self._serve_board(
-            request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force
-        )
+            return self._serve_board(
+                request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force
+            )
+        except CACHE_OUTAGE_ERRORS as exc:
+            # Fail CLOSED on the upstream fetch: see _lens_cache_unavailable_response.
+            log_cache_outage("the git lens board", exc)
+            return _lens_cache_unavailable_response()
 
     def _serve_board(self, request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force=False):
         """Stale-while-revalidate read with a single-flight lock.
@@ -671,14 +697,23 @@ class LensBoardView(APIView):
             return _provider_error_response(exc)
         finally:
             if holding_lock:
-                cache.delete(_lock_key(key))
+                try:
+                    cache.delete(_lock_key(key))
+                except CACHE_OUTAGE_ERRORS as exc:
+                    # The lock expires on its own TTL; never let its release
+                    # replace the response of a fetch that already happened.
+                    log_cache_outage("the git lens fetch lock release", exc)
 
         payload = data.to_dict()
-        cache.set(
-            key,
-            {"payload": payload, "soft_expires": time.time() + LENS_CACHE_SOFT_TTL},
-            LENS_CACHE_FILTERED_HARD_TTL if filters.active else LENS_CACHE_HARD_TTL,
-        )
+        try:
+            cache.set(
+                key,
+                {"payload": payload, "soft_expires": time.time() + LENS_CACHE_SOFT_TTL},
+                LENS_CACHE_FILTERED_HARD_TTL if filters.active else LENS_CACHE_HARD_TTL,
+            )
+        except CACHE_OUTAGE_ERRORS as exc:
+            # The fetch was budgeted and is done: serve it uncached (#1465).
+            log_cache_outage("the git lens board cache write", exc)
         metrics.record_board(provider, "fetched")
         return _board_response(payload, request)
 

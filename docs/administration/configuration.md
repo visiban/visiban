@@ -234,6 +234,7 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 A Valkey outage no longer takes the app offline. The readiness probe stays `200` and reports `{"status": "degraded"}`, so pods stay in the Service, and:
 
 - **Ordinary REST requests keep working.** The global `anon` and `user` rate limits fail open: they are not enforced until Valkey returns. Maintenance mode, registration mode and the uploads toggle are read from the database instead.
+- **The Git lens board fails closed** (experimental, `GIT_LENS_ENABLED`): it returns `503` with `code: "lens_unavailable"` and makes no GitHub or GitLab request until Valkey returns, because its fetch budgets and lock live in Valkey.
 - **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. With the default database session engine, signed-in users keep their sessions.
 - **Realtime updates stop** until Valkey returns.
 
@@ -474,7 +475,7 @@ Both endpoints are unauthenticated and do not require a valid `Host` header.
 
 **Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
 
-**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with working database and Valkey connections.
+**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with a working database connection. A Valkey outage does not fail this check: it answers `200 {"status": "degraded"}` (see [If Valkey goes down](#if-valkey-goes-down)). A load balancer that must also avoid a Valkey outage has to match `"status":"ok"` in the body.
 
 ---
 

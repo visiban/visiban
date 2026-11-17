@@ -25,6 +25,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
+from visiban.cache_outage import CACHE_OUTAGE_ERRORS, log_cache_outage
+
 from . import fuzz_stub, metrics
 from .types import (
     LensAxis,
@@ -567,7 +569,14 @@ def _github_milestone_map(repo_path: str, headers: dict, token: str | None, repo
             settings.SECRET_KEY.encode(), token.encode(), hashlib.sha256
         ).hexdigest()[:32]
         cache_key = f"git_lens:gh_milestones:v1:{credential}:{repo_path}"
-        cached = cache.get(cache_key)
+        try:
+            cached = cache.get(cache_key)
+        except CACHE_OUTAGE_ERRORS as exc:
+            # Only reached inside a fetch the view already budgeted, so a miss
+            # here costs one bounded call, not an unbounded one (#1465).
+            log_cache_outage("the git lens milestone map", exc)
+            cached = None
+            cache_key = None
         if cached is not None:
             return cached["map"], cached["complete"]
 
@@ -592,9 +601,12 @@ def _github_milestone_map(repo_path: str, headers: dict, token: str | None, repo
     }
     complete = len(batch) < PER_PAGE
     if cache_key is not None:
-        cache.set(
-            cache_key, {"map": mapping, "complete": complete}, GITHUB_MILESTONE_CACHE_TTL
-        )
+        try:
+            cache.set(
+                cache_key, {"map": mapping, "complete": complete}, GITHUB_MILESTONE_CACHE_TTL
+            )
+        except CACHE_OUTAGE_ERRORS as exc:
+            log_cache_outage("the git lens milestone map", exc)
     return mapping, complete
 
 
