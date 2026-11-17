@@ -152,8 +152,10 @@ Using the sub-agent results:
    cd frontend && npx tsc -p tsconfig.app.json --noEmit   # frontend type errors
    ```
    (Run the linter named in the failing job for lint failures.) Reproduce the failing
-   job's local equivalent, then let the local pre-push hook run on `git push`, before
-   every push — each push is a full pipeline.
+   job's local equivalent before every push — each push is a full pipeline. The repo's
+   only `pre-push` hook (optional, from `scripts/setup-hooks.sh`) just checks for issue
+   collisions; it is not a lint, type, or test gate, so that local reproduction is the
+   whole check.
 5. **Fix each root-cause cluster as its own commit, then push once for all of them.**
    Diagnose a failure as soon as its job fails; do not wait for the rest of the pipeline.
 
@@ -306,11 +308,15 @@ one, so whichever trips first stops the loop.
 **Escalate to Opus** (sub-agents default to Sonnet) when any of these holds, and name the
 criterion in the report:
 - a test failure where either the test or the code could be wrong — a design judgment
-- a rebase conflict in engine, sync, or migration files
+- a rebase conflict in a high-risk surface: `backend/*/migrations/`,
+  `backend/git_lens/` (pipeline derivation), `backend/boards/broadcast.py` or
+  `consumers.py` (WebSocket), or `backend/boards/template_sync.py`
 - a red job whose root cause is not in the log tail
 
-Escalating means running that diagnosis (Step 2 Sub-agent 1) with `model: "opus"`, or
-recommending the user rerun `/fix-mr` on Opus. There is no tier above Opus: a pipeline
+For the test-failure and unknown-root-cause criteria, escalating means running that
+diagnosis (Step 2 Sub-agent 1) with `model: "opus"`, or recommending the user rerun
+`/fix-mr` on Opus. For a rebase-conflict escalation (Step 3b), Sub-agent 1 does not
+diagnose conflicts, so recommend the user rerun `/fix-mr` on Opus. There is no tier above Opus: a pipeline
 Opus cannot diagnose after a strike-two stop goes to the user.
 
 ---
