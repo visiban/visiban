@@ -309,6 +309,58 @@ class SweepTests(OverlapBase):
             self.assertEqual(dispatch.sweep_expired_previous_secrets(), 0)
 
 
+class SweepWithoutADispatcherTests(OverlapBase):
+    """#2119: a board admin's webhook request clears that board's expired
+    previous secrets, so they do not stay at rest while no dispatcher runs.
+    ``run_once`` is never called in these tests."""
+
+    _in_window = SweepTests._in_window
+    _assert_cleared = SweepTests._assert_cleared
+
+    @ENABLED
+    def test_listing_clears_this_board_only(self):
+        other_admin, other_board = admin_and_board("Other hooks board")
+        other = make_subscription(
+            other_board, other_admin, previous_secret_encrypted="other",
+            previous_secret_expires_at=timezone.now() - timedelta(seconds=1),
+        )
+        self._in_window()
+        with patch.object(dispatch, "run_once", side_effect=AssertionError("no dispatcher here")):
+            r = self.client.get(_url(self.board.pk))
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.data[0]["previous_secret_expires_at"])
+        self._assert_cleared()
+        other.refresh_from_db()
+        self.assertEqual(other.previous_secret_encrypted, "other")
+
+    @ENABLED
+    def test_an_open_window_survives_a_request(self):
+        future = timezone.now() + timedelta(hours=1)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
+            previous_secret_encrypted="keep", previous_secret_expires_at=future
+        )
+        self.assertEqual(self.client.get(_url(self.board.pk, f"{self.sub.pk}/")).status_code, 200)
+        self.sub.refresh_from_db()
+        self.assertEqual((self.sub.previous_secret_encrypted, self.sub.previous_secret_expires_at), ("keep", future))
+
+    @override_settings(WEBHOOKS_ENABLED=False, DEMO_MODE=False)
+    def test_the_status_request_clears_with_the_feature_off(self):
+        self._in_window()
+        self.assertEqual(self.client.get(_url(self.board.pk, "status/")).status_code, 200)
+        self._assert_cleared()
+
+    @ENABLED
+    def test_a_non_admin_request_changes_nothing(self):
+        member = _make_user(email="hooks-member-2119@example.com")
+        _make_membership(self.board, member, role="member")
+        self._in_window()
+        client = APIClient()
+        client.force_login(member)
+        self.assertEqual(client.get(_url(self.board.pk)).status_code, 403)
+        self.sub.refresh_from_db()
+        self.assertEqual(self.sub.previous_secret_encrypted, "ciphertext")
+
+
 @ENABLED
 class UnreadableSecretTests(OverlapBase):
     def test_undecryptable_previous_is_omitted_logged_by_id_and_does_not_disable(self):

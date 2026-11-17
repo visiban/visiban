@@ -431,7 +431,7 @@ def _due_ids(now):
     )
 
 
-def sweep_expired_previous_secrets(*, now=None) -> int:
+def sweep_expired_previous_secrets(*, now=None, board_id=None) -> int:
     """Clear previous secrets whose overlap has passed. Returns how many.
 
     Every row, disabled ones included: ``_due_ids`` never sees those, and the
@@ -440,11 +440,16 @@ def sweep_expired_previous_secrets(*, now=None) -> int:
     reconfiguration (``_still_configured_as_read``). A rotation committing at the
     same moment is safe: the row is re-checked against this filter after its
     lock, and a fresh window no longer matches.
+
+    Two callers (#2119): every dispatcher run (all boards), and every webhook
+    API request by a board admin (*board_id*, that board's rows only), so an
+    expired secret is also cleared on an install whose dispatcher is stopped.
     """
     now = now or timezone.now()
-    cleared = WebhookSubscription.objects.filter(previous_secret_expires_at__lte=now).update(
-        previous_secret_encrypted="", previous_secret_expires_at=None, updated_at=now
-    )
+    rows = WebhookSubscription.objects.filter(previous_secret_expires_at__lte=now)
+    if board_id is not None:
+        rows = rows.filter(board_id=board_id)
+    cleared = rows.update(previous_secret_encrypted="", previous_secret_expires_at=None, updated_at=now)
     if cleared:
         logger.info("webhook previous secrets expired: count=%s", cleared)
     return cleared

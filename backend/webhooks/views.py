@@ -152,6 +152,13 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         board, role = get_board_for_user(board_pk, self.request.user, slim=True)
         if role not in ADMIN_ROLES:
             raise PermissionDenied("Only board admins can manage webhooks.")
+        # Clear this board's expired previous signing secrets on every webhook
+        # request (#2119), not only in the dispatcher's run loop: with no
+        # dispatcher running they would otherwise stay at rest until one
+        # starts. Never used to sign in that state either way (the expiry is
+        # checked per read); this only bounds how long the ciphertext is kept.
+        # Runs before the WEBHOOKS_ENABLED gate, as the dispatcher's sweep does.
+        dispatch.sweep_expired_previous_secrets(board_id=board.pk)
         return board
 
     def _require_enabled(self):
