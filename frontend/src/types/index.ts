@@ -32,6 +32,11 @@ export interface SiteConfig {
    * DEMO_MODE off, and outbound mail configured. A UI hint, not a guarantee. */
   invite_email_available: boolean;
   /**
+   * INSTANCE_TIMEZONE: the IANA zone whose date decides when a card turns
+   * overdue (#2313). Optional: absent from a server older than 1.3.
+   */
+  instance_timezone?: string;
+  /**
    * Whether the Issue Board Lens is enabled instance-wide (GIT_LENS_ENABLED).
    * Same value as `User.git_lens_enabled` (#1872).
    */

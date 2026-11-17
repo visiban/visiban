@@ -30,7 +30,8 @@ export const STATUS_LABEL: Record<CardBoardStatus, string> = {
  * card in a done column (finished, not idle), the same rule the card face uses.
  */
 export function cardBoardStatus(card: Pick<Card, "due_date" | "is_stale" | "last_moved_at">, inDoneColumn: boolean): CardBoardStatus {
-  const kind = classifyCardUrgency({ due_date: card.due_date, is_stale: false, last_moved_at: null })?.kind;
+  // Overdue skips a done-column card too (#2313), as the server's auto health does.
+  const kind = classifyCardUrgency({ due_date: card.due_date, closed: inDoneColumn, is_stale: false, last_moved_at: null })?.kind;
   if (kind === "overdue") return "overdue";
   if (card.is_stale && !inDoneColumn) return "stale";
   return "ok";

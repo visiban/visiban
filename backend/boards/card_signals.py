@@ -8,6 +8,17 @@ helper, ``boards.serializers._annotate_is_stale``, which the stale digest
 
 Each function returns a ``Q`` over ``Card`` so callers compose it with their
 own scope (a board, a lane, an open-cards filter) in SQL.
+
+The overdue rule (#2313), the one the browser's ``utils/cardUrgency.ts``
+applies too: a card is overdue when it has a due date, that date is before
+today's date in ``INSTANCE_TIMEZONE`` (:func:`signal_today`), and the card is
+open (:func:`open_cards_q`: not archived, not in a Done column). A card due
+today is not overdue until the instance's midnight. Both sides pin the same
+cases from ``boards/tests/fixtures/overdue_rule_cases.json``. Every overdue
+*signal* (auto health counts, card badges, borders, Show chips, lane status)
+applies the whole rule; the ``?overdue=`` card filter applies only the date
+half, as it always has, so an API caller composes it with the column and
+archive filters (changing it would break that public filter's contract).
 """
 
 from __future__ import annotations
@@ -59,9 +70,16 @@ def overdue_q(today):
 
     Callers pass :func:`signal_today` so the card filter, the due-soon job and
     auto health all share one definition of "today" (#2312).
-    Does not exclude done or archived cards; compose with :func:`open_cards_q`.
+    The date half of the overdue rule (see the module docstring). Does not
+    exclude done or archived cards; compose with :func:`open_cards_q`, or use
+    :func:`overdue_signal_q`, which does.
     """
     return Q(due_date__lt=today)
+
+
+def overdue_signal_q(today):
+    """The whole overdue rule (#2313): past due *and* open."""
+    return overdue_q(today) & open_cards_q()
 
 
 def blocked_q():

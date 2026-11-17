@@ -26,7 +26,8 @@ export function parseShowChip(value: string | null): ShowChipKey {
 /**
  * Which chip a card belongs to, by the same precedence the card face uses for
  * its one status line: overdue, then due soon, then stale. Stale is ignored in
- * a done column (finished, not idle). A card on track belongs to no chip.
+ * a done column (finished, not idle), and so are overdue and due soon (#2313).
+ * A card on track belongs to no chip.
  */
 export function cardShowChip(
   card: Pick<Card, "due_date" | "is_stale">,
@@ -34,7 +35,7 @@ export function cardShowChip(
   now: number = Date.now(),
 ): Exclude<ShowChipKey, "all"> | null {
   const kind = classifyCardUrgency(
-    { due_date: card.due_date, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null },
+    { due_date: card.due_date, closed: inDoneColumn, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null },
     now,
   )?.kind;
   if (kind === "overdue") return "overdue";

@@ -92,9 +92,9 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(screen.getByTestId('card-priority-sr')).toHaveTextContent('Priority: medium')
   })
 
-  it('overdue card in a done column keeps the danger border (matches the badge)', () => {
+  it('a past due date on a card in a done column takes no danger border (#2313: finished work is never overdue)', () => {
     render(<CardItem card={makeCard({ due_date: OVERDUE })} density="comfortable" inDoneColumn />)
-    expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
+    expect(face().style.borderColor).not.toBe('rgb(var(--danger-emphasis))')
   })
 
   it('drag overlay copy of an overdue card keeps the danger border', () => {
