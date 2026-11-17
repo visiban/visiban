@@ -240,6 +240,71 @@ class RestContainerDeletePeerTests(_PeerFixture):
         self.assertLessEqual(lots - few, 5, f"{few} queries for 1 peer, {lots} for 6")
 
 
+class RestCardPeerBoardTests(_PeerFixture):
+    """Single-card archive, restore and delete publish same-board peers only (#2229).
+
+    a1 blocks a2, b1 and b2 on this board and x on ``other``. Each frame goes
+    to this board's channel and is for a card on this board; x gets none.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _call(self, method, url, expected_status):
+        responses = []
+        mock_broadcast = self._run(
+            lambda: responses.append(getattr(self.client, method)(url))
+        )
+        self.assertEqual(responses[0].status_code, expected_status)
+        return mock_broadcast
+
+    def _assert_same_board_frames_only(self, mock_broadcast, expected):
+        self.assertEqual(self._updates(mock_broadcast), expected)
+        for call in mock_broadcast.call_args_list:
+            board_id, event, payload = call.args[:3]
+            if event == "card.updated":
+                self.assertEqual(
+                    Card.objects.get(pk=payload["id"]).board_id, board_id,
+                    f"card {payload['id']} published on board {board_id}",
+                )
+        self.assertFalse(
+            BoardEvent.objects.filter(event="card.updated", data__id=self.x.pk).exists()
+        )
+
+    def test_archive_publishes_same_board_peers_only(self):
+        mock_broadcast = self._call(
+            "post", f"/api/v1/boards/{self.board.pk}/cards/{self.a1.pk}/archive/", 200,
+        )
+        self._assert_same_board_frames_only(mock_broadcast, {
+            self.a2.pk: (self.board.pk, 0),
+            self.b1.pk: (self.board.pk, 0),
+            self.b2.pk: (self.board.pk, 1),
+        })
+
+    def test_restore_publishes_same_board_peers_only(self):
+        Card.objects.filter(pk=self.a1.pk).update(archived_at=timezone.now())
+        mock_broadcast = self._call(
+            "post", f"/api/v1/boards/{self.board.pk}/cards/{self.a1.pk}/unarchive/", 200,
+        )
+        self._assert_same_board_frames_only(mock_broadcast, {
+            self.a2.pk: (self.board.pk, 1),
+            self.b1.pk: (self.board.pk, 1),
+            self.b2.pk: (self.board.pk, 2),
+        })
+
+    def test_delete_publishes_same_board_peers_only(self):
+        mock_broadcast = self._call(
+            "delete", f"/api/v1/boards/{self.board.pk}/cards/{self.a1.pk}/", 204,
+        )
+        self._assert_same_board_frames_only(mock_broadcast, {
+            self.a2.pk: (self.board.pk, 0),
+            self.b1.pk: (self.board.pk, 0),
+            self.b2.pk: (self.board.pk, 1),
+        })
+
+
 class AdminContainerDeletePeerTests(_PeerFixture):
     def setUp(self):
         super().setUp()

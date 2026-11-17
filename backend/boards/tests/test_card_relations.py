@@ -851,6 +851,44 @@ class CardRelationSameBoardBlockerTests(_RelationTestBase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.data, [])
 
+    def _other_url(self, card, relation_id=None):
+        base = f"/api/v1/boards/{self.other_board.id}/cards/{card.id}/relations/"
+        return base if relation_id is None else f"{base}{relation_id}/"
+
+    def _capture(self, fn):
+        """Run ``fn``; return (response, card.updated calls) after commit."""
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = fn()
+        updates = [c for c in mock_broadcast.call_args_list if c.args[1] == "card.updated"]
+        return response, updates
+
+    def test_off_board_blocker_lists_no_relations_on_its_own_board(self):
+        self.assertEqual(len(self.client.get(self._url(self.card_a)).data), 1)  # control
+        self._move_blocker_off_board()
+        r = self.client.get(self._other_url(self.card_a))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data, [])
+
+    def test_off_board_relation_cannot_be_deleted_by_id(self):
+        rel_id = CardRelation.objects.get(from_card=self.card_a, to_card=self.card_b).id
+        self._move_blocker_off_board()
+        for url in (self._url(self.card_b, rel_id), self._other_url(self.card_a, rel_id)):
+            r, updates = self._capture(lambda url=url: self.client.delete(url))
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND, url)
+            self.assertEqual(updates, [], url)
+        self.assertTrue(CardRelation.objects.filter(pk=rel_id).exists())
+
+    def test_same_board_relation_delete_still_broadcasts_both_ends(self):
+        rel_id = CardRelation.objects.get(from_card=self.card_a, to_card=self.card_b).id
+        r, updates = self._capture(lambda: self.client.delete(self._url(self.card_b, rel_id)))
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(
+            sorted((c.args[0], c.args[2]["id"]) for c in updates),
+            sorted([(self.board.id, self.card_a.id), (self.board.id, self.card_b.id)]),
+        )
+        self.assertFalse(CardRelation.objects.filter(pk=rel_id).exists())
+
     def test_off_board_blocker_is_not_counted_in_swimlane_blocked_cards(self):
         def blocked():
             r = self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
