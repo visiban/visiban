@@ -105,6 +105,21 @@
               "type": "integer",
               "minimum": 1
             },
+            "attachmentMaxPerCard": {
+              "description": "ATTACHMENT_MAX_PER_CARD — most attachments one card may hold (#2007). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "attachmentMaxBytesPerCard": {
+              "description": "ATTACHMENT_MAX_BYTES_PER_CARD — most attachment bytes one card may hold (#2007). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "attachmentUploadRate": {
+              "description": "ATTACHMENT_THROTTLE_UPLOAD_RATE — per-user attachment upload rate, <n>/<second|minute|hour|day> (#2007). Empty = the backend default, 120/hour.",
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]*/(s|sec|second|m|min|minute|h|hour|d|day)$"
+            },
             "dbPool": {
               "description": "Opt-in PostgreSQL connection pool (DATABASE_POOL, DATABASE_POOL_MIN_SIZE, DATABASE_POOL_MAX_SIZE; #1958). The pool is per backend process.",
               "type": "object",

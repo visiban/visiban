@@ -832,7 +832,7 @@ Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB
 
 **Allowed file types**
 
-The server validates both the declared `Content-Type` and the file's magic bytes. Uploads with a disallowed type are rejected with `HTTP 400`.
+The server validates both the declared `Content-Type` and the file's magic bytes. Uploads with a disallowed type are rejected with `HTTP 400`. Since 1.3 (#2007) the magic bytes must belong to the declared type: a PDF sent as `image/png` is rejected, where earlier versions accepted any allowed signature for any binary type. A WebP file must carry `WEBP` after its `RIFF` header. Plain-text and CSV uploads are checked for HTML or script markup over the whole file, not only the first 4 KB.
 
 | Category | Accepted types |
 |---|---|
@@ -851,7 +851,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 **Error response (magic-byte mismatch)**
 
 ```json
-{ "detail": "File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented." }
+{ "detail": "File content does not match its declared type (image/png). The file may be corrupt or its type may have been misrepresented." }
 ```
 
 **Error response (no file provided)** — `400 Bad Request`
@@ -865,6 +865,14 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```json
 { "detail": "File too large. Maximum size is 10 MB." }
 ```
+
+**Error response (card quota reached)** — `400 Bad Request` *(since 1.3)*. A card holds at most `ATTACHMENT_MAX_PER_CARD` files (default 100) and `ATTACHMENT_MAX_BYTES_PER_CARD` bytes (default 1 GiB), both operator-configurable (see [Attachment limits](../administration/configuration.md#attachment-limits)). The upload that would break either is refused and nothing is stored; attachments already on the card are kept. Deleting one makes room.
+
+```json
+{ "code": "attachment_quota_exceeded", "detail": "This card already has the maximum of 100 attachments. Delete one to upload another." }
+```
+
+**Error response (upload rate limit)** — `429 Too Many Requests` *(since 1.3)*. Uploads have their own per-user limit, the `attachment_upload` throttle scope (default 120 per hour, `ATTACHMENT_THROTTLE_UPLOAD_RATE`), on top of the general per-user API limit. Listing attachments does not count against it. The `Retry-After` header gives the wait in seconds.
 
 **Error response (viewer role)** — `403 Forbidden`. Viewers cannot upload attachments; collaborators and above can.
 

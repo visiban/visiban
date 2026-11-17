@@ -6,13 +6,14 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import (
     extend_schema, extend_schema_view, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes,
 )
@@ -76,29 +77,65 @@ def _annotation_denied(role):
     return Response({"detail": detail}, status=status.HTTP_403_FORBIDDEN)
 
 
+class AttachmentUploadThrottle(UserRateThrottle):
+    """Per-user ceiling on attachment uploads (#2007), scope ``attachment_upload``.
+
+    Added to the default throttles for ``POST .../attachments/`` only (see
+    ``CardViewSet.get_throttles``), so listing attachments, and every other
+    card request, is not counted against it. Each upload can write
+    ``MAX_UPLOAD_SIZE`` bytes to the shared media volume, which the generic
+    ``user`` scope alone let one account do thousands of times an hour.
+    """
+
+    scope = "attachment_upload"
+
+
+def _attachment_quota_error(card_id, incoming_size):
+    """400 response when one more file of ``incoming_size`` bytes would break a
+    per-card quota (#2007), else ``None``.
+
+    Must be called with the card row locked (``lock_card_for_write``): every
+    upload to the card takes that lock before this read, so two concurrent
+    uploads cannot both see room for the last slot. A quota of 0 is off.
+    Existing attachments over a quota (an install that predates it, or an
+    operator who lowered it) are left alone; only new uploads are refused.
+    """
+    max_count = int(getattr(django_settings, "ATTACHMENT_MAX_PER_CARD", 0) or 0)
+    max_bytes = int(getattr(django_settings, "ATTACHMENT_MAX_BYTES_PER_CARD", 0) or 0)
+    if not max_count and not max_bytes:
+        return None
+    usage = CardAttachment.objects.filter(card_id=card_id).aggregate(n=Count("pk"), total=Sum("size"))
+    count, total = usage["n"], usage["total"] or 0
+    if max_count and count >= max_count:
+        detail = f"This card already has the maximum of {max_count} attachments. Delete one to upload another."
+    elif max_bytes and total + incoming_size > max_bytes:
+        detail = (
+            f"This upload would take the card's attachments over its {_format_bytes(max_bytes)} limit. "
+            "Delete an attachment to make room."
+        )
+    else:
+        return None
+    return Response(
+        {"code": ATTACHMENT_QUOTA_EXCEEDED, "detail": detail},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def _format_bytes(n):
+    """Whole MB below 1 GB, else GB to one decimal: for quota error messages."""
+    mb = 1024 * 1024
+    if n < 1024 * mb:
+        return f"{max(n // mb, 1)} MB" if n >= mb else f"{n} bytes"
+    return f"{n / (1024 * mb):.1f} GB".replace(".0 GB", " GB")
+
+
+# Error code of a refused over-quota upload (#2007).
+ATTACHMENT_QUOTA_EXCEEDED = "attachment_quota_exceeded"
+
+
 # ---------------------------------------------------------------------------
 # Upload validation helpers (used by attachments action)
 # ---------------------------------------------------------------------------
-
-# Magic-byte signatures for allowed file types.  We read only the first 12
-# bytes so this check is fast and cannot be spoofed by renaming the file or
-# supplying a fraudulent Content-Type header.
-_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
-    # JPEG
-    (b"\xff\xd8\xff", "image/jpeg"),
-    # PNG
-    (b"\x89PNG\r\n\x1a\n", "image/png"),
-    # GIF87a / GIF89a
-    (b"GIF87a", "image/gif"),
-    (b"GIF89a", "image/gif"),
-    # WEBP (RIFF....WEBP)
-    (b"RIFF", "image/webp"),
-    # PDF
-    (b"%PDF-", "application/pdf"),
-    # ZIP (also covers DOCX/XLSX/PPTX which are ZIP-based OOXML)
-    (b"PK\x03\x04", "application/zip"),
-    # Plain text / CSV — no magic bytes; allowed by MIME type check below
-]
 
 # Allowlist of MIME types that may be uploaded as card attachments.
 # Anything not in this set is rejected with HTTP 400.
@@ -137,6 +174,57 @@ def _sanitize_attachment_filename(raw_name: str) -> str:
     return safe or "attachment"
 
 
+# Which signatures each declared binary type may carry (#2007). Before 1.3 any
+# allowed signature satisfied any declared binary type, so a PDF
+# declared as image/png passed. The OOXML types are ZIP containers and share
+# the ZIP signature. WebP is checked separately (_is_webp): "RIFF" alone also
+# starts WAV and AVI files.
+_SIGNATURES_BY_TYPE: dict[str, tuple[bytes, ...]] = {
+    "image/jpeg": (b"\xff\xd8\xff",),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/gif": (b"GIF87a", b"GIF89a"),
+    "application/pdf": (b"%PDF-",),
+    "application/zip": (b"PK\x03\x04",),
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (b"PK\x03\x04",),
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (b"PK\x03\x04",),
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": (b"PK\x03\x04",),
+}
+
+# Markup that a browser could render as HTML if a text attachment were ever
+# served inline (#372). Matched case-insensitively over the WHOLE body (#2007);
+# before 1.3 only the first 4 KB was read, so the markup could simply follow
+# 4 KB of padding.
+_TEXT_MARKUP_MARKERS: tuple[bytes, ...] = (b"<script", b"<svg", b"<!doctype", b"<html", b"<iframe")
+_TEXT_SNIFF_CHUNK = 64 * 1024
+
+
+def _is_webp(header: bytes) -> bool:
+    return header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+
+
+def _text_contains_markup(file) -> bool:
+    """True when any of ``_TEXT_MARKUP_MARKERS`` appears anywhere in ``file``.
+
+    Reads in chunks, carrying the tail of the previous chunk so a marker split
+    across a chunk boundary is still found. The body is bounded by
+    MAX_UPLOAD_SIZE, which the caller checked first. Leaves the file at 0.
+    """
+    keep = max(len(m) for m in _TEXT_MARKUP_MARKERS) - 1
+    tail = b""
+    file.seek(0)
+    try:
+        while True:
+            chunk = file.read(_TEXT_SNIFF_CHUNK)
+            if not chunk:
+                return False
+            window = (tail + chunk).lower()
+            if any(marker in window for marker in _TEXT_MARKUP_MARKERS):
+                return True
+            tail = window[-keep:]
+    finally:
+        file.seek(0)
+
+
 def _validate_upload_mime(file) -> str | None:
     """Validate a file upload against the allowlist and magic bytes.
 
@@ -144,10 +232,10 @@ def _validate_upload_mime(file) -> str | None:
     it is acceptable.
 
     We do NOT trust the client-supplied Content-Type or the filename extension.
-    Instead we read the first 12 bytes and compare against known magic-byte
-    signatures.  For text-based formats (plain text, CSV) that have no
-    distinguishing magic bytes we fall back to the declared MIME type — but
-    only after the type itself has been checked against the allowlist.
+    The declared type must be on the allowlist, and for a binary type the first
+    bytes must carry a signature of THAT type (#2007), not merely of some
+    allowed type. Text types (plain text, CSV) have no signature; their whole
+    body is checked for HTML/SVG markup instead.
     """
     declared_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
 
@@ -158,20 +246,9 @@ def _validate_upload_mime(file) -> str | None:
             "Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP."
         )
 
-    # Read magic bytes without consuming the file object — seek back afterwards.
-    header = file.read(12)
-    file.seek(0)
-
-    # Text-based types have no reliable magic bytes; allow them through if the
-    # declared MIME type is in the allowlist (already checked above).  However,
-    # reject files whose first 4 KB contains HTML/SVG markers that could enable
-    # stored XSS if a browser renders the file inline (#372).
     text_types = {"text/plain", "text/csv"}
     if declared_type in text_types:
-        sniff = file.read(4096)
-        file.seek(0)
-        sniff_lower = sniff.lower()
-        if any(marker in sniff_lower for marker in [b"<script", b"<svg", b"<!doctype", b"<html", b"<iframe"]):
+        if _text_contains_markup(file):
             return (
                 "File contains HTML/script content and cannot be uploaded as "
                 f"{declared_type}. Rename it with an appropriate extension or "
@@ -179,13 +256,20 @@ def _validate_upload_mime(file) -> str | None:
             )
         return None
 
-    # For binary types, require at least one known signature to match.
-    for magic, _ in _MAGIC_SIGNATURES:
-        if header[:len(magic)] == magic:
-            return None
+    # Read magic bytes without consuming the file object — seek back afterwards.
+    file.seek(0)
+    header = file.read(12)
+    file.seek(0)
+
+    if declared_type == "image/webp":
+        matches = _is_webp(header)
+    else:
+        matches = any(header.startswith(magic) for magic in _SIGNATURES_BY_TYPE.get(declared_type, ()))
+    if matches:
+        return None
 
     return (
-        "File content does not match a recognized safe format. "
+        f"File content does not match its declared type ({declared_type}). "
         "The file may be corrupt or its type may have been misrepresented."
     )
 
@@ -688,6 +772,18 @@ class CardViewSet(viewsets.ModelViewSet):
             CardSerializer(c, context=ctx).data
             for c in _card_queryset(Card.objects.filter(pk__in=list(card_ids)))
         ]
+
+    def get_throttles(self):
+        """The default throttles, plus ``attachment_upload`` on an upload (#2007).
+
+        Appended rather than set through ``@action(throttle_classes=...)``,
+        which would replace the default ``user`` scope and would also count the
+        GET that lists attachments on the same route.
+        """
+        throttles = super().get_throttles()
+        if getattr(self, "action", None) == "attachments" and self.request.method == "POST":
+            throttles.append(AttachmentUploadThrottle())
+        return throttles
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -1897,15 +1993,29 @@ class CardViewSet(viewsets.ModelViewSet):
     )
     @extend_schema(
         summary="Upload an attachment to a card",
-        description="Multipart upload, max 10 MB, validated by MIME type and magic bytes against an allowlist.",
+        description=(
+            "Multipart upload, max 10 MB by default (`MAX_UPLOAD_SIZE_BYTES`), validated by MIME type "
+            "against an allowlist and by magic bytes against the declared type. Since 1.3 a card holds "
+            "at most `ATTACHMENT_MAX_PER_CARD` files (default 100) and `ATTACHMENT_MAX_BYTES_PER_CARD` "
+            "bytes (default 1 GiB), and uploads have their own per-user rate limit "
+            "(`ATTACHMENT_THROTTLE_UPLOAD_RATE`, default 120/hour)."
+        ),
         methods=["POST"],
         request={"multipart/form-data": inline_serializer(name="CardAttachmentUpload", fields={"file": serializers.FileField()})},
         responses={
             201: CardAttachmentSerializer,
             400: OpenApiResponse(
-                description="No file provided, file too large, or file type not allowed.",
-                response=inline_serializer(name="CardAttachmentUploadError", fields={"detail": serializers.CharField()}),
+                description=(
+                    "No file provided, file too large, file type not allowed, content that does not match "
+                    "the declared type, or a per-card quota reached (`code`: `attachment_quota_exceeded`, "
+                    "since 1.3; nothing is stored)."
+                ),
+                response=inline_serializer(
+                    name="CardAttachmentUploadError",
+                    fields={"code": serializers.CharField(required=False), "detail": serializers.CharField()},
+                ),
             ),
+            429: OpenApiResponse(description="Upload rate limit exceeded (`attachment_upload` scope, since 1.3)."),
             403: OpenApiResponse(
                 description="Viewers cannot upload attachments, or uploads are disabled site-wide.",
                 response=inline_serializer(
@@ -1980,6 +2090,11 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             # Card row lock before the insert (#1587) — see lock_card_for_write.
             card_services.lock_card_for_write(card.pk)
+            # Per-card quotas (#2007), read under that lock so concurrent
+            # uploads to one card are counted one after the other.
+            over_quota = _attachment_quota_error(card.pk, file.size)
+            if over_quota is not None:
+                return over_quota
             attachment = CardAttachment.objects.create(
                 card=card,
                 file=file,
