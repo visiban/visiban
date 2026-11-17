@@ -88,6 +88,11 @@ interface Props {
    * fact stay in place but are disabled, with the reason in text.
    */
   movesPaused?: boolean;
+  /**
+   * The card's place in its cell (#2359, phone only; `cellOrderOf`). Given, the panel
+   * offers Move earlier / Move later with the peek sheet's handler: the phone has no drag.
+   */
+  cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
@@ -170,7 +175,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -884,6 +889,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setMoveRefusal(limitRefusal(err));
     } finally {
       setMoveSubmitting(false);
+    }
+  };
+
+  // #2359 — the peek sheet's Move earlier / Move later (CardPeekSheet.reorder): the endpoint's
+  // raw slot for the step (`cellOrderOf`), not index + 1, since a same-cell move does not compact.
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorder = async (dir: -1 | 1) => {
+    const position = !cellOrder ? null : dir === -1 ? cellOrder.earlier : cellOrder.later;
+    if (!onMoveCard || position === null || reordering) return;
+    setReordering(true);
+    setReorderError(null);
+    try {
+      const result = await onMoveCard(localCard.id, localCard.column, localCard.swimlane, position);
+      if (result && result.ok === false) setReorderError(moveFailureMessage(result.error));
+    } catch (err) {
+      setReorderError(moveFailureMessage(err));
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -1648,6 +1672,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div role="status" aria-live="polite" aria-atomic="true" data-testid="move-notice">
               {moveNotice && <p className="text-xs text-warning mt-1 px-1">{moveNotice}</p>}
             </div>
+            {/* Phone (#2359): the peek sheet's reorder, one step earlier or later in the cell, since there is no drag. */}
+            {canEdit && onMoveCard && cellOrder !== undefined && cellOrder.count > 1 && (
+              <div className="mt-2 flex gap-2 px-1" data-testid="card-detail-reorder">
+                <button type="button" disabled={reordering || cellOrder.earlier === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+                <button type="button" disabled={reordering || cellOrder.later === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+              </div>
+            )}
+            {reorderError && <p role="alert" className="mt-2 text-sm text-danger px-1">{reorderError}</p>}
           </div>
           {canBlock && !manuallyBlocked && (
             <button

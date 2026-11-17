@@ -523,3 +523,35 @@ test.describe('board phone layout', () => {
     await expect(page.getByRole('button', { name: /Expand lane/ })).toHaveAttribute('aria-expanded', 'false')
   })
 })
+
+// #2359: a tap opens the card detail panel (#2358), which carries the peek sheet's Move earlier / Move later.
+test.describe('phone reorder from the card detail panel (#2359)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('tap a card, then Move earlier in the detail panel reorders it', async ({ page }) => {
+    await routeAuth(page)
+    const second = { ...CARD, id: CARD.id + 1000, uid: 'e2ereorder0002', title: 'Second in the cell', position: CARD.position + 1 }
+    await routeBoard(page, { ...BOARD_FULL, cards: [CARD, second] })
+    let moved: unknown = null
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${second.id}/move/**`, async (route) => {
+      moved = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...second, position: CARD.position, version: 2 } }) })
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const order = () => page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getAttribute('data-card-id')))
+    await expect.poll(order).toEqual([String(CARD.id), String(second.id)])
+    await page.locator(`[data-card-id="${second.id}"]`).tap()
+    const reorder = page.getByTestId('card-detail-reorder')
+    await expect(reorder).toBeVisible()
+    const earlier = reorder.getByRole('button', { name: 'Move earlier' })
+    const later = reorder.getByRole('button', { name: 'Move later' })
+    // The last card in its cell can only step earlier; both targets are 44px.
+    await expect(later).toBeDisabled()
+    expect((await earlier.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await earlier.tap()
+    await expect.poll(() => moved).not.toBeNull()
+    expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
+    await expect(earlier).toBeDisabled()
+    await expect(later).toBeEnabled()
+  })
+})

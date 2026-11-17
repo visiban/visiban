@@ -2028,6 +2028,48 @@ describe('CardDetail', () => {
       expect(onMoveCard).not.toHaveBeenCalled()
     })
 
+    describe('phone reorder (#2359)', () => {
+      const order = { index: 1, count: 3, earlier: 0, later: 3 }
+      const renderWith = (extra: Record<string, unknown> = {}, onMoveCard = vi.fn().mockResolvedValue({ ok: true })) => {
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} cellOrder={order} {...extra} />)
+        return onMoveCard
+      }
+
+      it('steps the card with the cell order\'s raw slots, in the card\'s own cell', async () => {
+        const onMoveCard = renderWith()
+        const card = defaultProps().card
+        await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+        expect(onMoveCard).toHaveBeenLastCalledWith(card.id, card.column, card.swimlane, 0)
+        await userEvent.click(screen.getByRole('button', { name: 'Move later' }))
+        expect(onMoveCard).toHaveBeenLastCalledWith(card.id, card.column, card.swimlane, 3)
+      })
+
+      it('disables a step with no visible neighbor, and shows nothing without cellOrder or for a single card', () => {
+        renderWith({ cellOrder: { index: 0, count: 2, earlier: null, later: 2 } })
+        expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
+      })
+
+      it('is absent without cellOrder', () => {
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} />)
+        expect(screen.queryByTestId('card-detail-reorder')).not.toBeInTheDocument()
+      })
+
+      it('says why when the move fails', async () => {
+        renderWith({}, vi.fn().mockResolvedValue({ ok: false, error: new Error('boom') }))
+        await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent(/could not be moved/i)
+      })
+
+      it('offline: aria-disabled with the reason, and no move', async () => {
+        const onMoveCard = renderWith({ movesPaused: true })
+        const btn = screen.getByRole('button', { name: 'Move earlier' })
+        expect(btn).toHaveAttribute('aria-disabled', 'true')
+        await userEvent.click(btn)
+        expect(onMoveCard).not.toHaveBeenCalled()
+      })
+    })
+
     it('offline: the Column key fact is inert, not a button (#2325)', () => {
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} movesPaused />)
       expect(within(screen.getByRole('list', { name: 'Key facts' })).queryByRole('button', { name: /Go to Move/ })).not.toBeInTheDocument()
