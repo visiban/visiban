@@ -23,6 +23,8 @@ import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import { deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch, TimelineCounts, TimelinePage } from "../../api/cards";
+import { moveChoices, parseMoveChoice } from "../../utils/cardActions";
+import { cardSubColumnIndex, isGatedStage } from "../../utils/stages";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
@@ -76,13 +78,14 @@ interface Props {
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
   onArchived: (cardId: number) => void;
-  onMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome | void>;
+  /** `gatesPassed` only for a chosen sub-column stop of a split stage (#1102); omitted is the server default. */
+  onMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome | void>;
   // Admin override for a limit-refused move, with the popover's own target
   // (useBoard.forceMoveCardTo). The Move-blocked toast's override is outside
   // this panel's focus trap (#1732), so keyboard users cannot reach it while
   // the panel is open; the popover offers it itself (#1772). Omitted: no
   // override is shown.
-  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
+  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
   /**
    * The board is offline (#2325, spec § States): the Move button and the column
    * fact stay in place but are disabled, with the reason in text.
@@ -478,6 +481,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const moveAnchorRectRef = useRef<{ top: number; left: number } | null>(null);
   const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
+  // The chosen sub-column stop of a split stage (#1102); undefined for a plain column.
+  const [moveTargetGates, setMoveTargetGates] = useState<number | undefined>(undefined);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
   const [movePopoverError, setMovePopoverError] = useState<string | null>(null);
   // The limit body behind movePopoverError, when it is a column-limit refusal:
@@ -861,10 +866,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     return `Card could not be moved — ${reason}.`;
   };
 
+  // The card's own sub-column, when its column is a split stage.
+  const ownSubColumn = (() => {
+    const col = board.columns.find((c) => c.id === localCard.column);
+    return col && isGatedStage(col) ? cardSubColumnIndex(localCard, col) : undefined;
+  })();
+  // A change of sub-column alone is a move, never a silent close (frontend/CLAUDE.md § Gated stages and tracks).
+  const moveIsNoop = moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane
+    && (moveTargetGates === undefined || moveTargetGates === ownSubColumn);
+
   const handleMoveSubmit = async () => {
     if (!onMoveCard || moveTargetColumn === null || moveTargetSwimlane === null) return;
     // No-op if the card is already in this location.
-    if (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane) {
+    if (moveIsNoop) {
       closeMovePopover();
       return;
     }
@@ -876,13 +890,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       // useBoard.moveCard never rejects; it reports failure in its result. Only
       // commit the new location to localCard on success, and name the real cause
       // (limit wording only for limit codes, #1761).
-      const result = await onMoveCard(localCard.id, moveTargetColumn, moveTargetSwimlane, 9999);
+      const gates = moveTargetGates;
+      // The fifth argument only for a sub-column stop, so plain moves keep their call shape.
+      const result = gates === undefined
+        ? await onMoveCard(localCard.id, moveTargetColumn, moveTargetSwimlane, 9999)
+        : await onMoveCard(localCard.id, moveTargetColumn, moveTargetSwimlane, 9999, gates);
       if (result && result.ok === false) {
         setMovePopoverError(moveFailureMessage(result.error));
         setMoveRefusal(limitRefusal(result.error));
         return;
       }
-      setLocalCard((c) => ({ ...c, column: moveTargetColumn, swimlane: moveTargetSwimlane }));
+      setLocalCard((c) => ({ ...c, column: moveTargetColumn, swimlane: moveTargetSwimlane, ...(gates !== undefined ? { gates_passed: gates } : {}) }));
       setShowMovePopover(false);
     } catch (err) {
       setMovePopoverError(moveFailureMessage(err));
@@ -925,10 +943,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!onForceMoveCard || moveForcingRef.current || moveTargetColumn === null || moveTargetSwimlane === null) return;
     const columnId = moveTargetColumn;
     const swimlaneId = moveTargetSwimlane;
+    const gates = moveTargetGates;
     moveForcingRef.current = true;
     setMoveForcing(true);
     try {
-      const result = await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999);
+      const result = gates === undefined
+        ? await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999)
+        : await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999, gates);
       if (result.ok === false) {
         const refusal = limitRefusal(result.error);
         setMovePopoverError(moveFailureMessage(result.error));
@@ -939,7 +960,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         if (refusal === null || isHardLimit(refusal.code)) focusMoveSubmitRef.current = true;
         return;
       }
-      setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId }));
+      setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId, ...(gates !== undefined ? { gates_passed: gates } : {}) }));
       setMovePopoverError(null);
       setMoveRefusal(null);
       // The panel may have closed while the request was in flight.
@@ -1428,6 +1449,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     }
     setMoveTargetColumn(localCard.column);
     setMoveTargetSwimlane(localCard.swimlane);
+    setMoveTargetGates(ownSubColumn);
     setMovePopoverError(null);
     setMoveRefusal(null);
     setMoveNotice("");
@@ -2685,9 +2707,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-fg-muted">Column</label>
               <SelectDropdown
-                options={board.columns.map((c) => ({ value: String(c.id), label: c.name }))}
-                value={moveTargetColumn !== null ? String(moveTargetColumn) : ""}
-                onChange={(v) => { setMoveTargetColumn(Number(v)); clearMoveFailure(); }}
+                // MoveStops: a plain column once, a split stage once per sub-column (#1102).
+                options={moveChoices(board.columns).map((c) => ({ value: String(c.value), label: c.label }))}
+                value={moveTargetColumn === null ? "" : moveTargetGates !== undefined ? `stop:${moveTargetColumn}:${moveTargetGates}` : String(moveTargetColumn)}
+                onChange={(v) => {
+                  const t = parseMoveChoice(v);
+                  if (!t) return;
+                  setMoveTargetColumn(t.columnId);
+                  setMoveTargetGates(t.gatesPassed);
+                  clearMoveFailure();
+                }}
                 disabled={moveForcing}
               />
             </div>
@@ -2718,7 +2747,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <button
                 ref={moveSubmitRef}
                 onClick={handleMoveSubmit}
-                disabled={moveForcing || moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
+                disabled={moveForcing || moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || moveIsNoop}
                 className="text-sm font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >{moveSubmitting ? "Moving…" : "Move"}</button>
             </div>

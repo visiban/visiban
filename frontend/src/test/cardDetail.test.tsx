@@ -2192,7 +2192,7 @@ describe('CardDetail', () => {
     })
 
     // useBoard.moveCard never rejects — it reports failure as { ok: false, error } (#1761).
-    const submitMove = async (onMoveCard: (...a: number[]) => Promise<MoveOutcome | void>) => {
+    const submitMove = async (onMoveCard: (...a: (number | undefined)[]) => Promise<MoveOutcome | void>) => {
       const board = makeBoardWithTwoCols()
       const user = userEvent.setup()
       const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
@@ -4227,5 +4227,26 @@ describe('CardDetail — definition of done (#1101)', () => {
   it('omits the section when the column has no policy', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.queryByText(/Definition of done/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Move popover offers sub-column stops (#1102)', () => {
+  it('lists a split stage per sub-column and sends gatesPassed for the chosen one', async () => {
+    const props = defaultProps()
+    const base = makeBoard()
+    const own = base.columns.find((c) => c.id === props.card.column) ?? base.columns[0]
+    const stage = { ...own, id: 999, uid: 'coluid000999', name: 'Review', position: 99, sub_columns: [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }] }
+    const board = makeBoard({ columns: [{ ...own, sub_columns: [] }, stage] as BoardFull['columns'] })
+    const onMoveCard = vi.fn().mockResolvedValue({ ok: true })
+    const user = userEvent.setup()
+    const { container } = render(<CardDetail {...props} board={board} onMoveCard={onMoveCard} />)
+    await user.click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+    const popover = container.querySelector('[class*="w-64"]')!
+    const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes(own.name))!
+    await user.click(colTrigger)
+    expect(screen.getByText('Review: Doing')).toBeInTheDocument()
+    await user.click(screen.getByText('Review: Ready'))
+    await user.click(screen.getByRole('button', { name: 'Move' }))
+    await waitFor(() => expect(onMoveCard).toHaveBeenCalledWith(props.card.id, 999, props.card.swimlane, 9999, 1))
   })
 })

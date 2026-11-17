@@ -1,4 +1,5 @@
 import type { Card, Column, CustomFieldDefinition, SubColumn, Swimlane } from "../types";
+import type { ToastInput } from "./toastQueue";
 
 /**
  * Gated stages (#1102) and tracks (#1920/#1921): pure derivations shared by
@@ -73,6 +74,40 @@ export function leftWithGatesOpenWarning(
   const subs = stageSubColumns(fromColumn);
   const here = subs[cardSubColumnIndex(card, fromColumn)]?.name ?? "";
   return `Left ${fromColumn.name} in ${here}, before ${subs[subs.length - 1].name}`;
+}
+
+/**
+ * The leave warning for a move of one or more cards to `toColumnId`, from
+ * their pre-move copies. One card names its stage and sub-columns; several
+ * are counted. Null when no card left a split stage early.
+ */
+export function leaveWarningForMove(
+  cards: Pick<Card, "gates_passed" | "column">[],
+  columns: Pick<Column, "id" | "name" | "sub_columns">[],
+  toColumnId: number,
+): string | null {
+  const warnings = cards
+    .map((c) => leftWithGatesOpenWarning(c, columns.find((col) => col.id === c.column), toColumnId))
+    .filter((w): w is string => w !== null);
+  if (warnings.length === 0) return null;
+  if (warnings.length === 1) return warnings[0];
+  return `${warnings.length} cards left a stage before its last sub-column`;
+}
+
+/**
+ * The one place every Move surface raises the leave warning (drag, card menu,
+ * bulk toolbar, peek, card detail, the forced move): a `warning` toast after
+ * the move succeeded, announced by the toast region's polite live region.
+ * Warn and record only (#1102 phase 1): it never blocks or confirms a move.
+ */
+export function notifyLeaveWarning(
+  notify: (input: ToastInput) => number,
+  cards: Pick<Card, "gates_passed" | "column">[],
+  columns: Pick<Column, "id" | "name" | "sub_columns">[],
+  toColumnId: number,
+): void {
+  const title = leaveWarningForMove(cards, columns, toColumnId);
+  if (title) notify({ key: "gates-open-warning", variant: "warning", title, durationMs: 6000, testId: "gates-open-warning" });
 }
 
 /** One stop on the keyboard move path (#2327): a column, or a sub-column of a gated stage. */
@@ -182,4 +217,29 @@ export function movementGateNote(m: { from_gates_open?: number | null; to_gates_
   const passed = m.to_gates_passed ?? 0;
   if (passed > 0) parts.push(`entered at sub-column ${passed + 1}`);
   return parts.length > 0 ? parts.join(", ") : null;
+}
+
+/**
+ * The activity drawer row for a `card.moved` frame. A move inside a split
+ * stage and a reorder carry no `movement` (docs/api/websockets.md), so the
+ * sub-column comes from `gate_transitions` (the last one is where the card
+ * landed; `actor` is a username). Never a blank detail.
+ */
+export function cardMovedActivity(d: Record<string, unknown>): { actor: string; headline: string; subject?: string; detail: string } {
+  const card = d.card as { title?: string; gate_transitions?: unknown } | undefined;
+  const movement = d.movement as { from_column_name?: string; to_column_name?: string; user?: { display_name?: string } } | undefined;
+  type Transition = { actor?: string | null; sub_column_name?: string | null; kind?: string };
+  const transitions = (d.gate_transitions ?? card?.gate_transitions) as Transition[] | undefined;
+  const last = Array.isArray(transitions) && transitions.length > 0 ? transitions[transitions.length - 1] : undefined;
+  const sub = movement ? undefined : last?.sub_column_name ?? undefined;
+  const back = last?.kind === "reopen";
+  const title = card?.title ?? "a card";
+  return {
+    actor: movement?.user?.display_name ?? last?.actor ?? "Someone",
+    headline: sub ? `moved ${title} ${back ? "back " : ""}to ${sub}` : `moved ${title}`,
+    subject: card?.title,
+    detail: movement
+      ? `${movement.from_column_name} → ${movement.to_column_name}`
+      : sub ? `${back ? "Back to" : "On to"} ${sub}` : "Reordered within its cell",
+  };
 }

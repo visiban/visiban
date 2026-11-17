@@ -73,12 +73,12 @@ import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import {
   CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, MOVES_PAUSED_REASON, archiveCards, assignCards, cardActionEntries, cardLink,
-  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
+  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, parseMoveChoice, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
   type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep, type SubColumnStep, subColumnChoices,
 } from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
-import { cardSubColumnIndex, isGatedStage, leftWithGatesOpenWarning, stageSubColumns, subColumnNeighbors } from "../../utils/stages";
+import { cardMovedActivity, cardSubColumnIndex, isGatedStage, notifyLeaveWarning, stageSubColumns, subColumnNeighbors } from "../../utils/stages";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import LensView from "./Lens/LensView";
@@ -399,12 +399,30 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // when the socket dropped still reaches them, so they refuse while moves are paused. The ref
   // is read at call time, so a stale closure cannot slip a move through.
   const movesPausedRef = useRef(false);
-  const onMoveCard = useCallback<typeof onMoveCardRaw>((...args) => (
-    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : onMoveCardRaw(...args)
-  ), [onMoveCardRaw]);
-  const forceMoveCardTo = useCallback<typeof forceMoveCardToRaw>((...args) => (
-    movesPausedRef.current ? Promise.resolve({ ok: false, error: new Error(MOVES_PAUSED_REASON) }) : forceMoveCardToRaw(...args)
-  ), [forceMoveCardToRaw]);
+  const { notify: notifyToast, dismiss: dismissToast } = useToast();
+  // The board at call time, for the leave warning's pre-move copy of the card.
+  const latestBoardRef = useRef(boardOrNull);
+  latestBoardRef.current = boardOrNull;
+  // These two are also the one place a single-card move raises the leave
+  // warning (#1102): drag, entry checklist, peek, phone, card detail and the
+  // forced move all end here. The card menu and bulk toolbar move through
+  // moveCardsToColumn and call the same notifyLeaveWarning.
+  const onMoveCard = useCallback<typeof onMoveCardRaw>(async (...args) => {
+    if (movesPausedRef.current) return { ok: false, error: new Error(MOVES_PAUSED_REASON) };
+    const b = latestBoardRef.current;
+    const before = b?.cards.find((c) => c.id === args[0]);
+    const outcome = await onMoveCardRaw(...args);
+    if (b && before && !(outcome && outcome.ok === false)) notifyLeaveWarning(notifyToast, [before], b.columns, args[1]);
+    return outcome;
+  }, [onMoveCardRaw, notifyToast]);
+  const forceMoveCardTo = useCallback<typeof forceMoveCardToRaw>(async (...args) => {
+    if (movesPausedRef.current) return { ok: false, error: new Error(MOVES_PAUSED_REASON) };
+    const b = latestBoardRef.current;
+    const before = b?.cards.find((c) => c.id === args[0]);
+    const outcome = await forceMoveCardToRaw(...args);
+    if (b && before && !(outcome && outcome.ok === false)) notifyLeaveWarning(notifyToast, [before], b.columns, args[1]);
+    return outcome;
+  }, [forceMoveCardToRaw, notifyToast]);
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
   // The non-null assertion keeps the existing contract without changing every
@@ -910,17 +928,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     let entry: ActivityEntry | null = null;
     const d = event.data as Record<string, unknown>;
     if (event.event === "card.moved") {
-      const card = (d.card as { title?: string } | undefined);
-      const movement = d.movement as { from_column_name?: string; to_column_name?: string; user?: { display_name?: string } } | undefined;
-      entry = {
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-        kind: "move",
-        actor: movement?.user?.display_name ?? "Someone",
-        headline: `moved ${card?.title ?? "a card"}`,
-        subject: card?.title,
-        detail: movement ? `${movement.from_column_name} → ${movement.to_column_name}` : "",
-      };
+      // In-stage moves carry no `movement` (#1102); the helper names the sub-column.
+      entry = { id: crypto.randomUUID(), timestamp: new Date(), kind: "move", ...cardMovedActivity(d) };
     } else if (event.event === "card.created") {
       const card = d as { title?: string; created_by?: { display_name?: string } };
       entry = {
@@ -1060,7 +1069,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Refs for the two card-lookup timers (fade + not-found banner). Cleaned up on
   // unmount so setState never runs after teardown (#870).
   const highlightedCardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { notify: notifyToast, dismiss: dismissToast } = useToast();
   // A `warning` toast for 4 s (#2107, was an in-flow notice). Used for a deep link
   // to a card that is not on the board, and when the open card leaves the board
   // (#1615). Keyed so a second one replaces the first.
@@ -1753,10 +1761,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         return;
       }
       case "move": {
-        const column = current.columns.find((c) => c.id === Number(value));
-        if (!column) return;
-        const r = await moveCardsToColumn(current.id, cards, column, cardActionStateRef.current.cardActionContext);
+        // A column id, or a sub-column stop of a split stage (MoveStop).
+        const target = parseMoveChoice(value as number | string | null);
+        const column = target ? current.columns.find((c) => c.id === target.columnId) : undefined;
+        if (!target || !column) return;
+        const r = await moveCardsToColumn(current.id, cards, column, cardActionStateRef.current.cardActionContext, target.gatesPassed);
         r.done.forEach((c) => onCardUpdated(c));
+        notifyLeaveWarning(notifyToast, cards.filter((c) => r.done.some((d) => d.id === c.id)), current.columns, column.id);
         finish(r.failureMessage, successMessage("move", cards, column.name));
         return;
       }
@@ -2553,9 +2564,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // and visible error surfacing (moveError) on failure and never rejects. Only
     // announce the outcome once known: announcing "moved" up front told screen
     // reader users a failed move had succeeded (#1761).
-    // Warn and record only (#1102 phase 1): leaving a stage with gates open
-    // is never refused; the server records `from_gates_open`, the mover is told.
-    const gateWarning = leftWithGatesOpenWarning(card, board.columns.find((c) => c.id === card.column), targetColumnId);
+    // Warn and record only (#1102 phase 1): onMoveCard raises the leave warning.
     const subName = gatesPassed !== undefined && targetCol ? stageSubColumns(targetCol)[gatesPassed]?.name : undefined;
     // The fifth argument only when a sub-column was chosen, so plain moves keep their call shape.
     const sent = gatesPassed === undefined
@@ -2569,15 +2578,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setDndAnnouncement("");
       } else if (targetCol && targetSwim) {
         setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}'${subName ? `, sub-column '${subName}'` : ""}, swimlane '${targetSwim.name}'`);
-        if (gateWarning) notifyGateWarning(gateWarning);
       }
     });
   };
 
-  // The gates-open warning (#1102): an announced warning toast, never a block.
-  const notifyGateWarning = (title: string) => {
-    notifyToast({ key: "gates-open-warning", variant: "warning", title, durationMs: 6000, testId: "gates-open-warning" });
-  };
 
   // Sub-columns as keyboard stops (#2327): the card menu's Move to… steps to
   // the neighboring sub-column through the same Move path, keeping the cell

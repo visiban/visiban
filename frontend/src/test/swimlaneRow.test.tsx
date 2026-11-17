@@ -845,3 +845,23 @@ describe('SwimlaneRow — no matching cards (#2324)', () => {
     expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
 })
+
+describe('collapsed lane over a split stage (#1102, spec § Lanes, Collapsed)', () => {
+  const split = [{ ...columns[0], sub_columns: [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }] }, ...columns.slice(1)] as Column[]
+  const cards = [makeCard({ id: 501, column: columns[0].id, swimlane: swimlane.id, gates_passed: 0 }), makeCard({ id: 502, column: columns[0].id, swimlane: swimlane.id, gates_passed: 1 }), makeCard({ id: 503, column: columns[0].id, swimlane: swimlane.id, gates_passed: 1 })]
+  it('shows a count and square row per sub-column with the dashed divider', () => {
+    render(<SwimlaneRow {...defaultProps()} columns={split} cards={cards} collapsed />)
+    const cell = screen.getByTestId(`swimlane-strip-cell-${columns[0].id}`)
+    expect(within(cell).getByTestId(`swimlane-strip-sub-${columns[0].id}-0`).textContent).toBe('1')
+    expect(within(cell).getByTestId(`swimlane-strip-sub-${columns[0].id}-1`).textContent).toBe('2')
+    expect(within(cell).getAllByTestId('swimlane-strip-sub-divider')).toHaveLength(1)
+    expect(cell.querySelectorAll('[data-status]')).toHaveLength(3)
+    expect(cell).toHaveTextContent(`${columns[0].name}: Doing 1 card, Ready 2 cards`)
+  })
+  it('shows one count when sub-columns are switched off', () => {
+    render(<SwimlaneRow {...defaultProps()} columns={split} cards={cards} collapsed showSubColumns={false} />)
+    const cell = screen.getByTestId(`swimlane-strip-cell-${columns[0].id}`)
+    expect(within(cell).queryByTestId('swimlane-strip-sub-divider')).toBeNull()
+    expect(cell).toHaveTextContent(`${columns[0].name}: 3 cards`)
+  })
+})
