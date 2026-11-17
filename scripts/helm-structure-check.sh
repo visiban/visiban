@@ -2358,6 +2358,43 @@ check_db_pool() {
   [ "$bad" -eq 0 ] && pass "DATABASE_POOL is absent by default and with dbPool null, and true in the backend container when enabled"
 }
 
+# ---------------------------------------------------------------------------
+# 19. The dispatcher egress NetworkPolicy is opt-in and shaped right (#2067).
+# ---------------------------------------------------------------------------
+check_dispatcher_egress_policy() {
+  section "19. The webhook dispatcher egress NetworkPolicy renders only when both the dispatcher and its networkPolicy are enabled, and denies cluster-internal ranges (#2067)"
+  local bad=0 rendered name="webhook-dispatcher-egress"
+  # RENDER_ARGS already turns the dispatcher on (section 7), so the default
+  # render proves "dispatcher on, networkPolicy off renders no policy".
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" 2>&1)" || { fail "default render failed"; return; }
+  if grep -q "$name" <<< "$rendered"; then
+    fail "the dispatcher egress policy renders by default, expected absent"; bad=1
+  fi
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set webhooks.dispatcher.enabled=true --set webhooks.dispatcher.networkPolicy.enabled=true --set-json 'webhooks.dispatcher.networkPolicy.allowedCIDRs=["10.20.0.5/32"]' 2>&1)" || { fail "render with the dispatcher egress policy on failed"; return; }
+  local pol excepts cidrs
+  pol="$(yq "select(.kind == \"NetworkPolicy\" and (.metadata.name | test(\"$name\")))" <<< "$rendered")"
+  if [ -z "$pol" ]; then
+    fail "the dispatcher egress policy does not render when enabled"; bad=1
+  else
+    if ! grep -q "app.kubernetes.io/component: webhook-dispatcher" <<< "$pol"; then
+      fail "the dispatcher egress policy does not select the webhook-dispatcher pod"; bad=1
+    fi
+    if [ "$(yq '.spec.policyTypes | join(",")' <<< "$pol")" != "Egress" ]; then
+      fail "the dispatcher egress policy is not Egress-only"; bad=1
+    fi
+    # Captured, not piped into `grep -q`: its early exit SIGPIPEs yq under pipefail.
+    excepts="$(yq '.spec.egress[].to[].ipBlock.except[]?' <<< "$pol")"
+    cidrs="$(yq '.spec.egress[].to[].ipBlock.cidr?' <<< "$pol")"
+    if ! grep -qx "169.254.0.0/16" <<< "$excepts"; then
+      fail "the public egress rule does not except the cluster-internal ranges"; bad=1
+    fi
+    if ! grep -qx "10.20.0.5/32" <<< "$cidrs"; then
+      fail "an allowedCIDRs entry does not reach the policy"; bad=1
+    fi
+  fi
+  [ "$bad" -eq 0 ] && pass "the dispatcher egress policy is absent unless dispatcher and networkPolicy are both enabled (the dispatcher alone renders none), is Egress-only on the dispatcher pod, excepts the internal ranges, and carries allowedCIDRs"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2385,6 +2422,7 @@ run_all_checks() {
   check_num_proxies_default
   check_feature_flags
   check_db_pool
+  check_dispatcher_egress_policy
 }
 
 # ---------------------------------------------------------------------------
@@ -2517,6 +2555,11 @@ self_test() {
     "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
+    # 19 (#2067): the dispatcher egress policy stops excepting the internal
+    # ranges, so "public egress" quietly includes the whole cluster.
+    "19 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
+    # 19 (#2067): the policy renders without its own opt-in.
+    "19 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/\$dispatcher.enabled/"
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
     "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"

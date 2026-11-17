@@ -556,6 +556,34 @@ webhooks:
       limits:
         cpu: 500m
         memory: 384Mi
+    # Opt-in egress NetworkPolicy for the dispatcher pod (#2067), defense in
+    # depth behind the application's own destination check (visiban/egress.py).
+    # Off by default. Needs a CNI that enforces NetworkPolicy (Calico, Cilium).
+    # Renders only when the dispatcher itself is enabled. Allows DNS, the
+    # bundled PostgreSQL and Valkey, and public egress; denies the ranges in
+    # denyCIDRs. See "Webhook dispatcher egress policy" in
+    # docs/features/webhooks.md.
+    networkPolicy:
+      enabled: false
+      # Cluster-internal IPv4 ranges the dispatcher may not reach. Replace the
+      # list to match your pod, service and node CIDRs if they sit elsewhere.
+      denyCIDRs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 100.64.0.0/10
+        - 169.254.0.0/16
+        - 127.0.0.0/8
+      # Same, IPv6: unique-local, link-local, loopback.
+      denyCIDRsIPv6:
+        - fc00::/7
+        - fe80::/10
+        - ::1/128
+      # CIDRs to allow even though they are inside a denied range: an external
+      # PostgreSQL or Valkey on a private address (externalDatabase /
+      # externalRedis), and any private target listed in
+      # backend.settings.webhookAllowedPrivateTargets. Example: ["10.20.0.5/32"].
+      allowedCIDRs: []
 
 # -- Public demo mode (#1180): the chart side of a hosted, internet-facing demo
 # such as try.visiban.com. OFF by default, and nothing below renders unless

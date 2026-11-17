@@ -445,7 +445,18 @@
           "properties": {
             "enabled": { "type": "boolean" },
             "interval": { "type": "integer", "minimum": 1 },
-            "resources": { "type": "object" }
+            "resources": { "type": "object" },
+            "networkPolicy": {
+              "description": "Opt-in egress NetworkPolicy for the dispatcher pod (#2067). Needs a CNI that enforces NetworkPolicy.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "denyCIDRs": { "type": "array", "items": { "type": "string" } },
+                "denyCIDRsIPv6": { "type": "array", "items": { "type": "string" } },
+                "allowedCIDRs": { "type": "array", "items": { "type": "string" } }
+              }
+            }
           }
         }
       }

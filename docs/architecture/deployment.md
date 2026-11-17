@@ -226,6 +226,9 @@ helm install visiban helm/visiban \
 | `webhooks.dispatcher.enabled` | `false` | Runs the single-replica dispatcher Deployment, `manage.py dispatch_webhooks --loop` (added in 1.3) |
 | `webhooks.dispatcher.interval` | `15` | Seconds between dispatcher runs |
 | `webhooks.dispatcher.resources` | see `values.yaml` | CPU and memory requests and limits for the dispatcher pod |
+| `webhooks.dispatcher.networkPolicy.enabled` | `false` | Renders an egress NetworkPolicy for the dispatcher pod: DNS, the bundled datastores and public addresses only. Needs a CNI that enforces NetworkPolicy (added in 1.3; see [Dispatcher egress policy](../features/webhooks.md#dispatcher-egress-policy-kubernetes)) |
+| `webhooks.dispatcher.networkPolicy.denyCIDRs` / `denyCIDRsIPv6` | RFC 1918, `100.64.0.0/10`, link-local, loopback; IPv6 ULA, link-local, loopback | Ranges the public-egress rule excludes |
+| `webhooks.dispatcher.networkPolicy.allowedCIDRs` | `[]` | CIDRs allowed even inside a denied range: private webhook targets and external datastores |
 | `backend.settings.numProxies` | unset (renders `2` with the ingress enabled and a `ClusterIP` frontend Service, otherwise the backend default of `1`) | `NUM_PROXIES`: trusted proxy hops that append to `X-Forwarded-For`, so per-client rate limits and the `/admin/` allowlist see the real client address. An explicit value always wins |
 | `backend.oauth.oidc.serverUrl` | `""` | OIDC issuer URL (e.g. `https://sso.example.com/realms/my-realm`) — set all three OIDC fields to enable |
 | `backend.oauth.oidc.clientId` | `""` | OIDC client ID |
