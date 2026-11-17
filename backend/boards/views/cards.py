@@ -2274,8 +2274,13 @@ class CardViewSet(viewsets.ModelViewSet):
         than hidden so a relation left dangling by an archive is visible enough
         to delete.
         """
-        outgoing = card.outgoing_relations.select_related("to_card")
-        incoming = card.incoming_relations.select_related("from_card")
+        # Only same-board relation rows are listed (#2229).
+        outgoing = card.outgoing_relations.filter(
+            to_card__board_id=card.board_id,
+        ).select_related("to_card")
+        incoming = card.incoming_relations.filter(
+            from_card__board_id=card.board_id,
+        ).select_related("from_card")
         rows = []
         for rel in outgoing:
             rows.append({

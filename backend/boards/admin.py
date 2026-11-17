@@ -426,7 +426,11 @@ class CardAdmin(admin.ModelAdmin):
             # the row read under the lock; collected before the save, with
             # archived blockers included because this card's archived state
             # is exactly what changes.
-            if stored is not None and (stored.archived_at is None) != (obj.archived_at is None):
+            # A board change also updates peer counts (#2229).
+            if stored is not None and (
+                (stored.archived_at is None) != (obj.archived_at is None)
+                or stored.board_id != obj.board_id
+            ):
                 peers = blocked_peers_of(
                     Card.objects.filter(pk=obj.pk), active_blockers_only=False,
                 )

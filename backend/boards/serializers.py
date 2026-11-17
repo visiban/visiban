@@ -3089,6 +3089,8 @@ def _active_blockers_prefetch():
         queryset=CardRelation.objects.filter(
             relation_type=CardRelation.Type.BLOCKS,
             from_card__archived_at__isnull=True,
+            # Only same-board relation rows count (#2229).
+            from_card__board_id=F("to_card__board_id"),
         ).only("id", "to_card_id"),
         to_attr="active_blockers",
     )
@@ -3116,6 +3118,7 @@ def _blocker_count(card) -> int:
     return card.incoming_relations.filter(
         relation_type=CardRelation.Type.BLOCKS,
         from_card__archived_at__isnull=True,
+        from_card__board_id=F("to_card__board_id"),  # same-board only (#2229)
     ).count()
 
 

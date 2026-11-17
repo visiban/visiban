@@ -395,7 +395,25 @@ class AdminCardArchiveFlipPeerTests(_PeerFixture):
                 self.a2.pk: (self.board.pk, 1),
                 self.b1.pk: (self.board.pk, 1),
                 self.b2.pk: (self.board.pk, 2),
-                self.x.pk: (self.other.pk, 1),
+                # x's relation row is not same-board, so it no longer counts (#2229).
+                self.x.pk: (self.other.pk, 0),
+            },
+        )
+
+    def test_a_board_change_updates_old_board_peers(self):
+        self.a1.board = self.other
+        self.a1.column = self.other_col
+        self.a1.swimlane = self.other_lane
+        mock_broadcast = self._save(self.a1)
+        updates = self._updates(mock_broadcast)
+        # Relations are same-board, so a1 no longer counts for the cards it
+        # blocked on the board it left (#2229); b2 keeps b1.
+        self.assertEqual(
+            {k: v for k, v in updates.items() if k in (self.a2.pk, self.b1.pk, self.b2.pk)},
+            {
+                self.a2.pk: (self.board.pk, 0),
+                self.b1.pk: (self.board.pk, 0),
+                self.b2.pk: (self.board.pk, 1),
             },
         )
 

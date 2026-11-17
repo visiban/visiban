@@ -30,7 +30,7 @@ import datetime
 import zoneinfo
 
 from django.conf import settings
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 
@@ -99,5 +99,7 @@ def blocked_q():
         to_card=OuterRef("pk"),
         relation_type=CardRelation.Type.BLOCKS,
         from_card__archived_at__isnull=True,
+        # Only same-board relation rows count (#2229).
+        from_card__board_id=F("to_card__board_id"),
     ))
     return Q(blocked_at__isnull=False) | Q(relation_blocked)

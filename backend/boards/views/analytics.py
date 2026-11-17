@@ -6,7 +6,7 @@ import logging
 import statistics
 from types import SimpleNamespace
 
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
@@ -1000,6 +1000,8 @@ class BoardAnalyticsMixin:
             to_card=OuterRef("pk"),
             relation_type=CardRelation.Type.BLOCKS,
             from_card__archived_at__isnull=True,
+            # Same-board only; see _active_blockers_prefetch (#2229).
+            from_card__board_id=F("to_card__board_id"),
         ))
         blocked_by_swimlane = dict(
             board.cards.filter(archived_at__isnull=True)
