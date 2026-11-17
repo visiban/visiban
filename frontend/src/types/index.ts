@@ -373,6 +373,10 @@ export interface PublicColumn {
   weight_limit: number | null;
   allow_card_creation: boolean;
   is_done: boolean;
+  /** Gated stage (#1102): the sub-columns a share-link viewer sees. `[]` on a plain column. Optional so pre-1.3 fixtures type-check. */
+  sub_columns?: SubColumn[];
+  /** Dimension fields shown as tracks on this stage (#1921), in order. */
+  tracks?: StageTrack[];
 }
 
 /** How a column policy's entry criteria are used on a move into the column. */
@@ -1742,6 +1746,8 @@ export interface PublicCard {
    * whitelist excludes.
    */
   blocker_count: number;
+  /** Gated stages (#1102): index of the card's sub-column in its column's `sub_columns`; 0 on a plain column. */
+  gates_passed?: number;
 }
 
 export interface BoardPublic {

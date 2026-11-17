@@ -519,6 +519,10 @@ BLOCK_SAMPLES = {"simple_kanban": {"closed": 2, "open": 1}}
 # Templates that carry one checklist item with an assignee and a due date (#445).
 CHECKLIST_ASSIGN_SAMPLES = {"simple_kanban"}
 
+# Templates that carry a custom_field_changed History row (#1921). The sample
+# set must carry every event type, and this is the one with custom fields.
+CUSTOM_FIELD_CHANGE_SAMPLES = {"product_roadmap"}
+
 _BLOCK_REASONS = [
     "Waiting on a decision from the stakeholder.",
     "Blocked on a vendor reply.",
@@ -621,6 +625,31 @@ def _add_checklist_assign_due(cards: list[dict], slug: str, done_cols: set[str])
     ], key=lambda a: a["created_at"])
 
 
+def _add_custom_field_change(cards: list[dict], slug: str, done_cols: set[str]) -> None:
+    """Give one card a ``custom_field_changed`` History row (#1921).
+
+    Writes the shape ``apply_custom_field_values`` writes: the old and new
+    value, with ``item_text`` snapshotting the field's name. The row sits
+    minutes after the card's creation and the old value is empty, so the
+    card's current value is the one the row set. No random draw is made, so
+    no other card or template shifts.
+    """
+    eligible = [
+        c for c in cards
+        if c.get("custom_field_values") and not c.get("archived_at") and c["column"] not in done_cols
+    ]
+    if not eligible:
+        return
+    card = min(eligible, key=lambda c: zlib.crc32(f"{slug}|custom-field-change|{c['title']}".encode()))
+    name = next(iter(card["custom_field_values"]))
+    when = _parse(card["created_at"]) + timedelta(minutes=30)
+    card["activities"] = sorted(card["activities"] + [
+        {"event_type": "custom_field_changed", "from_value": "",
+         "to_value": card["custom_field_values"][name],
+         "actor": card["created_by"], "created_at": _iso(when), "item_text": name},
+    ], key=lambda a: a["created_at"])
+
+
 # ── Card enrichment ───────────────────────────────────────────────────────────
 def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
             label_pool: list[str], descriptions: list[str], done_cols: set[str]) -> dict:
@@ -696,6 +725,8 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
         _add_blocks(enriched, BLOCK_SAMPLES[slug], slug, {c["name"] for c in data["columns"] if c["is_done"]})
     if slug in CHECKLIST_ASSIGN_SAMPLES:
         _add_checklist_assign_due(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
+    if slug in CUSTOM_FIELD_CHANGE_SAMPLES:
+        _add_custom_field_change(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.
     order = ["schema_version", "name", "description", "columns", "swimlanes",

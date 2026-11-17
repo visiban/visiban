@@ -217,6 +217,14 @@ NO_BROADCAST_BY_DESIGN: dict[str, str] = {
 # Fan-outs that legitimately call an emit function inside a loop, because the
 # loop iterates over *channels* rather than over rows on one channel.
 LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
+    "backend/boards/services/stages.py::_broadcast_stage": (
+        "One swimlane.updated per lane whose track exceptions a stage save "
+        "changed (#1921), after the single column.updated frame. All frames go "
+        "to the one board channel, but each carries that lane's own "
+        "SwimlaneSerializer payload, so they cannot be collapsed into one. "
+        "record_board_event() defers each publish with on_commit. Bounded by "
+        "the lanes in the stage save's track_exceptions."
+    ),
     "backend/boards/views/custom_fields.py::CustomFieldDefinitionViewSet._send": (
         "board.updated from CustomFieldDefinitionViewSet when a deleted number "
         "field was the board's swimlane_rollup_field (#2275). The loop runs over "
