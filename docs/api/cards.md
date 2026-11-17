@@ -778,7 +778,7 @@ One integer per `event_types` group, always all six keys. The totals ignore `eve
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the field's name on `custom_field_changed`, #1921) (the activity's `item_text`, `null` on entries recorded before 1.3). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3). |
 
 **Errors**
 

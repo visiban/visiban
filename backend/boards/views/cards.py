@@ -1645,7 +1645,8 @@ class CardViewSet(viewsets.ModelViewSet):
             }
             if a.event_type in _ITEM_TEXT_EVENT_TYPES:
                 # Additive key (#2199), present only on checklist assignee and
-                # due-date entries; null on rows written before 1.3.
+                # due-date entries and custom_field_changed (#1921, the field
+                # name); null on rows written before 1.3.
                 data["item_text"] = a.item_text
             if a.event_type == CardActivity.EventType.UNBLOCKED:
                 # Additive key (#1149), present only on unblocked entries;
