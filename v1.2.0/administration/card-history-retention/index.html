@@ -4378,7 +4378,7 @@
 </tr>
 </tbody>
 </table>
-<p>Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (<code>deleted_count</code> is movements, <code>deleted_block_count</code> blocks and <code>redacted_event_count</code> change-feed events, both since 1.3).</p>
+<p>Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (<code>deleted_count</code> is movements, <code>deleted_block_count</code> blocks, <code>redacted_event_count</code> change-feed events and <code>deleted_gate_transition_count</code> gate transition rows, all since 1.3). Gate transitions, the pass and reopen rows of <a href="../../api/cards/#gated-stages-and-gate-transitions-13-1102">gated stages</a>, are matched by the same selectors and erased in the same run.</p>
 <p>Dates are <code>YYYY-MM-DD</code> (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). <code>--since 2026-03-01 --before 2026-04-01</code> covers exactly March.</p>
 <p>How the command behaves:</p>
 <ul>

@@ -1445,6 +1445,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dimension-fields-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dimension fields (1.3)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4971,6 +4982,10 @@
 </tbody>
 </table>
 <p>The backend also exposes a <code>CUSTOM_FIELD_VALIDATORS</code> extension point that lets an extension register additional per-type validators for card values, and a separate <code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code> list for swimlane-row values. See the <a href="../../architecture/open-core-boundary/">open-core boundary</a>.</p>
+<h2 id="dimension-fields-13">Dimension fields (1.3)<a class="headerlink" href="#dimension-fields-13" title="Permanent link">&para;</a></h2>
+<p>A <strong>dimension</strong> is a dropdown field whose choices each carry a resolution: <code>open</code>, <code>satisfied</code> (shown as "done") or <code>not_applicable</code>. Set <code>is_dimension: true</code> and <code>choice_resolutions</code> (a map from choice to resolution) on a dropdown field; a choice without an entry, and a card with no value, count as open. Only dropdown fields can be dimensions. A value can move between any two choices in any order.</p>
+<p>Dimensions are what a stage's <strong>tracks</strong> are: a board admin binds dimension fields to a column as its tracks, and can mark a dimension not applicable for a whole swimlane. A lane's not-applicable mark overrides each card's own value for display, and the card's value is kept. Tracks count toward the 30-fields-per-board limit.</p>
+<p>Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.</p>
 
 
 

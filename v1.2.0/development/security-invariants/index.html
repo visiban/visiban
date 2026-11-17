@@ -5110,7 +5110,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>JSON import</td>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin._import_json</code></td>
-<td><code>_resolve_import_users</code> (assignee, checklist assignee); history rows and comments use the importer plus <code>_imported_from_username</code></td>
+<td><code>_resolve_import_users</code> (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions) and comments use the importer plus <code>_imported_from_username</code></td>
 </tr>
 <tr>
 <td>CSV import</td>
@@ -5847,6 +5847,7 @@ ones, directly and under <code>migrate</code>), <code>groups/tests/test_groups.p
 <code>boards/tests/test_seed_demo_data.py</code>
 (<code>test_demo_group_has_label_and_invite_link</code>).</p>
 <h2 id="rule-14-a-card-placement-respects-its-columns-and-its-swimlanes-limits">Rule 14: A card placement respects its column's and its swimlane's limits<a class="headerlink" href="#rule-14-a-card-placement-respects-its-columns-and-its-swimlanes-limits" title="Permanent link">&para;</a></h2>
+<p><strong>Gated stages (#1102).</strong> A move that changes only <code>gates_passed</code> within one column is not a placement: it writes no <code>CardMovement</code> and checks no limit, on REST and MCP alike (<code>boards/tests/test_stages.py::MoveGateTests</code>). A move into a new column checks limits exactly as before; the stage WIP limit covers every sub-column. The bulk move (<code>frontend/src/utils/cardActions.ts</code>) omits <code>gates_passed</code>, so its cards land at 0.</p>
 <p><strong>Rule.</strong> A write that puts a card into a cell, or grows a card inside one,
 honors the target column's <code>wip_limit</code>/<code>weight_limit</code> and, since 1.3 (#1150),
 the target swimlane's, on every transport. A soft limit (<code>block</code>, or a board
