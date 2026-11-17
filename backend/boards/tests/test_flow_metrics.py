@@ -108,7 +108,9 @@ class DefinitionTests(TestCase):
         if not docs.is_dir():
             self.skipTest("docs/ is not in this checkout (a backend-only image)")
         pages = [(docs / page).read_text() for page in ("architecture/decisions.md", "features/analytics.md")]
-        for metric, definition in fm.DEFINITIONS.items():
+        # The commitment-point variants (#2050) are quoted the same way.
+        quoted = [*fm.DEFINITIONS.items(), *(("commitment_" + k, v) for k, v in fm.COMMITMENT_DEFINITIONS.items())]
+        for metric, definition in quoted:
             for page in pages:
                 with self.subTest(metric=metric):
                     self.assertIn(definition, page)

@@ -286,6 +286,22 @@ class Board(models.Model):
     health_computed_at = models.DateTimeField(null=True, blank=True)
     # {open, overdue, stale, blocked, flagged} summed over the board's lanes.
     health_computed_counts = models.JSONField(null=True, blank=True, default=None)
+    # Commitment point (#2050): the uid of the column where cycle time and WIP
+    # age start. null (the default) = the flow-metric ADR's rule, the first pull
+    # out of the creation column, so a board that does not opt in measures
+    # exactly as before. A uid rather than a foreign key, the same identity the
+    # ADR keys every column by: no index and no constraint to build, and a
+    # deleted column simply stops matching (read as unset) instead of needing
+    # SET NULL. The serializer accepts only a non-done column of this board.
+    commitment_column_uid = models.CharField(
+        max_length=16, null=True, blank=True, default=None,
+        help_text=(
+            "Uid of the column where cycle time and WIP age start (#2050): the "
+            "commitment point. Must be a column of this board that is not done. "
+            "null (the default) keeps the flow-metric ADR's rule: the first move "
+            "out of the column a card was created in."
+        ),
+    )
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board

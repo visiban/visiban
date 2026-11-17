@@ -505,6 +505,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // Swimlane rollup (#2275): the chosen field when it still is a number field;
   // "stale" when the stored id points at a field retyped away from number.
   const rollupNumberFields = (board.custom_field_definitions ?? []).filter((d) => d.field_type === "number");
+  // #2050 — the commitment point's choices: the board's columns that are not
+  // done, in board order. A stored uid that no longer matches one reads as unset,
+  // the same rule the server applies.
+  const commitmentOptions = [...board.columns].filter((c) => !c.is_done).sort((a, b) => a.position - b.position);
+  const commitmentColumn = commitmentOptions.find((c) => c.uid === board.commitment_column_uid) ?? null;
   const rollupField = resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions);
   const rollupFieldIsStale = board.swimlane_rollup_field != null && rollupField === null;
   const shareExpired = shareExpiresAt !== null && new Date(shareExpiresAt).getTime() <= Date.now();
@@ -1705,6 +1710,33 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 ) : (
                   <p className="text-sm text-fg-secondary">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
                 )}
+              </section>
+
+              {/* #2050 — flow metrics: where cycle time starts */}
+              <section aria-labelledby="flow-metrics-heading">
+                <h3 id="flow-metrics-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Flow metrics</h3>
+                <div className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 pr-4">
+                    <label htmlFor="commitment-column-select" className="text-sm text-fg">Cycle time starts at</label>
+                    <p id="commitment-column-help" className="text-xs text-fg-muted mt-0.5">
+                      The commitment point. Cycle time and age start when a card first reaches this column or a later one. With the default, they start when a card first leaves the column it was created in. Changing it re-measures past cards too.
+                    </p>
+                  </div>
+                  {isAdmin ? (
+                    <SelectDropdown
+                      id="commitment-column-select"
+                      ariaDescribedBy="commitment-column-help"
+                      value={commitmentColumn ? commitmentColumn.uid : "none"}
+                      onChange={(v) => onUpdateBoardSettings?.({ commitment_column_uid: v === "none" ? null : v })}
+                      options={[
+                        { value: "none", label: "First move (default)" },
+                        ...commitmentOptions.map((c) => ({ value: c.uid, label: c.name })),
+                      ]}
+                    />
+                  ) : (
+                    <p className="text-sm text-fg-secondary shrink-0">{commitmentColumn ? commitmentColumn.name : "First move (default)"}</p>
+                  )}
+                </div>
               </section>
 
               {/* #2244 — health review cue, beside the stale-card threshold; #2245 — auto health */}

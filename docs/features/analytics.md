@@ -27,6 +27,13 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **Blocked time:** the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.
 - **Needs attention:** the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.
 
+**Commitment point** *(new in 1.3, #2050)*: a board admin can choose the column where cycle time starts, in **Board Settings** → **Rules** → **Flow metrics**. With one set, a card starts its cycle when it first reaches that column or any later column that is not done, and age follows. A card created in that column starts at once; a card that reaches done without passing it has no cycle time. Boards without one keep the definitions above. On such a board the charts and the API quote these instead:
+
+- **Cycle time (commitment point):** the time from a card's first entry into the board's commitment column, or a column after it that is not done, until its first entry into a done column. A card that reaches a done column first has no cycle time.
+- **Age (commitment point):** how long an in-progress card has been in progress: the time since it first entered the board's commitment column or a column after it, or since it last left a done column, whichever is later.
+
+Changing the commitment point re-measures the board's past, the same way marking a column done does.
+
 "Created" in lead time means the card's creation movement, the first history row that places it in a column. A card with no creation movement, for example one imported without its history, starts at its `created_at` instead. The two can differ for an imported card.
 
 ## Summary view

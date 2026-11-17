@@ -1163,6 +1163,13 @@ export interface Board {
    * away from number keeps its id here; the band hides the rollup then.
    */
   swimlane_rollup_field: number | null;
+  /**
+   * #2050 — uid of the column where cycle time and WIP age start (the
+   * commitment point), or null for the flow-metric ADR's default (the first
+   * move out of the creation column). A uid that no longer names a not-done
+   * column of the board reads as unset.
+   */
+  commitment_column_uid: string | null;
 }
 
 /**
@@ -1354,6 +1361,13 @@ export interface BoardFull {
    * away from number keeps its id here; the band hides the rollup then.
    */
   swimlane_rollup_field: number | null;
+  /**
+   * #2050 — uid of the column where cycle time and WIP age start (the
+   * commitment point), or null for the flow-metric ADR's default (the first
+   * move out of the creation column). A uid that no longer names a not-done
+   * column of the board reads as unset.
+   */
+  commitment_column_uid: string | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

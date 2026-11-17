@@ -74,6 +74,46 @@ DEFINITIONS = {
     ),
 }
 
+# A board with a commitment point (#2050) measures cycle time and age from it.
+# Quoted verbatim from the ADR's dated #2050 note. Boards without one keep the
+# DEFINITIONS above, word for word.
+COMMITMENT_DEFINITIONS = {
+    "cycle_time": (
+        "the time from a card's first entry into the board's commitment column, or a column "
+        "after it that is not done, until its first entry into a done column. A card that "
+        "reaches a done column first has no cycle time."
+    ),
+    "age": (
+        "how long an in-progress card has been in progress: the time since it first entered the "
+        "board's commitment column or a column after it, or since it last left a done column, "
+        "whichever is later."
+    ),
+}
+
+
+def definition(metric, flow=None):
+    """The definition string a response serves for ``metric`` on ``flow``'s board."""
+    if flow is not None and flow.committed_uids is not None and metric in COMMITMENT_DEFINITIONS:
+        return COMMITMENT_DEFINITIONS[metric]
+    return DEFINITIONS[metric]
+
+
+def committed_column_uids(board, columns):
+    """The uids at or past the board's commitment point, or None when it has none (#2050).
+
+    "Past" is by current position: the commitment column and every column after
+    it, done columns left out (a done entry is a completion, not a start). A uid
+    that no longer names a current, not-done column reads as unset, so deleting
+    the commitment column returns the board to the ADR's default rule.
+    """
+    uid = getattr(board, "commitment_column_uid", None)
+    if not uid:
+        return None
+    anchor = next((c for c in columns if c.uid == uid and not c.is_done), None)
+    if anchor is None:
+        return None
+    return {c.uid for c in columns if not c.is_done and c.position >= anchor.position}
+
 _UTC = datetime.timezone.utc
 _MOVE = CardMovement.MovementType.MOVE
 _ARCHIVED = CardMovement.MovementType.ARCHIVED
@@ -422,7 +462,7 @@ def _replay_placements(flow, live, creation, done_uids, now):
     return placements
 
 
-def _analyze_card(flow, rows, done_uids, now):
+def _analyze_card(flow, rows, done_uids, now, committed_uids=None):
     """Fill ``flow`` from the card's movements, ordered by ``(moved_at, id)``."""
     # A movement dated after this request is misdated: it and everything after
     # it are ignored, and the card has incomplete history.
@@ -475,7 +515,9 @@ def _analyze_card(flow, rows, done_uids, now):
         if mv.from_key in done_uids and mv.to_key not in done_uids:
             flow.reopens.append(mv.moved_at)
 
-    if creation is not None and not flow.created_in_done and first_transition is not None:
+    if committed_uids is not None:
+        _commitment_start(flow, live, creation, done_uids, committed_uids)
+    elif creation is not None and not flow.created_in_done and first_transition is not None:
         if first_transition.to_key in done_uids:
             flow.straight_to_done = True
         elif first_transition.from_key == creation.to_key:
@@ -496,6 +538,31 @@ def _analyze_card(flow, rows, done_uids, now):
     flow.placements = _replay_placements(flow, live, creation, done_uids, now)
 
 
+def _commitment_start(flow, live, creation, done_uids, committed_uids):
+    """Cycle start on a board with a commitment point (#2050, ADR dated note).
+
+    The card's first arrival at or past the commitment point: the creation
+    movement when the card was created there, else its first transition into
+    such a column. A card that reaches a done column first never starts (it is
+    marked ``straight_to_done`` so it is not counted as an exclusion), and a
+    card created in a done column has no start, as under the default rule.
+    """
+    if creation is None or flow.created_in_done:
+        return
+    if creation.to_key in committed_uids:
+        flow.cycle_start = creation.moved_at
+        return
+    for mv in live:
+        if mv is creation or not mv.is_transition:
+            continue
+        if mv.to_key in done_uids:
+            flow.straight_to_done = True
+            return
+        if mv.to_key in committed_uids:
+            flow.cycle_start = mv.moved_at
+            return
+
+
 # ── The snapshot every metric reads ────────────────────────────────────────
 
 
@@ -512,6 +579,9 @@ class BoardFlow:
     # The filter the snapshot was loaded under, for metrics with their own rows.
     swimlane_id: int | None = None
     label_id: int | None = None
+    # Column uids at or past the board's commitment point, or None when the
+    # board has none and the ADR's default cycle start applies (#2050).
+    committed_uids: set | None = None
 
     def column_ref(self, key):
         """``key`` as a response ``column_uid``: a current column's uid, or None if deleted."""
@@ -546,6 +616,7 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
     if columns is None:
         columns = list(Column.objects.filter(board=board).order_by("position"))
     done_uids = {c.uid for c in columns if c.is_done}
+    committed_uids = committed_column_uids(board, columns)
 
     selected = _base_cards(board, swimlane_id, label_id)
     if cards_matching is not None:
@@ -585,11 +656,11 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
             )
         )
     for card in cards:
-        _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now)
+        _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now, committed_uids)
     return BoardFlow(
         board=board, now=now, columns=columns, cards=cards,
         done_uids=done_uids, current_uids={c.uid for c in columns},
-        swimlane_id=swimlane_id, label_id=label_id,
+        swimlane_id=swimlane_id, label_id=label_id, committed_uids=committed_uids,
     )
 
 
@@ -671,10 +742,10 @@ def card_directory(flow, uids):
 # ── Durations ──────────────────────────────────────────────────────────────
 
 
-def _duration_response(metric, samples, excluded):
+def _duration_response(metric, samples, excluded, flow=None):
     values = [s["value_days"] for s in samples]
     return {
-        "definition": DEFINITIONS[metric],
+        "definition": definition(metric, flow),
         "sample_size": len(samples),
         "excluded_incomplete_history": excluded,
         "percentiles": percentiles(values),
@@ -728,7 +799,7 @@ def cycle_time(flow, flow_range):
             # Left out only for its history. A card that would have no cycle
             # time anyway is not an exclusion.
             excluded += 1
-    return _duration_response("cycle_time", _ordered_by_end(samples), excluded)
+    return _duration_response("cycle_time", _ordered_by_end(samples), excluded, flow)
 
 
 def _column_entries(flow):
@@ -1106,7 +1177,7 @@ def age(flow, flow_range):
     ]
     samples.sort(key=lambda s: (position.get(s["column_uid"], 0), -s["value_days"]))
     return {
-        "definition": DEFINITIONS["age"],
+        "definition": definition("age", flow),
         "sample_size": len(samples),
         "excluded_incomplete_history": excluded,
         "cycle_time_percentiles": cycle_time(flow, flow_range)["percentiles"],
@@ -1711,7 +1782,7 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
             "trend": swimlane_trend(points, finished),
         })
     payload = {
-        "definition": DEFINITIONS["cycle_time"],
+        "definition": definition("cycle_time", flow),
         "board": {
             "finished": len(board_values),
             "median_days": board_median,

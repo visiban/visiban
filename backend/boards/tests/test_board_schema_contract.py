@@ -418,6 +418,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "health_computed_at", "health_computed_counts", "health_status_origin",
             # Additive (#2275): the swimlane band rollup field.
             "swimlane_rollup_field",
+            # Additive (#2050): the commitment point.
+            "commitment_column_uid",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")
