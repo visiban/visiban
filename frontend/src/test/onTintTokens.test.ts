@@ -254,7 +254,7 @@ describe('warning-action button (#2169)', () => {
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
-const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark']
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark', 'TrackChips']
 // `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
 const NOT_COLOR = new Set([
   'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
@@ -405,6 +405,7 @@ describe('card metadata on an aging tint (#1844)', () => {
       'border-fg-tertiary', // dotted quick-edit underline under a chip value: follows the rescoped text tone
       'ring-info', // transient context-menu target outline on the card root (#2059), outside the metadata row
       'bg-info', // context-target bg-info/10 fill on the card root (CardItem), outside the metadata row (and dropped under a tint)
+      'bg-success', // TrackChips done chip bg-success/20 (#2278): its text is the explicit text-success-on-tint token, an explicit on-tint token (not rescoped)
     ])
     // Literal regex (no RegExp constructor); the token list must match the rescope exactly.
     const rebound = ['fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']

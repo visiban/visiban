@@ -263,7 +263,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
 
       <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{error}</span></p>
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+        <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           type="button"
           onClick={() => void save()}

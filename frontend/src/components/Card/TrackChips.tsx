@@ -19,7 +19,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
           ? "bg-success/20 text-success-on-tint border-transparent"
           : t.state === "open"
             ? "bg-transparent text-fg-secondary border-line-strong"
-            : "bg-surface-hover text-fg-tertiary border-transparent";
+            : "bg-surface-hover text-fg-secondary border-transparent";
         return (
           <li
             key={t.id}
