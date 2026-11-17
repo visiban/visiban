@@ -214,8 +214,30 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.onExpandChange === next.onExpandChange &&
     prev.onCardUpdated === next.onCardUpdated &&
     prev.onOpenMenu === next.onOpenMenu &&
-    prev.contextTarget === next.contextTarget
+    prev.contextTarget === next.contextTarget &&
+    // Sub-columns and tracks (#2278): a remap or a track value change must
+    // repaint the chips and the progress bar. Compared by content, since the
+    // phone board derives a fresh array per render.
+    prev.card.gates_passed === next.card.gates_passed &&
+    prev.card.version === next.card.version &&
+    prev.trackStatesSpelledOut === next.trackStatesSpelledOut &&
+    sameTrackStates(prev.trackStates, next.trackStates) &&
+    sameGateProgress(prev.gateProgress, next.gateProgress)
   );
+}
+
+function sameTrackStates(a: CardTrackState[] | undefined, b: CardTrackState[] | undefined): boolean {
+  if (a === b) return true;
+  const x = a ?? [];
+  const y = b ?? [];
+  if (x.length !== y.length) return false;
+  return x.every((t, i) => t.id === y[i].id && t.name === y[i].name && t.state === y[i].state && t.fromLane === y[i].fromLane);
+}
+
+function sameGateProgress(a: Props["gateProgress"], b: Props["gateProgress"]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  return a.index === b.index && a.names.length === b.names.length && a.names.every((n, i) => n === b.names[i]);
 }
 
 const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions: allFieldDefinitions = EMPTY_DEFS, boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false, trackStates, trackStatesSpelledOut = false, gateProgress = null }: Props) {
