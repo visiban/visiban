@@ -315,6 +315,8 @@ the instance by uploading in a loop.
   lengthens each such upload request.
 - Lowering a quota never deletes anything. A card already over it keeps its
   attachments and accepts new ones only once it is back under the quota.
+- Only attachments are capped. Per-card limits on comments and checklist items
+  are not in place yet; tracked in #2376.
 - The quota is checked while the card row is locked, so two uploads racing for
   a card's last slot cannot both succeed.
 - These quotas bound one card. A user can still spread uploads over many cards,

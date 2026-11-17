@@ -110,6 +110,7 @@ Without the `scheduler` profile, schedule the same commands from host cron:
 0 7 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py notify_due_soon
 0 8 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py notify_stale_cards
 0 2 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py compute_health_status
+0 4 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py sweep_webhook_secrets
 0 3 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py prune_board_events
 30 3 * * * docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py prune_notifications
 ```
