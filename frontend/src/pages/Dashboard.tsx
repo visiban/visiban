@@ -185,6 +185,12 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const needsReviewBoards = boards
     .filter((b) => b.group && !b.is_starred && healthReviewCue(b) !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
+  // Subgroups too (#2309 scope: boards and groups). The group tree starts collapsed,
+  // so a subgroup past its review date is hidden there by default; a top-level group
+  // is always visible in the tree with its own cue, so it is not repeated here.
+  const needsReviewGroups = groups
+    .filter((g) => g.parent !== null && !g.navigation_only && healthReviewCue(g) !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
   const isLoaded = !loadingBoards && !loadingGroups;
   const isEmpty = isLoaded && !loadFailed && boards.length === 0 && groups.length === 0;
 
@@ -316,13 +322,26 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         </section>
 
         {/* Boards in groups that need a health review (#2309) */}
-        {isLoaded && needsReviewBoards.length > 0 && (
+        {isLoaded && (needsReviewBoards.length > 0 || needsReviewGroups.length > 0) && (
           <section className="mb-10" aria-labelledby="dashboard-needs-review-heading">
             <div className="mb-4">
               <h2 id="dashboard-needs-review-heading" className="text-fg text-lg font-semibold">Needs review</h2>
-              <p className="text-sm text-fg-tertiary mt-0.5">Boards in your groups whose health status is past its review date.</p>
+              <p className="text-sm text-fg-tertiary mt-0.5">Boards and subgroups whose health status is past its review date.</p>
             </div>
             <div className="flex flex-col gap-2">
+              {needsReviewGroups.map((g) => (
+                <button
+                  key={`group-${g.id}`}
+                  onClick={() => navigate(`/groups/${g.id}`)}
+                  className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="font-medium truncate">{g.name}</p>
+                    <HealthListingPill fields={g} />
+                  </div>
+                  <p className="text-sm text-fg-tertiary mt-0.5">Subgroup of {g.parent_name}</p>
+                </button>
+              ))}
               {needsReviewBoards.map(renderBoardRow)}
             </div>
           </section>

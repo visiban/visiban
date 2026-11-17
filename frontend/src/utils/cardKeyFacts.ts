@@ -10,6 +10,7 @@
  * already owns "today in the user's timezone".
  */
 import type { BoardFull, Card, CustomFieldDefinition } from "../types";
+import { isOverdue } from "./cardUrgency";
 import { userDisplayName } from "../types";
 import { chipValueText, formatCustomFieldValue, isValidForType, thresholdLevel, thresholdPhrase } from "./customFieldValue";
 import type { ThresholdLevel } from "./customFieldValue";
@@ -100,14 +101,17 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat, now =
 
   if (card.due_date) {
     const info = formatDueDate(card.due_date, userTimezone, userDateFormat);
+    // The one overdue rule (#2313): instance time zone, open cards only. The label
+    // above stays in the user's zone (#871).
+    const overdue = isOverdue(card.due_date, !!column?.is_done || !!card.archived_at, now.getTime());
     facts.push({
       key: "due",
       target: "due",
-      glyph: info.overdue ? "⚑" : undefined,
+      glyph: overdue ? "⚑" : undefined,
       text: info.label,
-      label: `${info.label}${info.overdue ? ", overdue" : ""}, ${longDate(card.due_date)}. Go to Due date`,
-      staticLabel: `${info.label}${info.overdue ? ", overdue" : ""}, ${longDate(card.due_date)}`,
-      tone: info.overdue ? "danger" : undefined,
+      label: `${info.label}${overdue ? ", overdue" : ""}, ${longDate(card.due_date)}. Go to Due date`,
+      staticLabel: `${info.label}${overdue ? ", overdue" : ""}, ${longDate(card.due_date)}`,
+      tone: overdue ? "danger" : undefined,
     });
   }
 

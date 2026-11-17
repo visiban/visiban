@@ -104,6 +104,19 @@ describe('buildKeyFacts (#1916)', () => {
     expect(facts[0].label).toBe('Review, column. Go to Move')
   })
 
+  it('flags an open past-due card overdue but not one in a done column (#2313)', () => {
+    const open = buildKeyFacts(input(makeCard({ due_date: '2020-01-01' }), makeBoard())).find((f) => f.key === 'due')!
+    expect(open.tone).toBe('danger')
+    expect(open.label).toContain(', overdue')
+    const board = makeBoard()
+    board.columns = board.columns.map((c) => (c.id === 10 ? { ...c, is_done: true } : c))
+    const done = buildKeyFacts(input(makeCard({ due_date: '2020-01-01' }), board)).find((f) => f.key === 'due')!
+    expect(done.tone).toBeUndefined()
+    expect(done.label).not.toContain('overdue')
+    const archived = buildKeyFacts(input(makeCard({ due_date: '2020-01-01', archived_at: '2026-01-01T00:00:00Z' }), makeBoard())).find((f) => f.key === 'due')!
+    expect(archived.tone).toBeUndefined()
+  })
+
   it('appends the swimlane only when the board has more than one', () => {
     const board = makeBoard()
     board.swimlanes = [...board.swimlanes, { ...board.swimlanes[0], id: 21, uid: 'laneuid00002', name: 'Growth' }]

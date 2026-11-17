@@ -531,7 +531,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // `classifyCardUrgency`, which follows the server's overdue rule in the instance
   // time zone (#2313). A date that is past in one zone and today in the other renders
   // due soon here. Open question 6 on #871 owns aligning the pill's label clock.
-  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo || classicFace
+  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo || classicFace || cardClosed
     ? null
     : dueInfo.overdue
     ? "overdue"
@@ -1286,7 +1286,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   <span
                     className={`text-xs font-medium shrink-0 ${
                       classicFace
-                        ? dueInfo.overdue ? "text-danger" : "text-fg-tertiary"
+                        ? dueInfo.overdue && !cardClosed ? "text-danger" : "text-fg-tertiary"
                         : duePillGlyph ? urgencyBadgeToneClass(duePillGlyph === "overdue" ? "danger" : "warning", aging.stage) : "text-fg-tertiary"
                     }`}
                     title={`Due ${card.due_date}`}

@@ -180,6 +180,22 @@ describe('CardItem — card_density (#961)', () => {
 
   // ---- dense: today's full layout — no urgency badge added ----
 
+  describe('a closed card carries no overdue signal on its due pill (#2313)', () => {
+    it.each([
+      ['standard', 'done column', { inDoneColumn: true }, {}],
+      ['standard', 'archived', {}, { archived_at: '2026-01-01T00:00:00Z' }],
+      ['dense', 'done column', { inDoneColumn: true }, {}],
+      ['dense', 'archived', {}, { archived_at: '2026-01-01T00:00:00Z' }],
+    ] as const)('%s density, %s', (density, _why, props, cardExtra) => {
+      const { container } = render(
+        <CardItem card={makeCard({ due_date: FIVE_DAYS_AGO, ...cardExtra })} density={density} {...props} />,
+      )
+      expect(container.textContent).not.toContain('Overdue')
+      expect(container.querySelector('[data-testid="urgency-glyph-overdue"]')).toBeNull()
+      expect(container.querySelector('.text-danger')).toBeNull()
+    })
+  })
+
   describe('density="dense"', () => {
     it('shows a short status instead of the urgency badge and the due pill (#2272)', () => {
       render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)

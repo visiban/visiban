@@ -2191,7 +2191,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // Only server search is active — use its result directly as a Set.
     if (!clientFiltersActive && searchMatchIds !== null) return searchMatchIds;
     // filterCards handles the server search intersection via its searchResults param.
-    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions));
+    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions, new Set(board.columns.filter((c) => c.is_done).map((c) => c.id))));
   }, [effectiveFilters, searchMatchIds, board.cards, todayStr, board.custom_field_definitions]);
 
   const filteredCardIds: Set<number> | null = useMemo(() => {
