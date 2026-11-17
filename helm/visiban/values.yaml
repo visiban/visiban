@@ -542,6 +542,12 @@ scheduledJobs:
     enabled: true
     schedule: "0 2 * * *"
     args: []
+  # Expired previous webhook signing secrets (#2119): deletes ciphertext that
+  # already stopped signing; needs no dispatcher and no WEBHOOKS_ENABLED.
+  sweepWebhookSecrets:
+    enabled: true
+    schedule: "0 4 * * *"
+    args: []
 
 # -- Outbound webhook dispatcher (#863): a single-replica Deployment running
 # `manage.py dispatch_webhooks --loop`. Off by default, so an upgrade starts

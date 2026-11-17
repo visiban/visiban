@@ -580,6 +580,31 @@
             }
           }
         },
+        "sweepWebhookSecrets": {
+          "description": "manage.py sweep_webhook_secrets — deletes expired previous webhook signing secrets (#2119).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
         "pruneBoardEvents": {
           "description": "manage.py prune_board_events — DELETES board change-feed events older than BOARD_EVENT_RETENTION_DAYS.",
           "type": "object",

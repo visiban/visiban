@@ -4,9 +4,11 @@ import hashlib
 import hmac
 import logging
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -540,3 +542,42 @@ class RotateApiTests(OverlapBase):
         with patch("webhooks.views.WebhookSubscriptionViewSet._subscription", return_value=stale):
             r = self.rotate()
         self.assertEqual(r.status_code, 404)
+
+
+class SweepCommandTests(OverlapBase):
+    """#2119: the daily `sweep_webhook_secrets` job (run_scheduler / Helm CronJob)
+    clears expired previous secrets on every board with no dispatcher running and
+    no admin request, whether or not the webhooks feature is on."""
+
+    _in_window = SweepTests._in_window
+    _assert_cleared = SweepTests._assert_cleared
+
+    def _run(self):
+        out = StringIO()
+        with patch.object(dispatch, "run_once", side_effect=AssertionError("no dispatcher here")):
+            call_command("sweep_webhook_secrets", stdout=out)
+        return out.getvalue()
+
+    def test_clears_expired_on_every_board_and_keeps_an_open_overlap(self):
+        other_admin, other_board = admin_and_board("Other sweep board")
+        other = make_subscription(
+            other_board, other_admin, previous_secret_encrypted="other",
+            previous_secret_expires_at=timezone.now() - timedelta(seconds=1),
+        )
+        future = timezone.now() + timedelta(hours=1)
+        open_sub = make_subscription(
+            self.board, self.admin, previous_secret_encrypted="keep", previous_secret_expires_at=future,
+        )
+        self._in_window()
+        self.assertIn("cleared 2", self._run())
+        self._assert_cleared()
+        other.refresh_from_db()
+        self.assertEqual((other.previous_secret_encrypted, other.previous_secret_expires_at), ("", None))
+        open_sub.refresh_from_db()
+        self.assertEqual((open_sub.previous_secret_encrypted, open_sub.previous_secret_expires_at), ("keep", future))
+
+    @override_settings(WEBHOOKS_ENABLED=False)
+    def test_runs_with_the_feature_off(self):
+        self._in_window()
+        self._run()
+        self._assert_cleared()

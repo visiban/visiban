@@ -1072,8 +1072,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         const base = liveCardBase();
         onUpdated({ ...base, attachment_count: base.attachment_count + 1 });
       }
-    } catch {
-      setAttachError("Could not upload attachment.");
+    } catch (err) {
+      // The server's refusals say why (over the card quota, file type does not
+      // match its content, #2007); show that rather than a generic failure.
+      const res = (err as { response?: { status?: number; data?: { detail?: unknown } } } | null)?.response;
+      if (res?.status === 400 && typeof res.data?.detail === "string" && res.data.detail) {
+        setAttachError(res.data.detail);
+      } else if (res?.status === 429) {
+        setAttachError("Too many uploads. Please wait a while and try again.");
+      } else {
+        setAttachError("Could not upload attachment.");
+      }
     } finally {
       uploadInFlight.current = false;
       setUploading(false);

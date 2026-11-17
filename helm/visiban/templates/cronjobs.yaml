@@ -32,7 +32,8 @@ Every pod:
       (dict "key" "pruneNotifications" "command" "prune_notifications" "suffix" "prune-notifications")
       (dict "key" "notifyDueSoon" "command" "notify_due_soon" "suffix" "notify-due-soon")
       (dict "key" "notifyStaleCards" "command" "notify_stale_cards" "suffix" "notify-stale-cards")
-      (dict "key" "computeHealthStatus" "command" "compute_health_status" "suffix" "compute-health-status") }}
+      (dict "key" "computeHealthStatus" "command" "compute_health_status" "suffix" "compute-health-status")
+      (dict "key" "sweepWebhookSecrets" "command" "sweep_webhook_secrets" "suffix" "sweep-webhook-secrets") }}
 {{- range $job := $jobs }}
 {{- $cfg := index $sj $job.key }}
 {{- if $cfg.enabled }}

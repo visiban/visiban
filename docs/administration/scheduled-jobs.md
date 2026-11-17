@@ -23,6 +23,7 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 | `notify_stale_cards` | [Staleness notifications](../features/notifications.md#staleness-notifications) for opted-in users | 08:00 | Yes |
 | `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | Yes on Compose, No on Helm |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
+| `sweep_webhook_secrets` | *(1.3+)* Deletes the stored copy of an expired previous [webhook signing secret](../features/webhooks.md) on every board; it never signed after expiry | 04:00 | Yes |
 | `compute_health_status` | *(1.3+)* Computes the [auto health status](../features/health-status.md) of every board that turned it on; other boards are untouched | 02:00 | Yes |
 
 **Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. On the Compose scheduler, `prune_board_events` also runs by default (since 1.3), because the change feed keeps card payloads until pruned. `prune_notifications` deletes user data and stays off until you enable it. The Helm chart is unchanged: both prune CronJobs stay `enabled: false` until you enable them, so on Helm turn on `scheduledJobs.pruneBoardEvents.enabled` yourself.
@@ -80,6 +81,7 @@ Each job's time comes from an `.env` variable. A value is `HH:MM` (24-hour, **UT
 | `SCHEDULE_PRUNE_BOARD_EVENTS` | `03:00` |
 | `SCHEDULE_PRUNE_NOTIFICATIONS` | `off` |
 | `SCHEDULE_COMPUTE_HEALTH` | `02:00` |
+| `SCHEDULE_SWEEP_WEBHOOK_SECRETS` | `04:00` |
 
 This keeps the notification scans and the board-event prune at their defaults and turns on the notification prune. Set `SCHEDULE_PRUNE_BOARD_EVENTS=off` to keep change-feed events forever:
 
@@ -138,7 +140,7 @@ scheduledJobs:
 |---|---|---|
 | `scheduledJobs.enabled` | `false` | Master switch. Nothing is rendered while it is off. |
 | `scheduledJobs.timeZone` | `""` | IANA zone for every schedule (CronJob `.spec.timeZone`, Kubernetes 1.27+). Empty means the controller's zone, which is UTC on almost every cluster. Set it to the same zone as [`INSTANCE_TIMEZONE`](configuration.md#instance-time-zone) so the jobs run at local times. |
-| `scheduledJobs.<job>.enabled` | `true` for `notifyDueSoon`, `notifyStaleCards` and `computeHealthStatus`; `false` for `pruneBoardEvents` and `pruneNotifications` | Per-job switch |
+| `scheduledJobs.<job>.enabled` | `true` for `notifyDueSoon`, `notifyStaleCards`, `computeHealthStatus` and `sweepWebhookSecrets`; `false` for `pruneBoardEvents` and `pruneNotifications` | Per-job switch |
 | `scheduledJobs.<job>.schedule` | See the table at the top of this page | Standard 5-field cron expression |
 | `scheduledJobs.<job>.args` | `[]` | Extra arguments for `manage.py <command>` |
 | `scheduledJobs.activeDeadlineSeconds` | `3600` | A run still going after this is killed and marked failed. |
