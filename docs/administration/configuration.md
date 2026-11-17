@@ -234,7 +234,7 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 A Valkey outage no longer takes the app offline. The readiness probe stays `200` and reports `{"status": "degraded"}`, so pods stay in the Service, and:
 
 - **Ordinary REST requests keep working.** The global `anon` and `user` rate limits fail open: they are not enforced until Valkey returns. Maintenance mode, registration mode and the uploads toggle are read from the database instead.
-- **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. Signed-in users keep their sessions.
+- **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. With the default database session engine, signed-in users keep their sessions.
 - **Realtime updates stop** until Valkey returns.
 
 Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache unreachable` log lines, not on the readiness probe. See [Health API](../api/health.md#get-apihealthreadiness).
