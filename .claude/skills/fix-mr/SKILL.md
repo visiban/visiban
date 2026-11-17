@@ -148,8 +148,8 @@ Using the sub-agent results:
 3. Apply the fix (edit files, run formatters, update tests, etc.)
 4. Verify locally:
    ```bash
-   cd packages/api && pytest <test_file> -q   # backend test failures
-   cd packages/web && npx tsc --noEmit        # frontend type errors
+   cd backend && python -m pytest <test_file> -q   # backend test failures
+   cd frontend && npx tsc -p tsconfig.app.json --noEmit   # frontend type errors
    ```
    (Run the linter named in the failing job for lint failures.) Reproduce the failing
    job's local equivalent, then let the local pre-push hook run on `git push`, before
