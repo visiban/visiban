@@ -262,6 +262,17 @@ importer, co-members of their boards and groups, and the target group (a site
 admin or an all-content user matches every active user). A name outside that
 pool is dropped, so a file can't assign work to an arbitrary account.
 
+The Trello import is the one import that also writes **board memberships**.
+With `add_matched_members`, every matched member, from that same pool and no
+other, becomes a member of the new board with the fixed role `member`
+(`execute_plan`); no other role can come from the file, and an unmatched or
+out-of-pool name gets no row. This is not a new authority: the importer is the
+new board's admin and could add the same people through the members endpoint.
+Like that endpoint, the import tells each person it added with a
+`board_invite` notification (#2122), so a file cannot put someone on a board
+silently. It records no `member.added` event, because the board is created in
+the same transaction and no client can be subscribed to it yet.
+
 Imported history rows (JSON movement `moved_by`, activity `actor`) and imported
 comments (JSON comment `author`, Trello comment authors) aren't resolved at
 all, inside the pool or out of it: each row is recorded under the importer and
@@ -285,7 +296,7 @@ the status filter and the uniform response, not scope.
 |---|---|---|
 | JSON import | `boards/views/import_export.py` `BoardImportExportMixin._import_json` | `_resolve_import_users` (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions) and comments use the importer plus `_imported_from_username` |
 | CSV import | `boards/views/import_export.py` `BoardImportExportMixin._import_csv` | `_resolve_import_users` (assignee; CSV import writes no history rows) |
-| Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_trello` | `boards/services/trello_import.py` `visible_users`, `match_members` (card members and, since #2197, checklist item members, both only with `add_matched_members`; comments use the importer and keep the author name in `imported_from_username`; Trello import writes no movement or activity rows) |
+| Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_trello` | `boards/services/trello_import.py` `visible_users`, `match_members`. With `add_matched_members` only: matched members become **board members with role `member`** (`execute_plan`, constant role) and get a `board_invite` notification (`_notify_added_members`, #2122), and they are card assignees and, since #2197, checklist item assignees. Unmatched or out-of-pool names get no membership and no assignment. Comments use the importer and keep the author name in `imported_from_username`; Trello import writes no movement or activity rows. Pinned by `boards/tests/test_trello_import.py` (`TrelloImportAddedMemberNoticeTests2122`) |
 | User search | `accounts/views.py` `UserSearchView` | Filters `is_active=True`; matches `username` and `display_name` only |
 | Board member add or role change | `boards/views/boards.py` `BoardViewSet.members` | An existing membership is updated as is (the site-admin refusal applies to it); a new one requires an active user, whatever the user's site role. Unknown and inactive ids answer the same `404`. Also checks the submitted `role` is a string within `BoardMembership.Role.values`. A write that would give the board owner a stored role below `admin` is refused with `400` `board_owner_protected` (#1828) |
 | Group member role change | `groups/views.py` `GroupViewSet.update_member` (PATCH) | Same lookup and `404`; the site-admin refusal is evaluated after the membership lookup |

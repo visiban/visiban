@@ -119,6 +119,8 @@ When a user is added to a board (directly or via group membership), they receive
 
 It appears in the bell dropdown with a **View board →** link, so it is clear that clicking navigates to the board. Disable these in **Settings → Notifications** with the **Board invites** preference.
 
+*(1.3+)* A [Trello import](trello-import.md#member-matching-and-privacy) with **Add matched members to this board** on sends the same notification to each person it adds, worded "*importer* added you to "\{board name\}" while importing it from Trello" (#2122). It is the only notification an import sends.
+
 ## Comment added notifications
 
 > **Changed in 1.2**
