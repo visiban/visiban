@@ -38,12 +38,15 @@ export function laneBandFields(lane: Swimlane, definitions: SwimlaneCustomFieldD
 /**
  * Every eligible field for the aligned grid (#2354), in Swimlane fields order,
  * empty values included (`""`), so each lane's grid has the same rows in the same
- * places. The definitions a member receives already exclude admin-only fields,
- * so the length here is the "N fields" count.
+ * places. The server ships every swimlane definition to every board reader (only
+ * row values are filtered), so an admin-only definition is dropped here for a
+ * non-admin: it would otherwise inflate the "N fields" count and render as an
+ * unset row, which falsely says the field is empty. The length is the count.
  */
-export function laneGridFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined): LaneBandField[] {
+export function laneGridFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean): LaneBandField[] {
   const values = new Map((lane.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
-  return [...(definitions ?? [])]
+  return (definitions ?? [])
+    .filter((d) => isAdmin || !d.is_admin_only)
     .sort((a, b) => a.position - b.position)
     .map((def) => ({ def, value: values.get(def.id) ?? "" }));
 }

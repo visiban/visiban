@@ -12,17 +12,17 @@ const lane = (values: [number, string][]) =>
 
 describe("laneGridFields (#2354)", () => {
   it("returns every definition in position order with empty values for unset fields", () => {
-    const out = laneGridFields(lane([[2, "b"]]), [def(3, "C"), def(1, "A"), def(2, "B")]);
+    const out = laneGridFields(lane([[2, "b"]]), [def(3, "C"), def(1, "A"), def(2, "B")], true);
     expect(out.map((f) => [f.def.name, f.value])).toEqual([["A", ""], ["B", "b"], ["C", ""]]);
   });
   it("is empty without definitions", () => {
-    expect(laneGridFields(lane([]), undefined)).toEqual([]);
+    expect(laneGridFields(lane([]), undefined, true)).toEqual([]);
   });
 });
 
 describe("LaneFieldGrid (#2354)", () => {
   it("renders a labeled dl with a fixed label column and a tinted divider", () => {
-    render(<LaneFieldGrid id="g1" laneName="North" laneColor="#ff0000" fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")])} />);
+    render(<LaneFieldGrid id="g1" laneName="North" laneColor="#ff0000" fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")], true)} />);
     const grid = screen.getByTestId("swimlane-field-grid");
     expect(grid).not.toHaveAttribute("aria-label");
     expect(grid.style.borderColor).toContain("color-mix");
@@ -34,6 +34,7 @@ describe("LaneFieldGrid (#2354)", () => {
     const fields = laneGridFields(
       lane([[1, JSON.stringify(choices)], [2, "https://example.com/a/very/long/path"], [3, "plain text value"]]),
       [def(1, "Tags", { field_type: "multi_select", choices }), def(2, "Link", { field_type: "url" }), def(3, "Note")],
+      true,
     );
     render(<LaneFieldGrid id="g1" fields={fields} />);
     const dds = screen.getByTestId("swimlane-field-grid").querySelectorAll("dd");
@@ -59,7 +60,7 @@ describe("LaneFieldGrid (#2354)", () => {
 
   it("renders label, value, dash and admin-only glyph per row", () => {
     const defs = [def(1, "Owner"), def(2, "ARR", { is_admin_only: true }), def(3, "Site", { field_type: "url" })];
-    render(<LaneFieldGrid id="g" laneName="North" fields={laneGridFields(lane([[1, "Avery"], [3, "https://example.com/a"]]), defs)} />);
+    render(<LaneFieldGrid id="g" laneName="North" fields={laneGridFields(lane([[1, "Avery"], [3, "https://example.com/a"]]), defs, true)} />);
     const grid = screen.getByTestId("swimlane-field-grid");
     const terms = within(grid).getAllByRole("term");
     expect(terms.map((t) => t.textContent)).toEqual(["Owner", "ARR", "Site"]);
@@ -110,5 +111,11 @@ describe('CustomFieldValueDisplay variant="grid-value" (#2354)', () => {
   it("renders a url as a link", () => {
     render(<CustomFieldValueDisplay definition={shape({ field_type: "url" })} value="https://example.com" variant="grid-value" />);
     expect(screen.getByRole("link")).toBeInTheDocument();
+  });
+
+  it("drops admin-only definitions for a non-admin and keeps them for an admin", () => {
+    const defs = [def(1, "Owner"), def(2, "ARR", { is_admin_only: true })];
+    expect(laneGridFields(lane([[2, "9"]]), defs, false).map((f) => f.def.name)).toEqual(["Owner"]);
+    expect(laneGridFields(lane([[2, "9"]]), defs, true).map((f) => f.def.name)).toEqual(["Owner", "ARR"]);
   });
 });

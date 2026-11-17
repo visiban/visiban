@@ -581,6 +581,14 @@ test.describe('board phone layout', () => {
     await more.click()
     await expect(details).toContainText('West')
     await expect(band.getByRole('button', { name: /^\d+ fields:/ })).toHaveAttribute('aria-expanded', 'true')
+    // Measured, not just a class string: at 390px the grid is one column (all values share one left edge, stacked).
+    const values = band.getByTestId('swimlane-field-grid').locator('dd')
+    await expect(values).toHaveCount(3)
+    const boxes = await values.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: r.y, right: r.right } }))
+    expect(new Set(boxes.map((b) => b.x)).size).toBe(1)
+    expect(boxes[1].y).toBeGreaterThan(boxes[0].y)
+    expect(boxes[2].y).toBeGreaterThan(boxes[1].y)
+    expect(Math.max(...boxes.map((b) => b.right))).toBeLessThanOrEqual(390)
     // The long name wraps rather than pushing the page sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
     await toggle.click()

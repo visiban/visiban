@@ -16,6 +16,7 @@ The owner ruled on 2026-11-14 that this design is the standard for the Board vie
 1. This page.
 2. The screenshots in `docs/development/board-redesign/`.
 3. The artboard sources in `docs/development/board-redesign/artboards/`, for exact copy, order and spacing.
+   Note: the swimlane band's `+N`/`Less` expansion in these artboards is superseded by #2354 (the "N fields" toggle and aligned grid).
 4. `frontend/CLAUDE.md`. Its token, contrast, focus, motion and accessibility rules still apply in full. Its board layout sections listed under [Rules to rewrite](#rules-to-rewrite) describe the board being replaced; each child issue rewrites its section in the same MR.
 
 An older board issue that describes a different look, including #871, follows this page.
@@ -367,3 +368,5 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 ## Artboard sources
 
 `docs/development/board-redesign/artboards/` holds the design canvas files as published. `Main.dc.html` is the board; `Peek`, `Light`, `Overview` and `Activity` load it with different settings. `Mobile`, `Components`, `Menus`, `BoardStates` and `Stages` stand alone. They are reference material for copy, order and spacing, not code to port: they are excluded from the docs site and need the canvas runtime to render.
+
+Note: the swimlane band's `+N`/`Less` expansion in these artboards is superseded by #2354 (the "N fields" toggle and aligned grid).

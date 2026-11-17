@@ -20,7 +20,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
-import { laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
+import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
 import LaneFieldGrid from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
@@ -177,9 +177,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   // on-demand tier #2335). Pinning no longer decides what shows: position does.
   // Guards and order: `laneBandFields`, shared with the phone band (#2329).
   const { inline: inlineFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
-  const gridFields = laneGridFields(swimlane, swimlaneFieldDefinitions);
+  const gridFields = laneGridFields(swimlane, swimlaneFieldDefinitions, isAdmin);
   // Until the band slots (#2356) land, K is the inline fields shown today.
-  const showFieldToggle = gridFields.length > inlineFields.length;
+  const showFieldToggle = gridFields.length > INLINE_FIELD_COUNT; // constant, so every lane shows the toggle or none does
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));

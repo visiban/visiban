@@ -481,6 +481,25 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(screen.queryByTestId('swimlane-field-grid')).toBeNull()
   })
 
+  it('excludes an admin-only field from a member\'s toggle count and grid', async () => {
+    const user = userEvent.setup()
+    const withAdminOnly = [fdef(1, 'Owner'), fdef(2, 'Quota'), fdef(3, 'Region'), { ...fdef(4, 'ARR'), is_admin_only: true } as SwimlaneCustomFieldDefinition]
+    setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery']])], swimlaneFieldDefinitions: withAdminOnly, isAdmin: false })
+    await user.click(screen.getByRole('button', { name: /^3 fields: show all field values for North/ }))
+    const grid = screen.getByTestId('swimlane-field-grid')
+    expect(within(grid).queryByText('ARR')).toBeNull()
+    expect(grid.querySelectorAll('dt')).toHaveLength(3)
+  })
+
+  it('shows the toggle consistently across lanes regardless of how many values are set', () => {
+    const lanes = [fielded(1, 'North', []), fielded(2, 'South', [[1, 'a']]), fielded(3, 'East', [[1, 'a'], [2, 'b']])]
+    setup({ swimlanes: lanes, swimlaneFieldDefinitions: [fdef(1, 'Owner'), fdef(2, 'Quota')] })
+    expect(screen.queryAllByRole('button', { name: /fields: show all/ })).toHaveLength(0)
+    cleanup()
+    setup({ swimlanes: lanes, swimlaneFieldDefinitions: defs.slice(0, 3) })
+    expect(screen.getAllByRole('button', { name: /^3 fields: show all/ })).toHaveLength(3)
+  })
+
   it('keeps a URL field link out of the button and lifts it to 44px', () => {
     setup({ swimlanes: [fielded(1, 'North', [[4, 'https://example.com']])], swimlaneFieldDefinitions: defs })
     const details = screen.getByTestId('phone-lane-band-details')

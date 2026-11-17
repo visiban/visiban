@@ -8,7 +8,7 @@ import EditSwimlaneModal from "./EditSwimlaneModal";
 import EditColumnModal from "./EditColumnModal";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
-import { laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
+import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
 import { laneRollup } from "../../utils/laneRollup";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -390,8 +390,8 @@ export default function PhoneBoard({
           // Second line (#2329): the grid band's fields, limit line and rollup, from the
           // same helpers, so a lane reads the same at every width.
           const fields = laneBandFields(lane, swimlaneFieldDefinitions);
-          const gridFields = laneGridFields(lane, swimlaneFieldDefinitions);
-          const showFieldToggle = gridFields.length > fields.inline.length;
+          const gridFields = laneGridFields(lane, swimlaneFieldDefinitions, !!isAdmin);
+          const showFieldToggle = gridFields.length > INLINE_FIELD_COUNT; // constant, so every lane shows the toggle or none does
           const fieldsOpen = showFieldToggle && openFieldLanes.has(lane.id);
           const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);
           const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);

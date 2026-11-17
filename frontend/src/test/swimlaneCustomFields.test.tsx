@@ -257,6 +257,34 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(within(dt).getByLabelText('Admin-only field')).toBeInTheDocument()
   })
 
+  it('excludes an admin-only field from a member\'s toggle count and grid', async () => {
+    const user = userEvent.setup()
+    const defs = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 }), makeDef({ id: 4, uid: 'sfuid0000004', name: 'ARR', position: 3, is_admin_only: true })]
+    renderRow(makeSwimlane(), defs, false, { isAdmin: false })
+    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    const grid = screen.getByTestId('swimlane-field-grid')
+    expect(within(grid).queryByText('ARR')).toBeNull()
+    expect(within(grid).getAllByRole('term')).toHaveLength(3)
+  })
+
+  it('shows the same toggle on every lane of a two-field board, whatever values are set', () => {
+    const two = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 })]
+    for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }]]) {
+      const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), two)
+      expect(screen.queryByRole('button', { name: /fields:/ })).toBeNull()
+      unmount()
+    }
+  })
+
+  it('shows the toggle on every lane of a three-field board, whatever values are set', () => {
+    const three = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 })]
+    for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' }]]) {
+      const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), three)
+      expect(screen.getByRole('button', { name: /^3 fields:/ })).toBeInTheDocument()
+      unmount()
+    }
+  })
+
   it('toggles from the keyboard', async () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
