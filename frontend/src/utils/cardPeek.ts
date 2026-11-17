@@ -1,5 +1,5 @@
 import type { Card, CardMovement, Column, CustomFieldDefinition, Swimlane } from "../types";
-import { getTrackStates, isDimensionField } from "./stages";
+import { getTrackStates, isDimensionField, movementGateNote } from "./stages";
 
 /**
  * Pure derivations for the card peek sheet (#2273). Kept out of the component
@@ -146,5 +146,7 @@ export function describeMovement(m: CardMovement): string {
   if (m.from_column === m.to_column && m.from_swimlane !== m.to_swimlane) {
     return `Moved to ${m.to_swimlane_name || "another lane"}`;
   }
-  return `${m.from_column_name || "?"} to ${m.to_column_name || "?"}`;
+  const base = `${m.from_column_name || "?"} to ${m.to_column_name || "?"}`;
+  const gate = movementGateNote(m);
+  return gate ? `${base}, ${gate}` : base;
 }

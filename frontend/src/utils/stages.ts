@@ -164,3 +164,17 @@ export function subColumnNeighbors(card: Pick<Card, "column" | "gates_passed">, 
   const i = cardSubColumnIndex(card, col);
   return { previous: subs[i - 1]?.name ?? null, next: subs[i + 1]?.name ?? null };
 }
+
+/**
+ * The gate note on a column-move history row (#1102): "left with 2 gates
+ * open" when the card left a gated stage early, "entered at gate 1" when the
+ * move passed gates on arrival. Recorded, never enforced. Null for none.
+ */
+export function movementGateNote(m: { from_gates_open?: number | null; to_gates_passed?: number | null }): string | null {
+  const parts: string[] = [];
+  const open = m.from_gates_open ?? 0;
+  if (open > 0) parts.push(`left with ${open} ${open === 1 ? "gate" : "gates"} open`);
+  const passed = m.to_gates_passed ?? 0;
+  if (passed > 0) parts.push(`entered past ${passed} ${passed === 1 ? "gate" : "gates"}`);
+  return parts.length > 0 ? parts.join(", ") : null;
+}

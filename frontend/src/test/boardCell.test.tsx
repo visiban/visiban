@@ -627,3 +627,32 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
     })
   })
 })
+
+describe('BoardCell gated stage (#2278)', () => {
+  const stage: Column = {
+    ...column,
+    sub_columns: [{ id: 1, uid: 's1', position: 0, name: 'Doing' }, { id: 2, uid: 's2', position: 1, name: 'Ready' }],
+    tracks: [{ id: 1, field_id: 41, field_uid: 'f41', name: 'Technical', position: 0 }],
+  }
+
+  it('renders one named drop group per sub-column, cards by gates_passed in position order', () => {
+    const props = defaultProps()
+    props.column = stage
+    props.cards = [makeCard({ id: 1, gates_passed: 1, position: 1 }), makeCard({ id: 2, gates_passed: 0, position: 0 }), makeCard({ id: 3, gates_passed: 1, position: 0 })]
+    render(<BoardCell {...props} />)
+    const doing = screen.getByRole('group', { name: 'To Do: Doing' })
+    const ready = screen.getByRole('group', { name: 'To Do: Ready' })
+    expect(doing).toHaveAttribute('data-sub-column-drop', 'cell:10:20:0')
+    expect(Array.from(doing.querySelectorAll('[data-card-id]')).map((e) => e.getAttribute('data-card-id'))).toEqual(['2'])
+    expect(Array.from(ready.querySelectorAll('[data-card-id]')).map((e) => e.getAttribute('data-card-id'))).toEqual(['3', '1'])
+  })
+
+  it('renders a single well with "Show sub-columns" off', () => {
+    const props = defaultProps()
+    props.column = stage
+    props.cards = [makeCard({ id: 1, gates_passed: 1 })]
+    render(<BoardCell {...props} showSubColumns={false} />)
+    expect(screen.queryByTestId('cell-sub-columns')).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-1')).toBeInTheDocument()
+  })
+})

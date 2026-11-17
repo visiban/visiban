@@ -1905,6 +1905,28 @@ describe('BoardView', () => {
       expect(screen.getByText(/Over column 'Review', swimlane 'Customer A'\. /)).toBeInTheDocument()
     })
 
+    it('a drop on a sub-column sends gates_passed; leaving a stage with gates open warns, never blocks (#2278)', async () => {
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      const subs = [{ id: 1, uid: 's1', position: 0, name: 'Doing' }, { id: 2, uid: 's2', position: 1, name: 'Ready' }]
+      const board = makeBoard({
+        columns: [
+          { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs },
+          { id: 11, uid: 'coluid000002', name: 'Review', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs },
+        ],
+        cards: [{ ...card(1, 10, 20), gates_passed: 0 }],
+      })
+      mockBoardContextValue = defaultContext({ board, moveCard })
+      render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+      // Same sub-column, same cell: nothing to send.
+      await drop(1, 'cell:10:20:0')
+      expect(moveCard).not.toHaveBeenCalled()
+      await drop(1, 'cell:10:20:1')
+      expect(moveCard).toHaveBeenLastCalledWith(1, 10, 20, 0, 1)
+      await drop(1, 'cell:11:20:1')
+      expect(moveCard).toHaveBeenLastCalledWith(1, 11, 20, 0, 1)
+      expect(await screen.findByText('Left To Do with 1 gate open')).toBeInTheDocument()
+    })
+
     it('advisory mode moves at once', async () => {
       const moveCard = vi.fn().mockResolvedValue({ ok: true })
       mockBoardContextValue = defaultContext({ board: policyBoard('advisory'), moveCard })

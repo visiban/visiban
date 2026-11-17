@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { movementGateNote } from "../../utils/stages";
 import { getCardTimeline } from "../../api/cards";
 import type { TimelineCounts, TimelineEventGroup, TimelinePage } from "../../api/cards";
 import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
@@ -454,6 +455,10 @@ export default function ActivityTabPanel({
                           <span className="text-xs text-fg-tertiary ml-1">
                             ({m.from_swimlane_name} → {m.to_swimlane_name})
                           </span>
+                        )}
+                        {/* #1102: the gate position recorded on the move (warn and record only). */}
+                        {movementGateNote(m) && (
+                          <span data-testid="history-gate-note" className="text-xs text-fg-tertiary ml-1">· {movementGateNote(m)}</span>
                         )}
                       </span>
                       {attribution && (

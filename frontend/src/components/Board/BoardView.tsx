@@ -2557,7 +2557,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // is never refused; the server records `from_gates_open`, the mover is told.
     const gateWarning = leftWithGatesOpenWarning(card, board.columns.find((c) => c.id === card.column), targetColumnId);
     const subName = gatesPassed !== undefined && targetCol ? stageSubColumns(targetCol)[gatesPassed]?.name : undefined;
-    void Promise.resolve(onMoveCard(card.id, targetColumnId, targetSwimlaneId, position, gatesPassed)).then((outcome) => {
+    // The fifth argument only when a sub-column was chosen, so plain moves keep their call shape.
+    const sent = gatesPassed === undefined
+      ? onMoveCard(card.id, targetColumnId, targetSwimlaneId, position)
+      : onMoveCard(card.id, targetColumnId, targetSwimlaneId, position, gatesPassed);
+    void Promise.resolve(sent).then((outcome) => {
       if (outcome && outcome.ok === false) {
         // The move_failed / limit toast is announced assertively by the shared
         // toast region and already carries the cause; blank this status region

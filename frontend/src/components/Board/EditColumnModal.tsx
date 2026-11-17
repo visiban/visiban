@@ -41,7 +41,6 @@ const TABS: { id: EditColumnTab; label: string }[] = [
 
 export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors, isIntakeColumn }: Props) {
   const [tab, setTab] = useState<EditColumnTab>(initialTab ?? "settings");
-  const boardCtx = useOptionalBoardContext();
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
@@ -257,14 +256,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               </div>
             </div>
           ) : tab === "stage" ? (
-            <StageSettingsPanel
-              boardId={boardId}
-              column={column}
-              swimlanes={boardCtx?.board?.swimlanes ?? []}
-              definitions={boardCtx?.board?.custom_field_definitions ?? []}
-              onSaved={(saved) => { onUpdated(saved); onClose(); }}
-              onCancel={onClose}
-            />
+            <StageTab boardId={boardId} column={column} onSaved={(saved) => { onUpdated(saved); onClose(); }} onCancel={onClose} />
           ) : (
             <div className="flex flex-col gap-3">
               <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules.</p>
@@ -304,5 +296,24 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         </button>
       </div>}
     </ModalWrapper>
+  );
+}
+
+/**
+ * The Stage tab body (#2278). Reads lanes and fields from the board context
+ * here, only once the tab is open, so the Settings and Policy tabs keep
+ * working wherever the modal renders without a board provider.
+ */
+function StageTab({ boardId, column, onSaved, onCancel }: { boardId: number; column: Column; onSaved: (c: Column) => void; onCancel: () => void }) {
+  const board = useOptionalBoardContext()?.board;
+  return (
+    <StageSettingsPanel
+      boardId={boardId}
+      column={column}
+      swimlanes={board?.swimlanes ?? []}
+      definitions={board?.custom_field_definitions ?? []}
+      onSaved={onSaved}
+      onCancel={onCancel}
+    />
   );
 }

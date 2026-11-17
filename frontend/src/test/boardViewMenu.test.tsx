@@ -366,3 +366,31 @@ describe('BoardViewMenu column announcements (#2338)', () => {
     await waitFor(() => expect(status()).toHaveTextContent('Showed all columns'))
   })
 })
+
+describe('Show sub-columns switch (#2278)', () => {
+  it('is absent on a board without a gated stage', () => {
+    setup()
+    fireEvent.click(trigger())
+    expect(screen.queryByRole('switch', { name: 'Show sub-columns' })).not.toBeInTheDocument()
+  })
+
+  it('reports the flipped value; absent means on', () => {
+    const onShowSubColumnsChange = vi.fn()
+    setup({ onShowSubColumnsChange })
+    fireEvent.click(trigger())
+    const sw = screen.getByRole('switch', { name: 'Show sub-columns' })
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(sw)
+    expect(onShowSubColumnsChange).toHaveBeenCalledWith(false)
+  })
+
+  it('turns back on from off', () => {
+    const onShowSubColumnsChange = vi.fn()
+    setup({ onShowSubColumnsChange, showSubColumns: false })
+    fireEvent.click(trigger())
+    const sw = screen.getByRole('switch', { name: 'Show sub-columns' })
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(sw)
+    expect(onShowSubColumnsChange).toHaveBeenCalledWith(true)
+  })
+})
