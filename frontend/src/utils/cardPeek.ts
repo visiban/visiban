@@ -1,4 +1,5 @@
-import type { Card, CardMovement, Column, CustomFieldDefinition } from "../types";
+import type { Card, CardMovement, Column, CustomFieldDefinition, Swimlane } from "../types";
+import { getTrackStates, isDimensionField } from "./stages";
 
 /**
  * Pure derivations for the card peek sheet (#2273). Kept out of the component
@@ -21,7 +22,7 @@ export function buildStatusStrip(card: Card, columns: Column[]): PeekStatusStrip
   return { previous: ordered[i - 1] ?? null, current: ordered[i], next: ordered[i + 1] ?? null };
 }
 
-/** One track's state on a card (#1920). */
+/** One track's state on a card (#1920). `done` is the UI word for the API's `satisfied`. */
 export interface PeekTrackState {
   id: number;
   name: string;
@@ -29,13 +30,17 @@ export interface PeekTrackState {
 }
 
 /**
- * Seam for per-card track states. The `Card` payload carries none today
- * (tracks arrive with #1920), so this returns no rows and the sheet renders no
- * track section. When #1920 lands, read the card's track fields here and the
- * sheet needs no change.
+ * Per-card track states for the peek (#2273 seam, fed by #1920/#1921): the
+ * card's stage tracks, resolved from its dimension values and the lane's
+ * not-applicable marks. A plain column with no tracks gives no rows.
  */
-export function getCardTrackStates(_card: Card): PeekTrackState[] {
-  return [];
+export function getCardTrackStates(
+  card: Card,
+  column?: Column | null,
+  swimlane?: Swimlane | null,
+  definitions?: CustomFieldDefinition[],
+): PeekTrackState[] {
+  return getTrackStates(card, column, swimlane, definitions).map(({ id, name, state }) => ({ id, name, state }));
 }
 
 export interface ColumnDwell {
@@ -112,9 +117,12 @@ export interface PeekFieldRow {
   value: string | null;
 }
 
-/** Every custom field in board order; empty or absent values come back null. */
+/**
+ * Every custom field in board order; empty or absent values come back null.
+ * Dimension fields (#1921) are shown as tracks, so they are left out here.
+ */
 export function buildFieldRows(card: Card, definitions: CustomFieldDefinition[]): PeekFieldRow[] {
-  return [...definitions]
+  return definitions.filter((d) => !isDimensionField(d))
     .sort((a, b) => a.position - b.position)
     .map((definition) => {
       const v = card.custom_field_values.find((x) => x.field_definition === definition.id)?.value;
@@ -124,8 +132,10 @@ export function buildFieldRows(card: Card, definitions: CustomFieldDefinition[])
 
 /** "2 of 8 pinned to the card". */
 export function pinnedNote(definitions: CustomFieldDefinition[]): string {
-  const pinned = definitions.filter((d) => d.show_on_card).length;
-  return `${pinned} of ${definitions.length} pinned to the card`;
+  // Dimensions never pin to the card face (#1921), so they count on neither side.
+  const fields = definitions.filter((d) => !isDimensionField(d));
+  const pinned = fields.filter((d) => d.show_on_card).length;
+  return `${pinned} of ${fields.length} pinned to the card`;
 }
 
 /** One history line: "Qualified to Discovery", "Created in Prospect", "Archived". */

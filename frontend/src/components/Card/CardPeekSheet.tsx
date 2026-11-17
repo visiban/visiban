@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cardSubColumnIndex, stageSubColumns } from "../../utils/stages";
 import { getCardMovements } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -185,7 +186,19 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     [card.description],
   );
   const strip = useMemo(() => buildStatusStrip(card, board.columns), [card, board.columns]);
-  const tracks = useMemo(() => getCardTrackStates(card), [card]);
+  const tracks = useMemo(
+    () => getCardTrackStates(
+      card,
+      board.columns.find((c) => c.id === card.column),
+      board.swimlanes.find((l) => l.id === card.swimlane),
+      board.custom_field_definitions,
+    ),
+    [card, board.columns, board.swimlanes, board.custom_field_definitions],
+  );
+  // A gated stage (#1102) shows its sub-columns in place of the single current stage.
+  const currentColumn = board.columns.find((c) => c.id === card.column);
+  const peekSubs = stageSubColumns(currentColumn);
+  const peekSubIndex = currentColumn ? cardSubColumnIndex(card, currentColumn) : 0;
   const fields = useMemo(() => buildFieldRows(card, board.custom_field_definitions ?? []), [card, board.custom_field_definitions]);
   const dwell = useMemo(
     () => (movements ? computeTimeInColumns(card, movements, board.columns) : []),
@@ -347,7 +360,19 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <h3 id="peek-status" className="text-sm font-semibold mb-2">Status</h3>
           <div className="flex flex-wrap gap-1.5" data-testid="card-peek-strip">
             {stage(strip.previous?.name, "previous")}
-            {stage(strip.current?.name, "current")}
+            {peekSubs.length === 0 ? stage(strip.current?.name, "current") : (
+              <span data-testid="card-peek-sub-columns" className="inline-flex flex-wrap gap-1.5">
+                {peekSubs.map((s, i) => (
+                  <span
+                    key={s.id}
+                    aria-current={i === peekSubIndex ? "step" : undefined}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs ${i === peekSubIndex ? "border-info bg-info/10 font-semibold text-info-on-tint" : "border-line text-fg-secondary"}`}
+                  >
+                    {strip.current?.name}: {s.name}{i === peekSubIndex && <span className="sr-only"> (current)</span>}
+                  </span>
+                ))}
+              </span>
+            )}
             {stage(strip.next?.name, "next")}
           </div>
           {tracks.length > 0 && (

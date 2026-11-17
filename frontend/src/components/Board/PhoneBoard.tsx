@@ -1,5 +1,6 @@
 import LaneFieldGrid from "./LaneFieldGrid";
 import { useState, useId, useRef, useEffect, useCallback } from "react";
+import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { createCard } from "../../api/cards";
@@ -186,6 +187,8 @@ export default function PhoneBoard({
   const lastRequest = useRef<number | null>(null);
   // Lanes whose field grid is open (#2329), per lane as on the grid band.
   const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
+  // Phone sub-column switcher (#2278): which sub-column of a split stage is shown.
+  const [subIndex, setSubIndex] = useState(0);
   const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
     const next = new Set(prev);
     if (!next.delete(laneId)) next.add(laneId);
@@ -212,6 +215,8 @@ export default function PhoneBoard({
 
   const columnCards = cards.filter((c) => c.column === column.id);
   const count = columnCards.length;
+  const subs = stageSubColumns(column);
+  const activeSub = subs.length > 0 ? Math.min(subIndex, subs.length - 1) : -1;
   const limit = column.wip_limit !== null && column.wip_limit > 0 ? column.wip_limit : null;
   const over = limit !== null && count > limit;
   const totalWeight = columnCards.reduce((sum, c) => sum + c.weight, 0);
@@ -340,6 +345,30 @@ export default function PhoneBoard({
         </div>
       )}
 
+      {subs.length > 0 && (
+        // Segmented control (spec § Phone width): one 44px segment per sub-column, with its count.
+        <div role="radiogroup" aria-label={`${column.name} sub-columns`} data-testid="phone-sub-column-switcher" className="flex rounded border border-line-strong overflow-hidden">
+          {subs.map((sub, i) => {
+            const n = columnCards.filter((c) => cardSubColumnIndex(c, column) === i).length;
+            const on = i === activeSub;
+            return (
+              <button
+                key={sub.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setSubIndex(i)}
+                className={`flex-1 min-h-11 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-strong" : ""} ${
+                  on ? "bg-info/10 text-info-on-tint font-semibold" : "text-fg-secondary hover:bg-surface-hover"
+                }`}
+              >
+                {sub.name} <span className="tabular-nums">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {(policy || isAdmin) && (
         <div className="flex flex-wrap gap-2" data-testid="phone-column-actions-row">
           {/* The policy is information for every reader (ColumnHeader, #1101), so it is never admin-gated. */}
@@ -380,7 +409,9 @@ export default function PhoneBoard({
       <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${column.id}`} className="flex flex-col gap-2.5">
         {swimlanes.length === 0 && <p className="text-sm text-fg-secondary">No swimlanes</p>}
         {swimlanes.map((lane, laneIdx) => {
-          const laneCards = columnCards.filter((c) => c.swimlane === lane.id).sort((a, b) => a.position - b.position);
+          const laneCards = columnCards
+            .filter((c) => c.swimlane === lane.id && (activeSub < 0 || cardSubColumnIndex(c, column) === activeSub))
+            .sort((a, b) => a.position - b.position);
           const shown = filteredCardIds ? laneCards.filter((c) => filteredCardIds.has(c.id)) : laneCards;
           const collapsed = collapsedSwimlaneIds.has(lane.id);
           const allLane = cards.filter((c) => c.swimlane === lane.id);
@@ -551,6 +582,8 @@ export default function PhoneBoard({
                         onCardUpdated={canEdit ? onCardUpdated : undefined}
                         onOpenMenu={onOpenCardMenu}
                         contextTarget={contextTargetCardId === card.id}
+                        trackStates={getTrackStates(card, column, lane, customFieldDefinitions)}
+                        trackStatesSpelledOut
                       />
                     ))}
                   </div>
