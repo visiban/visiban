@@ -75,6 +75,21 @@ class CardsCanHaveChildrenApiTests(TestCase):
         self.board.refresh_from_db()
         self.assertFalse(self.board.cards_can_have_children)
 
+    def test_put_and_invalid_body_from_non_admin_are_403_not_400(self):
+        client = self._member(Role.MEMBER)
+        with patch(PATCH_BROADCAST):
+            put = client.put(self.url, {"name": "x", "cards_can_have_children": True}, format="json")
+            bad = client.patch(self.url, {"cards_can_have_children": "maybe"}, format="json")
+        self.assertEqual(put.status_code, 403)
+        self.assertEqual(bad.status_code, 403)
+
+    def test_create_accepts_the_flag_and_creator_becomes_admin(self):
+        """Create is open to any signed-in user; they administer the new board, so no privilege gain."""
+        with patch(PATCH_BROADCAST):
+            r = self._client(self.admin).post("/api/v1/boards/", {"name": "New parent", "cards_can_have_children": True}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertIs(r.json()["cards_can_have_children"], True)
+
     def test_non_member_cannot_write(self):
         stranger = User.objects.create_user(username="cchc_stranger", password="pass")
         self.assertEqual(self._patch(self._client(stranger), True).status_code, 404)
