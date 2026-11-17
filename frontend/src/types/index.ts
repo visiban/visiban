@@ -1025,7 +1025,8 @@ export interface CardActivity {
   imported_from_username: string | null;
   /**
    * The checklist item's text on `checklist_item_assigned` and
-   * `checklist_item_due_changed` rows (#2199); null on other rows and on rows
+   * `checklist_item_due_changed` rows (#2199), and the custom field's name on
+   * `custom_field_changed` rows (#1921); null on other rows and on rows
    * recorded before 1.3. Optional so fixtures from older servers still type.
    */
   item_text?: string | null;
