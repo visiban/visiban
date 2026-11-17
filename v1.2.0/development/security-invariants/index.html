@@ -5380,7 +5380,7 @@ one surface only leaves the same field readable through another.</p>
 <tr>
 <td>REST board and members</td>
 <td><code>boards/serializers.py</code> <code>BoardFullSerializer.get_members</code>, <code>get_swimlanes</code>; <code>BoardMembershipSerializer.to_representation</code></td>
-<td><code>moderator_field_visible</code>, <code>site_admin_field_visible</code> (on <code>/full/</code>, also <code>site_admin_roster_visible</code>, Rule 5); <code>SwimlaneAdminSerializer</code> for admin and site_admin only</td>
+<td><code>moderator_field_visible</code>, <code>site_admin_field_visible</code> (on <code>/full/</code>, also <code>site_admin_roster_visible</code>, Rule 5); <code>SwimlaneAdminSerializer</code> for admin and site_admin only. <code>BoardMembershipSerializer</code> strips both flags when no role can be resolved (#1075); the two <code>member.*</code> payload writers that want the unfiltered row (<code>boards/invites.py</code> <code>redeem</code>, <code>boards/admin.py</code> <code>BoardMembershipAdmin._payload</code>) opt in with <code>BROADCAST_PAYLOAD_CONTEXT_KEY</code>, and the consumer and feed rows above filter it. Pinned by <code>boards/tests/test_absent_input_guards_1075.py</code></td>
 </tr>
 <tr>
 <td>REST flow metrics</td>

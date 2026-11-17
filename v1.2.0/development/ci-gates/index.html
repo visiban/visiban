@@ -4548,6 +4548,11 @@ reference on a non-comment line, and fails if any of them:</p>
 <td>Self-test plants a test file only mentioned in a comment, a reasonless allowlist entry, a wired-but-allowlisted file and a stale entry. Fails when a <code>scripts/tests/*.test.sh</code> is neither run by a non-comment <code>bash scripts/tests/&lt;name&gt;</code> line in <code>.gitlab-ci.yml</code> nor listed in <code>scripts/tests/unwired-allowlist.txt</code> with a reason (#2117). The <code>script-tests</code> job also runs the tests that have no gate job of their own.</td>
 </tr>
 <tr>
+<td><code>scripts/check-nginx-security-headers.sh</code></td>
+<td><code>nginx-security-headers</code></td>
+<td>Self-test mutates copies of the two nginx templates: an <code>add_header</code> in a location of either template (block and one-line forms), the CSP removed from either, <code>always</code> dropped, X-Frame-Options weakened in one, CSP drift between the two and the HSTS placeholder removed must each fail; a location that re-declares the full set must pass. The same job also runs <code>--runtime</code>, which boots each template and the frontend image's default config in <code>nginx:1.27-alpine</code> against a stub upstream, asserts status and headers per path, and ends with its own negative control (a location <code>add_header</code> on <code>/api/</code> must be detected) (#1073).</td>
+</tr>
+<tr>
 <td><code>scripts/check-compose-image-pins.sh</code></td>
 <td><code>compose-hygiene</code></td>
 <td>Self-test plants an untagged image, an explicit <code>:latest</code>, a ported-registry reference (<code>host:5000/img</code>, whose colon must not read as a tag separator), and a first-party <code>${VAR}</code> reference that must NOT be reported.</td>
