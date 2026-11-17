@@ -6,6 +6,7 @@ import uuid
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 from rest_framework.generics import get_object_or_404
 from django.db import transaction
+from django.db.models import prefetch_related_objects
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -15,6 +16,7 @@ from rest_framework.views import APIView
 
 from ..models import Board
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED
+from ..services import share_cache
 from ..services.share_links import revoke_lapsed_share_links, share_enabler_has_standing
 from ..serializers import PublicBoardSerializer
 
@@ -121,12 +123,7 @@ class ShareBoardView(APIView):
         # match: a link whose token was cleared is gone even if a clear route
         # ever left its hash behind.
         board = get_object_or_404(
-            Board.objects.select_related("share_enabled_by", GROUP_ANCESTOR_SELECT_RELATED)
-            .prefetch_related(
-                "columns", "swimlanes", "labels",
-                # PublicColumnSerializer's sub_columns / tracks (#1102, #1921).
-                "columns__sub_columns", "columns__stage_tracks__field_definition",
-            ),
+            Board.objects.select_related("share_enabled_by", GROUP_ANCESTOR_SELECT_RELATED),
             share_token_hash=token_hash,
             share_token__isnull=False,
         )
@@ -166,4 +163,17 @@ class ShareBoardView(APIView):
                 {"detail": "This share link has expired."},
                 status=status.HTTP_410_GONE,
             )
-        return Response(PublicBoardSerializer(board).data)
+
+        # Everything above ran for this request, so the cache below can only
+        # serve a link that is live right now (#1965). Its prefetches are
+        # loaded on a miss only.
+        def build():
+            prefetch_related_objects(
+                [board],
+                "columns", "swimlanes", "labels",
+                # PublicColumnSerializer's sub_columns / tracks (#1102, #1921).
+                "columns__sub_columns", "columns__stage_tracks__field_definition",
+            )
+            return PublicBoardSerializer(board).data
+
+        return Response(share_cache.get_or_build(board, token_hash, build))
