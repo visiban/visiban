@@ -551,7 +551,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
       {/* #2214 — a setting on the lane filter, not a rule. Stays visible and keeps its
           value while no card filter is active; the helper line says why it is off. */}
       <div className="px-3 py-2 border-t border-line">
-        <label className={`flex items-center gap-2 select-none ${cardFilterActive ? "cursor-pointer" : "cursor-not-allowed"}`}>
+        <label className={`flex items-center gap-2 max-sm:min-h-11 select-none ${cardFilterActive ? "cursor-pointer" : "cursor-not-allowed"}`}>
           <input
             type="checkbox"
             checked={hideUnmatched}

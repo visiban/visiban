@@ -3149,7 +3149,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          {/* Phone (#2333): every control in the bar is a 44px target; the text inputs are lifted but a checkbox or radio is not (its row is the target); the facet menus carry their own rules in MultiSelectDropdown (#2350). */}
+          {/* Phone (#2333): every control in the bar is a 44px target; the text inputs are lifted but a checkbox or radio is not (its row is the target); the facet menus are CheckboxDropdown and carry their own rules (#2350); the Lanes popover is not portaled, so its checkbox label row carries its own max-sm:min-h-11. */}
           <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}

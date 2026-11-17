@@ -138,7 +138,7 @@ export default function ConnectionStatus({
       role="dialog"
       aria-label="Connection status"
       style={{ position: "fixed", top: anchor.top, right: anchor.right }}
-      className="w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2"
+      className="w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2 max-sm:[&_button]:min-h-11"
     >
       <PopoverBody
         state={effective}

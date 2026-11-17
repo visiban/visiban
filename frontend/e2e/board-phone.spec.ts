@@ -176,7 +176,7 @@ test.describe('board phone layout', () => {
     expect(hb!.x + hb!.width).toBeLessThanOrEqual(nb!.x + 1)
     expect(nb!.x + nb!.width).toBeLessThanOrEqual(sb!.x + 1)
     expect(bb!.y).toBeLessThan(1)
-    // Header row, toolbar icon row, tab row: the separate navigation bar no longer adds a fourth.
+    // Header row, then one toolbar row (tabs plus Filter, Activity and More): the separate navigation bar no longer adds a third (#2348).
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
     expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     await hamburger.click()
@@ -311,7 +311,8 @@ test.describe('board phone layout', () => {
     await expect(page.getByRole('combobox', { name: 'Command palette search' })).toBeVisible()
     expect(Math.round((await page.getByRole('combobox', { name: 'Command palette search' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
     const items = await rowHeights('[role="listbox"][aria-label="Results"] [role="option"]')
-    if (items.length > 0) expect(Math.min(...items)).toBeGreaterThanOrEqual(44)
+    expect(items.length).toBeGreaterThan(0)
+    expect(Math.min(...items)).toBeGreaterThanOrEqual(44)
   })
 
   test('the card actions menu items are 44px (#2350)', async ({ page }) => {
@@ -375,6 +376,36 @@ test.describe('board phone layout', () => {
     const clear = page.getByRole('button', { name: 'Clear lane filters' })
     await expect(clear).toBeVisible()
     expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+  })
+
+  test('the Lanes popover in the filter bar has 44px targets, its checkbox row included (#2350)', async ({ page }) => {
+    // Two lanes offer the Lanes control. Its popover is not portaled, so it sits inside role=search, whose
+    // descendant rule skips a checkbox: the "Hide lanes with no matching cards" label row carries its own 44px.
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('/')
+    const bar = page.getByRole('search', { name: 'Board filters' })
+    await expect(bar).toBeVisible()
+    await bar.getByRole('button', { name: /^Lanes/ }).click()
+    const pop = bar.getByRole('dialog', { name: 'Lane filters' })
+    await expect(pop).toBeVisible()
+    const row = pop.locator('label:has([data-testid="lane-filter-hide-unmatched"])')
+    expect(Math.round((await row.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    expect(await smallControls(page, ['[role="search"] [role="dialog"]'])).toEqual([])
+  })
+
+  test('the column policy popover is 44px (#2350)', async ({ page }) => {
+    const policy = { entry: ['Has an owner'], done: ['Reviewed'] }
+    await routeBoard(page, { ...BOARD_FULL, columns: BOARD_FULL.columns.map((c, i) => (i === 0 ? { ...c, policy } : c)) } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: /^Column policy for / }).first().click()
+    const pop = page.getByRole('dialog', { name: /^Column policy for / })
+    await expect(pop).toBeVisible()
+    // The fixture user is an admin, so Edit policy is there to measure.
+    await expect(pop.getByRole('button', { name: 'Edit policy' })).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"][aria-label^="Column policy for"]'])).toEqual([])
   })
 
   test('adds a card to a lane and Edit swimlane opens the modal', async ({ page }) => {
@@ -586,5 +617,44 @@ test.describe('phone reorder from the card detail panel (#2359)', () => {
     expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
     await expect(earlier).toBeDisabled()
     await expect(later).toBeEnabled()
+  })
+  test('the detail panel Move button and its popover are 44px (#2359)', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const move = page.getByRole('button', { name: 'Move card to different column or swimlane' })
+    await expect(move).toBeVisible()
+    const box = (await move.boundingBox())!
+    expect(Math.round(Math.min(box.width, box.height))).toBeGreaterThanOrEqual(44)
+    await move.tap()
+    await expect(page.locator('[data-move-popover]')).toBeVisible()
+    expect(await smallControls(page, ['[data-move-popover]'])).toEqual([])
+  })
+
+  test('a multi-select custom field menu in the detail panel is 44px (#2350)', async ({ page }) => {
+    // MultiSelectDropdown is reachable on the phone board through the card detail panel's custom fields.
+    const def = {
+      id: 1, uid: 'sfuid000001', name: 'Tags', field_type: 'multi_select', choices: ['Alpha', 'Beta', 'Gamma'], position: 1,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    await routeAuth(page)
+    await routeBoard(page, { ...BOARD_FULL, custom_field_definitions: [def] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    await page.getByRole('button', { name: /Custom fields/ }).tap()
+    const trigger = page.getByRole('button', { name: 'Tags: No value' })
+    await trigger.scrollIntoViewIfNeeded()
+    await trigger.tap()
+    const search = page.getByRole('combobox', { name: /Filter Tags choices/ })
+    await expect(search).toBeVisible()
+    const listbox = page.getByRole('listbox')
+    const rows = await listbox.getByRole('option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBe(3)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+    expect(Math.round((await search.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
   })
 })

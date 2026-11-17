@@ -1649,7 +1649,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     // On coarse pointers (touch) this is the non-drag way to move a card,
                     // but a 20px icon is too small to tap and its hover tooltip never
                     // shows (#1287). Grow it to 32px and show the "Move" label inline.
-                    className="w-5 h-5 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-muted aria-disabled:hover:bg-transparent transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-5 h-5 max-sm:min-h-11 max-sm:min-w-11 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-muted aria-disabled:hover:bg-transparent transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     aria-label="Move card to different column or swimlane"
                   >
                     {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
@@ -2660,7 +2660,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             // Owns the inline role="alert" for a refused move, so the shared
             // toast mirrors it silently (MoveBlockedToast, frontend/CLAUDE.md § Toasts).
             data-move-popover=""
-            className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
+            className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3 max-sm:[&_button]:min-h-11"
             style={{ top: movePopoverAnchor.top, left: movePopoverAnchor.left }}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">Move to</p>
