@@ -17,6 +17,8 @@ interface Props {
   onReloadPage?: () => void;
   className?: string;
   tourStep?: string;
+  /** Phone chrome (#2348): drop the healthy dot below 640px; a degraded state (stale, offline, failed) still shows. */
+  hideWhenHealthyOnPhone?: boolean;
 }
 
 type EffectiveState = SocketStatus | "stale";
@@ -38,6 +40,7 @@ export default function ConnectionStatus({
   onReloadPage,
   className = "",
   tourStep,
+  hideWhenHealthyOnPhone = false,
 }: Props) {
   const isStale = useIsStale(status, lastEventAt);
   const effective: EffectiveState = status === "connected" && isStale ? "stale" : status;
@@ -158,7 +161,7 @@ export default function ConnectionStatus({
         aria-expanded={open}
         aria-label={variant.aria}
         data-tour-step={tourStep}
-        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
+        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}${hideWhenHealthyOnPhone && effective === "connected" ? " max-sm:hidden" : ""}`}
       >
         <span className={variant.dot} aria-hidden="true" />
         {variant.label && <span className={variant.labelClass}>{variant.label}</span>}

@@ -2795,9 +2795,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             the row never scrolls sideways. */}
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
           <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-            {/* Phone: row 1 reserved, tabs on row 2, the lens controls on row 3, so Board to Lens never moves the tabs (#2321, #2333). */}
-            <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-            <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+            <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
             </div>
             <div className="flex-1 max-sm:hidden" />
@@ -2837,9 +2835,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2855,9 +2851,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2873,9 +2867,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2957,13 +2949,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           folds by viewport: the row wraps instead, so no control is ever
           hidden and the page never scrolls sideways. Connection status is the
           last item and stays pinned to the trailing edge. */}
-      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+      {/* Phone (#2348): one 44px row, the tabs scrolling inside their own box with Filter, Activity and More after them, so the chrome is header + tab strip (about 92px) and the strip sits at the same y as the other views' (#2349). */}
+      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:flex-nowrap max-sm:gap-x-1">
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-1 max-sm:flex-1">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
           <div className="flex-1 max-sm:hidden" />
-          <div className="flex items-center gap-2 flex-wrap max-sm:order-1 max-sm:ml-auto">
+          <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
             <FilterPanel
               board={board}
               filters={effectiveFilters}
@@ -3074,8 +3067,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             />
           </div>
         </div>
-        <div className="flex items-center shrink-0 ml-auto max-sm:order-1 max-sm:ml-0">
+        <div className="flex items-center shrink-0 ml-auto max-sm:order-3 max-sm:ml-0">
           <ConnectionStatus
+            hideWhenHealthyOnPhone
             status={socketStatus}
             lastEventAt={socketLastEventAt}
             reconnectAttempt={socketReconnectAttempt}

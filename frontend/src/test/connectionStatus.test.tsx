@@ -182,3 +182,14 @@ describe('ConnectionStatus viewport dismissals (#1171)', () => {
     expect(screen.queryByRole('dialog', { name: 'Connection status' })).not.toBeInTheDocument()
   })
 })
+
+describe('ConnectionStatus on phones (#2348)', () => {
+  it('hides only the healthy dot below 640px when asked', () => {
+    const { rerender } = render(<ConnectionStatus status="connected" lastEventAt={Date.now()} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('button', { name: 'Real-time updates active', hidden: true })).toHaveClass('max-sm:hidden')
+    rerender(<ConnectionStatus status="reconnecting" lastEventAt={null} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('button', { name: /Offline, reconnecting/ })).not.toHaveClass('max-sm:hidden')
+    rerender(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
+    expect(screen.getByRole('button', { name: 'Real-time updates active' })).not.toHaveClass('max-sm:hidden')
+  })
+})

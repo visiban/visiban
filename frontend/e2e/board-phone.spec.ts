@@ -28,11 +28,21 @@ async function overlappingControls(page: Page): Promise<string[]> {
     const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="mobile-nav-bar"] button, nav[aria-label="Board toolbar"] button'))
       .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' })
     const name = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)
+    // The part a user sees: a tab scrolled out of the tab strip's own box (#2348) is clipped, not overlapping the icons after it.
+    const shown = (el: Element) => {
+      let r = el.getBoundingClientRect()
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (getComputedStyle(p).overflowX === 'visible') continue
+        const c = p.getBoundingClientRect()
+        r = new DOMRect(Math.max(r.left, c.left), r.top, Math.max(0, Math.min(r.right, c.right) - Math.max(r.left, c.left)), r.height)
+      }
+      return r
+    }
     const out: string[] = []
     for (let i = 0; i < els.length; i++) {
       for (let j = i + 1; j < els.length; j++) {
         if (els[i].contains(els[j]) || els[j].contains(els[i])) continue
-        const a = els[i].getBoundingClientRect(), b = els[j].getBoundingClientRect()
+        const a = shown(els[i]), b = shown(els[j])
         const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
         const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
         if (w > 1 && h > 1) out.push(`${name(els[i])} overlaps ${name(els[j])}`)
@@ -168,7 +178,7 @@ test.describe('board phone layout', () => {
     expect(bb!.y).toBeLessThan(1)
     // Header row, toolbar icon row, tab row: the separate navigation bar no longer adds a fourth.
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
-    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     await hamburger.click()
     await expect(page.getByRole('dialog', { name: 'Navigation menu' })).toBeVisible()
   })
@@ -179,7 +189,7 @@ test.describe('board phone layout', () => {
     await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
-    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     expect(await overlappingControls(page)).toEqual([])
     expect(await smallControls(page, ['[role="banner"]', 'nav[aria-label="Board toolbar"]'])).toEqual([])
   })
