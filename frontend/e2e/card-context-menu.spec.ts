@@ -62,7 +62,10 @@ test.describe('card context menu', () => {
     await page.keyboard.press('Shift+F10')
     const menu = page.getByRole('menu', { name: `Card actions: ${CARD.title}` })
     await expect(menu).toBeVisible()
-    // Typeahead: "s" jumps to Set priority.
+    // Typeahead cycles forward from the focused item: "s" lands on Show summary
+    // (#2358), and a second "s" on Set priority.
+    await page.keyboard.press('s')
+    await expect(menu.getByRole('menuitem', { name: /Show summary/ })).toBeFocused()
     await page.keyboard.press('s')
     await expect(menu.getByRole('menuitem', { name: /Set priority/ })).toBeFocused()
     // …and only the menu: the bare-letter S (Summary view) did not fire.
