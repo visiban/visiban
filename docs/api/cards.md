@@ -616,7 +616,7 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET` on a card's `activities/`, `comments/` and `attachments/` returns a bare JSON array of **every** row on the card, as it always has. A long-lived card's activity log grows on every field edit, so since 1.3 each of the three also accepts optional paging parameters and always sends the card list's count headers. The body is the same bare array either way.
+`GET` on a card's `movements/`, `activities/`, `comments/` and `attachments/` returns a bare JSON array of **every** row on the card, as it always has. A long-lived card's activity log grows on every field edit, so since 1.3 each of the four also accepts optional paging parameters and always sends the card list's count headers. The body is the same bare array either way.
 
 | Query param | Notes |
 |---|---|
@@ -636,7 +636,7 @@ GET /api/v1/boards/4/cards/17/activities/?limit=200&offset=400 -> X-Total-Count:
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
-Full movement history for a card (uncapped; tracked in #2255). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
+Movement history for a card, newest first, as a bare array. Every movement by default; since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`, like the other history lists (see [Paging a card's history lists](#paging-a-cards-history-lists)). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`). Newest first. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists).

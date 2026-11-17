@@ -1867,7 +1867,27 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Invite links
     # ------------------------------------------------------------------
 
-    @extend_schema(summary="List invite links for a group", methods=["GET"], responses=GroupInviteLinkSerializer(many=True))
+    @staticmethod
+    def _group_invite_links_queryset(group):
+        """The links ``invite-links/`` GET lists, unordered.
+
+        Shared (#2253) so ``invite-links/paged/`` is a window over exactly the
+        bare list's set.
+        """
+        return GroupInviteLink.objects.filter(
+            Q(group=group) & (Q(is_active=True) | Q(used_at__isnull=False))
+        ).select_related("created_by")
+
+    @extend_schema(
+        summary="List invite links for a group",
+        description=(
+            "Returns every listed invite link as one array, including consumed and expired "
+            "ones, so the list grows with use. To read them in pages, use "
+            "`GET /api/v1/groups/{id}/invite-links/paged/`."
+        ),
+        methods=["GET"],
+        responses=GroupInviteLinkSerializer(many=True),
+    )
     @extend_schema(
         summary="Create an invite link for a group",
         methods=["POST"],
@@ -1886,9 +1906,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         if request.method == "GET":
             # Include consumed single-use links so admins can audit past usage.
-            links = GroupInviteLink.objects.filter(
-                Q(group=group) & (Q(is_active=True) | Q(used_at__isnull=False))
-            ).select_related("created_by").order_by("created_at")
+            links = self._group_invite_links_queryset(group).order_by("created_at")
             return Response(GroupInviteLinkSerializer(links, many=True).data)
 
         from .services import lock_group_row
@@ -1943,6 +1961,32 @@ class GroupViewSet(viewsets.ModelViewSet):
             data = GroupInviteLinkSerializer(link).data
         data["token"] = raw_token
         return Response(data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Page through a group's invite links",
+        description=(
+            "Same link set and per-row shape as `GET /api/v1/groups/{id}/invite-links/`, "
+            "returned in pages ordered by creation time, oldest first, with the link `id` as "
+            "a tiebreaker. Requires group admin. A link created during a walk is appended at "
+            "the end."
+        ),
+        responses=GroupInviteLinkSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="invite-links/paged",
+        url_name="invite-links-paged",
+        pagination_class=OffsetCountPagination,
+        filter_backends=[],
+    )
+    def invite_links_paged(self, request, pk=None):
+        """Paginated view of ``invite_links`` GET (#2253); same gate, same set."""
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        links = self._group_invite_links_queryset(group).order_by("created_at", "id")
+        page = self.paginate_queryset(links)
+        return self.get_paginated_response(GroupInviteLinkSerializer(page, many=True).data)
 
     @extend_schema(
         summary="Email a single-use invite link to one address",
@@ -2143,6 +2187,10 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List a group's shared label library", methods=["GET"],
+        description=(
+            "Returns every label as one array. To read them in pages, use "
+            "`GET /api/v1/groups/{id}/labels/paged/`."
+        ),
         responses=GroupLabelSerializer(many=True),
     )
     @extend_schema(
@@ -2181,6 +2229,29 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             transaction.on_commit(_broadcast_label_created)
         return Response(label_data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Page through a group's shared label library",
+        description=(
+            "Same labels and per-row shape as `GET /api/v1/groups/{id}/labels/`, returned in "
+            "pages ordered by label `id` ascending. Requires group membership."
+        ),
+        responses=GroupLabelSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="labels/paged",
+        url_name="labels-paged",
+        pagination_class=OffsetCountPagination,
+        filter_backends=[],
+    )
+    def group_labels_paged(self, request, pk=None):
+        """Paginated view of ``group_labels`` GET (#2256); same gate, same set."""
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        page = self.paginate_queryset(group.labels.order_by("id"))
+        return self.get_paginated_response(GroupLabelSerializer(page, many=True).data)
 
     @extend_schema(
         summary="Update a group shared label", methods=["PATCH"],

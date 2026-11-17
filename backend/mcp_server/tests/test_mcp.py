@@ -727,7 +727,7 @@ class CardResourceTests(McpTestCase):
                 # #1149, additive.
                 "blocked_at", "blocked_reason", "gates_passed",
                 # #1963, additive: set when activities/comments hit the cap.
-                "activities_truncated", "comments_truncated",
+                "activities_truncated", "comments_truncated", "movements_truncated",
             },
         )
         self.assertEqual(data["uid"], card.uid)
@@ -1352,7 +1352,7 @@ class UserFieldParityTests(McpTestCase):
         # endpoints (the flags as the X-Truncated header).
         history = {
             "movements", "checklist_items", "activities", "comments",
-            "activities_truncated", "comments_truncated",
+            "activities_truncated", "comments_truncated", "movements_truncated",
         }
         for card in (*self._list_cards(), detail):
             self.assertLessEqual(set(card) - history, rest_card_keys)
