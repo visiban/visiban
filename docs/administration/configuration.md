@@ -239,6 +239,13 @@ A Valkey outage no longer takes the app offline. The readiness probe stays `200`
 
 Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache unreachable` log lines, not on the readiness probe. See [Health API](../api/health.md#get-apihealthreadiness).
 
+**Cache timeouts.** Every cache call gives up after a bounded wait, so a Valkey that is unreachable without refusing connections (a dropped route, a firewall that discards packets, a node that disappeared) fails fast instead of hanging each request. The readiness probe makes one cache call, so its answer arrives inside the 1-second Kubernetes default probe timeout. The timeouts apply to the Django cache only: the realtime (Channels) connection keeps its own settings, because it holds blocking reads open on purpose.
+
+| Variable | Description | Default |
+|---|---|---|
+| `REDIS_CACHE_SOCKET_CONNECT_TIMEOUT` | Seconds to wait for a connection to the cache (`REDIS_CACHE_URL`). Must be greater than 0. Keep it below 1 unless you also raise the readiness probe's `timeoutSeconds`. Helm: `backend.settings.cacheTimeouts.connectSeconds`. *(new in 1.3)* | `0.5` |
+| `REDIS_CACHE_SOCKET_TIMEOUT` | Seconds to wait for each cache reply. Must be greater than 0. Helm: `backend.settings.cacheTimeouts.socketSeconds`. *(new in 1.3)* | `0.5` |
+
 ## Webhooks
 
 > **Added in 1.3** (#863).

@@ -7,9 +7,13 @@ production outage. See ``visiban/cache_outage.py`` for the per-consumer
 fail-open / fail-closed decision these tests pin.
 """
 
+import socket
+import time
+import unittest
 from unittest import mock
 
 import redis
+from django.core.exceptions import ImproperlyConfigured
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import RequestFactory, TestCase, override_settings
@@ -23,6 +27,7 @@ from accounts.models import (
     get_uploads_enabled,
 )
 from visiban import cache_outage
+from visiban import settings as settings_module
 from visiban.cache_outage import FailOpenAnonRateThrottle, FailOpenUserRateThrottle
 
 User = get_user_model()
@@ -157,3 +162,108 @@ class FailOpenThrottleUnitTests(TestCase):
         cache.clear()
         self.assertTrue(throttle.allow_request(self._request(), None))
         self.assertFalse(throttle.allow_request(self._request(), None))
+
+
+class CacheSocketTimeoutOptionsTests(unittest.TestCase):
+    """The production cache must carry bounded socket timeouts (#1465).
+
+    Without them redis-py blocks on a black-holed Valkey for as long as the
+    kernel allows, so no CACHE_OUTAGE_ERRORS is ever raised and nothing in
+    visiban/cache_outage.py gets to degrade.
+    """
+
+    def test_defaults_are_bounded_and_under_the_probe_timeout(self):
+        options = settings_module._redis_cache_options(
+            settings_module.REDIS_CACHE_SOCKET_CONNECT_TIMEOUT_DEFAULT,
+            settings_module.REDIS_CACHE_SOCKET_TIMEOUT_DEFAULT,
+        )
+        self.assertEqual(set(options), {"socket_connect_timeout", "socket_timeout"})
+        for value in options.values():
+            self.assertIsNotNone(value)
+            # Readiness makes one cache call and Kubernetes' default probe
+            # timeout is 1 second.
+            self.assertGreater(value, 0)
+            self.assertLess(value, 1)
+
+    def test_operator_values_pass_through(self):
+        self.assertEqual(
+            settings_module._redis_cache_options(2.0, 3.5),
+            {"socket_connect_timeout": 2.0, "socket_timeout": 3.5},
+        )
+
+    def test_non_positive_values_are_refused(self):
+        for bad in ((0, 0.5), (0.5, 0), (-1, 0.5)):
+            with self.subTest(bad=bad), self.assertRaises(ImproperlyConfigured):
+                settings_module._redis_cache_options(*bad)
+
+    def test_production_caches_setting_uses_the_builder(self):
+        # The production branch of settings.py is not executed under the test
+        # runner (it substitutes LocMemCache), so pin the wiring by source.
+        import inspect
+
+        source = inspect.getsource(settings_module)
+        self.assertIn('"OPTIONS": _redis_cache_options(', source)
+        self.assertIn('env.float("REDIS_CACHE_SOCKET_CONNECT_TIMEOUT"', source)
+        self.assertIn('env.float("REDIS_CACHE_SOCKET_TIMEOUT"', source)
+
+
+# A non-routable address in TEST-NET-1 (RFC 5737): SYNs to it are normally
+# dropped, never refused, which is exactly a black-holed Valkey.
+_BLACKHOLE_HOST = "192.0.2.1"
+
+
+def _network_drops_blackhole_traffic() -> bool:
+    """True when a connect to _BLACKHOLE_HOST hangs (dropped) rather than fails.
+
+    Some sandboxes and CI networks reject the route at once (ENETUNREACH,
+    EHOSTUNREACH) instead of dropping packets. There a fast ConnectionError
+    would make the timing test below pass without exercising the socket
+    timeout at all, so it skips instead.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.2)
+    try:
+        sock.connect((_BLACKHOLE_HOST, 6379))
+    except TimeoutError:
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+    return False  # something answered: not a black hole
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": f"redis://{_BLACKHOLE_HOST}:6379/1",
+            "OPTIONS": settings_module._redis_cache_options(
+                settings_module.REDIS_CACHE_SOCKET_CONNECT_TIMEOUT_DEFAULT,
+                settings_module.REDIS_CACHE_SOCKET_TIMEOUT_DEFAULT,
+            ),
+        }
+    }
+)
+class ReadinessAgainstBlackholedValkeyTests(TestCase):
+    def setUp(self):
+        if not _network_drops_blackhole_traffic():
+            self.skipTest(f"this network does not drop traffic to {_BLACKHOLE_HOST}; nothing to time")
+        _reset_outage_log()
+        self.addCleanup(_reset_outage_log)
+
+    def test_readiness_answers_degraded_inside_the_probe_timeout(self):
+        start = time.monotonic()
+        with self.assertLogs("boards.views.health", level="WARNING"):
+            response = APIClient().get("/api/health/readiness/")
+        elapsed = time.monotonic() - start
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "degraded"})
+        # Kubernetes' default readiness timeoutSeconds is 1.
+        self.assertLess(elapsed, 0.9)
+
+    def test_a_black_holed_cache_read_raises_a_cache_outage_error(self):
+        start = time.monotonic()
+        with self.assertRaises(cache_outage.CACHE_OUTAGE_ERRORS):
+            cache.get("anything")
+        self.assertLess(time.monotonic() - start, 0.9)

@@ -92,6 +92,15 @@ backend:
       enabled: false
       minSize: 2
       maxSize: 10
+    # Valkey cache socket timeouts in seconds (REDIS_CACHE_SOCKET_CONNECT_TIMEOUT,
+    # REDIS_CACHE_SOCKET_TIMEOUT; #1465). null keeps the backend default of 0.5.
+    # They bound every cache call, so a black-holed Valkey fails fast instead of
+    # hanging requests; the readiness probe makes one cache call inside its
+    # 1-second timeout, so keep connectSeconds below 1 unless you raise
+    # timeoutSeconds on the probe too.
+    cacheTimeouts:
+      connectSeconds: null
+      socketSeconds: null
     # Number of reverse proxies in front of the backend that append to
     # X-Forwarded-For (NUM_PROXIES). Unset (null) renders 2 while ingress.enabled
     # is true and frontend.service.type is ClusterIP (this chart's frontend nginx

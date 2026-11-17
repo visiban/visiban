@@ -93,11 +93,13 @@ class ReadinessViewTests(TestCase):
         for fragment in ("10.1.2.3", "5432", "svc", "prod", "cache.internal", "6379"):
             self.assertNotIn(fragment, body)
 
-    @patch("django.core.cache.cache.get", return_value=None)
-    def test_readiness_degraded_on_cache_mismatch(self, mock_get):
-        """A cache read that does not return the written value is degraded, not unready."""
-        with self.assertLogs("boards.views.health", level="WARNING") as logs:
-            resp = self.client.get("/api/health/readiness/")
+    @patch("django.core.cache.cache.get")
+    @patch("django.core.cache.cache.set")
+    def test_readiness_makes_one_cache_round_trip(self, mock_set, mock_get):
+        """One SET, no GET: each cache call can cost a full socket timeout when
+        Valkey is black-holed, and the probe must answer inside 1 second (#1465)."""
+        resp = self.client.get("/api/health/readiness/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.json(), {"status": "degraded"})
-        self.assertTrue(any("cache" in r.getMessage() for r in logs.records))
+        self.assertEqual(resp.json(), {"status": "ok"})
+        mock_set.assert_called_once()
+        mock_get.assert_not_called()

@@ -72,13 +72,14 @@ class ReadinessView(APIView):
             logger.warning("Readiness check failed: database", exc_info=exc)
             errors["db"] = _UNAVAILABLE
 
-        # Check Valkey cache. Non-fatal: see the class docstring.
+        # Check Valkey cache. Non-fatal: see the class docstring. ONE
+        # round-trip: each call can cost up to the cache socket timeout when
+        # Valkey is black-holed (REDIS_CACHE_SOCKET_*_TIMEOUT, #1465), and the
+        # whole probe must answer inside Kubernetes' 1-second default. A SET
+        # that returns proves the connection, auth, and a writable server.
         try:
             from django.core.cache import cache
             cache.set("_health", "ok", timeout=5)
-            if cache.get("_health") != "ok":
-                logger.warning("Readiness degraded: cache read/write mismatch")
-                degraded = True
         except Exception as exc:
             logger.warning("Readiness degraded: cache", exc_info=exc)
             degraded = True
