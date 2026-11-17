@@ -264,7 +264,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 17
+    SITE_ADMIN_READER_QUERIES = 19  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches (constant)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -796,7 +796,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 17
+    FULL_QUERIES = 19  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches (constant)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1766,7 +1766,7 @@ class CardMutationQueryCountTests(TestCase):
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_UNARCHIVE = 23           # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 28             # measured 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_DESTROY = 29             # measured 28 (+1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # Relation write paths (#449). Both re-render BOTH endpoint cards for the
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.

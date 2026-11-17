@@ -30,6 +30,7 @@ FACTORIES = {
     "BoardNotFound": lambda: service_errors.BoardNotFound(),
     "InvalidVersion": lambda: service_errors.InvalidVersion(),
     "InvalidPosition": lambda: service_errors.InvalidPosition(),
+    "InvalidGatesPassed": lambda: service_errors.InvalidGatesPassed(),
     "VersionConflict": lambda: service_errors.VersionConflict(3),
     "ContainerChanged": lambda: service_errors.ContainerChanged(),
     "WipLimitExceeded": lambda: service_errors.WipLimitExceeded(
@@ -72,6 +73,7 @@ EXPECTED_SERVICE_CODES = {
     "BoardNotFound": "board_not_found",
     "InvalidVersion": "invalid_version",
     "InvalidPosition": "invalid_position",
+    "InvalidGatesPassed": "invalid_gates_passed",
     "VersionConflict": "version_conflict",
     "ContainerChanged": "container_changed",
     "WipLimitExceeded": "wip_limit_exceeded",

@@ -199,6 +199,35 @@ class InvalidPosition(CardServiceError):
         return {"detail": "position must be an integer."}
 
 
+class InvalidGatesPassed(CardServiceError):
+    """The move's ``gates_passed`` (#1102) is not a valid gate count.
+
+    Not an integer (a JSON boolean counts as not an integer), negative, past
+    the target stage's last sub-column, or above 0 on a column that has no
+    sub-columns. A plain string ``code`` like the 409 bodies, deliberately not
+    a serializer ``ValidationError``, which would wrap the code in a list.
+    Pinned in ``boards/tests/test_card_error_bodies.py``.
+    """
+
+    status = 400
+
+    def __init__(self, max_gates: int | None = None):
+        self.max_gates = max_gates
+        super().__init__("invalid_gates_passed")
+
+    def body(self) -> dict:
+        if self.max_gates is None:
+            return {
+                "code": "invalid_gates_passed",
+                "detail": "gates_passed must be an integer.",
+            }
+        return {
+            "code": "invalid_gates_passed",
+            "detail": f"gates_passed must be between 0 and {self.max_gates} for this column.",
+            "max_gates_passed": self.max_gates,
+        }
+
+
 class VersionConflict(CardServiceError):
     """The caller's ``version`` no longer matches the stored row.
 

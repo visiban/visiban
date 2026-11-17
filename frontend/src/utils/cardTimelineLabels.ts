@@ -19,6 +19,11 @@ function checklistItemLead(itemText: string | null | undefined): string {
   return `Checklist item "${name}"`;
 }
 
+/** Caps a custom field name for a History row, like the checklist item name. */
+function cappedName(name: string): string {
+  return name.length > ITEM_TEXT_IN_LABEL_MAX ? `${name.slice(0, ITEM_TEXT_IN_LABEL_MAX - 1)}\u2026` : name;
+}
+
 /** One-line description of a timeline activity entry (the History tab's row text). */
 export function activityLabel(
   event_type: string,
@@ -70,6 +75,9 @@ export function activityLabel(
       const head = typeof seconds === "number" ? `Unblocked after ${formatBlockedDuration(seconds * 1000, 2)}` : "Unblocked";
       return d.to_value ? `${head}: ${d.to_value}` : d.from_value ? `${head} (was: ${d.from_value})` : head;
     }
+    // Any custom field value change (#1921); item_text names the field.
+    case "custom_field_changed":
+      return `${d.item_text ? cappedName(d.item_text) : "Custom field"}: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
     case "archived":
       return "Card archived";
     case "reactivated":

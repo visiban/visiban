@@ -984,7 +984,7 @@ Export the board as JSON (`application/json`). Same permissions as the CSV varia
 
 The top-level `schema_version` is always `2` in 1.1+ exports. The importer reads versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
 
-Each card also carries `movements` (`{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}`, one per `CardMovement`) and `activities` (`{event_type, from_value, to_value, actor, created_at}`, one per `CardActivity`) arrays, mirroring the [movements](cards.md#history) and [activities](cards.md#history) endpoints. `moved_by`/`actor` are usernames, not user objects, and `null` once the acting user is deleted. Since 1.2 both also carry `imported_from_username` (additive; `schema_version` stays `2`): `null` for history recorded on the board, and the source username for a row that came from an earlier import. Each card's `comments` (`{author, body, created_at}`) carry it too since 1.2, with the same meaning (#1702). Since 1.3 (#2199) each activity also carries `item_text`: the checklist item's text on `checklist_item_assigned` and `checklist_item_due_changed` entries, `null` otherwise (additive; `schema_version` stays `2`). On import a missing `item_text` is `null`; a present one must be `null` or a string of at most 500 characters, otherwise the import fails with `400`.
+Each card also carries `movements` (`{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}`, one per `CardMovement`) and `activities` (`{event_type, from_value, to_value, actor, created_at}`, one per `CardActivity`) arrays, mirroring the [movements](cards.md#history) and [activities](cards.md#history) endpoints. `moved_by`/`actor` are usernames, not user objects, and `null` once the acting user is deleted. Since 1.2 both also carry `imported_from_username` (additive; `schema_version` stays `2`): `null` for history recorded on the board, and the source username for a row that came from an earlier import. Each card's `comments` (`{author, body, created_at}`) carry it too since 1.2, with the same meaning (#1702). Since 1.3 (#2199) each activity also carries `item_text`: the checklist item's text on `checklist_item_assigned` and `checklist_item_due_changed` entries, and the custom field's name on `custom_field_changed` entries (#1921), `null` otherwise (additive; `schema_version` stays `2`). On import a missing `item_text` is `null`; a present one must be `null` or a string of at most 500 characters, otherwise the import fails with `400`.
 
 On import with `history` on, every movement and activity entry is recorded under the importing user and keeps the file's time. Its source name is kept as text in `imported_from_username`: the entry's own value when the file has one (a re-exported import), otherwise its `moved_by` / `actor`, or `""`. Only `assignee` is resolved to an account; source names never are. `imported_from_username` must be a string or `null`, at most 150 characters, with no NUL characters.
 
@@ -1004,6 +1004,14 @@ Since 1.3 (#1101), each column object also carries its [policy](#column-policy-s
 
 Since 1.3, each swimlane object also carries its [limits](#swimlane-limits-since-13): `wip_limit`, `weight_limit`, `limit_enforcement`, and `limit_columns`, the names of the columns that count (or `null` for the default, every column not marked done). Names, not ids, because the file keys columns by name and an import creates new ids. All four are additive (`schema_version` stays `2`), and JSON import restores them without enforcing them. A `limit_columns` name that is not one of the file's columns, an empty list, a limit below `1`, or a `limit_enforcement` other than `"block"`, `"hard"` or `null` is a `400`.
 
+Since 1.3 (#1102, #1921), the export carries [gated stages](cards.md#gated-stages-and-gate-transitions-13-1102) and dimension fields, all additive (`schema_version` stays `2`; an older file without the keys imports as a plain board):
+
+- Each column carries `sub_columns` (the ordered sub-column names; `[]` for a plain column) and `tracks` (the names of the dimension fields bound to the stage, in order). Each swimlane carries `not_applicable_tracks`, the names of the dimension fields the lane is exempt from. Each `custom_fields` entry carries `is_dimension` and `choice_resolutions` (choice name to `satisfied` or `not_applicable`).
+- Each card carries `gates_passed` (its sub-column index, `0` to the column's sub-column count minus one; larger or non-integer values are a `400`) and `gate_transitions`, its gate history oldest first (`{kind, from_index, to_index, column, sub_column, reason, cause, actor, created_at, imported_from_username, movement_index}`). `movement_index` is the position of the movement that caused the transition in the same card's `movements` array, or `null`.
+- Each movement carries `from_gates_passed`, `from_gates_open` and `to_gates_passed` (integers `0` to `4`, or `null` for a move that did not touch a gated stage; anything else is a `400`).
+
+On import, `gates_passed` is restored whatever the `history` option. `gate_transitions` are restored only with `history` on, attributed to the importing user with the file's `actor` kept in `imported_from_username`; an unknown `kind` is skipped and an unknown `cause` becomes `import`. A transition is re-linked to its movement through `movement_index`; a `null`, absent or out-of-range index leaves the link empty, because the file has no other safe key.
+
 Since 1.3 (#2243), each swimlane object also carries its [lane health status](../features/health-status.md#lane-status), `health_status` (`"on_track"`, `"at_risk"`, `"off_track"` or `null` for no status), as the last key. Additive: `schema_version` stays `2`, an older file without the key imports as `null`, and any other value is a `400`.
 
 ```json
@@ -1011,7 +1019,7 @@ Since 1.3 (#2243), each swimlane object also carries its [lane health status](..
   "schema_version": 2,
   "name": "Sales Pipeline",
   "description": "",
-  "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true }],
+  "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true, "sub_columns": [], "tracks": [] }],
   "swimlanes": [
     {
       "name": "Acme Corp",
@@ -1023,12 +1031,13 @@ Since 1.3 (#2243), each swimlane object also carries its [lane health status](..
       "wip_limit": 3,
       "weight_limit": null,
       "limit_enforcement": null,
-      "limit_columns": null
+      "limit_columns": null,
+      "not_applicable_tracks": []
     }
   ],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
   "custom_fields": [
-    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null, "choice_colors": { "raid10": "green" } }
+    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null, "choice_colors": { "raid10": "green" }, "is_dimension": false, "choice_resolutions": {} }
   ],
   "swimlane_custom_fields": [
     { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null, "choice_colors": {} }
@@ -1053,8 +1062,10 @@ Since 1.3 (#2243), each swimlane object also carries its [lane health status](..
       "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z", "imported_from_username": null }],
       "checklist": [{ "text": "Write tests", "is_checked": false, "assignee": "bob", "due_date": "2026-04-02" }],
       "movements": [
-        { "from_column": null, "to_column": "Backlog", "from_swimlane": null, "to_swimlane": "Acme Corp", "moved_by": "alice", "moved_at": "2026-03-01T10:00:00Z", "notes": "", "movement_type": "move", "imported_from_username": null }
+        { "from_column": null, "to_column": "Backlog", "from_swimlane": null, "to_swimlane": "Acme Corp", "moved_by": "alice", "moved_at": "2026-03-01T10:00:00Z", "notes": "", "movement_type": "move", "imported_from_username": null, "from_gates_passed": null, "from_gates_open": null, "to_gates_passed": null }
       ],
+      "gates_passed": 0,
+      "gate_transitions": [],
       "activities": [
         { "event_type": "priority_change", "from_value": "medium", "to_value": "high", "actor": "alice", "created_at": "2026-03-01T11:00:00Z", "imported_from_username": null }
       ]
@@ -2648,6 +2659,8 @@ Response fields:
 | `labels` | array | Label objects |
 
 Public card objects use `uid` as the identifier and carry no database `id`. `assignee` holds `display_name` only (email, username, and avatar are omitted), or `null` for an unassigned card. Comments and checklist item text are excluded; only the `checklist_total` and `checklist_done` counts appear. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards.
+
+`gates_passed` (since 1.3, #1102) is the card's sub-column index in a gated stage, read-only, matching the `sub_columns` the public column objects carry.
 
 `blocker_count` (since 1.2) is the number of active cards blocking this one — see [Card relations](cards.md#relations-since-12). The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.
 

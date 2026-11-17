@@ -1,7 +1,7 @@
 """ColumnViewSet — CRUD endpoints for columns on a board."""
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Max, prefetch_related_objects
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -63,7 +63,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
         return self._board_and_role()[0]
 
     def get_queryset(self):
-        return Column.objects.filter(board=self._board())
+        # sub_columns / tracks (#1102, #1921) are nested on ColumnSerializer.
+        return Column.objects.filter(board=self._board()).prefetch_related(
+            "sub_columns", "stage_tracks__field_definition",
+        )
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -100,6 +103,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 _max = board.columns.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 column = serializer.save(board=board, position=max_pos)
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
                 column_data = ColumnSerializer(column).data
                 board_id = board.id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_CREATED, column_data, actor_id=self.request.user.id)
@@ -140,6 +144,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 # a reorder would write the old position back.
                 serializer.instance.refresh_from_db()
                 column = serializer.save()
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
                 column_data = ColumnSerializer(column).data
                 board_id = column.board_id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_UPDATED, column_data, actor_id=self.request.user.id)
@@ -181,6 +186,87 @@ class ColumnViewSet(viewsets.ModelViewSet):
             instance.delete()
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
             publish_blocked_peers(peers, self.request, boards=[board])
+
+    @extend_schema(
+        summary="Save a column's stage settings (sub-columns, tracks, lane exceptions)",
+        description=(
+            "Gated stages (#1102) and stage tracks (#1921). Board admins only. Every key "
+            "is optional; an omitted key is left unchanged. `sub_columns` is the ordered "
+            "list (`[]` or at least two, at most 4); an entry with an `id` keeps and may "
+            "rename that sub-column, one without is new, and kept sub-columns cannot be "
+            "reordered. Removing a sub-column moves each card past it back one, recording "
+            "a `stage_edited` gate transition; the response's `remapped` lists them. "
+            "`tracks` is the ordered list of dimension field ids; removing one unbinds it "
+            "only. `not_applicable` replaces the lane exceptions for this stage's tracks."
+        ),
+        request=inline_serializer(
+            name="ColumnStage",
+            fields={
+                "sub_columns": serializers.ListField(
+                    child=inline_serializer(
+                        name="ColumnStageSubColumn",
+                        fields={
+                            "id": serializers.IntegerField(required=False),
+                            "name": serializers.CharField(max_length=100),
+                        },
+                    ),
+                    required=False,
+                ),
+                "tracks": serializers.ListField(child=serializers.IntegerField(), required=False),
+                "not_applicable": serializers.ListField(
+                    child=inline_serializer(
+                        name="ColumnStageNotApplicable",
+                        fields={
+                            "swimlane_id": serializers.IntegerField(),
+                            "field_id": serializers.IntegerField(),
+                        },
+                    ),
+                    required=False,
+                ),
+            },
+        ),
+        responses={200: inline_serializer(
+            name="ColumnStageResponse",
+            fields={
+                "column": ColumnSerializer(),
+                "remapped": serializers.ListField(child=inline_serializer(
+                    name="ColumnStageRemapped",
+                    fields={
+                        "id": serializers.IntegerField(),
+                        "gates_passed": serializers.IntegerField(),
+                        "version": serializers.IntegerField(),
+                    },
+                )),
+            },
+        )},
+    )
+    @action(detail=True, methods=["put"], pagination_class=None)
+    def stage(self, request, board_pk=None, pk=None):
+        """Save sub-columns, tracks and lane exceptions in one transaction.
+
+        A dedicated action rather than nested writes on ColumnSerializer, so a
+        column PATCH keeps its 1.x shape. The lock order (cards, then the
+        column) is the move contract; see ``boards.services.stages``.
+        """
+        from ..services import stages as stage_services
+        from ..services.errors import CardServiceError
+
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        data = require_json_object(request)
+        try:
+            column, remapped, _lanes = stage_services.save_stage(
+                actor=request.user, board=board, column_id=pk, data=data,
+            )
+        except stage_services.StageValidationError as exc:
+            raise ValidationError(exc.errors) from None
+        except CardServiceError as exc:
+            return Response(exc.body(), status=exc.status)
+        fresh = Column.objects.prefetch_related(
+            "sub_columns", "stage_tracks__field_definition",
+        ).get(pk=column.pk)
+        return Response({"column": ColumnSerializer(fresh).data, "remapped": remapped})
 
     @extend_schema(
         summary="Reorder columns",
@@ -265,7 +351,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 if col_id in id_to_col:
                     id_to_col[col_id].position = pos
             Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
-            cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
+            cols_data = ColumnSerializer(
+                board.columns.order_by("position").prefetch_related("sub_columns", "stage_tracks__field_definition"),
+                many=True,
+            ).data
             board_id = board.id
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_COLUMN_REORDERED, {"columns": list(cols_data)},

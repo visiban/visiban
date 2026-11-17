@@ -725,7 +725,7 @@ class CardResourceTests(McpTestCase):
                 "updated_at", "archived_at", "movements", "checklist_items",
                 "activities", "comments",
                 # #1149, additive.
-                "blocked_at", "blocked_reason",
+                "blocked_at", "blocked_reason", "gates_passed",
                 # #1963, additive: set when activities/comments hit the cap.
                 "activities_truncated", "comments_truncated",
             },

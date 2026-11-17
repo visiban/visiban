@@ -212,6 +212,24 @@ class PublicBoardEndpointTests(TestCase):
         body = json.dumps(r.data)
         self.assertNotIn("secret comment", body)
 
+    def test_public_card_carries_gates_passed(self):
+        """The public column payload exposes sub_columns, so the card's
+        sub-column index (#1102) is exposed with it; read-only."""
+        from boards.models import SubColumn
+        from boards.serializers import PublicCardSerializer
+
+        SubColumn.objects.create(column=self.col, position=0, name="Doing")
+        SubColumn.objects.create(column=self.col, position=1, name="Review")
+        Card.objects.filter(pk=self.card.pk).update(gates_passed=1)
+        r = self.anon.get(self._url())
+        card = next(c for c in r.data["cards"] if c["title"] == "My card")
+        self.assertEqual(card["gates_passed"], 1)
+        self.assertEqual(
+            [s["name"] for s in next(c for c in r.data["columns"] if c["id"] == self.col.pk)["sub_columns"]],
+            ["Doing", "Review"],
+        )
+        self.assertTrue(PublicCardSerializer().fields["gates_passed"].read_only)
+
     def test_swimlane_contact_email_absent(self):
         """contact_email and notes must not appear in the public swimlane payload."""
         r = self.anon.get(self._url())

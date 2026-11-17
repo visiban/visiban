@@ -650,7 +650,7 @@ Activity log (field changes, comments, attachments, checklist events, and since 
 | `actor` | object \| `null` | User who triggered the event, or `null` if that user has since been deleted |
 | `created_at` | string | ISO 8601 timestamp |
 | `imported_from_username` | string \| `null` | *Since 1.2.* `null` unless the entry was created by a board import with history; then `actor` is the importing user and this is the username the import file named (`""` when it named nobody). History imported by earlier versions carries `null`, since the original name was not kept. See [Imported history](../features/card-history.md#imported-history) |
-| `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. `null` on every other event type and on entries recorded before 1.3. Read-only |
+| `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On `custom_field_changed` entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). `null` on every other event type and on entries recorded before 1.3. Read-only |
 
 ```json
 [
@@ -691,7 +691,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 |---|---|
 | `move` | All `CardMovement` records |
 | `comment` | `comment_added` |
-| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) |
+| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) and `custom_field_changed` (#1921) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
 | `attachment` | `attachment_added`, `attachment_deleted` |
 | `system` | `archived`, `reactivated` |
@@ -778,7 +778,7 @@ One integer per `event_types` group, always all six keys. The totals ignore `eve
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned` and `checklist_item_due_changed` entries also carry `item_text` (the activity's `item_text`, `null` on entries recorded before 1.3). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3). |
 
 **Errors**
 
@@ -1089,3 +1089,65 @@ All checklist endpoints (`GET`, `POST`, `PATCH`, `POST .../reorder/`) return che
   "created_by": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }
 }
 ```
+
+
+## Gated stages and gate transitions (1.3, #1102)
+
+**Stability:** new in 1.3. The fields below are additive; the `stage` action is a first-release surface and may gain optional keys in a minor release, but no existing key will change meaning.
+
+### Move: `gates_passed`
+
+`POST /api/v1/boards/{board_id}/cards/{card_id}/move/` accepts an optional `gates_passed` integer: the index of the sub-column the card should end in on the target column (`0` = first sub-column).
+
+| Case | `gates_passed` omitted | `gates_passed` sent |
+|---|---|---|
+| Same column (reorder or lane change) | Unchanged | Each gate crossed is passed or reopened; no movement is written and no WIP limit is checked |
+| New column | Card starts at `0` | Applied as passing that many gates, one record each, linked to the movement |
+
+An invalid value (a boolean, a non-integer, a negative number, past the column's last sub-column, or above `0` on a column with no sub-columns) is a `400`:
+
+```json
+{"code": "invalid_gates_passed", "detail": "gates_passed must be between 0 and 2 for this column.", "max_gates_passed": 2}
+```
+
+A non-integer omits `max_gates_passed`. Every gate change bumps the card's `version`. When a move crosses a gate the response (and the `card_moved` WebSocket event, and the MCP `move_card` result) carries `gate_transitions`, a list of:
+
+| Field | Type | Notes |
+|---|---|---|
+| `kind` | `"pass"` \| `"reopen"` | |
+| `from_index`, `to_index` | integer | One row per gate, so passing two gates is two rows |
+| `cause` | `"move"` \| `"stage_edited"` \| `"import"` | |
+| `movement` | integer \| null | Set when the gate was passed as part of a column move |
+| `column`, `column_name`, `column_uid`, `sub_column_name`, `sub_column_uid` | | Snapshots; readable after the column or sub-column is deleted |
+| `card_uid`, `card_title`, `reason`, `actor`, `created_at`, `imported_from_username` | | |
+
+On an in-stage move the body has no `movement` key. Leaving a stage with gates open is allowed (phase 1 warns and records only).
+
+### New read fields
+
+- Card: `gates_passed` (integer, read-only).
+- Column: `sub_columns` (`[{id, uid, position, name}]`, `[]` on a plain column) and `tracks` (`[{id, field_id, field_uid, name, position}]`). Both are read-only on the column endpoints and are included on the public share view.
+- Swimlane: `not_applicable_field_ids` (integer list; not on the public share view).
+- Movement: `from_gates_passed`, `from_gates_open`, `to_gates_passed` (integer or null; null where that end's column is not a gated stage). "Left with gates open" is `from_gates_open > 0`.
+
+### `PUT /api/v1/boards/{board_id}/columns/{column_id}/stage/`
+
+Board admins only (`403` for members, `404` for callers without board access). Saves sub-columns, tracks and lane exceptions in one transaction. Every key is optional; an omitted key is unchanged.
+
+```json
+{
+  "sub_columns": [{"id": 12, "name": "Doing"}, {"name": "Ready to pull"}],
+  "tracks": [41, 42],
+  "not_applicable": [{"swimlane_id": 3, "field_id": 42}]
+}
+```
+
+- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a `stage_edited` gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in `remapped` with its new `gates_passed` and bumped `version`.
+- `tracks`: ordered ids of the board's dimension fields. Removing a track unbinds it only; the field and every card's value stay.
+- `not_applicable`: replaces the lane exceptions for this stage's tracks.
+
+Response: `{"column": <Column>, "remapped": [{"id", "gates_passed", "version"}]}`. The same `remapped` list rides the `column_updated` WebSocket event; changed lanes emit `swimlane_updated`.
+
+### Card activity: `custom_field_changed`
+
+Every custom field value set, changed or cleared, on any transport, writes a card activity row with `event_type` `custom_field_changed`, `from_value` / `to_value` (`""` = no value), the actor, and `item_text` = the field's name at the time.

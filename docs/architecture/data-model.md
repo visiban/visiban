@@ -117,7 +117,7 @@ Board
  ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done, policy)
  ├── Swimlane  (uid, position, color, is_collapsed)
  ├── Label  (uid, name, color)
- ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required — max 30/board)
+ ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required, is_dimension + choice_resolutions 1.3+ — max 30/board)
  ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
  ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
  └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
@@ -146,6 +146,7 @@ Card
  ├── CardComment  (author, body)
  ├── CardActivity  (event_type, from_value, to_value, actor)
  ├── CardBlock  (blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column + name + uid at block time, board, card uid/title snapshot; at most one open per card; 1.3+)
+ ├── CardGateTransition  (card, board, column + name + uid, sub-column name + uid, kind pass/reopen, from_index, to_index, reason, cause, optional movement, actor, created_at; append-only history of gate crossings; 1.3+)
  ├── CardChecklist  (text, is_checked, position, created_by, assignee, due_date; assignee and due_date 1.3+)
  ├── CardAttachment  (file, filename, size, uploaded_by)
  ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
@@ -262,6 +263,8 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 
 ### Column
 
+A column becomes a gated stage (1.3, #1102) by having 2 to 4 `SubColumn` rows (`column`, `position`, `name`, `uid`; unique per column on position and name). A card's `gates_passed` is its index into them. `StageTrack` (`column`, `field_definition`, `position`) binds an ordered set of dimension fields to a stage, and `SwimlaneTrackException` (`swimlane`, `field_definition`, `created_by`) exempts a lane from one dimension. `CustomFieldDefinition.is_dimension` and `choice_resolutions` (choice name to `satisfied` or `not_applicable`) say which fields can be tracks and which choices count as resolved. The four tables are written only through the stage action (`services/stages.py`).
+
 `is_done` marks a terminal/completion column (e.g. "Done", "Closed Won"). Done columns are excluded from analytics dwell-time calculations: a card's clock stops when it enters one. Multiple done columns per board are supported.
 
 ### Card
@@ -276,7 +279,13 @@ One manual block of a card (#1149, 1.3+), from block to unblock. `unblocked_at` 
 
 Its own table rather than `CardMovement` rows: movements feed the dwell and cycle-time math, and a block is not a change of cell. `column` (with `column_name` / `column_uid` snapshots) is where the card sat when blocked, which is how Analytics sums blocked time per column. Like movements (#1469), a hard-deleted card keeps its blocks (`card` is SET_NULL, `card_uid` / `card_title` keep them identifiable); deleting the board removes them.
 
+### CardGateTransition
+
+One crossing of a gate on a card in a gated stage (#1102, 1.3+): `kind` is `pass` or `reopen`, with the `from_index` / `to_index` of `Card.gates_passed`. `cause` is `move` (the move endpoint), `stage_edited` (a stage save removed the card's own sub-column and it fell back) or `import`. A move that crosses gates links its row to the `CardMovement` through the nullable `movement` FK. Like movements, rows snapshot the card, board, column and sub-column names and UIDs so they survive deletion, and are purged by `purge_card_history`. A stage save that only re-indexes a card writes no row.
+
 ### CardMovement
+
+`CardMovement` also records the gate state of a move (1.3, #1102): `from_gates_passed`, `from_gates_open` and `to_gates_passed`, nullable smallints (null where that end is not a gated stage).
 
 `movement_type` distinguishes regular workflow moves from system events:
 

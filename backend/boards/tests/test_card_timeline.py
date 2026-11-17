@@ -368,3 +368,32 @@ class CardTimelineCountsTests(TestCase):
         c.force_authenticate(outsider)
         r = c.get(self.url, {"include_counts": "true"})
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class CardTimelineCustomFieldChangedTests(TestCase):
+    """``custom_field_changed`` (#1921) is a ``field``-group timeline entry."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u1921", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.card = _make_card(self.board, self.col, self.swim, self.user)
+        _make_activity(self.card, self.user, CardActivity.EventType.CUSTOM_FIELD_CHANGED)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/timeline/"
+
+    def _types(self, **params):
+        results = self.client.get(self.url, params).json()["results"]
+        return [e["event_type"] for e in results]
+
+    def test_shows_unfiltered(self):
+        self.assertEqual(self._types(), ["custom_field_changed"])
+
+    def test_shows_under_field_filter_only(self):
+        self.assertEqual(self._types(event_types="field"), ["custom_field_changed"])
+        self.assertEqual(self._types(event_types="comment"), [])
+
+    def test_is_counted_in_field_group(self):
+        data = self.client.get(self.url, {"include_counts": "true"}).json()
+        self.assertEqual(data["counts"]["field"], 1)
+        self.assertEqual(sum(data["counts"].values()), data["count"])

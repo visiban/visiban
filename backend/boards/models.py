@@ -892,6 +892,16 @@ class Card(models.Model):
         default="",
         db_default="",
     )
+    # Gated stages (#1102): the index of the card's sub-column in its column,
+    # i.e. how many of the stage's gates it has passed. 0 on a column with no
+    # sub-columns. Written only by ``services.cards.move_card`` and the stage
+    # settings remap (``services.stages``), each of which records one
+    # ``CardGateTransition`` per gate crossed. A plain SmallIntegerField, not
+    # PositiveSmallIntegerField: the positive variant adds an inline CHECK,
+    # which validates every existing row under ACCESS EXCLUSIVE on ``cards``.
+    # The range is validated in the service instead. db_default so an INSERT
+    # from an older release during a rolling upgrade still succeeds.
+    gates_passed = models.SmallIntegerField(default=0, db_default=0)
 
     class Meta:
         db_table = "cards"
@@ -1143,6 +1153,14 @@ class CardMovement(models.Model):
         null=True,
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
     )
+    # Gated stages (#1102): the card's gate position at both ends of the move,
+    # and how many of the source stage's gates were still open when it left.
+    # NULL when that end's column has no sub-columns, and on rows written
+    # before 1.3. "Left with gates open" (warn and record only, phase 1) is
+    # ``from_gates_open > 0``. Nullable so they are catalog-only on PostgreSQL.
+    from_gates_passed = models.SmallIntegerField(null=True, blank=True)
+    from_gates_open = models.SmallIntegerField(null=True, blank=True)
+    to_gates_passed = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "card_movements"
@@ -1262,6 +1280,20 @@ class CardActivity(models.Model):
         # ``CardBlock``; these rows keep the card's activity trail complete.
         BLOCKED = "blocked", "Blocked"
         UNBLOCKED = "unblocked", "Unblocked"
+        # #1909 / #1921: any custom field value set, changed or cleared, on
+        # every transport. ``item_text`` is the field's name at write time;
+        # from/to are the stored values ("" = no value).
+        CUSTOM_FIELD_CHANGED = "custom_field_changed", "Custom field changed"
+
+    # Event types whose ``item_text`` is meaningful (#2199, #1921): the
+    # checklist item's text on assign/due rows, the custom field's name on
+    # ``custom_field_changed``. The timeline endpoint sends ``item_text`` and
+    # JSON import keeps it only for these; defined once so the copies can't drift.
+    ITEM_TEXT_EVENT_TYPES = frozenset({
+        EventType.CHECKLIST_ITEM_ASSIGNED,
+        EventType.CHECKLIST_ITEM_DUE_CHANGED,
+        EventType.CUSTOM_FIELD_CHANGED,
+    })
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
     event_type = models.CharField(max_length=30, choices=EventType.choices)
@@ -2089,6 +2121,18 @@ class CustomFieldDefinition(models.Model):
     threshold_alert = models.FloatField(null=True, blank=True)
     threshold_warn_days = models.SmallIntegerField(null=True, blank=True)
     threshold_alert_days = models.SmallIntegerField(null=True, blank=True)
+    # Dimension fields (#1921): a dropdown whose choices each resolve to
+    # ``open``, ``satisfied`` or ``not_applicable``. A stage track (#1920) is a
+    # dimension bound to a column through ``StageTrack``. ``choice_resolutions``
+    # is a parallel map like ``choice_colors`` (keys a subset of
+    # ``choices_json``), so ``choices`` stays the plain string list; a choice
+    # missing from the map, and an unset value, resolve to ``open``. Both are
+    # valid only on a dropdown (serializer-enforced). Transitions between
+    # values are free-form. db_default so pre-0111 code mid-deploy can INSERT.
+    is_dimension = models.BooleanField(default=False, db_default=False)
+    choice_resolutions = models.JSONField(
+        default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2615,3 +2659,170 @@ class BoardHealthChange(HealthStatusChangeBase):
         indexes = [
             models.Index(fields=["board", "-changed_at", "-id"], name="board_health_change_idx"),
         ]
+
+
+class SubColumn(models.Model):
+    """One sub-column of a gated stage (#1102).
+
+    A stage with K+1 sub-columns has K implicit gates: a card's
+    ``Card.gates_passed`` is the index of the sub-column it sits in. Sub-columns
+    are not ``Column`` rows, so ``card.column`` still points at the stage and
+    WIP, flow metrics and every column-keyed consumer are unchanged. A column
+    has either no rows here or at least two, never one; the stage settings
+    service (``services.stages``) enforces that and the cap, and writes the
+    rows in two passes to stay inside the unique constraints, like
+    ``CustomFieldDefinition`` reorders. Not stored in ``Column.policy``: that
+    JSON is the column's written policy only (see ``boards.column_policy``).
+    """
+
+    MAX_PER_COLUMN = 4
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
+    column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="sub_columns")
+    position = models.SmallIntegerField(default=0)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = "sub_columns"
+        ordering = ["position", "id"]
+        unique_together = [("column", "position"), ("column", "name")]
+
+    def __str__(self):
+        return f"{self.column_id} / {self.position}: {self.name}"
+
+
+class CardGateTransition(models.Model):
+    """One gate of a stage passed or reopened by one card (#1102).
+
+    Append-only, like ``CardMovement`` and ``CardBlock``, and in its own table
+    for the same reason as ``CardBlock``: movements feed the dwell and
+    cycle-time replay, which assumes every movement changes column or lane. One
+    row per gate crossed, so passing two gates at once writes two rows.
+    ``movement`` links rows written as part of a column move (a card entering a
+    stage with ``gates_passed`` sent). The column and sub-column are
+    snapshotted so the row stays readable after either is deleted.
+    """
+
+    class Kind(models.TextChoices):
+        PASS = "pass", "Passed"
+        REOPEN = "reopen", "Reopened"
+
+    class Cause(models.TextChoices):
+        MOVE = "move", "Move"
+        STAGE_EDITED = "stage_edited", "Stage edited"
+        IMPORT = "import", "Import"
+
+    # Plain SET_NULL like CardBlock, not set_null_keeping_board: that exists
+    # for movement rows an older release wrote without a board, and every row
+    # in this new table carries its board from the first write.
+    card = models.ForeignKey(
+        Card,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by gatetr_card_created_idx
+        related_name="gate_transitions",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        db_index=False,  # pragma: no mutate -- covered by gatetr_board_created_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    card_uid = models.CharField(max_length=16, blank=True, default="", db_default="")
+    card_title = models.CharField(max_length=500, blank=True, default="", db_default="")
+    column = models.ForeignKey(
+        Column, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    column_name = models.CharField(max_length=255, blank=True, default="", db_default="")
+    column_uid = models.CharField(max_length=16, blank=True, default="", db_default="")
+    # The sub-column the card ended in after this gate.
+    sub_column_name = models.CharField(max_length=100, blank=True, default="", db_default="")
+    sub_column_uid = models.CharField(max_length=16, blank=True, default="", db_default="")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    from_index = models.SmallIntegerField()
+    to_index = models.SmallIntegerField()
+    reason = models.CharField(max_length=500, blank=True, default="", db_default="")
+    cause = models.CharField(
+        max_length=20, choices=Cause.choices, default=Cause.MOVE, db_default=Cause.MOVE,
+    )
+    movement = models.ForeignKey(
+        CardMovement, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    # Same meaning as CardMovement.imported_from_username (#1675).
+    imported_from_username = models.CharField(max_length=150, null=True, blank=True)
+    # A plain default, not auto_now_add, so the JSON import can restore the
+    # file's timestamp (same reason as CardBlock.blocked_at).
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "card_gate_transitions"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["card", "-created_at"], name="gatetr_card_created_idx"),
+            models.Index(fields=["board", "-created_at"], name="gatetr_board_created_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        """Insert only, like ``CardMovement.save`` (#1469)."""
+        if self.pk is not None or not self._state.adding:
+            raise AppendOnlyViolation(
+                "CardGateTransition rows are append-only; an existing row cannot be changed."
+            )
+        if self.card_id is not None:
+            card = self.card
+            if self.board_id is None:
+                self.board_id = card.board_id
+            if not self.card_uid:
+                self.card_uid = card.uid
+            if not self.card_title:
+                self.card_title = card.title
+        super().save(*args, **kwargs)
+
+
+class StageTrack(models.Model):
+    """A dimension field shown as a track on one stage (#1920 / #1921).
+
+    The stage's display list of tracks. Removing a track deletes only this
+    binding: the dimension field and every card's value stay.
+    """
+
+    column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="stage_tracks")
+    field_definition = models.ForeignKey(
+        CustomFieldDefinition, on_delete=models.CASCADE, related_name="stage_tracks",
+    )
+    position = models.SmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "stage_tracks"
+        ordering = ["position", "id"]
+        unique_together = [("column", "field_definition")]
+
+
+class SwimlaneTrackException(models.Model):
+    """A dimension marked not applicable for every card in one swimlane (#1921).
+
+    Keyed by dimension, not by stage, so a later rule (#1923) can treat a
+    lane's N/A as satisfied. The effective state is ``not_applicable``; each
+    card's own value is kept underneath.
+    """
+
+    swimlane = models.ForeignKey(
+        Swimlane, on_delete=models.CASCADE, related_name="track_exceptions",
+    )
+    field_definition = models.ForeignKey(
+        CustomFieldDefinition, on_delete=models.CASCADE, related_name="lane_exceptions",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "swimlane_track_exceptions"
+        unique_together = [("swimlane", "field_definition")]

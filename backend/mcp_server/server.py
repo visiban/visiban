@@ -599,7 +599,9 @@ def build_mcp_server():
             "Move a card to a new column and/or swimlane and/or position. At least one of "
             "to_column_id/to_swimlane_id is required. Enforces column and swimlane "
             "WIP/weight limits with no override. Optional version (the card's version from a prior read) rejects the "
-            "move with version_conflict if the card changed since. Requires admin or member "
+            "move with version_conflict if the card changed since. Optional gates_passed sets the "
+            "sub-column on a gated stage (omitted: kept within the column, 0 in a new one). "
+            "Requires admin or member "
             "board role and the mcp:write scope."
         ),
     )
@@ -610,13 +612,14 @@ def build_mcp_server():
         to_swimlane_id: int | None = None,
         position: int = 0,
         version: int | None = None,
+        gates_passed: int | None = None,
     ) -> _TOOL_RESULT:
         denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.move_card, thread_sensitive=True)(
             card_id=card_id, to_column_id=to_column_id, to_swimlane_id=to_swimlane_id,
-            position=position, version=version,
+            position=position, version=version, gates_passed=gates_passed,
         )
 
     @mcp.tool(

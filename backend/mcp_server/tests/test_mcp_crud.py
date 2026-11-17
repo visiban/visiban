@@ -96,7 +96,7 @@ class ListColumnsTests(CrudToolsTestCase):
         backlog = result[0]
         self.assertEqual(
             set(backlog),
-            {"id", "uid", "name", "position", "color", "wip_limit", "policy", "card_count"},
+            {"id", "uid", "name", "position", "color", "wip_limit", "policy", "card_count", "sub_columns"},
         )
         self.assertEqual(backlog["card_count"], 1)  # archived card excluded
         self.assertEqual(backlog["id"], self.column.id)
@@ -233,7 +233,7 @@ class ListCardsTests(CrudToolsTestCase):
                 "labels", "column", "swimlane", "due_date", "position", "created_at",
                 "updated_at",
                 # #1149, additive.
-                "blocked_at", "blocked_reason",
+                "blocked_at", "blocked_reason", "gates_passed",
             },
         )
         self.assertEqual(row["id"], card.id)
@@ -1985,6 +1985,7 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
         self.assertEqual(set(schemas["move_card"]["properties"]), {
             "card_id", "to_column_id", "to_swimlane_id", "position",
             "version",  # optional, #1974
+            "gates_passed",  # optional, #1102
         })
         self.assertEqual(schemas["move_card"]["required"], ["card_id"])
         for tool in tools_:

@@ -122,7 +122,11 @@ class ShareBoardView(APIView):
         # ever left its hash behind.
         board = get_object_or_404(
             Board.objects.select_related("share_enabled_by", GROUP_ANCESTOR_SELECT_RELATED)
-            .prefetch_related("columns", "swimlanes", "labels"),
+            .prefetch_related(
+                "columns", "swimlanes", "labels",
+                # PublicColumnSerializer's sub_columns / tracks (#1102, #1921).
+                "columns__sub_columns", "columns__stage_tracks__field_definition",
+            ),
             share_token_hash=token_hash,
             share_token__isnull=False,
         )

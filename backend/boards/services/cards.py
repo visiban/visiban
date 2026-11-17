@@ -65,8 +65,8 @@ from django.utils import timezone
 from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
-    BoardMembership, Card, CardActivity, CardBlock, CardMovement, CardRelation, Column,
-    Notification, Swimlane,
+    BoardMembership, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
+    CardRelation, Column, Notification, SubColumn, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..serializers import _card_labels
@@ -74,7 +74,7 @@ from ..utils import notify_new_mentions
 from .notifications import create_notifications, quoted_card_verb
 from .errors import (
     CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted,
-    InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
+    InvalidGatesPassed, InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
     WipLimitExceeded,
@@ -1245,7 +1245,7 @@ def update_card(
 
 def move_card(
     *, actor, board, card_id, target_column_id, target_swimlane_id, position,
-    render, expected_version=None, force=False, role=None,
+    render, expected_version=None, force=False, role=None, gates_passed=None,
 ):
     """Move a card to a column/swimlane/position, writing a ``CardMovement``.
 
@@ -1287,6 +1287,17 @@ def move_card(
     move that keeps losing that race ends in ``VersionConflict`` (409), never a
     500.
 
+    ``gates_passed`` (#1102) is the sub-column the card should end in, on a
+    target column that is a gated stage. ``None`` (omitted) keeps the card's
+    gate position on a move within its column (a reorder or a lane change) and
+    starts it at 0 on entering a new column, so old clients, the bulk move and
+    automations need no change. A sent value passes or reopens each gate it
+    crosses, writing one ``CardGateTransition`` per gate. A gate change within
+    the column writes no ``CardMovement`` and checks no limit: it is not a
+    change of cell. Sub-columns are read after the column rows are locked,
+    which is the lock the stage settings save holds while it rewrites them,
+    so a move never sees a half-edited stage.
+
     ``force`` only ever relaxes a *soft* limit, and only for a board admin.
     Hard WIP mode is evaluated before ``force`` is consulted at all, so no role
     can override it.
@@ -1316,7 +1327,7 @@ def move_card(
                 actor=actor, board=board, card_id=card_id,
                 target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
                 position=position, render=render, expected_version=expected_version,
-                force=force, role=role,
+                force=force, role=role, gates_passed=gates_passed,
             )
         except _CardChangedBeforeLock as exc:
             current_version = exc.current_version
@@ -1873,7 +1884,7 @@ def _read_card_for_move(card_id, board):
 
 def _move_card_attempt(
     *, actor, board, card_id, target_column_id, target_swimlane_id, position,
-    render, expected_version, force, role,
+    render, expected_version, force, role, gates_passed=None,
 ):
     """One locked attempt at ``move_card``; see its docstring for the contract."""
     board_id = board.id
@@ -1919,6 +1930,9 @@ def _move_card_attempt(
             position = int(position)
         except (TypeError, ValueError, OverflowError):
             raise InvalidPosition() from None
+        # Same placement rule again; the range is checked once the target
+        # column's sub-columns are read under its lock.
+        gates_passed = _coerce_gates_passed(gates_passed)
 
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
@@ -1979,6 +1993,32 @@ def _move_card_attempt(
             board=board, card_id=card.pk, cells=cells, locked_pks=locked_pks,
             current_version=locked.version,
         )
+        # Gate position (#1102). Read after the column lock: a stage settings
+        # save holds that lock while it rewrites the sub-columns and remaps
+        # cards (services.stages), so this read sees the stage it left.
+        card.gates_passed = locked.gates_passed
+        # A reorder within one cell with no gates_passed changes no gate, so
+        # it skips the read and keeps its query budget.
+        if column_changed or swimlane_changed or gates_passed is not None:
+            subs_by_column = _sub_columns_by_column({card.column_id, target_column.pk})
+        else:
+            subs_by_column = {}
+        target_subs = subs_by_column.get(target_column.pk, [])
+        source_subs = subs_by_column.get(card.column_id, [])
+        max_gates = max(len(target_subs) - 1, 0)
+        if gates_passed is not None and gates_passed > max_gates:
+            raise InvalidGatesPassed(max_gates)
+        from_gates = card.gates_passed
+        if gates_passed is not None:
+            to_gates = gates_passed
+        elif column_changed:
+            to_gates = 0
+        elif subs_by_column:
+            # Same column, kept. A stage edit remaps cards, so the clamp is a
+            # no-op unless a row was written around the service.
+            to_gates = min(from_gates, max_gates)
+        else:
+            to_gates = from_gates
 
         # WIP and weight enforcement. A column limit applies only when the card
         # enters a different column, so a swimlane-only move within one column
@@ -2013,6 +2053,15 @@ def _move_card_attempt(
                 to_swimlane_name=target_swimlane.name,
                 to_swimlane_uid=target_swimlane.uid,
                 moved_by=actor,
+                # NULL at an end whose column is not a gated stage (#1102).
+                # ``from_gates_open`` is only meaningful when the card leaves
+                # the stage, so a lane change within it leaves it NULL.
+                from_gates_passed=from_gates if source_subs else None,
+                from_gates_open=(
+                    len(source_subs) - 1 - from_gates
+                    if source_subs and column_changed else None
+                ),
+                to_gates_passed=to_gates if target_subs else None,
             )
 
             # Compact the gap the moved card leaves in its (already locked)
@@ -2048,14 +2097,26 @@ def _move_card_attempt(
         card.column = target_column
         card.swimlane = target_swimlane
         card.position = position
+        card.gates_passed = to_gates
         card.version = F("version") + 1
-        card.save(update_fields=["column", "swimlane", "position", "version"])
+        card.save(update_fields=["column", "swimlane", "position", "gates_passed", "version"])
         card.refresh_from_db(fields=["version"])
+        # On entering a stage the card starts at 0, so the gates it passes are
+        # counted from 0, not from its position in the stage it left.
+        transitions = write_gate_transitions(
+            card=card, column=target_column, sub_columns=target_subs,
+            from_index=0 if column_changed else from_gates, to_index=to_gates,
+            actor=actor, cause=CardGateTransition.Cause.MOVE, movement=movement,
+        )
         sibling_positions = _shifted_sibling_positions(
             board=board, card_id=card.pk, cells=cells, positions_before=positions_before,
         )
 
         payload = render(card, movement)
+        if transitions:
+            # Additive (#1102): present only when a gate was crossed, so the
+            # body of every pre-1.3 move is byte-for-byte unchanged.
+            payload = {**payload, "gate_transitions": serialize_gate_transitions(transitions)}
         # The WebSocket payload is the REST body, so a client can update its
         # movement history without re-polling /movements/, plus the siblings
         # this move renumbered (#1890; additive, the REST body is unchanged).
@@ -2065,6 +2126,75 @@ def _move_card_attempt(
         )
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
+
+
+def _coerce_gates_passed(value):
+    """Return ``value`` as an int, or ``None`` when omitted (#1102).
+
+    A JSON boolean is refused although ``bool`` is an ``int`` subclass: ``true``
+    meaning "one gate" would be an accident, not a contract. A numeric string
+    is accepted, like ``position`` and ``version``.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise InvalidGatesPassed()
+    try:
+        value = int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise InvalidGatesPassed() from None
+    if value < 0:
+        raise InvalidGatesPassed()
+    return value
+
+
+def _sub_columns_by_column(column_ids):
+    """Map column id -> its ``SubColumn`` rows in position order, one query."""
+    out = {}
+    for sub in SubColumn.objects.filter(column_id__in=column_ids).order_by("position", "id"):
+        out.setdefault(sub.column_id, []).append(sub)
+    return out
+
+
+def write_gate_transitions(
+    *, card, column, sub_columns, from_index, to_index, actor, cause,
+    movement=None, reason="", imported_from_username=None, created_at=None,
+):
+    """Write one ``CardGateTransition`` per gate between two positions (#1102).
+
+    Passing from 0 to 2 writes two ``pass`` rows (0->1, 1->2); going back from
+    2 to 0 writes two ``reopen`` rows (2->1, 1->0). Each row names the
+    sub-column the card reached at that step. Returns the rows, in order.
+    Shared by the move, the stage settings remap and the import, so a gate is
+    recorded the same way on every transport.
+    """
+    if from_index == to_index:
+        return []
+    step = 1 if to_index > from_index else -1
+    kind = CardGateTransition.Kind.PASS if step == 1 else CardGateTransition.Kind.REOPEN
+    rows = []
+    for index in range(from_index, to_index, step):
+        dest = index + step
+        sub = sub_columns[dest] if 0 <= dest < len(sub_columns) else None
+        row = CardGateTransition(
+            card=card, board_id=card.board_id, card_uid=card.uid, card_title=card.title,
+            column=column, column_name=column.name, column_uid=column.uid,
+            sub_column_name=sub.name if sub else "", sub_column_uid=sub.uid if sub else "",
+            kind=kind, from_index=index, to_index=dest, reason=reason, cause=cause,
+            movement=movement, actor=actor, imported_from_username=imported_from_username,
+        )
+        if created_at is not None:
+            row.created_at = created_at
+        row.save()
+        rows.append(row)
+    return rows
+
+
+def serialize_gate_transitions(transitions):
+    """The REST representation of gate transitions, shared with MCP (Rule 10)."""
+    from ..serializers import CardGateTransitionSerializer
+
+    return CardGateTransitionSerializer(transitions, many=True).data
 
 
 # ---------------------------------------------------------------------------

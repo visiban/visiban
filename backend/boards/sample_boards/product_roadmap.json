@@ -14932,6 +14932,14 @@
       "created_at": "2026-01-19T12:00:00+00:00",
       "activities": [
         {
+          "event_type": "custom_field_changed",
+          "from_value": "",
+          "to_value": "33.3",
+          "actor": "demo2",
+          "created_at": "2026-01-19T12:30:00+00:00",
+          "item_text": "RICE score"
+        },
+        {
           "event_type": "description_change",
           "from_value": "",
           "to_value": "",

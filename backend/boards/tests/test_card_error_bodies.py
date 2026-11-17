@@ -103,6 +103,27 @@ class CardErrorBodyTests(TestCase):
             resp, 400, {"column": "Card creation is not allowed in this column."}
         )
 
+    # ── move: gates_passed (#1102) ────────────────────────────────────────
+
+    def test_move_gates_passed_not_an_integer_body(self):
+        resp = self._move(self.owner, gates_passed="two")
+        self._assert_body(resp, 400, {
+            "code": "invalid_gates_passed",
+            "detail": "gates_passed must be an integer.",
+        })
+
+    def test_move_gates_passed_out_of_range_body(self):
+        from boards.models import SubColumn
+
+        for i, name in enumerate(["Doing", "Review"]):
+            SubColumn.objects.create(column=self.col_b, position=i, name=name)
+        resp = self._move(self.owner, gates_passed=2)
+        self._assert_body(resp, 400, {
+            "code": "invalid_gates_passed",
+            "detail": "gates_passed must be between 0 and 1 for this column.",
+            "max_gates_passed": 1,
+        })
+
     # ── destroy ───────────────────────────────────────────────────────────
 
     def test_destroy_role_denied_body(self):

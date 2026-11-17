@@ -35,7 +35,7 @@ from rest_framework.exceptions import (
 from visiban.request_shape import id_in_db_range
 
 from ..models import (
-    Board, BoardFavorite, BoardMembership, Card, Column, CustomFieldDefinition,
+    Board, BoardFavorite, BoardMembership, Card, Column, CustomFieldDefinition, StageTrack,
 )
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
@@ -482,6 +482,12 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
             # and Column.Meta.ordering (["position"]) applies either way. Same
             # zero measured query delta for a single board as above.
             "columns",
+            # #1102 / #1921: ColumnSerializer's sub_columns and tracks.
+            "columns__sub_columns",
+            Prefetch(
+                "columns__stage_tracks",
+                queryset=StageTrack.objects.select_related("field_definition"),
+            ),
         )
         queryset = queryset.annotate(
             _archived_card_count=Coalesce(
