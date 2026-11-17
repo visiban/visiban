@@ -271,6 +271,44 @@ test.describe('board phone layout', () => {
     await sweep('[role="dialog"][aria-label="Navigation menu"]')
   })
 
+  test('the filter bar facet menus, Activity drawer, Board Health popover and command palette are 44px (#2350, #2351)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const rowHeights = (sel: string) => page.locator(sel).evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    // Facet menus render at document.body, so they carry their own rules. The option's checkbox is a decorative 16px mark inside a 44px row (intended).
+    await page.getByRole('button', { name: 'Filters and view options' }).click()
+    await page.getByRole('button', { name: /^Show filter bar/ }).click()
+    const bar = page.getByRole('search', { name: 'Board filters' })
+    await expect(bar).toBeVisible()
+    expect(await smallControls(page, ['[role="search"]'])).toEqual([])
+    // The "+ Filter" menu is a CheckboxDropdown, as is every facet; its menu is portaled to document.body.
+    await bar.getByRole('button', { name: '+ Filter' }).click()
+    const optionRows = page.locator('[role="group"] label:has(input[type="checkbox"])')
+    await expect(optionRows.first()).toBeVisible()
+    const rows = await optionRows.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBeGreaterThan(0)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+    await page.keyboard.press('Escape')
+    // Activity drawer.
+    await page.getByRole('button', { name: 'Open activity drawer' }).click()
+    await expect(page.getByTestId('activity-drawer')).toBeVisible()
+    expect(await smallControls(page, ['[data-testid="activity-drawer"]'])).toEqual([])
+    await page.getByTestId('activity-drawer').getByRole('button', { name: 'Close activity drawer' }).click()
+    await expect(page.getByTestId('activity-drawer')).toBeHidden()
+    // Board Health popover.
+    await page.getByRole('button', { name: /^Set health status for/ }).first().click()
+    const health = page.getByRole('dialog', { name: /^Health status for/ })
+    await expect(health).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"][aria-label^="Health status for"]'])).toEqual([])
+    await page.keyboard.press('Escape')
+    // Command palette (opened from the header Search button).
+    await page.getByRole('banner').getByRole('button', { name: /^Search/ }).click()
+    await expect(page.getByRole('combobox', { name: 'Command palette search' })).toBeVisible()
+    expect(Math.round((await page.getByRole('combobox', { name: 'Command palette search' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    const items = await rowHeights('[role="listbox"][aria-label="Results"] [role="option"]')
+    if (items.length > 0) expect(Math.min(...items)).toBeGreaterThanOrEqual(44)
+  })
+
   test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
     // Focus needs a second lane; the later route wins over the beforeEach one.
     await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })

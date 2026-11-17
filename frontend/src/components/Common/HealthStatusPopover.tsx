@@ -127,7 +127,7 @@ function HistoryRow({ row, parentName, prefs }: {
 }
 
 const PANEL_WIDTH = 320;
-const CARD = "flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis";
+const CARD = "flex items-start gap-2 rounded-lg border px-3 py-2 max-sm:min-h-11 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis";
 const CARD_SELECTED = "border-primary-emphasis bg-primary-emphasis/10";
 const CARD_IDLE = "border-line-strong hover:bg-surface-hover/40";
 
@@ -376,7 +376,8 @@ export default function HealthStatusPopover({
       role="dialog"
       tabIndex={-1}
       aria-label={entityKind === "swimlane" ? `Health status for lane ${entityName}` : `Health status for ${entityName}`}
-      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl focus:outline-none overflow-y-auto"
+      // Phone (#2351): one descendant rule lifts every button and the note field to 44px, so a control added later is covered.
+      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl focus:outline-none overflow-y-auto max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_textarea]:min-h-11"
       style={{
         top: top ?? 0,
         left,

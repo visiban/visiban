@@ -220,3 +220,13 @@ describe("MultiSelectDropdown (#1391)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't save. Try again.");
   });
 });
+
+describe("MultiSelectDropdown phone targets (#2350)", () => {
+  it("carries max-sm:min-h-11 on its options, search box and Done, since its menu is portaled out of any container rule", async () => {
+    renderDropdown();
+    const search = await open();
+    expect(search).toHaveClass("max-sm:min-h-11");
+    expect(screen.getAllByRole("option")[0]).toHaveClass("max-sm:min-h-11");
+    expect(screen.getByRole("button", { name: "Done" })).toHaveClass("max-sm:min-h-11");
+  });
+});

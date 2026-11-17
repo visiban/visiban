@@ -415,7 +415,7 @@ export default function CommandPalette({
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             onKeyDown={handleKeyDown}
             placeholder={sub === "move" ? "Choose a column…" : sub === "assign" ? "Choose a person…" : sub === "priority" ? "Choose a priority…" : drill ? "Search card actions…" : placeholder}
-            className="bg-transparent flex-1 text-sm text-fg placeholder-fg-muted outline-none"
+            className="bg-transparent flex-1 max-sm:min-h-11 text-sm text-fg placeholder-fg-muted outline-none"
             aria-label="Command palette search"
             aria-describedby={target ? targetHeaderId : undefined}
             aria-autocomplete="list"
@@ -501,7 +501,7 @@ export default function CommandPalette({
                   data-active={isActive}
                   onClick={() => activate(item)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition ${
+                  className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 flex items-center gap-2 transition ${
                     isActive ? "bg-surface-hover/60" : "hover:bg-surface-hover/40"
                   } ${disabled ? "cursor-not-allowed" : ""}`}
                 >

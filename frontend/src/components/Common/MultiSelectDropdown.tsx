@@ -248,7 +248,7 @@ export default function MultiSelectDropdown({
         // input so the keyboard map keeps working after a mouse toggle.
         onMouseDown={(e) => { e.preventDefault(); setActive(i); toggle(entry); }}
         className={[
-          "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
+          "flex items-center gap-2 px-3 py-2 max-sm:min-h-11 text-sm cursor-pointer",
           isSelected ? "bg-primary-emphasis/20" : "hover:bg-surface-hover",
           isActive ? "ring-2 ring-inset ring-primary-emphasis" : "",
           orphan ? "text-fg-muted hover:text-fg-secondary" : "text-fg-secondary",
@@ -297,7 +297,7 @@ export default function MultiSelectDropdown({
           aria-activedescendant={all.length > 0 ? optionId(active) : undefined}
           onChange={(e) => { setQuery(e.target.value); setActive(0); }}
           onKeyDown={onSearchKeyDown}
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted w-full focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+          className="bg-surface border border-line rounded px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary placeholder-fg-muted w-full focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
         />
       </div>
       {all.length === 0 && (
@@ -335,7 +335,7 @@ export default function MultiSelectDropdown({
         <button
           type="button"
           onClick={() => { closeMenu(); triggerRef.current?.focus(); }}
-          className="text-sm text-info hover:underline rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm text-info hover:underline rounded px-3 py-1.5 max-sm:min-h-11 max-sm:min-w-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Done
         </button>
