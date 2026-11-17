@@ -452,8 +452,8 @@
               "additionalProperties": false,
               "properties": {
                 "enabled": { "type": "boolean" },
-                "denyCIDRs": { "type": "array", "items": { "type": "string" } },
-                "denyCIDRsIPv6": { "type": "array", "items": { "type": "string" } },
+                "denyCIDRs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "denyCIDRsIPv6": { "type": "array", "minItems": 1, "items": { "type": "string" } },
                 "allowedCIDRs": { "type": "array", "items": { "type": "string" } }
               }
             }

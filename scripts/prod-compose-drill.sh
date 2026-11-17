@@ -380,7 +380,9 @@ See #1152."
 # ---- 5. readiness through nginx --------------------------------------------
 log "waiting for GET /api/health/readiness/ to report ready at ${BASE_URL}"
 deadline=$(( $(date +%s) + READY_TIMEOUT ))
-until [ "$("${CURL[@]}" -o /dev/null -w '%{http_code}' "${BASE_URL}/api/health/readiness/")" = "200" ]; do
+# Wait for status "ok", not just HTTP 200: a still-starting Valkey now yields
+# 200 {"status": "degraded"} (#1465) instead of 503.
+until "${CURL[@]}" "${BASE_URL}/api/health/readiness/" 2>/dev/null | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; do
   [ "$(date +%s)" -lt "${deadline}" ] || {
     "${CURL[@]}" "${BASE_URL}/api/health/readiness/" | sed 's/^/  /' >&2 || true
     fail "/api/health/readiness/ did not go ready through nginx within ${READY_TIMEOUT}s"
@@ -418,7 +420,9 @@ log "placeholder DJANGO_SECRET_KEY is rejected, and for the right reason"
 log "restarting the backend container"
 compose restart backend
 deadline=$(( $(date +%s) + READY_TIMEOUT ))
-until [ "$("${CURL[@]}" -o /dev/null -w '%{http_code}' "${BASE_URL}/api/health/readiness/")" = "200" ]; do
+# Wait for status "ok", not just HTTP 200: a still-starting Valkey now yields
+# 200 {"status": "degraded"} (#1465) instead of 503.
+until "${CURL[@]}" "${BASE_URL}/api/health/readiness/" 2>/dev/null | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; do
   [ "$(date +%s)" -lt "${deadline}" ] || fail "/api/health/readiness/ did not recover within ${READY_TIMEOUT}s after restarting backend"
   sleep 3
 done

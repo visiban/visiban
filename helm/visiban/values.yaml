@@ -574,11 +574,17 @@ webhooks:
         - 100.64.0.0/10
         - 169.254.0.0/16
         - 127.0.0.0/8
+        - 0.0.0.0/8
+        - 192.0.0.0/24
+        - 198.18.0.0/15
       # Same, IPv6: unique-local, link-local, loopback.
       denyCIDRsIPv6:
         - fc00::/7
         - fe80::/10
         - ::1/128
+        - "::ffff:0:0/96"
+        - "64:ff9b::/96"
+        - "2002::/16"
       # CIDRs to allow even though they are inside a denied range: an external
       # PostgreSQL or Valkey on a private address (externalDatabase /
       # externalRedis), and any private target listed in
