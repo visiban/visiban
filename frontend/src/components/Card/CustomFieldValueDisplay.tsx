@@ -179,7 +179,7 @@ function GridValue({ definition, value, userDateFormat, className }: { definitio
   if (value === undefined || value === "") return <NotSetValue className={className} />;
   const valid = isValidForType(definition, value);
   const displayText = valid ? formatCustomFieldValue(definition, value, userDateFormat) : value;
-  if (definition.field_type === "url") return <CustomFieldLink value={value} variant="full" className={className} stopPropagation />;
+  if (definition.field_type === "url") return <span className="min-w-0" title={value}><CustomFieldLink value={value} variant="full" className={className} stopPropagation /></span>;
   const multiEntries = valid && definition.field_type === "multi_select" ? parseMultiSelect(value) : null;
   if (multiEntries !== null) {
     if (multiEntries.length === 0) return <NotSetValue className={className} />;

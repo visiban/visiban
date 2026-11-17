@@ -218,7 +218,7 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(toggle).toHaveClass('text-info-on-tint')
     const grid = screen.getByTestId('swimlane-field-grid')
     expect(toggle).toHaveAttribute('aria-controls', grid.id)
-    expect(grid).toHaveAccessibleName('Fields for Acme Corp')
+    expect(grid).not.toHaveAttribute('aria-label')
     expect(grid.className).toContain('grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]')
     expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Owner', 'Region', 'Tier', 'Quota'])
     expect(within(grid).getByText('600')).toBeInTheDocument()

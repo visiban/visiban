@@ -102,7 +102,7 @@ function hasChoices(t: CustomFieldType): boolean {
 // authoritative and will 400 regardless; this only drives the local affordance.
 //
 // #2303: no pin control. The swimlane band (#2271, docs/development/board-redesign.md
-// § Swimlane bands) shows the first two fields by position and the rest behind +N,
+// § Swimlane bands) shows the first two fields by position and all of them in the "N fields" grid,
 // so the `show_on_row` pin flag no longer changes anything on the board. The field
 // stays in the API and the TypeScript type (1.0 contract); this tab never sends it,
 // so a saved pin is left as it was.

@@ -550,7 +550,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onEditFieldOrder(); }}
-                  className="text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="inline-flex items-center min-h-6 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Change field order
                 </button>

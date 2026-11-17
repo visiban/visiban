@@ -4,7 +4,8 @@ import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 
 interface Props {
   id: string;
-  laneName: string;
+  /** Kept for callers; the toggle's label (which names the lane) associates the grid via `aria-controls`. */
+  laneName?: string;
   /** The lane color; tints the divider. Empty means a plain `border-line`. */
   laneColor?: string;
   /** Every eligible field in order, empty values included (`laneGridFields`). */
@@ -19,11 +20,10 @@ interface Props {
  * names), and an unset value is "—", so the same field sits in the same slot on
  * every lane. One column at phone width follows from the 18rem track minimum.
  */
-export default function LaneFieldGrid({ id, laneName, laneColor, fields, userDateFormat }: Props) {
+export default function LaneFieldGrid({ id, laneColor, fields, userDateFormat }: Props) {
   return (
     <dl
       id={id}
-      aria-label={`Fields for ${laneName}`}
       data-testid="swimlane-field-grid"
       className={`basis-full w-full grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-x-6 gap-y-1 mt-1 pt-2 border-t ${laneColor ? "" : "border-line"}`}
       style={laneColor ? { borderColor: `color-mix(in srgb, ${laneColor} 30%, rgb(var(--border)))` } : undefined}
@@ -34,7 +34,9 @@ export default function LaneFieldGrid({ id, laneName, laneColor, fields, userDat
             {def.is_admin_only && <AdminOnlyFieldGlyph />}
             {def.name}
           </dt>
-          <dd className="min-w-0 flex-1 text-sm font-medium text-fg line-clamp-2 break-words">
+          {/* Chips and badges are inline-flex blocks that line-clamp would silently cut off after line 2, so
+              multi-select and choice values wrap unclamped; clamped text and URLs carry a `title`. */}
+          <dd className={`min-w-0 flex-1 text-sm font-medium text-fg break-words ${def.field_type === "multi_select" || def.field_type === "dropdown" ? "" : "line-clamp-2"}`}>
             <CustomFieldValueDisplay definition={def} value={value} variant="grid-value" userDateFormat={userDateFormat} />
           </dd>
         </div>

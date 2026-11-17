@@ -24,9 +24,24 @@ describe("LaneFieldGrid (#2354)", () => {
   it("renders a labeled dl with a fixed label column and a tinted divider", () => {
     render(<LaneFieldGrid id="g1" laneName="North" laneColor="#ff0000" fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")])} />);
     const grid = screen.getByTestId("swimlane-field-grid");
-    expect(grid).toHaveAccessibleName("Fields for North");
+    expect(grid).not.toHaveAttribute("aria-label");
     expect(grid.style.borderColor).toContain("color-mix");
     expect(grid.className).toContain("grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]");
+  });
+
+  it("renders every multi-select chip unclamped and titles clamped text and URLs", () => {
+    const choices = Array.from({ length: 12 }, (_, i) => `choice-${i}`);
+    const fields = laneGridFields(
+      lane([[1, JSON.stringify(choices)], [2, "https://example.com/a/very/long/path"], [3, "plain text value"]]),
+      [def(1, "Tags", { field_type: "multi_select", choices }), def(2, "Link", { field_type: "url" }), def(3, "Note")],
+    );
+    render(<LaneFieldGrid id="g1" fields={fields} />);
+    const dds = screen.getByTestId("swimlane-field-grid").querySelectorAll("dd");
+    expect(dds[0]).not.toHaveClass("line-clamp-2");
+    for (const c of choices) expect(within(dds[0] as HTMLElement).getByText(c)).toBeInTheDocument();
+    expect(dds[1]).toHaveClass("line-clamp-2");
+    expect(dds[1].querySelector("[title]")).toHaveAttribute("title", "https://example.com/a/very/long/path");
+    expect(dds[2].querySelector("[title]")).toHaveAttribute("title", "plain text value");
   });
 
   it("uses a plain border-line without a lane color", () => {

@@ -1237,7 +1237,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  // Set only by the swimlane +N popover shortcut (#1458); every other opener
+  // Set only by the swimlane "N fields" grid's "Change field order" shortcut (#1458); every other opener
   // leaves it undefined so Board settings opens on Members as before.
   const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
