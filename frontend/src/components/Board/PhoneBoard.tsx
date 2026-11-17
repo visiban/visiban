@@ -1,3 +1,4 @@
+import LaneFieldGrid from "./LaneFieldGrid";
 import { useState, useId, useRef, useEffect, useCallback } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
@@ -7,7 +8,7 @@ import EditSwimlaneModal from "./EditSwimlaneModal";
 import EditColumnModal from "./EditColumnModal";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
-import { laneBandFields, laneBandLimit, type LaneBandField } from "../../utils/laneBand";
+import { laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
 import { laneRollup } from "../../utils/laneRollup";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -51,7 +52,7 @@ interface Props {
   /** Editing surfaces (#2277): the same gates and modals as the grid, so phones lose no controls. */
   isAdmin?: boolean;
   allColumns?: Column[];
-  /** Admin shortcut from the revealed `+N` fields to Board settings -> Swimlane fields, as on the grid band. */
+  /** Admin shortcut from the open field grid to Board settings -> Swimlane fields, as on the grid band. */
   onEditFieldOrder?: () => void;
   boardColors?: BoardColor[];
   limitFlags?: LimitFlags;
@@ -183,7 +184,7 @@ export default function PhoneBoard({
   const policyTriggerRef = useRef<HTMLButtonElement>(null);
   const closePolicy = useCallback(() => setPolicyRect(null), []);
   const lastRequest = useRef<number | null>(null);
-  // Lanes whose `+N` fields are revealed (#2329), per lane as on the grid band.
+  // Lanes whose field grid is open (#2329), per lane as on the grid band.
   const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
   const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
     const next = new Set(prev);
@@ -389,10 +390,12 @@ export default function PhoneBoard({
           // Second line (#2329): the grid band's fields, limit line and rollup, from the
           // same helpers, so a lane reads the same at every width.
           const fields = laneBandFields(lane, swimlaneFieldDefinitions);
-          const fieldsOpen = openFieldLanes.has(lane.id);
+          const gridFields = laneGridFields(lane, swimlaneFieldDefinitions);
+          const showFieldToggle = gridFields.length > fields.inline.length;
+          const fieldsOpen = showFieldToggle && openFieldLanes.has(lane.id);
           const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);
           const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);
-          const hasSecondLine = fields.inline.length > 0 || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
+          const hasSecondLine = fields.inline.length > 0 || showFieldToggle || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
           const extraId = `${uid}-lane-${lane.id}-fields`;
           const renderField = ({ def, value }: LaneBandField) => (
             <CustomFieldValueDisplay key={def.id} definition={def} value={value} variant="band" adminOnly={def.is_admin_only} hideName={hideRowChipFieldNames} userDateFormat={userDateFormat} />
@@ -401,7 +404,7 @@ export default function PhoneBoard({
             <section key={lane.id} aria-label={lane.name} data-testid="phone-lane" className="flex flex-col gap-2">
               {/* The band: tinted, one collapse target (the first line, 44px), then a second
                   line of fields and stats. The second line sits outside the button because a
-                  URL field is a link and `+N` is a button, and neither may nest in a button. */}
+                  URL field is a link and the "N fields" toggle is a button, and neither may nest in a button. */}
               <div
                 data-testid="phone-lane-band"
                 style={columnTintStyle(lane.color)}
@@ -421,39 +424,24 @@ export default function PhoneBoard({
                 </button>
                 {hasSecondLine && (
                   // Order and tiers as the grid band (frontend/CLAUDE.md § Swimlane bands): the
-                  // first two fields, `+N`, then overdue, stale, the limit line and the rollup.
+                  // "N fields", the first two fields, then overdue, stale, the limit line and the rollup.
                   // A link in a URL field is lifted to 44px, as every phone target is.
                   <div data-testid="phone-lane-band-details" className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 pr-3 pb-2.5 text-sm [&_a]:inline-flex [&_a]:items-center [&_a]:min-h-11">
-                    {fields.inline.map(renderField)}
-                    {fields.extra.length > 0 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => toggleLaneFields(lane.id)}
-                          aria-expanded={fieldsOpen}
-                          aria-controls={extraId}
-                          aria-label={`${fieldsOpen ? "Less" : `+${fields.extra.length}`}: ${fieldsOpen ? "Hide" : "Show"} ${fields.extra.length} more field ${fields.extra.length === 1 ? "value" : "values"} for ${lane.name}`}
-                          // A 44px hit area around the grid band's small pill, so it reads the same.
-                          className="group/more inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-fg-secondary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                        >
-                          <span className="inline-flex items-center min-h-6 text-xs px-2 py-0.5 rounded-full border border-line-strong group-hover/more:bg-surface-hover">
-                            {fieldsOpen ? "Less" : `+${fields.extra.length}`}
-                          </span>
-                        </button>
-                        <div id={extraId} className="contents" data-testid="phone-lane-extra-fields">
-                          {fieldsOpen && fields.extra.map(renderField)}
-                          {fieldsOpen && isAdmin && onEditFieldOrder && (
-                            <button
-                              type="button"
-                              onClick={onEditFieldOrder}
-                              className="inline-flex items-center min-h-11 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                            >
-                              Change field order
-                            </button>
-                          )}
-                        </div>
-                      </>
+                    {showFieldToggle && (
+                      <button
+                        type="button"
+                        onClick={() => toggleLaneFields(lane.id)}
+                        aria-expanded={fieldsOpen}
+                        aria-controls={fieldsOpen ? extraId : undefined}
+                        aria-label={`${gridFields.length} fields: show all field values for ${lane.name}`}
+                        data-testid="phone-lane-fields-toggle"
+                        className={`inline-flex items-center gap-1 min-h-11 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg"}`}
+                      >
+                        {gridFields.length} fields
+                        <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+                      </button>
                     )}
+                    {!fieldsOpen && fields.inline.map(renderField)}
                     {overdue > 0 && <span className="font-semibold text-danger-on-tint whitespace-nowrap">{overdue} {STATUS_LABEL.overdue}</span>}
                     {stale > 0 && <span className="font-semibold text-warning-on-tint whitespace-nowrap">{stale} {STATUS_LABEL.stale}</span>}
                     {laneLimit !== null && (
@@ -465,6 +453,20 @@ export default function PhoneBoard({
                       <span className="font-semibold text-fg whitespace-nowrap" data-testid="phone-lane-rollup" title={`${rollup.fieldName}: total of the cards not in a done column`}>
                         <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
                       </span>
+                    )}
+                    {fieldsOpen && (
+                      <>
+                        <LaneFieldGrid id={extraId} laneName={lane.name} laneColor={lane.color} fields={gridFields} userDateFormat={userDateFormat} />
+                        {isAdmin && onEditFieldOrder && (
+                          <button
+                            type="button"
+                            onClick={onEditFieldOrder}
+                            className="inline-flex items-center min-h-11 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          >
+                            Change field order
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

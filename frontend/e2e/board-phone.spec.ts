@@ -572,15 +572,15 @@ test.describe('board phone layout', () => {
     await expect(band.getByTestId('swimlane-limit-stat')).toHaveText(/WIP \d+ \/ 0 over/)
     // One collapse target, at least 44px tall; the second line is outside it.
     const toggle = band.getByRole('button', { name: /Collapse lane/ })
-    await expect(band.locator('[aria-expanded]').filter({ has: page.locator('svg') })).toHaveCount(1)
+    await expect(band.getByRole('button', { name: /(Collapse|Expand) lane/ })).toHaveCount(1)
     expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     await expect(toggle.getByTestId('phone-lane-band-details')).toHaveCount(0)
-    const more = band.getByRole('button', { name: /^\+1:/ })
+    const more = band.getByRole('button', { name: /^\d+ fields:/ })
     const box = (await more.boundingBox())!
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
     await more.click()
     await expect(details).toContainText('West')
-    await expect(band.getByRole('button', { name: /^Less:/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(band.getByRole('button', { name: /^\d+ fields:/ })).toHaveAttribute('aria-expanded', 'true')
     // The long name wraps rather than pushing the page sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
     await toggle.click()

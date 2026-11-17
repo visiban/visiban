@@ -35,6 +35,19 @@ export function laneBandFields(lane: Swimlane, definitions: SwimlaneCustomFieldD
   return { inline: entries.slice(0, INLINE_FIELD_COUNT), extra: entries.slice(INLINE_FIELD_COUNT) };
 }
 
+/**
+ * Every eligible field for the aligned grid (#2354), in Swimlane fields order,
+ * empty values included (`""`), so each lane's grid has the same rows in the same
+ * places. The definitions a member receives already exclude admin-only fields,
+ * so the length here is the "N fields" count.
+ */
+export function laneGridFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined): LaneBandField[] {
+  const values = new Map((lane.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
+  return [...(definitions ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .map((def) => ({ def, value: values.get(def.id) ?? "" }));
+}
+
 export interface LaneBandLimit {
   usage: LaneUsage;
   reading: LaneLimitReading;

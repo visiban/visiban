@@ -459,21 +459,26 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(toggle.className).toContain('min-h-11')
   })
 
-  it('puts fields beyond the first two behind a 44px +N that reveals them in place and reads Less', async () => {
+  it('puts the full field list behind a 44px "N fields" toggle that opens a single-column grid', async () => {
     const user = userEvent.setup()
     setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs })
-    const more = screen.getByRole('button', { name: /^\+1: Show 1 more field value for North/ })
+    const more = screen.getByRole('button', { name: /^4 fields: show all field values for North/ })
     expect(more).toHaveAttribute('aria-expanded', 'false')
     expect(more.className).toContain('min-h-11')
-    const extra = screen.getByTestId('phone-lane-extra-fields')
-    expect(more).toHaveAttribute('aria-controls', extra.id)
-    expect(extra).not.toHaveTextContent('West')
+    expect(screen.queryByTestId('swimlane-field-grid')).toBeNull()
     await user.click(more)
-    expect(extra).toHaveTextContent('West')
-    const less = screen.getByRole('button', { name: /^Less: Hide 1 more field value for North/ })
-    expect(less).toHaveAttribute('aria-expanded', 'true')
-    await user.click(less)
-    expect(extra).not.toHaveTextContent('West')
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    expect(more).toHaveFocus()
+    const grid = screen.getByTestId('swimlane-field-grid')
+    expect(more).toHaveAttribute('aria-controls', grid.id)
+    // 18rem tracks: one column at 390px.
+    expect(grid.className).toContain('minmax(18rem,1fr)')
+    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Owner', 'Quota', 'Region', 'Site'])
+    expect(within(grid).getByText('West')).toBeInTheDocument()
+    // The unset URL field is a dash with sr-only "Not set".
+    expect(within(grid).getByText('Not set')).toHaveClass('sr-only')
+    await user.click(more)
+    expect(screen.queryByTestId('swimlane-field-grid')).toBeNull()
   })
 
   it('keeps a URL field link out of the button and lifts it to 44px', () => {
@@ -530,20 +535,20 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
   })
 
-  it('offers admins "Change field order" after the revealed +N fields, 44px, and hides it otherwise', async () => {
+  it('offers admins "Change field order" after the open field grid, 44px, and hides it otherwise', async () => {
     const user = userEvent.setup()
     const onEditFieldOrder = vi.fn()
     const props = { swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs, onEditFieldOrder }
     setup({ ...props, isAdmin: true })
     expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
     const link = screen.getByRole('button', { name: 'Change field order' })
     expect(link.className).toContain('min-h-11')
     await user.click(link)
     expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
     cleanup()
     setup({ ...props, isAdmin: false })
-    await user.click(screen.getByRole('button', { name: /^\+1: Show/ }))
+    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
     expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
   })
 

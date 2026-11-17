@@ -16,8 +16,11 @@ interface Props {
    * chip (#1140, replaced in the band by `band`). Peek-popover text does *not* go through this
    * component — it's a single joined line of plain strings, formatted
    * directly via `formatCustomFieldValue` in `CardPeekPopover`, not JSX.
+   * `grid-value` (#2354) — the value only, for the lane field grid's `<dd>`
+   * (the label lives in the `<dt>`). An unset or empty value renders "—" with
+   * an sr-only "Not set", so every lane's grid has identical geometry.
    */
-  variant: "chip" | "detail" | "row-chip" | "band";
+  variant: "chip" | "detail" | "row-chip" | "band" | "grid-value";
   /**
    * #1140 — draws the admin-only padlock on `row-chip`. Ignored by the other
    * variants. Only an admin is ever sent an admin-only value, so this marks
@@ -54,6 +57,7 @@ interface Props {
  *      placeholder chip); this component never invents a placeholder.
  */
 export default function CustomFieldValueDisplay({ definition, value, variant, adminOnly, hideName, userDateFormat = "MM/DD/YYYY", className }: Props) {
+  if (variant === "grid-value") return <GridValue definition={definition} value={value} userDateFormat={userDateFormat} className={className} />;
   if (value === undefined) return null;
 
   const valid = isValidForType(definition, value);
@@ -157,6 +161,39 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           {chipValueText(definition, displayText, 16)}
         </span>
       )}
+    </span>
+  );
+}
+
+/** The "—" + sr-only "Not set" treatment, shared with the band slots (#2356). */
+export function NotSetValue({ className }: { className?: string }) {
+  return (
+    <span className={className}>
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Not set</span>
+    </span>
+  );
+}
+
+function GridValue({ definition, value, userDateFormat, className }: { definition: FieldDefinitionShape; value: string | undefined; userDateFormat: string; className?: string }) {
+  if (value === undefined || value === "") return <NotSetValue className={className} />;
+  const valid = isValidForType(definition, value);
+  const displayText = valid ? formatCustomFieldValue(definition, value, userDateFormat) : value;
+  if (definition.field_type === "url") return <CustomFieldLink value={value} variant="full" className={className} stopPropagation />;
+  const multiEntries = valid && definition.field_type === "multi_select" ? parseMultiSelect(value) : null;
+  if (multiEntries !== null) {
+    if (multiEntries.length === 0) return <NotSetValue className={className} />;
+    return <span className={`inline-flex ${className ?? ""}`}><MultiSelectChips entries={multiEntries} definition={definition} wrap /></span>;
+  }
+  const colorKey = valid && definition.field_type === "dropdown" ? explicitChoiceColor(definition, value) : null;
+  if (colorKey) {
+    return <span className={`inline-flex min-w-0 ${className ?? ""}`}><ChoiceBadge colorKey={colorKey} className="max-w-full" title={displayText}>{displayText}</ChoiceBadge></span>;
+  }
+  const dot = valid && definition.field_type === "dropdown" ? <ChoiceDot choice={value} /> : null;
+  return (
+    <span className={`inline-flex items-baseline gap-1 min-w-0 ${className ?? ""}`} title={displayText}>
+      {dot}
+      <span className="min-w-0 break-words">{displayText}</span>
     </span>
   );
 }

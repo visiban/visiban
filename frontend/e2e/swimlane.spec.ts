@@ -68,7 +68,7 @@ test.describe('swimlane collapse', () => {
   })
 })
 
-// #1458 — admin shortcut from the band's expanded +N fields to Board settings → Swimlane fields.
+// #1458 — admin shortcut from the band's open field grid to Board settings → Swimlane fields.
 test.describe('swimlane field order shortcut', () => {
   test.use({ viewport: { width: 1600, height: 900 } })
   const defBase = {
@@ -93,13 +93,13 @@ test.describe('swimlane field order shortcut', () => {
     })) as typeof BOARD_FULL.swimlanes,
   }
 
-  test('admin opens Swimlane fields from the expanded +N fields; Ctrl+, still opens Members', async ({ page }) => {
+  test('admin opens Swimlane fields from the open field grid; Ctrl+, still opens Members', async ({ page }) => {
     await routeAuth(page)
     await routeBoard(page, board)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    const more = page.getByRole('button', { name: /more field value/ })
+    const more = page.getByRole('button', { name: /^\d+ fields:/ })
     await more.click()
     await expect(more).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByText('Tier')).toBeVisible()
