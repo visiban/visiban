@@ -5044,16 +5044,27 @@ helm-publish:
     # (#1284, first caught on v1.2.0-alpha.2 once #1268 let execution reach
     # this far for the first time).
     - printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin
-    - helm package helm/visiban --destination /tmp
     - |
-      CHART_FILE="$(ls /tmp/visiban-*.tgz)"
+      # The chart version to publish (#1155). Chart.yaml's `version:` is the
+      # stable chart line, bumped by hand (#1194). A pre-release tag publishes
+      # `<version>-<pre-release>` (v1.3.0-beta.1 -> 0.8.0-beta.1): publishing the
+      # plain version from a pre-release tag is exactly what let a stable chart
+      # carrying beta images outrank every later pre-release. This only changes
+      # the packaged version; Chart.yaml in git is untouched.
+      CHART_BASE_VERSION="$(helm show chart helm/visiban | awk '/^version:/{print $2}' | tr -d '"')"
+      case "$CI_COMMIT_TAG" in
+        *-*) CHART_VERSION="${CHART_BASE_VERSION}-${CI_COMMIT_TAG#*-}" ;;
+        *)   CHART_VERSION="$CHART_BASE_VERSION" ;;
+      esac
       CHART_NAME="$(helm show chart helm/visiban | awk '/^name:/{print $2}')"
-      # Refuse a pre-release chart version whose plain stable is already
-      # published: it could never outrank it, so a bare `helm install` would
-      # keep resolving to the stable one (#1155). Exit 2 (registry unreadable)
-      # also fails the job: this guard fails closed.
-      CHART_VERSION="$(helm show chart helm/visiban | awk '/^version:/{print $2}' | tr -d '"')"
+      # Publish guard, before anything is pushed: refuses a stable version from
+      # a pre-release tag, a version already in the registry (helm push would
+      # overwrite it), and a pre-release whose plain stable is already published
+      # (it could never outrank it). Exit 2 (registry unreadable) also fails the
+      # job: this guard fails closed. CI_COMMIT_TAG reaches it from the job env.
       bash scripts/check-chart-registry.sh --candidate "$CHART_VERSION"
+      helm package helm/visiban --version "$CHART_VERSION" --destination /tmp
+      CHART_FILE="/tmp/${CHART_NAME}-${CHART_VERSION}.tgz"
       helm push "$CHART_FILE" "oci://ghcr.io/visiban/charts" 2>&1 | tee /tmp/helm-push.log
       # Sign the by-digest reference `helm push` reports, not the tag — a tag can
       # be moved, a digest cannot.
