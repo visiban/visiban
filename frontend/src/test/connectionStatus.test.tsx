@@ -192,4 +192,12 @@ describe('ConnectionStatus on phones (#2348)', () => {
     rerender(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
     expect(screen.getByRole('button', { name: 'Real-time updates active' })).not.toHaveClass('max-sm:hidden')
   })
+
+  it('keeps its live region mounted outside the trigger so a hidden healthy dot still announces a change', () => {
+    const { rerender } = render(<ConnectionStatus status="connected" lastEventAt={Date.now()} hideWhenHealthyOnPhone />)
+    const region = screen.getByRole('status', { hidden: true })
+    expect(region.closest('button')).toBeNull()
+    rerender(<ConnectionStatus status="failed" lastEventAt={null} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('status')).toHaveTextContent('Offline, real-time updates unavailable')
+  })
 })

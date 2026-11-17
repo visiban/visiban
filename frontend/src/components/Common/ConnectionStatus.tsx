@@ -165,10 +165,11 @@ export default function ConnectionStatus({
       >
         <span className={variant.dot} aria-hidden="true" />
         {variant.label && <span className={variant.labelClass}>{variant.label}</span>}
-        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-          {effective === "connected" ? "" : variant.aria}
-        </span>
       </button>
+      {/* Outside the button, so hiding the healthy dot on phones never unmounts the live region: a change to reconnecting or offline must still be announced. */}
+      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {effective === "connected" ? "" : variant.aria}
+      </span>
       {panel && createPortal(panel, document.body)}
     </div>
   );

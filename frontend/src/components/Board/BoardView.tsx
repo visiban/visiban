@@ -2950,7 +2950,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           the overflow menu and the connection status on the right. Nothing
           folds by viewport: the row wraps instead, so no control is ever
           hidden and the page never scrolls sideways. Connection status is the
-          last item and stays pinned to the trailing edge. */}
+          last item and stays pinned to the trailing edge (on phones it is
+          drawn only when not healthy, see below). */}
       {/* Phone (#2348): one 44px row, the tabs scrolling inside their own box with Filter, Activity and More after them, so the chrome is header + tab strip (about 92px) and the strip sits at the same y as the other views' (#2349). */}
       <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:flex-nowrap max-sm:gap-x-1">
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">

@@ -2061,6 +2061,21 @@ describe('CardDetail', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent(/could not be moved/i)
       })
 
+      it('keeps focus on the pressed step while the move is in flight, by aria-disabled rather than disabled', async () => {
+        let resolve!: (v: { ok: true }) => void
+        const onMoveCard = vi.fn().mockReturnValue(new Promise((r) => { resolve = r }))
+        renderWith({}, onMoveCard)
+        const btn = screen.getByRole('button', { name: 'Move later' })
+        btn.focus()
+        await userEvent.click(btn)
+        expect(btn).toHaveAttribute('aria-disabled', 'true')
+        expect(btn).not.toBeDisabled()
+        expect(btn).toHaveFocus()
+        await userEvent.click(btn)
+        expect(onMoveCard).toHaveBeenCalledTimes(1)
+        resolve({ ok: true })
+      })
+
       it('offline: aria-disabled with the reason, and no move', async () => {
         const onMoveCard = renderWith({ movesPaused: true })
         const btn = screen.getByRole('button', { name: 'Move earlier' })

@@ -173,6 +173,15 @@ describe('OnboardingTour', () => {
     })
   })
 
+  it('skips a target hidden with display: none, as a missing one (#2348)', async () => {
+    // The healthy connection dot is max-sm:hidden: still in the DOM, but it has no box to spotlight.
+    ;(document.querySelector('[data-tour-step="view-tabs"]') as HTMLElement).style.display = 'none'
+    render(<OnboardingTour onComplete={onComplete} />)
+    await waitFor(() => {
+      expect(screen.getByText('Swimlanes are your clients')).toBeTruthy()
+    })
+  })
+
   it('renders the fullScreen centered card layout for the pan-board step', async () => {
     render(<OnboardingTour onComplete={onComplete} />)
     // Advance to step 8 (index 7) — the fullScreen step
