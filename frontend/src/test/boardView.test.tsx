@@ -4205,3 +4205,123 @@ describe('BoardView phone layout (#2277)', () => {
     expect(screen.getByRole('button', { name: 'View' })).not.toHaveClass('max-sm:hidden')
   })
 })
+
+// Leave warning (#1102) and sub-column steps (#2327, #2278) on every BoardView Move surface.
+describe('BoardView leave warning and sub-column steps (#2278)', () => {
+  const subs = [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }, { id: 3, uid: 'sub3', position: 2, name: 'Signed off' }]
+  const columns = [
+    { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 11, uid: 'coluid000002', name: 'Review', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs, tracks: [] },
+    { id: 12, uid: 'coluid000003', name: 'Done', position: 2, color: '#6B7280', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+  ] as unknown as BoardFull['columns']
+  const reviewCard = (id: number, gates_passed: number) => ({
+    id, uid: `carduid${id}`, column: 11, swimlane: 20, title: `Card ${id}`,
+    description: '', priority: 'medium' as const, assignee: null, labels: [], due_date: null, weight: 1, position: id,
+    created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', last_moved_at: null, attachment_count: 0,
+    checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1, custom_field_values: [],
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '', gates_passed,
+  })
+  const WARNING = 'Left Review in Doing, before Signed off'
+  const setupBoard = (moveSpy = vi.fn().mockResolvedValue({ ok: true }), cardList = [reviewCard(1, 0)]) => {
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: cardList as never }), moveCard: moveSpy })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    return moveSpy
+  }
+  const drop = async (overId: string, cardId = 1) => {
+    await act(async () => {
+      capturedOnDragEnd!({
+        active: { id: cardId, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+        over: { id: overId, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        delta: { x: 0, y: 0 },
+        activatorEvent: new MouseEvent('mousedown'),
+      } as unknown as DragEndEvent)
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+    localStorage.clear()
+    vi.mocked(getCardStatus).mockResolvedValue(null)
+  })
+
+  it('drag: dropping on another column warns, a sub-column drop inside the stage does not', async () => {
+    const moveSpy = setupBoard()
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('drag: a sub-column drop on the same stage does not warn', async () => {
+    const moveSpy = setupBoard()
+    await drop('cell:11:20:1')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, expect.any(Number), 1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('drag: leaving from the last sub-column does not warn', async () => {
+    const moveSpy = setupBoard(undefined, [reviewCard(1, 2)])
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('drag: a refused move raises no warning', async () => {
+    const moveSpy = setupBoard(vi.fn().mockResolvedValue({ ok: false, error: new Error('x') }))
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('peek Move: moving out of the stage warns, moving to another sub-column does not', async () => {
+    const user = userEvent.setup()
+    const moveSpy = setupBoard()
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1], action: 'summary' } })) })
+    await screen.findByTestId('card-peek-sheet')
+    await user.click(screen.getByRole('button', { name: 'Move' }))
+    const form = within(await screen.findByTestId('card-peek-move-form'))
+    await user.selectOptions(form.getByLabelText('Column'), 'Review: Ready')
+    await user.click(form.getByRole('button', { name: 'Move card' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Move' }))
+    const form2 = within(await screen.findByTestId('card-peek-move-form'))
+    await user.selectOptions(form2.getByLabelText('Column'), 'Done')
+    await user.click(form2.getByRole('button', { name: 'Move card' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledTimes(2))
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('card menu Move to…: another column warns, a sub-column of the stage does not', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: { ...reviewCard(1, 1) } } as never)
+    setupBoard()
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Review: Ready' }))
+    await waitFor(() => expect(moveCard).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+    vi.mocked(moveCard).mockResolvedValue({ card: { ...reviewCard(1, 0), column: 12 } } as never)
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Done' }))
+    await waitFor(() => expect(moveCard).toHaveBeenCalledTimes(2))
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('card menu Move on to / Move back to step the sub-column with the right gatesPassed', async () => {
+    const moveSpy = setupBoard(undefined, [reviewCard(1, 1)])
+    const openMoveMenu = async () => {
+      fireEvent.click(screen.getByTestId('open-menu-1'))
+      fireEvent.keyDown(screen.getByRole('menuitem', { name: /Move to/ }), { key: 'ArrowRight' })
+      return screen.findByRole('menu', { name: 'Move within this cell or to a column' })
+    }
+    fireEvent.click(within(await openMoveMenu()).getByRole('menuitem', { name: 'Move on to Signed off' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenLastCalledWith(1, 11, 20, 1, 2))
+    fireEvent.click(within(await openMoveMenu()).getByRole('menuitem', { name: 'Move back to Doing' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenLastCalledWith(1, 11, 20, 1, 0))
+    expect(moveSpy).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText("Card 'Card 1' moved to sub-column 'Doing' in 'Review'")).toBeInTheDocument()
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+})

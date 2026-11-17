@@ -628,3 +628,19 @@ describe('cellOrderOf on a gated stage (#2278 G9)', () => {
     expect(cellOrderOf([a, b, c], c, null)).toEqual({ index: 2, count: 3, earlier: 1, later: null })
   })
 })
+
+describe('PhoneBoard track chips (#2278)', () => {
+  it('passes trackStates to cards: a gated column with a dimension field renders spelled-out chips', () => {
+    const dim = {
+      id: 41, uid: 'f41', name: 'Technical', field_type: 'single_select', choices: ['Pass'], position: 0, is_dimension: true,
+      choice_resolutions: { Pass: 'satisfied' },
+    } as unknown as CustomFieldDefinition
+    const column = col(1, 'Build', { tracks: [{ id: 1, field_id: 41, field_uid: 'f41', name: 'Technical', position: 0 }] } as Partial<Column>)
+    setup({
+      columns: [column],
+      cards: [card(1, 1, 1, { custom_field_values: [{ field_definition: 41, value: 'Pass' }] as never })],
+      customFieldDefinitions: [dim],
+    })
+    expect(screen.getAllByText('Technical: done').length).toBeGreaterThan(0)
+  })
+})

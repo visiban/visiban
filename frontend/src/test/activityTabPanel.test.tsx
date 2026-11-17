@@ -457,4 +457,21 @@ describe("ActivityTabPanel custom field change label (#1921)", () => {
     expect(screen.getByText("Custom field: Done → (none)")).toBeInTheDocument();
     expect(screen.getByText("A very long custom field name that over\u2026: a → b")).toBeInTheDocument();
   });
+
+  it("shows the sub-column note on a move row, without the word gate (#2278)", async () => {
+    const entry = makeMoveEntry();
+    Object.assign(entry.data, { from_gates_open: 2, to_gates_passed: 1 });
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([entry]));
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    const note = await screen.findByTestId("history-gate-note");
+    expect(note).toHaveTextContent("left 2 sub-columns early, entered at sub-column 2");
+    expect(note.textContent).not.toMatch(/gate/i);
+  });
+
+  it("shows no sub-column note on a plain move row (#2278)", async () => {
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry()]));
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    await screen.findByText(/In Progress/);
+    expect(screen.queryByTestId("history-gate-note")).toBeNull();
+  });
 });
