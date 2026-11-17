@@ -464,6 +464,51 @@ compose-hygiene:
         grep -q 'add_header Cache-Control \$visiban_cache_control;' "$t" || { echo "$t: Cache-Control map not applied (#1633)"; exit 1; }
       done
 
+# ─── nginx security headers (#1073) ──────────────────────────────────────────
+#
+# nginx inherits `add_header` into a location only when that location declares
+# none of its own, so one cache or CORS header added inside a `location` drops
+# CSP, HSTS, X-Frame-Options and X-Content-Type-Options from every response it
+# serves, with a green pipeline. scripts/check-nginx-security-headers.sh:
+#
+#   * static: both templates send the full set at server level, any location
+#     with an add_header re-declares all of it, and the two templates agree
+#     (modulo HSTS, which is HTTPS-only, and ws:// vs wss://);
+#   * --runtime: boots each template (and the frontend image's own default
+#     config) in this nginx:1.27-alpine image, the frontend image's base,
+#     against a stub upstream, and asserts the headers on /, an SPA deep link,
+#     a static asset, a 404 asset, /api/, /accounts/, /admin/, /static/,
+#     /media/ and /mcp, then proves a location add_header is caught (negative
+#     control). No image is built: kaniko cannot run what it builds, and the
+#     job runs the same config on the same nginx instead.
+#
+# The Helm ConfigMap is asserted against these templates by
+# scripts/helm-structure-check.sh in helm-template (#1952), so chart changes
+# trigger this job too and the two are reviewed together. Runs on every main
+# pipeline (seconds; header drift can also come from a script change).
+nginx-security-headers:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/nginx:1.27-alpine
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - nginx/**/*
+        - helm/**/*
+        - frontend/nginx.default.conf
+        - scripts/check-nginx-security-headers.sh
+        - scripts/render-nginx-hsts.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apk add --no-cache bash curl openssl grep sed
+  script:
+    # Self-test first (#1093): a gate observed only on a clean tree is
+    # indistinguishable from one that always passes.
+    - bash scripts/check-nginx-security-headers.sh --self-test
+    - bash scripts/check-nginx-security-headers.sh
+    - bash scripts/check-nginx-security-headers.sh --runtime
+
 # ─── SonarCloud report-rewrite self-test (#1370) ─────────────────────────────
 #
 # scripts/sonar-scan.sh rewrites the coverage reports so SonarCloud can resolve
