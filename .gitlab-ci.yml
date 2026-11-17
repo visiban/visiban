@@ -482,9 +482,13 @@ compose-hygiene:
 #     control). No image is built: kaniko cannot run what it builds, and the
 #     job runs the same config on the same nginx instead.
 #
-# The Helm ConfigMap is asserted against these templates by
-# scripts/helm-structure-check.sh in helm-template (#1952), so chart changes
-# trigger this job too and the two are reviewed together. Runs on every main
+# The Helm ConfigMap is a separate nginx config; this script does not read it.
+# scripts/helm-structure-check.sh (helm-template, #1952, #1073) asserts the
+# chart sends X-Frame-Options DENY, X-Content-Type-Options nosniff,
+# Referrer-Policy and a CSP identical to nginx/app.conf.template (connect-src
+# hosts aside), with no location-level add_header. HSTS is not asserted on the
+# chart. Chart changes trigger this job too, so the two are reviewed together.
+# Runs on every main
 # pipeline (seconds; header drift can also come from a script change).
 nginx-security-headers:
   stage: lint

@@ -7,7 +7,58 @@ populated case passes whether or not the absent case is safe, so each guard
 gets a test here that builds it WITHOUT the input and asserts the safe outcome,
 next to one that pins the populated behavior as unchanged.
 
-The full sweep, with the verdict for each guard, is in the #1075 MR.
+Sweep record (#1075). Verdicts for every guard examined; ``test`` names the
+class in this file that pins the absent case (``-`` = verified by reading, no
+new test needed).
+
+CHANGED to fail closed:
+
+=========================================================  ====================================================
+guard (file:symbol)                                         test
+=========================================================  ====================================================
+boards/serializers.py:BoardMembershipSerializer             BoardMembershipSerializerAbsentRoleTests,
+  .to_representation (strips is_moderator/is_site_admin     BoardMembershipAdminPayloadTests
+  when the reader role is unresolved; boards/invites.py
+  redeem and boards/admin.py BoardMembershipAdmin._payload
+  opt in via BROADCAST_PAYLOAD_CONTEXT_KEY)
+boards/serializers.py:CardSerializer.label_ids              CardSerializerAbsentBoardTests
+  (.none() default queryset)
+boards/serializers.py:SwimlaneSerializer                    SwimlaneLimitColumnIdsAbsentBoardTests
+  .validate_limit_column_ids (raises with no board)
+boards/permissions.py:IsBoardMember, IsBoardAdminOrOwner    BoardPermissionClassAbsentSubjectTests
+  (_subject_board isinstance check)
+visiban/invite_recipient.py:recipient_admits,               RecipientAdmitsAbsentAttributeTests
+  signup_address_admits, grant_awaits_verification,
+  confirmed_address_admits (plain attribute access)
+accounts/admin_views.py:AdminPatchUserSerializer            -
+  (ImproperlyConfigured without context["target"])
+=========================================================  ====================================================
+
+ALREADY FAIL-CLOSED (verified, no change):
+boards/permissions.py visibility helpers (moderator_field_visible,
+site_admin_field_visible, invite_field_visible, admin_only_event_visible,
+per_user_event_visible, actor_scoped_fields_visible), get_board_role,
+can_modify_others_content, analytics_panel_min_role; boards/consumers.py
+BoardConsumer and groups/consumers.py GroupConsumer; BoardEventSerializer,
+BoardFullSerializer role readers, BoardSerializer group placement, the
+relation/checklist/custom-field serializers; groups serializer gates and
+predicates (GroupPredicateAbsentGroupTests pins the predicate case);
+boards/services/cards.py:_resolve_role; MCP board resolution/context/throttle;
+accounts/permissions.py TokenHasScope and IsSiteAdmin; analytics
+``context["role"]`` readers.
+
+PERMISSIVE BY DESIGN: visiban/permissions.py MustNotHavePending*Change (an
+anonymous request passes; IsAuthenticated owns that denial);
+boards/views/share.py ShareLinkTokenThrottle with no token in scope (the
+per-IP ShareLinkThrottle still applies); a NULL ``recipient_hash`` means an
+unbound invite link (admits any recipient, by design).
+
+NOT AUTHZ: uniqueness validators that skip when there is no board (the DB
+constraint is the backstop; the failure mode is a 500, not an access grant).
+
+Stale-comment pass: the BoardMembershipSerializer and BoardEventSerializer
+docstrings that described the old "no context means unfiltered" behavior were
+corrected in the same change.
 """
 from types import SimpleNamespace
 
