@@ -16,7 +16,7 @@ class AdminPatchUserSerializerAbsentTargetTests(TestCase):
 
     def setUp(self):
         self.superuser = User.objects.create_superuser(
-            username="su_1075", email="su1075@example.com", password="x-Strong-pass-1075",
+            username="su_1075", email="su1075@example.com", password=None,
         )
 
     def test_missing_target_raises_instead_of_skipping_the_guard(self):
