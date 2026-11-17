@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import StageSettingsPanel from "./StageSettingsPanel";
 import { useOptionalBoardContext } from "../../contexts/BoardContext";
 import type { BoardColor } from "../../utils/boardColors";
 import { updateColumn } from "../../api/boards";
-import type { Column } from "../../types";
+import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
@@ -30,6 +31,16 @@ interface Props {
   /** True when this is the board's first not-done column (#2298). Computed by
    *  the caller from the full column list; absent renders no callout. */
   isIntakeColumn?: boolean;
+  /**
+   * The board's full swimlane and field lists for the Stage tab (#2278),
+   * hidden lanes included. Absent, the board context is used; with neither,
+   * the Stage tab says it cannot load rather than saving a partial view,
+   * because Save stage replaces every lane exception it sends.
+   */
+  swimlanes?: Swimlane[];
+  customFieldDefinitions?: CustomFieldDefinition[];
+  /** This column's cards, for the Stage tab's "N cards will move" summary. */
+  cards?: Pick<Card, "column" | "gates_passed">[];
 }
 
 const TABS: { id: EditColumnTab; label: string }[] = [
@@ -39,8 +50,12 @@ const TABS: { id: EditColumnTab; label: string }[] = [
   { id: "stage", label: "Stage" },
 ];
 
-export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors, isIntakeColumn }: Props) {
+export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, cards }: Props) {
   const [tab, setTab] = useState<EditColumnTab>(initialTab ?? "settings");
+  // The Stage tab mounts on first visit and then stays mounted (hidden) so its drafts survive tab switches.
+  const [stageMounted, setStageMounted] = useState(tab === "stage");
+  if (tab === "stage" && !stageMounted) setStageMounted(true);
+  const [stageFooter, setStageFooter] = useState<HTMLDivElement | null>(null);
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
@@ -53,6 +68,10 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const { entry, done, mode, setEntry, setDone, setMode, nextKey, dirty: policyChanged, toPolicy } = useColumnPolicyDraft(column);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Save stage closes the modal, so it says when Settings or Policy edits would be lost.
+  const otherTabsDirty = name !== column.name || color !== column.color
+    || wipLimit !== (column.wip_limit?.toString() ?? "") || weightLimit !== (column.weight_limit?.toString() ?? "")
+    || allowCardCreation !== column.allow_card_creation || isDone !== column.is_done || policyChanged;
 
   // The Name field takes focus when the modal opens on Settings, never when
   // the user arrows back to the Settings tab: that would pull focus off the
@@ -255,9 +274,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 </button>
               </div>
             </div>
-          ) : tab === "stage" ? (
-            <StageTab boardId={boardId} column={column} onSaved={(saved) => { onUpdated(saved); onClose(); }} onCancel={onClose} />
-          ) : (
+          ) : tab === "stage" ? null : (
             <div className="flex flex-col gap-3">
               <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules.</p>
               <ColumnPolicyEditor
@@ -271,6 +288,20 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               />
             </div>
           )}
+          {stageMounted && (
+            <div hidden={tab !== "stage"}>
+              <StageTab
+                boardId={boardId}
+                column={column}
+                swimlanes={swimlanes}
+                definitions={customFieldDefinitions}
+                cards={cards}
+                footerTarget={tab === "stage" ? stageFooter : null}
+                onSaved={(saved) => { onUpdated(saved); onClose(); }}
+                onCancel={onClose}
+              />
+            </div>
+          )}
           </div>
         </div>
         {moreBelow && (
@@ -278,7 +309,17 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         )}
       </div>
 
-      {/* The Stage tab saves through its own Save stage (a separate endpoint), so this footer is for Settings and Policy. */}
+      {/* The Stage tab saves through its own Save stage (a separate endpoint): its
+          panel portals its status and buttons into this fixed footer. */}
+      {tab === "stage" && (
+        <div className="flex flex-col gap-2 px-6 py-3 border-t border-line shrink-0" data-testid="stage-footer">
+          <p className="text-xs text-fg-tertiary">
+            Save stage saves this tab only and closes.
+            {otherTabsDirty && <span className="text-warning"> Your unsaved Settings and Policy changes will be lost, so save those first.</span>}
+          </p>
+          <div ref={setStageFooter} className="flex items-center gap-2" />
+        </div>
+      )}
       {tab !== "stage" && <div className="flex gap-3 px-6 py-4 border-t border-line items-center justify-end shrink-0">
         {/* Also says why Save is off, which matters on the Policy tab where
             the Name field is out of sight. */}
@@ -300,18 +341,48 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
 }
 
 /**
- * The Stage tab body (#2278). Reads lanes and fields from the board context
- * here, only once the tab is open, so the Settings and Policy tabs keep
- * working wherever the modal renders without a board provider.
+ * The Stage tab body (#2278). Lanes and fields come from the caller, else the
+ * board context. With neither it renders a can't-load state and no Save:
+ * Save stage replaces every lane exception it sends, so a panel seeded from
+ * an empty list would wipe them (frontend/CLAUDE.md § Gated stages and tracks).
  */
-function StageTab({ boardId, column, onSaved, onCancel }: { boardId: number; column: Column; onSaved: (c: Column) => void; onCancel: () => void }) {
+function StageTab({ boardId, column, swimlanes, definitions, cards, footerTarget, onSaved, onCancel }: {
+  boardId: number;
+  column: Column;
+  swimlanes?: Swimlane[];
+  definitions?: CustomFieldDefinition[];
+  cards?: Pick<Card, "column" | "gates_passed">[];
+  footerTarget: HTMLElement | null;
+  onSaved: (c: Column) => void;
+  onCancel: () => void;
+}) {
   const board = useOptionalBoardContext()?.board;
+  const lanes = swimlanes ?? board?.swimlanes;
+  const defs = definitions ?? board?.custom_field_definitions;
+  const stageCards = cards ?? board?.cards;
+  if (!lanes || !defs) {
+    return (
+      <>
+        <p role="alert" data-testid="stage-settings-unavailable" className="text-sm text-fg-secondary">
+          Stage settings can't load this board's swimlanes and fields here, so they can't be edited. Close this dialog, reload the board and try again.
+        </p>
+        {footerTarget && createPortal(
+          <div className="flex flex-1 justify-end">
+            <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 max-sm:min-h-11 rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Close</button>
+          </div>,
+          footerTarget,
+        )}
+      </>
+    );
+  }
   return (
     <StageSettingsPanel
       boardId={boardId}
       column={column}
-      swimlanes={board?.swimlanes ?? []}
-      definitions={board?.custom_field_definitions ?? []}
+      swimlanes={lanes}
+      definitions={defs}
+      cards={stageCards}
+      footerTarget={footerTarget}
       onSaved={onSaved}
       onCancel={onCancel}
     />

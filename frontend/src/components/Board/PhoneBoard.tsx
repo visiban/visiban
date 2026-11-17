@@ -635,6 +635,10 @@ export default function PhoneBoard({
           cardCount={count}
           boardColors={boardColors}
           isIntakeColumn={column.id === intakeColumnId}
+          // Hidden lanes included: Save stage replaces every lane exception it sends (#2278).
+          swimlanes={allSwimlanes}
+          customFieldDefinitions={customFieldDefinitions}
+          cards={columnCards}
           initialTab={editTab === "policy" ? "policy" : undefined}
           onUpdated={(updated) => { onColumnUpdated(updated); setEditTab(null); }}
           onRequestDelete={onRequestDeleteColumn}

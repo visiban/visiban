@@ -3452,6 +3452,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     boardId={board.id}
                     boardColors={boardColors}
                     isIntakeColumn={col.id === intakeColumnId}
+                    swimlanes={board.swimlanes}
+                    customFieldDefinitions={board.custom_field_definitions}
                     isAdmin={isAdmin}
                     onColumnUpdated={handleColumnUpdated}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}

@@ -3,7 +3,7 @@ import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, Column } from "../../types";
+import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import EditColumnModal, { type EditColumnTab } from "./EditColumnModal";
 import { subColumnCountLines } from "../../utils/stages";
 import ColumnPolicyPopover from "./ColumnPolicyPopover";
@@ -24,6 +24,9 @@ interface Props {
   boardColors?: BoardColor[];
   /** This is the board's first not-done column (#2298); shown in its settings. */
   isIntakeColumn?: boolean;
+  /** Every board swimlane (hidden included) and field, for the Stage tab (#2278). */
+  swimlanes?: Swimlane[];
+  customFieldDefinitions?: CustomFieldDefinition[];
   column: Column;
   cards: Card[];
   boardId: number;
@@ -51,7 +54,7 @@ interface Props {
   addCardLanes?: { id: number; name: string; color: string; collapsed: boolean }[];
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -447,6 +450,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
           initialTab={editTab === "policy" ? "policy" : undefined}
           boardColors={boardColors}
           isIntakeColumn={isIntakeColumn}
+          swimlanes={swimlanes}
+          customFieldDefinitions={customFieldDefinitions}
+          cards={cards}
           onUpdated={(col) => { onColumnUpdated(col); setEditTab(null); }}
           onRequestDelete={onRequestDelete}
           onClose={() => setEditTab(null)}

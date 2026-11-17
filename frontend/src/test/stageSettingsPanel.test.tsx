@@ -45,7 +45,12 @@ describe('StageSettingsPanel (#2278)', () => {
     expect(screen.getByRole('button', { name: 'Remove track Technical' })).toBeInTheDocument()
     expect(screen.getByText('APAC: Technical is not applicable')).toBeInTheDocument()
     // Two is the floor: no single-sub-column stage.
-    expect(screen.getByRole('button', { name: 'Remove sub-column Doing' })).toBeDisabled()
+    // aria-disabled, not disabled, so the reason stays reachable by keyboard (G5).
+    const remove = screen.getByRole('button', { name: 'Remove sub-column Doing' })
+    expect(remove).toHaveAttribute('aria-disabled', 'true')
+    expect(remove).toHaveAccessibleDescription(/at least two sub-columns, or none/)
+    fireEvent.click(remove)
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Doing')
   })
 
   it('caps sub-columns at four and blocks empty or duplicate names', () => {
@@ -58,9 +63,53 @@ describe('StageSettingsPanel (#2278)', () => {
     expect(screen.getByText('Sub-column names must be different.')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Sub-column 3 name'), { target: { value: 'Review' } })
     fireEvent.click(add)
-    expect(add).toBeDisabled()
+    expect(add).toHaveAttribute('aria-disabled', 'true')
+    expect(add).toHaveAccessibleDescription('A stage has at most four sub-columns.')
+    fireEvent.click(add)
+    expect(screen.queryByLabelText('Sub-column 5 name')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Remove sub-column 4' }))
     expect(screen.queryByLabelText('Sub-column 4 name')).not.toBeInTheDocument()
+  })
+
+  it('focuses the new row on add and the next control on remove (G4)', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Add sub-column' }))
+    expect(screen.getByLabelText('Sub-column 3 name')).toHaveFocus()
+    fireEvent.change(screen.getByLabelText('Sub-column 3 name'), { target: { value: 'Review' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove sub-column Ready' }))
+    expect(screen.getByRole('button', { name: 'Remove sub-column Review' })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove track Technical' }))
+    expect(screen.getByLabelText('New track name')).toHaveFocus()
+  })
+
+  it('refuses a track name that is already a field, with a reason (G5)', () => {
+    renderPanel()
+    fireEvent.change(screen.getByLabelText('New track name'), { target: { value: 'legal' } })
+    expect(screen.getByRole('button', { name: 'Add track' })).toBeDisabled()
+    expect(screen.getByLabelText('New track name')).toHaveAccessibleDescription(/already exists/)
+  })
+
+  it('summarizes which cards a removed sub-column moves before Save (G6)', () => {
+    const cards = [
+      { column: 5, gates_passed: 1 }, { column: 5, gates_passed: 1 }, { column: 5, gates_passed: 0 }, { column: 6, gates_passed: 1 },
+    ]
+    renderPanel({ cards, column: { ...column, sub_columns: [...column.sub_columns!, { id: 13, uid: 's13', position: 2, name: 'Review' }] } })
+    expect(screen.queryByTestId('stage-consequences')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove sub-column Ready' }))
+    expect(screen.getByTestId('stage-consequences')).toHaveTextContent('2 cards will move from Ready back to Doing.')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all sub-columns' }))
+    expect(screen.getByTestId('stage-consequences')).toHaveTextContent('1 card will move from Doing back to the plain Discovery column.')
+  })
+
+  it('disables every input and marks the panel busy while saving (G2)', async () => {
+    let resolve: (v: unknown) => void = () => {}
+    mockSave.mockReturnValue(new Promise((r) => { resolve = r }))
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(screen.getByTestId('stage-settings-panel')).toHaveAttribute('aria-busy', 'true'))
+    expect(screen.getByLabelText('Sub-column 1 name')).toBeDisabled()
+    resolve({ column, remapped: [] })
+    await waitFor(() => expect(screen.getByTestId('stage-settings-panel')).toHaveAttribute('aria-busy', 'false'))
   })
 
   it('splits a plain column into two and can make it plain again', () => {
@@ -108,7 +157,7 @@ describe('StageSettingsPanel (#2278)', () => {
     mockSave.mockRejectedValue({ response: { status: 400, data: { sub_columns: ['A stage can have at most 4 sub-columns.'] } } })
     const { onSaved, onCancel } = renderPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
-    expect(await screen.findByText('A stage can have at most 4 sub-columns.')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('A stage can have at most 4 sub-columns.')
     expect(onSaved).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
@@ -121,7 +170,10 @@ describe('stageErrorMessage', () => {
     expect(stageErrorMessage({ response: { status: 404, data: { code: 'column_not_found' } } })).toBe('This column was deleted.')
     expect(stageErrorMessage({ response: { status: 403, data: { detail: 'x' } } })).toBe('Only board admins can change stage settings.')
     expect(stageErrorMessage({ response: { status: 400, data: { tracks: 'Not a dimension.' } } })).toBe('Not a dimension.')
-    expect(stageErrorMessage(new Error('net'))).toMatch(/didn't save/)
+    expect(stageErrorMessage(new Error('net'))).toMatch(/Check your connection/)
+    // A duplicate new-track name comes back from the field create, not the stage save.
+    expect(stageErrorMessage({ response: { status: 400, data: { name: ['A field with this name already exists.'] } } })).toBe('Track name: A field with this name already exists.')
+    expect(stageErrorMessage({ response: { status: 400, data: { something_else: 1 } } })).not.toMatch(/connection/)
   })
 })
 
