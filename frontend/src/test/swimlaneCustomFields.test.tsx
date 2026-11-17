@@ -247,6 +247,18 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(new Set([name, health, field, more, stats]).size).toBe(5)
   })
 
+  it('tab order: a SET health pill precedes Focus, and the lane menu precedes the +N toggle (#2353)', () => {
+    const { defs, lane } = trio()
+    renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs)
+    const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const pill = screen.getByRole('button', { name: /health status/i })
+    const focus = screen.getByRole('button', { name: /^Focus on / })
+    const menu = screen.getByRole('button', { name: /^Actions for swimlane/ })
+    const more = screen.getByRole('button', { name: /^\+2:/ })
+    expect(before(pill, focus)).toBe(true)
+    expect(before(menu, more)).toBe(true)
+  })
+
   it('admins get a "Change field order" shortcut inside the expanded fields', async () => {
     const user = userEvent.setup()
     const onEditFieldOrder = vi.fn()

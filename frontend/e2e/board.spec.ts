@@ -305,8 +305,8 @@ test.describe('board view', () => {
     await scroller.evaluate((el) => { el.scrollLeft = el.scrollWidth })
     await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100)
     await expect(band.getByTestId('swimlane-name')).toBeInViewport({ ratio: 1 })
-    // The band's right end (the focus icon; the card count is gone, #2328) stays on screen too.
-    await expect(band.getByRole('button', { name: /^Focus on / })).toBeInViewport({ ratio: 1 })
+    // The band's right end (the trailing stats; Focus now sits beside the name, #2353) stays on screen too.
+    await expect(band.getByTestId('swimlane-band-stats')).toBeInViewport({ ratio: 1 })
     const [bandBox, scrollBox] = [await band.boundingBox(), await scroller.boundingBox()]
     expect(bandBox!.x).toBeGreaterThanOrEqual(scrollBox!.x)
     expect(bandBox!.x + bandBox!.width).toBeLessThanOrEqual(scrollBox!.x + scrollBox!.width)

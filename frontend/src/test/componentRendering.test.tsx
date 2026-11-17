@@ -1184,9 +1184,11 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('Customer A')).toBeInTheDocument()
   })
 
-  it('edit button (✎) opens the EditSwimlaneModal when isAdmin', async () => {
+  it('lane menu "Edit swimlane…" opens the EditSwimlaneModal when isAdmin', async () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
-    await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Actions for swimlane/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Edit swimlane…' }))
     expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
   })
 

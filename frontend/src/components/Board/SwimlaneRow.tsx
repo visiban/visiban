@@ -11,6 +11,7 @@ import type { HealthStatus } from "../../constants/healthStatus";
 import { laneHealthAuto, laneHealthFields } from "../../utils/healthStatus";
 import BoardCell from "./BoardCell";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
+import OverflowMenu from "../Layout/OverflowMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import { STATUS_LABEL, STATUS_SQUARE_CLASS, cardBoardStatus, type CardBoardStatus } from "../../constants/laneStatus";
@@ -157,6 +158,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
 
 export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -429,6 +431,62 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               />
             </span>
           )}
+          {showHealthIcon && (
+            <span className="inline-flex shrink-0" onDoubleClick={(e) => e.stopPropagation()}>
+              <HealthStatusControl
+                entityKind="swimlane"
+                mode="basic"
+                entityName={swimlane.name}
+                parentName={null}
+                canEdit
+                trigger="icon"
+                onSave={saveHealth}
+                onAnnounce={setHealthAnnouncement}
+                autoFocus={healthFocus === "icon"}
+                onAutoFocused={clearHealthFocus}
+                onOpenChange={onIconOpenChange}
+                auto={healthAuto}
+                {...healthFields}
+              />
+            </span>
+          )}
+          {/* Lane actions beside the name (#2353): Focus (everyone) and the admin menu. Hidden
+              controls keep their space (opacity, never display:none) so nothing shifts on hover. */}
+          <button type="button"
+            onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
+            className={`relative inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+            title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
+            // Stable label: aria-pressed carries the state, so a swapped name would announce it twice.
+            aria-label={`Focus on ${swimlane.name}`}
+            aria-pressed={isFocused}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <circle cx="8" cy="8" r="3" />
+              <line x1="8" y1="1" x2="8" y2="4" />
+              <line x1="8" y1="12" x2="8" y2="15" />
+              <line x1="1" y1="8" x2="4" y2="8" />
+              <line x1="12" y1="8" x2="15" y2="8" />
+            </svg>
+            <ActiveUnderline active={isFocused} placement="below" />
+          </button>
+          {isAdmin && (
+            // A portaled menu breaks focus-within, so the open state is held here to keep the trigger visible.
+            <span
+              className={`shrink-0 inline-flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none ${menuOpen ? "!opacity-100" : ""}`}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              <OverflowMenu
+                ariaLabel={`Actions for swimlane "${swimlane.name}"`}
+                triggerClassName={`inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${menuOpen ? "text-info-on-tint bg-info/10" : ""}`}
+                externalOpen={menuOpen}
+                onExternalOpenChange={setMenuOpen}
+                items={[
+                  { id: "edit", label: "Edit swimlane…", onSelect: () => setEditing(true) },
+                  ...(onEditFieldOrder ? [{ id: "field-order", label: "Change field order…", onSelect: onEditFieldOrder }] : []),
+                ]}
+              />
+            </span>
+          )}
           <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
           {renameError && <span className="text-xs text-danger-on-tint" role="alert">{renameError}</span>}
 
@@ -491,58 +549,6 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           </div>
           )}
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Unset lane, admins only (#2243): a hover/focus-revealed icon,
-                always in the DOM so Tab reaches it. Non-admins get nothing. */}
-            {showHealthIcon && (
-              <span className="inline-flex shrink-0" onDoubleClick={(e) => e.stopPropagation()}>
-                <HealthStatusControl
-                  entityKind="swimlane"
-                  mode="basic"
-                  entityName={swimlane.name}
-                  parentName={null}
-                  canEdit
-                  trigger="icon"
-                  onSave={saveHealth}
-                  onAnnounce={setHealthAnnouncement}
-                  autoFocus={healthFocus === "icon"}
-                  onAutoFocused={clearHealthFocus}
-                  onOpenChange={onIconOpenChange}
-                  auto={healthAuto}
-                  {...healthFields}
-                />
-              </span>
-            )}
-            {isAdmin && (
-              <button type="button"
-                onClick={() => setEditing(true)}
-                // On-demand tier (#2335): revealed on hover or focus, like the drag handle and focus icon;
-                // always shown where there is no hover (a tablet gets the grid band).
-                className="transition text-xs text-fg-tertiary hover:text-fg opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-                title="Edit swimlane"
-                aria-label="Edit swimlane"
-              >
-                ✎
-              </button>
-            )}
-            {/* Focus icon — toggles single-swimlane focus mode on/off */}
-            <button type="button"
-              onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`relative opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
-              title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
-              aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
-              aria-pressed={isFocused}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="8" cy="8" r="3" />
-                <line x1="8" y1="1" x2="8" y2="4" />
-                <line x1="8" y1="12" x2="8" y2="15" />
-                <line x1="1" y1="8" x2="4" y2="8" />
-                <line x1="12" y1="8" x2="15" y2="8" />
-              </svg>
-              <ActiveUnderline active={isFocused} placement="below" />
-            </button>
-          </div>
         </div>
 
         {/* Grid row. Expanded: one cell per column. Collapsed: a strip of count + status

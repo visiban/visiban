@@ -86,6 +86,12 @@ const defaultProps = () => ({
   isFocused: false,
 })
 
+async function openEdit() {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Edit swimlane…' }))
+}
+
 describe('SwimlaneRow', () => {
   it('renders swimlane name', () => {
     render(<SwimlaneRow {...defaultProps()} />)
@@ -118,14 +124,29 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
   })
 
+  it('tints the overflow trigger while its menu is open (#2353)', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} isAdmin />)
+    const trigger = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })
+    expect(trigger.className).not.toContain('bg-info/10')
+    await user.click(trigger)
+    expect(trigger.className).toContain('text-info-on-tint')
+    expect(trigger.className).toContain('bg-info/10')
+  })
+
   it('keeps the band controls on demand: hidden until hover or focus, shown without hover (#2335)', () => {
     render(<SwimlaneRow {...defaultProps()} isAdmin />)
-    const edit = screen.getByTitle('Edit swimlane')
-    expect(edit.className).toContain('opacity-0')
-    expect(edit.className).toContain('group-hover:opacity-100')
-    expect(edit.className).toContain('focus:opacity-100')
+    const menuWrap = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' }).parentElement!.parentElement!
+    expect(menuWrap.className).toContain('opacity-0')
+    expect(menuWrap.className).toContain('group-hover:opacity-100')
+    expect(menuWrap.className).toContain('focus-within:opacity-100')
+    const focusBtn = screen.getByRole('button', { name: /^Focus on / })
+    expect(focusBtn.className).toContain('opacity-0')
+    expect(focusBtn.className).toContain('focus:opacity-100')
+    expect(focusBtn.className).toContain('min-w-6')
+    expect(focusBtn.className).toContain('min-h-6')
     // No hover on a touch device: every on-demand control is shown there.
-    for (const el of [edit, screen.getByTitle('Drag to reorder'), screen.getByRole('button', { name: /^Focus on / })]) {
+    for (const el of [menuWrap, screen.getByTitle('Drag to reorder'), focusBtn]) {
       expect(el.className).toContain('[@media(hover:none)]:opacity-100')
     }
   })
@@ -287,7 +308,7 @@ describe('SwimlaneRow', () => {
     const props = defaultProps()
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })).toBeInTheDocument()
   })
 
   it('collapsed=true shows nothing for empty cells', () => {
@@ -300,14 +321,14 @@ describe('SwimlaneRow', () => {
 
   it('shows edit button for admin', () => {
     render(<SwimlaneRow {...defaultProps()} />)
-    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })).toBeInTheDocument()
   })
 
   it('keeps the edit button on a collapsed lane, and a double-click on a control does not open the modal', async () => {
     const props = defaultProps()
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })).toBeInTheDocument()
     await userEvent.setup().dblClick(screen.getByTitle('Expand Customer A'))
     expect(screen.queryByTestId('edit-swimlane-modal')).not.toBeInTheDocument()
   })
@@ -316,7 +337,7 @@ describe('SwimlaneRow', () => {
     const props = defaultProps()
     props.isAdmin = false
     render(<SwimlaneRow {...props} />)
-    expect(screen.queryByTitle('Edit swimlane')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Actions for swimlane/ })).not.toBeInTheDocument()
   })
 
   it('shows card count for collapsed columns', () => {
@@ -331,13 +352,13 @@ describe('SwimlaneRow', () => {
 
   it('clicking edit shows EditSwimlaneModal', async () => {
     render(<SwimlaneRow {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
+    await openEdit()
     expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
 
   it('passes userDateFormat through to EditSwimlaneModal (#1993)', async () => {
     render(<SwimlaneRow {...defaultProps()} userDateFormat="DD/MM/YYYY" />)
-    await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
+    await openEdit()
     expect(screen.getByTestId('edit-swimlane-modal')).toHaveAttribute('data-date-format', 'DD/MM/YYYY')
   })
 
@@ -384,13 +405,14 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Focus on Customer A')).toHaveAttribute('aria-label', 'Focus on Customer A')
   })
 
-  it('isFocused=true gives the focus button an "Exit focus" accessible name', () => {
+  it('isFocused=true keeps the focus button accessible name stable (aria-pressed carries state)', () => {
     const props = defaultProps()
     props.isFocused = true
     render(<SwimlaneRow {...props} />)
     // assert the attribute directly — aria-label and title share the same text here, so
     // getByRole's computed-name resolution would pass via the title fallback regardless
-    expect(screen.getByTitle('Exit focus')).toHaveAttribute('aria-label', 'Exit focus')
+    expect(screen.getByTitle('Exit focus')).toHaveAttribute('aria-label', 'Focus on Customer A')
+    expect(screen.getByRole('button', { name: 'Focus on Customer A' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('clicking focus button calls onFocus with swimlane id when not focused', async () => {
@@ -790,5 +812,36 @@ describe('SwimlaneRow — no matching cards (#2324)', () => {
     expect(screen.queryByTestId('swimlane-no-match')).toBeNull()
     expect(screen.getByTestId('cell-10-20')).toBeInTheDocument()
     expect(screen.getByTestId('swimlane-band-stats')).toBeInTheDocument()
+  })
+  it('menu: Edit swimlane… opens the modal; Change field order… calls onEditFieldOrder (#2353)', async () => {
+    const onEditFieldOrder = vi.fn()
+    render(<SwimlaneRow {...defaultProps()} onEditFieldOrder={onEditFieldOrder} />)
+    const user = userEvent.setup()
+    const trigger = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })
+    await user.click(trigger)
+    expect(screen.getByRole('menuitem', { name: 'Edit swimlane…' })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Change field order…' }))
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+  })
+
+  it('menu: no field-order item without onEditFieldOrder, and the wrapper holds opacity while open (#2353)', async () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    const trigger = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })
+    expect(trigger.parentElement!.parentElement!.className).not.toContain('!opacity-100')
+    await userEvent.setup().click(trigger)
+    expect(screen.queryByRole('menuitem', { name: 'Change field order…' })).not.toBeInTheDocument()
+    expect(trigger.parentElement!.parentElement!.className).toContain('!opacity-100')
+  })
+
+  it('non-admins still get the Focus button but no menu (#2353)', () => {
+    render(<SwimlaneRow {...defaultProps()} isAdmin={false} />)
+    expect(screen.getByRole('button', { name: 'Focus on Customer A' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('button', { name: /^Actions for swimlane/ })).not.toBeInTheDocument()
+  })
+
+  it('double-clicking the band opens Edit for admins (#2353)', async () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    await userEvent.setup().dblClick(screen.getByTestId('swimlane-band'))
+    expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
 })

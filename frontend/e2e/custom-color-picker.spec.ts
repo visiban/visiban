@@ -26,8 +26,15 @@ async function openEditModal(page: Page) {
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
   // Keyboard-activated: the button is revealed on hover and a forced click lands on whatever
   // sits at its center, which on a short viewport can be the sticky header rows above the lane.
-  await page.getByRole('button', { name: 'Edit swimlane' }).focus()
-  await page.keyboard.press('Enter')
+  // Below 640px the board is the phone layout, where Edit is a plain lane-actions button.
+  const laneMenu = page.getByRole('button', { name: /^Actions for swimlane/ })
+  if (await laneMenu.count()) {
+    await laneMenu.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menuitem', { name: 'Edit swimlane…' }).click()
+  } else {
+    await page.getByRole('button', { name: /^Edit swimlane/ }).click()
+  }
   await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()
 }
 

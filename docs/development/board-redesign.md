@@ -110,6 +110,7 @@ A full-width band replaces the left label panel. Left to right:
 
 - collapse toggle (chevron, turns 90° when collapsed, `aria-expanded`);
 - lane color square and lane name (17px, semibold);
+- the lane's health status (the pill when set, the unset icon when not: one slot), then the lane actions beside the name (#2353): **Focus** (everyone) and a `⋮` menu (admins) holding "Edit swimlane…" and "Change field order…". There is no action cluster at the far right;
 - the first two lane fields as "Label value";
 - a "+N" pill that shows the remaining lane fields inline and then reads "Less";
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
@@ -123,7 +124,7 @@ The band is tinted with the lane color and wraps to a second line when it runs o
 | Primary | Lane name, health pill | Always visible, including collapsed. The name is truncated only when it alone is wider than the band; everything else wraps first. |
 | Secondary | Overdue, stale (and blocked, if a blocked count ever joins the band) | Shown only when nonzero; danger and warning text; survive collapse. |
 | Tertiary | First two lane fields, lane WIP or weight line, number rollup; the card count only as part of a violated limit | Quiet: neutral text, no hue or glyph. A calm limit line folds away when the lane collapses. A violated limit turns to warning text with the word "over" and survives collapse; `WIP 5 / 4 over` already carries the count, so the count never returns on its own. |
-| On demand | Lane fields beyond the first two, "Change field order" (admins, after the revealed fields), drag handle, edit, focus, unset-health icon | Fields and "Change field order" are behind `+N`. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them. |
+| On demand | Lane fields beyond the first two, drag handle, Focus, the `⋮` lane menu (Edit swimlane…, Change field order…), unset-health icon | Fields are behind `+N`. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them. They keep their space while hidden, so nothing shifts. |
 
 "Quiet" matches `board-dark.png` as drawn: the calm `WIP 9 / 10` and `$413k open` are neutral text, and only `WIP 10 / 8 over` is colored. Band content states its tier in its issue: #2275 (WIP, rollup) and #2328 (card count) are tertiary; #1851 (computed aggregates) sits with the rollup in the tertiary tier; #2217/#2219 (threshold marks) ride on the lane field they mark and take its tier, so a mark on a field behind `+N` stays behind it. Whether a crossed threshold should promote its field out of `+N` is left open for #2217.
 

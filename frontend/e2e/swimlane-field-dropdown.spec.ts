@@ -28,7 +28,8 @@ async function openEditModal(page: import('@playwright/test').Page, fieldCount: 
   await routeBoard(page, board as unknown as typeof BOARD_FULL)
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
-  await page.getByRole('button', { name: 'Edit swimlane' }).click({ force: true })
+  await page.getByRole('button', { name: /^Actions for swimlane/ }).click({ force: true })
+    await page.getByRole('menuitem', { name: 'Edit swimlane…' }).click()
   await expect(page.getByText('Swimlane fields')).toBeVisible()
 }
 
