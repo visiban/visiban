@@ -403,3 +403,35 @@ describe('CardPeekSheet', () => {
     })
   })
 })
+
+describe('CardPeekSheet on a gated stage (#2278)', () => {
+  const subs = [{ id: 21, uid: 's21', position: 0, name: 'Doing' }, { id: 22, uid: 's22', position: 1, name: 'Ready' }]
+  const gatedBoard = {
+    ...board,
+    columns: board.columns.map((c) => (c.id === 2 ? { ...c, sub_columns: subs } : c)),
+  } as unknown as BoardFull
+  const gatedCard = { ...card, gates_passed: 0 } as unknown as Card
+
+  it('offers every sub-column as a Move stop and sends the sub-column (G9)', async () => {
+    const p = setup({ board: gatedBoard, card: gatedCard })
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    const select = screen.getByLabelText('Column')
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Prospect', 'Qualified: Doing', 'Qualified: Ready', 'Discovery'])
+    expect(select).toHaveDisplayValue('Qualified: Doing')
+    // Only the sub-column changes: that is a move, never a silent close.
+    await userEvent.selectOptions(select, 'Qualified: Ready')
+    await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+    expect(p.onMoveCard).toHaveBeenCalledWith(9, 2, 5, 9999, 1)
+  })
+
+  it('marks the current sub-column with aria-current only, in a list (G7)', () => {
+    setup({ board: gatedBoard, card: gatedCard })
+    const list = screen.getByTestId('card-peek-sub-columns')
+    expect(list.tagName).toBe('OL')
+    const items = within(list).getAllByRole('listitem')
+    expect(items[0]).toHaveAttribute('aria-current', 'step')
+    expect(items[0]).toHaveClass('bg-primary-emphasis/15')
+    expect(items[1]).not.toHaveAttribute('aria-current')
+    expect(list).not.toHaveTextContent('(current)')
+  })
+})

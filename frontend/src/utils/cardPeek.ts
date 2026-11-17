@@ -27,6 +27,8 @@ export interface PeekTrackState {
   id: number;
   name: string;
   state: "done" | "open" | "not_applicable";
+  /** The state comes from the swimlane's not-applicable mark (#2278): shown as "for this swimlane". */
+  fromLane?: boolean;
 }
 
 /**
@@ -40,7 +42,7 @@ export function getCardTrackStates(
   swimlane?: Swimlane | null,
   definitions?: CustomFieldDefinition[],
 ): PeekTrackState[] {
-  return getTrackStates(card, column, swimlane, definitions).map(({ id, name, state }) => ({ id, name, state }));
+  return getTrackStates(card, column, swimlane, definitions).map(({ id, name, state, fromLane }) => ({ id, name, state, fromLane }));
 }
 
 export interface ColumnDwell {

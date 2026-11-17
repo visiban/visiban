@@ -594,3 +594,37 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(screen.queryByTestId('phone-lane-band-details')).toBeNull()
   })
 })
+
+describe('PhoneBoard sub-column switcher (#2278)', () => {
+  const subs = [{ id: 31, uid: 's31', position: 0, name: 'Doing' }, { id: 32, uid: 's32', position: 1, name: 'Ready' }]
+  const cards = [card(1, 1, 1, { gates_passed: 0 }), card(2, 1, 1, { gates_passed: 1 }), card(3, 1, 2, { gates_passed: 1 })]
+
+  it('uses aria-pressed buttons in a group, names counts and announces the switch (B2)', async () => {
+    const user = userEvent.setup()
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards })
+    const group = screen.getByRole('group', { name: 'Build sub-columns' })
+    expect(within(group).queryByRole('radio')).not.toBeInTheDocument()
+    const doing = within(group).getByRole('button', { name: 'Doing, 1 card' })
+    const ready = within(group).getByRole('button', { name: 'Ready, 2 cards' })
+    expect(doing).toHaveAttribute('aria-pressed', 'true')
+    expect(doing).toHaveClass('bg-primary-emphasis/20', 'text-info')
+    expect(doing.className).not.toContain('bg-info/10')
+    expect(within(doing).getByTestId('active-mark')).toBeInTheDocument()
+    await user.click(ready)
+    expect(ready).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('phone-sub-column-status')).toHaveTextContent('Showing Ready, 2 cards')
+    expect(screen.getByText('Card 2')).toBeInTheDocument()
+    expect(screen.queryByText('Card 1')).not.toBeInTheDocument()
+  })
+})
+
+describe('cellOrderOf on a gated stage (#2278 G9)', () => {
+  it('steps only within the card\'s own sub-column', () => {
+    const column = col(1, 'Build', { sub_columns: [{ id: 31, uid: 's31', position: 0, name: 'Doing' }, { id: 32, uid: 's32', position: 1, name: 'Ready' }] })
+    const a = card(1, 1, 1, { position: 0, gates_passed: 0 })
+    const b = card(2, 1, 1, { position: 1, gates_passed: 1 })
+    const c = card(3, 1, 1, { position: 2, gates_passed: 0 })
+    expect(cellOrderOf([a, b, c], c, null, column)).toEqual({ index: 1, count: 2, earlier: 0, later: null })
+    expect(cellOrderOf([a, b, c], c, null)).toEqual({ index: 2, count: 3, earlier: 1, later: null })
+  })
+})

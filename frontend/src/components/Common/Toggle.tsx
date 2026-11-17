@@ -23,9 +23,10 @@ interface ToggleProps {
   // Lets an inline destructive confirm return focus to the switch when it is
   // dismissed (see useConfirmFocusReturn, #1367).
   buttonRef?: Ref<HTMLButtonElement>;
+  "data-testid"?: string;
 }
 
-export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy, buttonRef }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy, buttonRef, "data-testid": testId }: ToggleProps) {
   const inertToActivation = disabled || ariaDisabled;
   return (
     <button
@@ -37,6 +38,7 @@ export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-la
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
+      data-testid={testId}
       disabled={disabled}
       aria-disabled={ariaDisabled ? true : undefined}
       onClick={() => {

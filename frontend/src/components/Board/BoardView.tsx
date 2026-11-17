@@ -2604,7 +2604,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const reorderCardInCell = (card: Card, step: ReorderStep) => {
     // The menu's own gate, re-read: the board may have gone offline since it opened.
     if (!cardActionEntries([card], cardActionContext).find((e) => e.id === "move")?.enabled) return;
-    const order = cellOrderOf(board.cards, card, filteredCardIds);
+    const order = cellOrderOf(board.cards, card, filteredCardIds, board.columns.find((c) => c.id === card.column));
     const position = step === "earlier" ? order.earlier : order.later;
     if (position === null) return;
     const place = step === "earlier" ? order.index : order.index + 2;
@@ -3702,7 +3702,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             columns={board.columns}
             members={board.members}
             reorder={menuCards.length === 1 ? [
-              ...reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds)),
+              ...reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds, board.columns.find((c) => c.id === menuCards[0].column))),
               ...subColumnChoices(subColumnNeighbors(menuCards[0], board.columns)),
             ] : []}
             onAction={(action, value) => {
@@ -3778,12 +3778,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             canEdit={canEdit}
             onClose={() => setPeekCardId(null)}
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
-            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
-            onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
+            onMoveCard={async (...args) => onMoveCard(...args)}
+            onForceMoveCard={(...args) => forceMoveCardTo(...args)}
             movesPaused={movesPaused}
             // Phone only (#2277): reorder within the cell, which on the grid is a drag.
             // Over the cards the filter shows, as PhoneBoard does.
-            cellOrder={isPhone ? cellOrderOf(board.cards, peekCard, filteredCardIds) : undefined}
+            cellOrder={isPhone ? cellOrderOf(board.cards, peekCard, filteredCardIds, board.columns.find((c) => c.id === peekCard.column)) : undefined}
             userDateFormat={userDateFormat}
             userTimezone={userTimezone}
           />

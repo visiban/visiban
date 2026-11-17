@@ -336,6 +336,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                   dragging={isDraggingCard}
                 >
                   {(bySub[i] ?? []).map((card) => renderCard(card))}
+                  {/* A quiet marker so an empty sub-column reads as empty, not missing. */}
+                  {(bySub[i]?.length ?? 0) === 0 && cards.length > 0 && <p data-testid="sub-column-empty" className="px-1 py-2 text-xs text-fg-muted">Empty</p>}
                 </SubColumnDrop>
               ))}
             </div>

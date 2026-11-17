@@ -187,7 +187,7 @@ describe('TrackChips and GateProgress', () => {
     const items = screen.getAllByRole('listitem')
     expect(items.map((li) => li.getAttribute('data-track-state'))).toEqual(['done', 'open', 'not_applicable'])
     expect(screen.getByText('Technical: done')).toHaveClass('sr-only')
-    expect(items[2]).toHaveAttribute('title', 'Legal: not applicable (for this swimlane)')
+    expect(items[2]).toHaveAttribute('title', 'Legal: not applicable for this swimlane')
     expect(items.every((li) => li.querySelector('svg'))).toBe(true)
   })
 

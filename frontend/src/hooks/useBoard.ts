@@ -1037,8 +1037,8 @@ export function useBoard() {
 
   // Force a move to an explicit target, independent of pendingMove (#1772).
   const forceMoveCardTo = useCallback(
-    (cardId: number, columnId: number, swimlaneId: number, position: number): Promise<MoveOutcome> =>
-      runForcedMove({ cardId, columnId, swimlaneId, position }),
+    (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number): Promise<MoveOutcome> =>
+      runForcedMove({ cardId, columnId, swimlaneId, position, gatesPassed }),
     [runForcedMove],
   );
 

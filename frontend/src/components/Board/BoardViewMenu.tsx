@@ -4,6 +4,7 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
+import { Toggle } from "../Common/Toggle";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useLiveAnnouncer, laneStateMessage, columnStateMessage } from "../../hooks/useLiveAnnouncer";
 import type { CardDensity } from "../../types";
@@ -260,22 +261,17 @@ export default function BoardViewMenu(props: Props) {
       </div>
 
       {props.onShowSubColumnsChange && (
-        <div className="flex items-center justify-between gap-2">
+        // The whole row is the target (44px on phone): the label forwards its click to the switch.
+        <label htmlFor={`${panelId}-subcols-switch`} className="flex items-center justify-between gap-2 cursor-pointer max-sm:min-h-11">
           <span id={`${panelId}-subcols`} className="text-sm text-fg">Show sub-columns</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={props.showSubColumns !== false}
+          <Toggle
+            id={`${panelId}-subcols-switch`}
+            checked={props.showSubColumns !== false}
+            onChange={(on) => props.onShowSubColumnsChange?.(on)}
             aria-labelledby={`${panelId}-subcols`}
             data-testid="view-menu-sub-columns"
-            onClick={() => props.onShowSubColumnsChange?.(props.showSubColumns === false)}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${MENU_ITEM_FOCUS_RING} ${
-              props.showSubColumns !== false ? "bg-button-primary border-transparent" : "bg-surface-hover border-line-strong"
-            }`}
-          >
-            <span aria-hidden="true" className={`inline-block h-4 w-4 rounded-full bg-surface shadow transition-transform motion-reduce:transition-none ${props.showSubColumns !== false ? "translate-x-4" : "translate-x-0.5"}`} />
-          </button>
-        </div>
+          />
+        </label>
       )}
 
       <div className="border-t border-line pt-2">

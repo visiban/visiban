@@ -14,7 +14,8 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
   return (
     <ul data-testid="card-track-chips" aria-label="Tracks" className="mt-1 flex flex-wrap gap-1">
       {tracks.map((t) => {
-        const words = `${t.name}: ${trackStateLabel(t.state)}`;
+        // A lane-derived state says so in words, not only in a tooltip (#2278 N1).
+        const words = `${t.name}: ${trackStateLabel(t.state)}${t.fromLane ? " for this swimlane" : ""}`;
         const tone = t.state === "done"
           ? "bg-success/20 text-success-on-tint border-transparent"
           : t.state === "open"
@@ -24,7 +25,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
           <li
             key={t.id}
             data-track-state={t.state}
-            title={t.fromLane ? `${words} (for this swimlane)` : words}
+            title={words}
             className={`inline-flex items-center gap-1 rounded border px-1.5 py-px text-xs font-semibold leading-4 ${tone}`}
           >
             <TrackIcon state={t.state} />
@@ -70,7 +71,7 @@ export function GateProgress({ index, names }: { index: number; names: string[] 
   return (
     <div data-testid="card-gate-progress" role="img" aria-label={label} title={label} className="mt-1 flex gap-0.5">
       {names.map((n, i) => (
-        <span key={n + i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-primary" : "bg-surface-hover"}`} />
+        <span key={n + i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-primary" : "bg-surface-sunken border border-line-strong"}`} />
       ))}
     </div>
   );
