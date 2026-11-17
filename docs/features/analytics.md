@@ -27,6 +27,13 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **Blocked time:** the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.
 - **Needs attention:** the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.
 
+**Commitment point** *(new in 1.3, #2050)*: a board admin can choose the column where cycle time starts, in **Board Settings** → **Rules** → **Flow metrics**. With one set, a card starts its cycle when it first reaches that column or any later column that is not done, and age follows. A card created in that column starts at once; a card that reaches done without passing it has no cycle time. Boards without one keep the definitions above. On such a board the charts and the API quote these instead:
+
+- **Cycle time (commitment point):** the time from a card's first entry into the board's commitment column, or a column after it that is not done, until its first entry into a done column. A card that reaches a done column first has no cycle time.
+- **Age (commitment point):** how long an in-progress card has been in progress: the time since it first entered the board's commitment column or a column after it, or since it last left a done column, whichever is later.
+
+Changing the commitment point re-measures the board's past, the same way marking a column done does.
+
 "Created" in lead time means the card's creation movement, the first history row that places it in a column. A card with no creation movement, for example one imported without its history, starts at its `created_at` instead. The two can differ for an imported card.
 
 ## Summary view
@@ -212,7 +219,7 @@ Cells are colored from the board's `staleness_threshold_days` and `stale_warning
 - With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.
 - A value of `0` turns the yellow band off, so cells are green until the threshold.
 - The card [aging tint](card-history.md#card-aging-tint) uses the same boundary.
-- A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as `7.0d` but stays green against a 7-day threshold when the yellow band is off, or when it begins at the threshold, and yellow otherwise (*changed in 1.3*, #2297). At a threshold of `0` (accepted by the API, blocked in the settings UI) the red tier can still follow the rounded value (#2331).
+- A cell turns red only when its unrounded average reaches the threshold: an average of 6.96 days shows as `7.0d` but stays green against a 7-day threshold when the yellow band is off, or when it begins at the threshold, and yellow otherwise (*changed in 1.3*, #2297). At a threshold of `0` (accepted by the API, blocked in the settings UI) the red tier also counts the threshold as 1 day, so an average of 0.96 days shows as `1.0d` and stays green (*fixed in 1.3*, #2331).
 - The yellow boundary compares the unrounded average the same way: with a 14-day threshold at 50%, an average of 6.96 days shows as `7.0d` but stays green (*changed in 1.3*, #2306). A threshold of `0` counts as 1 day for the colors.
 
 !!! note "Changed in 1.2 (#1841)"

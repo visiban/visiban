@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSiteConfig } from "../api/auth";
 import { useVisibilityResync } from "./useVisibilityResync";
 import { stashDemoNextReset } from "../utils/demoReset";
+import { setInstanceTimezone } from "../utils/instanceTimezone";
 import { DEFAULT_INSTANCE_FLAGS, type InstanceFlags } from "../contexts/InstanceFlagsContext";
 import type { SiteConfig } from "../types";
 
@@ -34,7 +35,11 @@ export function useInstanceFlagsState(signedIn: boolean) {
   const fetchFlags = useCallback((fresh = false) => {
     lastFetchRef.current = Date.now();
     return getSiteConfig({ fresh })
-      .then((config) => setFlags(pickFlags(config)))
+      .then((config) => {
+        // The overdue rule's "today" (#2313); module state, read by cardUrgency.
+        setInstanceTimezone(config.instance_timezone);
+        setFlags(pickFlags(config));
+      })
       // Swallowed deliberately: a failed refresh must not break the app; the
       // server still enforces maintenance and the demo fence on every write.
       .catch(() => {})

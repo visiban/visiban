@@ -180,6 +180,22 @@ describe('CardItem — card_density (#961)', () => {
 
   // ---- dense: today's full layout — no urgency badge added ----
 
+  describe('a closed card carries no overdue signal on its due pill (#2313)', () => {
+    it.each([
+      ['standard', 'done column', { inDoneColumn: true }, {}],
+      ['standard', 'archived', {}, { archived_at: '2026-01-01T00:00:00Z' }],
+      ['dense', 'done column', { inDoneColumn: true }, {}],
+      ['dense', 'archived', {}, { archived_at: '2026-01-01T00:00:00Z' }],
+    ] as const)('%s density, %s', (density, _why, props, cardExtra) => {
+      const { container } = render(
+        <CardItem card={makeCard({ due_date: FIVE_DAYS_AGO, ...cardExtra })} density={density} {...props} />,
+      )
+      expect(container.textContent).not.toContain('Overdue')
+      expect(container.querySelector('[data-testid="urgency-glyph-overdue"]')).toBeNull()
+      expect(container.querySelector('.text-danger')).toBeNull()
+    })
+  })
+
   describe('density="dense"', () => {
     it('shows a short status instead of the urgency badge and the due pill (#2272)', () => {
       render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
@@ -207,13 +223,14 @@ describe('CardItem — card_density (#961)', () => {
       expect(line.querySelector('svg[data-testid="urgency-glyph-stale"]')).not.toBeNull()
     })
 
-    describe('due-today pill (user-timezone vs UTC-midnight classifier divergence, #871)', () => {
+    describe('due-today pill (#871, #2313)', () => {
       afterEach(() => { vi.useRealTimers() })
 
-      it('renders a due-today card as overdue in the short status when the classifier already calls it overdue', () => {
-        // 15:00 UTC on 2026-06-15: the classifier parses the date as UTC midnight,
-        // already past, so the status line (which follows the classifier) says
-        // overdue. Open question 6 on #871 owns unifying the boundary.
+      it('renders a due-today card as due soon, not overdue, in the short status', () => {
+        // 15:00 UTC on 2026-06-15: the due date is today in the instance zone
+        // (UTC by default), so the overdue rule (#2313) does not apply until
+        // midnight. Before #2313 the classifier parsed the date as UTC midnight
+        // and called it overdue all day.
         vi.useFakeTimers({ toFake: ['Date'] })
         vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
         render(
@@ -223,21 +240,23 @@ describe('CardItem — card_density (#961)', () => {
             userTimezone="UTC"
           />,
         )
-        expect(screen.getByTitle('Due 2026-06-15').textContent).toBe('Overdue')
+        expect(screen.getByTitle('Due 2026-06-15').textContent).not.toBe('Overdue')
+        expect(screen.getByTitle('Due 2026-06-15').textContent).toBe('Due soon')
       })
 
       it('applies the on-tint tone class to the pill on a tinted card', () => {
         vi.useFakeTimers({ toFake: ['Date'] })
         vi.setSystemTime(new Date('2026-06-15T15:00:00Z'))
         // Never moved, created 30 days ago against the 14-day default: stale 2x tint.
+        // Due yesterday, so overdue under the #2313 rule.
         render(
           <CardItem
-            card={makeCard({ due_date: '2026-06-15', created_at: '2026-05-16T00:00:00Z' })}
+            card={makeCard({ due_date: '2026-06-14', created_at: '2026-05-16T00:00:00Z' })}
             density="dense"
             userTimezone="UTC"
           />,
         )
-        const pill = screen.getByTitle('Due 2026-06-15')
+        const pill = screen.getByTitle('Due 2026-06-14')
         expect(pill.className).toContain('text-danger-on-tint')
         expect(pill.className).not.toMatch(/text-(danger|warning)(?!-on-tint)/)
       })

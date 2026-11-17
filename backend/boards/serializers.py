@@ -4060,7 +4060,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4072,6 +4072,28 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             **_BOARD_ENFORCEMENT_EXTRA_KWARGS,
             "group": {"error_messages": {"does_not_exist": _BOARD_GROUP_NOT_ALLOWED_MSG}},
         }
+
+    def validate_commitment_column_uid(self, value):
+        """A column of this board that is not done, or null (#2050).
+
+        Cycle time and WIP age start there (flow-metric ADR, dated #2050 note).
+        A done column is refused: entering one is a completion, never a start.
+        The stored value is accepted unchanged even if that column has since
+        been marked done or deleted (it then reads as unset), so a PUT of the
+        GET body does not 400 on a field it does not change. A board being
+        created has no columns yet, so only null is accepted there.
+        """
+        if not value:
+            return None
+        if self.instance is not None and value == self.instance.commitment_column_uid:
+            return value
+        if self.instance is None or not Column.objects.filter(
+            board=self.instance, uid=value, is_done=False,
+        ).exists():
+            raise serializers.ValidationError(
+                "commitment_column_uid must be the uid of a column on this board that is not a done column, or null."
+            )
+        return value
 
     def validate_swimlane_rollup_field(self, value, stored_id=None):
         """Only a number field can be summed (#2275).
@@ -4541,10 +4563,12 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             *AUTO_HEALTH_BOARD_FIELDS,
             # Additive (#2275): the swimlane band rollup field.
             "swimlane_rollup_field",
+            # Additive (#2050): where cycle time starts; written via PATCH /boards/{id}/.
+            "commitment_column_uid",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
-        read_only_fields = ["uid", "group"]
+        read_only_fields = ["uid", "group", "commitment_column_uid"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     def get_archived_card_count(self, obj) -> int:

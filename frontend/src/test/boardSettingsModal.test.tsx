@@ -92,6 +92,7 @@ const fakeMember2: User = {
 const fakeBoard: BoardFull = {
   health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   swimlane_rollup_field: null,
+  commitment_column_uid: null,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,
@@ -1821,6 +1822,58 @@ describe('BoardSettingsModal — personal density override', () => {
     await user.click(denseRadios[0]) // the admin board-default radio
     expect(onUpdateBoard).toHaveBeenCalledWith({ card_density: 'dense' })
     expect(onSetOverride).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Commitment point (#2050) ────────────────────────────────────────────────
+
+describe('BoardSettingsModal — Commitment point (#2050)', () => {
+  const col = (id: number, name: string, position: number, is_done = false): BoardFull['columns'][number] =>
+    ({ ...(fakeBoard.columns[0] ?? {}), id, uid: `col${id}`, name, position, is_done } as BoardFull['columns'][number])
+  // Out of order on purpose: the menu follows board position.
+  const withColumns = { ...fakeBoard, columns: [col(3, 'Review', 2), col(1, 'Backlog', 0), col(4, 'Done', 3, true), col(2, 'Doing', 1)] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    return { user, onUpdate }
+  }
+
+  it('lists the default and the not-done columns in board order', async () => {
+    const { user } = await openRules(withColumns)
+    const select = screen.getByRole('combobox', { name: 'Cycle time starts at' })
+    expect(select).toHaveTextContent('First move (default)')
+    await user.click(select)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['First move (default)', 'Backlog', 'Doing', 'Review'])
+  })
+
+  it('choosing a column sends its uid, and the default sends null', async () => {
+    const { user, onUpdate } = await openRules({ ...withColumns, commitment_column_uid: 'col2' })
+    const select = screen.getByRole('combobox', { name: 'Cycle time starts at' })
+    expect(select).toHaveTextContent('Doing')
+    await user.click(select)
+    await user.click(screen.getByRole('option', { name: 'Review' }))
+    expect(onUpdate).toHaveBeenCalledWith({ commitment_column_uid: 'col3' })
+    await user.click(screen.getByRole('combobox', { name: 'Cycle time starts at' }))
+    await user.click(screen.getByRole('option', { name: 'First move (default)' }))
+    expect(onUpdate).toHaveBeenCalledWith({ commitment_column_uid: null })
+  })
+
+  it('reads a uid that names a done or deleted column as the default, and says why', async () => {
+    await openRules({ ...withColumns, commitment_column_uid: 'col4' })
+    expect(screen.getByRole('combobox', { name: 'Cycle time starts at' })).toHaveTextContent('First move (default)')
+    expect(screen.getByText(/The chosen column was deleted or marked done/)).toBeInTheDocument()
+  })
+
+  it('shows the setting read-only to a non-admin', async () => {
+    await openRules({ ...withColumns, commitment_column_uid: 'col3' }, vi.fn(), false)
+    expect(screen.queryByRole('combobox', { name: 'Cycle time starts at' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent('Cycle time starts at: Review')
   })
 })
 

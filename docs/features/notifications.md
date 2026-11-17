@@ -79,7 +79,7 @@ When a card's due date is approaching (within 24 hours by default), the assignee
 
 > ""\{card title\}" is due soon"
 
-Recipients opt in with the **Due date approaching** preference.
+Recipients opt in with the **Due date approaching** preference. Cards that are archived or in a done column are not notified (*changed in 1.3*, #2313), matching the board's *Due soon* status.
 
 **Scheduling:** the scan runs from the `notify_due_soon` management command rather than on a request, so it has to be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler (the Compose `scheduler` profile or the Helm `scheduledJobs.enabled` value), and **nothing is sent until you do**. The due-soon window, and the rule that a card is notified once per due date, follow the [instance time zone](../administration/configuration.md#instance-time-zone) (`INSTANCE_TIMEZONE`, UTC by default). See [Scheduled Jobs](../administration/scheduled-jobs.md).
 

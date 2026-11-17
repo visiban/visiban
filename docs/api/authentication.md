@@ -956,7 +956,8 @@ Returns site-level configuration. This endpoint is public — no authentication 
   "invite_email_available": true,
   "git_lens_enabled": false,
   "maintenance_mode": false,
-  "maintenance_message": ""
+  "maintenance_message": "",
+  "instance_timezone": "UTC"
 }
 ```
 
@@ -972,6 +973,7 @@ Returns site-level configuration. This endpoint is public — no authentication 
 | `git_lens_enabled` | boolean | `true` / `false` | Whether the [Issue Board Lens](../features/issue-board-lens.md) is enabled (`GIT_LENS_ENABLED`). Same value as on `/auth/user/`. Added in 1.2 (#1872). |
 | `maintenance_mode` | boolean | `true` / `false` | Whether the instance is in read-only [maintenance mode](admin.md#maintenance-mode). Added in 1.2 (#1872). |
 | `maintenance_message` | string | text / `""` | The maintenance notice. Always non-empty while `maintenance_mode` is `true` (a blank operator message is replaced by the built-in default), and `""` otherwise. Plain text: render it as text, never as HTML. Added in 1.2 (#1872). |
+| `instance_timezone` | string | IANA zone, e.g. `"UTC"` | The [`INSTANCE_TIMEZONE`](../administration/configuration.md#instance-time-zone) setting: the zone whose date decides when a card turns overdue. The web app reads it so the card face applies the same overdue rule as the server. Added in 1.3 (#2313). *Proposed, pending owner confirmation:* serving it on this anonymous endpoint (a time zone name is not sensitive, but it is a new anonymous read). |
 
 Every field describes the instance, not the caller, so anonymous and signed-in requests get the same body. Read `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at` here rather than from `/auth/user/` (see [Frozen instance flags](#frozen-instance-flags-on-authuser)).
 

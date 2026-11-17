@@ -127,6 +127,27 @@ class DueSoonIdempotencyTests(TestCase):
         self.assertEqual(Notification.objects.filter(recipient=assignee).count(), 1)
 
 
+class DueSoonOpenCardsOnlyTests(TestCase):
+    """A card in a done column carries no Due soon status, so no notification (#2313)."""
+
+    def test_done_column_card_is_not_notified_but_open_one_is(self):
+        owner = _make_user()
+        board = _make_board(owner)
+        open_col = _make_column(board)
+        done_col = _make_column(board, name="Done", order=1, is_done=True)
+        lane = Swimlane.objects.create(board=board, name="Lane", position=0)
+        assignee = _make_user(notif_due_soon=True)
+        BoardMembership.objects.create(board=board, user=assignee, role=BoardMembership.Role.MEMBER)
+        due = datetime.date(2026, 3, 11)
+        open_card = _make_card(open_col, lane, due_date=due, assignee=assignee, title="Open one")
+        done_card = _make_card(done_col, lane, due_date=due, assignee=assignee, title="Done one")
+        with _frozen():
+            call_command("notify_due_soon", stdout=StringIO())
+        notified = Notification.objects.filter(recipient=assignee)
+        self.assertTrue(notified.filter(card=open_card).exists())
+        self.assertFalse(notified.filter(card=done_card).exists())
+
+
 class InvalidZoneSettingTests(TestCase):
     def test_invalid_zone_fails_startup_loudly(self):
         code = "import django.conf; django.conf.settings.INSTANCE_TIMEZONE"

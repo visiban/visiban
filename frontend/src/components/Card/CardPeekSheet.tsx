@@ -4,7 +4,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import type { BoardFull, Card, CardMovement } from "../../types";
-import { formatDateStr, formatDateTime, formatRelativeTime, formatDueDate } from "../../utils/date";
+import { formatDateStr, formatDateTime, formatRelativeTime } from "../../utils/date";
+import { isOverdue } from "../../utils/cardUrgency";
 import { relativeTime } from "../../utils/relativeTime";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
 import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
@@ -69,7 +70,7 @@ interface Props {
  * detail sheet placement): focus goes to Open card on open (#2358), and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone: _userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
@@ -196,7 +197,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     [movements],
   );
   const lane = board.swimlanes.find((s) => s.id === card.swimlane);
-  const overdue = card.due_date ? formatDueDate(card.due_date, userTimezone || "UTC", userDateFormat).overdue : false;
+  const overdue = isOverdue(card.due_date, !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
   const idleDays = card.last_moved_at
     ? Math.floor((Date.now() - new Date(card.last_moved_at).getTime()) / 86_400_000)
     : 0;

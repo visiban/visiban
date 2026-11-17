@@ -33,8 +33,9 @@ import { CARD_DETAIL_TABS, HISTORY_PAGE_LIMIT, getRememberedCardDetailTab, remem
 import { lastActivitySummary } from "../../utils/cardTimelineLabels";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
-import { formatDateStr, formatDueDate, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
+import { formatDateStr, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
+import { isOverdue } from "../../utils/cardUrgency";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
@@ -1864,7 +1865,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       When a date is already set, overlay an invisible native input over a
                       styled display so the user always sees their chosen format. */}
                   {localCard.due_date ? (() => {
-                    const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
                     return (
                       <div className="flex items-center gap-1.5">
                         {/* The transparent input sits over the styled display and receives clicks
@@ -1872,7 +1872,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
                         <div className="relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>

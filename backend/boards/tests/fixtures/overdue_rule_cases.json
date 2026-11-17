@@ -1,0 +1,15 @@
+{
+  "_comment": "The one overdue rule (#2313), pinned on both sides: backend/boards/tests/test_overdue_rule.py and frontend/src/test/overdueRule.test.ts read this file. A card is overdue when it has a due date, the due date is before today's date in the instance time zone (INSTANCE_TIMEZONE, UTC by default), and the card is open: not archived and not in a Done column.",
+  "cases": [
+    {"name": "due yesterday, open", "now": "2026-03-11T12:00:00Z", "tz": "UTC", "due_date": "2026-03-10", "done": false, "archived": false, "overdue": true},
+    {"name": "due today is not overdue", "now": "2026-03-11T23:59:00Z", "tz": "UTC", "due_date": "2026-03-11", "done": false, "archived": false, "overdue": false},
+    {"name": "due tomorrow", "now": "2026-03-11T12:00:00Z", "tz": "UTC", "due_date": "2026-03-12", "done": false, "archived": false, "overdue": false},
+    {"name": "no due date", "now": "2026-03-11T12:00:00Z", "tz": "UTC", "due_date": null, "done": false, "archived": false, "overdue": false},
+    {"name": "past due in a Done column", "now": "2026-03-11T12:00:00Z", "tz": "UTC", "due_date": "2026-03-01", "done": true, "archived": false, "overdue": false},
+    {"name": "past due and archived", "now": "2026-03-11T12:00:00Z", "tz": "UTC", "due_date": "2026-03-01", "done": false, "archived": true, "overdue": false},
+    {"name": "west of UTC: still the due day in Los Angeles", "now": "2026-03-11T03:00:00Z", "tz": "America/Los_Angeles", "due_date": "2026-03-10", "done": false, "archived": false, "overdue": false},
+    {"name": "the same instant in UTC is the next day", "now": "2026-03-11T03:00:00Z", "tz": "UTC", "due_date": "2026-03-10", "done": false, "archived": false, "overdue": true},
+    {"name": "east of UTC: Tokyo is already past the due day", "now": "2026-03-11T16:00:00Z", "tz": "Asia/Tokyo", "due_date": "2026-03-11", "done": false, "archived": false, "overdue": true},
+    {"name": "the same instant in UTC is still the due day", "now": "2026-03-11T16:00:00Z", "tz": "UTC", "due_date": "2026-03-11", "done": false, "archived": false, "overdue": false}
+  ]
+}
