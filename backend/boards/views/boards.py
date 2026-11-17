@@ -50,6 +50,7 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch,
 )
+from ..services.card_links import check_flag_flip
 from ..services.feed import (
     cursor_row_visible,
     feed_horizon,
@@ -509,6 +510,11 @@ class BoardViewSet(
             # Same for the rollup field (#2275): a field deleted or retyped
             # after validation is a 400 here, not an IntegrityError at commit.
             serializer.recheck_rollup_field_under_lock(board)
+            # Two-tier card links (#2208): refuse a flip that would invalidate
+            # existing links, decided against the locked row. A hook for the
+            # card-link MR (#1104); nothing to refuse until a link model exists.
+            if "cards_can_have_children" in serializer.validated_data:
+                check_flag_flip(board, serializer.validated_data["cards_can_have_children"])
             # The group the board is in before this write, read from the
             # locked, refreshed row (as move_group does): a PATCH/PUT that
             # changes ``group`` is a group move to group subscribers (#1684).
