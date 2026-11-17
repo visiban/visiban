@@ -5048,6 +5048,12 @@ helm-publish:
     - |
       CHART_FILE="$(ls /tmp/visiban-*.tgz)"
       CHART_NAME="$(helm show chart helm/visiban | awk '/^name:/{print $2}')"
+      # Refuse a pre-release chart version whose plain stable is already
+      # published: it could never outrank it, so a bare `helm install` would
+      # keep resolving to the stable one (#1155). Exit 2 (registry unreadable)
+      # also fails the job: this guard fails closed.
+      CHART_VERSION="$(helm show chart helm/visiban | awk '/^version:/{print $2}' | tr -d '"')"
+      bash scripts/check-chart-registry.sh --candidate "$CHART_VERSION"
       helm push "$CHART_FILE" "oci://ghcr.io/visiban/charts" 2>&1 | tee /tmp/helm-push.log
       # Sign the by-digest reference `helm push` reports, not the tag — a tag can
       # be moved, a digest cannot.
@@ -5128,6 +5134,51 @@ check-release-images:
   script:
     - bash scripts/check-release-images.sh --self-test
     - bash scripts/check-release-images.sh
+
+# ─── Scheduled — the chart a bare `helm install` resolves to (#1155) ──────────
+#
+# Nothing else reads the chart registry after a release. A chart published
+# under a plain version before its pre-release line (0.9.0 ahead of
+# 0.9.0-beta.N) outranks every pre-release under semver, so a bare
+# `helm install oci://ghcr.io/visiban/charts/visiban` keeps resolving to it,
+# even with --devel, while every pipeline stays green: a wrong artifact sitting
+# in a registry is not a diff event. This job resolves what a bare install gets
+# (the highest STABLE chart, since Helm skips pre-releases), reads its
+# appVersion, and requires the default image tag (v<appVersion>) to exist for
+# the backend and frontend images. Registry reads only, no cluster.
+# An unreadable registry exits 2 (red), never "absent". Deliberately NOT
+# allow_failure, for the same reason as check-release-images above. The publish
+# side of the same script runs in helm-publish (`--candidate`).
+check-chart-registry:
+  stage: deploy
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - bash scripts/check-chart-registry.sh --self-test
+    - bash scripts/check-chart-registry.sh
+
+# MR-time run of the script's self-test only. The live check reads registry
+# state no diff controls, so it would red an unrelated MR; the self-test proves
+# both modes (publish guard, default resolution) can still fail (#1155).
+check-chart-registry-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &check-chart-registry-selftest-paths
+        - scripts/check-chart-registry.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *check-chart-registry-selftest-paths
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - bash scripts/check-chart-registry.sh --self-test
 
 # ─── Scheduled — release signature + SBOM survival (#1542) ────────────────────
 #
