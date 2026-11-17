@@ -368,6 +368,13 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "A Valkey outage no longer fails the readiness probe: monitors on its `503` stop firing"
+    Since 1.3, `/api/health/readiness/` depends on the database only. When Valkey is unreachable it answers `200` with `{"status": "degraded"}` instead of `503` with a `redis` key, so pods stay in the Service and ordinary REST requests keep working (#1465). See [If Valkey goes down](configuration.md#if-valkey-goes-down) for what still fails.
+
+    - **Monitors and load balancers** that alert on, or route by, a readiness `503` for Valkey will no longer fire for a Valkey outage. Alert on the `status` field (`degraded`), on Valkey's own metrics, or on the `Readiness degraded: cache` log line instead.
+    - **`helm test`** still fails on a Valkey problem: its readiness step requires `{"status": "ok"}`. `helm upgrade --wait` alone no longer does, because it waits on the readiness probe, so run `helm test` after an upgrade that changes Valkey settings (URL, password, `externalRedis`).
+    - **New cache timeouts.** Every cache call now gives up after 0.5 seconds (`REDIS_CACHE_SOCKET_CONNECT_TIMEOUT`, `REDIS_CACHE_SOCKET_TIMEOUT`; Helm `backend.settings.cacheTimeouts`). Before, a Valkey that dropped packets instead of refusing connections made requests hang. Raise them only for a Valkey with unusually slow replies.
+
 !!! note "Valkey now has a memory ceiling and an eviction policy"
     Since 1.3, Valkey runs with `maxmemory` and `maxmemory-policy volatile-lru` (#1130), so a busy instance evicts old cache entries instead of growing until it is OOM-killed.
 

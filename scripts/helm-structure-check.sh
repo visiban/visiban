@@ -730,6 +730,20 @@ check_probe_paths() {
     fi
   done <<< "$paths"
   [ "$bad" -eq 0 ] && pass "all probe paths resolve to declared routes"
+
+  # The helm test hook's readiness steps must require "status":"ok" (#1465):
+  # since 1.3 a Valkey outage answers 200 {"status":"degraded"}, so a check on
+  # the status code alone would pass a release whose Valkey URL is wrong.
+  local test_script
+  test_script="$(doc Pod 'api-connection' | yq '.spec.containers[0].command[2]')"
+  if [ -z "$test_script" ] || [ "$test_script" = "null" ]; then
+    fail "the helm test hook (api-connection) did not render a probe script"
+  elif ! grep -qF "\"status\":\"ok\"" <<< "$test_script" \
+      || grep -E '^[[:space:]]*probe "[^"]*" "[^"]*/api/health/readiness/' <<< "$test_script" >/dev/null; then
+    fail "the helm test hook checks readiness by status code alone; it must require {\"status\":\"ok\"} (a degraded Valkey answers 200)"
+  else
+    pass "the helm test hook's readiness steps require {\"status\":\"ok\"}, not just 200"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -2392,7 +2406,21 @@ check_dispatcher_egress_policy() {
       fail "an allowedCIDRs entry does not reach the policy"; bad=1
     fi
   fi
-  [ "$bad" -eq 0 ] && pass "the dispatcher egress policy is absent unless dispatcher and networkPolicy are both enabled (the dispatcher alone renders none), is Egress-only on the dispatcher pod, excepts the internal ranges, and carries allowedCIDRs"
+  # Demo mode: the demo egress policy already selects the dispatcher (it is a
+  # datastore client) and allows only DNS and the datastores. NetworkPolicies are
+  # additive, so this policy's public egress rule must never render on top of it.
+  local demo_out="$RUN_TMP/helm-demo-dispatcher.yaml"
+  if ! render_demo "$demo_out" --set webhooks.dispatcher.enabled=true --set webhooks.dispatcher.networkPolicy.enabled=true; then
+    fail "demo render with the dispatcher and its egress policy on failed: $(head -3 "$RUN_TMP/helm-demo-render-err.txt")"; bad=1
+  else
+    if grep -q "$name" "$demo_out"; then
+      fail "the dispatcher egress policy renders in demo mode, reopening public egress the demo egress policy closes"; bad=1
+    fi
+    if ! grep -q "demo-egress" "$demo_out"; then
+      fail "the demo render has no demo-egress policy, so the case above proves nothing"; bad=1
+    fi
+  fi
+  [ "$bad" -eq 0 ] && pass "the dispatcher egress policy is absent unless dispatcher and networkPolicy are both enabled (the dispatcher alone renders none) and never renders in demo mode, is Egress-only on the dispatcher pod, excepts the internal ranges, and carries allowedCIDRs"
 }
 
 run_all_checks() {
@@ -2559,7 +2587,9 @@ self_test() {
     # ranges, so "public egress" quietly includes the whole cluster.
     "19 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
     # 19 (#2067): the policy renders without its own opt-in.
-    "19 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/\$dispatcher.enabled/"
+    "19 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
+    # 19 (#1465 round 2): the policy renders in demo mode, on top of demo-egress.
+    "19 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
     "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"

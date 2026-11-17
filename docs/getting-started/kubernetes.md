@@ -151,7 +151,7 @@ helm test visiban --namespace visiban --logs
 | Step fails | What it means |
 |---|---|
 | liveness | The backend container isn't running; check the init containers |
-| readiness | It runs but can't reach PostgreSQL (since 1.3 a Valkey outage reports `degraded` with HTTP 200 and passes this step) |
+| readiness | It runs but can't reach PostgreSQL or Valkey. The step requires `{"status": "ok"}`: since 1.3 a Valkey outage answers HTTP 200 with `{"status": "degraded"}`, which keeps pods in the Service but fails this step |
 | through nginx | The frontend can't resolve its backend upstream |
 | SPA | nginx proxies correctly but serves no bundle |
 

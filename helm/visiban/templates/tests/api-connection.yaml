@@ -98,13 +98,36 @@ spec:
             echo "  ok (200)"
           }
 
+          # Readiness must report "ok", not just 200 (#1465): since 1.3 a Valkey
+          # outage answers 200 {"status":"degraded"} so pods stay in the Service.
+          # Accepting that here would let a wrong Valkey URL or password roll out
+          # as a passing `helm test` while every login returns 500. Retried, like
+          # probe(), so a Valkey that is still starting gets time to come up.
+          probe_ready() {
+            label="$1"; url="$2"; n=0
+            echo "probing ${label} -> ${url} (expects status ok) ..."
+            while :; do
+              body="$(curl -sSf --retry "${retries}" --retry-delay 2 --retry-all-errors \
+                -H "Host: ${PROBE_HOST}" "${url}" 2>/dev/null || true)"
+              case "$body" in
+                *'"status":"ok"'*) echo "  ok (status ok)"; return 0 ;;
+              esac
+              n=$((n + 1))
+              if [ "$n" -gt "${retries}" ]; then
+                echo "FAIL: ${label} answered '${body:-no 200 response}', expected {\"status\":\"ok\"} (\"degraded\" means Valkey is unreachable)"
+                return 1
+              fi
+              sleep 2
+            done
+          }
+
           # Liveness first: it is process-only, so a failure here separates "the
           # container never started" from "it started but is not ready".
           probe "backend liveness" "http://${backend}/api/health/liveness/"
           # Readiness is migration-aware — reaching it proves the migrate hook ran.
-          probe "backend readiness" "http://${backend}/api/health/readiness/"
+          probe_ready "backend readiness" "http://${backend}/api/health/readiness/"
           # Through the frontend's nginx: proves the proxy_pass upstream resolves.
-          probe "frontend -> backend proxy" "http://${frontend}/api/health/readiness/"
+          probe_ready "frontend -> backend proxy" "http://${frontend}/api/health/readiness/"
           # The SPA itself, so a frontend that proxies fine but serves no bundle
           # still fails here rather than at a user's browser.
           probe "frontend SPA" "http://${frontend}/"

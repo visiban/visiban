@@ -27,11 +27,17 @@ Only a claim if the CNI enforces NetworkPolicy (Calico, Cilium; not kind's
 default kindnetd). Some CNIs do not apply `ipBlock` rules to pod IPs, which
 weakens the deny for in-cluster pod targets: keep the application-level check
 as the primary control.
+
+Never rendered in public demo mode. visiban.datastoreClients includes the
+dispatcher, so the demo egress policy already selects it and allows only DNS and
+the release's datastores; NetworkPolicies are additive, so this policy's public
+egress rule would reopen exactly what demo mode closes.
 */ -}}
 {{- $wh := (.Values.webhooks | default dict) }}
 {{- $dispatcher := ($wh.dispatcher | default dict) }}
 {{- $np := ($dispatcher.networkPolicy | default dict) }}
-{{- if and $dispatcher.enabled $np.enabled }}
+{{- $demo := include "visiban.demoEnabled" . }}
+{{- if and $dispatcher.enabled $np.enabled (not $demo) }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
