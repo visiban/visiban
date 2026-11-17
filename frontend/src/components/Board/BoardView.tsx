@@ -159,6 +159,46 @@ function ColumnTrashZone() {
 // the board has a lens connection and the current user has git_lens_enabled).
 type BoardViewName = "board" | "summary" | "history" | "analytics" | "lens";
 
+/**
+ * The toolbar's tab strip. On a phone it is narrower than its tabs (#2348), so the active tab is scrolled
+ * into view when the view changes and a right-edge fade shows that more tabs sit past the edge. The fade is a
+ * mask (no color token needed) and only applies below 640px while the strip is scrolled short of its end.
+ */
+export function ViewTabStrip({ view, children }: { view: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState(false);
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (el) setFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const active = el.querySelector<HTMLElement>('[aria-current="page"]');
+    // jsdom has no scrollIntoView.
+    if (active && typeof active.scrollIntoView === "function") active.scrollIntoView({ inline: "nearest", block: "nearest" });
+    measure();
+  }, [view, measure]);
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+  return (
+    <div
+      ref={ref}
+      onScroll={measure}
+      data-tour-step="view-tabs"
+      data-testid="view-tab-strip"
+      data-fade={fade ? "true" : undefined}
+      className={`min-w-0 max-w-full overflow-x-auto max-sm:order-1 max-sm:flex-1 ${
+        fade ? "max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]" : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function ViewToggle({
   view,
   onChange,
@@ -2955,9 +2995,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {/* Phone (#2348): one 44px row, the tabs scrolling inside their own box with Filter, Activity and More after them, so the chrome is header + tab strip (about 92px) and the strip sits at the same y as the other views' (#2349). */}
       <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:flex-nowrap max-sm:gap-x-1">
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-1 max-sm:flex-1">
+          <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-          </div>
+          </ViewTabStrip>
           <div className="flex-1 max-sm:hidden" />
           <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
             <FilterPanel

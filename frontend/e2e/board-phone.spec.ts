@@ -289,6 +289,11 @@ test.describe('board phone layout', () => {
     expect(rows.length).toBeGreaterThan(0)
     expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
     await page.keyboard.press('Escape')
+    // The Saved filters menu is portaled too (AnchoredMenuPanel), so it carries its own descendant rule.
+    await bar.getByRole('button', { name: 'Saved filters' }).click()
+    await expect(page.getByRole('group', { name: 'Saved filters' })).toBeVisible()
+    expect(await smallControls(page, ['[role="group"][aria-label="Saved filters"]'])).toEqual([])
+    await page.keyboard.press('Escape')
     // Activity drawer.
     await page.getByRole('button', { name: 'Open activity drawer' }).click()
     await expect(page.getByTestId('activity-drawer')).toBeVisible()
@@ -307,6 +312,34 @@ test.describe('board phone layout', () => {
     expect(Math.round((await page.getByRole('combobox', { name: 'Command palette search' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
     const items = await rowHeights('[role="listbox"][aria-label="Results"] [role="option"]')
     if (items.length > 0) expect(Math.min(...items)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('the card actions menu items are 44px (#2350)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    // The menu is portaled to document.body (the phone "More actions" menu is the same component), so it carries its own rule.
+    await page.locator('[data-card-id]').first().click({ button: 'right' })
+    const menu = page.getByTestId('card-context-menu')
+    await expect(menu).toBeVisible()
+    const heights = await menu.getByRole('menuitem').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(heights.length).toBeGreaterThan(0)
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('the tab strip scrolls and fades its right edge instead of clipping silently (#2348)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const strip = page.getByTestId('view-tab-strip')
+    const m = await strip.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, right: el.getBoundingClientRect().right, fade: el.getAttribute('data-fade') }))
+    expect(m.sw).toBeGreaterThan(m.cw)
+    expect(m.fade).toBe('true')
+    const filter = await page.getByRole('button', { name: 'Filters and view options' }).boundingBox()
+    expect(m.right).toBeLessThanOrEqual(filter!.x + 0.5)
+    // Switching to the last tab scrolls it into view.
+    await page.getByRole('button', { name: 'Analytics' }).click()
+    const analytics = await page.getByRole('button', { name: 'Analytics' }).boundingBox()
+    const box = await strip.boundingBox()
+    expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
   })
 
   test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
