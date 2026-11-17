@@ -28,7 +28,7 @@ from unittest.mock import patch
 
 from django.db import connection, transaction
 from django.db.utils import IntegrityError
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
@@ -851,6 +851,8 @@ class CardRelationPeerBroadcastQueryCountTests(_RelationTestBase):
         )
 
 
+# Cache off: these count the queries of an uncached share build (#1965).
+@override_settings(SHARE_BOARD_CACHE_TTL_SECONDS=0)
 class CardRelationQueryCountTests(TestCase):
     """No N+1 on /full/ with relations — an explicit acceptance criterion.
 

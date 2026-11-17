@@ -21,7 +21,7 @@ a doubling through — see that class's own docstring.
 from unittest.mock import patch
 
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
@@ -776,6 +776,8 @@ class BoardFullColdCacheAncestorTests(TestCase):
         self.assertIn(self.owner.id, owner_ids)
 
 
+# Cache off: these count the queries of an uncached share build (#1965).
+@override_settings(SHARE_BOARD_CACHE_TTL_SECONDS=0)
 class ParkedPrefetchQueryCountTests(TestCase):
     """The ``to_attr``-parked card prefetches must stay query-free (#1212, labels #1223).
 

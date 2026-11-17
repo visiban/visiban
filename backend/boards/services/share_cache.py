@@ -32,7 +32,10 @@ DEFAULT_TTL_SECONDS = 15
 
 
 def _ttl() -> int:
-    return int(getattr(settings, "SHARE_BOARD_CACHE_TTL_SECONDS", DEFAULT_TTL_SECONDS))
+    try:
+        return int(getattr(settings, "SHARE_BOARD_CACHE_TTL_SECONDS", DEFAULT_TTL_SECONDS))
+    except (TypeError, ValueError):
+        return DEFAULT_TTL_SECONDS
 
 
 def _version_key(board_id: int) -> str:
