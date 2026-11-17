@@ -145,6 +145,29 @@ class AttachmentQuotaTests(_MediaRoot, TestCase):
         record.assert_not_called()
 
 
+class AttachmentQuotaCheckOrderTests(_MediaRoot, TestCase):
+    """Role and toggle refusals come before the quota (#2007), so a viewer
+    learns nothing about a full card from the status code."""
+
+    def setUp(self):
+        cache.clear()
+        self._use_temp_media()
+        _fixture(self, "order2007")
+        self.viewer = User.objects.create_user(username="viewer2007", password="pass")
+        BoardMembership.objects.create(board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER)
+        admin = APIClient()
+        admin.force_authenticate(self.user)
+        self.assertEqual(admin.post(self.url, {"file": _png()}, format="multipart").status_code, 201)
+
+    @override_settings(ATTACHMENT_MAX_PER_CARD=1)
+    def test_viewer_on_a_full_card_gets_403_not_the_quota_error(self):
+        client = APIClient()
+        client.force_authenticate(self.viewer)
+        resp = client.post(self.url, {"file": _png()}, format="multipart")
+        self.assertEqual(resp.status_code, 403)
+        self.assertNotEqual(resp.data.get("code"), ATTACHMENT_QUOTA_EXCEEDED)
+
+
 class FormatBytesTests(TestCase):
     def test_units(self):
         self.assertEqual(_format_bytes(150), "150 bytes")

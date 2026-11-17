@@ -828,7 +828,7 @@ curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
 ```
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/attachments/`
-Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
+Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. Since 1.3 a card also has a count and byte quota, and uploads have their own rate limit (see the errors below and [Attachment limits](../administration/configuration.md#attachment-limits)). **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 **Allowed file types**
 
@@ -854,6 +854,12 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 { "detail": "File content does not match its declared type (image/png). The file may be corrupt or its type may have been misrepresented." }
 ```
 
+**Error response (markup in a text file)** — `400 Bad Request`. A `text/plain` or `text/csv` upload containing `<script`, `<svg`, `<!doctype`, `<html` or `<iframe` (any case, anywhere in the file since 1.3).
+
+```json
+{ "detail": "File contains HTML/script content and cannot be uploaded as text/plain. Rename it with an appropriate extension or remove the embedded markup." }
+```
+
 **Error response (no file provided)** — `400 Bad Request`
 
 ```json
@@ -872,7 +878,19 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 { "code": "attachment_quota_exceeded", "detail": "This card already has the maximum of 100 attachments. Delete one to upload another." }
 ```
 
+The byte quota uses the same `code` with a different `detail`:
+
+```json
+{ "code": "attachment_quota_exceeded", "detail": "This upload would take the card's attachments over its 1 GB limit. Delete an attachment to make room." }
+```
+
+Branch on `code`, not on `detail`: the message names the configured limit and its wording may change.
+
 **Error response (upload rate limit)** — `429 Too Many Requests` *(since 1.3)*. Uploads have their own per-user limit, the `attachment_upload` throttle scope (default 120 per hour, `ATTACHMENT_THROTTLE_UPLOAD_RATE`), on top of the general per-user API limit. Listing attachments does not count against it. The `Retry-After` header gives the wait in seconds.
+
+```json
+{ "detail": "Request was throttled. Expected available in 1800 seconds." }
+```
 
 **Error response (viewer role)** — `403 Forbidden`. Viewers cannot upload attachments; collaborators and above can.
 

@@ -148,6 +148,7 @@ Some endpoints have their own scope in place of or alongside these. The ones tha
 | `POST /api/v1/auth/registration/` | `register` | 10 requests/minute per IP, anonymous requests only |
 | `POST /api/v1/auth/choose-username/` | `choose_username` | 10 requests/minute per user, shared with username and email changes on `PATCH /api/v1/auth/me/` and `PUT`/`PATCH /api/v1/auth/user/` |
 | `POST /api/v1/auth/password/reset/confirm/` | `password_reset_confirm` | 10 requests/hour per IP |
+| `POST /api/v1/boards/{board_id}/cards/{id}/attachments/` | `attachment_upload` | 120 uploads/hour per user, alongside `user` *(since 1.3)*; `ATTACHMENT_THROTTLE_UPLOAD_RATE` changes it |
 
 Each endpoint's page lists its own scope and rate. These are the production defaults; development (`DEBUG`) mode raises most of them to 9999/hour. Nothing here applies to [`/mcp`](mcp.md#rate-limiting), which has its own limiter.
 

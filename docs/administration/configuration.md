@@ -310,6 +310,9 @@ the instance by uploading in a loop.
   anywhere near 100 files. At the default 10 MB file size the count quota is
   reached before the byte quota, which starts to matter when you raise
   `MAX_UPLOAD_SIZE_BYTES`.
+- Plain-text and CSV uploads are scanned in full for HTML markup before they
+  are stored, so raising `MAX_UPLOAD_SIZE_BYTES` far beyond the default also
+  lengthens each such upload request.
 - Lowering a quota never deletes anything. A card already over it keeps its
   attachments and accepts new ones only once it is back under the quota.
 - The quota is checked while the card row is locked, so two uploads racing for
