@@ -347,6 +347,9 @@ export function moveChoices(columns: Column[]): CardChoice[] {
 /** Move submenu values for a step within the card's own cell (#2327). */
 export type ReorderStep = "earlier" | "later";
 
+/** Move submenu values for a step across the sub-columns of a gated stage (#2327). */
+export type SubColumnStep = "sub-previous" | "sub-next";
+
 /**
  * Keyboard reorder within a cell (#2327): the card menu's Move to… lists these
  * before the columns, for one card, only for a step that exists. The wording is
@@ -358,6 +361,19 @@ export function reorderChoices(order: { earlier: number | null; later: number | 
   const out: CardChoice[] = [];
   if (order.earlier !== null) out.push({ key: "step-earlier", label: "Move earlier in this cell", value: "earlier" });
   if (order.later !== null) out.push({ key: "step-later", label: "Move later in this cell", value: "later" });
+  return out;
+}
+
+/**
+ * Sub-columns as keyboard stops (#2327, spec § Keyboard): inside a gated
+ * stage, Move to… also offers the neighboring sub-columns by name. The move
+ * goes through the same Move path with `gates_passed`; nothing blocks it.
+ */
+export function subColumnChoices(sub: { previous: string | null; next: string | null } | null | undefined): CardChoice[] {
+  if (!sub) return [];
+  const out: CardChoice[] = [];
+  if (sub.previous !== null) out.push({ key: "step-sub-previous", label: `Move back to ${sub.previous}`, value: "sub-previous" });
+  if (sub.next !== null) out.push({ key: "step-sub-next", label: `Move on to ${sub.next}`, value: "sub-next" });
   return out;
 }
 

@@ -85,11 +85,47 @@ function genericMoveFailure(err: unknown): MoveBlockedError {
   return { code: "move_failed", detail: `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.` };
 }
 
+/** One entry of a stage edit's `remapped` list (#1102). */
+export interface StageRemap {
+  id: number;
+  gates_passed: number;
+  version: number;
+}
+
+/**
+ * Apply a stage edit's `remapped` entries. A card copy already at or past the
+ * entry's version holds newer state (a later move frame) and is kept.
+ */
+export function applyStageRemap(cards: Card[], remapped: StageRemap[] | undefined): Card[] {
+  if (!remapped || remapped.length === 0) return cards;
+  const byId = new Map(remapped.map((r) => [r.id, r]));
+  let changed = false;
+  const next = cards.map((c) => {
+    const r = byId.get(c.id);
+    if (!r || (c.version ?? 0) >= r.version) return c;
+    changed = true;
+    return { ...c, gates_passed: r.gates_passed, version: r.version };
+  });
+  return changed ? next : cards;
+}
+
+/**
+ * The optimistic `gates_passed` of a moved card (#1102): the chosen sub-column
+ * when given; otherwise unchanged within a column and 0 in a new one, the
+ * server's rule for an omitted value.
+ */
+function withOptimisticGates(cards: Card[], cardId: number, before: Card | undefined, columnId: number, gatesPassed: number | undefined): Card[] {
+  const target = gatesPassed ?? (before && before.column === columnId ? before.gates_passed ?? 0 : 0);
+  return cards.map((c) => (c.id === cardId && (c.gates_passed ?? 0) !== target ? { ...c, gates_passed: target } : c));
+}
+
 export interface PendingMove {
   cardId: number;
   columnId: number;
   swimlaneId: number;
   position: number;
+  /** Gated stages (#1102): the sub-column the move targets; omitted = server default. */
+  gatesPassed?: number;
 }
 
 /**
@@ -798,7 +834,8 @@ export function useBoard() {
     cardId: number,
     columnId: number,
     swimlaneId: number,
-    position: number
+    position: number,
+    gatesPassed?: number,
   ): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
 
@@ -815,15 +852,15 @@ export function useBoard() {
         const r = reorderWithinCellOptimistically(b.cards, cardId, position);
         siblingsBefore = r.previous;
         siblingsOptimistic = r.optimistic;
-        return { ...b, cards: r.cards };
+        return { ...b, cards: withOptimisticGates(r.cards, cardId, before, columnId, gatesPassed) };
       }
       return {
         ...b,
-        cards: b.cards.map((c) =>
+        cards: withOptimisticGates(b.cards.map((c) =>
           c.id === cardId
             ? placeCardOptimistically(c, b.columns, { columnId, swimlaneId, position }, movedAt)
             : c
-        ),
+        ), cardId, before, columnId, gatesPassed),
       };
     });
 
@@ -833,7 +870,12 @@ export function useBoard() {
     const cardVersion = boardRef.current.cards.find((c) => c.id === cardId)?.version;
 
     try {
-      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion });
+      // `gates_passed` only when the caller chose a sub-column (#1102): omitted
+      // keeps it within a column and starts the card at 0 in a new one.
+      const { card } = await apiMoveCard(boardId, cardId, {
+        column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion,
+        ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
+      });
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
       const touches = fetchTouchesRef.current;
@@ -903,7 +945,7 @@ export function useBoard() {
           const also = board ? otherTrippedLimits(board, before, columnId, swimlaneId, data.code) : [];
           surfaced = true; setMoveError(also.length > 0 ? { ...data, also } as MoveBlockedError : data);
           // Hard-blocked moves have no retry path — never set pendingMove.
-          if (SOFT_LIMIT_CODES.has(data.code)) setPendingMove({ cardId, columnId, swimlaneId, position });
+          if (SOFT_LIMIT_CODES.has(data.code)) setPendingMove({ cardId, columnId, swimlaneId, position, gatesPassed });
         }
       }
       // Every failure gets a visible message; the branches above only cover the
@@ -925,7 +967,7 @@ export function useBoard() {
   // Like moveCard it never rejects; failures are reported in the result.
   const runForcedMove = useCallback(async (move: PendingMove): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
-    const { cardId, columnId, swimlaneId, position } = move;
+    const { cardId, columnId, swimlaneId, position, gatesPassed } = move;
     clearMoveError();
 
     const before = boardRef.current.cards.find((c) => c.id === cardId);
@@ -934,16 +976,19 @@ export function useBoard() {
       if (!b) return b;
       return {
         ...b,
-        cards: b.cards.map((c) =>
+        cards: withOptimisticGates(b.cards.map((c) =>
           c.id === cardId
             ? placeCardOptimistically(c, b.columns, { columnId, swimlaneId, position }, movedAt)
             : c
-        ),
+        ), cardId, before, columnId, gatesPassed),
       };
     });
 
     try {
-      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position }, true);
+      const { card } = await apiMoveCard(boardId, cardId, {
+        column_id: columnId, swimlane_id: swimlaneId, position,
+        ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
+      }, true);
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
       const touches = fetchTouchesRef.current;
@@ -1173,8 +1218,17 @@ export function useBoard() {
 
   // A column.updated for a column the board does not hold (deleted, or never
   // received) changes nothing, here and when replayed.
-  const updateColumn = useCallback((column: Column) => {
-    writeBoard((b) => ({ ...b, columns: b.columns.map((c) => c.id === column.id ? column : c) }));
+  // A stage edit (#1102) carries `remapped`: the cards whose `gates_passed`
+  // the server re-indexed, with their bumped version. Applied here so the grid
+  // never shows a card in a sub-column that no longer exists; the key itself
+  // is stripped so the stored column matches the serializer shape.
+  const updateColumn = useCallback((column: Column & { remapped?: StageRemap[] }) => {
+    const { remapped, ...plain } = column;
+    writeBoard((b) => ({
+      ...b,
+      columns: b.columns.map((c) => c.id === plain.id ? plain : c),
+      cards: applyStageRemap(b.cards, remapped),
+    }));
   }, [writeBoard]);
 
   // An upsert, not an append: replayed over a snapshot that already lists the

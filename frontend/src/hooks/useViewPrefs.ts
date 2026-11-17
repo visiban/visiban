@@ -13,6 +13,8 @@ export interface ViewPrefs {
   swimlaneColumnWidth: number | null;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
+  /** View menu "Show sub-columns" (#2278). Absent = on; only `false` is stored meaningfully. */
+  showSubColumns?: boolean;
 }
 
 const DEFAULT_PREFS: ViewPrefs = {
@@ -47,6 +49,7 @@ function load(boardId: number): ViewPrefs {
       // separator, so it is treated as "never resized" rather than a deliberate choice.
       swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" && parsed.swimlaneColumnWidth !== 220 ? parsed.swimlaneColumnWidth : null,
       columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
+      ...(parsed.showSubColumns === false ? { showSubColumns: false } : {}),
       swimlaneHeights: (typeof parsed.swimlaneHeights === "object" && parsed.swimlaneHeights !== null && !Array.isArray(parsed.swimlaneHeights)) ? parsed.swimlaneHeights as Record<number, number> : {},
     };
   } catch {
@@ -199,5 +202,14 @@ export function useViewPrefs(
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight };
+  const setShowSubColumns = useCallback(
+    (show: boolean) => setPrefs((prev) => {
+      const next = { ...prev };
+      if (show) delete next.showSubColumns; else next.showSubColumns = false;
+      return next;
+    }),
+    [setPrefs],
+  );
+
+  return { prefs, setShowSubColumns, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight };
 }
