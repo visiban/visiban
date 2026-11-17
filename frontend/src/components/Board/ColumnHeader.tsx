@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "../../types";
 import EditColumnModal, { type EditColumnTab } from "./EditColumnModal";
+import { subColumnCountLines } from "../../utils/stages";
 import ColumnPolicyPopover from "./ColumnPolicyPopover";
 import { columnPolicy, policyCountSummary } from "../../utils/columnPolicy";
 import { updateColumn } from "../../api/boards";
@@ -149,6 +150,8 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
       // #1101: an admin with no policy gets a direct path to write one. With a
       // policy, the always-visible Policy button's popover holds "Edit policy".
       ...(hasPolicy ? [] : [{ id: "add-policy", label: "Add policy…", onSelect: () => setEditTab("policy") }]),
+      // #2278 spec § Stage settings: opens from the column menu.
+      { id: "stage", label: "Stage settings…", onSelect: () => setEditTab("stage") },
       {
         id: "delete",
         label: "Delete column",
@@ -415,6 +418,10 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, column, card
               Weight {totalWeight}/{column.weight_limit}
             </span>
           )}
+          {/* Split stage (#2278): one line per sub-column, "Doing: 5 working"; the last counts as waiting. */}
+          {subColumnCountLines(column, cards).map((line) => (
+            <span key={line} data-testid="column-sub-count" className="block text-fg-tertiary">{line}</span>
+          ))}
         </div>
       </div>
 

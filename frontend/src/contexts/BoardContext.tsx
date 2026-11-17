@@ -20,7 +20,8 @@ export interface BoardContextType {
    * unknown and resyncs.
    */
   getLastFullFetchAt?: () => number | null;
-  moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
+  /** `gatesPassed` (#1102): the target sub-column of a gated stage; omitted = server default. */
+  moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
   forceMoveCard: () => Promise<void>;
   forceMoveCardTo: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
   moveError: MoveBlockedError | null;

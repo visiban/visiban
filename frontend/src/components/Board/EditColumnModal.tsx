@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
+import StageSettingsPanel from "./StageSettingsPanel";
+import { useOptionalBoardContext } from "../../contexts/BoardContext";
 import type { BoardColor } from "../../utils/boardColors";
 import { updateColumn } from "../../api/boards";
 import type { Column } from "../../types";
@@ -11,7 +13,7 @@ import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
 import { isImeComposing } from "../../utils/imeComposition";
 
-export type EditColumnTab = "settings" | "policy";
+export type EditColumnTab = "settings" | "policy" | "stage";
 
 interface Props {
   boardId: number;
@@ -33,10 +35,13 @@ interface Props {
 const TABS: { id: EditColumnTab; label: string }[] = [
   { id: "settings", label: "Settings" },
   { id: "policy", label: "Policy" },
+  // Stage settings (#2278): sub-columns, tracks and lane exceptions, with their own Save stage.
+  { id: "stage", label: "Stage" },
 ];
 
 export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose, initialTab, boardColors, isIntakeColumn }: Props) {
   const [tab, setTab] = useState<EditColumnTab>(initialTab ?? "settings");
+  const boardCtx = useOptionalBoardContext();
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
@@ -159,7 +164,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <div
           ref={bodyRef}
           role="region"
-          aria-label={tab === "settings" ? "Column settings" : "Column policy"}
+          aria-label={tab === "settings" ? "Column settings" : tab === "policy" ? "Column policy" : "Stage settings"}
           tabIndex={0}
           onScroll={onBodyScroll}
           className="flex-1 min-h-0 overflow-y-auto scroll-pb-8 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
@@ -251,6 +256,15 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 </button>
               </div>
             </div>
+          ) : tab === "stage" ? (
+            <StageSettingsPanel
+              boardId={boardId}
+              column={column}
+              swimlanes={boardCtx?.board?.swimlanes ?? []}
+              definitions={boardCtx?.board?.custom_field_definitions ?? []}
+              onSaved={(saved) => { onUpdated(saved); onClose(); }}
+              onCancel={onClose}
+            />
           ) : (
             <div className="flex flex-col gap-3">
               <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules.</p>
@@ -272,7 +286,8 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         )}
       </div>
 
-      <div className="flex gap-3 px-6 py-4 border-t border-line items-center justify-end shrink-0">
+      {/* The Stage tab saves through its own Save stage (a separate endpoint), so this footer is for Settings and Policy. */}
+      {tab !== "stage" && <div className="flex gap-3 px-6 py-4 border-t border-line items-center justify-end shrink-0">
         {/* Also says why Save is off, which matters on the Policy tab where
             the Name field is out of sight. */}
         <p id={`${tabsId}-status`} className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true">
@@ -287,7 +302,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         >
           {saving ? "Saving…" : "Save"}
         </button>
-      </div>
+      </div>}
     </ModalWrapper>
   );
 }

@@ -155,3 +155,12 @@ export function subColumnCountLines(column: Column, cards: Pick<Card, "column" |
   for (const c of cards) if (c.column === column.id) counts[cardSubColumnIndex(c, column)] += 1;
   return subs.map((s, i) => `${s.name}: ${counts[i]} ${i === subs.length - 1 ? "waiting" : "working"}`);
 }
+
+/** Names of the sub-columns either side of the card's own, for the Move to… steps (#2327). */
+export function subColumnNeighbors(card: Pick<Card, "column" | "gates_passed">, columns: Column[]): { previous: string | null; next: string | null } | null {
+  const col = columns.find((c) => c.id === card.column);
+  const subs = stageSubColumns(col);
+  if (!col || subs.length === 0) return null;
+  const i = cardSubColumnIndex(card, col);
+  return { previous: subs[i - 1]?.name ?? null, next: subs[i + 1]?.name ?? null };
+}

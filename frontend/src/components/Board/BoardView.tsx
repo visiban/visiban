@@ -74,10 +74,11 @@ import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCard
 import {
   CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, MOVES_PAUSED_REASON, archiveCards, assignCards, cardActionEntries, cardLink,
   cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, reorderChoices, resolveCardTarget, setCardsPriority, successMessage,
-  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep,
+  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail, type ReorderStep, type SubColumnStep, subColumnChoices,
 } from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
+import { cardSubColumnIndex, isGatedStage, leftWithGatesOpenWarning, stageSubColumns, subColumnNeighbors } from "../../utils/stages";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import LensView from "./Lens/LensView";
@@ -524,7 +525,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
+  const { prefs: viewPrefs, setShowSubColumns, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
   // #974 — per-user override of the board admin's card_density default,
   // layered on top of it (never mutates board.card_density itself, so an
@@ -1446,7 +1447,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // A drop into a confirm-on-entry column waiting on its checklist (#1101).
   const [pendingPolicyMove, setPendingPolicyMove] = useState<{
-    cardId: number; columnId: number; swimlaneId: number; position: number;
+    cardId: number; columnId: number; swimlaneId: number; position: number; gatesPassed?: number;
   } | null>(null);
   // Name-typed confirmation input for column delete (#965). Only required when the
   // column has cards — empty columns keep the simple Cancel/Delete flow. Reset on
@@ -2477,9 +2478,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (`minmax(0, 1fr)` at the default 220px), 40px for a hidden or collapsed
   // stub, 8px between. Every row reads this one string, so a resize moves the
   // header cell and every lane cell of that column together.
+  // A gated stage (#1102) takes a double-width track while "Show sub-columns"
+  // is on (#2278); off, it renders at normal width with progress bars.
+  const showSubColumns = viewPrefs.showSubColumns !== false;
   const gridTracks = useMemo<BoardTrack[]>(
-    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id)))),
-    [board.columns, isNarrowColumn, colWidths],
+    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id), showSubColumns && isGatedStage(col)))),
+    [board.columns, isNarrowColumn, colWidths, showSubColumns],
   );
   const gridTemplate = useMemo(() => boardGridTemplate(gridTracks), [gridTracks]);
   const gridMinWidth = useMemo(() => boardGridMinWidth(gridTracks), [gridTracks]);
@@ -2537,7 +2541,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Send a drag-and-drop move and announce its outcome once known. Shared by
   // a plain drop and a drop confirmed through the entry checklist (#1101).
-  const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number) => {
+  const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number, gatesPassed?: number) => {
     // The entry checklist can be open when the socket drops (#2325).
     if (movesPausedRef.current) {
       setDndAnnouncement("Move canceled, moves are paused while the board is offline");
@@ -2549,15 +2553,43 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // and visible error surfacing (moveError) on failure and never rejects. Only
     // announce the outcome once known: announcing "moved" up front told screen
     // reader users a failed move had succeeded (#1761).
-    void Promise.resolve(onMoveCard(card.id, targetColumnId, targetSwimlaneId, position)).then((outcome) => {
+    // Warn and record only (#1102 phase 1): leaving a stage with gates open
+    // is never refused; the server records `from_gates_open`, the mover is told.
+    const gateWarning = leftWithGatesOpenWarning(card, board.columns.find((c) => c.id === card.column), targetColumnId);
+    const subName = gatesPassed !== undefined && targetCol ? stageSubColumns(targetCol)[gatesPassed]?.name : undefined;
+    void Promise.resolve(onMoveCard(card.id, targetColumnId, targetSwimlaneId, position, gatesPassed)).then((outcome) => {
       if (outcome && outcome.ok === false) {
         // The move_failed / limit toast is announced assertively by the shared
         // toast region and already carries the cause; blank this status region
         // so the failure is read once (#1761, #2060).
         setDndAnnouncement("");
       } else if (targetCol && targetSwim) {
-        setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
+        setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}'${subName ? `, sub-column '${subName}'` : ""}, swimlane '${targetSwim.name}'`);
+        if (gateWarning) notifyGateWarning(gateWarning);
       }
+    });
+  };
+
+  // The gates-open warning (#1102): an announced warning toast, never a block.
+  const notifyGateWarning = (title: string) => {
+    notifyToast({ key: "gates-open-warning", variant: "warning", title, durationMs: 6000, testId: "gates-open-warning" });
+  };
+
+  // Sub-columns as keyboard stops (#2327): the card menu's Move to… steps to
+  // the neighboring sub-column through the same Move path, keeping the cell
+  // (no column change, so no WIP check and no CardMovement on the server).
+  const stepCardSubColumn = (card: Card, step: SubColumnStep) => {
+    if (!cardActionEntries([card], cardActionContext).find((e) => e.id === "move")?.enabled) return;
+    const col = board.columns.find((c) => c.id === card.column);
+    const subs = stageSubColumns(col);
+    if (!col || subs.length === 0) return;
+    const from = cardSubColumnIndex(card, col);
+    const to = step === "sub-previous" ? from - 1 : from + 1;
+    if (to < 0 || to >= subs.length) return;
+    void Promise.resolve(onMoveCard(card.id, card.column, card.swimlane, card.position, to)).then((outcome) => {
+      if (outcome && outcome.ok === false) { setDndAnnouncement(""); return; }
+      setDndAnnouncement(`Card '${card.title}' moved to sub-column '${subs[to].name}' in '${col.name}'`);
+      focusCardSoon(card.id);
     });
   };
 
@@ -2716,7 +2748,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       setDndAnnouncement("Move canceled, card returned to original position");
       return;
     }
-    const [, colId, swimId] = String(over.id).split(":");
+    // A split cell's targets are its sub-columns: `cell:{col}:{lane}:{index}` (#2278).
+    const [, colId, swimId, gateSeg] = String(over.id).split(":");
+    const gatesPassed = gateSeg !== undefined ? Number(gateSeg) : undefined;
     const cardId = Number(activeId);
     const card = board.cards.find((c) => c.id === cardId);
     if (!card) return;
@@ -2738,11 +2772,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       targetCol && targetSwim && needsEntryConfirm(card, targetCol)
       && getDropVerdict(cardId, targetCol, targetSwim).length === 0
     ) {
-      setPendingPolicyMove({ cardId, columnId: targetColumnId, swimlaneId: targetSwimlaneId, position: siblings.length });
+      setPendingPolicyMove({ cardId, columnId: targetColumnId, swimlaneId: targetSwimlaneId, position: siblings.length, gatesPassed });
       return;
     }
 
-    commitCardMove(card, targetColumnId, targetSwimlaneId, siblings.length);
+    // A drop into the card's own sub-column within its own cell changes nothing.
+    if (
+      gatesPassed !== undefined && card.column === targetColumnId && card.swimlane === targetSwimlaneId
+      && targetCol && cardSubColumnIndex(card, targetCol) === gatesPassed
+    ) {
+      setDndAnnouncement("Move canceled, card returned to original position");
+      return;
+    }
+    commitCardMove(card, targetColumnId, targetSwimlaneId, siblings.length, gatesPassed);
   };
 
   // A held drop goes stale when, over the socket, its card or target column
@@ -3084,6 +3126,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onExpandColumns={onShowAllColumns}
                 showArchived={showArchived}
                 onToggleArchived={() => setShowArchived((v) => !v)}
+                showSubColumns={showSubColumns}
+                onShowSubColumnsChange={board.columns.some(isGatedStage) ? setShowSubColumns : undefined}
               />
             </span>
             <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
@@ -3508,6 +3552,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       // on the open card instead.
                       onOpenCardMenu={selectedCard || peekCardId !== null ? undefined : openCardMenu}
                       contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
+                      showSubColumns={showSubColumns}
                       onCardClick={handleCardClick}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={handleLocalSwimlaneUpdated}
@@ -3650,12 +3695,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             entries={cardActionEntries(menuCards, cardActionContext)}
             columns={board.columns}
             members={board.members}
-            reorder={menuCards.length === 1 ? reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds)) : []}
+            reorder={menuCards.length === 1 ? [
+              ...reorderChoices(cellOrderOf(board.cards, menuCards[0], filteredCardIds)),
+              ...subColumnChoices(subColumnNeighbors(menuCards[0], board.columns)),
+            ] : []}
             onAction={(action, value) => {
               const ids = menuCards.map((c) => c.id);
               closeCardMenu("action");
               if (action === "move" && (value === "earlier" || value === "later")) {
                 reorderCardInCell(menuCards[0], value);
+                return;
+              }
+              if (action === "move" && (value === "sub-previous" || value === "sub-next")) {
+                stepCardSubColumn(menuCards[0], value);
                 return;
               }
               void runCardAction(ids, action, value);
@@ -3893,7 +3945,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             criteria={entryCriteriaFor(card, target)}
             onConfirm={() => {
               setPendingPolicyMove(null);
-              commitCardMove(card, columnId, swimlaneId, position);
+              commitCardMove(card, columnId, swimlaneId, position, pendingPolicyMove.gatesPassed);
               focusCardSoon(cardId);
             }}
             onCancel={() => {

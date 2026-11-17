@@ -38,6 +38,13 @@ interface Props {
   showArchived: boolean;
   onToggleArchived: () => void;
   /**
+   * "Show sub-columns" (#2278). Rendered only when the board has a gated stage
+   * (omit the handler otherwise): on, a split stage is double width with one
+   * column per sub-column; off, normal width with a progress bar per card.
+   */
+  showSubColumns?: boolean;
+  onShowSubColumnsChange?: (show: boolean) => void;
+  /**
    * Phones only (#2340): the View button is hidden and the Filter panel's "View options"
    * button opens this panel instead. Each bump of `openRequest` opens it anchored to
    * `anchorRef` (the Filter trigger), which also takes focus back on Escape or Tab-off.
@@ -251,6 +258,25 @@ export default function BoardViewMenu(props: Props) {
           <button type="button" ref={showRef} className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={showColumns}>Show all</button>
         </div>
       </div>
+
+      {props.onShowSubColumnsChange && (
+        <div className="flex items-center justify-between gap-2">
+          <span id={`${panelId}-subcols`} className="text-sm text-fg">Show sub-columns</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={props.showSubColumns !== false}
+            aria-labelledby={`${panelId}-subcols`}
+            data-testid="view-menu-sub-columns"
+            onClick={() => props.onShowSubColumnsChange?.(props.showSubColumns === false)}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${MENU_ITEM_FOCUS_RING} ${
+              props.showSubColumns !== false ? "bg-button-primary border-transparent" : "bg-surface-hover border-line-strong"
+            }`}
+          >
+            <span aria-hidden="true" className={`inline-block h-4 w-4 rounded-full bg-surface shadow transition-transform motion-reduce:transition-none ${props.showSubColumns !== false ? "translate-x-4" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+      )}
 
       <div className="border-t border-line pt-2">
         <button
