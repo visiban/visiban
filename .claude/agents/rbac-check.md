@@ -1,7 +1,7 @@
 ---
 name: rbac-check
 model: sonnet
-description: Use proactively when adding or modifying any API endpoint, view, viewset, or permission class. Verifies authentication gates, board membership checks, and minimum role enforcement per HTTP action. A missing permission check is a security vulnerability. Also triggered automatically via post-edit hook on views.py.
+description: Use proactively when adding or modifying any API endpoint, view, viewset, or permission class. Verifies authentication gates, board membership checks, and minimum role enforcement per HTTP action. A missing permission check, or one that passes when its input is absent, is a security vulnerability. Also triggered automatically via post-edit hook on views.py.
 tools: Read, Grep, Glob
 maxTurns: 39
 ---
@@ -67,6 +67,15 @@ Trace every value that arrives in `request.data` (or a writable serializer field
 - **Fail closed.** Code that reads a stored authorization value must treat an unrecognized value as "no access".
 - **Match the canonical path.** Every write path that reaches the same state (create, update, move, import, re-parent) requires the same checks as the dedicated endpoint for it.
 - **Respond uniformly.** A missing target and a forbidden target should be indistinguishable to the caller.
+
+#### 3b. Absent-input branch of every guard (#1075)
+
+For every permission class, permission helper, serializer `to_representation` or `validate*` gate, and consumer-side filter in the diff that branches on the presence of an input (`self.context.get(...)`, `view.kwargs.get(...)`, `getattr(obj, "x", None)`, `if x is not None: ...enforce...`, an empty queryset default replaced in `__init__`):
+
+- **Find the absent branch and read what it does.** It must deny (return `False`, strip the field, accept no id) or raise. A branch that returns `True`, keeps a field, skips the check, or leaves a field's queryset at `.all()` is a fail-open guard, even if every caller passes the input today. A permission class that cannot resolve its subject (no board, wrong type) denies.
+- **No duck typing on the subject.** `getattr(obj, "board", obj)` or `getattr(link, "recipient_hash", None)` hands a wrong-typed object to the check as if it were the right one. Require an `isinstance` check or a plain attribute access that raises.
+- **A deliberate "unfiltered" case is said explicitly.** Where an absent input once meant "unfiltered on purpose" (a broadcast payload built without a recipient), the caller must opt in with an explicit marker (e.g. `BROADCAST_PAYLOAD_CONTEXT_KEY`), so the absent case can fail closed.
+- **Require a test that builds the guard without its input** and asserts the safe outcome, beside the populated-case test. A test that only constructs the populated case passes whether or not the absent case is safe; flag a new or changed guard without one as a 🟡 gap. See `boards/tests/test_absent_input_guards_1075.py` for the pattern.
 
 ### 4. Verify cross-board isolation
 
