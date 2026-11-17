@@ -1851,3 +1851,14 @@ A cue that appears in response to a user filter or setting change (for example "
 
 - A checkbox whose state is fixed by the system (checked and `disabled`) uses native `disabled`, `accent-primary`, and `disabled:opacity-40 disabled:cursor-not-allowed` on the input only. Never put a whole-label opacity modifier on it; the reason is a visible sibling line referenced by `aria-describedby`.
 - `MoreDisclosure` (in `IntakeColumnCallout.tsx`) is the one collapsed-by-default More/Less disclosure for column-settings notes. Reuse it; keep `hidden` on the wrapper div.
+
+## Gated stages and tracks (#2278, #1102, #1920)
+
+- **Derive, don't store.** Sub-column placement, track state, gate counts and the keyboard stops come from `utils/stages.ts`. A card's sub-column is `gates_passed` clamped into range (`cardSubColumnIndex`), so a stale copy never disappears from the grid. A sub-column renders its cell's cards in `position` order; `position` is never per sub-column.
+- **One Move path.** Drops on a sub-column (`cell:{col}:{lane}:{index}`), the card menu's "Move on to / Move back to" steps and the entry-checklist replay all call `moveCard(..., gatesPassed)`. Omit `gatesPassed` for "server default" (bulk move, plain columns, a drop on an unsplit cell), and keep the four-argument call when it is undefined. Never add a second move endpoint or a client-side refusal.
+- **Warn and record only.** Leaving a stage with gates open raises the `gates-open-warning` toast after the move succeeds. Do not block, confirm or disable the drop for it until #1923 adds a board setting.
+- **A split cell registers no droppable of its own.** Each sub-column is its own droppable, and the cell's is `disabled`, so `closestCenter` never sees two nested targets under the pointer.
+- **Track chips carry state by icon and fill.** Done is a check on `bg-success/20` with `text-success-on-tint`, open a hollow circle with a `border-line-strong` edge, not applicable a dash on `bg-surface-hover`. Every chip's accessible name spells the state out ("Technical: done"); the phone face prints it too.
+- **Dimension fields are tracks, not fields.** Filter `is_dimension` out of every generic custom-field list, pinned count and `show_on_card` row (`isDimensionField`). `CardItem` does this once, at the top, for all of its field rows.
+- **Stage settings save through `PUT .../columns/{id}/stage/` only.** Errors are mapped by string `code` first (`version_conflict`, `column_not_found`), then by field key; never parse the message text. "Add track" creates the dimension dropdown before the stage save and records its id on the row, so a retry does not create it twice. UI copy says "done"; the API value is `satisfied`.
+- **"Show sub-columns" is a per-browser view pref** (`useViewPrefs`, absent = on). The View menu shows the switch only when a board has a split stage.
