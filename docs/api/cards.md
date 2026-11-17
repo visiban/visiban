@@ -628,7 +628,7 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 | `X-Total-Count` | Number of rows on the card, ignoring `limit`/`offset` |
 | `X-Truncated` | `true` when more rows exist after the returned ones, otherwise `false` |
 
-Order is fixed with the row `id` as a tiebreaker (activities and attachments newest first, comments oldest first), so offset paging neither skips nor repeats a row on an unchanged card. Access checks are unchanged: a card you cannot see is a `404` whatever the query string.
+Order is fixed with the row `id` as a tiebreaker (movements, activities and attachments newest first, comments oldest first), so offset paging neither skips nor repeats a row on an unchanged card. Access checks are unchanged: a card you cannot see is a `404` whatever the query string.
 
 ```
 GET /api/v1/boards/4/cards/17/activities/?limit=200            -> X-Total-Count: 450, X-Truncated: true

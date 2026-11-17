@@ -129,6 +129,17 @@ class LabelPagedTests(_Base):
         self.assertEqual(c.get(f"{self.base}/labels/paged/").status_code, bare)
         self.assertEqual(APIClient().get(f"{self.base}/labels/paged/").status_code, 401)
 
+    def test_paged_refuses_navigation_only_ancestor_viewer_like_the_bare_route(self):
+        # A member of a subgroup sees the parent in get_accessible_group_ids
+        # (navigation only), so get_object() succeeds on the parent, but
+        # membership inherits downward only: _require_group_member must 403.
+        # A stranger 404s earlier and would not exercise that gate.
+        child = Group.objects.create(name="child", owner=self.admin, parent=self.group)
+        GroupMembership.objects.create(group=child, user=self.stranger, role=ROLE.MEMBER)
+        c = self._as(self.stranger)
+        self.assertEqual(c.get(f"{self.base}/labels/").status_code, 403)
+        self.assertEqual(c.get(f"{self.base}/labels/paged/").status_code, 403)
+
     def test_paged_does_not_shadow_label_detail_route(self):
         label = GroupLabel.objects.filter(group=self.group).first()
         r = self._as(self.admin).patch(f"{self.base}/labels/{label.pk}/", {"name": "renamed"}, format="json")

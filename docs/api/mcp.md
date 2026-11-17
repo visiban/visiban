@@ -580,7 +580,7 @@ A read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards
 
 ### `card://{card_id}`
 
-Card detail plus audit history (the 200 newest activities and comments, with `*_truncated` flags). Requires board membership — any role, including `collaborator`/`viewer`. Mime type `application/json`.
+Card detail plus audit history (the 200 newest movements, activities and comments, with `*_truncated` flags). Requires board membership — any role, including `collaborator`/`viewer`. Mime type `application/json`.
 
 **Returns:** the same fields as one row of `list_cards`, plus:
 
