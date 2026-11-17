@@ -456,7 +456,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
             className={`relative inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
             title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
-            aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
+            // Stable label: aria-pressed carries the state, so a swapped name would announce it twice.
+            aria-label={`Focus on ${swimlane.name}`}
             aria-pressed={isFocused}
           >
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -476,7 +477,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             >
               <OverflowMenu
                 ariaLabel={`Actions for swimlane "${swimlane.name}"`}
-                triggerClassName="inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                triggerClassName={`inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${menuOpen ? "text-info-on-tint bg-info/10" : ""}`}
                 externalOpen={menuOpen}
                 onExternalOpenChange={setMenuOpen}
                 items={[

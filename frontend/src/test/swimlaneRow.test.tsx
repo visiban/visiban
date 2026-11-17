@@ -124,6 +124,16 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTestId('swimlane-band')).not.toHaveTextContent(/\d+ cards?\b/)
   })
 
+  it('tints the overflow trigger while its menu is open (#2353)', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} isAdmin />)
+    const trigger = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' })
+    expect(trigger.className).not.toContain('bg-info/10')
+    await user.click(trigger)
+    expect(trigger.className).toContain('text-info-on-tint')
+    expect(trigger.className).toContain('bg-info/10')
+  })
+
   it('keeps the band controls on demand: hidden until hover or focus, shown without hover (#2335)', () => {
     render(<SwimlaneRow {...defaultProps()} isAdmin />)
     const menuWrap = screen.getByRole('button', { name: 'Actions for swimlane "Customer A"' }).parentElement!.parentElement!
@@ -395,13 +405,14 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Focus on Customer A')).toHaveAttribute('aria-label', 'Focus on Customer A')
   })
 
-  it('isFocused=true gives the focus button an "Exit focus" accessible name', () => {
+  it('isFocused=true keeps the focus button accessible name stable (aria-pressed carries state)', () => {
     const props = defaultProps()
     props.isFocused = true
     render(<SwimlaneRow {...props} />)
     // assert the attribute directly — aria-label and title share the same text here, so
     // getByRole's computed-name resolution would pass via the title fallback regardless
-    expect(screen.getByTitle('Exit focus')).toHaveAttribute('aria-label', 'Exit focus')
+    expect(screen.getByTitle('Exit focus')).toHaveAttribute('aria-label', 'Focus on Customer A')
+    expect(screen.getByRole('button', { name: 'Focus on Customer A' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('clicking focus button calls onFocus with swimlane id when not focused', async () => {
