@@ -107,6 +107,19 @@ describe('PhoneBoard (#2277)', () => {
     expect(screen.getByRole('button', { name: /Expand lane APAC/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('reads "No matching cards in <column>." in an empty lane while a filter is active (#2345)', () => {
+    setup({ filteredCardIds: new Set() })
+    const notes = screen.getAllByTestId('phone-lane-empty')
+    expect(notes.length).toBeGreaterThan(0)
+    notes.forEach((n) => expect(n.textContent).toMatch(/^No matching cards in .+\.$/))
+    expect(screen.queryByText('No cards here')).not.toBeInTheDocument()
+  })
+
+  it('keeps "No cards here" for an empty lane with no filter (#2345)', () => {
+    setup({ cards: [] })
+    expect(screen.getAllByText('No cards here').length).toBeGreaterThan(0)
+  })
+
   it('counts overdue cards in the lane band', () => {
     setup({ cards: [card(1, 1, 1, { due_date: '2000-01-01' })] })
     expect(screen.getByText('1 overdue')).toBeInTheDocument()

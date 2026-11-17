@@ -525,7 +525,8 @@ export default function PhoneBoard({
                 <SortableContext items={shown.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                   {/* 44px card face at phone width (#2277): the face is the tap target that opens the detail panel. */}
                   <div className="flex flex-col gap-1.5 [&_[data-card-id]]:min-h-11">
-                    {shown.length === 0 && <p className="text-xs text-fg-tertiary px-1">No cards here</p>}
+                    {/* #2345: while a filter or chip is active an empty lane reads as the artboard's "No matching cards in <column>."; unfiltered it is simply empty. */}
+                    {shown.length === 0 && <p className="text-xs text-fg-tertiary px-1" data-testid="phone-lane-empty">{filteredCardIds ? `No matching cards in ${column.name}.` : "No cards here"}</p>}
                     {shown.map((card) => (
                       <CardItem
                         key={card.id}
