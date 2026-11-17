@@ -134,6 +134,13 @@ class CommitmentSerializerTests(EndpointFixture):
         Column.objects.filter(pk=self.review.pk).update(is_done=True)
         self.assertEqual(self.patch(self.review.uid).status_code, 200)
 
+    def test_rejects_a_non_null_value_on_create(self):
+        resp = self.client.post(
+            "/api/v1/boards/", {"name": "Fresh", "commitment_column_uid": self.review.uid}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertFalse(Board.objects.filter(name="Fresh").exists())
+
     def test_rejects_a_done_column(self):
         self.assertEqual(self.patch(self.done.uid).status_code, 400)
 

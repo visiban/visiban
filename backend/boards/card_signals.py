@@ -14,11 +14,14 @@ applies too: a card is overdue when it has a due date, that date is before
 today's date in ``INSTANCE_TIMEZONE`` (:func:`signal_today`), and the card is
 open (:func:`open_cards_q`: not archived, not in a Done column). A card due
 today is not overdue until the instance's midnight. Both sides pin the same
-cases from ``boards/tests/fixtures/overdue_rule_cases.json``. Every overdue
-*signal* (auto health counts, card badges, borders, Show chips, lane status)
-applies the whole rule; the ``?overdue=`` card filter applies only the date
-half, as it always has, so an API caller composes it with the column and
-archive filters (changing it would break that public filter's contract).
+cases from ``boards/tests/fixtures/overdue_rule_cases.json``. The surfaces that apply the
+whole rule are the auto health counts, the card face's Overdue status line and
+border, the Show chips, the lane status and the Overdue filter. Still on the
+user's personal time zone, pending #871: the due pill's overdue tone and the
+classic face's red due text, and the "Due today" / "Due this week" filters. The
+``?overdue=`` card filter applies only the date half, as it always has, so an
+API caller composes it with the column and archive filters (changing it would
+break that public filter's contract).
 """
 
 from __future__ import annotations

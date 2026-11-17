@@ -886,6 +886,16 @@ describe('BoardView — Show chips (#2272)', () => {
     expect(screen.queryByText('Calm high')).not.toBeInTheDocument()
   })
 
+  it('the Overdue filter drops a card once its column is switched to done (memo reads board.columns)', () => {
+    const board = makeBoard({ cards: [makeCard(1, { title: 'Overdue one', due_date: '2026-06-10' })] })
+    const view = renderBoard(board, 'f_due=overdue')
+    expect(screen.getByText('Overdue one')).toBeInTheDocument()
+    const doneBoard = { ...board, columns: board.columns.map((c) => (c.id === board.cards[0].column ? { ...c, is_done: true } : c)) }
+    act(() => { mockBoardContextValue = context(doneBoard) })
+    view.rerender(<ToastProvider><BoardView /></ToastProvider>)
+    expect(screen.queryByText('Overdue one')).not.toBeInTheDocument()
+  })
+
   it('swatches reuse the collapsed-lane square tokens', () => {
     renderBoard(chipBoard())
     expect(chip(/^Overdue/).querySelector('span[aria-hidden="true"]')).toHaveClass('bg-danger-emphasis')
