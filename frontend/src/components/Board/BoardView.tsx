@@ -159,6 +159,46 @@ function ColumnTrashZone() {
 // the board has a lens connection and the current user has git_lens_enabled).
 type BoardViewName = "board" | "summary" | "history" | "analytics" | "lens";
 
+/**
+ * The toolbar's tab strip. On a phone it is narrower than its tabs (#2348), so the active tab is scrolled
+ * into view when the view changes and a right-edge fade shows that more tabs sit past the edge. The fade is a
+ * mask (no color token needed) and only applies below 640px while the strip is scrolled short of its end.
+ */
+export function ViewTabStrip({ view, children }: { view: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState(false);
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (el) setFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const active = el.querySelector<HTMLElement>('[aria-current="page"]');
+    // jsdom has no scrollIntoView.
+    if (active && typeof active.scrollIntoView === "function") active.scrollIntoView({ inline: "nearest", block: "nearest" });
+    measure();
+  }, [view, measure]);
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+  return (
+    <div
+      ref={ref}
+      onScroll={measure}
+      data-tour-step="view-tabs"
+      data-testid="view-tab-strip"
+      data-fade={fade ? "true" : undefined}
+      className={`min-w-0 max-w-full overflow-x-auto max-sm:order-1 max-sm:flex-1 ${
+        fade ? "max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]" : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function ViewToggle({
   view,
   onChange,
@@ -2795,9 +2835,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             the row never scrolls sideways. */}
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
           <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-            {/* Phone: row 1 reserved, tabs on row 2, the lens controls on row 3, so Board to Lens never moves the tabs (#2321, #2333). */}
-            <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-            <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+            <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
             </div>
             <div className="flex-1 max-sm:hidden" />
@@ -2837,9 +2875,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2855,9 +2891,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2873,9 +2907,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          {/* Phone: the board's icon row is reserved empty so the tabs stay on row 2 in every view (#2321, #2333). */}
-          <div aria-hidden="true" className="hidden max-sm:block max-sm:order-1 max-sm:w-full max-sm:h-11" data-testid="phone-toolbar-row-1" />
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </div>
         </nav>
@@ -2918,6 +2950,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             movesPaused={movesPaused}
+            // Phone only (#2359): the peek sheet's reorder, in the detail panel a tap opens (#2358).
+            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds) : undefined}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -2956,14 +2990,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           the overflow menu and the connection status on the right. Nothing
           folds by viewport: the row wraps instead, so no control is ever
           hidden and the page never scrolls sideways. Connection status is the
-          last item and stays pinned to the trailing edge. */}
-      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
+          last item and stays pinned to the trailing edge (on phones it is
+          drawn only when not healthy, see below). */}
+      {/* Phone (#2348): one 44px row, the tabs scrolling inside their own box with Filter, Activity and More after them, so the chrome is header + tab strip (about 92px) and the strip sits at the same y as the other views' (#2349). */}
+      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:flex-nowrap max-sm:gap-x-1">
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-          <div data-tour-step="view-tabs" className="min-w-0 max-w-full overflow-x-auto max-sm:order-2 max-sm:w-full">
+          <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-          </div>
+          </ViewTabStrip>
           <div className="flex-1 max-sm:hidden" />
-          <div className="flex items-center gap-2 flex-wrap max-sm:order-1 max-sm:ml-auto">
+          <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
             <FilterPanel
               board={board}
               filters={effectiveFilters}
@@ -3074,8 +3110,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             />
           </div>
         </div>
-        <div className="flex items-center shrink-0 ml-auto max-sm:order-1 max-sm:ml-0">
+        <div className="flex items-center shrink-0 ml-auto max-sm:order-3 max-sm:ml-0">
           <ConnectionStatus
+            hideWhenHealthyOnPhone
             status={socketStatus}
             lastEventAt={socketLastEventAt}
             reconnectAttempt={socketReconnectAttempt}
@@ -3112,8 +3149,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          {/* Phone (#2333): every control in the bar is a 44px target; its facet menus are deferred to #2350. */}
-          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
+          {/* Phone (#2333): every control in the bar is a 44px target; the text inputs are lifted but a checkbox or radio is not (its row is the target); the facet menus are CheckboxDropdown and carry their own rules (#2350); the Lanes popover is not portaled, so its checkbox label row carries its own max-sm:min-h-11. */}
+          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}
@@ -3714,6 +3751,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             movesPaused={movesPaused}
+            // Phone only (#2359): the peek sheet's reorder, in the detail panel a tap opens (#2358).
+            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds) : undefined}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}

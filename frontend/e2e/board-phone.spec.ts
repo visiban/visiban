@@ -28,11 +28,21 @@ async function overlappingControls(page: Page): Promise<string[]> {
     const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="mobile-nav-bar"] button, nav[aria-label="Board toolbar"] button'))
       .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' })
     const name = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)
+    // The part a user sees: a tab scrolled out of the tab strip's own box (#2348) is clipped, not overlapping the icons after it.
+    const shown = (el: Element) => {
+      let r = el.getBoundingClientRect()
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (getComputedStyle(p).overflowX === 'visible') continue
+        const c = p.getBoundingClientRect()
+        r = new DOMRect(Math.max(r.left, c.left), r.top, Math.max(0, Math.min(r.right, c.right) - Math.max(r.left, c.left)), r.height)
+      }
+      return r
+    }
     const out: string[] = []
     for (let i = 0; i < els.length; i++) {
       for (let j = i + 1; j < els.length; j++) {
         if (els[i].contains(els[j]) || els[j].contains(els[i])) continue
-        const a = els[i].getBoundingClientRect(), b = els[j].getBoundingClientRect()
+        const a = shown(els[i]), b = shown(els[j])
         const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
         const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
         if (w > 1 && h > 1) out.push(`${name(els[i])} overlaps ${name(els[j])}`)
@@ -166,9 +176,9 @@ test.describe('board phone layout', () => {
     expect(hb!.x + hb!.width).toBeLessThanOrEqual(nb!.x + 1)
     expect(nb!.x + nb!.width).toBeLessThanOrEqual(sb!.x + 1)
     expect(bb!.y).toBeLessThan(1)
-    // Header row, toolbar icon row, tab row: the separate navigation bar no longer adds a fourth.
+    // Header row, then one toolbar row (tabs plus Filter, Activity and More): the separate navigation bar no longer adds a third (#2348).
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
-    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     await hamburger.click()
     await expect(page.getByRole('dialog', { name: 'Navigation menu' })).toBeVisible()
   })
@@ -179,7 +189,7 @@ test.describe('board phone layout', () => {
     await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
-    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(140)
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     expect(await overlappingControls(page)).toEqual([])
     expect(await smallControls(page, ['[role="banner"]', 'nav[aria-label="Board toolbar"]'])).toEqual([])
   })
@@ -261,6 +271,78 @@ test.describe('board phone layout', () => {
     await sweep('[role="dialog"][aria-label="Navigation menu"]')
   })
 
+  test('the filter bar facet menus, Activity drawer, Board Health popover and command palette are 44px (#2350, #2351)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const rowHeights = (sel: string) => page.locator(sel).evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    // Facet menus render at document.body, so they carry their own rules. The option's checkbox is a decorative 16px mark inside a 44px row (intended).
+    await page.getByRole('button', { name: 'Filters and view options' }).click()
+    await page.getByRole('button', { name: /^Show filter bar/ }).click()
+    const bar = page.getByRole('search', { name: 'Board filters' })
+    await expect(bar).toBeVisible()
+    expect(await smallControls(page, ['[role="search"]'])).toEqual([])
+    // The "+ Filter" menu is a CheckboxDropdown, as is every facet; its menu is portaled to document.body.
+    await bar.getByRole('button', { name: '+ Filter' }).click()
+    const optionRows = page.locator('[role="group"] label:has(input[type="checkbox"])')
+    await expect(optionRows.first()).toBeVisible()
+    const rows = await optionRows.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBeGreaterThan(0)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+    await page.keyboard.press('Escape')
+    // The Saved filters menu is portaled too (AnchoredMenuPanel), so it carries its own descendant rule.
+    await bar.getByRole('button', { name: 'Saved filters' }).click()
+    await expect(page.getByRole('group', { name: 'Saved filters' })).toBeVisible()
+    expect(await smallControls(page, ['[role="group"][aria-label="Saved filters"]'])).toEqual([])
+    await page.keyboard.press('Escape')
+    // Activity drawer.
+    await page.getByRole('button', { name: 'Open activity drawer' }).click()
+    await expect(page.getByTestId('activity-drawer')).toBeVisible()
+    expect(await smallControls(page, ['[data-testid="activity-drawer"]'])).toEqual([])
+    await page.getByTestId('activity-drawer').getByRole('button', { name: 'Close activity drawer' }).click()
+    await expect(page.getByTestId('activity-drawer')).toBeHidden()
+    // Board Health popover.
+    await page.getByRole('button', { name: /^Set health status for/ }).first().click()
+    const health = page.getByRole('dialog', { name: /^Health status for/ })
+    await expect(health).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"][aria-label^="Health status for"]'])).toEqual([])
+    await page.keyboard.press('Escape')
+    // Command palette (opened from the header Search button).
+    await page.getByRole('banner').getByRole('button', { name: /^Search/ }).click()
+    await expect(page.getByRole('combobox', { name: 'Command palette search' })).toBeVisible()
+    expect(Math.round((await page.getByRole('combobox', { name: 'Command palette search' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    const items = await rowHeights('[role="listbox"][aria-label="Results"] [role="option"]')
+    expect(items.length).toBeGreaterThan(0)
+    expect(Math.min(...items)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('the card actions menu items are 44px (#2350)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    // The menu is portaled to document.body (the phone "More actions" menu is the same component), so it carries its own rule.
+    await page.locator('[data-card-id]').first().click({ button: 'right' })
+    const menu = page.getByTestId('card-context-menu')
+    await expect(menu).toBeVisible()
+    const heights = await menu.getByRole('menuitem').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(heights.length).toBeGreaterThan(0)
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('the tab strip scrolls and fades its right edge instead of clipping silently (#2348)', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const strip = page.getByTestId('view-tab-strip')
+    const m = await strip.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, right: el.getBoundingClientRect().right, fade: el.getAttribute('data-fade') }))
+    expect(m.sw).toBeGreaterThan(m.cw)
+    expect(m.fade).toBe('true')
+    const filter = await page.getByRole('button', { name: 'Filters and view options' }).boundingBox()
+    expect(m.right).toBeLessThanOrEqual(filter!.x + 0.5)
+    // Switching to the last tab scrolls it into view.
+    await page.getByRole('button', { name: 'Analytics' }).click()
+    const analytics = await page.getByRole('button', { name: 'Analytics' }).boundingBox()
+    const box = await strip.boundingBox()
+    expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+  })
+
   test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {
     // Focus needs a second lane; the later route wins over the beforeEach one.
     await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
@@ -294,6 +376,36 @@ test.describe('board phone layout', () => {
     const clear = page.getByRole('button', { name: 'Clear lane filters' })
     await expect(clear).toBeVisible()
     expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+  })
+
+  test('the Lanes popover in the filter bar has 44px targets, its checkbox row included (#2350)', async ({ page }) => {
+    // Two lanes offer the Lanes control. Its popover is not portaled, so it sits inside role=search, whose
+    // descendant rule skips a checkbox: the "Hide lanes with no matching cards" label row carries its own 44px.
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('/')
+    const bar = page.getByRole('search', { name: 'Board filters' })
+    await expect(bar).toBeVisible()
+    await bar.getByRole('button', { name: /^Lanes/ }).click()
+    const pop = bar.getByRole('dialog', { name: 'Lane filters' })
+    await expect(pop).toBeVisible()
+    const row = pop.locator('label:has([data-testid="lane-filter-hide-unmatched"])')
+    expect(Math.round((await row.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    expect(await smallControls(page, ['[role="search"] [role="dialog"]'])).toEqual([])
+  })
+
+  test('the column policy popover is 44px (#2350)', async ({ page }) => {
+    const policy = { entry: ['Has an owner'], done: ['Reviewed'] }
+    await routeBoard(page, { ...BOARD_FULL, columns: BOARD_FULL.columns.map((c, i) => (i === 0 ? { ...c, policy } : c)) } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: /^Column policy for / }).first().click()
+    const pop = page.getByRole('dialog', { name: /^Column policy for / })
+    await expect(pop).toBeVisible()
+    // The fixture user is an admin, so Edit policy is there to measure.
+    await expect(pop.getByRole('button', { name: 'Edit policy' })).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"][aria-label^="Column policy for"]'])).toEqual([])
   })
 
   test('adds a card to a lane and Edit swimlane opens the modal', async ({ page }) => {
@@ -473,5 +585,76 @@ test.describe('board phone layout', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
     await toggle.click()
     await expect(page.getByRole('button', { name: /Expand lane/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+})
+
+// #2359: a tap opens the card detail panel (#2358), which carries the peek sheet's Move earlier / Move later.
+test.describe('phone reorder from the card detail panel (#2359)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('tap a card, then Move earlier in the detail panel reorders it', async ({ page }) => {
+    await routeAuth(page)
+    const second = { ...CARD, id: CARD.id + 1000, uid: 'e2ereorder0002', title: 'Second in the cell', position: CARD.position + 1 }
+    await routeBoard(page, { ...BOARD_FULL, cards: [CARD, second] })
+    let moved: unknown = null
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${second.id}/move/**`, async (route) => {
+      moved = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...second, position: CARD.position, version: 2 } }) })
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const order = () => page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getAttribute('data-card-id')))
+    await expect.poll(order).toEqual([String(CARD.id), String(second.id)])
+    await page.locator(`[data-card-id="${second.id}"]`).tap()
+    const reorder = page.getByTestId('card-detail-reorder')
+    await expect(reorder).toBeVisible()
+    const earlier = reorder.getByRole('button', { name: 'Move earlier' })
+    const later = reorder.getByRole('button', { name: 'Move later' })
+    // The last card in its cell can only step earlier; both targets are 44px.
+    await expect(later).toBeDisabled()
+    expect((await earlier.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+    await earlier.tap()
+    await expect.poll(() => moved).not.toBeNull()
+    expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
+    await expect(earlier).toBeDisabled()
+    await expect(later).toBeEnabled()
+  })
+  test('the detail panel Move button and its popover are 44px (#2359)', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const move = page.getByRole('button', { name: 'Move card to different column or swimlane' })
+    await expect(move).toBeVisible()
+    const box = (await move.boundingBox())!
+    expect(Math.round(Math.min(box.width, box.height))).toBeGreaterThanOrEqual(44)
+    await move.tap()
+    await expect(page.locator('[data-move-popover]')).toBeVisible()
+    expect(await smallControls(page, ['[data-move-popover]'])).toEqual([])
+  })
+
+  test('a multi-select custom field menu in the detail panel is 44px (#2350)', async ({ page }) => {
+    // MultiSelectDropdown is reachable on the phone board through the card detail panel's custom fields.
+    const def = {
+      id: 1, uid: 'sfuid000001', name: 'Tags', field_type: 'multi_select', choices: ['Alpha', 'Beta', 'Gamma'], position: 1,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    await routeAuth(page)
+    await routeBoard(page, { ...BOARD_FULL, custom_field_definitions: [def] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    await page.getByRole('button', { name: /Custom fields/ }).tap()
+    const trigger = page.getByRole('button', { name: 'Tags: No value' })
+    await trigger.scrollIntoViewIfNeeded()
+    await trigger.tap()
+    const search = page.getByRole('combobox', { name: /Filter Tags choices/ })
+    await expect(search).toBeVisible()
+    const listbox = page.getByRole('listbox')
+    const rows = await listbox.getByRole('option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBe(3)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+    expect(Math.round((await search.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
   })
 })

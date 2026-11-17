@@ -184,7 +184,7 @@ function CheckboxDropdownInner<T extends string | number>(
                     <div className="h-px bg-surface-active/50" />
                   </div>
                 )}
-                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface-hover cursor-pointer text-sm text-fg-secondary">
+                <label className="flex items-center gap-2 px-3 py-1.5 max-sm:min-h-11 hover:bg-surface-hover cursor-pointer text-sm text-fg-secondary">
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}
