@@ -43,9 +43,9 @@ describe('stage structure (#1102)', () => {
     expect(gatesOpen(card({ gates_passed: 0 }), gated)).toBe(1)
     expect(gatesOpen(card({ gates_passed: 1 }), gated)).toBe(0)
     expect(gatesOpen(card(), col())).toBe(0)
-    expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), gated, 2)).toBe('Left Discovery with 1 gate open')
+    expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), gated, 2)).toBe('Left Discovery in Doing, before Ready')
     const three = col({ sub_columns: [sub(1, 0, 'A'), sub(2, 1, 'B'), sub(3, 2, 'C')] })
-    expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), three, 2)).toBe('Left Discovery with 2 gates open')
+    expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), three, 2)).toBe('Left Discovery in A, before C')
     expect(leftWithGatesOpenWarning(card({ gates_passed: 1 }), gated, 2)).toBeNull()
     expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), gated, 1)).toBeNull()
     expect(leftWithGatesOpenWarning(card({ gates_passed: 0 }), undefined, 2)).toBeNull()
@@ -77,9 +77,9 @@ describe('stage structure (#1102)', () => {
   })
 
   it('notes gate positions on a history move row', () => {
-    expect(movementGateNote({ from_gates_open: 2, to_gates_passed: 1 })).toBe('left with 2 gates open, entered past 1 gate')
-    expect(movementGateNote({ from_gates_open: 1 })).toBe('left with 1 gate open')
-    expect(movementGateNote({ to_gates_passed: 2 })).toBe('entered past 2 gates')
+    expect(movementGateNote({ from_gates_open: 2, to_gates_passed: 1 })).toBe('left 2 sub-columns early, entered at sub-column 2')
+    expect(movementGateNote({ from_gates_open: 1 })).toBe('left 1 sub-column early')
+    expect(movementGateNote({ to_gates_passed: 2 })).toBe('entered at sub-column 3')
     expect(movementGateNote({ from_gates_open: null, to_gates_passed: null })).toBeNull()
   })
 })
@@ -118,7 +118,7 @@ describe('track states (#1920/#1921)', () => {
 
   it('feeds the peek seam and keeps dimensions out of its field list and pinned count', () => {
     expect(getCardTrackStates(values('Done'), stage, lane, [tech, biz])).toEqual([
-      { id: 41, name: 'Technical', state: 'done' }, { id: 42, name: 'Business', state: 'open' },
+      { id: 41, name: 'Technical', state: 'done', fromLane: false }, { id: 42, name: 'Business', state: 'open', fromLane: false },
     ])
     const plain = { ...tech, id: 7, name: 'Region', is_dimension: false, show_on_card: true } as CustomFieldDefinition
     expect(buildFieldRows(values('Done'), [tech, plain]).map((r) => r.definition.id)).toEqual([7])
@@ -127,7 +127,7 @@ describe('track states (#1920/#1921)', () => {
 
   it('adds the gate note to a peek history line', () => {
     const m = { movement_type: 'move', from_column: 1, to_column: 2, from_column_name: 'Discovery', to_column_name: 'Won', from_swimlane: 1, to_swimlane: 1, from_gates_open: 1 } as unknown as CardMovement
-    expect(describeMovement(m)).toBe('Discovery to Won, left with 1 gate open')
+    expect(describeMovement(m)).toBe('Discovery to Won, left 1 sub-column early')
   })
 })
 

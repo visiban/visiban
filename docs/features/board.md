@@ -1090,10 +1090,11 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 **Sub-columns.** A stage has no sub-columns or 2 to 4 of them. On the board it takes a double-width column, with one drop area per sub-column and a dashed line between them. The column header adds one line per sub-column ("Doing: 5 working"); the last sub-column counts as waiting. One WIP limit covers the whole stage. To move a card between sub-columns, drag it, or open the card menu (Menu key or Shift+F10), choose **Move to…** and pick "Move on to <next>" or "Move back to <previous>".
 
 - A card that enters a stage starts in its first sub-column, unless you drop it on a later one.
-- A card can leave a stage before its last sub-column. The move is never refused: you get a warning ("Left Discovery with 1 gate open"), and the card's history records it.
+- A card can leave a stage before its last sub-column. The move is never refused: you get a warning ("Left Discovery in Doing, before Ready"), and the card's history notes it ("left 1 sub-column early").
 - Bulk moves place every card in the target's first sub-column.
 - **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The switch only appears on a board that has a split stage.
-- At phone width, a split stage adds a row of sub-column buttons under the column picker.
+- At phone width, a split stage adds a row of sub-column buttons under the column picker, each with its card count. An empty sub-column says "Empty".
+- The card peek's **Move** lists every sub-column of a split stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, **Move earlier** and **Move later** step within the card's own sub-column.
 
 **Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the card detail panel. Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
 
@@ -1101,7 +1102,8 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 
 - **Sub-columns, in order:** rename, add (up to 4) or remove them. Sub-columns can't be reordered. Removing one moves its cards back to the sub-column before it.
 - **Tracks, any order:** **Add track** creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Removing a track only takes it off this stage; the field and its values stay.
-- **Swimlane exceptions:** mark a track not applicable for every card in a swimlane, for example "APAC: Business is not applicable". The card's own value is kept.
-- **Save stage** saves all three groups at once.
+- **Swimlane exceptions:** mark a track not applicable for every card in a swimlane, for example "APAC: Business is not applicable". The card's own value is kept. On the card, such a track reads "not applicable for this swimlane".
+- Before you save, the tab lists what happens to cards in a sub-column you removed, for example "3 cards will move from Review back to Doing."
+- **Save stage** saves all three groups at once. It saves only the Stage tab and closes the dialog, so save Settings or Policy changes first; the tab warns you when you have some. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
 
-Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage with gates open.
+Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column.

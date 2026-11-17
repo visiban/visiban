@@ -69,7 +69,10 @@ export function leftWithGatesOpenWarning(
   if (!fromColumn || fromColumn.id !== card.column || toColumnId === fromColumn.id) return null;
   const open = gatesOpen(card, fromColumn);
   if (open <= 0) return null;
-  return `Left ${fromColumn.name} with ${open} ${open === 1 ? "gate" : "gates"} open`;
+  // User-facing words are sub-columns; "gate" is internal (frontend/CLAUDE.md § Gated stages and tracks).
+  const subs = stageSubColumns(fromColumn);
+  const here = subs[cardSubColumnIndex(card, fromColumn)]?.name ?? "";
+  return `Left ${fromColumn.name} in ${here}, before ${subs[subs.length - 1].name}`;
 }
 
 /** One stop on the keyboard move path (#2327): a column, or a sub-column of a gated stage. */
@@ -166,15 +169,17 @@ export function subColumnNeighbors(card: Pick<Card, "column" | "gates_passed">, 
 }
 
 /**
- * The gate note on a column-move history row (#1102): "left with 2 gates
- * open" when the card left a gated stage early, "entered at gate 1" when the
- * move passed gates on arrival. Recorded, never enforced. Null for none.
+ * The sub-column note on a column-move history row (#1102): "left 2
+ * sub-columns early" when the card left a split stage before its last
+ * sub-column, "entered at sub-column 2" when it arrived past the first.
+ * Recorded, never enforced. Null for none. The row carries only counts, not
+ * the sub-column names (those may since have been renamed).
  */
 export function movementGateNote(m: { from_gates_open?: number | null; to_gates_passed?: number | null }): string | null {
   const parts: string[] = [];
   const open = m.from_gates_open ?? 0;
-  if (open > 0) parts.push(`left with ${open} ${open === 1 ? "gate" : "gates"} open`);
+  if (open > 0) parts.push(`left ${open} ${open === 1 ? "sub-column" : "sub-columns"} early`);
   const passed = m.to_gates_passed ?? 0;
-  if (passed > 0) parts.push(`entered past ${passed} ${passed === 1 ? "gate" : "gates"}`);
+  if (passed > 0) parts.push(`entered at sub-column ${passed + 1}`);
   return parts.length > 0 ? parts.join(", ") : null;
 }

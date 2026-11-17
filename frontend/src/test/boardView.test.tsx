@@ -1924,7 +1924,7 @@ describe('BoardView', () => {
       expect(moveCard).toHaveBeenLastCalledWith(1, 10, 20, 0, 1)
       await drop(1, 'cell:11:20:1')
       expect(moveCard).toHaveBeenLastCalledWith(1, 11, 20, 0, 1)
-      expect(await screen.findByText('Left To Do with 1 gate open')).toBeInTheDocument()
+      expect(await screen.findByText('Left To Do in Doing, before Ready')).toBeInTheDocument()
     })
 
     it('advisory mode moves at once', async () => {
