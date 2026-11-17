@@ -8,7 +8,8 @@ Done(3, done) and Released(4, done).
 
 from rest_framework.test import APIClient
 
-from boards.models import Board, Column
+from accounts.models import User
+from boards.models import Board, BoardMembership, Column
 from boards.services import flow_metrics as fm
 from boards.tests.test_flow_metrics import EndpointFixture, FlowFixture
 
@@ -116,6 +117,22 @@ class CommitmentSerializerTests(EndpointFixture):
         resp = self.patch(None)
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertIsNone(resp.json()["commitment_column_uid"])
+
+    def test_member_and_viewer_cannot_set_it(self):
+        for role in ("member", "viewer"):
+            with self.subTest(role=role):
+                user = User.objects.create_user(username=f"commit_{role}", password="pw")
+                BoardMembership.objects.create(board=self.board, user=user, role=role)
+                self.assertEqual(self.patch(self.review.uid, user=user).status_code, 403)
+                # An invalid value is still refused for the role, not the value.
+                self.assertEqual(self.patch("not-a-column", user=user).status_code, 403)
+                self.board.refresh_from_db()
+                self.assertIsNone(self.board.commitment_column_uid)
+
+    def test_echoing_the_stored_value_is_accepted_after_the_column_is_marked_done(self):
+        self.assertEqual(self.patch(self.review.uid).status_code, 200)
+        Column.objects.filter(pk=self.review.pk).update(is_done=True)
+        self.assertEqual(self.patch(self.review.uid).status_code, 200)
 
     def test_rejects_a_done_column(self):
         self.assertEqual(self.patch(self.done.uid).status_code, 400)

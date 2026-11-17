@@ -1864,15 +1864,16 @@ describe('BoardSettingsModal — Commitment point (#2050)', () => {
     expect(onUpdate).toHaveBeenCalledWith({ commitment_column_uid: null })
   })
 
-  it('reads a uid that names a done or deleted column as the default', async () => {
+  it('reads a uid that names a done or deleted column as the default, and says why', async () => {
     await openRules({ ...withColumns, commitment_column_uid: 'col4' })
     expect(screen.getByRole('combobox', { name: 'Cycle time starts at' })).toHaveTextContent('First move (default)')
+    expect(screen.getByText(/The chosen column was deleted or marked done/)).toBeInTheDocument()
   })
 
   it('shows the setting read-only to a non-admin', async () => {
     await openRules({ ...withColumns, commitment_column_uid: 'col3' }, vi.fn(), false)
     expect(screen.queryByRole('combobox', { name: 'Cycle time starts at' })).toBeNull()
-    expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent('Review')
+    expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent('Cycle time starts at: Review')
   })
 })
 
