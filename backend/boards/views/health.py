@@ -48,8 +48,10 @@ class ReadinessView(APIView):
     """GET /api/health/readiness/ — K8s readiness probe.
 
     Readiness depends on the database only (#1465). Valkey backs the channel
-    layer and the cache; with it down REST traffic still works (cache misses
-    fall through to the DB) and only realtime updates degrade. Failing
+    layer and the cache; with it down ordinary REST traffic still works
+    (the global throttles fail open and the SiteSetting reads fall through to
+    the DB, see visiban/cache_outage.py; named security throttles fail
+    closed) and realtime updates stop. Failing
     readiness for that would unready every pod and take the whole app offline
     for a partial outage, so a cache failure reports ``degraded`` with HTTP 200
     and a warning in the server log instead.

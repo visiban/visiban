@@ -46,7 +46,15 @@ Returns `200 OK` while the database is reachable. No authentication required. A 
 {"status": "degraded"}
 ```
 
-Valkey backs realtime updates and the cache. With it down the database is fine and REST requests still succeed (cache misses fall through to the database), so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. Realtime board updates stop until Valkey returns. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
+Valkey backs realtime updates and the cache. With it down the database is fine, so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
+
+**What works while Valkey is down** *(1.3+)*:
+
+- **Ordinary REST requests succeed.** The global `anon` (300/hour) and `user` (5000/hour) rate limits **fail open**: they cannot read their counters, so they let the request through and are not enforced until Valkey returns. Maintenance mode, the registration mode and the uploads toggle are read from the database instead of the cache, so they keep their real values.
+- **Endpoints with their own security rate limit fail closed** and return `500` until Valkey returns: login (including the failed-login lockout), registration, password change and reset, user search, invite-link redemption, share-link reads, and the other named limits in `DEFAULT_THROTTLE_RATES`. These limits exist to stop brute force and enumeration, so they are never silently lifted. Already signed-in users keep their database-backed sessions and are not signed out.
+- **Realtime board updates stop**, and WebSocket connections cannot be opened, until Valkey returns.
+
+The server log carries one `Cache unreachable (...)` warning per affected component per minute per process while the outage lasts.
 
 **Response — not ready** (`503 Service Unavailable`)
 ```json

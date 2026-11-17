@@ -76,12 +76,12 @@ class AnonRateLimitWiringTests(TestCase):
     def test_anon_throttle_in_default_classes(self):
         from django.conf import settings
         classes = settings.REST_FRAMEWORK.get("DEFAULT_THROTTLE_CLASSES", [])
-        self.assertIn("rest_framework.throttling.AnonRateThrottle", classes)
+        self.assertIn("visiban.cache_outage.FailOpenAnonRateThrottle", classes)
 
     def test_user_throttle_in_default_classes(self):
         from django.conf import settings
         classes = settings.REST_FRAMEWORK.get("DEFAULT_THROTTLE_CLASSES", [])
-        self.assertIn("rest_framework.throttling.UserRateThrottle", classes)
+        self.assertIn("visiban.cache_outage.FailOpenUserRateThrottle", classes)
 
     def test_share_link_rate_is_configured(self):
         from django.conf import settings

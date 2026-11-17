@@ -79,12 +79,42 @@ DEFAULT_MAINTENANCE_MESSAGE = (
 )
 
 
+def _cached_site_setting_read(key):
+    """Read a SiteSetting projection from the cache; ``None`` on a miss OR an outage.
+
+    WHY an outage is a miss here (#1465): these projections exist only to save
+    one ``SiteSetting`` query, and maintenance mode is read by middleware on
+    every request. Raising on a Valkey/Redis outage would turn every request
+    into a 500 while the readiness probe (deliberately) keeps routing traffic
+    to the pod. Falling through to the database returns the correct, current
+    value, so nothing is weakened; the cost is one query per request until the
+    cache answers. Only connection/timeout errors are absorbed.
+    """
+    from visiban.cache_outage import CACHE_OUTAGE_ERRORS, log_cache_outage
+
+    try:
+        return cache.get(key)
+    except CACHE_OUTAGE_ERRORS as exc:
+        log_cache_outage("the SiteSetting cache", exc)
+        return None
+
+
+def _cache_site_setting_value(key, value, ttl):
+    """Best-effort store of a SiteSetting projection; an outage skips it (#1465)."""
+    from visiban.cache_outage import CACHE_OUTAGE_ERRORS, log_cache_outage
+
+    try:
+        cache.set(key, value, ttl)
+    except CACHE_OUTAGE_ERRORS as exc:
+        log_cache_outage("the SiteSetting cache", exc)
+
+
 def get_registration_mode() -> str:
     """Return registration_mode, using a short-lived cache to avoid a DB hit on every request."""
-    mode = cache.get(REGISTRATION_MODE_CACHE_KEY)
+    mode = _cached_site_setting_read(REGISTRATION_MODE_CACHE_KEY)
     if mode is None:
         mode = SiteSetting.get().registration_mode
-        cache.set(REGISTRATION_MODE_CACHE_KEY, mode, REGISTRATION_MODE_CACHE_TTL)
+        _cache_site_setting_value(REGISTRATION_MODE_CACHE_KEY, mode, REGISTRATION_MODE_CACHE_TTL)
     return mode
 
 
@@ -96,11 +126,11 @@ def invalidate_registration_mode_cache():
 def get_uploads_enabled() -> bool:
     """Return whether file uploads are enabled, using a short-lived cache to
     avoid a DB hit on every attachment request."""
-    cached = cache.get(UPLOADS_ENABLED_CACHE_KEY)
+    cached = _cached_site_setting_read(UPLOADS_ENABLED_CACHE_KEY)
     if cached is not None:
         return cached
     value = SiteSetting.get().uploads_enabled
-    cache.set(UPLOADS_ENABLED_CACHE_KEY, value, UPLOADS_ENABLED_CACHE_TTL)
+    _cache_site_setting_value(UPLOADS_ENABLED_CACHE_KEY, value, UPLOADS_ENABLED_CACHE_TTL)
     return value
 
 
@@ -125,12 +155,12 @@ def get_maintenance_state() -> tuple[bool, str]:
     The tuple is cached as a unit rather than as two keys so a reader can never
     observe a half-updated state (mode flipped on, message still the old one).
     """
-    cached = cache.get(MAINTENANCE_CACHE_KEY)
+    cached = _cached_site_setting_read(MAINTENANCE_CACHE_KEY)
     if cached is not None:
         return cached
     setting = SiteSetting.get()
     value = (setting.maintenance_mode, setting.maintenance_message)
-    cache.set(MAINTENANCE_CACHE_KEY, value, MAINTENANCE_CACHE_TTL)
+    _cache_site_setting_value(MAINTENANCE_CACHE_KEY, value, MAINTENANCE_CACHE_TTL)
     return value
 
 

@@ -227,6 +227,18 @@ Without a ceiling, Valkey grows until the container or pod is OOM-killed, which 
 
 Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the chart's own and wins. Set `valkey.primary.maxmemory` to an empty string to remove the ceiling. For an external Valkey or Redis (`externalRedis`), set `maxmemory` and `maxmemory-policy volatile-lru` on that server yourself.
 
+### If Valkey goes down
+
+> **Changed in 1.3** (#1465).
+
+A Valkey outage no longer takes the app offline. The readiness probe stays `200` and reports `{"status": "degraded"}`, so pods stay in the Service, and:
+
+- **Ordinary REST requests keep working.** The global `anon` and `user` rate limits fail open: they are not enforced until Valkey returns. Maintenance mode, registration mode and the uploads toggle are read from the database instead.
+- **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. Signed-in users keep their sessions.
+- **Realtime updates stop** until Valkey returns.
+
+Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache unreachable` log lines, not on the readiness probe. See [Health API](../api/health.md#get-apihealthreadiness).
+
 ## Webhooks
 
 > **Added in 1.3** (#863).
@@ -236,7 +248,7 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 | Variable | Default | Description |
 |---|---|---|
 | `WEBHOOKS_ENABLED` | `false` | Turns the feature on. Helm: `backend.settings.webhooksEnabled`. |
-| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). |
+| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). With the Helm dispatcher egress policy on, add each private destination to `webhooks.dispatcher.networkPolicy.allowedCIDRs` as well, or the network policy still blocks it; see [Dispatcher egress policy](../features/webhooks.md#dispatcher-egress-policy-kubernetes). |
 | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | `3` | Connect timeout per delivery. |
 | `WEBHOOK_TIMEOUT_SECONDS` | `10` | Overall timeout per delivery, connect included. |
 | `WEBHOOK_MAX_PER_BOARD` | `10` | Webhooks per board. |
@@ -449,7 +461,7 @@ The backend exposes two health check endpoints for use by load balancers, monito
 | Endpoint | Method | Purpose | Checks | Success |
 |---|---|---|---|---|
 | `/api/health/liveness/` | GET | Is the process alive? | ASGI server responds | `200 {"status": "ok"}` |
-| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Valkey are reachable | `200 {"status": "ok"}` |
+| `/api/health/readiness/` | GET | Can the process serve traffic? | Database reachable; a Valkey outage reports `degraded` with HTTP 200 | `200 {"status": "ok"}` |
 
 Both endpoints are unauthenticated and do not require a valid `Host` header.
 

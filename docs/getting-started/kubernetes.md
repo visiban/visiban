@@ -548,9 +548,9 @@ The backend exposes two health endpoints for liveness and readiness probes:
 | Endpoint | Purpose | Checks |
 |---|---|---|
 | `/api/health/liveness/` | Is the process alive? | HTTP 200 if the ASGI server responds |
-| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database and Valkey are reachable |
+| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database is reachable; a Valkey outage reports `degraded` with HTTP 200 |
 
-They also work for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod leaves the Service within about 35 seconds of a dependency failure.
+They also work for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod leaves the Service within about 35 seconds of a database failure. A Valkey outage does not remove pods: REST traffic keeps flowing with realtime updates paused, as described in [Health API](../api/health.md#get-apihealthreadiness).
 
 ## Sample data
 

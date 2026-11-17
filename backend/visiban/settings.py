@@ -683,9 +683,13 @@ REST_FRAMEWORK = {
     # client exhausts the login/anon throttles for everyone. Raising it past
     # the real chain lets a client pick its own bucket via a spoofed header.
     "NUM_PROXIES": _NUM_PROXIES,
+    # DRF's AnonRateThrottle/UserRateThrottle, except that a Valkey/Redis
+    # outage lets the request through instead of turning it into a 500
+    # (#1465). Named-scope security throttles still fail closed; see
+    # visiban/cache_outage.py for the per-consumer decision.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "visiban.cache_outage.FailOpenAnonRateThrottle",
+        "visiban.cache_outage.FailOpenUserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         # In development (DEBUG) most scopes are raised to 9999/hour per scope: a
