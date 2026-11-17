@@ -3,7 +3,7 @@
 Point your liveness probe at `/api/health/liveness/` and your readiness probe at `/api/health/readiness/`.
 
 ```bash
-curl -i http://localhost:8000/api/health/readiness/   # 200 {"status": "ok"}, or 503 when a dependency is down
+curl -i http://localhost:8000/api/health/readiness/   # 200 {"status": "ok"}, 200 {"status": "degraded"} if only Valkey is down, 503 if the database is down
 ```
 
 **Why it matters:** the two probes answer different questions. A failed liveness probe means restart the container; a failed readiness probe means stop sending it traffic.
@@ -15,7 +15,7 @@ curl -i http://localhost:8000/api/health/readiness/   # 200 {"status": "ok"}, or
 | Endpoint | Checks | Success | Failure |
 |---|---|---|---|
 | `GET /api/health/liveness/` | Process is running; no external checks | `200` | Restart the container |
-| `GET /api/health/readiness/` | Database and Valkey cache reachable | `200` | `503`; withhold traffic |
+| `GET /api/health/readiness/` | Database reachable (Valkey is reported, not required) | `200` | `503`; withhold traffic |
 
 **Go deeper:** the [Kubernetes example](#kubernetes-example) has both probes ready to paste.
 
@@ -34,30 +34,36 @@ Use this as a **liveness probe** — if it fails, the container should be restar
 
 ## `GET /api/health/readiness/`
 
-Returns `200 OK` if both the database and Valkey cache are reachable. No authentication required.
+Returns `200 OK` while the database is reachable. No authentication required. A Valkey outage does not fail readiness (see below).
 
 **Response — healthy**
 ```json
 {"status": "ok"}
 ```
 
-**Response — degraded** (`503 Service Unavailable`)
+**Response — Valkey down** (`200 OK`)
+```json
+{"status": "degraded"}
+```
+
+Valkey backs realtime updates and the cache. With it down the database is fine and REST requests still succeed (cache misses fall through to the database), so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. Realtime board updates stop until Valkey returns. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
+
+**Response — not ready** (`503 Service Unavailable`)
 ```json
 {
   "status": "error",
   "errors": {
-    "db": "unavailable",
-    "redis": "unavailable"
+    "db": "unavailable"
   }
 }
 ```
 
-Only the failing subsystems appear in `errors`, each with the fixed value `unavailable`. Failure details are written to the server log, not the response. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
+Only the database can fail readiness, so `db` is the only key that appears in `errors`, with the fixed value `unavailable`. (Before 1.3 a Valkey failure returned `503` with a `redis` key; it now returns the `200` `degraded` response above.) Failure details are written to the server log, not the response. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
 
 !!! warning "Deprecated *(1.3+)*: the `errors` object"
     The `errors` object, and its component keys `db` and `redis`, are deprecated. They are still returned unchanged on every `503` for all of 1.x, but they name the backing services to anonymous callers, so they are planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)). After that the degraded body is `{"status": "error"}` only.
 
-    Decide readiness from the HTTP status code (`200` or `503`), or from `status`. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses `errors`, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (`Readiness check failed: database` or `Readiness check failed: cache`).
+    Decide readiness from the HTTP status code (`200` or `503`), or from `status`. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses `errors`, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (`Readiness check failed: database` or `Readiness degraded: cache`).
 
 ---
 
