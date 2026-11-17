@@ -93,6 +93,7 @@ const fakeBoard: BoardFull = {
   health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   swimlane_rollup_field: null,
   commitment_column_uid: null,
+  cards_can_have_children: false,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,
@@ -1874,6 +1875,50 @@ describe('BoardSettingsModal — Commitment point (#2050)', () => {
     await openRules({ ...withColumns, commitment_column_uid: 'col3' }, vi.fn(), false)
     expect(screen.queryByRole('combobox', { name: 'Cycle time starts at' })).toBeNull()
     expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent('Cycle time starts at: Review')
+  })
+})
+
+// ─── Child cards toggle (#2208) ────────────────────────────────────────────────
+
+describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
+  async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    return { user, onUpdate }
+  }
+
+  it('admin sees the switch off by default, with the explanation tied to it', async () => {
+    await openRules(fakeBoard)
+    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    expect(sw).toHaveAttribute('aria-describedby', 'cards-can-have-children-help')
+    expect(document.getElementById('cards-can-have-children-help')).toHaveTextContent('Cards on this board can have child cards on another board')
+  })
+
+  it('toggling sends cards_can_have_children', async () => {
+    const { user, onUpdate } = await openRules(fakeBoard)
+    await user.click(screen.getByRole('switch', { name: 'Cards can have child cards' }))
+    expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: true })
+  })
+
+  it('turning it off sends false', async () => {
+    const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true })
+    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    await user.click(sw)
+    expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: false })
+  })
+
+  it('shows the setting read-only to a non-admin', async () => {
+    await openRules({ ...fakeBoard, cards_can_have_children: true }, vi.fn(), false)
+    expect(screen.queryByRole('switch', { name: 'Cards can have child cards' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent('Cards on this board can have child cards on another board.')
+  })
+
+  it('tells a non-admin when the board cannot have child cards', async () => {
+    await openRules(fakeBoard, vi.fn(), false)
+    expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent('cannot have child cards')
   })
 })
 

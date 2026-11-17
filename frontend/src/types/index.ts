@@ -1170,6 +1170,12 @@ export interface Board {
    * column of the board reads as unset.
    */
   commitment_column_uid: string | null;
+  /**
+   * #2208 — true when cards on this board can have child cards on another
+   * board (a parent-tier board); false (the default) means a child-tier board.
+   * Readable by every member; only a board admin can change it.
+   */
+  cards_can_have_children: boolean;
 }
 
 /**
@@ -1368,6 +1374,12 @@ export interface BoardFull {
    * column of the board reads as unset.
    */
   commitment_column_uid: string | null;
+  /**
+   * #2208 — true when cards on this board can have child cards on another
+   * board (a parent-tier board); false (the default) means a child-tier board.
+   * Readable by every member; only a board admin can change it.
+   */
+  cards_can_have_children: boolean;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share
