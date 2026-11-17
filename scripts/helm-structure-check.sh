@@ -564,6 +564,11 @@ check_frontend_security_headers() {
     bad=1
   fi
 
+  if ! grep -qE "^[[:space:]]*add_header[[:space:]]+X-Content-Type-Options[[:space:]]+nosniff[[:space:]]+always;" <<< "$conf"; then
+    fail "nginx does not send 'X-Content-Type-Options nosniff always' (the bundled templates do) (#1073)"
+    bad=1
+  fi
+
   # Referrer-Policy goes through a map so Django's own (possibly stricter,
   # e.g. the password-reset redirect's no-referrer) value is never overridden:
   # nginx adds same-origin only when the upstream sent none (#1531).
@@ -636,7 +641,7 @@ check_frontend_security_headers() {
       bad=1
     fi
   done
-  [ "$bad" -eq 0 ] && pass "nginx sends X-Frame-Options DENY and a CSP identical to the bundled template (connect-src host list aside), with the right connect-src per ingress variant"
+  [ "$bad" -eq 0 ] && pass "nginx sends X-Frame-Options DENY, X-Content-Type-Options nosniff and a CSP identical to the bundled template (connect-src host list aside), with the right connect-src per ingress variant"
   return 0
 }
 
@@ -2443,6 +2448,7 @@ self_test() {
     "frontend CSP header removed|templates/frontend-configmap.yaml|s/add_header Content-Security-Policy /add_header X-Policy-Removed /"
     "frontend Referrer-Policy removed|templates/frontend-configmap.yaml|s/add_header Referrer-Policy /add_header X-Policy-Removed-RP /"
     "frontend Referrer-Policy fallback map removed|templates/frontend-configmap.yaml|s/\"\"      \"same-origin\";/\"\"      \"\";/"
+    "frontend X-Content-Type-Options removed|templates/frontend-configmap.yaml|s/add_header X-Content-Type-Options    nosniff always;/add_header X-Nosniff-Removed 1;/"
     "frontend X-Frame-Options weakened|templates/frontend-configmap.yaml|s/X-Frame-Options           DENY/X-Frame-Options           SAMEORIGIN/"
     # 4g (#1952): CSP img-src widened; an add_header inside a location (drops the
     # inherited server-level headers); the `:*` (port) connect-src entry dropped.

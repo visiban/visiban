@@ -256,6 +256,13 @@ helm install visiban helm/visiban \
 
 On Helm installs the frontend's Content-Security-Policy names `ingress.host` for WebSocket connections (`wss://`, plus `ws://` when `ingress.tls.enabled` is `false`), and nothing is added when the ingress is disabled or no host is set, so WebSocket connections then rely on `'self'` (as does reaching the app through a different host name or `kubectl port-forward`); set `ingress.host` if your browser does not map `'self'` to `ws`/`wss`; the frame policy is `X-Frame-Options: DENY` and the referrer policy is `Referrer-Policy: same-origin` (so share and invite tokens in URLs are never sent to another origin), matching the Compose templates.
 
+**How the security headers stay in step.** Visiban ships four nginx configs: the two Compose templates (`nginx/app.conf.template` for HTTPS, `nginx/app-http.conf.template` for plain HTTP), the Helm chart's frontend ConfigMap, and the frontend image's own default config (`frontend/nginx.default.conf`). Each sends its security headers once, at server level, and no `location` declares an `add_header` of its own: nginx inherits `add_header` into a location only when that location declares none, so one header added inside a location drops every security header for the paths it serves. CI checks this:
+
+- The `nginx-security-headers` job checks both templates statically (the full set at server level, no location that drops it, the two templates agreeing apart from HSTS). It then starts each template, and the image config, in `nginx:1.27-alpine` against a stub upstream and asserts the headers on `/`, an SPA route, a static asset, a missing asset, `/api/`, `/accounts/`, `/admin/`, `/static/`, `/media/` and `/mcp` (#1073).
+- The Helm ConfigMap doesn't have its own copy of the rules to check. `scripts/helm-structure-check.sh` compares it against `nginx/app.conf.template` (same Content-Security-Policy, `X-Frame-Options: DENY`, the Referrer-Policy map, no location-level `add_header`) in the `helm-template` job (#1952).
+
+If you maintain your own nginx config, keep the same rule: put a per-path header in a `map` and one server-level `add_header`, or re-declare the whole security-header set in that location.
+
 ### Ingress annotations
 
 The chart ships with default annotations for nginx-ingress that match the Docker Compose Nginx configuration:

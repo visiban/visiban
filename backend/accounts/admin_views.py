@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
+from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
@@ -666,6 +667,20 @@ class AdminPatchUserSerializer(drf_serializers.Serializer):
     must_change_password = drf_serializers.BooleanField(required=False)
     has_completed_tour = drf_serializers.BooleanField(required=False)
 
+    def _target(self):
+        """The user being changed, from ``context["target"]``; raise if absent (#1075).
+
+        The superuser guards below are meaningless without it. Before #1075 a
+        missing target skipped them, so a caller that forgot the context could
+        clear either flag on a superuser; now it is a programming error.
+        """
+        target = self.context.get("target")
+        if target is None:
+            raise ImproperlyConfigured(
+                "AdminPatchUserSerializer needs context['target'], the user being changed."
+            )
+        return target
+
     def validate_is_site_admin(self, value):
         """Refuse to clear site admin on a superuser (#1597).
 
@@ -673,8 +688,8 @@ class AdminPatchUserSerializer(drf_serializers.Serializer):
         ``ensure_superuser_is_site_admin``), so the flag cannot be cleared
         while ``is_superuser`` is set. The view passes the target in context.
         """
-        target = self.context.get("target")
-        if not value and target is not None and target.is_superuser:
+        target = self._target()
+        if not value and target.is_superuser:
             raise drf_serializers.ValidationError(SUPERUSER_SITE_ADMIN_MESSAGE)
         return value
 
@@ -686,8 +701,8 @@ class AdminPatchUserSerializer(drf_serializers.Serializer):
         cannot be cleared while ``is_superuser`` is set; the same rule and
         context as ``validate_is_site_admin`` (#1597).
         """
-        target = self.context.get("target")
-        if not value and target is not None and target.is_superuser:
+        target = self._target()
+        if not value and target.is_superuser:
             raise drf_serializers.ValidationError(SUPERUSER_ALL_CONTENT_MESSAGE)
         return value
 

@@ -88,6 +88,12 @@ class BoardTemplateSerializer(serializers.ModelSerializer):
         ]
 
 
+# Context key a ``member.*`` broadcast writer sets to get the unfiltered
+# ``BoardMembershipSerializer`` row (#1075). See that serializer's
+# ``to_representation`` for why the absent-context case strips instead.
+BROADCAST_PAYLOAD_CONTEXT_KEY = "broadcast_payload"
+
+
 class BoardMembershipSerializer(serializers.ModelSerializer):
     user = BoardUserSerializer(read_only=True)
     # The member's instance-level site-admin flag (#1290). A sibling of
@@ -122,40 +128,42 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
         Admin reads (members panel, member POST response) keep the field on
         every row; a non-admin sees it only on their own row — the same rule
         ``moderator_field_visible()`` applies for ``BoardFullSerializer``,
-        ``BoardConsumer``, and ``BoardEventSerializer`` (#1191). This
-        serializer's only caller (the admin-only members POST endpoint,
-        ``views/boards.py``) always resolves ``role`` to admin/site_admin
-        before instantiating this serializer, so the self-row branch is inert
-        there today — but a future non-admin-readable caller gets the correct
-        behavior for free rather than restating the tuple check.
-
-        The broadcast surface (``member.added`` / ``member.updated`` events)
-        does not filter at the serializer layer because it has no
-        per-subscriber context; instead ``BoardConsumer.board_event`` strips
-        the field per-recipient based on the connection's resolved role
-        (#978).
+        ``BoardConsumer``, and ``BoardEventSerializer`` (#1191). The REST
+        caller (the admin-only members POST endpoint, ``views/boards.py``)
+        always resolves ``role`` to admin/site_admin before instantiating this
+        serializer, so the self-row branch is inert there today — but a future
+        non-admin-readable caller gets the correct behavior for free rather
+        than restating the tuple check.
 
         The serializer reads the role from ``context["role"]`` (set by the
         view) or falls back to ``get_board_role`` when a request and board are
-        available in context.  In contexts where the role cannot be resolved
-        (e.g. broadcast payloads built without a request) the field is kept —
-        the consumer-layer filter is the second line of defense. Once a role
-        *is* known, visibility is decided by ``moderator_field_visible()``,
-        which fails closed if the viewer id cannot be resolved.
+        available in context. A role that cannot be resolved **fails closed**
+        (#1075): both flags are stripped (bar the self-row case, which also
+        needs a known viewer), so a serializer built without context shows
+        less, never more. Until #1075 an unresolved role kept both flags, which
+        made every context-less caller a reveal the reviewer had to know about.
+
+        Broadcast payloads are the one place the unfiltered row is wanted: a
+        ``member.added`` / ``member.updated`` payload has no recipient, so the
+        board consumer and the change feed strip it per reader (#978, Rule 8).
+        Those writers say so explicitly with ``BROADCAST_PAYLOAD_CONTEXT_KEY``
+        rather than by leaving the context empty, so the absent-input case and
+        the deliberate unfiltered case can no longer be confused.
         """
         data = super().to_representation(instance)
+        if self.context.get(BROADCAST_PAYLOAD_CONTEXT_KEY) is True:
+            return data
         from .permissions import get_board_role
         role = self.context.get("role")
         request = self.context.get("request")
         board = self.context.get("board")
         if role is None and request and board and request.user.is_authenticated:
             role = get_board_role(request.user, board)
-        if role is not None:
-            viewer_id = request.user.id if request and request.user.is_authenticated else None
-            if not moderator_field_visible(role, viewer_id, instance.user_id):
-                data.pop("is_moderator", None)
-            if not site_admin_field_visible(role):
-                data.pop("is_site_admin", None)
+        viewer_id = request.user.id if request and request.user.is_authenticated else None
+        if not moderator_field_visible(role, viewer_id, instance.user_id):
+            data.pop("is_moderator", None)
+        if not site_admin_field_visible(role):
+            data.pop("is_site_admin", None)
         return data
 
 
@@ -314,10 +322,8 @@ class BoardEventSerializer(serializers.ModelSerializer):
 
         The reader's role arrives as ``context["role"]``, resolved by the view's
         access check. It **fails closed**: an absent role strips the field rather
-        than keeping it. That is the opposite of
-        ``BoardMembershipSerializer.to_representation``, which keeps the field
-        when the role is unknown — it can afford to, because the consumer layer
-        is its second line of defense. The feed has no second line, so an
+        than keeping it, as ``BoardMembershipSerializer.to_representation`` also
+        does since #1075. The feed has no second line of defense, so an
         unknown role here must mean "show less", never "show more".
 
         Two more read-time rules follow the socket (#1677): ``invite`` on
@@ -1033,7 +1039,12 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         board = self.context.get("board") or (self.instance.board if self.instance else None)
         wanted = sorted(set(value))
         if board is None:
-            return wanted
+            # Fail closed (#1075): with no board to check against, no id can be
+            # shown to be this board's column, so none is accepted. Until #1075
+            # this returned the ids unchecked.
+            raise serializers.ValidationError(
+                "Column ids cannot be checked without a board."
+            )
         known = set(Column.objects.filter(board=board, pk__in=wanted).values_list("pk", flat=True))
         unknown = [pk for pk in wanted if pk not in known]
         if unknown:
@@ -3457,8 +3468,11 @@ class CardSerializer(serializers.ModelSerializer):
     # too so it matches what many=True used to propagate — rendered shape and
     # generated OpenAPI schema are unchanged either way.
     labels = ParkedLabelListSerializer(child=LabelSerializer(read_only=True), read_only=True)
+    # ``none()`` until __init__ scopes it to the context board, like
+    # ``assignee_id``, ``column`` and ``swimlane`` below: a serializer built
+    # without a board accepts no label rather than any board's label (#1075).
     label_ids = serializers.PrimaryKeyRelatedField(
-        many=True, write_only=True, queryset=Label.objects.all(), source="labels", required=False
+        many=True, write_only=True, queryset=Label.objects.none(), source="labels", required=False
     )
     # allow_null=True (#1108): Card.assignee is nullable (unassigned cards are
     # the common case) — without it drf-spectacular documents this field as

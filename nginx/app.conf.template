@@ -74,6 +74,17 @@ server {
     ssl_session_cache         shared:SSL:10m;
     ssl_session_timeout       1d;
 
+    # Security headers (#1073). Declared ONCE, here at server level, and no
+    # location below declares any add_header of its own. nginx inherits
+    # add_header into a location only when that location declares none, so a
+    # single add_header in a location (a cache or CORS header, anything)
+    # silently drops every header below for the paths it serves. A location
+    # that must add a header has to re-declare this whole set (that
+    # duplication is mandatory, do not "clean it up"); better, drive the value
+    # from a map plus one server-level add_header, as $visiban_cache_control
+    # does. scripts/check-nginx-security-headers.sh enforces this in CI
+    # (nginx-security-headers) and checks this template against its sibling.
+    #
     # HSTS (#1201): NOT hardcoded here. This used to be a bare `add_header
     # Strict-Transport-Security "max-age=63072000; includeSubDomains" always;`
     # sent unconditionally for both TLS_MODE=letsencrypt and TLS_MODE=selfsigned,

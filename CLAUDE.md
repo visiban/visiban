@@ -132,6 +132,23 @@ t.start(); t.join()
 
 ---
 
+### Guards — test the absent-input branch (#1075)
+
+Every guard that branches on the presence of an input — a permission class, a permission
+helper, a serializer `to_representation` or `validate*` gate, a consumer-side filter that
+reads `self.context.get(...)`, `view.kwargs.get(...)`, `getattr(..., None)`, or does
+`if x is not None: ...enforce...` — must **deny or raise when that input is absent**, never
+pass, keep the field, or skip the check. A permission class that cannot resolve its subject
+denies; a subject is never duck-typed (`getattr(obj, "board", obj)`); a caller that wants the
+unfiltered output on purpose (a broadcast payload with no recipient) opts in with an explicit
+context marker rather than an empty context.
+
+**Every such guard gets a test that builds it without its input** and asserts the safe
+outcome, next to the populated-case test. A suite that only ever constructs the populated
+case passes whether or not the absent case is safe. Pattern:
+`backend/boards/tests/test_absent_input_guards_1075.py`. The `rbac-check` and
+`security-review` agents check for both.
+
 ## Suppression markers — `SUPPRESSED-UNTIL(#NNNN)`
 
 A suppression (`pytest.mark.skip`/`skipif`/`xfail`, `eslint-disable`) is either **permanent**

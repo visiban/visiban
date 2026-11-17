@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: Use proactively when adding or modifying any view, serializer, authentication logic, file upload handler, invite flow, or user-controlled input path. Checks OWASP Top 10, IDOR, serializer field exposure, and WebSocket broadcast safety. Also triggered automatically via post-edit hook on views.py and serializers.py.
+description: Use proactively when adding or modifying any view, serializer, authentication logic, file upload handler, invite flow, or user-controlled input path. Checks OWASP Top 10, IDOR, serializer field exposure, WebSocket broadcast safety, and guards that fail open when their input is absent. Also triggered automatically via post-edit hook on views.py and serializers.py.
 tools: Read, Grep, Glob, Bash, Agent
 maxTurns: 39
 ---
@@ -86,6 +86,7 @@ Work through each category. For categories with no findings from the scans, stat
 - **Frontend** — `dangerouslySetInnerHTML`, raw `fetch()`, content sanitization
 
 - **List/visibility paths vs. single-object paths** — an object can be unreadable through the single-object permission check yet still appear through a list, search, bulk-read or favorite queryset that uses a broader predicate. For each resource the diff touches, check every queryset that can return it, not only the detail view.
+- **Guards that degrade to "no check" when their input is absent (#1075)** — for every guard in the diff that branches on the presence of an input (`self.context.get(...)`, `view.kwargs.get(...)`, `getattr(..., None)`, `if x is not None: ...; return True`), read the absent branch. It must deny, strip, or raise, never pass, keep, or skip; a permission class that cannot resolve its subject denies, and a duck-typed subject (`getattr(obj, "board", obj)`) is a finding. A deliberately unfiltered case (a broadcast payload with no recipient) must opt in explicitly rather than ride on an empty context. Each such guard needs a test that builds it without the input and asserts the safe outcome; a test suite that only constructs the populated case passes vacuously. A live, reachable fail-open is a 🔴 and is reported privately (see the registry note below), not in the MR.
 - **Fail-open defaults on stored authorization values** — a lookup that maps an unrecognized stored role, threshold or scope to the *lowest* tier (rank 0, "viewer", "everyone") instead of denying. API validation does not protect values written by the ORM, admin, import or migrations.
 
 #### Security invariants registry

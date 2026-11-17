@@ -16,7 +16,7 @@ from .models import (
     CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardGateTransition, Notification,
 )
 from .serializers import (
-    BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
+    BROADCAST_PAYLOAD_CONTEXT_KEY, BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
     SwimlaneSerializer,
 )
 from .permissions import SITE_ADMIN
@@ -1331,7 +1331,11 @@ class BoardMembershipAdmin(RowVersionAdminMixin, _BoardEventAdminMixin, admin.Mo
         return obj.board_id
 
     def _payload(self, obj, request):
-        return BoardMembershipSerializer(obj, context={"board": obj.board, "request": request}).data
+        # A ``member.*`` broadcast payload: unfiltered, because the consumer and
+        # the change feed strip it per recipient (Rule 8). Not filtered by the
+        # Django-admin operator's own board role, which has nothing to do with
+        # who receives the frame (#1075).
+        return BoardMembershipSerializer(obj, context={BROADCAST_PAYLOAD_CONTEXT_KEY: True}).data
 
     def _delete_payload(self, obj):
         return {"user_id": obj.user_id}
