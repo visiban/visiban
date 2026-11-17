@@ -216,6 +216,19 @@ describe('PhoneBoard editing controls (#2277)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('admins get a Field order button on each lane that calls the handler; non-admins do not (#2353)', async () => {
+    const user = userEvent.setup()
+    const onEditFieldOrder = vi.fn()
+    setup({ ...edit(), onEditFieldOrder })
+    await user.click(screen.getAllByTestId('phone-lane-field-order')[0])
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides Field order for non-admins and without a handler (#2353)', () => {
+    setup({ ...edit(), isAdmin: false, onEditFieldOrder: vi.fn() })
+    expect(screen.queryByTestId('phone-lane-field-order')).not.toBeInTheDocument()
+  })
+
   it('edits and deletes the selected column', async () => {
     const user = userEvent.setup()
     const cb = edit()

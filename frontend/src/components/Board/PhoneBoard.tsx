@@ -479,6 +479,9 @@ export default function PhoneBoard({
                 {isAdmin && (
                   <button type="button" className={ACTION_BTN} aria-label={`Edit swimlane ${lane.name}`} onClick={() => setEditingLane(lane.id)}>Edit</button>
                 )}
+                {isAdmin && onEditFieldOrder && (
+                  <button type="button" className={ACTION_BTN} aria-label={`Field order for ${lane.name}`} data-testid="phone-lane-field-order" onClick={onEditFieldOrder}>Field order</button>
+                )}
                 {onFocusLane && swimlanes.length > 1 && (
                   <button
                     type="button"

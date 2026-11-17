@@ -92,6 +92,18 @@ describe('SwimlaneRow lane health status (#2243)', () => {
     expect(document.querySelector('[data-health-status]')).toBeNull()
   })
 
+  it('the unset icon sits in the name-side slot, before Focus and the lane menu (#2353)', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    const name = screen.getByTestId('swimlane-name')
+    const icon = screen.getByRole('button', { name: 'Set health status for lane Customer A' })
+    const focus = screen.getByRole('button', { name: /^Focus on / })
+    const menu = screen.getByRole('button', { name: /^Actions for swimlane/ })
+    const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(before(name, icon)).toBe(true)
+    expect(before(icon, focus)).toBe(true)
+    expect(before(focus, menu)).toBe(true)
+  })
+
   it('the popover offers three values and No status, no Inherit, and says the lane is separate', async () => {
     const user = userEvent.setup()
     render(<SwimlaneRow {...defaultProps()} />)
