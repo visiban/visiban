@@ -3019,6 +3019,45 @@ class AnalyticsRoundingTests(FlowFixture):
         self.assertEqual(cells["low"], (0.3, False, True))
         self.assertEqual(cells["mid"], (0.6, True, True))
 
+    def heat_levels(self, mode, cases, **board_fields):
+        """``{label: heat level}`` for one lane per case (#2331)."""
+        Board.objects.filter(pk=self.board.pk).update(**board_fields)
+        lanes = {}
+        for label, steps in cases.items():
+            position = Swimlane.objects.filter(board=self.board).count()
+            lanes[label] = Swimlane.objects.create(board=self.board, name=f"{label} {position}", position=position)
+            self.path(*steps, lane=lanes[label])
+        client = APIClient()
+        client.force_authenticate(self.user)
+        rows = {s["id"]: s for s in client.get(f"/api/v1/boards/{self.board.pk}/analytics/").json()["swimlanes"]}
+        return {label: rows[lane.id][f"{mode}_heat_level"]["Doing"] for label, lane in lanes.items()}
+
+    def test_heat_level_at_threshold_0_applies_the_one_day_floor_to_red(self):
+        # #2331: at threshold 0 every cell is an outlier (mean >= 0), and a raw
+        # 0.96 is served as 1.0, so neither alone can say green. The served tier
+        # compares the unrounded mean with max(1, 0) days.
+        cells = self.heat_levels("age", {
+            "under": (self.backlog, 30, self.doing, 0.96),
+            "at": (self.backlog, 30, self.doing, 1.2),
+        }, staleness_threshold_days=0, stale_warning_pct=0)
+        self.assertEqual(cells, {"under": "ok", "at": "high"})
+
+    def test_heat_level_at_threshold_0_keeps_the_warning_band(self):
+        cells = self.heat_levels("throughput", {
+            "ok": (self.backlog, 30, self.doing, 10.3, self.done, 10),
+            "warning": (self.backlog, 30, self.doing, 10.96, self.done, 10),
+            "high": (self.backlog, 30, self.doing, 11, self.done, 10),
+        }, staleness_threshold_days=0, stale_warning_pct=50)
+        self.assertEqual(cells, {"ok": "ok", "warning": "warning", "high": "high"})
+
+    def test_heat_level_matches_the_flags_from_threshold_1_up(self):
+        cells = self.heat_levels("throughput", {
+            "under": (self.backlog, 30, self.doing, 16.96, self.done, 10),
+            "at": (self.backlog, 30, self.doing, 17, self.done, 10),
+            "stale": (self.backlog, 30, self.doing, 24, self.done, 10),
+        }, staleness_threshold_days=14, stale_warning_pct=50)
+        self.assertEqual(cells, {"under": "ok", "at": "warning", "stale": "high"})
+
     def test_age_warning_flag_uses_the_unrounded_current_dwell(self):
         cells = self.warning_cells("age", {
             "under": (self.backlog, 30, self.doing, 6.96),

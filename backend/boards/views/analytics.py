@@ -115,6 +115,18 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                         "stale_warning_pct of the threshold and below the threshold (a threshold of 0 counts as 1 day). Additive (#2306)."
                     ),
                 ),
+                "age_heat_level": serializers.DictField(
+                    child=serializers.ChoiceField(choices=["ok", "warning", "high"], allow_null=True),
+                    help_text=(
+                        "The heatmap tier of the unrounded current-dwell mean: `high` at or past the "
+                        "threshold, `warning` in the warning band, `ok` below it, null with no mean. A "
+                        "threshold of 0 counts as 1 day for every tier. Additive (#2331)."
+                    ),
+                ),
+                "throughput_heat_level": serializers.DictField(
+                    child=serializers.ChoiceField(choices=["ok", "warning", "high"], allow_null=True),
+                    help_text="The same heatmap tier for the unrounded completed-dwell mean. Additive (#2331).",
+                ),
                 "deal_velocity_days": serializers.FloatField(allow_null=True),
                 "stalled_cards": inline_serializer(
                     name="BoardAnalyticsStalledCard",
@@ -1384,6 +1396,8 @@ class BoardAnalyticsMixin:
                 "throughput_is_outlier": {},  # populated below
                 "age_is_warning": {},  # populated below (#2306)
                 "throughput_is_warning": {},  # populated below (#2306)
+                "age_heat_level": {},  # populated below (#2331)
+                "throughput_heat_level": {},  # populated below (#2331)
                 "deal_velocity_days": (
                     round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
                     if deal_velocity_days else None
@@ -1428,6 +1442,27 @@ class BoardAnalyticsMixin:
                 for col in active_columns
             }
 
+        def _heat_levels(means: dict) -> dict:
+            # The whole tier from the unrounded mean, with the 1-day floor on every
+            # tier (#2331). ``is_outlier`` keeps its documented ``mean >= threshold``
+            # rule, which at threshold 0 is true for every cell; the heatmap needs the
+            # floored comparison the warning band already uses, so it is served here
+            # rather than rebuilt in the browser from a rounded value.
+            levels = {}
+            for col in active_columns:
+                mean = means[col.name]
+                if mean is None:
+                    levels[col.name] = None
+                    continue
+                ratio = mean / max(1, threshold)
+                if ratio >= 1:
+                    levels[col.name] = "high"
+                elif warn_fraction is not None and ratio >= warn_fraction:
+                    levels[col.name] = "warning"
+                else:
+                    levels[col.name] = "ok"
+            return levels
+
         for sw in swimlane_results:
             raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
             sw["is_outlier"] = _flags(raw_avg)
@@ -1435,6 +1470,8 @@ class BoardAnalyticsMixin:
             sw["throughput_is_outlier"] = _flags(raw_throughput)
             sw["age_is_warning"] = _warnings(raw_age)
             sw["throughput_is_warning"] = _warnings(raw_throughput)
+            sw["age_heat_level"] = _heat_levels(raw_age)
+            sw["throughput_heat_level"] = _heat_levels(raw_throughput)
 
         return Response({
             "days": days,

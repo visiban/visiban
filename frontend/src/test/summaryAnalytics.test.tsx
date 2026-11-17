@@ -486,6 +486,44 @@ describe('AnalyticsView', () => {
         expect((await atZero(0.3, false)).className).toContain('bg-success')
       })
     })
+    describe('served heat level decides the whole tier (#2331)', () => {
+      const leveled = async (avg: number, level: 'ok' | 'warning' | 'high' | null, pct = 0) => {
+        mockGetBoardAnalytics.mockResolvedValue({
+          days: 30, columns: ['To Do'],
+          swimlanes: [{
+            id: 1, name: 'Customer A',
+            avg_days_per_column: { 'To Do': avg }, is_outlier: { 'To Do': true },
+            age_avg_days_per_column: { 'To Do': avg },
+            age_is_outlier: { 'To Do': true }, age_is_warning: { 'To Do': false },
+            age_heat_level: { 'To Do': level },
+            throughput_avg_days_per_column: { 'To Do': null },
+            throughput_is_outlier: { 'To Do': false }, throughput_is_warning: { 'To Do': false },
+            throughput_heat_level: { 'To Do': null },
+            throughput_card_count_per_column: { 'To Do': 0 },
+            deal_velocity_days: null, stalled_cards: [],
+          }],
+          stalled_threshold_days: 0, staleness_threshold_days: 0, stale_warning_pct: pct,
+        })
+        renderTable(<AnalyticsView boardId={1} currentUserRole="admin" />)
+        // "1d" also appears outside the grid, so take the one inside a table cell.
+        return (await screen.findAllByText(`${avg}d`)).map((el) => el.closest('td')).find(Boolean) as HTMLElement
+      }
+      it('threshold 0, warning 0%, raw mean 0.96 (served 1.0) renders green', async () => {
+        const cell = await leveled(1, 'ok')
+        expect(cell.className).toContain('bg-success')
+        expect(cell.className).not.toContain('bg-danger')
+      })
+      it('renders red when the server says high', async () => {
+        expect((await leveled(1.2, 'high')).className).toContain('bg-danger')
+      })
+      it('renders yellow when the server says warning', async () => {
+        expect((await leveled(0.9, 'warning', 50)).className).toContain('bg-warning')
+      })
+      it('falls back to the flags when the level is null', async () => {
+        // No served tier: the #2306 rule keeps red only when the rounded value is red.
+        expect((await leveled(1, null)).className).toContain('bg-danger')
+      })
+    })
     it('turns red on the outlier flag whatever the rounded average says', async () => {
       expect((await served({ warning: false, outlier: true, avg: 13.9 })).className).toContain('bg-danger')
     })
