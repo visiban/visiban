@@ -30,7 +30,7 @@ boards/permissions.py:IsBoardMember, IsBoardAdminOrOwner    BoardPermissionClass
 visiban/invite_recipient.py:recipient_admits,               RecipientAdmitsAbsentAttributeTests
   signup_address_admits, grant_awaits_verification,
   confirmed_address_admits (plain attribute access)
-accounts/admin_views.py:AdminPatchUserSerializer            -
+accounts/admin_views.py:AdminPatchUserSerializer            accounts/tests/test_absent_input_guards_1075.py
   (ImproperlyConfigured without context["target"])
 =========================================================  ====================================================
 
