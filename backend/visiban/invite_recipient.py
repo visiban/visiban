@@ -185,15 +185,17 @@ def grant_awaits_verification(link, user) -> bool:
     """
     from accounts.email_change import email_verification_mandatory
 
-    if not getattr(link, "recipient_hash", None) or not email_verification_mandatory():
+    # Attribute access, not getattr (#1075): a non-link must raise, not read
+    # as "unbound, grant now".
+    if not link.recipient_hash or not email_verification_mandatory():
         return False
     return not recipient_admits(link, user)
 
 
 def confirmed_address_admits(link, email_address) -> bool:
     """Whether a just-confirmed ``EmailAddress`` is the one ``link`` was sent to (#1704)."""
-    stored = getattr(link, "recipient_hash", None)
-    if not stored or not getattr(email_address, "verified", False):
+    stored = link.recipient_hash  # not getattr: see recipient_admits (#1075)
+    if not stored or not email_address.verified:
         return False
     return address_matches(stored, [email_address.email])
 

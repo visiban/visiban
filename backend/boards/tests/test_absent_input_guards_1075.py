@@ -26,7 +26,12 @@ from boards.serializers import (
 from boards.tests.conftest import _make_board, _make_column, _make_membership, _make_user
 from boards.models import Label
 from groups.models import Group, GroupMembership
-from visiban.invite_recipient import recipient_admits, signup_address_admits
+from visiban.invite_recipient import (
+    confirmed_address_admits,
+    grant_awaits_verification,
+    recipient_admits,
+    signup_address_admits,
+)
 
 
 class BoardMembershipSerializerAbsentRoleTests(TestCase):
@@ -194,7 +199,58 @@ class RecipientAdmitsAbsentAttributeTests(SimpleTestCase):
         with self.assertRaises(AttributeError):
             signup_address_admits(object(), "a@example.com")
 
+    def test_verification_helpers_raise_on_a_non_link(self):
+        """``grant_awaits_verification`` read a non-link as unbound ("grant now")."""
+        with self.assertRaises(AttributeError):
+            grant_awaits_verification(object(), SimpleNamespace(email="a@example.com"))
+        with self.assertRaises(AttributeError):
+            confirmed_address_admits(object(), SimpleNamespace(email="a@example.com", verified=True))
+
+    def test_unverified_address_is_still_refused_on_a_bound_link(self):
+        bound = SimpleNamespace(recipient_hash="0" * 64)
+        self.assertFalse(
+            confirmed_address_admits(bound, SimpleNamespace(email="a@example.com", verified=False))
+        )
+
     def test_unbound_link_still_admits(self):
         unbound = SimpleNamespace(recipient_hash=None)
         self.assertTrue(recipient_admits(unbound, SimpleNamespace(email="a@example.com")))
         self.assertTrue(signup_address_admits(unbound, "a@example.com"))
+
+
+class BoardMembershipAdminPayloadTests(TestCase):
+    """The Django-admin ``member.*`` payload opts in to the unfiltered row (#1075).
+
+    It used to be filtered by the operator's own board role, which has nothing
+    to do with who receives the frame; recipients are filtered by the consumer
+    and the change feed (Rule 8).
+    """
+
+    def test_payload_is_unfiltered_whatever_the_operators_board_role(self):
+        from django.contrib.admin.sites import AdminSite
+        from boards.admin import BoardMembershipAdmin
+
+        owner = _make_user()
+        board = _make_board(owner)
+        operator = _make_user(is_staff=True)
+        _make_membership(board, operator, "viewer")
+        target = _make_user(is_site_admin=True)
+        membership = BoardMembership.objects.create(
+            board=board, user=target, role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        request = APIRequestFactory().get("/")
+        request.user = operator
+        payload = BoardMembershipAdmin(BoardMembership, AdminSite())._payload(membership, request)
+        self.assertIs(payload["is_moderator"], True)
+        self.assertIs(payload["is_site_admin"], True)
+
+
+class GroupPredicateAbsentGroupTests(TestCase):
+    """The group access predicates deny when there is no group to judge."""
+
+    def test_no_group_denies(self):
+        from groups.models import user_has_group_access, user_is_group_admin
+
+        user = _make_user()
+        self.assertFalse(user_has_group_access(user, None))
+        self.assertFalse(user_is_group_admin(user, None))
