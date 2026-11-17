@@ -1285,6 +1285,16 @@ class CardActivity(models.Model):
         # from/to are the stored values ("" = no value).
         CUSTOM_FIELD_CHANGED = "custom_field_changed", "Custom field changed"
 
+    # Event types whose ``item_text`` is meaningful (#2199, #1921): the
+    # checklist item's text on assign/due rows, the custom field's name on
+    # ``custom_field_changed``. The timeline endpoint sends ``item_text`` and
+    # JSON import keeps it only for these; defined once so the copies can't drift.
+    ITEM_TEXT_EVENT_TYPES = frozenset({
+        EventType.CHECKLIST_ITEM_ASSIGNED,
+        EventType.CHECKLIST_ITEM_DUE_CHANGED,
+        EventType.CUSTOM_FIELD_CHANGED,
+    })
+
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
     event_type = models.CharField(max_length=30, choices=EventType.choices)
     from_value = models.TextField(blank=True)

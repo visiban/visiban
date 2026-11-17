@@ -542,12 +542,10 @@ _CARD_UPDATE_SCHEMA = extend_schema(
 # CardViewSet
 # ---------------------------------------------------------------------------
 
-# Activity types whose ``item_text`` names the checklist item (#2199). The
-# other checklist events already carry the item text in from/to.
-_ITEM_TEXT_EVENT_TYPES = frozenset({
-    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
-    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
-})
+# Activity types whose ``item_text`` names the checklist item (#2199) or the
+# custom field (#1921): ``CardActivity.ITEM_TEXT_EVENT_TYPES``, shared with
+# JSON import. The other checklist events already carry the item text in from/to.
+_ITEM_TEXT_EVENT_TYPES = CardActivity.ITEM_TEXT_EVENT_TYPES
 
 
 def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):

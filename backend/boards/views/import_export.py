@@ -886,12 +886,10 @@ def _text(max_length=None):
     return functools.partial(_text_error, max_length=max_length)
 
 
-# The activity types whose ``item_text`` names a checklist item (#2199); the
-# same set as ``views.cards._ITEM_TEXT_EVENT_TYPES``. Other types import NULL.
-_ITEM_TEXT_EVENT_TYPES = frozenset({
-    CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
-    CardActivity.EventType.CHECKLIST_ITEM_DUE_CHANGED,
-})
+# The activity types whose ``item_text`` names a checklist item (#2199) or a
+# custom field (#1921); the same set the timeline sends
+# (``CardActivity.ITEM_TEXT_EVENT_TYPES``). Other types import NULL.
+_ITEM_TEXT_EVENT_TYPES = CardActivity.ITEM_TEXT_EVENT_TYPES
 
 
 def _nullable_item_text(value):

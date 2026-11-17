@@ -107,6 +107,16 @@ class ChecklistHistoryItemTextTests(TestCase):
         self.assertIsNone(data["checklist_item_due_changed"]["item_text"])
         self.assertNotIn("item_text", data["priority_change"])
 
+    def test_timeline_data_carries_the_field_name_on_custom_field_changed(self, _):
+        # #1921: the field's name snapshot must reach History via the timeline.
+        CardActivity.objects.create(
+            card=self.card, event_type=ET.CUSTOM_FIELD_CHANGED, from_value="a", to_value="b", item_text="Risk",
+        )
+        r = self.client.get(f"{self.base}/timeline/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = {e["event_type"]: e["data"] for e in r.json()["results"]}
+        self.assertEqual(data["custom_field_changed"]["item_text"], "Risk")
+
     def test_json_export_and_import_round_trip_item_text(self, _):
         self.client.patch(self.item_url, {"assignee_id": self.member.id}, format="json")
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
@@ -135,6 +145,13 @@ class ChecklistHistoryItemTextTests(TestCase):
         f = io.BytesIO(json.dumps(data).encode())
         f.name = "board.json"
         return self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
+
+    def test_import_keeps_item_text_on_custom_field_changed(self, _):
+        r = self._import_activity({"event_type": "custom_field_changed", "from_value": "a", "to_value": "b",
+                                   "item_text": "Risk"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        act = CardActivity.objects.get(card__board_id=r.data["id"], event_type=ET.CUSTOM_FIELD_CHANGED)
+        self.assertEqual(act.item_text, "Risk")
 
     def test_import_without_item_text_stores_null(self, _):
         r = self._import_activity({"event_type": "checklist_item_assigned", "from_value": "", "to_value": "x"})
