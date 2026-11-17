@@ -1143,7 +1143,7 @@ only, no table rewrite). What this means for you:
     - **The frontend Service's own port is unchanged** (`frontend.service.port`, `80` by default). It targets the container by its named `http` port, which moves with it automatically, so `helm install`/`helm upgrade`, `kubectl port-forward svc/<release>-visiban-frontend`, and the Ingress all need no changes.
     - **Direct pod port-forwards change:** a `kubectl port-forward <frontend-pod-name> 8080:80` run directly against the pod (bypassing the Service) must become `8080:8080`. The NOTES printed after `helm install`/`helm upgrade` already show the updated command, but a script or shell alias built from an older NOTES output needs updating by hand.
 
-    **What could break:** a custom frontend image not built on `nginx:1.27-alpine`, or one that writes anywhere but `/var/cache/nginx`, `/run` or `/tmp`, may fail under a read-only root filesystem or lack the `101:101` `nginx` user/group this chart defaults to. Verify an overridden `frontend.image` on staging first.
+    **What could break:** a custom frontend image not built on `nginx:1.30-alpine`, or one that writes anywhere but `/var/cache/nginx`, `/run` or `/tmp`, may fail under a read-only root filesystem or lack the `101:101` `nginx` user/group this chart defaults to. Verify an overridden `frontend.image` on staging first.
 
     **If your image cannot run under this hardening**, relax just the field that conflicts. For example, to keep a writable root filesystem on a custom frontend image:
 

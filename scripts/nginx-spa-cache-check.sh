@@ -22,7 +22,7 @@
 #   /api/x (proxied)       -> no Cache-Control added by nginx
 set -u
 cd "$(dirname "$0")/.." || exit 1
-IMAGE="${NGINX_IMAGE:-nginx:1.27-alpine}"
+IMAGE="${NGINX_IMAGE:-nginx:1.30-alpine}"
 for c in docker helm yq openssl curl; do
   command -v "$c" >/dev/null || { echo "ERROR: $c not on PATH" >&2; exit 1; }
 done
