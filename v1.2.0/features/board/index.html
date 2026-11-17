@@ -5174,7 +5174,7 @@
 <li>the swimlane's first two field values as <code>Label value</code> pairs, then a <strong>+N</strong> button for the rest (it reveals them in place and then reads <strong>Less</strong>; see <a href="../custom-fields/#swimlane-fields-in-the-lane-band">Swimlane fields in the lane band</a>);</li>
 <li>at the right: <strong>N overdue</strong> and <strong>N stale</strong> (each omitted when zero), the <a href="#swimlane-limits">row limit</a> line when the row has one, and the swimlane rollup total (<code>$413k open</code>) when the board has chosen one.</li>
 </ul>
-<p>The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle and the edit and focus buttons appear when you hover over the band or move keyboard focus to them. On a touch device, which has no hover, they are always shown.</p>
+<p>The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle, the <strong>Focus</strong> button and, for admins, the <strong>⋮</strong> menu sit next to the swimlane name and appear when you hover over the band or move keyboard focus to them. On a touch device, which has no hover, they are always shown. <strong>Focus</strong> shows only that swimlane. The <strong>⋮</strong> menu (<strong>Actions for swimlane</strong>) holds <strong>Edit swimlane…</strong> and <strong>Change field order…</strong>. On a phone, the swimlane's action row has <strong>Edit</strong> and <strong>Field order</strong> buttons for admins.</p>
 <blockquote>
 <p><strong>Changed in 1.3 (#2328, #2335)</strong> — the band no longer shows the swimlane's card count. A lane over its WIP limit still shows the count in its limit line (<code>WIP 5 / 4 over</code>), and the collapsed strip shows the count per column. The edit button is now hidden until you hover the band or focus it, like the drag handle and the focus button. The old left label panel is gone, so the cards start at the left edge of the board.</p>
 </blockquote>
@@ -5232,10 +5232,10 @@
 <li>Under each column the strip shows the swimlane's card count (an en dash when there are none) and one small square per card: red for overdue, orange for stale, blue otherwise. The number is always there, so the squares never carry meaning alone; screen readers read <code>Qualified: 4 cards, 1 overdue, 2 stale</code>. A card in a done column never counts as stale.</li>
 <li>While a filter is active, the strip counts only the matching cards, and a column with matches pulses (unless you prefer reduced motion).</li>
 <li>A calm row-limit line is hidden, and an over-limit one stays.</li>
-<li>The edit (✎) button, drag handle and focus-mode crosshair remain.</li>
+<li>The <strong>⋮</strong> menu, drag handle and focus-mode crosshair remain.</li>
 <li>Click the chevron again to expand and restore full card visibility. Collapse state is saved per user per board, as before. <strong>Collapse all</strong> and <strong>Expand all</strong> for swimlanes live in the toolbar's <strong>View</strong> menu (<strong>Collapse all</strong> and <strong>Expand all</strong> under swimlanes), and the <strong>Show</strong> row has a matching <a href="#show-chips"><strong>Collapse all lanes</strong> button</a>.</li>
 </ul>
-<p>Admins can double-click the swimlane band to open the Edit Swimlane modal.</p>
+<p>Admins can double-click the swimlane band, or choose <strong>Edit swimlane…</strong> from its <strong>⋮</strong> menu, to open the Edit Swimlane modal.</p>
 <h3 id="swimlane-limits">Swimlane limits<a class="headerlink" href="#swimlane-limits" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1150)</p>

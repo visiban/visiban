@@ -4689,6 +4689,7 @@
 <ul>
 <li>collapse toggle (chevron, turns 90° when collapsed, <code>aria-expanded</code>);</li>
 <li>lane color square and lane name (17px, semibold);</li>
+<li>the lane's health status (the pill when set, the unset icon when not: one slot), then the lane actions beside the name (#2353): <strong>Focus</strong> (everyone) and a <code>⋮</code> menu (admins) holding "Edit swimlane…" and "Change field order…". There is no action cluster at the far right;</li>
 <li>the first two lane fields as "Label value";</li>
 <li>a "+N" pill that shows the remaining lane fields inline and then reads "Less";</li>
 <li>at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".</li>
@@ -4721,8 +4722,8 @@
 </tr>
 <tr>
 <td>On demand</td>
-<td>Lane fields beyond the first two, "Change field order" (admins, after the revealed fields), drag handle, edit, focus, unset-health icon</td>
-<td>Fields and "Change field order" are behind <code>+N</code>. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them.</td>
+<td>Lane fields beyond the first two, drag handle, Focus, the <code>⋮</code> lane menu (Edit swimlane…, Change field order…), unset-health icon</td>
+<td>Fields are behind <code>+N</code>. The controls are revealed on hover and focus, and are always shown on a device with no hover (touch), since there is no hover to reveal them. They keep their space while hidden, so nothing shifts.</td>
 </tr>
 </tbody>
 </table>
