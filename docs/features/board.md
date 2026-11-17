@@ -756,7 +756,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and the **N fields** button like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.

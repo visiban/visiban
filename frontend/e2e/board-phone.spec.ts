@@ -550,7 +550,7 @@ test.describe('board phone layout', () => {
     await expect(page.getByLabel(/New card title/)).toBeVisible()
   })
 
-  test('lane band second line: fields, +N, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
+  test('lane band second line: fields, N fields grid, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
     const def = (id: number, name: string, field_type = 'text') => ({
       id, uid: `sfd0000${id}x`, name, field_type, choices: [], position: id, show_on_row: false,
       is_admin_only: false, choice_colors: {}, number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',

@@ -380,7 +380,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         </span>
       </div>
       <p className="text-xs text-fg-tertiary mb-2">
-        The swimlane header shows the first two field values in the order below; the rest are behind +N.
+        The swimlane header shows the first two field values in the order below; all of them are behind the N fields toggle.
       </p>
 
       {/* Surfaced once here rather than repeated per field: with the default

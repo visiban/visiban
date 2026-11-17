@@ -8,7 +8,7 @@ import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, t
  * § Swimlane bands (#2335).
  */
 
-/** Lane fields shown inline before `+N` (#2271). The rest are on demand (#2335). */
+/** Lane fields shown inline beside the "N fields" toggle (#2271). The rest are on demand (#2335). */
 export const INLINE_FIELD_COUNT = 2;
 
 export interface LaneBandField {
@@ -18,7 +18,7 @@ export interface LaneBandField {
 
 /**
  * The lane's field values in Swimlane fields tab order, split into the first
- * two (inline) and the rest (behind `+N`). Three guards, all deliberate: an
+ * two (inline) and the rest (in the grid only). Three guards, all deliberate: an
  * empty-string value renders nothing (dashed already means "unset" on the card
  * face, and Edit Swimlane lists every field, so an empty value is never
  * stranded); a value whose definition is missing is dropped silently (a WS race

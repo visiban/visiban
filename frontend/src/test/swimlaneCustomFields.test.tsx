@@ -621,11 +621,11 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
 })
 
 describe('BoardSettingsSwimlaneFieldsTab — header count hint (#2271)', () => {
-  it('says the header shows the first two values and the rest are behind +N', () => {
+  it('says the header shows the first two values and all of them are behind the N fields toggle', () => {
     render(
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
     )
-    expect(screen.getByText('The swimlane header shows the first two field values in the order below; the rest are behind +N.')).toBeInTheDocument()
+    expect(screen.getByText('The swimlane header shows the first two field values in the order below; all of them are behind the N fields toggle.')).toBeInTheDocument()
   })
 })
 
