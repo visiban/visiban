@@ -568,7 +568,8 @@ webhooks:
     # Opt-in egress NetworkPolicy for the dispatcher pod (#2067), defense in
     # depth behind the application's own destination check (visiban/egress.py).
     # Off by default. Needs a CNI that enforces NetworkPolicy (Calico, Cilium).
-    # Renders only when the dispatcher itself is enabled. Allows DNS, the
+    # Renders only when the dispatcher itself is enabled, and never in demo
+    # mode (demo-egress already confines the dispatcher). Allows DNS, the
     # bundled PostgreSQL and Valkey, and public egress; denies the ranges in
     # denyCIDRs. See "Webhook dispatcher egress policy" in
     # docs/features/webhooks.md.

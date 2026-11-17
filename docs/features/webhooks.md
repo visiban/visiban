@@ -185,6 +185,8 @@ With it on, the dispatcher pod may reach:
 
 Everything else is refused, including the Kubernetes API and other pods in the cluster.
 
+The policy is never rendered in public demo mode (`demo.enabled`): there the demo egress policy already limits the dispatcher, like every other Visiban pod, to DNS and the chart's own datastores, and this policy's public egress rule would widen that.
+
 !!! warning "Keep `WEBHOOK_ALLOWED_PRIVATE_TARGETS` and `allowedCIDRs` in step"
     A private destination in `WEBHOOK_ALLOWED_PRIVATE_TARGETS` (`backend.settings.webhookAllowedPrivateTargets`) is admitted by the application, but the network policy still blocks it. Add its address to `allowedCIDRs` too, for example `["192.168.10.0/24"]`. The same applies to an external PostgreSQL or Valkey on a private address (`externalDatabase`, `externalRedis`): without an `allowedCIDRs` entry the dispatcher loses its database.
 
