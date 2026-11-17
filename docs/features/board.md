@@ -1003,6 +1003,14 @@ The drawer is a live summary, not the canonical audit trail. For the full ordere
 
 Board admins can generate a public read-only link that lets anyone view the board without signing in.
 
+### How fresh the public view is
+
+> **Added in 1.3** (#1965)
+
+The board an anonymous visitor sees is cached for up to 15 seconds, which keeps a widely shared link from loading the database on every visit. A change to a card, column, swimlane or label shows on the next visit after it is saved. A change that does not announce itself to the board's live feed, and time-based fields such as a card turning stale, can lag by up to the cache window.
+
+The cache never keeps a link alive: turning sharing off, rotating the link, its expiry, and the enabling admin losing admin standing or being deactivated all take effect on the very next visit. Operators can change the window with `SHARE_BOARD_CACHE_TTL_SECONDS` (`0` turns the cache off; see [Configuration](../administration/configuration.md#variables-documented-on-other-pages)). For a board that is shared widely and read far more often than it changes, leave it on.
+
 ### Enabling a share link
 
 1. Open **Board Settings** and go to the **Sharing** tab.

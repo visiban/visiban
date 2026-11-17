@@ -168,6 +168,11 @@ class ShareBoardView(APIView):
         # serve a link that is live right now (#1965). Its prefetches are
         # loaded on a miss only.
         def build():
+            # The board row above was read before the cache read the board's
+            # version. A write between the two would otherwise leave a stale
+            # name cached under the newer version, so re-read the serialized
+            # board fields here (miss path only).
+            board.refresh_from_db(fields=["name", "staleness_threshold_days"])
             prefetch_related_objects(
                 [board],
                 "columns", "swimlanes", "labels",

@@ -1,5 +1,6 @@
 """The public share-link board body is cached briefly and never outlives the link (#1965)."""
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.db import connection
@@ -80,9 +81,11 @@ class ShareBoardCacheTests(TestCase):
     def test_rotation_retires_the_old_token_with_warm_cache(self):
         self.anon.get(self.url)
         new = self.admin_client.post(f"/api/v1/boards/{self.board.id}/share/").data["share_token"]
-        if new != self.token:
-            self.assertEqual(self.anon.get(self.url).status_code, 404)
-            self.assertEqual(self.anon.get(f"/api/share/{new}/").status_code, 200)
+        # POST always issues a fresh UUID, so a same-token result is a bug, not
+        # a case to skip.
+        self.assertNotEqual(new, self.token)
+        self.assertEqual(self.anon.get(self.url).status_code, 404)
+        self.assertEqual(self.anon.get(f"/api/share/{new}/").status_code, 200)
 
     def test_expiry_is_immediate_with_warm_cache(self):
         self.assertEqual(self.anon.get(self.url).status_code, 200)
@@ -106,3 +109,101 @@ class ShareBoardCacheTests(TestCase):
         self.anon.get(self.url)
         Card.objects.filter(pk=self.card.pk).update(title="Direct")
         self.assertEqual(self._titles(self.anon.get(self.url)), ["Direct"])
+
+    def test_stale_board_name_is_not_cached_under_the_new_version(self):
+        """The board row is re-read on a miss, so a rename between the token
+        lookup and the version read cannot be cached under the newer version."""
+        from boards.views import share as share_view
+        real = share_view.share_cache.get_or_build
+
+        def rename_then_build(board, token_hash, build):
+            Board.objects.filter(pk=board.pk).update(name="Renamed")
+            return real(board, token_hash, build)
+
+        with patch.object(share_view.share_cache, "get_or_build", rename_then_build):
+            first = self.anon.get(self.url)
+        self.assertEqual(first.json()["name"], "Renamed")
+        self.assertEqual(self.anon.get(self.url).json()["name"], "Renamed")
+
+
+@override_settings(CACHES=LOCMEM, SHARE_BOARD_CACHE_TTL_SECONDS=60)
+class ShareBoardCacheFailOpenTests(TestCase):
+    """A cache outage or a bad TTL setting never fails a request or a write."""
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.admin = User.objects.create_user(username="f1965", password="pw")
+        self.board = Board.objects.create(name="Shared", owner=self.admin)
+        BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
+        self.col = Column.objects.create(board=self.board, name="Todo", position=0)
+        self.lane = Swimlane.objects.create(board=self.board, name="Lane", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.lane, title="Original",
+            created_by=self.admin, position=0,
+        )
+        self.admin_client = APIClient()
+        self.admin_client.force_authenticate(self.admin)
+        token = self.admin_client.post(f"/api/v1/boards/{self.board.id}/share/").data["share_token"]
+        self.anon = APIClient()
+        self.url = f"/api/share/{token}/"
+        cache.clear()
+
+    def _titles(self, r):
+        return [c["title"] for c in r.json()["cards"]]
+
+    @staticmethod
+    def _failing(method):
+        """Wrap ``cache.<method>`` to raise only for share-cache keys.
+
+        The throttle and session layers use the same cache; failing all of it
+        would test them, not the share cache's fail-open path.
+        """
+        real = getattr(cache, method)
+
+        def wrapper(key, *args, **kwargs):
+            if str(key).startswith("share_board_"):
+                raise RuntimeError("cache down")
+            return real(key, *args, **kwargs)
+
+        return wrapper
+
+    def test_cache_get_raising_serves_fresh_data(self):
+        with patch.object(cache, "get", self._failing("get")):
+            r = self.anon.get(self.url)
+            Card.objects.filter(pk=self.card.pk).update(title="Direct")
+            r2 = self.anon.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._titles(r), ["Original"])
+        self.assertEqual(self._titles(r2), ["Direct"])
+
+    def test_cache_set_raising_serves_fresh_data(self):
+        with patch.object(cache, "set", self._failing("set")):
+            r = self.anon.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._titles(r), ["Original"])
+
+    def test_version_bump_raising_does_not_fail_the_write(self):
+        from boards.services.share_cache import bump_board_version
+        with patch.object(cache, "set", self._failing("set")):
+            bump_board_version(self.board.pk)  # must not raise
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.admin_client.patch(
+                    f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/", {"title": "Renamed"}, format="json",
+                )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Renamed")
+
+    def test_bad_ttl_values_fall_back_or_disable(self):
+        from boards.services import share_cache
+        with override_settings(SHARE_BOARD_CACHE_TTL_SECONDS="abc"):
+            self.assertEqual(share_cache._ttl(), share_cache.DEFAULT_TTL_SECONDS)
+            self.assertEqual(self.anon.get(self.url).status_code, 200)
+        with override_settings(SHARE_BOARD_CACHE_TTL_SECONDS=None):
+            self.assertEqual(share_cache._ttl(), share_cache.DEFAULT_TTL_SECONDS)
+        # A negative value is "not positive", which disables caching like 0.
+        with override_settings(SHARE_BOARD_CACHE_TTL_SECONDS=-5):
+            self.anon.get(self.url)
+            Card.objects.filter(pk=self.card.pk).update(title="Direct")
+            self.assertEqual(self._titles(self.anon.get(self.url)), ["Direct"])
