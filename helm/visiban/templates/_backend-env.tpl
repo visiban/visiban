@@ -222,6 +222,18 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: DATABASE_POOL_MAX_SIZE
   value: {{ $dbPool.maxSize | default 10 | int64 | quote }}
 {{- end }}
+{{- /* Cache socket timeouts (#1465). Rendered only when set: the backend
+  defaults both to 0.5 seconds, so the default render stays byte-identical. */}}
+{{- /* default dict: `helm upgrade --reuse-values` from 1.2 has no cacheTimeouts key. */}}
+{{- $cacheTimeouts := $ctx.Values.backend.settings.cacheTimeouts | default dict }}
+{{- if $cacheTimeouts.connectSeconds }}
+- name: REDIS_CACHE_SOCKET_CONNECT_TIMEOUT
+  value: {{ $cacheTimeouts.connectSeconds | toString | quote }}
+{{- end }}
+{{- if $cacheTimeouts.socketSeconds }}
+- name: REDIS_CACHE_SOCKET_TIMEOUT
+  value: {{ $cacheTimeouts.socketSeconds | toString | quote }}
+{{- end }}
 {{- if $ctx.Values.backend.settings.gitLensEnabled }}
 - name: GIT_LENS_ENABLED
   value: "true"

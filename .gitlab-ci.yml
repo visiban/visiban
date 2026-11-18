@@ -5093,10 +5093,27 @@ helm-publish:
     # (#1284, first caught on v1.2.0-alpha.2 once #1268 let execution reach
     # this far for the first time).
     - printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin
-    - helm package helm/visiban --destination /tmp
     - |
-      CHART_FILE="$(ls /tmp/visiban-*.tgz)"
+      # The chart version to publish (#1155). Chart.yaml's `version:` is the
+      # stable chart line, bumped by hand (#1194). A pre-release tag publishes
+      # `<version>-<pre-release>` (v1.3.0-beta.1 -> 0.8.0-beta.1): publishing the
+      # plain version from a pre-release tag is exactly what let a stable chart
+      # carrying beta images outrank every later pre-release. This only changes
+      # the packaged version; Chart.yaml in git is untouched.
+      CHART_BASE_VERSION="$(helm show chart helm/visiban | awk '/^version:/{print $2}' | tr -d '"')"
+      case "$CI_COMMIT_TAG" in
+        *-*) CHART_VERSION="${CHART_BASE_VERSION}-${CI_COMMIT_TAG#*-}" ;;
+        *)   CHART_VERSION="$CHART_BASE_VERSION" ;;
+      esac
       CHART_NAME="$(helm show chart helm/visiban | awk '/^name:/{print $2}')"
+      # Publish guard, before anything is pushed: refuses a stable version from
+      # a pre-release tag, a version already in the registry (helm push would
+      # overwrite it), and a pre-release whose plain stable is already published
+      # (it could never outrank it). Exit 2 (registry unreadable) also fails the
+      # job: this guard fails closed. CI_COMMIT_TAG reaches it from the job env.
+      bash scripts/check-chart-registry.sh --candidate "$CHART_VERSION"
+      helm package helm/visiban --version "$CHART_VERSION" --destination /tmp
+      CHART_FILE="/tmp/${CHART_NAME}-${CHART_VERSION}.tgz"
       helm push "$CHART_FILE" "oci://ghcr.io/visiban/charts" 2>&1 | tee /tmp/helm-push.log
       # Sign the by-digest reference `helm push` reports, not the tag — a tag can
       # be moved, a digest cannot.
@@ -5177,6 +5194,51 @@ check-release-images:
   script:
     - bash scripts/check-release-images.sh --self-test
     - bash scripts/check-release-images.sh
+
+# ─── Scheduled — the chart a bare `helm install` resolves to (#1155) ──────────
+#
+# Nothing else reads the chart registry after a release. A chart published
+# under a plain version before its pre-release line (0.9.0 ahead of
+# 0.9.0-beta.N) outranks every pre-release under semver, so a bare
+# `helm install oci://ghcr.io/visiban/charts/visiban` keeps resolving to it,
+# even with --devel, while every pipeline stays green: a wrong artifact sitting
+# in a registry is not a diff event. This job resolves what a bare install gets
+# (the highest STABLE chart, since Helm skips pre-releases), reads its
+# appVersion, and requires the default image tag (v<appVersion>) to exist for
+# the backend and frontend images. Registry reads only, no cluster.
+# An unreadable registry exits 2 (red), never "absent". Deliberately NOT
+# allow_failure, for the same reason as check-release-images above. The publish
+# side of the same script runs in helm-publish (`--candidate`).
+check-chart-registry:
+  stage: deploy
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - bash scripts/check-chart-registry.sh --self-test
+    - bash scripts/check-chart-registry.sh
+
+# MR-time run of the script's self-test only. The live check reads registry
+# state no diff controls, so it would red an unrelated MR; the self-test proves
+# both modes (publish guard, default resolution) can still fail (#1155).
+check-chart-registry-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &check-chart-registry-selftest-paths
+        - scripts/check-chart-registry.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *check-chart-registry-selftest-paths
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - bash scripts/check-chart-registry.sh --self-test
 
 # ─── Scheduled — release signature + SBOM survival (#1542) ────────────────────
 #

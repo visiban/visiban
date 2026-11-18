@@ -227,6 +227,26 @@ Without a ceiling, Valkey grows until the container or pod is OOM-killed, which 
 
 Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the chart's own and wins. Set `valkey.primary.maxmemory` to an empty string to remove the ceiling. For an external Valkey or Redis (`externalRedis`), set `maxmemory` and `maxmemory-policy volatile-lru` on that server yourself.
 
+### If Valkey goes down
+
+> **Changed in 1.3** (#1465).
+
+A Valkey outage no longer takes the app offline. The readiness probe stays `200` and reports `{"status": "degraded"}`, so pods stay in the Service, and:
+
+- **Ordinary REST requests keep working.** The global `anon` and `user` rate limits fail open: they are not enforced until Valkey returns. Maintenance mode, registration mode and the uploads toggle are read from the database instead.
+- **The Git lens board fails closed** (experimental, `GIT_LENS_ENABLED`): it returns `503` with `code: "lens_unavailable"` and makes no GitHub or GitLab request until Valkey returns, because its fetch budgets and lock live in Valkey.
+- **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. With the default database session engine, signed-in users keep their sessions.
+- **Realtime updates stop** until Valkey returns.
+
+Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache unreachable` log lines, not on the readiness probe. See [Health API](../api/health.md#get-apihealthreadiness).
+
+**Cache timeouts.** Every cache call gives up after a bounded wait, so a Valkey that is unreachable without refusing connections (a dropped route, a firewall that discards packets, a node that disappeared) fails fast instead of hanging each request. The readiness probe makes one cache call, so its answer arrives inside the 1-second Kubernetes default probe timeout. The timeouts apply to the Django cache only: the realtime (Channels) connection keeps its own settings, because it holds blocking reads open on purpose.
+
+| Variable | Description | Default |
+|---|---|---|
+| `REDIS_CACHE_SOCKET_CONNECT_TIMEOUT` | Seconds to wait for a connection to the cache (`REDIS_CACHE_URL`). Must be greater than 0. Keep it below 1 unless you also raise the readiness probe's `timeoutSeconds`. Helm: `backend.settings.cacheTimeouts.connectSeconds`. *(new in 1.3)* | `0.5` |
+| `REDIS_CACHE_SOCKET_TIMEOUT` | Seconds to wait for each cache reply. Must be greater than 0. Helm: `backend.settings.cacheTimeouts.socketSeconds`. *(new in 1.3)* | `0.5` |
+
 ## Webhooks
 
 > **Added in 1.3** (#863).
@@ -236,7 +256,7 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 | Variable | Default | Description |
 |---|---|---|
 | `WEBHOOKS_ENABLED` | `false` | Turns the feature on. Helm: `backend.settings.webhooksEnabled`. |
-| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). |
+| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). With the Helm dispatcher egress policy on, add each private destination to `webhooks.dispatcher.networkPolicy.allowedCIDRs` as well, or the network policy still blocks it; see [Dispatcher egress policy](../features/webhooks.md#dispatcher-egress-policy-kubernetes). |
 | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | `3` | Connect timeout per delivery. |
 | `WEBHOOK_TIMEOUT_SECONDS` | `10` | Overall timeout per delivery, connect included. |
 | `WEBHOOK_MAX_PER_BOARD` | `10` | Webhooks per board. |
@@ -486,13 +506,13 @@ The backend exposes two health check endpoints for use by load balancers, monito
 | Endpoint | Method | Purpose | Checks | Success |
 |---|---|---|---|---|
 | `/api/health/liveness/` | GET | Is the process alive? | ASGI server responds | `200 {"status": "ok"}` |
-| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Valkey are reachable | `200 {"status": "ok"}` |
+| `/api/health/readiness/` | GET | Can the process serve traffic? | Database reachable; a Valkey outage reports `degraded` with HTTP 200 | `200 {"status": "ok"}` |
 
 Both endpoints are unauthenticated and do not require a valid `Host` header.
 
 **Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
 
-**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with working database and Valkey connections.
+**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with a working database connection. A Valkey outage does not fail this check: it answers `200 {"status": "degraded"}` (see [If Valkey goes down](#if-valkey-goes-down)). A load balancer that must also avoid a Valkey outage has to match `"status":"ok"` in the body.
 
 ---
 

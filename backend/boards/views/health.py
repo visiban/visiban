@@ -45,13 +45,24 @@ class LivenessView(APIView):
 
 
 class ReadinessView(APIView):
-    """GET /api/health/readiness/ — K8s readiness probe. Checks DB and Redis."""
+    """GET /api/health/readiness/ — K8s readiness probe.
+
+    Readiness depends on the database only (#1465). Valkey backs the channel
+    layer and the cache; with it down ordinary REST traffic still works
+    (the global throttles fail open and the SiteSetting reads fall through to
+    the DB, see visiban/cache_outage.py; named security throttles fail
+    closed) and realtime updates stop. Failing
+    readiness for that would unready every pod and take the whole app offline
+    for a partial outage, so a cache failure reports ``degraded`` with HTTP 200
+    and a warning in the server log instead.
+    """
     permission_classes = []
     authentication_classes = []
     throttle_classes = []
 
     def get(self, request):
         errors = {}
+        degraded = False
 
         # Check database
         try:
@@ -61,16 +72,17 @@ class ReadinessView(APIView):
             logger.warning("Readiness check failed: database", exc_info=exc)
             errors["db"] = _UNAVAILABLE
 
-        # Check Redis cache
+        # Check Valkey cache. Non-fatal: see the class docstring. ONE
+        # round-trip: each call can cost up to the cache socket timeout when
+        # Valkey is black-holed (REDIS_CACHE_SOCKET_*_TIMEOUT, #1465), and the
+        # whole probe must answer inside Kubernetes' 1-second default. A SET
+        # that returns proves the connection, auth, and a writable server.
         try:
             from django.core.cache import cache
             cache.set("_health", "ok", timeout=5)
-            if cache.get("_health") != "ok":
-                logger.warning("Readiness check failed: cache read/write mismatch")
-                errors["redis"] = _UNAVAILABLE
         except Exception as exc:
-            logger.warning("Readiness check failed: cache", exc_info=exc)
-            errors["redis"] = _UNAVAILABLE
+            logger.warning("Readiness degraded: cache", exc_info=exc)
+            degraded = True
 
         if errors:
             # ``errors`` is deprecated (1.3, #1728): it names the backing
@@ -79,4 +91,8 @@ class ReadinessView(APIView):
             # removal is a 2.0 change (#1902). Consumers should read the
             # status code.
             return Response({"status": "error", "errors": errors}, status=503)
+        if degraded:
+            # 200 so the pod keeps receiving traffic. The body carries no
+            # component name (anonymous endpoint, see ``errors`` deprecation).
+            return Response({"status": "degraded"})
         return Response({"status": "ok"})

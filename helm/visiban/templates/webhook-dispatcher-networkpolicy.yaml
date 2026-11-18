@@ -1,0 +1,112 @@
+{{- /*
+Opt-in egress NetworkPolicy for the webhook dispatcher pod (#2067).
+
+visiban/egress.py already checks every destination address the dispatcher
+connects to, so this is defense in depth: if that check were ever bypassed, the
+network still refuses the cluster's own ranges. It is OFF by default (a policy
+that selects the dispatcher changes what the pod may reach, and an upgrade must
+not do that unasked) and renders only when the dispatcher itself is enabled.
+
+Allowed:
+  - DNS (port 53, any namespace, see the demo egress policy for why),
+  - the release's own PostgreSQL and Valkey pods, when the chart runs them,
+  - public egress: 0.0.0.0/0 and ::/0 EXCEPT the cluster-internal ranges in
+    `denyCIDRs`,
+  - anything listed in `allowedCIDRs`.
+Everything else is denied, including the Kubernetes API, other namespaces' pods
+and the node network.
+
+An external PostgreSQL or Valkey on a private address (externalDatabase /
+externalRedis) is cluster-internal as far as this policy can tell: list its
+address in `allowedCIDRs` or the dispatcher loses its database. The same goes
+for a private webhook target admitted by WEBHOOK_ALLOWED_PRIVATE_TARGETS
+(backend.settings.webhookAllowedPrivateTargets): the application admits it, the
+network still has to.
+
+Only a claim if the CNI enforces NetworkPolicy (Calico, Cilium; not kind's
+default kindnetd). Some CNIs do not apply `ipBlock` rules to pod IPs, which
+weakens the deny for in-cluster pod targets: keep the application-level check
+as the primary control.
+
+Never rendered in public demo mode. visiban.datastoreClients includes the
+dispatcher, so the demo egress policy already selects it and allows only DNS and
+the release's datastores; NetworkPolicies are additive, so this policy's public
+egress rule would reopen exactly what demo mode closes.
+*/ -}}
+{{- $wh := (.Values.webhooks | default dict) }}
+{{- $dispatcher := ($wh.dispatcher | default dict) }}
+{{- $np := ($dispatcher.networkPolicy | default dict) }}
+{{- $demo := include "visiban.demoEnabled" . }}
+{{- if and $dispatcher.enabled $np.enabled (not $demo) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-webhook-dispatcher-egress
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: webhook-dispatcher
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.postgresql.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "visiban.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: postgresql
+      ports:
+        - port: 5432
+          protocol: TCP
+    {{- end }}
+    {{- if include "visiban.valkeyEnabled" . }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "visiban.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: valkey
+      ports:
+        - port: 6379
+          protocol: TCP
+    {{- end }}
+    # Public egress: everything except the cluster-internal ranges.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            {{- with $np.denyCIDRs }}
+            except:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+            {{- end }}
+        - ipBlock:
+            cidr: "::/0"
+            {{- with $np.denyCIDRsIPv6 }}
+            except:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+            {{- end }}
+    {{- with $np.allowedCIDRs }}
+    # Operator allowlist: external datastores and private webhook targets.
+    - to:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+    {{- end }}
+{{- end }}

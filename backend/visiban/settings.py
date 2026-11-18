@@ -189,6 +189,47 @@ def _apply_database_pool(db_config: dict, enabled: bool, min_size: int, max_size
     return db_config
 
 
+# Defaults for REDIS_CACHE_SOCKET_CONNECT_TIMEOUT / REDIS_CACHE_SOCKET_TIMEOUT
+# (seconds). Both sit well under the 1-second Kubernetes default probe timeout,
+# because the readiness view makes one cache round-trip; see
+# _redis_cache_options.
+REDIS_CACHE_SOCKET_CONNECT_TIMEOUT_DEFAULT = 0.5
+REDIS_CACHE_SOCKET_TIMEOUT_DEFAULT = 0.5
+
+
+def _redis_cache_options(connect_timeout: float, socket_timeout: float) -> dict:
+    """Build the ``CACHES["default"]["OPTIONS"]`` that bound every cache call (#1465).
+
+    Why this exists: redis-py's socket timeouts default to None, i.e. block
+    for as long as the kernel lets a connect or a read hang. A Valkey that
+    REFUSES connections fails fast, but one that is black-holed (a dropped
+    route, a firewall drop, a node that vanished without a RST) blocked every
+    ``cache.get`` for over 6 seconds when measured, and up to the OS connect
+    timeout in general. That defeats the #1465 outage handling twice over:
+    the throttles and SiteSetting reads in visiban/cache_outage.py and
+    accounts.models only degrade when redis-py RAISES, and the readiness
+    probe (1-second default timeout under Kubernetes) timed out instead of
+    reporting ``degraded``. With a bounded socket, a black hole raises
+    ``redis.exceptions.TimeoutError`` (one of CACHE_OUTAGE_ERRORS) after the
+    timeout.
+
+    Applies to the Django cache only, not the Channels layer: channels_redis
+    holds blocking reads open on purpose (BZPOPMIN for up to its
+    ``brpop_timeout``), so a sub-second socket timeout there would cut off
+    healthy WebSocket receive loops. A Channels outage does not touch REST
+    traffic or readiness.
+
+    redis-py 5.x does not retry by default, so one cache call costs at most
+    one timeout. Values must be positive: zero would mean "no wait" to the
+    kernel and None (unbounded) is the bug this function exists to remove.
+    """
+    if connect_timeout <= 0 or socket_timeout <= 0:
+        raise ImproperlyConfigured(
+            "REDIS_CACHE_SOCKET_CONNECT_TIMEOUT and REDIS_CACHE_SOCKET_TIMEOUT must be positive numbers of seconds."
+        )
+    return {"socket_connect_timeout": connect_timeout, "socket_timeout": socket_timeout}
+
+
 # Detect when running under `manage.py test` or pytest so we can substitute
 # fast in-process backends for Redis-backed services. This avoids requiring a
 # running Redis instance just to run the test suite locally.
@@ -453,6 +494,12 @@ else:
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": _REDIS_CACHE_URL,
+            # Bounded sockets so a black-holed Valkey raises instead of
+            # hanging every request (#1465); see _redis_cache_options.
+            "OPTIONS": _redis_cache_options(
+                env.float("REDIS_CACHE_SOCKET_CONNECT_TIMEOUT", default=REDIS_CACHE_SOCKET_CONNECT_TIMEOUT_DEFAULT),
+                env.float("REDIS_CACHE_SOCKET_TIMEOUT", default=REDIS_CACHE_SOCKET_TIMEOUT_DEFAULT),
+            ),
         }
     }
 
@@ -709,9 +756,13 @@ REST_FRAMEWORK = {
     # client exhausts the login/anon throttles for everyone. Raising it past
     # the real chain lets a client pick its own bucket via a spoofed header.
     "NUM_PROXIES": _NUM_PROXIES,
+    # DRF's AnonRateThrottle/UserRateThrottle, except that a Valkey/Redis
+    # outage lets the request through instead of turning it into a 500
+    # (#1465). Named-scope security throttles still fail closed; see
+    # visiban/cache_outage.py for the per-consumer decision.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "visiban.cache_outage.FailOpenAnonRateThrottle",
+        "visiban.cache_outage.FailOpenUserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         # In development (DEBUG) most scopes are raised to 9999/hour per scope: a

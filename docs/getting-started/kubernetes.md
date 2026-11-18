@@ -151,7 +151,7 @@ helm test visiban --namespace visiban --logs
 | Step fails | What it means |
 |---|---|
 | liveness | The backend container isn't running; check the init containers |
-| readiness | It runs but can't reach PostgreSQL or Valkey |
+| readiness | It runs but can't reach PostgreSQL or Valkey. The step requires `{"status": "ok"}`: since 1.3 a Valkey outage answers HTTP 200 with `{"status": "degraded"}`, which keeps pods in the Service but fails this step |
 | through nginx | The frontend can't resolve its backend upstream |
 | SPA | nginx proxies correctly but serves no bundle |
 
@@ -434,7 +434,7 @@ The bundled Valkey needs no `/tmp` mount. It only ever writes to `/data` and `/e
 | `backend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext`, applied to every backend container (init and app). |
 | `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. |
 | `postgresql.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `postgresql` container. |
-| `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.27-alpine`'s built-in `nginx` user and group. |
+| `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.30-alpine`'s built-in `nginx` user and group. |
 | `frontend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `frontend` container. |
 
 **Yes, but: the chart doesn't validate these blocks.** All three are passed through with `toYaml`, like `backend.resources`. You can override any block wholesale, for example if your base image can't run as the chart's numeric UID or needs a writable root filesystem. To run the bundled PostgreSQL with a writable root filesystem, on an image that writes somewhere this chart doesn't mount an `emptyDir`:
@@ -460,7 +460,7 @@ postgresql:
     - **The frontend Service's port is unchanged** (`frontend.service.port`, `80` by default). The Service targets the container by its named `http` port, which follows automatically.
     - **The one visible change:** a `kubectl port-forward <frontend-pod> 8080:80` run directly against the pod, bypassing the Service. The NOTES printed after `helm install`/`helm upgrade` already show the new `8080:8080`, but a script or alias built from older NOTES output needs updating.
 
-    **Why 8080:** `nginx:1.27-alpine` can't bind a port below 1024 as the non-root `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE`. That capability doesn't help either. Docker's and containerd's runc-based runtimes don't add a capability to an already non-root process's effective or ambient set from `capabilities.add` alone, so the process can never use it (verified empirically against `nginx:1.27-alpine`, #1224). Moving to an unprivileged port needs no capability at all.
+    **Why 8080:** `nginx:1.30-alpine` can't bind a port below 1024 as the non-root `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE`. That capability doesn't help either. Docker's and containerd's runc-based runtimes don't add a capability to an already non-root process's effective or ambient set from `capabilities.add` alone, so the process can never use it (verified empirically against `nginx:1.27-alpine`, #1224). Moving to an unprivileged port needs no capability at all.
 
 ## Network policies
 
@@ -548,9 +548,9 @@ The backend exposes two health endpoints for liveness and readiness probes:
 | Endpoint | Purpose | Checks |
 |---|---|---|
 | `/api/health/liveness/` | Is the process alive? | HTTP 200 if the ASGI server responds |
-| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database and Valkey are reachable |
+| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database is reachable; a Valkey outage reports `degraded` with HTTP 200 |
 
-They also work for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod leaves the Service within about 35 seconds of a dependency failure.
+They also work for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod leaves the Service within about 35 seconds of a database failure. A Valkey outage does not remove pods: REST traffic keeps flowing with realtime updates paused, as described in [Health API](../api/health.md#get-apihealthreadiness).
 
 ## Sample data
 

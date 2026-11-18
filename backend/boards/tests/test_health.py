@@ -51,14 +51,26 @@ class ReadinessViewTests(TestCase):
         self.assertIn("db", data["errors"])
 
     @patch("django.core.cache.cache.set")
-    def test_readiness_503_on_cache_failure(self, mock_set):
-        """Returns 503 with errors.redis set when the cache backend is unreachable."""
+    def test_readiness_200_degraded_on_cache_failure(self, mock_set):
+        """A Valkey outage must not unready the pod (#1465): 200, status degraded."""
+        mock_set.side_effect = Exception("Redis connection refused")
+        with self.assertLogs("boards.views.health", level="WARNING") as logs:
+            resp = self.client.get("/api/health/readiness/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), {"status": "degraded"})
+        self.assertTrue(any("cache" in r.getMessage() for r in logs.records))
+
+    @patch("django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection")
+    @patch("django.core.cache.cache.set")
+    def test_readiness_503_when_db_down_even_if_cache_down(self, mock_set, mock_ensure):
+        """DB failure still fails readiness; the cache is not named in errors."""
+        mock_ensure.side_effect = Exception("DB connection refused")
         mock_set.side_effect = Exception("Redis connection refused")
         resp = self.client.get("/api/health/readiness/")
         self.assertEqual(resp.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        data = resp.json()
-        self.assertEqual(data["status"], "error")
-        self.assertIn("redis", data["errors"])
+        self.assertEqual(
+            resp.json(), {"status": "error", "errors": {"db": "unavailable"}}
+        )
 
     @patch("django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection")
     @patch("django.core.cache.cache.set")
@@ -71,7 +83,7 @@ class ReadinessViewTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(
             resp.json(),
-            {"status": "error", "errors": {"db": "unavailable", "redis": "unavailable"}},
+            {"status": "error", "errors": {"db": "unavailable"}},
         )
         # The detail goes to the server log, with the exception attached.
         logged = " ".join(str(r.exc_info[1]) for r in logs.records if r.exc_info)
@@ -81,13 +93,13 @@ class ReadinessViewTests(TestCase):
         for fragment in ("10.1.2.3", "5432", "svc", "prod", "cache.internal", "6379"):
             self.assertNotIn(fragment, body)
 
-    @patch("django.core.cache.cache.get", return_value=None)
-    def test_readiness_503_on_cache_mismatch(self, mock_get):
-        """A cache read that does not return the written value is reported as unavailable."""
-        with self.assertLogs("boards.views.health", level="WARNING") as logs:
-            resp = self.client.get("/api/health/readiness/")
-        self.assertEqual(resp.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(
-            resp.json(), {"status": "error", "errors": {"redis": "unavailable"}}
-        )
-        self.assertTrue(any("cache" in r.getMessage() for r in logs.records))
+    @patch("django.core.cache.cache.get")
+    @patch("django.core.cache.cache.set")
+    def test_readiness_makes_one_cache_round_trip(self, mock_set, mock_get):
+        """One SET, no GET: each cache call can cost a full socket timeout when
+        Valkey is black-holed, and the probe must answer inside 1 second (#1465)."""
+        resp = self.client.get("/api/health/readiness/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), {"status": "ok"})
+        mock_set.assert_called_once()
+        mock_get.assert_not_called()

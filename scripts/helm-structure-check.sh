@@ -735,6 +735,20 @@ check_probe_paths() {
     fi
   done <<< "$paths"
   [ "$bad" -eq 0 ] && pass "all probe paths resolve to declared routes"
+
+  # The helm test hook's readiness steps must require "status":"ok" (#1465):
+  # since 1.3 a Valkey outage answers 200 {"status":"degraded"}, so a check on
+  # the status code alone would pass a release whose Valkey URL is wrong.
+  local test_script
+  test_script="$(doc Pod 'api-connection' | yq '.spec.containers[0].command[2]')"
+  if [ -z "$test_script" ] || [ "$test_script" = "null" ]; then
+    fail "the helm test hook (api-connection) did not render a probe script"
+  elif ! grep -qF "\"status\":\"ok\"" <<< "$test_script" \
+      || grep -E '^[[:space:]]*probe "[^"]*" "[^"]*/api/health/readiness/' <<< "$test_script" >/dev/null; then
+    fail "the helm test hook checks readiness by status code alone; it must require {\"status\":\"ok\"} (a degraded Valkey answers 200)"
+  else
+    pass "the helm test hook's readiness steps require {\"status\":\"ok\"}, not just 200"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -2388,6 +2402,57 @@ check_sweep_webhook_secrets_fallback() {
   [ "$bad" -eq 0 ] && pass "the sweep CronJob renders with the key missing (0 4 * * *) and is absent when scheduledJobs is off"
 }
 
+# ---------------------------------------------------------------------------
+# 20. The dispatcher egress NetworkPolicy is opt-in and shaped right (#2067).
+# ---------------------------------------------------------------------------
+check_dispatcher_egress_policy() {
+  section "20. The webhook dispatcher egress NetworkPolicy renders only when both the dispatcher and its networkPolicy are enabled, and denies cluster-internal ranges (#2067)"
+  local bad=0 rendered name="webhook-dispatcher-egress"
+  # RENDER_ARGS already turns the dispatcher on (section 7), so the default
+  # render proves "dispatcher on, networkPolicy off renders no policy".
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" 2>&1)" || { fail "default render failed"; return; }
+  if grep -q "$name" <<< "$rendered"; then
+    fail "the dispatcher egress policy renders by default, expected absent"; bad=1
+  fi
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set webhooks.dispatcher.enabled=true --set webhooks.dispatcher.networkPolicy.enabled=true --set-json 'webhooks.dispatcher.networkPolicy.allowedCIDRs=["10.20.0.5/32"]' 2>&1)" || { fail "render with the dispatcher egress policy on failed"; return; }
+  local pol excepts cidrs
+  pol="$(yq "select(.kind == \"NetworkPolicy\" and (.metadata.name | test(\"$name\")))" <<< "$rendered")"
+  if [ -z "$pol" ]; then
+    fail "the dispatcher egress policy does not render when enabled"; bad=1
+  else
+    if ! grep -q "app.kubernetes.io/component: webhook-dispatcher" <<< "$pol"; then
+      fail "the dispatcher egress policy does not select the webhook-dispatcher pod"; bad=1
+    fi
+    if [ "$(yq '.spec.policyTypes | join(",")' <<< "$pol")" != "Egress" ]; then
+      fail "the dispatcher egress policy is not Egress-only"; bad=1
+    fi
+    # Captured, not piped into `grep -q`: its early exit SIGPIPEs yq under pipefail.
+    excepts="$(yq '.spec.egress[].to[].ipBlock.except[]?' <<< "$pol")"
+    cidrs="$(yq '.spec.egress[].to[].ipBlock.cidr?' <<< "$pol")"
+    if ! grep -qx "169.254.0.0/16" <<< "$excepts"; then
+      fail "the public egress rule does not except the cluster-internal ranges"; bad=1
+    fi
+    if ! grep -qx "10.20.0.5/32" <<< "$cidrs"; then
+      fail "an allowedCIDRs entry does not reach the policy"; bad=1
+    fi
+  fi
+  # Demo mode: the demo egress policy already selects the dispatcher (it is a
+  # datastore client) and allows only DNS and the datastores. NetworkPolicies are
+  # additive, so this policy's public egress rule must never render on top of it.
+  local demo_out="$RUN_TMP/helm-demo-dispatcher.yaml"
+  if ! render_demo "$demo_out" --set webhooks.dispatcher.enabled=true --set webhooks.dispatcher.networkPolicy.enabled=true; then
+    fail "demo render with the dispatcher and its egress policy on failed: $(head -3 "$RUN_TMP/helm-demo-render-err.txt")"; bad=1
+  else
+    if grep -q "$name" "$demo_out"; then
+      fail "the dispatcher egress policy renders in demo mode, reopening public egress the demo egress policy closes"; bad=1
+    fi
+    if ! grep -q "demo-egress" "$demo_out"; then
+      fail "the demo render has no demo-egress policy, so the case above proves nothing"; bad=1
+    fi
+  fi
+  [ "$bad" -eq 0 ] && pass "the dispatcher egress policy is absent unless dispatcher and networkPolicy are both enabled (the dispatcher alone renders none) and never renders in demo mode, is Egress-only on the dispatcher pod, excepts the internal ranges, and carries allowedCIDRs"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2416,6 +2481,7 @@ run_all_checks() {
   check_feature_flags
   check_db_pool
   check_sweep_webhook_secrets_fallback
+  check_dispatcher_egress_policy
 }
 
 # ---------------------------------------------------------------------------
@@ -2549,6 +2615,13 @@ self_test() {
     "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
+    # 20 (#2067): the dispatcher egress policy stops excepting the internal
+    # ranges, so "public egress" quietly includes the whole cluster.
+    "20 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
+    # 20 (#2067): the policy renders without its own opt-in.
+    "20 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
+    # 20 (#1465 round 2): the policy renders in demo mode, on top of demo-egress.
+    "20 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
     "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"

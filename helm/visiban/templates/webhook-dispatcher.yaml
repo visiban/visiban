@@ -16,8 +16,9 @@ a conditional UPDATE, but it adds nothing.
 The pod carries `app.kubernetes.io/component: webhook-dispatcher`, which
 networkpolicy.yaml lists as a datastore client (visiban.datastoreClients);
 scripts/helm-structure-check.sh section 7 asserts the pairing. The chart adds
-no egress policy for it outside demo mode (where webhooks are refused): webhooks
-POST to destinations outside the cluster.
+no egress policy for it by default (webhooks POST to destinations outside the
+cluster); `webhooks.dispatcher.networkPolicy.enabled` opts in to one
+(webhook-dispatcher-networkpolicy.yaml, #2067).
 */ -}}
 {{- $wh := (.Values.webhooks | default dict) }}
 {{- $dispatcher := ($wh.dispatcher | default dict) }}

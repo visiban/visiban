@@ -368,6 +368,13 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "A Valkey outage no longer fails the readiness probe: monitors on its `503` stop firing"
+    Since 1.3, `/api/health/readiness/` depends on the database only. When Valkey is unreachable it answers `200` with `{"status": "degraded"}` instead of `503` with a `redis` key, so pods stay in the Service and ordinary REST requests keep working (#1465). See [If Valkey goes down](configuration.md#if-valkey-goes-down) for what still fails.
+
+    - **Monitors and load balancers** that alert on, or route by, a readiness `503` for Valkey will no longer fire for a Valkey outage. Alert on the `status` field (`degraded`), on Valkey's own metrics, or on the `Readiness degraded: cache` log line instead.
+    - **`helm test`** still fails on a Valkey problem: its readiness step requires `{"status": "ok"}`. `helm upgrade --wait` alone no longer does, because it waits on the readiness probe, so run `helm test` after an upgrade that changes Valkey settings (URL, password, `externalRedis`).
+    - **New cache timeouts.** Every cache call now gives up after 0.5 seconds (`REDIS_CACHE_SOCKET_CONNECT_TIMEOUT`, `REDIS_CACHE_SOCKET_TIMEOUT`; Helm `backend.settings.cacheTimeouts`). Before, a Valkey that dropped packets instead of refusing connections made requests hang. Raise them only for a Valkey with unusually slow replies.
+
 !!! note "Valkey now has a memory ceiling and an eviction policy"
     Since 1.3, Valkey runs with `maxmemory` and `maxmemory-policy volatile-lru` (#1130), so a busy instance evicts old cache entries instead of growing until it is OOM-killed.
 
@@ -1146,7 +1153,7 @@ only, no table rewrite). What this means for you:
     - **The frontend Service's own port is unchanged** (`frontend.service.port`, `80` by default). It targets the container by its named `http` port, which moves with it automatically, so `helm install`/`helm upgrade`, `kubectl port-forward svc/<release>-visiban-frontend`, and the Ingress all need no changes.
     - **Direct pod port-forwards change:** a `kubectl port-forward <frontend-pod-name> 8080:80` run directly against the pod (bypassing the Service) must become `8080:8080`. The NOTES printed after `helm install`/`helm upgrade` already show the updated command, but a script or shell alias built from an older NOTES output needs updating by hand.
 
-    **What could break:** a custom frontend image not built on `nginx:1.27-alpine`, or one that writes anywhere but `/var/cache/nginx`, `/run` or `/tmp`, may fail under a read-only root filesystem or lack the `101:101` `nginx` user/group this chart defaults to. Verify an overridden `frontend.image` on staging first.
+    **What could break:** a custom frontend image not built on `nginx:1.30-alpine`, or one that writes anywhere but `/var/cache/nginx`, `/run` or `/tmp`, may fail under a read-only root filesystem or lack the `101:101` `nginx` user/group this chart defaults to. Verify an overridden `frontend.image` on staging first.
 
     **If your image cannot run under this hardening**, relax just the field that conflicts. For example, to keep a writable root filesystem on a custom frontend image:
 

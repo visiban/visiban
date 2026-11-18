@@ -6,7 +6,7 @@ ARG BASE_REGISTRY=docker.io/library
 
 # ── Stage 1: Builder ─────────────────────────────────────────────────────────
 # Installs all deps and compiles the React SPA to /app/dist.
-FROM ${BASE_REGISTRY}/node:20-alpine AS builder
+FROM ${BASE_REGISTRY}/node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN npm run build
 # ── Stage 2: Development ──────────────────────────────────────────────────────
 # Used by docker-compose.yml (build.target: dev). Runs the Vite dev server
 # with hot reload. Source is mounted as a volume so no COPY needed here.
-FROM ${BASE_REGISTRY}/node:20-alpine AS dev
+FROM ${BASE_REGISTRY}/node:22-alpine AS dev
 
 # WORKDIR creates /app root-owned; hand it to the image's built-in `node`
 # user (uid 1000) so the dev server runs non-root (#1528, trivy DS-0002).
@@ -57,7 +57,7 @@ EXPOSE 5173
 # build it by default when no --target is specified.
 # nginx base image CMD keeps the process in the foreground:
 #   nginx -g "daemon off;"
-FROM ${BASE_REGISTRY}/nginx:1.27-alpine
+FROM ${BASE_REGISTRY}/nginx:1.30-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Default server config: listens on 8080 and sends the same response headers as
