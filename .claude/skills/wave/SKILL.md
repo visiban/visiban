@@ -108,7 +108,8 @@ Then filter, in this order:
 
 Report the selected list to the user before spawning anything. One line per
 issue: number, title, chosen model, chosen effort, and why (the escalation criterion met, or
-"default"). Fable is never a Step 2 choice: it is a rescue after an Opus failure (*Rescue
+"default"), plus a line for any chosen model whose running id has no row in
+`.claude/model-prices.json` (Step 4, *Check the price row*). Fable is never a Step 2 choice: it is a rescue after an Opus failure (*Rescue
 escalation*, Step 4).
 
 ## Step 3 — One worktree per issue
@@ -157,6 +158,16 @@ gate agent has all three. Agents run under this session's permission mode.
 
 ### Model choice
 
+**Check the price row before you spawn (trueppm#5059, #2369).** The cost hook prices each model id
+from `.claude/model-prices.json` in the checkout it runs from (the default branch). Resolve the id
+the harness will actually run the model you chose as (`haiku`, `sonnet`, `opus` and `fable` are
+aliases; the running id is what the transcript records, and it can be newer than any id the table
+or this skill last named), and confirm that exact id has a row. If it has none, say so in the Step 2
+report, then either land the row first in its own MR, or accept on purpose that the estimate leaves
+that model out: the record then shows `n/a` for its own cells and marks the total partial (`N+`,
+`excludes <id>`). Do not discover it from the cost comment afterwards: a posted record is immutable.
+Names in this skill go by family; the table is the only place that names the current id.
+
 **Default to Sonnet.** Most issues in this project's fast-path table (bugfixes,
 single-endpoint features, settings sub-page wiring) do not need Opus.
 
@@ -174,7 +185,7 @@ your report:
 
 ### Rescue escalation: Fable, only after Opus failed (macrodream/blueprint#399)
 
-Fable (`claude-fable-5-1`) is priced about 2.5x Opus (`.claude/model-prices.json`), so it
+Fable is priced about 2.5x Opus (`.claude/model-prices.json`), so it
 earns its price only where Opus has already failed on the same issue. It is never a default,
 never chosen up front, and never a standing tier. **A Fable spawn with no prior Opus failure on
 that issue is a defect in the run**: report it as one, like an omitted `model`.
@@ -204,7 +215,7 @@ with `AskUserQuestion`, Fable first and marked recommended:
 - **"Run Opus again" is not the wrong answer.** The recommendation is Fable, the choice is the
   user's, and nothing in this skill treats `opus-again` as a lesser outcome.
 - **The estimate** prices the failed Opus run's measured tokens (`subagent-tokens:` from
-  `scripts/post-mr-cost.py --measure`, per usage class) at the `claude-fable-5-1` row of
+  `scripts/post-mr-cost.py --measure`, per usage class) at the current Fable row of
   `.claude/model-prices.json`, and is labeled an estimate. With no measured tokens (the cost
   ledger off, or no transcript), say "no estimate: <why>" rather than invent one.
 - **Non-interactive runs do not escalate.** A run that cannot ask reports the issue as

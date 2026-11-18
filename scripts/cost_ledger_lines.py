@@ -82,7 +82,12 @@ COST_RE = re.compile(r"^\s*(?:[-*]\s*)?cost:\s*usd\s+(\d+(?:\.\d+)?)\s*$", re.I)
 TURNS_RE = re.compile(r"^\s*(?:[-*]\s*)?turns:\s*(\d+)\s*$", re.I)
 SUBAGENT_TOKENS_RE = re.compile(r"^\s*(?:[-*]\s*)?subagent-tokens:\s*(\d+)\s*$", re.I)
 # est-cost-usd (macrodream/blueprint#364): a list-price ESTIMATE, its own line, never mixed with `cost: usd`.
-EST_COST_RE = re.compile(r"^\s*(?:[-*]\s*)?est-cost-usd:\s*(\d+(?:\.\d+)?)(?:\s*\(prices\s+\d{4}-\d{2}-\d{2}\))?\s*$", re.I)
+# A `+` after the figure and an `excludes <model>[, <model>]` tail mark a partial total: a model with no
+# price row was left out (trueppm#5059).
+EST_COST_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?est-cost-usd:\s*(\d+(?:\.\d+)?)(\+)?"
+    r"(?:\s*\(prices\s+\d{4}-\d{2}-\d{2}(?:,\s*excludes\s+[0-9A-Za-z][0-9A-Za-z._:-]{0,63}"
+    r"(?:,\s*[0-9A-Za-z][0-9A-Za-z._:-]{0,63}){0,4})?\))?\s*$", re.I)
 ORCH_TOKENS_RE = re.compile(r"^\s*(?:[-*]\s*)?orchestrator-tokens:\s*(\d+)\s*$", re.I)
 _ROLE = r"(?:implementer|gate|completeness-check)"
 # ASCII digits, at most 18: `\d` also matches other scripts' digits, and int() raises past 4,300.
@@ -273,6 +278,8 @@ def self_test():
         ("no ledger at all", "## Summary\n- chore\n"),
         ("est-cost-usd with prices date", wrap("est-cost-usd: 12.34 (prices 2026-11-03)")),
         ("est-cost-usd integer and bare", wrap("est-cost-usd: 7")),
+        ("est-cost-usd partial, one model excluded", wrap("est-cost-usd: 11.63+ (prices 2026-11-03, excludes claude-fable-9)")),
+        ("est-cost-usd partial, several models excluded", wrap("est-cost-usd: 2.00+ (prices 2026-11-03, excludes a, b)")),
         ("est-cost-usd beside the measured lines", wrap("subagent-tokens: 5", "orchestrator-tokens: 6",
                                                          "est-cost-usd: 0.42 (prices 2026-11-03)")),
         ("subagent-tokens and turns lines", wrap("subagent-tokens: 1234567", "turns: 12")),
