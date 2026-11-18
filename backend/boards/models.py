@@ -1314,9 +1314,9 @@ class CardActivity(models.Model):
         # from/to are the stored values ("" = no value).
         CUSTOM_FIELD_CHANGED = "custom_field_changed", "Custom field changed"
         # #1104: a cross-board parent/child link was made or removed. Recorded
-        # on both cards. ``to_value`` (linked) / ``from_value`` (unlinked) is
-        # the OTHER card's id only, never its title: the other card may be on
-        # a board the reader of this card's history cannot open.
+        # on both cards with from/to left blank: the other card may be on a
+        # board the reader of this card's history cannot open, so not even its
+        # id is stored.
         PARENT_LINKED = "parent_linked", "Parent linked"
         PARENT_UNLINKED = "parent_unlinked", "Parent unlinked"
         CHILD_LINKED = "child_linked", "Child linked"

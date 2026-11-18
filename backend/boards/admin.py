@@ -452,7 +452,7 @@ class CardAdmin(admin.ModelAdmin):
                 if stored is not None and stored.board_id != obj.board_id:
                     from .services.card_links import unlink_all
 
-                    unlink_all(obj, actor=request.user)
+                    unlink_all(obj, actor=request.user, old_board_id=stored.board_id)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it

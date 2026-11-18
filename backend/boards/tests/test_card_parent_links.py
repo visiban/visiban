@@ -77,11 +77,11 @@ class LinkWriteTests(_LinkFixture, TestCase):
         self.assertEqual(res.status_code, 201, res.content)
         self.assertEqual(res.json(), {"parent_id": self.parent.pk, "child_id": self.child.pk})
         self.assertTrue(CardParentLink.objects.filter(parent=self.parent, child=self.child).exists())
-        # History on both cards, carrying only the other card's id.
+        # History on both cards, naming nothing of the other card, not even its id.
         child_act = CardActivity.objects.get(card=self.child, event_type="parent_linked")
         parent_act = CardActivity.objects.get(card=self.parent, event_type="child_linked")
-        self.assertEqual(child_act.to_value, str(self.parent.pk))
-        self.assertEqual(parent_act.to_value, str(self.child.pk))
+        for act in (child_act, parent_act):
+            self.assertEqual((act.from_value, act.to_value, act.item_text), ("", "", None))
 
     def test_missing_and_inaccessible_parent_ids_answer_identically(self):
         hidden_board, hidden = _board_with_card(
@@ -91,6 +91,8 @@ class LinkWriteTests(_LinkFixture, TestCase):
         missing = self._link(client, parent_id=hidden.pk + 10_000)
         inaccessible = self._link(client, parent_id=hidden.pk)
         garbage = self._link(client, parent_id="abc")
+        for odd in (True, 1.5, -1, 2**70):
+            self.assertEqual(self._link(client, parent_id=odd).content, missing.content)
         self.assertEqual(missing.status_code, 404)
         self.assertEqual(inaccessible.status_code, 404)
         self.assertEqual(garbage.status_code, 404)
@@ -176,8 +178,7 @@ class LinkWriteTests(_LinkFixture, TestCase):
         self.assertFalse(CardParentLink.objects.exists())
         self.assertEqual(self._client(child_only).delete(url).status_code, 404)
         self.assertEqual(
-            CardActivity.objects.get(card=self.child, event_type="parent_unlinked").from_value,
-            str(self.parent.pk),
+            CardActivity.objects.get(card=self.child, event_type="parent_unlinked").from_value, "",
         )
         self.assertTrue(CardActivity.objects.filter(card=self.parent, event_type="child_unlinked").exists())
 
@@ -199,6 +200,29 @@ class LinkWriteTests(_LinkFixture, TestCase):
         CardParentLink.objects.create(parent=self.parent, child=self.child)
         self.child.delete()
         self.assertFalse(CardParentLink.objects.exists())
+
+    def test_deleting_a_child_through_the_api_pings_the_parent_board(self):
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self._client(self.owner).delete(
+                f"/api/v1/boards/{self.cboard.pk}/cards/{self.child.pk}/"
+            )
+        self.assertEqual(res.status_code, 204, res.content)
+        rows = list(BoardEvent.objects.filter(board_id=self.pboard.pk))
+        self.assertEqual([(r.event, r.data) for r in rows], [("card.children_changed", {"parent_id": self.parent.pk})])
+        self.assertTrue(CardActivity.objects.filter(card=self.parent, event_type="child_unlinked").exists())
+
+    def test_deleting_a_parent_through_the_api_pings_the_child_board(self):
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self._client(self.owner).delete(
+                f"/api/v1/boards/{self.pboard.pk}/cards/{self.parent.pk}/"
+            )
+        self.assertEqual(res.status_code, 204, res.content)
+        rows = list(BoardEvent.objects.filter(board_id=self.cboard.pk))
+        self.assertEqual([(r.event, r.data) for r in rows], [("card.parent_changed", {"card_ids": [self.child.pk]})])
+        self.assertTrue(Card.objects.filter(pk=self.child.pk).exists())
+        self.assertTrue(CardActivity.objects.filter(card=self.child, event_type="parent_unlinked").exists())
 
 
 class ChildrenReadTests(_LinkFixture, TestCase):
@@ -302,9 +326,17 @@ class FlagFlipRefusalTests(_LinkFixture, TestCase):
         request.user = self.owner
         child = Card.objects.get(pk=self.child.pk)
         child.board, child.column, child.swimlane = other_board, col, lane
-        with transaction.atomic():
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
             CardAdmin(Card, django_admin.site).save_model(request, child, None, True)
         self.assertFalse(CardParentLink.objects.exists())
+        # The ping goes to the board the child LEFT, whose clients showed the
+        # link, and never to the board it moved to.
+        self.assertTrue(
+            BoardEvent.objects.filter(board_id=self.cboard.pk, event="card.parent_changed").exists()
+        )
+        self.assertFalse(
+            BoardEvent.objects.filter(board_id=other_board.pk, event="card.parent_changed").exists()
+        )
         self.assertTrue(CardActivity.objects.filter(card=self.parent, event_type="child_unlinked").exists())
 
 

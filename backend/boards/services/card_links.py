@@ -97,11 +97,15 @@ def resolve_card_for_user(user, card_id):
     all raise the SAME ``NotFound``: the lookup must not be an oracle for the
     existence of cards on other boards (threat model, risk 1; Rule 7).
     """
+    # Only a JSON integer or a numeric string is an id: a float would be
+    # truncated to some other card, and a bool is an int subclass.
+    if isinstance(card_id, bool) or not isinstance(card_id, (int, str)):
+        raise NotFound()
     try:
         pk = int(card_id)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise NotFound() from None
-    if isinstance(card_id, bool) or pk <= 0:
+    if pk <= 0:
         raise NotFound()
     card = (
         Card.objects.select_related(f"board__{GROUP_ANCESTOR_SELECT_RELATED}")
@@ -156,11 +160,15 @@ def _lock_endpoints(parent_pk, child_pk, board_pks=()):
     )
 
 
-def _record(card_id, event_type, actor, *, to_value="", from_value=""):
-    CardActivity.objects.create(
-        card_id=card_id, event_type=event_type, actor=actor,
-        to_value=to_value, from_value=from_value,
-    )
+def _record(card_id, event_type, actor, **_ignored):
+    """Write one link history row with NO reference to the other card.
+
+    Not even its id: whoever reads this card's history may be unable to open
+    the other card's board, and "never a title, board, column or id" holds for
+    history as it does for ``children_for_viewer``. Clients read the current
+    link from the parent/children endpoints, which resolve the reader's role.
+    """
+    CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor)
 
 
 def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
@@ -249,7 +257,7 @@ def create_link(*, user, child, child_role, parent_id):
     return link
 
 
-def remove_link(link, *, actor):
+def remove_link(link, *, actor, moved_from=None):
     """Delete ``link`` and record it on both cards and both boards.
 
     Authorization is the caller's: either end may unlink, with MEMBER or
@@ -265,14 +273,22 @@ def remove_link(link, *, actor):
             raise NotFound()
         _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor, from_value=str(link.parent_id))
         _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor, from_value=str(link.child_id))
+        # ``moved_from`` names the board a card is LEAVING: an admin move
+        # unlinks after the card row already points at its new board, and the
+        # board whose clients still show the link is the old one.
+        moved_from = moved_from or {}
+
+        def board_of(card_id, fallback):
+            return moved_from.get(card_id) or boards_now.get(card_id, fallback)
+
         _announce(
-            boards_now.get(link.parent_id, link.parent.board_id), link.parent_id,
-            boards_now.get(link.child_id, link.child.board_id), link.child_id,
+            board_of(link.parent_id, link.parent.board_id), link.parent_id,
+            board_of(link.child_id, link.child.board_id), link.child_id,
             getattr(actor, "id", None),
         )
 
 
-def unlink_all(card, *, actor=None):
+def unlink_all(card, *, actor=None, old_board_id=None):
     """Remove every link ``card`` takes part in, either end.
 
     For paths that move a card to another board (the Django admin): a moved
@@ -282,8 +298,44 @@ def unlink_all(card, *, actor=None):
     links = CardParentLink.objects.select_related("parent", "child").filter(
         Q(child_id=card.pk) | Q(parent_id=card.pk)
     ).order_by("pk")
+    moved_from = {card.pk: old_board_id} if old_board_id else None
     for link in list(links):
-        remove_link(link, actor=actor)
+        remove_link(link, actor=actor, moved_from=moved_from)
+
+
+def announce_card_removal(card, *, actor=None):
+    """Record what deleting ``card`` does to its links, before the delete.
+
+    The link rows CASCADE away with the card, so this must run first, inside
+    the delete's transaction (``services.cards.delete_card``). Each surviving
+    peer records the unlink in its own history, and only the PEER's board gets
+    a ping: a deleted child pings its parent's board (``card.children_changed``),
+    a deleted parent pings each child's board (``card.parent_changed``). The
+    deleted card's own board already gets ``card.deleted``.
+    """
+    actor_id = getattr(actor, "id", None)
+    as_child = (
+        CardParentLink.objects.filter(child_id=card.pk)
+        .values_list("parent_id", "parent__board_id").first()
+    )
+    if as_child is not None:
+        parent_id, parent_board_id = as_child
+        _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor, from_value=str(card.pk))
+        _broadcast.record_board_event(
+            parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
+            {"parent_id": parent_id}, actor_id=actor_id,
+        )
+    by_board = {}
+    for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card.pk).values_list(
+        "child_id", "child__board_id"
+    ).order_by("child_id"):
+        _record(child_id, CardActivity.EventType.PARENT_UNLINKED, actor, from_value=str(card.pk))
+        by_board.setdefault(child_board_id, []).append(child_id)
+    for child_board_id, child_ids in by_board.items():
+        _broadcast.record_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+            {"card_ids": child_ids}, actor_id=actor_id,
+        )
 
 
 # ─── Read path ───────────────────────────────────────────────────────────────

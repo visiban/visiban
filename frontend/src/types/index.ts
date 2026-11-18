@@ -1018,8 +1018,8 @@ export type CardActivityEventType =
   | "blocked"
   | "unblocked"
   | "custom_field_changed"
-  // Cross-board parent/child link (#1104): to_value (linked) / from_value
-  // (unlinked) is the other card's id only, never its title.
+  // Cross-board parent/child link (#1104): from/to are blank; the row never
+  // names the other card, which may be on a board the reader cannot open.
   | "parent_linked"
   | "parent_unlinked"
   | "child_linked"

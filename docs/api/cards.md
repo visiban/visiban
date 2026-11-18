@@ -1102,8 +1102,8 @@ Unlink one child from this parent. `member` or higher on the parent's board.
 ### History and real-time
 
 Both cards record `parent_linked` / `child_linked` (and `parent_unlinked` /
-`child_unlinked`) in their [history](#history), carrying only the other card's
-id. Each link change publishes `card.children_changed {parent_id}` on the
+`child_unlinked`) in their [history](#history), with `from_value` and
+`to_value` blank: a history row never names the other card, not even by id. Each link change publishes `card.children_changed {parent_id}` on the
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
 ids only. See [WebSockets](websockets.md).
 

@@ -2573,6 +2573,11 @@ def delete_card(*, actor, board, card, role=None, render=None, render_many=None)
         # after it there is nothing left to tell us whose blocker_count moved (#449).
         # Read under the lock so a relation committed while we waited counts.
         peer_ids = _blocked_peer_ids(card)
+        # Parent/child links CASCADE too (#1104): tell the peer cards and
+        # boards first, while the link rows still exist.
+        from .card_links import announce_card_removal
+
+        announce_card_removal(card, actor=actor)
         card.delete()
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor.id)
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
