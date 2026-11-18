@@ -170,13 +170,13 @@ vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: (opts?: { peek?: boolean }) => void }) => <div onClick={(e) => onClick?.(e.shiftKey ? { peek: true } : undefined)} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 // #2278: the sub-column Move tests hand BoardView's props to the REAL CardDetail.
-let renderRealCardDetail = false
+const realCardDetail = vi.hoisted(() => ({ on: false })) // hoisted: ../api/cards's factory reads it during import
 vi.mock('../components/Card/CardDetail', async () => {
   const { default: RealCardDetail } = await vi.importActual<typeof import('../components/Card/CardDetail')>('../components/Card/CardDetail')
   return {
     default: (props: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onMoveCard?: (...a: number[]) => Promise<unknown>; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => {
       const { card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest } = props
-      if (renderRealCardDetail) return <RealCardDetail {...(props as unknown as React.ComponentProps<typeof RealCardDetail>)} />
+      if (realCardDetail.on) return <RealCardDetail {...(props as unknown as React.ComponentProps<typeof RealCardDetail>)} />
       return <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 20, 9999, 2) }}>Force Sub-column From Detail</button>}</div>
     },
   }
@@ -302,19 +302,29 @@ let mockSearchTruncation: { shown: number; total: number } | null = null
 vi.mock('../hooks/useCardSearch', () => ({
   useCardSearch: () => ({ searchMatchIds: null, isSearching: false, truncation: mockSearchTruncation }),
 }))
-// The real CardDetail (#2278 Move popover tests) reads the rest of this module: every export not
-// mocked below becomes a call that never settles, so no loader hits the network or sets state.
-vi.mock('../api/cards', async (importOriginal) => ({
-  ...Object.fromEntries(Object.entries(await importOriginal<Record<string, unknown>>()).map(([k, v]) => [k, typeof v === 'function' ? () => new Promise(() => {}) : v])),
-  getCardStatus: vi.fn(),
-  // The peek sheet's history (phone reorder test, #2277).
-  getCardMovements: vi.fn(() => Promise.resolve([])),
-  // Card context menu / palette card actions (#2059).
-  moveCard: vi.fn(),
-  updateCard: vi.fn(),
-  archiveCard: vi.fn(),
-  deleteCard: vi.fn(),
-}))
+// The real CardDetail (#2278 Move popover tests) reads the rest of this module. Only while
+// `realCardDetail.on` is set does every export not mocked below become a call that never settles
+// (so no loader hits the network or sets state); otherwise an unmocked export throws as vitest's
+// module mock always has, so the rest of this file still notices a missing mock.
+vi.mock('../api/cards', async (importOriginal) => {
+  const original = await importOriginal<Record<string, unknown>>()
+  const mocked: Record<string, unknown> = {
+    getCardStatus: vi.fn(),
+    // The peek sheet's history (phone reorder test, #2277).
+    getCardMovements: vi.fn(() => Promise.resolve([])),
+    // Card context menu / palette card actions (#2059).
+    moveCard: vi.fn(),
+    updateCard: vi.fn(),
+    archiveCard: vi.fn(),
+    deleteCard: vi.fn(),
+  }
+  const neverSettles = () => new Promise(() => {})
+  const passthrough = (key: string | symbol) => realCardDetail.on && typeof key === 'string' && !(key in mocked) && typeof original[key] === 'function'
+  return new Proxy(mocked, {
+    has: (target, key) => key in target || passthrough(key),
+    get: (target, key, receiver) => (passthrough(key) ? neverSettles : Reflect.get(target, key, receiver)),
+  })
+})
 
 import { archiveCard, deleteCard, getCardStatus, moveCard, updateCard } from '../api/cards'
 import { getLensConnection } from '../api/gitLens'
@@ -4338,8 +4348,8 @@ describe('BoardView leave warning and sub-column steps (#2278)', () => {
   })
 
   describe('CardDetail Move popover through BoardView (#2278)', () => {
-    beforeEach(() => { renderRealCardDetail = true })
-    afterEach(() => { renderRealCardDetail = false })
+    beforeEach(() => { realCardDetail.on = true })
+    afterEach(() => { realCardDetail.on = false })
 
     const openDetailAndPick = async (stop: string, cardList = [reviewCard(1, 0)], currentColumn = 'Review') => {
       mockSearchParams = new URLSearchParams('card=1')

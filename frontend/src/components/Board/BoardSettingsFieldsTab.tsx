@@ -85,40 +85,38 @@ interface FormState {
   /** #1122: threshold marking; sent only for number and date fields. */
   thresholds: ThresholdDraft;
   show_on_card: boolean;
-  /** #1921: a track field; its `choice_resolutions` follow renames so a rename never silently resets a resolution. */
+  /** #1921: a track field; its resolutions are mapped from each row's original name at save time. */
   is_dimension: boolean;
+  /** The definition's resolutions keyed by the ORIGINAL choice names; never mutated while editing. */
   choice_resolutions: Record<string, DimensionResolution>;
+  /** Parallel to `choices`: each row's name when the editor opened, `null` for a row added since. */
+  choice_origins: (string | null)[];
 }
 
 function emptyForm(): FormState {
-  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, thresholds: EMPTY_THRESHOLD_DRAFT, show_on_card: false, is_dimension: false, choice_resolutions: {} };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, thresholds: EMPTY_THRESHOLD_DRAFT, show_on_card: false, is_dimension: false, choice_resolutions: {}, choice_origins: [] };
 }
 
 function formFromDefinition(d: CustomFieldDefinition): FormState {
-  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, thresholds: thresholdDraftFrom(d), show_on_card: d.show_on_card, is_dimension: isDimensionField(d), choice_resolutions: { ...(d.choice_resolutions ?? {}) } };
+  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, thresholds: thresholdDraftFrom(d), show_on_card: d.show_on_card, is_dimension: isDimensionField(d), choice_resolutions: { ...(d.choice_resolutions ?? {}) }, choice_origins: [...d.choices] };
 }
 
 const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
 const TRACK_PIN_REASON = "Tracks show as chips, not pinned fields";
 
-/** Move a choice's resolution to its new name (own-entries rebuild, so a `__proto__` choice stays a real key). */
-function renameResolution(draft: Record<string, DimensionResolution>, from: string, to: string): Record<string, DimensionResolution> {
-  if (!Object.hasOwn(draft, from)) return draft;
-  const value = draft[from];
-  return Object.fromEntries([...Object.entries(draft).filter(([k]) => k !== from && k !== to), [to, value]]);
-}
-
-function withoutResolution(draft: Record<string, DimensionResolution>, choice: string): Record<string, DimensionResolution> {
-  if (!Object.hasOwn(draft, choice)) return draft;
-  return Object.fromEntries(Object.entries(draft).filter(([k]) => k !== choice));
-}
-
-/** The map sent on save: trimmed choices only, matching the server's own pruning. */
-function resolutionsPayload(choices: string[], draft: Record<string, DimensionResolution>): Record<string, DimensionResolution> {
+/**
+ * The map sent on save. Resolutions are keyed by each row's ORIGINAL name and carried onto its trimmed
+ * final name here, once. Rewriting the map per keystroke deleted a sibling's resolution whenever the
+ * edited text passed through that sibling's name ("Reviewed" -> "Review"), and keying by the raw text
+ * lost it to a trailing space. A removed row is simply absent; a row added since has no origin.
+ */
+function resolutionsPayload(choices: string[], origins: (string | null)[], original: Record<string, DimensionResolution>): Record<string, DimensionResolution> {
   const entries: [string, DimensionResolution][] = [];
-  for (const raw of choices) {
-    if (Object.hasOwn(draft, raw) && raw.trim() !== "") entries.push([raw.trim(), draft[raw]]);
-  }
+  choices.forEach((raw, i) => {
+    const origin = origins[i];
+    const name = raw.trim();
+    if (origin != null && name !== "" && Object.hasOwn(original, origin)) entries.push([name, original[origin]]);
+  });
   return Object.fromEntries(entries);
 }
 
@@ -162,8 +160,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
   const fieldDrag = useSortableFieldDrag(fields);
 
-  // Tracks (#1921) render as chips and never pin to the card face (CardItem), so they neither pin nor count against PIN_CAP.
-  const pinnedCount = fields.filter((f) => f.show_on_card && !isDimensionField(f)).length;
+  // The server's cap (assert_definition_caps) counts every show_on_card field, tracks included, and an API-created
+  // track can be pinned. A track never renders pinned (CardItem) and cannot be newly pinned here, but one that is
+  // already pinned still counts and gets an Unpin control so the user can clear it.
+  const pinnedCount = fields.filter((f) => f.show_on_card).length;
 
   const commit = (next: CustomFieldDefinition[]) => {
     const sorted = [...next].sort((a, b) => a.position - b.position);
@@ -245,7 +245,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   };
 
   const handlePin = (def: CustomFieldDefinition) => {
-    if (isDimensionField(def)) return;
+    if (isDimensionField(def) && !def.show_on_card) return;
     setSwapError(null);
     if (def.show_on_card) {
       void savePin(def, false);
@@ -303,26 +303,24 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     }
   };
 
-  const addChoice = () => setForm((f) => ({ ...f, choices: [...f.choices, ""] }));
+  const addChoice = () => setForm((f) => ({ ...f, choices: [...f.choices, ""], choice_origins: [...f.choice_origins, null] }));
   // #1391: the color is keyed by the choice text, so removing or renaming a
   // choice drops its color from the draft ("Renaming a choice resets its color").
   const removeChoice = (i: number) => setForm((f) => ({
     ...f,
     choices: f.choices.filter((_, idx) => idx !== i),
+    // The row's origin goes with it, so its resolution is not carried onto the save payload.
+    choice_origins: f.choice_origins.filter((_, idx) => idx !== i),
     choice_colors: withoutChoiceColor(f.choice_colors, f.choices[i]),
-    // The choice is gone, so the server prunes its resolution too; the editor says so (dimension note).
-    choice_resolutions: withoutResolution(f.choice_resolutions, f.choices[i]),
   }));
   const updateChoice = (i: number, value: string) =>
     setForm((f) => ({
       ...f,
       choices: f.choices.map((c, idx) => (idx === i ? value : c)),
       choice_colors: f.choices[i] === value ? f.choice_colors : withoutChoiceColor(f.choice_colors, f.choices[i]),
-      // A track's resolution moves with the rename (unlike a color); the server keeps no map for a name it no longer lists.
-      choice_resolutions: f.choices[i] === value ? f.choice_resolutions : renameResolution(f.choice_resolutions, f.choices[i], value),
     }));
   const moveChoice = (from: number, to: number) =>
-    setForm((f) => ({ ...f, choices: arrayMove(f.choices, from, to) }));
+    setForm((f) => ({ ...f, choices: arrayMove(f.choices, from, to), choice_origins: arrayMove(f.choice_origins, from, to) }));
 
   /**
    * Move whatever is in the "Paste a list" box into the choices and close it,
@@ -334,7 +332,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const takePastedChoices = (): string[] => {
     if (!pasteListOpen || !pasteListText.trim()) return form.choices;
     const added = pastedChoicesToAdd(pasteListText, form.choices);
-    setForm((f) => ({ ...f, choices: [...f.choices, ...added] }));
+    setForm((f) => ({ ...f, choices: [...f.choices, ...added], choice_origins: [...f.choice_origins, ...added.map(() => null)] }));
     setPasteListText("");
     setPasteListOpen(false);
     return [...form.choices, ...added];
@@ -423,7 +421,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           ...numberFormat,
           ...thresholds,
           // Sent for a track so a rename keeps its resolution; omitted, the server keeps the old map by the old name.
-          ...(form.is_dimension ? { choice_resolutions: resolutionsPayload(cleanedChoices, form.choice_resolutions) } : {}),
+          ...(form.is_dimension ? { choice_resolutions: resolutionsPayload(choices, form.choice_origins, form.choice_resolutions) } : {}),
           ...(pinChanged && !needsSwap ? { show_on_card: form.show_on_card } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
@@ -546,7 +544,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                 onDelete={() => setDeleteTarget(def)}
                 onPin={() => handlePin(def)}
                 swapPromptOpen={swapPromptId === def.id}
-                pinnedFields={fields.filter((f) => f.show_on_card && !isDimensionField(f))}
+                pinnedFields={fields.filter((f) => f.show_on_card)}
                 onSwap={(replaceId) => void swapPin(replaceId, def.id)}
                 onCancelSwap={() => setSwapPromptId(null)}
               >
@@ -746,7 +744,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
         <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
-        {isDimensionField(def) ? (
+        {isDimensionField(def) && !def.show_on_card ? (
           <span id={`track-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap shrink-0">{TRACK_PIN_REASON}</span>
         ) : (
         <button
@@ -828,6 +826,8 @@ function FieldEditPanel({
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
+  // A track cannot be newly pinned, but one the server already holds pinned (API-created) can be switched off.
+  const trackCannotPin = form.is_dimension && !form.show_on_card;
   const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card && !form.is_dimension;
   // The type button that raised the "Change type" prompt is the trigger focus returns to (#1367).
   const typeTriggerRef = useConfirmFocusReturn(pendingTypeChange);
@@ -947,7 +947,7 @@ function FieldEditPanel({
             <p className="text-xs text-fg-muted mb-1.5">Renaming a choice resets its color.</p>
           )}
           {form.is_dimension && (
-            <p className="text-xs text-fg-muted mb-1.5">Renaming a choice keeps its resolution. Removing a choice drops it.</p>
+            <p className="text-xs text-fg-muted mb-1.5">Renaming a choice keeps its done/open setting for the choice itself, but cards that already hold the old name read as open until their value is updated. Removing a choice drops its setting.</p>
           )}
           <div className="flex items-center gap-3">
             <button onClick={addChoice} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">+ Add choice</button>
@@ -979,9 +979,9 @@ function FieldEditPanel({
       )}
 
       <div className="flex items-center gap-2 mb-1 pt-2 border-t border-line">
-        <Toggle checked={form.is_dimension ? false : form.show_on_card} ariaDisabled={form.is_dimension} onChange={(v) => setForm((f) => ({ ...f, show_on_card: v }))} aria-label="Pin to card face" aria-describedby={form.is_dimension ? "track-pin-reason-edit" : undefined} />
+        <Toggle checked={form.show_on_card} ariaDisabled={trackCannotPin} onChange={(v) => setForm((f) => ({ ...f, show_on_card: v }))} aria-label="Pin to card face" aria-describedby={trackCannotPin ? "track-pin-reason-edit" : undefined} />
         <span className="text-xs text-fg-secondary">Pin to card face</span>
-        {form.is_dimension && <span id="track-pin-reason-edit" className="text-xs text-fg-muted ml-1">{TRACK_PIN_REASON}</span>}
+        {trackCannotPin && <span id="track-pin-reason-edit" className="text-xs text-fg-muted ml-1">{TRACK_PIN_REASON}</span>}
         {atPinCap && !form.is_dimension && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
       </div>
 
