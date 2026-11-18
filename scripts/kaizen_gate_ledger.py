@@ -155,6 +155,7 @@ EXCLUSION_TEXT = {
     "mixed_records": "legacy and windowed records: partial",
     "unparsed_record": "a record did not parse",
     "no_usd": "a record with no USD total",
+    "partial_usd": "a record with a partial USD total (a model with no price row)",
 }
 
 _COST_TABLE = []
@@ -201,6 +202,9 @@ def record_cost(own, foreign=0):
     tok = [r["total"].get(("tok", "all")) for r in recs]
     if any(v is None for v in usd):
         return None, None, len(recs), "no_usd"
+    # A `N+` record (a model with no price row) is a lower bound; summing it understates the MR.
+    if any(r["total"].get(("partial", "all")) for r in recs):
+        return None, None, len(recs), "partial_usd"
     total_usd = float(sum(usd, decimal.Decimal(0)))
     return total_usd, (None if any(v is None for v in tok) else sum(tok)), len(recs), None
 
@@ -833,6 +837,13 @@ def self_test() -> int:
     prior2 = {"records": [ct.parse_record(r1), ct.parse_record(r2)], "gaps": []}
     no_usd = "\n".join(ct.comment_lines("## Gates\nsubagent-tokens: 100\norchestrator-tokens: 900\n", 1, t(9), None, record=1, since=t(8)))
 
+    partial = "\n".join(ct.comment_lines(
+        "## Gates\nsubagent-tokens: 12\norchestrator-tokens: 0\nest-cost-usd: 2.00+ (prices 2026-11-03, excludes claude-fable-9)\n", 1, t(9), 
+        "subagent-tokens: model claude-sonnet-5-5 5\nsubagent-tokens: model claude-fable-9 7\n"
+        "est-cost: subagent model claude-sonnet-5-5 2.00 USD\n"
+        "est-cost: model claude-fable-9 has no row in the price table; excluded from the estimate\n"
+        "orchestrator-tokens: model claude-sonnet-5-5 0", record=1, since=t(8)))
+
     def cmr(iid, branch, gates_usd, *notes, **kw):
         m = mr(iid, branch, f"- gate: regression-check {em} 1 finding (sonnet)", "subagent-tokens: 100",
                f"est-cost-usd: {gates_usd}")
@@ -902,6 +913,8 @@ def self_test() -> int:
          == {"duplicate_window": [47]}),
         ("an n/a USD total is excluded as no_usd, never read as 0",
          analyze([cmr(48, "feat/48", "5.00", note(25, no_usd))])["cost"]["excluded"] == {"no_usd": [48]}),
+        ("a partial (`N+`) USD total is excluded as partial_usd, never understated",
+         analyze([cmr(48, "feat/48", "5.00", note(25, partial))])["cost"]["excluded"] == {"partial_usd": [48]}),
         ("a record by the MR author counts beside the token user's; a third party excludes",
          math.isclose(analyze([cmr(49, "feat/49", "5.00", note(26, r1, uid=9), note(27, r2), author={"id": 9})])["cost"]["by_class"]["feat"]["mean_est_cost_usd"], 3.0)
          and analyze([cmr(50, "feat/50", "5.00", note(28, r1, uid=9), author={"id": 8})])["cost"]["excluded"] == {"other_user": [50]}),

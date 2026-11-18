@@ -223,6 +223,7 @@ is the contract; this is what the description carries.
   orchestrator-tokens: <N>
   est-cost-usd: <N.NN> (prices YYYY-MM-DD)
   ```
+  (A model with no price row is left out and the line reads `<N.NN>+ (prices YYYY-MM-DD, excludes <model>)`; paste that partial form unchanged too.)
   A plain `/mr` with no such figures writes none of them; that is not a gap.
 - `subagent-tokens:` and `orchestrator-tokens:` are **measured**, digits only (never `~5k` or
   `1,234`), the lines `post-mr-cost.py --measure` prints. They are the same unit but different
