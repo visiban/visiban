@@ -18,7 +18,9 @@ export interface LaneBandField {
 
 /**
  * The lane's field values in Swimlane fields tab order, split into the first
- * two (inline) and the rest (in the grid only). Three guards, all deliberate: an
+ * two (inline) and the rest. `extra` is retained for compatibility and is no
+ * longer rendered by any band: the aligned `LaneFieldGrid` replaced the +N
+ * expansion (#2354). Three guards, all deliberate: an
  * empty-string value renders nothing (dashed already means "unset" on the card
  * face, and Edit Swimlane lists every field, so an empty value is never
  * stranded); a value whose definition is missing is dropped silently (a WS race
