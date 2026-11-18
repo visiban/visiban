@@ -538,6 +538,32 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Maximum upload size. Operators can override via MAX_UPLOAD_SIZE_BYTES env var.
 MAX_UPLOAD_SIZE = env.int("MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
 
+# Per-card attachment quotas (#2007). Before 1.3 the only limits were
+# MAX_UPLOAD_SIZE per file and the generic `user` throttle, so one collaborator
+# could fill the media volume for every board on the instance. The defaults are
+# deliberately generous so an existing install keeps working: 100 files and
+# 1 GiB per card (at the default 10 MB file cap the count is reached first; the
+# byte quota starts to matter once MAX_UPLOAD_SIZE_BYTES is raised). 0 turns a
+# quota off. Enforced under the card row lock in CardViewSet.attachments, so two
+# concurrent uploads cannot both take the last slot.
+ATTACHMENT_MAX_PER_CARD = env.int("ATTACHMENT_MAX_PER_CARD", default=100)
+ATTACHMENT_MAX_BYTES_PER_CARD = env.int("ATTACHMENT_MAX_BYTES_PER_CARD", default=1024 * 1024 * 1024)
+if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
+    raise ImproperlyConfigured(
+        "ATTACHMENT_MAX_PER_CARD and ATTACHMENT_MAX_BYTES_PER_CARD must be 0 (no limit) or a positive number."
+    )
+
+# Rate of the `attachment_upload` throttle scope (#2007): attachment uploads per
+# user, on top of the general `user` scope. Empty keeps the built-in default
+# (120/hour, or the DEBUG ceiling in development). Parsed strictly at startup,
+# like DEMO_THROTTLE_USER_RATE: DRF would otherwise crash on a malformed value
+# at request time, or read "100/fortnight" as 100 per day.
+from visiban.demo import parse_demo_user_throttle_rate as _parse_throttle_rate  # noqa: E402
+
+_ATTACHMENT_UPLOAD_RATE = _parse_throttle_rate(
+    os.environ.get("ATTACHMENT_THROTTLE_UPLOAD_RATE"), name="ATTACHMENT_THROTTLE_UPLOAD_RATE"
+)
+
 # Maximum Trello JSON export accepted by POST /api/v1/boards/import/trello/ (#456),
 # in bytes. Separate from MAX_UPLOAD_SIZE because Trello exports of large boards
 # routinely exceed the 10 MB attachment cap. The import runs synchronously, so
@@ -796,6 +822,12 @@ REST_FRAMEWORK = {
         # serving as a network probe.
         "webhook_config": "9999/hour" if DEBUG else "30/hour",
         "webhook_test": "9999/hour" if DEBUG else "10/hour",
+        # Card attachment uploads (#2007): each one can write MAX_UPLOAD_SIZE
+        # bytes to the shared media volume, so the generic `user` scope alone
+        # allowed ~50 GB/hour per account. 120/hour (1.2 GB/hour at the default
+        # file cap) still covers dragging in a large batch of files.
+        # ATTACHMENT_THROTTLE_UPLOAD_RATE overrides it, DEBUG included.
+        "attachment_upload": _ATTACHMENT_UPLOAD_RATE or ("9999/hour" if DEBUG else "120/hour"),
     },
 }
 

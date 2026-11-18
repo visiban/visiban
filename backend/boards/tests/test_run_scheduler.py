@@ -37,6 +37,7 @@ class LoadJobsTest(SimpleTestCase):
                 ("notify_due_soon", datetime.time(7, 0)),
                 ("notify_stale_cards", datetime.time(8, 0)),
                 ("compute_health_status", datetime.time(2, 0)),
+                ("sweep_webhook_secrets", datetime.time(4, 0)),
             ],
         )
 
@@ -162,6 +163,7 @@ class HandleTest(SimpleTestCase):
             "SCHEDULE_NOTIFY_STALE_CARDS": "off",
             "SCHEDULE_PRUNE_BOARD_EVENTS": "off",
             "SCHEDULE_COMPUTE_HEALTH": "off",
+            "SCHEDULE_SWEEP_WEBHOOK_SECRETS": "off",
         }
         with mock.patch.dict("os.environ", env):
             with self.assertRaisesMessage(CommandError, "switched off"):

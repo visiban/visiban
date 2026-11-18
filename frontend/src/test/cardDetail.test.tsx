@@ -3609,6 +3609,30 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       await waitFor(() => expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument())
       expect(mockUp).toHaveBeenCalledTimes(2)
     })
+
+    it('file upload: a 400 refusal shows the server detail (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({
+        response: { status: 400, data: { code: 'attachment_quota_exceeded', detail: 'This card already has 100 attachments.' } },
+      })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      const err = await screen.findByText('This card already has 100 attachments.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument()
+    })
+
+    it('file upload: a 429 shows a rate-limit message (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({ response: { status: 429, data: { detail: 'Request was throttled.' } } })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      expect(await screen.findByText('Too many uploads. Please wait a while and try again.')).toBeInTheDocument()
+    })
   })
 
   describe('checklist add, bulk add and label create: re-entry guard (#1498)', () => {

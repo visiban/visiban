@@ -149,6 +149,7 @@ docker compose exec backend python manage.py purge_orphaned_attachments --yes
 | Setting | Description |
 |---|---|
 | `MAX_UPLOAD_SIZE_BYTES` | Maximum attachment size in bytes (default: `10485760` — 10 MB). Set in `settings.py` or override via environment. |
+| `ATTACHMENT_MAX_PER_CARD`, `ATTACHMENT_MAX_BYTES_PER_CARD`, `ATTACHMENT_THROTTLE_UPLOAD_RATE` | Per-card attachment count and byte quotas and the per-user upload rate (defaults `100`, 1 GiB, `120/hour`; new in 1.3). See [Attachment limits](configuration.md#attachment-limits). |
 | `USE_X_ACCEL_REDIRECT` | Delivery mode for `/media/` downloads — see [Authenticated serving](#authenticated-serving-not-a-bare-static-file-mount) above. Default: enabled in production, disabled in development. |
 | `MEDIA_ROOT` | Local filesystem path where media files are stored when using the default Django file storage backend. |
 | `MEDIA_URL` | URL prefix for attachment downloads (default: `/media/`). Requests are authenticated by `ServeMediaView`, not served directly by Nginx — see above. |

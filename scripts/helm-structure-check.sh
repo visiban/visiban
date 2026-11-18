@@ -2363,6 +2363,31 @@ check_db_pool() {
   [ "$bad" -eq 0 ] && pass "DATABASE_POOL is absent by default and with dbPool null, and true in the backend container when enabled"
 }
 
+# ---------------------------------------------------------------------------
+# 19. The webhook-secret sweep CronJob survives `--reuse-values` (#2119).
+# ---------------------------------------------------------------------------
+check_sweep_webhook_secrets_fallback() {
+  section "19. The sweep_webhook_secrets CronJob renders when scheduledJobs.sweepWebhookSecrets is missing, and not when scheduledJobs is off (#2119)"
+  local got bad=0 rendered
+  # `helm upgrade --reuse-values` from 1.2 carries no sweepWebhookSecrets key.
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set scheduledJobs.enabled=true --set scheduledJobs.sweepWebhookSecrets=null 2>&1)" \
+    || { fail "scheduledJobs.sweepWebhookSecrets=null does not render: $(head -c 300 <<< "$rendered")"; return 0; }
+  got="$(grep -c 'sweep_webhook_secrets' <<< "$rendered" || true)"
+  if [ "$got" -lt 1 ]; then
+    fail "scheduledJobs.sweepWebhookSecrets=null renders no sweep_webhook_secrets CronJob (the sweep is silently lost on --reuse-values)"; bad=1
+  fi
+  if ! grep -qF 'schedule: "0 4 * * *"' <<< "$rendered"; then
+    fail "the missing-key fallback does not use the shipped schedule 0 4 * * *"; bad=1
+  fi
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set scheduledJobs.enabled=false 2>&1)" \
+    || { fail "scheduledJobs.enabled=false does not render"; return 0; }
+  got="$(grep -c 'sweep_webhook_secrets' <<< "$rendered" || true)"
+  if [ "$got" -ne 0 ]; then
+    fail "scheduledJobs.enabled=false still renders the sweep_webhook_secrets CronJob"; bad=1
+  fi
+  [ "$bad" -eq 0 ] && pass "the sweep CronJob renders with the key missing (0 4 * * *) and is absent when scheduledJobs is off"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2390,6 +2415,7 @@ run_all_checks() {
   check_num_proxies_default
   check_feature_flags
   check_db_pool
+  check_sweep_webhook_secrets_fallback
 }
 
 # ---------------------------------------------------------------------------
@@ -2568,6 +2594,9 @@ self_test() {
     "15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
     # 15 (#1911): an empty or null postgresql.image renders `image:` empty again.
     "15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
+    # 19 (#2119): the missing-key fallback is dropped, so --reuse-values from 1.2
+    # silently loses the sweep CronJob.
+    "19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
   )
 
   for fixture in "${fixtures[@]}"; do

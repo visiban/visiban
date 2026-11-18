@@ -137,6 +137,15 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   {{- /* int64 before quote for the same float64-coercion reason as above. */}}
   {{- /* default: `helm upgrade --reuse-values` from a pre-1.2 release has no importMaxSizeBytes key, which would otherwise render "0". */}}
   value: {{ $ctx.Values.backend.settings.importMaxSizeBytes | default 26214400 | int64 | quote }}
+- name: ATTACHMENT_MAX_PER_CARD
+  {{- /* #2007. int64 before quote as above. hasKey, not `default`: 0 (no limit) is a real value, and `default` would replace it; the fallback covers `--reuse-values` from a release without the key. */}}
+  value: {{ (hasKey $ctx.Values.backend.settings "attachmentMaxPerCard" | ternary $ctx.Values.backend.settings.attachmentMaxPerCard 100) | int64 | quote }}
+- name: ATTACHMENT_MAX_BYTES_PER_CARD
+  value: {{ (hasKey $ctx.Values.backend.settings "attachmentMaxBytesPerCard" | ternary $ctx.Values.backend.settings.attachmentMaxBytesPerCard 1073741824) | int64 | quote }}
+{{- with $ctx.Values.backend.settings.attachmentUploadRate }}
+- name: ATTACHMENT_THROTTLE_UPLOAD_RATE
+  value: {{ . | quote }}
+{{- end }}
 {{- /* "smtp", or empty backend with a host (1.1 values files) -- see visiban.emailSmtpPassword (#2016). */}}
 {{- if include "visiban.emailSmtpPassword" $ctx }}
 - name: EMAIL_HOST_PASSWORD

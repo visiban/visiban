@@ -289,6 +289,43 @@ created:
 
 ---
 
+## Attachment limits
+
+*(new in 1.3)* Card attachments are capped per file, per card and per user
+(#2007). Before 1.3 only the per-file size and the general API rate limit
+applied, so one collaborator could fill the media volume for every board on
+the instance by uploading in a loop.
+
+| Variable | Description | Default |
+|---|---|---|
+| `MAX_UPLOAD_SIZE_BYTES` | Largest single attachment, **in bytes**. Also caps native board imports. Helm: `backend.settings.maxUploadSizeBytes`. | `10485760` (10 MB) |
+| `ATTACHMENT_MAX_PER_CARD` | Most attachments one card may hold. `0` = no limit. Helm: `backend.settings.attachmentMaxPerCard`. | `100` |
+| `ATTACHMENT_MAX_BYTES_PER_CARD` | Most attachment bytes one card may hold, **in bytes**, counting the file being uploaded. `0` = no limit. Helm: `backend.settings.attachmentMaxBytesPerCard`. | `1073741824` (1 GiB) |
+| `ATTACHMENT_THROTTLE_UPLOAD_RATE` | Attachment uploads per user, as `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Counted on top of the general per-user API limit; listing attachments is not counted. Empty = the default. Applies in development (`DEBUG`) too, where the default is otherwise `9999/hour`. Helm: `backend.settings.attachmentUploadRate`. | `120/hour` |
+
+- An upload that would break a per-card quota gets `400` with
+  `"code": "attachment_quota_exceeded"` and nothing is stored. An upload over
+  the rate limit gets `429` with a `Retry-After` header.
+- The defaults are chosen so an existing install keeps working: few cards hold
+  anywhere near 100 files. At the default 10 MB file size the count quota is
+  reached before the byte quota, which starts to matter when you raise
+  `MAX_UPLOAD_SIZE_BYTES`.
+- Plain-text and CSV uploads are scanned in full for HTML markup before they
+  are stored, so raising `MAX_UPLOAD_SIZE_BYTES` far beyond the default also
+  lengthens each such upload request.
+- Lowering a quota never deletes anything. A card already over it keeps its
+  attachments and accepts new ones only once it is back under the quota.
+- Only attachments are capped. Per-card limits on comments and checklist items
+  are not in place yet; tracked in #2376.
+- The quota is checked while the card row is locked, so two uploads racing for
+  a card's last slot cannot both succeed.
+- These quotas bound one card. A user can still spread uploads over many cards,
+  which is what the rate limit bounds: at the defaults one account can add at
+  most about 1.2 GB an hour. Size the media volume, or lower the rate, with
+  that in mind. Turning uploads off entirely is in **Admin → Settings**.
+
+---
+
 ## Email (SMTP)
 
 Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).
