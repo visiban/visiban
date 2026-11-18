@@ -13,3 +13,14 @@
 # Every top-level section is checked. Each entry must start with `- id:` (block style); any other entry-level list
 # item (`- paths:` first, `- {id: ...}`) fails the checker.
 # See docs/development/suppressions.md ("Trivy suppressions").
+
+vulnerabilities:
+  - id: CVE-2026-112366
+    paths:
+      - "docs-site/package-lock.json"
+    statement: >-
+      picomatch ReDoS-style DoS with no fixed release upstream. Reaches docs-site
+      only as a build-time transitive dependency (astro, vite, tinyglobby), with
+      glob patterns that come from the repo's own build config, never user input;
+      not present in any runtime image. Remove once a fixed picomatch lands (#2379).
+    expired_at: 2027-02-17
