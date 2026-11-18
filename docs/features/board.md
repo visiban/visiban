@@ -139,7 +139,7 @@ Board import restores row limits as exported and does not check them, as with co
 
 Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction, which helps on dense boards with many swimlanes.
 
-**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) at its right end, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) beside the lane name, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
 
 **What changes when focus is active:**
 

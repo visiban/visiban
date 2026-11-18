@@ -25,6 +25,8 @@ export default function LaneFieldGrid({ id, laneColor, fields, userDateFormat }:
     <dl
       id={id}
       data-testid="swimlane-field-grid"
+      // Double-click selects a value to copy; it must not bubble to the band, which opens Edit swimlane.
+      onDoubleClick={(e) => e.stopPropagation()}
       className={`basis-full w-full grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-x-6 gap-y-1 mt-1 pt-2 border-t ${laneColor ? "" : "border-line"}`}
       style={laneColor ? { borderColor: `color-mix(in srgb, ${laneColor} 30%, rgb(var(--border)))` } : undefined}
     >

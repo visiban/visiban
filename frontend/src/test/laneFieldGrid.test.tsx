@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import LaneFieldGrid from "../components/Board/LaneFieldGrid";
 import CustomFieldValueDisplay from "../components/Card/CustomFieldValueDisplay";
 import { laneGridFields } from "../utils/laneBand";
@@ -27,6 +27,13 @@ describe("LaneFieldGrid (#2354)", () => {
     expect(grid).not.toHaveAttribute("aria-label");
     expect(grid.style.borderColor).toContain("color-mix");
     expect(grid.className).toContain("grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]");
+  });
+
+  it("does not let a double-click on the grid bubble to the band (it would open Edit swimlane)", () => {
+    const onBand = vi.fn();
+    render(<div onDoubleClick={onBand}><LaneFieldGrid id="g1" laneName="North" laneColor={null} fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")], true)} /></div>);
+    fireEvent.doubleClick(screen.getByText("Owner"));
+    expect(onBand).not.toHaveBeenCalled();
   });
 
   it("renders every multi-select chip unclamped and titles clamped text and URLs", () => {
